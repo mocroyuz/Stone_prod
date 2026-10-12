@@ -1,7 +1,5 @@
 ﻿import {
-  useCallback,
   useEffect,
-  useId,
   useMemo,
   useRef,
   useState,
@@ -79,7 +77,6 @@ import {
   CalendarDays,
   Check,
   ChevronRight,
-  Flame,
   Heart,
   Link2,
   MessageCircle,
@@ -103,50 +100,46 @@ import {
 /* ============================================================
    DESIGN TOKENS
    Un seul endroit pour les classes de thème : surfaces, bordures,
-   textes. Les composants ne contiennent aucune couleur en dur.
+   textes. Les composants ne contiennent plus de couleurs en dur.
 ============================================================ */
 
 const cx = (...parts: Array<string | false | null | undefined>) =>
   parts.filter(Boolean).join(" ");
 
 const ui = (isDark: boolean) => ({
-  page: isDark ? "bg-[#09090b]" : "bg-[#fafafa]",
+  page: isDark ? "bg-[#0a0a0b]" : "bg-[#f6f7f9]",
   card: isDark
-    ? "border-white/[0.07] bg-[#101012] shadow-[inset_0_1px_0_rgba(255,255,255,0.04),0_8px_24px_-12px_rgba(0,0,0,0.6)]"
-    : "border-zinc-200/90 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04),0_8px_24px_-16px_rgba(16,24,40,0.10)]",
-  cardHover: isDark ? "hover:bg-white/[0.035]" : "hover:bg-zinc-50/80",
-  inset: isDark ? "bg-white/[0.04]" : "bg-zinc-100/80",
-  line: isDark ? "border-white/[0.06]" : "border-zinc-200/70",
-  strong: isDark ? "text-zinc-50" : "text-zinc-950",
+    ? "border-white/[0.08] bg-[#111113]"
+    : "border-zinc-200 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04)]",
+  cardHover: isDark ? "hover:bg-white/[0.03]" : "hover:bg-zinc-50",
+  inset: isDark ? "bg-white/[0.04]" : "bg-zinc-100/70",
+  line: isDark ? "border-white/[0.07]" : "border-zinc-200/80",
+  strong: isDark ? "text-zinc-50" : "text-zinc-900",
   body: isDark ? "text-zinc-300" : "text-zinc-600",
   muted: isDark ? "text-zinc-500" : "text-zinc-500",
   iconBox: isDark
-    ? "bg-white/[0.05] text-zinc-300 ring-1 ring-inset ring-white/[0.06]"
-    : "bg-zinc-50 text-zinc-600 ring-1 ring-inset ring-zinc-200/80",
-  ring: isDark ? "ring-[#101012]" : "ring-white",
-  glow: isDark
-    ? "bg-[radial-gradient(60%_100%_at_50%_0%,rgba(99,102,241,0.14),transparent_70%)]"
-    : "bg-[radial-gradient(60%_100%_at_50%_0%,rgba(99,102,241,0.08),transparent_70%)]",
+    ? "bg-white/[0.06] text-zinc-200"
+    : "bg-zinc-100 text-zinc-600",
+  ring: isDark ? "ring-[#111113]" : "ring-white",
 });
 
 const FOCUS =
-  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/70 focus-visible:ring-offset-0";
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/70";
 
 const primaryButton = cx(
-  "group inline-flex items-center justify-center gap-2 rounded-lg px-3.5 py-2",
-  "bg-gradient-to-b from-indigo-500 to-indigo-600 text-[13px] font-semibold text-white",
-  "shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_1px_2px_rgba(49,46,129,0.4)]",
-  "transition-[filter,transform] hover:brightness-110 active:translate-y-px active:brightness-95",
+  "inline-flex items-center justify-center gap-2 rounded-lg px-3.5 py-2",
+  "bg-indigo-600 text-[13px] font-semibold text-white shadow-sm",
+  "transition-colors hover:bg-indigo-500 active:bg-indigo-700",
   FOCUS
 );
 
 const secondaryButton = (isDark: boolean) =>
   cx(
-    "inline-flex items-center justify-center gap-1.5 rounded-lg border px-3 py-1.5",
+    "inline-flex items-center justify-center gap-2 rounded-lg border px-3 py-1.5",
     "text-[13px] font-medium transition-colors",
     isDark
-      ? "border-white/10 bg-white/[0.02] text-zinc-200 hover:bg-white/[0.07]"
-      : "border-zinc-200 bg-white text-zinc-700 shadow-[0_1px_1px_rgba(16,24,40,0.04)] hover:bg-zinc-50",
+      ? "border-white/10 text-zinc-200 hover:bg-white/[0.06]"
+      : "border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50",
     FOCUS
   );
 
@@ -301,44 +294,17 @@ function getNetworkId(
    OVERVIEW (valeurs de démonstration : à brancher sur l'API)
 ============================================================ */
 
-type Period = "7d" | "30d" | "90d";
-
-const PERIODS: Array<{ id: Period; label: string }> = [
-  { id: "7d", label: "7D" },
-  { id: "30d", label: "30D" },
-  { id: "90d", label: "90D" },
-];
-
-type StatKey = "followers" | "likes" | "comments";
-
-type StatPoint = {
-  key: StatKey;
-  label: string;
-  value: string;
-  change: string;
-  series: number[];
-};
-
 // TODO: remplacer par les vraies métriques des comptes connectés.
-const OVERVIEW_STATS: Record<Period, StatPoint[]> = {
-  "7d": [
-    { key: "followers", label: "Followers", value: "27K", change: "-2%", series: [30, 29, 29, 28, 28, 27, 27] },
-    { key: "likes", label: "Likes", value: "12.4K", change: "+16%", series: [8, 9, 9, 10, 11, 12, 12.4] },
-    { key: "comments", label: "Comments", value: "342", change: "+5%", series: [300, 310, 305, 320, 330, 338, 342] },
-  ],
-  "30d": [
-    { key: "followers", label: "Followers", value: "27K", change: "-2%", series: [29, 29, 28, 28, 29, 28, 27, 27] },
-    { key: "likes", label: "Likes", value: "46.8K", change: "+11%", series: [30, 33, 35, 36, 40, 42, 44, 46.8] },
-    { key: "comments", label: "Comments", value: "1.3K", change: "+9%", series: [900, 980, 1000, 1100, 1150, 1200, 1250, 1300] },
-  ],
-  "90d": [
-    { key: "followers", label: "Followers", value: "27K", change: "+8%", series: [22, 23, 24, 24, 25, 26, 27, 27] },
-    { key: "likes", label: "Likes", value: "131K", change: "+24%", series: [70, 80, 88, 95, 104, 115, 124, 131] },
-    { key: "comments", label: "Comments", value: "3.9K", change: "+18%", series: [2.2, 2.6, 2.9, 3.1, 3.4, 3.6, 3.8, 3.9] },
-  ],
-};
+const OVERVIEW_STATS = [
+  { key: "followers", label: "Followers", value: "27K", change: "-2%" },
+  { key: "likes", label: "Likes", value: "12.4K", change: "+16%" },
+  { key: "comments", label: "Comments", value: "342", change: "+5%" },
+] as const;
 
-const STAT_ICONS: Record<StatKey, ReactNode> = {
+const STAT_ICONS: Record<
+  (typeof OVERVIEW_STATS)[number]["key"],
+  ReactNode
+> = {
   followers: <Users className="h-4 w-4" />,
   likes: <Heart className="h-4 w-4" />,
   comments: <MessageCircle className="h-4 w-4" />,
@@ -424,7 +390,7 @@ function Card({
 }) {
   return (
     <section
-      className={cx("min-w-0 rounded-2xl border", ui(isDark).card, className)}
+      className={cx("min-w-0 rounded-xl border", ui(isDark).card, className)}
     >
       {children}
     </section>
@@ -449,7 +415,7 @@ function CardHeader({
       <div className="min-w-0">
         <h2
           className={cx(
-            "text-[14px] font-semibold tracking-[-0.01em]",
+            "text-[15px] font-semibold tracking-[-0.01em]",
             t.strong
           )}
         >
@@ -457,9 +423,7 @@ function CardHeader({
         </h2>
 
         {description && (
-          <p className={cx("mt-0.5 text-[12.5px] leading-snug", t.muted)}>
-            {description}
-          </p>
+          <p className={cx("mt-0.5 text-[13px]", t.muted)}>{description}</p>
         )}
       </div>
 
@@ -483,8 +447,8 @@ function TextLink({
       onClick={onClick}
       disabled={!onClick}
       className={cx(
-        "group inline-flex shrink-0 items-center gap-0.5 rounded-md px-1.5 py-1",
-        "text-[12.5px] font-medium transition-colors",
+        "inline-flex shrink-0 items-center gap-0.5 rounded-md px-1.5 py-1",
+        "text-[13px] font-medium transition-colors",
         "disabled:cursor-default disabled:opacity-40",
         isDark
           ? "text-zinc-400 enabled:hover:text-white"
@@ -493,89 +457,8 @@ function TextLink({
       )}
     >
       {children}
-      <ChevronRight className="h-3.5 w-3.5 transition-transform group-enabled:group-hover:translate-x-0.5" />
+      <ChevronRight className="h-3.5 w-3.5" />
     </button>
-  );
-}
-
-function Kbd({
-  isDark,
-  children,
-  onPrimary,
-}: {
-  isDark: boolean;
-  children: ReactNode;
-  onPrimary?: boolean;
-}) {
-  return (
-    <kbd
-      className={cx(
-        "hidden h-[18px] min-w-[18px] items-center justify-center rounded px-1",
-        "font-sans text-[10.5px] font-semibold leading-none sm:inline-flex",
-        onPrimary
-          ? "bg-white/20 text-white/90"
-          : isDark
-            ? "bg-white/[0.07] text-zinc-400 ring-1 ring-inset ring-white/10"
-            : "bg-zinc-100 text-zinc-500 ring-1 ring-inset ring-zinc-200"
-      )}
-    >
-      {children}
-    </kbd>
-  );
-}
-
-function SegmentedControl<T extends string>({
-  isDark,
-  value,
-  options,
-  onChange,
-  label,
-}: {
-  isDark: boolean;
-  value: T;
-  options: Array<{ id: T; label: string }>;
-  onChange: (id: T) => void;
-  label: string;
-}) {
-  return (
-    <div
-      role="radiogroup"
-      aria-label={label}
-      className={cx(
-        "inline-flex rounded-lg p-0.5",
-        isDark
-          ? "bg-white/[0.05] ring-1 ring-inset ring-white/[0.06]"
-          : "bg-zinc-100 ring-1 ring-inset ring-zinc-200/70"
-      )}
-    >
-      {options.map((option) => {
-        const active = option.id === value;
-
-        return (
-          <button
-            key={option.id}
-            type="button"
-            role="radio"
-            aria-checked={active}
-            onClick={() => onChange(option.id)}
-            className={cx(
-              "rounded-md px-2.5 py-1 text-[12px] font-semibold tabular-nums",
-              "transition-colors",
-              active
-                ? isDark
-                  ? "bg-white/[0.1] text-white shadow-sm"
-                  : "bg-white text-zinc-900 shadow-[0_1px_2px_rgba(16,24,40,0.1)]"
-                : isDark
-                  ? "text-zinc-500 hover:text-zinc-200"
-                  : "text-zinc-500 hover:text-zinc-800",
-              FOCUS
-            )}
-          >
-            {option.label}
-          </button>
-        );
-      })}
-    </div>
   );
 }
 
@@ -605,10 +488,7 @@ function GreetingAvatar({
         alt="Profile"
         referrerPolicy="no-referrer"
         onError={() => setFailed(true)}
-        className={cx(
-          "h-11 w-11 rounded-full object-cover ring-2",
-          isDark ? "ring-white/10" : "ring-white shadow-sm"
-        )}
+        className="h-11 w-11 rounded-full object-cover"
       />
     );
   }
@@ -617,10 +497,8 @@ function GreetingAvatar({
     <div
       className={cx(
         "flex h-11 w-11 items-center justify-center rounded-full",
-        "text-[14px] font-semibold ring-2",
-        isDark
-          ? "bg-indigo-500/20 text-indigo-200 ring-white/10"
-          : "bg-indigo-100 text-indigo-700 ring-white shadow-sm"
+        "text-[14px] font-semibold",
+        isDark ? "bg-indigo-500/20 text-indigo-200" : "bg-indigo-100 text-indigo-700"
       )}
     >
       {initials}
@@ -705,90 +583,18 @@ function AccountAvatar({
    KPI
 ============================================================ */
 
-function Sparkline({
-  series,
-  positive,
-}: {
-  series: number[];
-  positive: boolean;
-}) {
-  const id = useId();
-
-  const W = 120;
-  const H = 36;
-  const PAD = 3;
-
-  const { line, area } = useMemo(() => {
-    const min = Math.min(...series);
-    const max = Math.max(...series);
-    const span = max - min || 1;
-    const step = (W - PAD * 2) / Math.max(series.length - 1, 1);
-
-    const pts = series.map((v, i) => ({
-      x: PAD + i * step,
-      y: H - PAD - ((v - min) / span) * (H - PAD * 2),
-    }));
-
-    const d = pts
-      .map((p, i) => `${i === 0 ? "M" : "L"}${p.x.toFixed(1)},${p.y.toFixed(1)}`)
-      .join(" ");
-
-    const last = pts[pts.length - 1];
-    const first = pts[0];
-
-    return {
-      line: d,
-      area: `${d} L${last.x.toFixed(1)},${H} L${first.x.toFixed(1)},${H} Z`,
-    };
-  }, [series]);
-
-  return (
-    <svg
-      viewBox={`0 0 ${W} ${H}`}
-      className={cx(
-        "h-9 w-[120px] overflow-visible",
-        positive ? "text-emerald-500" : "text-rose-500"
-      )}
-      aria-hidden="true"
-      preserveAspectRatio="none"
-    >
-      <defs>
-        <linearGradient id={id} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="currentColor" stopOpacity="0.22" />
-          <stop offset="100%" stopColor="currentColor" stopOpacity="0" />
-        </linearGradient>
-      </defs>
-
-      <path d={area} fill={`url(#${id})`} />
-      <path
-        d={line}
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.75"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        vectorEffect="non-scaling-stroke"
-      />
-    </svg>
-  );
-}
-
 function StatCard({
   isDark,
   icon,
   label,
   value,
   change,
-  series,
-  periodLabel,
 }: {
   isDark: boolean;
   icon: ReactNode;
   label: string;
   value: string;
   change: string;
-  series: number[];
-  periodLabel: string;
 }) {
   const t = ui(isDark);
   const positive = change.startsWith("+");
@@ -797,29 +603,38 @@ function StatCard({
   return (
     <Card isDark={isDark} className="p-5">
       <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2.5">
-          <span
-            className={cx(
-              "flex h-7 w-7 items-center justify-center rounded-md",
-              t.iconBox
-            )}
-          >
-            {icon}
-          </span>
-
-          <p className={cx("text-[13px] font-medium", t.body)}>{label}</p>
-        </div>
+        <p className={cx("text-[13px] font-medium", t.body)}>{label}</p>
 
         <span
           className={cx(
-            "inline-flex items-center gap-1 rounded-full px-2 py-0.5",
+            "flex h-8 w-8 items-center justify-center rounded-lg",
+            t.iconBox
+          )}
+        >
+          {icon}
+        </span>
+      </div>
+
+      <div className="mt-4 flex items-end justify-between gap-3">
+        <p
+          className={cx(
+            "text-[30px] font-semibold leading-none tracking-[-0.03em] tabular-nums",
+            t.strong
+          )}
+        >
+          {value}
+        </p>
+
+        <span
+          className={cx(
+            "inline-flex items-center gap-1 rounded-md px-1.5 py-0.5",
             "text-[12px] font-semibold tabular-nums",
             positive
               ? isDark
-                ? "bg-emerald-500/12 text-emerald-400"
+                ? "bg-emerald-500/15 text-emerald-400"
                 : "bg-emerald-50 text-emerald-700"
               : isDark
-                ? "bg-rose-500/12 text-rose-400"
+                ? "bg-rose-500/15 text-rose-400"
                 : "bg-rose-50 text-rose-700"
           )}
         >
@@ -828,24 +643,7 @@ function StatCard({
         </span>
       </div>
 
-      <div className="mt-5 flex items-end justify-between gap-3">
-        <div>
-          <p
-            className={cx(
-              "text-[32px] font-semibold leading-none tracking-[-0.035em] tabular-nums",
-              t.strong
-            )}
-          >
-            {value}
-          </p>
-
-          <p className={cx("mt-2 text-[12px]", t.muted)}>
-            vs. previous {periodLabel}
-          </p>
-        </div>
-
-        <Sparkline series={series} positive={positive} />
-      </div>
+      <p className={cx("mt-3 text-[12px]", t.muted)}>vs. previous period</p>
     </Card>
   );
 }
@@ -880,12 +678,10 @@ function Streak({
           <span
             className={cx(
               "flex h-8 w-8 items-center justify-center rounded-lg",
-              isDark
-                ? "bg-amber-500/12 text-amber-400 ring-1 ring-inset ring-amber-500/20"
-                : "bg-amber-50 text-amber-600 ring-1 ring-inset ring-amber-200/70"
+              t.iconBox
             )}
           >
-            <Flame className="h-4 w-4" />
+            <CalendarDays className="h-4 w-4" />
           </span>
         }
       />
@@ -899,7 +695,7 @@ function Streak({
             <div key={label} className="flex flex-col items-center gap-2">
               <span
                 className={cx(
-                  "text-[11.5px]",
+                  "text-[12px]",
                   isToday ? cx("font-semibold", t.strong) : t.muted
                 )}
               >
@@ -907,15 +703,13 @@ function Streak({
               </span>
 
               <div
-                role="img"
-                aria-label={`${label}${done ? " completed" : ""}${isToday ? " (today)" : ""}`}
+                aria-label={`${label}${done ? " completed" : ""}`}
                 className={cx(
                   "flex h-8 w-8 items-center justify-center rounded-full",
-                  "transition-colors",
                   done
-                    ? "bg-gradient-to-b from-indigo-500 to-indigo-600 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.2)]"
+                    ? "bg-indigo-600 text-white"
                     : isDark
-                      ? "bg-white/[0.05]"
+                      ? "bg-white/[0.06]"
                       : "bg-zinc-100",
                   isToday && !done && "ring-2 ring-indigo-500/60"
                 )}
@@ -933,66 +727,6 @@ function Streak({
 /* ============================================================
    CHANNELS
 ============================================================ */
-
-function UsageMeter({
-  isDark,
-  used,
-  max,
-  atLimit,
-}: {
-  isDark: boolean;
-  used: number;
-  max: number;
-  atLimit: boolean;
-}) {
-  const fill = atLimit ? "bg-amber-500" : "bg-indigo-500";
-  const empty = isDark ? "bg-white/10" : "bg-zinc-200/80";
-
-  /* Plans courts : une pastille par canal. Sinon barre continue. */
-  if (max > 0 && max <= 12) {
-    return (
-      <div
-        className="mt-3 flex gap-1.5"
-        role="progressbar"
-        aria-valuemin={0}
-        aria-valuemax={max}
-        aria-valuenow={used}
-        aria-label="Channels used"
-      >
-        {Array.from({ length: max }).map((_, i) => (
-          <span
-            key={i}
-            className={cx(
-              "h-1.5 flex-1 rounded-full transition-colors duration-500",
-              i < used ? fill : empty
-            )}
-          />
-        ))}
-      </div>
-    );
-  }
-
-  const percent = max > 0 ? Math.min(100, Math.round((used / max) * 100)) : 0;
-
-  return (
-    <div
-      className={cx("mt-3 h-1.5 w-full overflow-hidden rounded-full", empty)}
-      role="progressbar"
-      aria-valuemin={0}
-      aria-valuemax={max}
-      aria-valuenow={used}
-      aria-label="Channels used"
-    >
-      <div
-        className={cx(
-          "h-full rounded-full transition-[width] duration-500",
-          fill
-        )}
-        style={{ width: `${percent}%` }}
-      />
-    </div>
-  );
-}
 
 function ChannelsCard({
   isDark,
@@ -1015,6 +749,7 @@ function ChannelsCard({
 }) {
   const t = ui(isDark);
 
+  const percent = max > 0 ? Math.min(100, Math.round((used / max) * 100)) : 0;
   const atLimit = max > 0 && used >= max;
 
   return (
@@ -1038,7 +773,7 @@ function ChannelsCard({
       />
 
       {channels.length === 0 ? (
-        <div className="flex flex-col items-center px-6 pb-9 pt-9 text-center">
+        <div className="flex flex-col items-center px-6 pb-8 pt-8 text-center">
           <div
             className={cx(
               "flex h-12 w-12 items-center justify-center rounded-xl",
@@ -1052,7 +787,7 @@ function ChannelsCard({
             Connect your first channel
           </p>
 
-          <p className={cx("mt-1 max-w-[340px] text-[13px] leading-relaxed", t.muted)}>
+          <p className={cx("mt-1 max-w-[320px] text-[13px]", t.muted)}>
             Link TikTok, YouTube or Pinterest to start publishing and
             scheduling from one place.
           </p>
@@ -1078,7 +813,7 @@ function ChannelsCard({
                     type="button"
                     onClick={onManage}
                     className={cx(
-                      "group flex w-full items-center gap-3 px-5 py-3 text-left",
+                      "flex w-full items-center gap-3 px-5 py-3 text-left",
                       "transition-colors",
                       t.cardHover,
                       FOCUS
@@ -1114,23 +849,13 @@ function ChannelsCard({
                         "inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1",
                         "text-[12px] font-medium",
                         isDark
-                          ? "bg-emerald-500/10 text-emerald-400 ring-1 ring-inset ring-emerald-500/20"
-                          : "bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200/70"
+                          ? "bg-emerald-500/15 text-emerald-400"
+                          : "bg-emerald-50 text-emerald-700"
                       )}
                     >
-                      <span className="relative flex h-1.5 w-1.5">
-                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-current opacity-50 motion-reduce:hidden" />
-                        <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-current" />
-                      </span>
+                      <span className="h-1.5 w-1.5 rounded-full bg-current" />
                       Connected
                     </span>
-
-                    <ChevronRight
-                      className={cx(
-                        "h-4 w-4 shrink-0 transition-transform group-hover:translate-x-0.5",
-                        t.muted
-                      )}
-                    />
                   </button>
                 </li>
               );
@@ -1139,7 +864,7 @@ function ChannelsCard({
 
           <div className={cx("border-t px-5 py-4", t.line)}>
             <div className="flex items-center justify-between gap-3">
-              <p className={cx("text-[13px] font-medium tabular-nums", t.body)}>
+              <p className={cx("text-[13px] font-medium", t.body)}>
                 {used} of {max} channels used
                 <span className={cx("ml-1.5 font-normal", t.muted)}>
                   · {planName} plan
@@ -1151,12 +876,30 @@ function ChannelsCard({
               </TextLink>
             </div>
 
-            <UsageMeter isDark={isDark} used={used} max={max} atLimit={atLimit} />
+            <div
+              className={cx(
+                "mt-2.5 h-1.5 w-full overflow-hidden rounded-full",
+                isDark ? "bg-white/10" : "bg-zinc-100"
+              )}
+              role="progressbar"
+              aria-valuemin={0}
+              aria-valuemax={max}
+              aria-valuenow={used}
+              aria-label="Channels used"
+            >
+              <div
+                className={cx(
+                  "h-full rounded-full transition-[width] duration-500",
+                  atLimit ? "bg-amber-500" : "bg-indigo-600"
+                )}
+                style={{ width: `${percent}%` }}
+              />
+            </div>
 
             {atLimit && (
               <p
                 className={cx(
-                  "mt-2.5 text-[12px]",
+                  "mt-2 text-[12px]",
                   isDark ? "text-amber-400" : "text-amber-700"
                 )}
               >
@@ -1211,42 +954,34 @@ function ActivityPanel({
         }
       />
 
-      <div className="flex flex-1 px-5 pb-5 pt-4">
+      <div className="flex flex-1 flex-col items-center justify-center px-6 pb-8 pt-6 text-center">
         <div
           className={cx(
-            "flex w-full flex-1 flex-col items-center justify-center rounded-xl",
-            "border border-dashed px-6 py-8 text-center",
-            isDark ? "border-white/10" : "border-zinc-200"
+            "flex h-11 w-11 items-center justify-center rounded-xl",
+            t.iconBox
           )}
         >
-          <div
-            className={cx(
-              "flex h-10 w-10 items-center justify-center rounded-lg",
-              t.iconBox
-            )}
-          >
-            {icon}
-          </div>
-
-          <p className={cx("mt-3 text-[14px] font-medium", t.strong)}>
-            {emptyTitle}
-          </p>
-
-          <p className={cx("mt-1 max-w-[240px] text-[12.5px] leading-relaxed", t.muted)}>
-            {emptyText}
-          </p>
-
-          {action && (
-            <button
-              type="button"
-              onClick={action.onClick}
-              className={cx(secondaryButton(isDark), "mt-4")}
-            >
-              <Plus className="h-3.5 w-3.5" />
-              {action.label}
-            </button>
-          )}
+          {icon}
         </div>
+
+        <p className={cx("mt-3 text-[14px] font-medium", t.strong)}>
+          {emptyTitle}
+        </p>
+
+        <p className={cx("mt-1 max-w-[260px] text-[13px]", t.muted)}>
+          {emptyText}
+        </p>
+
+        {action && (
+          <button
+            type="button"
+            onClick={action.onClick}
+            className={cx(secondaryButton(isDark), "mt-4")}
+          >
+            <Plus className="h-3.5 w-3.5" />
+            {action.label}
+          </button>
+        )}
       </div>
     </Card>
   );
@@ -1262,7 +997,6 @@ type QuickAction = {
   hint: string;
   icon: ReactNode;
   onClick: () => void;
-  shortcut?: string;
 };
 
 function QuickActions({
@@ -1302,7 +1036,7 @@ function QuickActions({
 
               <span className="min-w-0 flex-1">
                 <span
-                  className={cx("block text-[13.5px] font-medium", t.strong)}
+                  className={cx("block text-[14px] font-medium", t.strong)}
                 >
                   {action.label}
                 </span>
@@ -1312,16 +1046,12 @@ function QuickActions({
                 </span>
               </span>
 
-              {action.shortcut ? (
-                <Kbd isDark={isDark}>{action.shortcut}</Kbd>
-              ) : (
-                <ArrowRight
-                  className={cx(
-                    "h-4 w-4 shrink-0 transition-transform group-hover:translate-x-0.5",
-                    t.muted
-                  )}
-                />
-              )}
+              <ArrowRight
+                className={cx(
+                  "h-4 w-4 shrink-0 transition-transform group-hover:translate-x-0.5",
+                  t.muted
+                )}
+              />
             </button>
           </li>
         ))}
@@ -1351,29 +1081,22 @@ function BlogImage({
     return (
       <div
         className={cx(
-          "aspect-[16/9] w-full rounded-xl",
-          isDark
-            ? "bg-gradient-to-br from-white/[0.06] to-white/[0.02]"
-            : "bg-gradient-to-br from-zinc-100 to-zinc-50"
+          "aspect-[16/9] w-full rounded-lg",
+          isDark ? "bg-white/[0.06]" : "bg-zinc-100"
         )}
       />
     );
   }
 
   return (
-    <div className="overflow-hidden rounded-xl">
-      <img
-        src={src}
-        alt=""
-        loading="lazy"
-        draggable={false}
-        onError={() => setFailed(true)}
-        className={cx(
-          "aspect-[16/9] w-full object-cover transition-transform duration-500",
-          "ease-out group-hover:scale-[1.03] motion-reduce:transition-none"
-        )}
-      />
-    </div>
+    <img
+      src={src}
+      alt=""
+      loading="lazy"
+      draggable={false}
+      onError={() => setFailed(true)}
+      className="aspect-[16/9] w-full rounded-lg object-cover"
+    />
   );
 }
 
@@ -1402,8 +1125,8 @@ function BlogSection({ isDark }: { isDark: boolean }) {
           href={BLOG_URL}
           {...linkProps(BLOG_URL)}
           className={cx(
-            "group inline-flex shrink-0 items-center gap-0.5 rounded-md px-1.5 py-1",
-            "text-[12.5px] font-medium transition-colors",
+            "inline-flex shrink-0 items-center gap-0.5 rounded-md px-1.5 py-1",
+            "text-[13px] font-medium transition-colors",
             isDark
               ? "text-zinc-400 hover:text-white"
               : "text-zinc-500 hover:text-zinc-900",
@@ -1411,7 +1134,7 @@ function BlogSection({ isDark }: { isDark: boolean }) {
           )}
         >
           All articles
-          <ChevronRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+          <ChevronRight className="h-3.5 w-3.5" />
         </a>
       </div>
 
@@ -1422,22 +1145,20 @@ function BlogSection({ isDark }: { isDark: boolean }) {
             href={post.url}
             {...linkProps(post.url)}
             className={cx(
-              "group flex min-w-0 flex-col rounded-2xl border p-2.5",
-              "transition-[background-color,border-color,transform] duration-200",
-              "hover:-translate-y-0.5 motion-reduce:hover:translate-y-0",
+              "group flex min-w-0 flex-col rounded-xl border p-3 transition-colors",
               t.card,
-              isDark ? "hover:border-white/15" : "hover:border-zinc-300",
+              t.cardHover,
               FOCUS
             )}
           >
             <BlogImage src={post.image} isDark={isDark} />
 
-            <div className="mt-3 flex items-center justify-between gap-2 px-1.5">
+            <div className="mt-3 flex items-center justify-between gap-2 px-1">
               <span
                 className={cx(
-                  "rounded-md px-2 py-0.5 text-[11.5px] font-medium",
+                  "rounded-md px-2 py-0.5 text-[12px] font-medium",
                   isDark
-                    ? "bg-indigo-500/12 text-indigo-300"
+                    ? "bg-indigo-500/15 text-indigo-300"
                     : "bg-indigo-50 text-indigo-700"
                 )}
               >
@@ -1449,7 +1170,7 @@ function BlogSection({ isDark }: { isDark: boolean }) {
 
             <h3
               className={cx(
-                "mt-2.5 px-1.5 text-[14px] font-semibold leading-snug",
+                "mt-2.5 px-1 text-[14px] font-semibold leading-snug",
                 "tracking-[-0.01em]",
                 t.strong
               )}
@@ -1465,7 +1186,7 @@ function BlogSection({ isDark }: { isDark: boolean }) {
 
             <span
               className={cx(
-                "mb-1 mt-3 inline-flex items-center gap-1 px-1.5 text-[12.5px] font-medium",
+                "mt-3 inline-flex items-center gap-1 px-1 text-[13px] font-medium",
                 isDark ? "text-indigo-300" : "text-indigo-600"
               )}
             >
@@ -1496,7 +1217,6 @@ export default function Home() {
   const [query, setQuery] = useState("");
   const [isNewPostOpen, setIsNewPostOpen] = useState(false);
   const [isFolderOpen, setIsFolderOpen] = useState(false);
-  const [period, setPeriod] = useState<Period>("7d");
 
   const [user, setUser] = useState<UserProfile | null>(
     userProfileCache.profile
@@ -1753,39 +1473,10 @@ export default function Home() {
     console.log("Nouveau post à envoyer :", payload);
   };
 
-  const openNewPost = useCallback(() => {
+  const openNewPost = () => {
     setIsFolderOpen(false);
     setIsNewPostOpen(true);
-  }, []);
-
-  /* Raccourci clavier : C = créer un post (ignoré dans les champs
-     de saisie et quand une modale est déjà ouverte). */
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.metaKey || event.ctrlKey || event.altKey) return;
-      if (event.key.toLowerCase() !== "c") return;
-      if (isNewPostOpen || showConnectModal) return;
-
-      const el = event.target as HTMLElement | null;
-
-      if (
-        el &&
-        (el.tagName === "INPUT" ||
-          el.tagName === "TEXTAREA" ||
-          el.tagName === "SELECT" ||
-          el.isContentEditable)
-      ) {
-        return;
-      }
-
-      event.preventDefault();
-      openNewPost();
-    };
-
-    window.addEventListener("keydown", onKeyDown);
-
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [isNewPostOpen, showConnectModal, openNewPost]);
+  };
 
   /* ----------------------------------------------------------
      COMMUNITY
@@ -1827,7 +1518,6 @@ export default function Home() {
       hint: "Write and publish to your channels",
       icon: <Send className="h-4 w-4" />,
       onClick: openNewPost,
-      shortcut: "C",
     },
     {
       key: "calendar",
@@ -1852,9 +1542,6 @@ export default function Home() {
     },
   ];
 
-  const periodLabel =
-    period === "7d" ? "7 days" : period === "30d" ? "30 days" : "90 days";
-
   /* ==========================================================
      RENDER
   ========================================================== */
@@ -1864,7 +1551,6 @@ export default function Home() {
       className={cx(
         "relative h-screen w-full overflow-hidden",
         "transition-colors duration-300",
-        "antialiased [font-feature-settings:'cv11','ss01']",
         t.page
       )}
     >
@@ -1872,7 +1558,7 @@ export default function Home() {
 
       <div
         className={cx(
-          "relative h-full overflow-y-auto overflow-x-hidden",
+          "h-full overflow-y-auto overflow-x-hidden",
           "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
           "transition-[padding-left] duration-[380ms]",
           "ease-[cubic-bezier(0.4,0,0.2,1)]",
@@ -1880,18 +1566,9 @@ export default function Home() {
         )}
         style={{ paddingLeft: sidebarOffset }}
       >
-        {/* Halo d'ambiance */}
-        <div
-          aria-hidden="true"
-          className={cx(
-            "pointer-events-none absolute inset-x-0 top-0 h-[360px]",
-            t.glow
-          )}
-        />
-
         <div
           className={cx(
-            "relative mx-auto flex w-full max-w-[1200px] flex-col gap-8",
+            "mx-auto flex w-full max-w-[1200px] flex-col gap-6",
             "px-[clamp(16px,3vw,40px)]",
             "pb-[120px] pt-[clamp(20px,3vw,36px)]"
           )}
@@ -1913,8 +1590,8 @@ export default function Home() {
 
                 <h1
                   className={cx(
-                    "truncate text-[26px] font-semibold leading-tight",
-                    "tracking-[-0.035em]",
+                    "truncate text-[24px] font-semibold leading-tight",
+                    "tracking-[-0.03em]",
                     t.strong
                   )}
                 >
@@ -1923,62 +1600,28 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => navigate("calendar")}
-                className={secondaryButton(isDark)}
-              >
-                <CalendarDays className="h-3.5 w-3.5" />
-                Calendar
-              </button>
-
-              <button type="button" onClick={openNewPost} className={primaryButton}>
-                <Plus className="h-4 w-4" />
-                Create post
-                <Kbd isDark={isDark} onPrimary>
-                  C
-                </Kbd>
-              </button>
-            </div>
+            <button type="button" onClick={openNewPost} className={primaryButton}>
+              <Plus className="h-4 w-4" />
+              Create post
+            </button>
           </header>
 
           {/* KPI */}
 
-          <section aria-label="Overview" className="flex flex-col gap-3.5">
-            <div className="flex items-center justify-between gap-4">
-              <h2
-                className={cx(
-                  "text-[15px] font-semibold tracking-[-0.01em]",
-                  t.strong
-                )}
-              >
-                Overview
-              </h2>
-
-              <SegmentedControl
+          <section
+            aria-label="Overview"
+            className="grid grid-cols-1 gap-4 sm:grid-cols-3"
+          >
+            {OVERVIEW_STATS.map((stat) => (
+              <StatCard
+                key={stat.key}
                 isDark={isDark}
-                value={period}
-                options={PERIODS}
-                onChange={setPeriod}
-                label="Time period"
+                icon={STAT_ICONS[stat.key]}
+                label={stat.label}
+                value={stat.value}
+                change={stat.change}
               />
-            </div>
-
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              {OVERVIEW_STATS[period].map((stat) => (
-                <StatCard
-                  key={stat.key}
-                  isDark={isDark}
-                  icon={STAT_ICONS[stat.key]}
-                  label={stat.label}
-                  value={stat.value}
-                  change={stat.change}
-                  series={stat.series}
-                  periodLabel={periodLabel}
-                />
-              ))}
-            </div>
+            ))}
           </section>
 
           {/* MAIN GRID */}
