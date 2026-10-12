@@ -49,6 +49,7 @@ import {
   getTikTokStatus,
   startTikTokLogin,
   disconnectTikTok,
+  refreshTikTokCache,
 } from "../services/tiktok";
 import {
   getPinterestStatus,
@@ -76,12 +77,14 @@ import {
   CalendarDays,
   Check,
   ChevronRight,
+  Heart,
   Link2,
   MessageCircle,
   Plus,
   Send,
   TrendingDown,
   TrendingUp,
+  Users,
 } from "lucide-react";
 
 import {
@@ -96,48 +99,47 @@ import {
 
 /* ============================================================
    DESIGN TOKENS
-   Palette sobre : fonds neutres, bordures fines, aucun effet
-   décoratif. Une seule couleur d'accent (bleu) pour les actions.
+   Un seul endroit pour les classes de thème : surfaces, bordures,
+   textes. Les composants ne contiennent plus de couleurs en dur.
 ============================================================ */
 
 const cx = (...parts: Array<string | false | null | undefined>) =>
   parts.filter(Boolean).join(" ");
 
 const ui = (isDark: boolean) => ({
-  page: isDark ? "bg-[#09090b]" : "bg-[#f7f8fa]",
+  page: isDark ? "bg-[#0a0a0b]" : "bg-[#f6f7f9]",
   card: isDark
-    ? "border-white/[0.08] bg-[#101012]"
-    : "border-zinc-200 bg-white",
-  cardHover: isDark ? "hover:bg-white/[0.025]" : "hover:bg-zinc-50/80",
-  head: isDark ? "bg-white/[0.02]" : "bg-zinc-50/70",
-  line: isDark ? "border-white/[0.07]" : "border-zinc-200",
-  divide: isDark ? "divide-white/[0.07]" : "divide-zinc-200",
+    ? "border-white/[0.08] bg-[#111113]"
+    : "border-zinc-200 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04)]",
+  cardHover: isDark ? "hover:bg-white/[0.03]" : "hover:bg-zinc-50",
+  inset: isDark ? "bg-white/[0.04]" : "bg-zinc-100/70",
+  line: isDark ? "border-white/[0.07]" : "border-zinc-200/80",
   strong: isDark ? "text-zinc-50" : "text-zinc-900",
-  body: isDark ? "text-zinc-300" : "text-zinc-700",
+  body: isDark ? "text-zinc-300" : "text-zinc-600",
   muted: isDark ? "text-zinc-500" : "text-zinc-500",
   iconBox: isDark
-    ? "border border-white/[0.08] text-zinc-300"
-    : "border border-zinc-200 bg-zinc-50 text-zinc-600",
-  ring: isDark ? "ring-[#101012]" : "ring-white",
+    ? "bg-white/[0.06] text-zinc-200"
+    : "bg-zinc-100 text-zinc-600",
+  ring: isDark ? "ring-[#111113]" : "ring-white",
 });
 
 const FOCUS =
-  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600/60 focus-visible:ring-offset-0";
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/70";
 
 const primaryButton = cx(
-  "inline-flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5",
-  "bg-blue-700 text-[13px] font-medium text-white",
-  "transition-colors hover:bg-blue-600 active:bg-blue-800",
+  "inline-flex items-center justify-center gap-2 rounded-lg px-3.5 py-2",
+  "bg-indigo-600 text-[13px] font-semibold text-white shadow-sm",
+  "transition-colors hover:bg-indigo-500 active:bg-indigo-700",
   FOCUS
 );
 
 const secondaryButton = (isDark: boolean) =>
   cx(
-    "inline-flex items-center justify-center gap-1.5 rounded-md border px-2.5 py-1.5",
+    "inline-flex items-center justify-center gap-2 rounded-lg border px-3 py-1.5",
     "text-[13px] font-medium transition-colors",
     isDark
-      ? "border-white/10 text-zinc-200 hover:bg-white/[0.05]"
-      : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50",
+      ? "border-white/10 text-zinc-200 hover:bg-white/[0.06]"
+      : "border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50",
     FOCUS
   );
 
@@ -299,6 +301,15 @@ const OVERVIEW_STATS = [
   { key: "comments", label: "Comments", value: "342", change: "+5%" },
 ] as const;
 
+const STAT_ICONS: Record<
+  (typeof OVERVIEW_STATS)[number]["key"],
+  ReactNode
+> = {
+  followers: <Users className="h-4 w-4" />,
+  likes: <Heart className="h-4 w-4" />,
+  comments: <MessageCircle className="h-4 w-4" />,
+};
+
 /* ============================================================
    BLOG
 ============================================================ */
@@ -379,40 +390,32 @@ function Card({
 }) {
   return (
     <section
-      className={cx("min-w-0 rounded-lg border", ui(isDark).card, className)}
+      className={cx("min-w-0 rounded-xl border", ui(isDark).card, className)}
     >
       {children}
     </section>
   );
 }
 
-/* En-tête de carte : titre + action, séparé du contenu par un filet */
 function CardHeader({
   isDark,
   title,
   description,
   action,
-  bordered = true,
 }: {
   isDark: boolean;
   title: string;
   description?: string;
   action?: ReactNode;
-  bordered?: boolean;
 }) {
   const t = ui(isDark);
 
   return (
-    <div
-      className={cx(
-        "flex min-h-[56px] items-center justify-between gap-4 px-5 py-3",
-        bordered && cx("border-b", t.line)
-      )}
-    >
+    <div className="flex items-start justify-between gap-4 px-5 pt-5">
       <div className="min-w-0">
         <h2
           className={cx(
-            "text-[14px] font-semibold tracking-[-0.005em]",
+            "text-[15px] font-semibold tracking-[-0.01em]",
             t.strong
           )}
         >
@@ -420,7 +423,7 @@ function CardHeader({
         </h2>
 
         {description && (
-          <p className={cx("mt-0.5 text-[12px]", t.muted)}>{description}</p>
+          <p className={cx("mt-0.5 text-[13px]", t.muted)}>{description}</p>
         )}
       </div>
 
@@ -444,12 +447,12 @@ function TextLink({
       onClick={onClick}
       disabled={!onClick}
       className={cx(
-        "inline-flex shrink-0 items-center gap-0.5 rounded px-1 py-0.5",
-        "text-[12px] font-medium transition-colors",
+        "inline-flex shrink-0 items-center gap-0.5 rounded-md px-1.5 py-1",
+        "text-[13px] font-medium transition-colors",
         "disabled:cursor-default disabled:opacity-40",
         isDark
-          ? "text-blue-400 enabled:hover:text-blue-300"
-          : "text-blue-700 enabled:hover:text-blue-900",
+          ? "text-zinc-400 enabled:hover:text-white"
+          : "text-zinc-500 enabled:hover:text-zinc-900",
         FOCUS
       )}
     >
@@ -485,7 +488,7 @@ function GreetingAvatar({
         alt="Profile"
         referrerPolicy="no-referrer"
         onError={() => setFailed(true)}
-        className="h-10 w-10 rounded-full object-cover"
+        className="h-11 w-11 rounded-full object-cover"
       />
     );
   }
@@ -493,9 +496,9 @@ function GreetingAvatar({
   return (
     <div
       className={cx(
-        "flex h-10 w-10 items-center justify-center rounded-full",
-        "text-[13px] font-semibold",
-        isDark ? "bg-white/10 text-zinc-100" : "bg-zinc-200 text-zinc-700"
+        "flex h-11 w-11 items-center justify-center rounded-full",
+        "text-[14px] font-semibold",
+        isDark ? "bg-indigo-500/20 text-indigo-200" : "bg-indigo-100 text-indigo-700"
       )}
     >
       {initials}
@@ -531,7 +534,7 @@ function AccountAvatar({
   const NetworkIcon = networkId ? NETWORK_ICONS[networkId] : null;
 
   return (
-    <div className="relative h-9 w-9 shrink-0">
+    <div className="relative h-10 w-10 shrink-0">
       {channel.avatarUrl && !failed ? (
         <img
           src={channel.avatarUrl}
@@ -564,7 +567,7 @@ function AccountAvatar({
       {NetworkIcon && (
         <span
           className={cx(
-            "absolute -bottom-0.5 -right-0.5 flex h-4 w-4 items-center",
+            "absolute -bottom-0.5 -right-0.5 flex h-[18px] w-[18px] items-center",
             "justify-center rounded-full bg-white text-black ring-2",
             t.ring
           )}
@@ -578,66 +581,69 @@ function AccountAvatar({
 
 /* ============================================================
    KPI
-   Une seule carte, trois colonnes séparées par des filets.
 ============================================================ */
 
-function StatsOverview({ isDark }: { isDark: boolean }) {
+function StatCard({
+  isDark,
+  icon,
+  label,
+  value,
+  change,
+}: {
+  isDark: boolean;
+  icon: ReactNode;
+  label: string;
+  value: string;
+  change: string;
+}) {
   const t = ui(isDark);
+  const positive = change.startsWith("+");
+  const Trend = positive ? TrendingUp : TrendingDown;
 
   return (
-    <Card isDark={isDark}>
-      <CardHeader
-        isDark={isDark}
-        title="Performance overview"
-        description="Compared with the previous period · sample data"
-      />
+    <Card isDark={isDark} className="p-5">
+      <div className="flex items-center justify-between gap-3">
+        <p className={cx("text-[13px] font-medium", t.body)}>{label}</p>
 
-      <dl
-        className={cx(
-          "grid grid-cols-1 divide-y sm:grid-cols-3 sm:divide-x sm:divide-y-0",
-          t.divide
-        )}
-      >
-        {OVERVIEW_STATS.map((stat) => {
-          const positive = stat.change.startsWith("+");
-          const Trend = positive ? TrendingUp : TrendingDown;
+        <span
+          className={cx(
+            "flex h-8 w-8 items-center justify-center rounded-lg",
+            t.iconBox
+          )}
+        >
+          {icon}
+        </span>
+      </div>
 
-          return (
-            <div key={stat.key} className="px-5 py-4">
-              <dt className={cx("text-[12px] font-medium", t.muted)}>
-                {stat.label}
-              </dt>
+      <div className="mt-4 flex items-end justify-between gap-3">
+        <p
+          className={cx(
+            "text-[30px] font-semibold leading-none tracking-[-0.03em] tabular-nums",
+            t.strong
+          )}
+        >
+          {value}
+        </p>
 
-              <dd className="mt-2 flex items-baseline justify-between gap-3">
-                <span
-                  className={cx(
-                    "text-[26px] font-semibold leading-none tracking-[-0.025em] tabular-nums",
-                    t.strong
-                  )}
-                >
-                  {stat.value}
-                </span>
+        <span
+          className={cx(
+            "inline-flex items-center gap-1 rounded-md px-1.5 py-0.5",
+            "text-[12px] font-semibold tabular-nums",
+            positive
+              ? isDark
+                ? "bg-emerald-500/15 text-emerald-400"
+                : "bg-emerald-50 text-emerald-700"
+              : isDark
+                ? "bg-rose-500/15 text-rose-400"
+                : "bg-rose-50 text-rose-700"
+          )}
+        >
+          <Trend className="h-3 w-3" strokeWidth={2.4} />
+          {change}
+        </span>
+      </div>
 
-                <span
-                  className={cx(
-                    "inline-flex items-center gap-1 text-[12px] font-medium tabular-nums",
-                    positive
-                      ? isDark
-                        ? "text-emerald-400"
-                        : "text-emerald-700"
-                      : isDark
-                        ? "text-rose-400"
-                        : "text-rose-700"
-                  )}
-                >
-                  <Trend className="h-3.5 w-3.5" strokeWidth={2.2} />
-                  {stat.change}
-                </span>
-              </dd>
-            </div>
-          );
-        })}
-      </dl>
+      <p className={cx("mt-3 text-[12px]", t.muted)}>vs. previous period</p>
     </Card>
   );
 }
@@ -663,14 +669,24 @@ function Streak({
   const todayIndex = (new Date().getDay() + 6) % 7;
 
   return (
-    <Card isDark={isDark}>
+    <Card isDark={isDark} className="pb-5">
       <CardHeader
         isDark={isDark}
         title="Posting streak"
         description={`${completedDays.length} of 7 days this week`}
+        action={
+          <span
+            className={cx(
+              "flex h-8 w-8 items-center justify-center rounded-lg",
+              t.iconBox
+            )}
+          >
+            <CalendarDays className="h-4 w-4" />
+          </span>
+        }
       />
 
-      <div className="grid grid-cols-7 gap-1.5 px-5 py-4">
+      <div className="mt-5 grid grid-cols-7 gap-1.5 px-5">
         {WEEK_LABELS.map((label, index) => {
           const done = completedDays.includes(index);
           const isToday = index === todayIndex;
@@ -679,7 +695,7 @@ function Streak({
             <div key={label} className="flex flex-col items-center gap-2">
               <span
                 className={cx(
-                  "text-[11px]",
+                  "text-[12px]",
                   isToday ? cx("font-semibold", t.strong) : t.muted
                 )}
               >
@@ -689,13 +705,13 @@ function Streak({
               <div
                 aria-label={`${label}${done ? " completed" : ""}`}
                 className={cx(
-                  "flex h-7 w-7 items-center justify-center rounded-md",
+                  "flex h-8 w-8 items-center justify-center rounded-full",
                   done
-                    ? "bg-blue-700 text-white"
+                    ? "bg-indigo-600 text-white"
                     : isDark
-                      ? "bg-white/[0.05]"
+                      ? "bg-white/[0.06]"
                       : "bg-zinc-100",
-                  isToday && !done && "ring-1 ring-blue-600/70"
+                  isToday && !done && "ring-2 ring-indigo-500/60"
                 )}
               >
                 {done && <Check className="h-3.5 w-3.5" strokeWidth={3} />}
@@ -718,6 +734,7 @@ function ChannelsCard({
   used,
   max,
   planName,
+  userId,
   onAdd,
   onManage,
 }: {
@@ -726,6 +743,7 @@ function ChannelsCard({
   used: number;
   max: number;
   planName: string;
+  userId: string | null;
   onAdd: () => void;
   onManage: () => void;
 }) {
@@ -755,54 +773,36 @@ function ChannelsCard({
       />
 
       {channels.length === 0 ? (
-        <div className="flex flex-col items-center px-6 py-10 text-center">
+        <div className="flex flex-col items-center px-6 pb-8 pt-8 text-center">
           <div
             className={cx(
-              "flex h-10 w-10 items-center justify-center rounded-lg",
+              "flex h-12 w-12 items-center justify-center rounded-xl",
               t.iconBox
             )}
           >
-            <Link2 className="h-4 w-4" />
+            <Link2 className="h-5 w-5" />
           </div>
 
-          <p className={cx("mt-4 text-[14px] font-semibold", t.strong)}>
-            No channel connected
+          <p className={cx("mt-4 text-[15px] font-semibold", t.strong)}>
+            Connect your first channel
           </p>
 
-          <p className={cx("mt-1 max-w-[340px] text-[13px]", t.muted)}>
-            Connect TikTok, YouTube or Pinterest to publish and schedule
-            content from one place.
+          <p className={cx("mt-1 max-w-[320px] text-[13px]", t.muted)}>
+            Link TikTok, YouTube or Pinterest to start publishing and
+            scheduling from one place.
           </p>
 
           <button type="button" onClick={onAdd} className={cx(primaryButton, "mt-5")}>
-            <Plus className="h-3.5 w-3.5" />
+            <Plus className="h-4 w-4" />
             Connect channel
           </button>
         </div>
       ) : (
         <>
-          {/* En-têtes de colonnes (≥ sm) */}
-          <div
-            className={cx(
-              "hidden items-center gap-3 border-b px-5 py-2 sm:flex",
-              "text-[11px] font-medium uppercase tracking-[0.06em]",
-              t.line,
-              t.head,
-              t.muted
-            )}
-          >
-            <span className="flex-1">Account</span>
-            <span className="w-28">Network</span>
-            <span className="w-24 text-right">Status</span>
-          </div>
-
-          <ul>
+          <ul className="mt-4">
             {channels.map((channel) => {
               const networkId = getNetworkId(channel);
               const name = channel.handle || channel.name || "Channel";
-              const networkLabel = networkId
-                ? NETWORK_LABELS[networkId]
-                : "Social account";
 
               return (
                 <li
@@ -813,48 +813,44 @@ function ChannelsCard({
                     type="button"
                     onClick={onManage}
                     className={cx(
-                      "flex w-full items-center gap-3 px-5 py-2.5 text-left",
+                      "flex w-full items-center gap-3 px-5 py-3 text-left",
                       "transition-colors",
                       t.cardHover,
                       FOCUS
                     )}
                   >
-                    <AccountAvatar channel={channel} isDark={isDark} />
+                    <AccountAvatar
+                      channel={channel}
+                      isDark={isDark}
+                      onBroken={
+                        networkId === "tiktok" && userId
+                          ? () => void refreshTikTokCache(userId, { force: true })
+                          : undefined
+                      }
+                    />
 
                     <div className="min-w-0 flex-1">
                       <p
                         className={cx(
-                          "truncate text-[13.5px] font-medium",
+                          "truncate text-[14px] font-medium",
                           t.strong
                         )}
                       >
                         {name}
                       </p>
 
-                      <p
-                        className={cx(
-                          "truncate text-[12px] sm:hidden",
-                          t.muted
-                        )}
-                      >
-                        {networkLabel}
+                      <p className={cx("truncate text-[12px]", t.muted)}>
+                        {networkId ? NETWORK_LABELS[networkId] : "Social account"}
                       </p>
                     </div>
 
                     <span
                       className={cx(
-                        "hidden w-28 truncate text-[13px] sm:block",
-                        t.body
-                      )}
-                    >
-                      {networkLabel}
-                    </span>
-
-                    <span
-                      className={cx(
-                        "inline-flex w-24 shrink-0 items-center justify-end gap-1.5",
+                        "inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1",
                         "text-[12px] font-medium",
-                        isDark ? "text-emerald-400" : "text-emerald-700"
+                        isDark
+                          ? "bg-emerald-500/15 text-emerald-400"
+                          : "bg-emerald-50 text-emerald-700"
                       )}
                     >
                       <span className="h-1.5 w-1.5 rounded-full bg-current" />
@@ -866,9 +862,9 @@ function ChannelsCard({
             })}
           </ul>
 
-          <div className={cx("border-t px-5 py-3.5", t.line, t.head)}>
+          <div className={cx("border-t px-5 py-4", t.line)}>
             <div className="flex items-center justify-between gap-3">
-              <p className={cx("text-[12px] font-medium", t.body)}>
+              <p className={cx("text-[13px] font-medium", t.body)}>
                 {used} of {max} channels used
                 <span className={cx("ml-1.5 font-normal", t.muted)}>
                   · {planName} plan
@@ -882,8 +878,8 @@ function ChannelsCard({
 
             <div
               className={cx(
-                "mt-2 h-1 w-full overflow-hidden rounded-full",
-                isDark ? "bg-white/10" : "bg-zinc-200"
+                "mt-2.5 h-1.5 w-full overflow-hidden rounded-full",
+                isDark ? "bg-white/10" : "bg-zinc-100"
               )}
               role="progressbar"
               aria-valuemin={0}
@@ -894,7 +890,7 @@ function ChannelsCard({
               <div
                 className={cx(
                   "h-full rounded-full transition-[width] duration-500",
-                  atLimit ? "bg-amber-500" : "bg-blue-700"
+                  atLimit ? "bg-amber-500" : "bg-indigo-600"
                 )}
                 style={{ width: `${percent}%` }}
               />
@@ -958,21 +954,21 @@ function ActivityPanel({
         }
       />
 
-      <div className="flex flex-1 flex-col items-center justify-center px-6 py-8 text-center">
+      <div className="flex flex-1 flex-col items-center justify-center px-6 pb-8 pt-6 text-center">
         <div
           className={cx(
-            "flex h-9 w-9 items-center justify-center rounded-lg",
+            "flex h-11 w-11 items-center justify-center rounded-xl",
             t.iconBox
           )}
         >
           {icon}
         </div>
 
-        <p className={cx("mt-3 text-[13.5px] font-medium", t.strong)}>
+        <p className={cx("mt-3 text-[14px] font-medium", t.strong)}>
           {emptyTitle}
         </p>
 
-        <p className={cx("mt-1 max-w-[260px] text-[12.5px]", t.muted)}>
+        <p className={cx("mt-1 max-w-[260px] text-[13px]", t.muted)}>
           {emptyText}
         </p>
 
@@ -1013,17 +1009,17 @@ function QuickActions({
   const t = ui(isDark);
 
   return (
-    <Card isDark={isDark} className="overflow-hidden">
+    <Card isDark={isDark} className="pb-2">
       <CardHeader isDark={isDark} title="Quick actions" />
 
-      <ul>
+      <ul className="mt-3">
         {actions.map((action) => (
-          <li key={action.key} className={cx("border-t first:border-t-0", t.line)}>
+          <li key={action.key}>
             <button
               type="button"
               onClick={action.onClick}
               className={cx(
-                "group flex w-full items-center gap-3 px-5 py-3 text-left",
+                "group flex w-full items-center gap-3 px-5 py-2.5 text-left",
                 "transition-colors",
                 t.cardHover,
                 FOCUS
@@ -1031,7 +1027,7 @@ function QuickActions({
             >
               <span
                 className={cx(
-                  "flex h-8 w-8 shrink-0 items-center justify-center rounded-md",
+                  "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg",
                   t.iconBox
                 )}
               >
@@ -1040,7 +1036,7 @@ function QuickActions({
 
               <span className="min-w-0 flex-1">
                 <span
-                  className={cx("block text-[13.5px] font-medium", t.strong)}
+                  className={cx("block text-[14px] font-medium", t.strong)}
                 >
                   {action.label}
                 </span>
@@ -1085,8 +1081,8 @@ function BlogImage({
     return (
       <div
         className={cx(
-          "aspect-[16/9] w-full",
-          isDark ? "bg-white/[0.05]" : "bg-zinc-100"
+          "aspect-[16/9] w-full rounded-lg",
+          isDark ? "bg-white/[0.06]" : "bg-zinc-100"
         )}
       />
     );
@@ -1099,7 +1095,7 @@ function BlogImage({
       loading="lazy"
       draggable={false}
       onError={() => setFailed(true)}
-      className="aspect-[16/9] w-full object-cover"
+      className="aspect-[16/9] w-full rounded-lg object-cover"
     />
   );
 }
@@ -1109,19 +1105,19 @@ function BlogSection({ isDark }: { isDark: boolean }) {
 
   return (
     <section>
-      <div className="mb-3 flex items-end justify-between gap-4">
+      <div className="mb-4 flex items-end justify-between gap-4">
         <div>
           <h2
             className={cx(
-              "text-[14px] font-semibold tracking-[-0.005em]",
+              "text-[15px] font-semibold tracking-[-0.01em]",
               t.strong
             )}
           >
-            Resources
+            Learn and grow
           </h2>
 
-          <p className={cx("mt-0.5 text-[12px]", t.muted)}>
-            Guides and best practices from the Stone blog
+          <p className={cx("mt-0.5 text-[13px]", t.muted)}>
+            Guides and ideas from the Stone blog
           </p>
         </div>
 
@@ -1129,11 +1125,11 @@ function BlogSection({ isDark }: { isDark: boolean }) {
           href={BLOG_URL}
           {...linkProps(BLOG_URL)}
           className={cx(
-            "inline-flex shrink-0 items-center gap-0.5 rounded px-1 py-0.5",
-            "text-[12px] font-medium transition-colors",
+            "inline-flex shrink-0 items-center gap-0.5 rounded-md px-1.5 py-1",
+            "text-[13px] font-medium transition-colors",
             isDark
-              ? "text-blue-400 hover:text-blue-300"
-              : "text-blue-700 hover:text-blue-900",
+              ? "text-zinc-400 hover:text-white"
+              : "text-zinc-500 hover:text-zinc-900",
             FOCUS
           )}
         >
@@ -1149,7 +1145,7 @@ function BlogSection({ isDark }: { isDark: boolean }) {
             href={post.url}
             {...linkProps(post.url)}
             className={cx(
-              "group flex min-w-0 flex-col overflow-hidden rounded-lg border transition-colors",
+              "group flex min-w-0 flex-col rounded-xl border p-3 transition-colors",
               t.card,
               t.cardHover,
               FOCUS
@@ -1157,42 +1153,46 @@ function BlogSection({ isDark }: { isDark: boolean }) {
           >
             <BlogImage src={post.image} isDark={isDark} />
 
-            <div className="flex flex-1 flex-col p-4">
-              <p
-                className={cx(
-                  "text-[11px] font-medium uppercase tracking-[0.06em]",
-                  t.muted
-                )}
-              >
-                {post.label} · {post.date}
-              </p>
-
-              <h3
-                className={cx(
-                  "mt-2 text-[14px] font-semibold leading-snug",
-                  "tracking-[-0.005em]",
-                  t.strong
-                )}
-                style={{
-                  display: "-webkit-box",
-                  WebkitLineClamp: 2,
-                  WebkitBoxOrient: "vertical",
-                  overflow: "hidden",
-                }}
-              >
-                {post.title}
-              </h3>
-
+            <div className="mt-3 flex items-center justify-between gap-2 px-1">
               <span
                 className={cx(
-                  "mt-3 inline-flex items-center gap-1 text-[12px] font-medium",
-                  isDark ? "text-blue-400" : "text-blue-700"
+                  "rounded-md px-2 py-0.5 text-[12px] font-medium",
+                  isDark
+                    ? "bg-indigo-500/15 text-indigo-300"
+                    : "bg-indigo-50 text-indigo-700"
                 )}
               >
-                Read article
-                <ArrowUpRight className="h-3.5 w-3.5 transition-transform group-hover:-translate-y-px group-hover:translate-x-px" />
+                {post.label}
               </span>
+
+              <span className={cx("text-[12px]", t.muted)}>{post.date}</span>
             </div>
+
+            <h3
+              className={cx(
+                "mt-2.5 px-1 text-[14px] font-semibold leading-snug",
+                "tracking-[-0.01em]",
+                t.strong
+              )}
+              style={{
+                display: "-webkit-box",
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: "vertical",
+                overflow: "hidden",
+              }}
+            >
+              {post.title}
+            </h3>
+
+            <span
+              className={cx(
+                "mt-3 inline-flex items-center gap-1 px-1 text-[13px] font-medium",
+                isDark ? "text-indigo-300" : "text-indigo-600"
+              )}
+            >
+              Read article
+              <ArrowUpRight className="h-3.5 w-3.5 transition-transform group-hover:-translate-y-px group-hover:translate-x-px" />
+            </span>
           </a>
         ))}
       </div>
@@ -1570,18 +1570,13 @@ export default function Home() {
           className={cx(
             "mx-auto flex w-full max-w-[1200px] flex-col gap-6",
             "px-[clamp(16px,3vw,40px)]",
-            "pb-[120px] pt-[clamp(20px,3vw,32px)]"
+            "pb-[120px] pt-[clamp(20px,3vw,36px)]"
           )}
         >
           {/* HEADER */}
 
-          <header
-            className={cx(
-              "flex flex-wrap items-center justify-between gap-4 border-b pb-5",
-              t.line
-            )}
-          >
-            <div className="flex min-w-0 items-center gap-3">
+          <header className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex min-w-0 items-center gap-3.5">
               <GreetingAvatar
                 avatarUrl={user?.avatar_url}
                 initials={initials}
@@ -1589,19 +1584,19 @@ export default function Home() {
               />
 
               <div className="min-w-0">
+                <p className={cx("text-[13px] font-medium", t.muted)}>
+                  {greeting} · <span className="capitalize">{dateLabel}</span>
+                </p>
+
                 <h1
                   className={cx(
-                    "truncate text-[20px] font-semibold leading-tight",
-                    "tracking-[-0.02em]",
+                    "truncate text-[24px] font-semibold leading-tight",
+                    "tracking-[-0.03em]",
                     t.strong
                   )}
                 >
                   {fullName || "Welcome"}
                 </h1>
-
-                <p className={cx("mt-0.5 text-[12.5px]", t.muted)}>
-                  {greeting} · <span className="capitalize">{dateLabel}</span>
-                </p>
               </div>
             </div>
 
@@ -1613,7 +1608,21 @@ export default function Home() {
 
           {/* KPI */}
 
-          <StatsOverview isDark={isDark} />
+          <section
+            aria-label="Overview"
+            className="grid grid-cols-1 gap-4 sm:grid-cols-3"
+          >
+            {OVERVIEW_STATS.map((stat) => (
+              <StatCard
+                key={stat.key}
+                isDark={isDark}
+                icon={STAT_ICONS[stat.key]}
+                label={stat.label}
+                value={stat.value}
+                change={stat.change}
+              />
+            ))}
+          </section>
 
           {/* MAIN GRID */}
 
@@ -1625,6 +1634,7 @@ export default function Home() {
                 used={connectedCount}
                 max={PLAN.maxChannels}
                 planName={PLAN.name}
+                userId={userId}
                 onAdd={openConnectModal}
                 onManage={() => navigate("channels")}
               />
@@ -1635,7 +1645,7 @@ export default function Home() {
                   title="Up next"
                   meta="0 posts scheduled"
                   onViewAll={() => navigate("calendar")}
-                  icon={<CalendarDays className="h-4 w-4" />}
+                  icon={<CalendarDays className="h-5 w-5" />}
                   emptyTitle="Nothing scheduled"
                   emptyText="Schedule a post and it will show up here."
                   action={{
@@ -1649,7 +1659,7 @@ export default function Home() {
                   title="Comments"
                   meta="0 unanswered"
                   onViewAll={handleViewAllComments}
-                  icon={<MessageCircle className="h-4 w-4" />}
+                  icon={<MessageCircle className="h-5 w-5" />}
                   emptyTitle="No comments yet"
                   emptyText="The latest comments on your posts will appear here."
                 />
