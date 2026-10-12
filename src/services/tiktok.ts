@@ -1,5 +1,12 @@
 // src/services/tiktok.ts
 import { apiRequest } from "./supabase";
+import {
+  clearCache,
+  isAvatarStale,
+  readCache,
+  writeCache,
+  type Connection,
+} from "./channelsCache";
 
 export interface TikTokAccount {
   display_name: string | null;
@@ -112,6 +119,63 @@ export async function completeTikTokLogin(
 
 export async function disconnectTikTok(): Promise<void> {
   await apiRequest("/api/tiktok/disconnect", { method: "DELETE" });
+}
+
+// ── Cache du profil ──────────────────────────────────────────
+
+// Évite plusieurs rafraîchissements simultanés pour un même utilisateur
+// (plusieurs avatars cassés qui déclenchent onError en même temps).
+const inflightRefresh = new Map<string, Promise<Connection | null>>();
+
+/**
+ * Recharge le profil TikTok depuis le backend et met à jour le cache local.
+ * Utile quand l'URL de l'avatar a expiré (les URLs signées TikTok durent
+ * quelques heures).
+ *
+ * - sans option : ne fait rien tant que le cache est récent
+ * - { force: true } : recharge dans tous les cas
+ */
+export async function refreshTikTokCache(
+  userId: string,
+  options: { force?: boolean } = {}
+): Promise<Connection | null> {
+  if (!userId) return null;
+
+  if (!options.force) {
+    const cached = readCache(userId, "tiktok");
+    if (cached && !isAvatarStale(cached)) return cached.connection;
+  }
+
+  const pending = inflightRefresh.get(userId);
+  if (pending) return pending;
+
+  const task = (async () => {
+    try {
+      const status = await getTikTokStatus();
+
+      if (!status.connected) {
+        clearCache(userId, "tiktok");
+        return { connected: false } as Connection;
+      }
+
+      const connection: Connection = {
+        connected: true,
+        handle: status.account?.display_name ?? undefined,
+        avatarUrl: status.account?.avatar_url ?? undefined,
+      };
+
+      writeCache(userId, connection, "tiktok");
+      return connection;
+    } catch (error) {
+      console.warn("[Stone] Could not refresh TikTok cache:", error);
+      return null;
+    } finally {
+      inflightRefresh.delete(userId);
+    }
+  })();
+
+  inflightRefresh.set(userId, task);
+  return task;
 }
 
 // ── Publication ──────────────────────────────────────────────
