@@ -2514,7 +2514,7 @@ export default function DashboardSidebar({
           aria-hidden="true"
           onClick={() => setMobileOpen(false)}
           className="sb-backdrop fixed inset-0 z-30 bg-slate-950/40 backdrop-blur-[2px]"
-        >
+        />
       )}
 
       <div
