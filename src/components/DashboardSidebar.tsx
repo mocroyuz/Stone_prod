@@ -73,120 +73,25 @@ import {
 } from "../services/channelsCache";
 
 /* ============================================================================
-   Types
+   Design system
+   ----------------------------------------------------------------------------
+   Direction artistique « professionnelle » :
+   - Palette neutre slate, un seul accent (indigo) réservé aux états actifs
+     et à la barre de progression du plan.
+   - Interactions sobres : pas de scale au clic, pas de rotation d'icônes,
+     pas de springs exagérés. Les transitions restent courtes (150-200 ms).
+   - Hiérarchie : titres de section en petites capitales, rayon modéré
+     (rounded-lg), espacement régulier de 8 px.
+   - Les icônes restent fixes ; seul un léger gain d'opacité au survol.
 ============================================================================ */
 
-type IconProps = {
-  className?: string;
-};
+const SIDEBAR_WIDTH_MS = 300;
+const LABEL_DELAY_MS = 90;
 
-type IconComponent = (props: IconProps) => React.ReactElement;
-
-type NavChild = {
-  label: string;
-  route: string;
-};
-
-type NavItem = {
-  label: string;
-  icon: IconComponent;
-  route?: string;
-  badge?: string;
-  children?: NavChild[];
-};
-
-type NavSection = {
-  label: string;
-  items: NavItem[];
-};
-
-type MenuItem = {
-  label: string;
-  icon: IconComponent;
-  badge?: string;
-  route?: string;
-  action?: "logout" | "toggleTheme";
-  /** Entrée visible mais pas encore disponible (pas de clic mort). */
-  disabled?: boolean;
-};
-
-type ThemeTokens = {
-  aside: string;
-  brand: string;
-  divider: string;
-  navActive: string;
-  navIdle: string;
-  handle: string;
-  count: string;
-  dotRing: string;
-  rail: string;
-  sub: string;
-  subActive: string;
-  row: string;
-  rowOpen: string;
-  avatar: string;
-  title: string;
-  muted: string;
-  menu: string;
-  menuDivider: string;
-  menuItem: string;
-  menuIcon: string;
-  upgrade: string;
-  badge: string;
-  ring: string;
-  /** Accent monochrome (blanc en sombre, noir en clair) : barres, points, jauge. */
-  accent: string;
-  /** Bouton plein monochrome (ex. Upgrade quand la limite est atteinte). */
-  accentSolid: string;
-  /** Anneau d'avatar au survol. */
-  avatarRing: string;
-  /** Bordure au survol (état vide). */
-  hoverBorder: string;
-};
-
-type ToggleOrigin = {
-  x: number;
-  y: number;
-};
-
-type ToggleThemeFn = (origin?: ToggleOrigin) => void;
-
-/** Réponse des endpoints /status (TikTok, Pinterest, YouTube). */
-type StatusResponse = {
-  connected: boolean;
-  account:
-    | {
-        display_name?: string | null;
-        avatar_url?: string | null;
-        avatarUrl?: string | null;
-      }
-    | null
-    | undefined;
-};
-
-/* ============================================================================
-   Animation de la sidebar
-   L'animation est un événement de la sidebar (ouverture / fermeture), pas
-   une animation permanente de l'interface : aucun effet de scale au hover.
-
-   Ouverture (~420 ms) : le cadre s'élargit, puis les textes font un fade +
-   slide de 8 px (avec un léger décalage par ligne).
-   Fermeture : les textes disparaissent très vite, puis la largeur revient
-   à 68 px. Les icônes ne bougent jamais.
-============================================================================ */
-
-const SIDEBAR_WIDTH_MS = 420;
-const LABEL_DELAY_MS = 120;
-
-/**
- * Délai de stagger des sous-liens.
- * Le délai ne concerne QUE opacity + transform (slide d'ouverture) : les
- * couleurs / fonds (hover) réagissent immédiatement. L'ordre correspond à
- * `transition-[background-color,color,opacity,transform]`.
- */
+/** Délai de stagger des sous-liens (opacity + transform uniquement). */
 function subLinkDelay(isOpen: boolean, index: number): string {
   if (!isOpen) return "0ms";
-  const d = `${80 + index * 45}ms`;
+  const d = `${60 + index * 30}ms`;
   return `0ms, 0ms, ${d}, ${d}`;
 }
 
@@ -196,39 +101,18 @@ function subLinkDelay(isOpen: boolean, index: number): string {
 
 const SIDEBAR_KEYFRAMES = `
 @keyframes sbMenuIn {
-  from {
-    opacity: 0;
-    transform: translateY(8px) scale(0.97);
-  }
-
-  to {
-    opacity: 1;
-    transform: none;
-  }
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
 }
 
 @keyframes sbItemIn {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-
-  to {
-    opacity: 1;
-    transform: none;
-  }
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
 }
 
 @keyframes sbTipIn {
-  from {
-    opacity: 0;
-    transform: translate(-4px, -50%);
-  }
-
-  to {
-    opacity: 1;
-    transform: translate(0, -50%);
-  }
+  from { opacity: 0; transform: translate(-4px, -50%); }
+  to { opacity: 1; transform: translate(0, -50%); }
 }
 
 @keyframes sbFadeIn {
@@ -236,23 +120,12 @@ const SIDEBAR_KEYFRAMES = `
   to { opacity: 1; }
 }
 
-.sb-menu {
-  animation: sbMenuIn 180ms cubic-bezier(0.32, 0.72, 0, 1) both;
-}
+.sb-menu { animation: sbMenuIn 140ms ease-out both; }
+.sb-item { animation: sbItemIn 160ms ease-out both; }
+.sb-tip { animation: sbTipIn 120ms ease-out both; }
+.sb-backdrop { animation: sbFadeIn 160ms ease-out both; }
 
-.sb-item {
-  animation: sbItemIn 240ms cubic-bezier(0.32, 0.72, 0, 1) both;
-}
-
-.sb-tip {
-  animation: sbTipIn 140ms cubic-bezier(0.32, 0.72, 0, 1) both;
-}
-
-.sb-backdrop {
-  animation: sbFadeIn 200ms ease-out both;
-}
-
-/* Hover de navigation explicite : ne dépend pas uniquement des classes Tailwind. */
+/* Hover de navigation explicite, indépendant de Tailwind. */
 #app-sidebar nav button:hover {
   background-color: var(--sidebar-hover-bg) !important;
 }
@@ -278,33 +151,20 @@ const SIDEBAR_KEYFRAMES = `
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .sb-menu,
-  .sb-item,
-  .sb-tip,
-  .sb-backdrop {
-    animation: none;
-  }
+  .sb-menu, .sb-item, .sb-tip, .sb-backdrop { animation: none; }
 }
 `;
 
 /* ============================================================================
-   Raccourcis clavier
-   - Ctrl/⌘ + B : réduire / ouvrir la sidebar
-   - Alt (⌥ sur Mac) + lettre : chaque partie de la sidebar
-
-   Ctrl + T / N / L / S / P / F / D / U / H sont réservés par le navigateur
-   (nouvel onglet, fenêtre, barre d'adresse, enregistrer, imprimer…) : ils
-   ne peuvent pas être interceptés de façon fiable. Alt + lettre est libre.
-   On lit `event.code` car ⌥ + lettre produit un autre caractère sur Mac.
+   Raccourcis clavier (inchangés)
+   Ctrl/⌘ + B : réduire / ouvrir ; Alt + lettre : navigation.
 ============================================================================ */
 
 const IS_MAC =
   typeof navigator !== "undefined" && /mac|iphone|ipad/i.test(navigator.platform);
 
-/** Libellé du raccourci clavier de la sidebar selon la plateforme. */
 const TOGGLE_SHORTCUT_LABEL = IS_MAC ? "⌘B" : "Ctrl B";
 
-/** lettre → route */
 const SHORTCUT_ROUTES: Record<string, string> = {
   h: "home",
   d: "schedule",
@@ -317,29 +177,24 @@ const SHORTCUT_ROUTES: Record<string, string> = {
   i: "integrations",
 };
 
-/** Libellé affiché : "Alt S" ou "⌥S". */
 function shortcutLabel(key: string): string {
   return IS_MAC ? `⌥${key.toUpperCase()}` : `Alt ${key.toUpperCase()}`;
 }
 
-/** Valeur ARIA : "Alt+S". */
 function ariaShortcut(key: string): string {
   return `Alt+${key.toUpperCase()}`;
 }
 
-/** Lettre associée à une route (undefined si aucune). */
 function shortcutKeyForRoute(route?: string): string | undefined {
   if (!route) return undefined;
   return Object.entries(SHORTCUT_ROUTES).find(([, r]) => r === route)?.[0];
 }
 
-/** Raccourci associé à une route (undefined si aucun). */
 function shortcutForRoute(route?: string): string | undefined {
   const key = shortcutKeyForRoute(route);
   return key ? shortcutLabel(key) : undefined;
 }
 
-/** Lettre pressée, fiable même avec ⌥ sur Mac (event.code). */
 function shortcutKey(event: KeyboardEvent): string {
   return /^Key[A-Z]$/.test(event.code) ? event.code.slice(3).toLowerCase() : "";
 }
@@ -352,12 +207,11 @@ function isTypingTarget(target: EventTarget | null): boolean {
   );
 }
 
-/** Petite pastille « touche » affichée à côté des libellés. */
 function Kbd({ children, className }: { children: ReactNode; className?: string }) {
   return (
     <kbd
       className={[
-        "select-none rounded-md px-1.5 py-0.5 font-sans text-[10px] font-semibold",
+        "select-none rounded px-1.5 py-0.5 font-sans text-[10px] font-semibold",
         className,
       ].join(" ")}
     >
@@ -395,6 +249,9 @@ function useIsMobile(): boolean {
    Icons
 ============================================================================ */
 
+type IconProps = { className?: string };
+type IconComponent = (props: IconProps) => React.ReactElement;
+
 function Svg({
   className = "h-4 w-4",
   children,
@@ -407,7 +264,7 @@ function Svg({
       className={["select-none", className].join(" ")}
       fill="none"
       stroke="currentColor"
-      strokeWidth="1.8"
+      strokeWidth="1.7"
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"
@@ -546,7 +403,7 @@ function SidebarToggleIcon({
         fill="currentColor"
         stroke="none"
         className={[
-          "transition-opacity duration-300",
+          "transition-opacity duration-200",
           "motion-reduce:transition-none",
           open ? "opacity-30" : "opacity-0",
         ].join(" ")}
@@ -566,16 +423,12 @@ function ChevronDownIcon(props: IconProps) {
 }
 
 /* ============================================================================
-   Tooltip flottant (portal)
-   La nav a overflow hidden : un tooltip absolu serait rogné. On le rend donc
-   dans document.body, en position fixed, calée sur le bord droit de l'élément.
+   Tooltip flottant (portal) — inchangé en comportement, style épuré.
 ============================================================================ */
 
 type TipProps = {
   label: string;
-  /** Raccourci clavier affiché à droite du libellé (optionnel). */
   shortcut?: string;
-  /** Tooltip actif uniquement quand la sidebar est réduite. */
   enabled: boolean;
   menuClass: string;
   countClass: string;
@@ -640,7 +493,7 @@ function Tip({
               "sb-tip pointer-events-none fixed z-[70] -translate-y-1/2",
               "flex items-center gap-2",
               "whitespace-nowrap rounded-lg border px-2.5 py-1.5",
-              "text-[11.5px] font-medium",
+              "text-[11.5px] font-medium shadow-sm",
               menuClass,
             ].join(" ")}
           >
@@ -654,12 +507,100 @@ function Tip({
 }
 
 /* ============================================================================
+   Types de navigation
+============================================================================ */
+
+type NavChild = {
+  label: string;
+  route: string;
+};
+
+type NavItem = {
+  label: string;
+  icon: IconComponent;
+  route?: string;
+  badge?: string;
+  children?: NavChild[];
+};
+
+type NavSection = {
+  label: string;
+  items: NavItem[];
+};
+
+type MenuItem = {
+  label: string;
+  icon: IconComponent;
+  badge?: string;
+  route?: string;
+  action?: "logout" | "toggleTheme";
+  disabled?: boolean;
+};
+
+type ThemeTokens = {
+  aside: string;
+  brand: string;
+  divider: string;
+  navActive: string;
+  navIdle: string;
+  handle: string;
+  count: string;
+  dotRing: string;
+  rail: string;
+  sub: string;
+  subActive: string;
+  row: string;
+  rowOpen: string;
+  avatar: string;
+  title: string;
+  muted: string;
+  menu: string;
+  menuDivider: string;
+  menuItem: string;
+  menuIcon: string;
+  upgrade: string;
+  badge: string;
+  ring: string;
+  /** Accent de marque (indigo) : barre active, jauge, points. */
+  accent: string;
+  /** Texte de l'accent. */
+  accentText: string;
+  /** Bouton plein accent (ex. Upgrade quand la limite est atteinte). */
+  accentSolid: string;
+  /** Point de statut « connecté » (vert). */
+  statusOn: string;
+  avatarRing: string;
+  hoverBorder: string;
+  sectionLabel: string;
+};
+
+type ToggleOrigin = {
+  x: number;
+  y: number;
+};
+
+type ToggleThemeFn = (origin?: ToggleOrigin) => void;
+
+/** Réponse des endpoints /status (TikTok, Pinterest, YouTube). */
+type StatusResponse = {
+  connected: boolean;
+  account:
+    | {
+        display_name?: string | null;
+        avatar_url?: string | null;
+        avatarUrl?: string | null;
+      }
+    | null
+    | undefined;
+};
+
+/* ============================================================================
    Navigation data
 ============================================================================ */
 
 const navSections: NavSection[] = [
   {
-    label: "General",
+    label: "Workspace",
     items: [
       { label: "Home", icon: HomeIcon, route: "home" },
       { label: "Calendar", icon: CalendarIcon, route: "schedule" },
@@ -695,6 +636,8 @@ const menuGroups: MenuItem[][] = [
 
 /* ============================================================================
    Navigation item
+   État actif : fond neutre discret + barre accent de 3 px. Pas de scale au
+   clic, pas de déplacement d'icône : juste un gain d'opacité au survol.
 ============================================================================ */
 
 type NavItemViewProps = {
@@ -730,12 +673,10 @@ function NavItemViewImpl({
   const shortcut = shortcutForRoute(item.route);
   const shortcutLetter = shortcutKeyForRoute(item.route);
 
-  /* Ouverture : le stagger part après le début de l'élargissement.
-     Fermeture : aucun délai, les textes disparaissent immédiatement. */
   const labelStyle = {
     transitionDelay: isCollapsed
       ? "0ms"
-      : `${LABEL_DELAY_MS + index * 35}ms`,
+      : `${LABEL_DELAY_MS + index * 25}ms`,
   };
 
   const isActive =
@@ -779,36 +720,30 @@ function NavItemViewImpl({
           "group relative flex h-9 w-full",
           "select-none",
           "items-center gap-2.5 overflow-hidden",
-          "rounded-xl px-3",
-          "text-[12.5px] font-medium",
-          "transition-[background-color,color,transform]",
-          "duration-200",
-          "active:scale-[0.97]",
+          "rounded-lg px-3",
+          "text-[13px] font-medium",
+          "transition-colors duration-150",
           "motion-reduce:transition-none",
-          "motion-reduce:active:scale-100",
           focus,
           isActive ? t.navActive : t.navIdle,
         ].join(" ")}
       >
-        {/* Barre d'état actif : arrondie, à gauche de la ligne. */}
+        {/* Barre d'état actif : accent de marque, à gauche de la ligne. */}
         {isActive && (
           <span
             aria-hidden="true"
             className={[
-              "absolute left-1 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-full",
+              "absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full",
               t.accent,
             ].join(" ")}
           />
         )}
 
-        {/* Icône : pas de scale, mais elle passe en pleine opacité au hover. */}
         <span
           className={[
             "relative flex shrink-0 select-none",
-            "transition-[opacity,transform] duration-200 motion-reduce:transition-none",
-            isActive
-              ? "opacity-100"
-              : "opacity-70 group-hover:translate-x-0.5 group-hover:opacity-100 motion-reduce:group-hover:translate-x-0",
+            "transition-opacity duration-150 motion-reduce:transition-none",
+            isActive ? "opacity-100" : "opacity-60 group-hover:opacity-100",
           ].join(" ")}
         >
           <Icon className="h-[18px] w-[18px]" />
@@ -843,8 +778,8 @@ function NavItemViewImpl({
             style={labelStyle}
             className={[
               "select-none",
-              "rounded-md px-1.5 py-0.5",
-              "text-[10.5px] font-medium",
+              "rounded px-1.5 py-0.5",
+              "text-[10.5px] font-semibold",
               t.count,
               labelClass,
             ].join(" ")}
@@ -860,9 +795,8 @@ function NavItemViewImpl({
           >
             <ChevronDownIcon
               className={[
-                "h-4 w-4",
-                "transition-transform duration-300",
-                "ease-[cubic-bezier(0.34,1.56,0.64,1)]",
+                "h-4 w-4 opacity-50",
+                "transition-transform duration-200 ease-out",
                 "motion-reduce:transition-none",
                 isOpen ? "rotate-180" : "",
               ].join(" ")}
@@ -876,8 +810,8 @@ function NavItemViewImpl({
           className={[
             "grid",
             "transition-[grid-template-rows]",
-            "duration-300",
-            "ease-[cubic-bezier(0.4,0,0.2,1)]",
+            "duration-200",
+            "ease-out",
             "motion-reduce:transition-none",
             isOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
           ].join(" ")}
@@ -885,7 +819,7 @@ function NavItemViewImpl({
           <div className="overflow-hidden">
             <div
               className={[
-                "ml-[22px] mt-1 flex",
+                "ml-[21px] mt-1 flex",
                 "flex-col gap-0.5",
                 "border-l pl-[13px]",
                 t.rail,
@@ -909,16 +843,15 @@ function NavItemViewImpl({
                       "select-none",
                       "items-center",
                       "whitespace-nowrap",
-                      "rounded-lg px-2",
+                      "rounded-md px-2",
                       "text-left text-[12.5px]",
                       "font-medium",
                       "transition-[background-color,color,opacity,transform]",
-                      "duration-300",
-                      "ease-[cubic-bezier(0.32,0.72,0,1)]",
+                      "duration-200 ease-out",
                       "motion-reduce:transition-none",
                       isOpen
                         ? "translate-x-0 opacity-100"
-                        : "-translate-x-2 opacity-0",
+                        : "-translate-x-1.5 opacity-0",
                       focus,
                       childActive ? t.subActive : t.sub,
                     ].join(" ")}
@@ -939,6 +872,8 @@ const NavItemView = memo(NavItemViewImpl);
 
 /* ============================================================================
    Section Channels (réseaux connectés)
+   UX : point de statut vert « connecté » sur l'avatar, popover au survol
+   quand la sidebar est réduite (comportement inchangé).
 ============================================================================ */
 
 type NetworkKey =
@@ -1041,7 +976,6 @@ const CHANNEL_LINKS: {
   route: string;
   icon: IconComponent;
   badge?: string;
-  /** Le lien porte le canal : /#/<route>?channel=<key> */
   perChannel?: boolean;
 }[] = [
   { label: "Publish", route: "schedule", icon: PublishIcon },
@@ -1060,7 +994,6 @@ const CHANNEL_LINKS: {
   },
 ];
 
-/** Routes dont le canal ouvert est porté par le hash (?channel=<key>). */
 const CHANNEL_ROUTES = new Set(["insights", "community"]);
 
 function ChannelAvatar({
@@ -1072,7 +1005,6 @@ function ChannelAvatar({
   channel: ConnectedChannel;
   NetworkIcon?: IconComponent;
   dotRing: string;
-  /** Anneau affiché au survol de la ligne parente (classe `group-hover:ring-…`). */
   ringClass?: string;
 }) {
   const [failed, setFailed] = useState(false);
@@ -1095,16 +1027,16 @@ function ChannelAvatar({
           onError={() => setFailed(true)}
           className={[
             "h-full w-full select-none rounded-full object-cover",
-            "ring-2 ring-transparent transition-shadow duration-200",
+            "ring-2 ring-transparent transition-shadow duration-150",
             ringClass,
           ].join(" ")}
         />
       ) : (
         <span
           className={[
-            "flex h-full w-full items-center justify-center rounded-full bg-neutral-700",
+            "flex h-full w-full items-center justify-center rounded-full bg-slate-600",
             "text-[10px] font-semibold text-white",
-            "ring-2 ring-transparent transition-shadow duration-200",
+            "ring-2 ring-transparent transition-shadow duration-150",
             ringClass,
           ].join(" ")}
         >
@@ -1116,7 +1048,7 @@ function ChannelAvatar({
         <span
           className={[
             "absolute -bottom-1 -right-1 flex h-3.5 w-3.5 items-center justify-center",
-            "rounded-[4px] bg-white text-black ring-2",
+            "rounded-[4px] bg-white text-slate-900 ring-2",
             dotRing,
           ].join(" ")}
         >
@@ -1128,20 +1060,9 @@ function ChannelAvatar({
 }
 
 /* ============================================================================
-   Popover au survol / focus d'une ligne de canal (style TikTok)
+   Popover au survol / focus d'une ligne de canal
    Nom du compte en tête, puis liens rapides Publish / Community / Insights.
-   Rendu en portal (document.body) car la nav a overflow hidden : il est donc
-   visible même quand la sidebar est réduite.
-
-   - Le survol couvre toute la ligne (pas seulement l'avatar).
-   - Actif uniquement quand la sidebar est réduite : ouverte, les sous-liens
-     sont déjà visibles dans la ligne dépliable.
-   - Clavier : le focus sur la ligne ouvre le popover, → ou Entrée-sur-flèche
-     place le focus dans le menu, ↑/↓ naviguent, Échap / ← referment et
-     rendent le focus à la ligne.
-   - stopPropagation sur le clic : les événements React remontent à travers
-     les portals, sans ça un clic dans le popover déclencherait aussi le
-     bouton de la ligne.
+   Comportement clavier inchangé (→ Entrée, ↑/↓, Échap / ←).
 ============================================================================ */
 
 const HOVER_CARD_SHOW_MS = 200;
@@ -1178,7 +1099,6 @@ function ChannelHoverCard({
   const hideTimer = useRef<number | undefined>(undefined);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
 
-  /* Annule une fermeture en cours (la souris revient sur le popover). */
   const cancelHide = useCallback(() => {
     window.clearTimeout(hideTimer.current);
   }, []);
@@ -1196,8 +1116,6 @@ function ChannelHoverCard({
     showTimer.current = window.setTimeout(openNow, HOVER_CARD_SHOW_MS);
   }, [cancelHide, enabled, openNow]);
 
-  /* Petit délai avant fermeture : on peut glisser la souris de la ligne
-     vers le popover sans qu'il disparaisse. */
   const hide = useCallback(() => {
     window.clearTimeout(showTimer.current);
     hideTimer.current = window.setTimeout(() => setPos(null), HOVER_CARD_HIDE_MS);
@@ -1218,7 +1136,6 @@ function ChannelHoverCard({
     });
   }, []);
 
-  /* La sidebar s'ouvre : le popover n'a plus lieu d'être. */
   useEffect(() => {
     if (!enabled) {
       window.clearTimeout(showTimer.current);
@@ -1237,7 +1154,6 @@ function ChannelHoverCard({
   const onAnchorBlur = (event: React.FocusEvent) => {
     const next = event.relatedTarget as Node | null;
 
-    // Le focus reste dans la ligne ou dans le popover : on ne ferme pas.
     if (
       next &&
       (anchorRef.current?.contains(next) || popRef.current?.contains(next))
@@ -1249,7 +1165,6 @@ function ChannelHoverCard({
   };
 
   const onAnchorKeyDown = (event: React.KeyboardEvent) => {
-    // Les événements du popover (portal) remontent ici : on ne traite que la ligne.
     if (!anchorRef.current?.contains(event.target as Node)) return;
 
     if (event.key === "Escape" && pos) {
@@ -1318,7 +1233,7 @@ function ChannelHoverCard({
             onKeyDown={onPopKeyDown}
             onClick={(event) => event.stopPropagation()}
             className={[
-              "sb-menu fixed z-[70] w-[196px] overflow-hidden rounded-2xl border p-2",
+              "sb-menu fixed z-[70] w-[196px] overflow-hidden rounded-xl border p-2 shadow-xl",
               t.menu,
             ].join(" ")}
           >
@@ -1338,6 +1253,7 @@ function ChannelHoverCard({
               >
                 {label.replace(/^@/, "")}
               </span>
+              <span className={["h-1.5 w-1.5 rounded-full", t.statusOn].join(" ")} />
             </div>
 
             <div className={["border-t pt-1", t.menuDivider].join(" ")} />
@@ -1351,7 +1267,6 @@ function ChannelHoverCard({
                   ? `${link.route}?channel=${encodeURIComponent(channel.key)}`
                   : link.route;
 
-                // Un lien "par canal" n'est actif que pour le canal ouvert.
                 const active = link.perChannel
                   ? link.route === currentRoute &&
                     (hashChannel === null
@@ -1371,7 +1286,7 @@ function ChannelHoverCard({
                     }}
                     className={[
                       "group flex h-8 w-full select-none items-center gap-2.5 whitespace-nowrap",
-                      "rounded-lg px-2 text-left text-[12.5px] font-medium",
+                      "rounded-md px-2 text-left text-[12.5px] font-medium",
                       "transition-colors duration-150 motion-reduce:transition-none",
                       focus,
                       active ? t.subActive : t.sub,
@@ -1379,17 +1294,15 @@ function ChannelHoverCard({
                   >
                     <Icon
                       className={[
-                        "h-4 w-4 shrink-0 transition-[opacity,transform] duration-150 motion-reduce:transition-none",
-                        active
-                          ? "opacity-100"
-                          : "opacity-60 group-hover:translate-x-0.5 group-hover:opacity-100",
+                        "h-4 w-4 shrink-0 transition-opacity duration-150 motion-reduce:transition-none",
+                        active ? "opacity-100" : "opacity-60 group-hover:opacity-100",
                       ].join(" ")}
                     />
                     <span className="flex-1">{link.label}</span>
                     {link.badge && (
                       <span
                         className={[
-                          "rounded-full px-2 py-0.5 text-[10.5px] font-semibold",
+                          "rounded px-1.5 py-0.5 text-[10.5px] font-semibold",
                           t.badge,
                         ].join(" ")}
                       >
@@ -1424,7 +1337,6 @@ function SidebarChannelsImpl({
     channelsMemory.open = openKeys;
   }, [openKeys]);
 
-  // currentRoute change à chaque navigation : on relit le canal du hash au rendu.
   const hashChannel = CHANNEL_ROUTES.has(currentRoute) ? getHashChannel() : null;
 
   const toggleKey = (key: string) =>
@@ -1449,18 +1361,14 @@ function SidebarChannelsImpl({
         aria-hidden={isCollapsed}
         className={[
           "flex items-center justify-between overflow-hidden whitespace-nowrap px-3",
-          "transition-[height,margin,opacity] duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]",
+          "transition-[height,margin,opacity] duration-200 ease-out",
           "motion-reduce:transition-none",
           isCollapsed
             ? "mb-0 h-0 opacity-0 delay-0"
-            : "mb-1.5 h-6 opacity-100 delay-[120ms]",
+            : "mb-1.5 h-6 opacity-100 delay-[90ms]",
         ].join(" ")}
       >
-        <span
-          className={["select-none text-[12px] font-medium", t.muted].join(" ")}
-        >
-          Channels
-        </span>
+        <span className={t.sectionLabel}>Channels</span>
 
         <span className="flex items-center gap-0.5">
           <button
@@ -1472,18 +1380,18 @@ function SidebarChannelsImpl({
             onClick={onConnect}
             className={headerButton}
           >
-            <PlusIcon className="h-4 w-4 transition-transform duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] group-hover:rotate-90 motion-reduce:transition-none motion-reduce:group-hover:rotate-0" />
+            <PlusIcon className="h-4 w-4" />
           </button>
         </span>
       </div>
 
-      {/* État vide : un appel à l'action clair plutôt qu'une section blanche. */}
+      {/* État vide : appel à l'action clair. */}
       {channels.length === 0 && !isCollapsed && (
         <button
           type="button"
           onClick={onConnect}
           className={[
-            "mt-0.5 flex w-full flex-col items-start gap-1 rounded-xl border border-dashed p-3 text-left",
+            "mt-0.5 flex w-full flex-col items-start gap-1 rounded-lg border border-dashed p-3 text-left",
             t.hoverBorder,
             "transition-colors duration-150 motion-reduce:transition-none",
             t.rail,
@@ -1508,7 +1416,6 @@ function SidebarChannelsImpl({
           const groupKey = `channel:${channel.key}`;
           const isOpen = openKeys.includes(groupKey) && !isCollapsed;
 
-          // Canal actuellement affiché (Insights / Community) : repère visuel.
           const isActiveChannel =
             CHANNEL_ROUTES.has(currentRoute) &&
             (hashChannel === null
@@ -1517,9 +1424,6 @@ function SidebarChannelsImpl({
 
           return (
             <div key={channel.key}>
-              {/* Le popover couvre toute la ligne (sidebar réduite uniquement) :
-                  il affiche le pseudo + les liens, sans double hover avec un
-                  tooltip. */}
               <ChannelHoverCard
                 channel={channel}
                 label={label}
@@ -1547,10 +1451,9 @@ function SidebarChannelsImpl({
                   }}
                   className={[
                     "group relative flex h-9 w-full select-none items-center gap-2.5 overflow-hidden",
-                    "rounded-xl px-[9px] text-[12.5px] font-medium",
-                    "transition-[background-color,color,transform] duration-200",
-                    "active:scale-[0.97] motion-reduce:transition-none",
-                    "motion-reduce:active:scale-100",
+                    "rounded-lg px-[9px] text-[13px] font-medium",
+                    "transition-colors duration-150",
+                    "motion-reduce:transition-none",
                     focus,
                     isOpen ? t.rowOpen : "",
                     t.navIdle,
@@ -1560,7 +1463,7 @@ function SidebarChannelsImpl({
                     <span
                       aria-hidden="true"
                       className={[
-                        "absolute left-1 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-full",
+                        "absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full",
                         t.accent,
                       ].join(" ")}
                     />
@@ -1570,7 +1473,7 @@ function SidebarChannelsImpl({
                     channel={channel}
                     NetworkIcon={NetworkIcon}
                     dotRing={t.dotRing}
-                ringClass={t.avatarRing}
+                    ringClass={t.avatarRing}
                   />
 
                   <span
@@ -1582,12 +1485,17 @@ function SidebarChannelsImpl({
                     {label.replace(/^@/, "")}
                   </span>
 
+                  {/* Point de statut « connecté » : repère fiable, discret. */}
+                  <span
+                    aria-hidden="true"
+                    className={["h-1.5 w-1.5 shrink-0 rounded-full", t.statusOn, labelClass].join(" ")}
+                  />
+
                   <span className={["flex shrink-0", labelClass].join(" ")}>
                     <ChevronDownIcon
                       className={[
                         "h-3.5 w-3.5 opacity-50",
-                        "transition-[transform,opacity] duration-300",
-                        "ease-[cubic-bezier(0.34,1.56,0.64,1)]",
+                        "transition-transform duration-200 ease-out",
                         "group-hover:opacity-100",
                         "motion-reduce:transition-none",
                         isOpen ? "rotate-0 opacity-100" : "-rotate-90",
@@ -1599,8 +1507,8 @@ function SidebarChannelsImpl({
 
               <div
                 className={[
-                  "grid transition-[grid-template-rows] duration-300",
-                  "ease-[cubic-bezier(0.4,0,0.2,1)] motion-reduce:transition-none",
+                  "grid transition-[grid-template-rows] duration-200",
+                  "ease-out motion-reduce:transition-none",
                   isOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
                 ].join(" ")}
               >
@@ -1620,7 +1528,6 @@ function SidebarChannelsImpl({
                           )}`
                         : link.route;
 
-                      // Un lien "par canal" n'est actif que pour le canal ouvert.
                       const active = link.perChannel
                         ? link.route === currentRoute &&
                           (hashChannel === null
@@ -1634,37 +1541,33 @@ function SidebarChannelsImpl({
                           type="button"
                           tabIndex={isOpen ? 0 : -1}
                           aria-current={active ? "page" : undefined}
-                          /* La sidebar reste ouverte : on enchaîne souvent
-                             plusieurs liens du même canal. */
                           onClick={() => onNavigate(target)}
                           style={{
                             transitionDelay: subLinkDelay(isOpen, i),
                           }}
                           className={[
                             "group flex h-8 w-full select-none items-center gap-2.5 whitespace-nowrap",
-                            "rounded-lg px-2 text-left text-[12.5px] font-medium",
-                            "transition-[background-color,color,opacity,transform] duration-300",
-                            "ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none",
+                            "rounded-md px-2 text-left text-[12.5px] font-medium",
+                            "transition-[background-color,color,opacity,transform] duration-200 ease-out",
+                            "motion-reduce:transition-none",
                             isOpen
                               ? "translate-x-0 opacity-100"
-                              : "-translate-x-2 opacity-0",
+                              : "-translate-x-1.5 opacity-0",
                             focus,
                             active ? t.subActive : t.sub,
                           ].join(" ")}
                         >
                           <Icon
                             className={[
-                              "h-4 w-4 shrink-0 transition-[opacity,transform] duration-150 motion-reduce:transition-none",
-                              active
-                                ? "opacity-100"
-                                : "opacity-60 group-hover:translate-x-0.5 group-hover:opacity-100",
+                              "h-4 w-4 shrink-0 transition-opacity duration-150 motion-reduce:transition-none",
+                              active ? "opacity-100" : "opacity-60 group-hover:opacity-100",
                             ].join(" ")}
                           />
                           <span className="flex-1">{link.label}</span>
                           {link.badge && (
                             <span
                               className={[
-                                "rounded-full px-2 py-0.5 text-[10.5px] font-semibold",
+                                "rounded px-1.5 py-0.5 text-[10.5px] font-semibold",
                                 t.badge,
                               ].join(" ")}
                             >
@@ -1696,14 +1599,14 @@ function SidebarChannelsImpl({
             aria-keyshortcuts={ariaShortcut("n")}
             onClick={onConnect}
             className={[
-              "group mt-1 flex h-9 w-full select-none items-center gap-3 rounded-xl px-3",
-              "transition-[background-color,color,transform] duration-200 active:scale-[0.97]",
-              "motion-reduce:transition-none motion-reduce:active:scale-100",
+              "group mt-1 flex h-9 w-full select-none items-center gap-3 rounded-lg px-3",
+              "transition-colors duration-150",
+              "motion-reduce:transition-none",
               focus,
               t.navIdle,
             ].join(" ")}
           >
-            <PlusIcon className="h-[18px] w-[18px] shrink-0 transition-transform duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] group-hover:rotate-90 motion-reduce:transition-none motion-reduce:group-hover:rotate-0" />
+            <PlusIcon className="h-[18px] w-[18px] shrink-0" />
           </button>
         </Tip>
       )}
@@ -1719,7 +1622,6 @@ const SidebarChannels = memo(SidebarChannelsImpl);
 
 const SIDEBAR_STORAGE_KEY = "stone.sidebar.collapsed";
 
-/** Relit la préférence de l'utilisateur (fermée par défaut). */
 function readStoredCollapsed(): boolean {
   if (typeof window === "undefined") return true;
 
@@ -1731,8 +1633,6 @@ function readStoredCollapsed(): boolean {
   }
 }
 
-/* État partagé de la sidebar. Il est initialisé depuis le localStorage :
-   la préférence d'ouverture est conservée d'un rechargement à l'autre. */
 const sidebarMemory = {
   collapsed: readStoredCollapsed(),
   openGroup: null as string | null,
@@ -1747,10 +1647,9 @@ function resetSidebarModuleState() {
   channelsMemory.open = [];
 }
 
-/* Décalage du contenu des pages : sidebar réduite (68px) ou ouverte (200px),
-   plus sa marge gauche (16px) et un espace de respiration. */
-export const SIDEBAR_COLLAPSED_OFFSET = 104;
-export const SIDEBAR_EXPANDED_OFFSET = 232;
+/* Décalage du contenu : rail réduit 72 px, ouverte 224 px, marges incluses. */
+export const SIDEBAR_COLLAPSED_OFFSET = 108;
+export const SIDEBAR_EXPANDED_OFFSET = 256;
 
 const sidebarListeners = new Set<() => void>();
 
@@ -1895,8 +1794,6 @@ export default function DashboardSidebar({
   const [loggingOut, setLoggingOut] = useState(false);
   const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
 
-  /* Sur mobile le tiroir est soit fermé (invisible), soit ouvert en grand :
-     il n'y a pas d'état « réduit à 68 px ». */
   const compact = isMobile ? false : isCollapsed;
   const drawerHidden = isMobile && !mobileOpen;
 
@@ -1918,7 +1815,6 @@ export default function DashboardSidebar({
   const [pendingKey, setPendingKey] = useState<ChannelKey | null>(null);
   const [connectError, setConnectError] = useState<string | null>(null);
 
-  /** Verrou anti double-clic, un par fournisseur OAuth. */
   const oauthBusy = useRef<Record<OAuthProvider, boolean>>({
     tiktok: false,
     pinterest: false,
@@ -1930,10 +1826,7 @@ export default function DashboardSidebar({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  /* --------------------------------------------------------------------------
-     Load profile
-  -------------------------------------------------------------------------- */
-
+  /* Load profile */
   useEffect(() => {
     let mounted = true;
 
@@ -1958,10 +1851,7 @@ export default function DashboardSidebar({
     };
   }, []);
 
-  /* --------------------------------------------------------------------------
-     Sync channel statuses (cache + backend), + parse OAuth return
-  -------------------------------------------------------------------------- */
-
+  /* Sync channel statuses (cache + backend), + parse OAuth return */
   useEffect(() => {
     if (!userId) return;
 
@@ -1996,9 +1886,6 @@ export default function DashboardSidebar({
       if (returned[provider]) clearCache(userId, provider);
     });
 
-    // Nettoyage de l'URL uniquement si on est bien sur la route "channels".
-    // (Les autres pages gèrent leur propre hash — ex. insights?channel=… —
-    // et ne doivent pas être polluées par un replaceState.)
     if (
       (returned.tiktok || returned.pinterest || returned.youtube) &&
       basePath.includes("channels")
@@ -2072,10 +1959,7 @@ export default function DashboardSidebar({
     };
   }, [userId]);
 
-  /* --------------------------------------------------------------------------
-     Sidebar entrance
-  -------------------------------------------------------------------------- */
-
+  /* Sidebar entrance */
   useEffect(() => {
     if (sidebarMemory.entered) {
       return;
@@ -2089,34 +1973,23 @@ export default function DashboardSidebar({
     return () => cancelAnimationFrame(id);
   }, []);
 
-  /* --------------------------------------------------------------------------
-     Persist sidebar state
-  -------------------------------------------------------------------------- */
-
+  /* Persist sidebar state */
   useEffect(() => {
     setSidebarCollapsed(isCollapsed);
     sidebarMemory.openGroup = openGroup;
   }, [isCollapsed, openGroup]);
-
-  /* --------------------------------------------------------------------------
-     Cleanup des timers
-  -------------------------------------------------------------------------- */
 
   useEffect(
     () => () => window.clearTimeout(placeholderTimer.current),
     []
   );
 
-  /* --------------------------------------------------------------------------
-     Navigation : menu du compte et tiroir mobile se ferment tout seuls
-  -------------------------------------------------------------------------- */
-
+  /* Navigation : menu du compte et tiroir mobile se ferment tout seuls */
   useEffect(() => {
     setMenuOpen(false);
     setMobileOpen(false);
   }, [currentRoute]);
 
-  /* Repasse en desktop : le tiroir n'a plus de sens. */
   useEffect(() => {
     if (!isMobile) setMobileOpen(false);
   }, [isMobile]);
@@ -2141,10 +2014,7 @@ export default function DashboardSidebar({
     };
   }, [mobileOpen, menuOpen, connectOpen]);
 
-  /* --------------------------------------------------------------------------
-     Account menu events (clic extérieur, Échap) + focus initial
-  -------------------------------------------------------------------------- */
-
+  /* Account menu events (clic extérieur, Échap) + focus initial */
   useEffect(() => {
     if (!menuOpen) {
       return;
@@ -2166,7 +2036,6 @@ export default function DashboardSidebar({
     document.addEventListener("pointerdown", onPointerDown);
     document.addEventListener("keydown", onKeyDown);
 
-    // Place le focus sur le premier élément : la navigation clavier démarre ici.
     const id = requestAnimationFrame(() => {
       menuRef.current
         ?.querySelector<HTMLElement>('[role="menuitem"]:not([disabled])')
@@ -2208,90 +2077,95 @@ export default function DashboardSidebar({
     []
   );
 
-  /* --------------------------------------------------------------------------
-     Theme tokens
-     Les états hover sont volontairement marqués : en clair, black/[0.04] sur
-     fond blanc était quasi invisible. Le texte change aussi de contraste au
-     survol, pas seulement le fond. Les sous-liens (Publish / Community /
-     Insights) ont un hover un peu plus appuyé que la nav principale.
-  -------------------------------------------------------------------------- */
+  /* ------------------------------------------------------------------------
+     Theme tokens — palette professionnelle
+     Neutres slate, un seul accent indigo. Hovers discrets mais lisibles :
+     en clair, slate-100 ; en sombre, slate-800. Le texte gagne en contraste
+     au survol, pas seulement le fond.
+  ------------------------------------------------------------------------ */
 
   const t = useMemo<ThemeTokens>(
     () =>
       isDark
         ? {
             aside:
-              "border-white/10 bg-[#0a0a0c]/95 backdrop-blur-xl shadow-[0_10px_40px_rgba(0,0,0,0.6)]",
-            brand: "text-white",
-            divider: "bg-white/10",
-            navActive: "bg-[#34343a] text-white",
-            navIdle: "text-white/70 hover:bg-[#34343a] hover:text-white",
+              "border-slate-800 bg-[#0d1117]/95 backdrop-blur-xl shadow-[0_8px_24px_rgba(0,0,0,0.45)]",
+            brand: "text-slate-50",
+            divider: "bg-slate-800",
+            navActive: "bg-slate-800/80 text-slate-50",
+            navIdle: "text-slate-400 hover:bg-slate-800/60 hover:text-slate-100",
             handle:
-              "border-white/15 bg-[#1c1c1c]/90 text-[#d7d7d2] hover:bg-[#262626]",
-            count: "bg-white/10 text-[#d7d7d2]",
-            dotRing: "ring-[#0a0a0c]",
-            rail: "border-white/10",
-            sub: "text-[#99a2a2] hover:bg-[#34343a] hover:text-white",
-            subActive: "bg-[#34343a] text-white",
-            row: "hover:bg-[#34343a]",
-            rowOpen: "bg-[#34343a]",
-            avatar: "bg-[#f0f0ed] text-[#111111]",
-            title: "text-[#f3f3ef]",
-            muted: "text-[#99a2a2]",
-            menu: "border-white/10 bg-[#1c1d1d] text-[#f3f3ef] shadow-[0_18px_40px_rgba(0,0,0,0.55)]",
-            menuDivider: "border-white/10",
+              "border-slate-700 bg-slate-900 text-slate-300 hover:bg-slate-800",
+            count: "bg-slate-800 text-slate-300",
+            dotRing: "ring-[#0d1117]",
+            rail: "border-slate-800",
+            sub: "text-slate-400 hover:bg-slate-800/60 hover:text-slate-100",
+            subActive: "bg-slate-800/80 text-slate-50",
+            row: "hover:bg-slate-800/60",
+            rowOpen: "bg-slate-800/80",
+            avatar: "bg-slate-200 text-slate-900",
+            title: "text-slate-100",
+            muted: "text-slate-500",
+            menu: "border-slate-700 bg-[#111722] text-slate-100 shadow-[0_16px_40px_rgba(0,0,0,0.5)]",
+            menuDivider: "border-slate-800",
             menuItem:
-              "text-[#ecece8] hover:bg-[#34343a] focus-visible:bg-[#34343a]",
-            menuIcon: "text-[#a9aeae] hover:text-white",
+              "text-slate-200 hover:bg-slate-800 focus-visible:bg-slate-800",
+            menuIcon: "text-slate-400 hover:text-slate-100",
             upgrade:
-              "border-white/10 bg-white/[0.04] text-[#f3f3ef] hover:border-white/20 hover:bg-[#34343a]",
-            badge: "bg-white text-black",
-            accent: "bg-white",
+              "border-slate-700 bg-slate-800/60 text-slate-100 hover:border-slate-600 hover:bg-slate-800",
+            badge: "bg-slate-100 text-slate-900",
+            accent: "bg-indigo-500",
+            accentText: "text-indigo-400",
             accentSolid:
-              "border-transparent bg-white text-black hover:bg-white/90",
-            avatarRing: "group-hover:ring-white/60",
-            hoverBorder: "hover:border-white/40",
-            ring: "focus-visible:ring-white/30",
+              "border-transparent bg-indigo-600 text-white hover:bg-indigo-500",
+            statusOn: "bg-emerald-500",
+            avatarRing: "group-hover:ring-slate-500",
+            hoverBorder: "hover:border-slate-600",
+            ring: "focus-visible:ring-indigo-500/60",
+            sectionLabel:
+              "text-[10.5px] font-semibold uppercase tracking-wider text-slate-500",
           }
         : {
             aside:
-              "border-black/10 bg-white/95 backdrop-blur-xl shadow-[0_10px_40px_rgba(20,20,40,0.10)]",
-            brand: "text-[#151515]",
-            divider: "bg-black/[0.07]",
-            navActive: "bg-[#e0e0dc] text-[#151515]",
-            navIdle: "text-[#55544f] hover:bg-[#e0e0dc] hover:text-[#151515]",
+              "border-slate-200 bg-white/95 backdrop-blur-xl shadow-[0_8px_24px_rgba(15,23,42,0.08)]",
+            brand: "text-slate-900",
+            divider: "bg-slate-200",
+            navActive: "bg-slate-100 text-slate-900",
+            navIdle: "text-slate-600 hover:bg-slate-100 hover:text-slate-900",
             handle:
-              "border-black/10 bg-white/90 text-[#4d4d4b] hover:bg-white",
-            count: "bg-black/[0.06] text-[#3f3f3d]",
+              "border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
+            count: "bg-slate-100 text-slate-600",
             dotRing: "ring-white",
-            rail: "border-black/[0.08]",
-            sub: "text-[#71706d] hover:bg-[#e0e0dc] hover:text-[#151515]",
-            subActive: "bg-[#e0e0dc] text-[#151515]",
-            row: "hover:bg-[#e0e0dc]",
-            rowOpen: "bg-[#e0e0dc]",
-            avatar: "bg-[#1d1d1d] text-white",
-            title: "text-[#1b1b1a]",
-            muted: "text-[#71706d]",
-            menu: "border-black/10 bg-white text-[#1a1a1a] shadow-[0_18px_40px_rgba(0,0,0,0.12)]",
-            menuDivider: "border-black/[0.07]",
+            rail: "border-slate-200",
+            sub: "text-slate-500 hover:bg-slate-100 hover:text-slate-900",
+            subActive: "bg-slate-100 text-slate-900",
+            row: "hover:bg-slate-100",
+            rowOpen: "bg-slate-100",
+            avatar: "bg-slate-800 text-white",
+            title: "text-slate-900",
+            muted: "text-slate-500",
+            menu: "border-slate-200 bg-white text-slate-900 shadow-[0_16px_40px_rgba(15,23,42,0.14)]",
+            menuDivider: "border-slate-200",
             menuItem:
-              "text-[#1f1f1e] hover:bg-[#e0e0dc] focus-visible:bg-[#e0e0dc]",
-            menuIcon: "text-[#6b6a67] hover:text-[#151515]",
+              "text-slate-700 hover:bg-slate-100 focus-visible:bg-slate-100",
+            menuIcon: "text-slate-500 hover:text-slate-900",
             upgrade:
-              "border-black/10 bg-[#f6f5f3] text-[#1a1a1a] hover:border-black/20 hover:bg-[#e0e0dc]",
-            badge: "bg-black text-white",
-            accent: "bg-black",
+              "border-slate-200 bg-slate-50 text-slate-900 hover:border-slate-300 hover:bg-slate-100",
+            badge: "bg-slate-900 text-white",
+            accent: "bg-indigo-600",
+            accentText: "text-indigo-600",
             accentSolid:
-              "border-transparent bg-black text-white hover:bg-black/85",
-            avatarRing: "group-hover:ring-black/40",
-            hoverBorder: "hover:border-black/30",
-            ring: "focus-visible:ring-black/20",
+              "border-transparent bg-indigo-600 text-white hover:bg-indigo-500",
+            statusOn: "bg-emerald-500",
+            avatarRing: "group-hover:ring-slate-400",
+            hoverBorder: "hover:border-slate-300",
+            ring: "focus-visible:ring-indigo-500/50",
+            sectionLabel:
+              "text-[10.5px] font-semibold uppercase tracking-wider text-slate-400",
           },
     [isDark]
   );
 
-  /* cursor-pointer : Tailwind (preflight) met cursor:default sur les <button>.
-     `focus` est appliqué à tous les boutons interactifs de la sidebar. */
   const focus = [
     "cursor-pointer",
     "focus-visible:outline-none",
@@ -2299,13 +2173,9 @@ export default function DashboardSidebar({
     t.ring,
   ].join(" ");
 
-  /* --------------------------------------------------------------------------
-     Label animation
-     Ouverture : fade + slide (8 px) après LABEL_DELAY_MS, le temps que le
-                 cadre commence à s'élargir.
-     Fermeture : fade très rapide, sans délai (les textes partent avant la
-                 réduction de largeur).
-  -------------------------------------------------------------------------- */
+  /* ------------------------------------------------------------------------
+     Label animation : ouverture fade + slide léger (4 px), fermeture rapide.
+  ------------------------------------------------------------------------ */
 
   const labelClass = useMemo(
     () =>
@@ -2313,18 +2183,18 @@ export default function DashboardSidebar({
         "select-none",
         "whitespace-nowrap",
         "transition-[opacity,transform]",
-        "ease-[cubic-bezier(0.4,0,0.2,1)]",
+        "ease-out",
         "motion-reduce:transition-none",
         compact
-          ? "-translate-x-2 opacity-0 delay-0 duration-100"
-          : "translate-x-0 opacity-100 delay-[120ms] duration-300",
+          ? "-translate-x-1.5 opacity-0 delay-0 duration-100"
+          : "translate-x-0 opacity-100 delay-[90ms] duration-200",
       ].join(" "),
     [compact]
   );
 
-  /* --------------------------------------------------------------------------
+  /* ------------------------------------------------------------------------
      Sidebar actions
-  -------------------------------------------------------------------------- */
+  ------------------------------------------------------------------------ */
 
   const toggleCollapsed = useCallback(() => {
     setMenuOpen(false);
@@ -2368,10 +2238,6 @@ export default function DashboardSidebar({
     setOpenGroup((current) => (current === label ? null : label));
   }, []);
 
-  /**
-   * Ouvre toujours le modal « Connect a New Channel » (le même composant que
-   * sur /channels). La sidebar ne redirige pas vers /channels.
-   */
   const openConnect = useCallback(() => {
     setMenuOpen(false);
     setConnectError(null);
@@ -2380,11 +2246,7 @@ export default function DashboardSidebar({
 
   const closeConnect = useCallback(() => setConnectOpen(false), []);
 
-  /* Raccourcis Alt (⌥) + touche (ignorés pendant la saisie ou si le modal est ouvert).
-       Alt P       menu du compte
-       Alt N       modal « Connect a channel »
-       Alt H/D/T   Home / Calendar / Templates
-       Alt S/L/U/F/K/I  Settings / Channels / Billing / FAQ / Create / Integrations */
+  /* Raccourcis Alt + touche (comportement inchangé). */
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (!event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
@@ -2396,21 +2258,18 @@ export default function DashboardSidebar({
       const key = shortcutKey(event);
       if (!key) return;
 
-      // Menu du compte
       if (key === "p") {
         event.preventDefault();
         setMenuOpen((value) => !value);
         return;
       }
 
-      // Modal de connexion d'un canal
       if (key === "n") {
         event.preventDefault();
         openConnect();
         return;
       }
 
-      // Pages
       const route = SHORTCUT_ROUTES[key];
 
       if (route) {
@@ -2431,20 +2290,14 @@ export default function DashboardSidebar({
 
   const handleExpand = useCallback(() => setIsCollapsed(false), []);
 
-  /* --------------------------------------------------------------------------
-     Channel connect handlers (self-contained)
-  -------------------------------------------------------------------------- */
+  /* ------------------------------------------------------------------------
+     Channel connect handlers (self-contained) — logique inchangée.
+  ------------------------------------------------------------------------ */
 
   const limitReached =
     Object.values(connections).filter((c) => c.connected).length >=
     PLAN.maxChannels;
 
-  /**
-   * Bascule générique d'un fournisseur OAuth :
-   *  - connecté  → déconnexion + purge du cache
-   *  - sinon     → saisie manuelle de token (si fournie) ou redirection OAuth
-   * `manual` renvoie null quand l'utilisateur annule.
-   */
   const toggleOAuth = async (
     provider: OAuthProvider,
     api: {
@@ -2481,7 +2334,6 @@ export default function DashboardSidebar({
       console.error(`[Stone] ${OAUTH_LABELS[provider]} OAuth error:`, error);
       setConnectError(formatOAuthError(OAUTH_LABELS[provider], error));
     } finally {
-      // En cas de redirection, on garde le verrou : la page va être quittée.
       if (!redirecting) {
         setPendingKey(null);
         oauthBusy.current[provider] = false;
@@ -2561,10 +2413,7 @@ export default function DashboardSidebar({
     }
   };
 
-  /* --------------------------------------------------------------------------
-     Logout
-  -------------------------------------------------------------------------- */
-
+  /* Logout */
   const handleLogout = useCallback(async () => {
     if (loggingOut) {
       return;
@@ -2583,10 +2432,7 @@ export default function DashboardSidebar({
     }
   }, [loggingOut]);
 
-  /* --------------------------------------------------------------------------
-     Account data
-  -------------------------------------------------------------------------- */
-
+  /* Account data */
   let itemIndex = 0;
   let menuItemIndex = 0;
 
@@ -2610,7 +2456,7 @@ export default function DashboardSidebar({
 
   const showAvatarImage = Boolean(account.avatarUrl) && !avatarLoadFailed;
 
-  /* Usage du plan : barre de progression dans le menu du compte. */
+  /* Usage du plan : jauge fine dans le menu du compte. */
   const planMax = Number.isFinite(PLAN.maxChannels) ? PLAN.maxChannels : 0;
   const planPct =
     planMax > 0
@@ -2618,10 +2464,7 @@ export default function DashboardSidebar({
       : 0;
   const planFull = planMax > 0 && account.channels >= planMax;
 
-  /* --------------------------------------------------------------------------
-     Modal props
-  -------------------------------------------------------------------------- */
-
+  /* Modal props */
   const channelConnectProps: Omit<
     ConnectChannelModalProps,
     "isDark" | "onClose"
@@ -2636,7 +2479,6 @@ export default function DashboardSidebar({
     onToggle: handleToggle,
   };
 
-  /* Tiroir fermé : le contenu est retiré du focus et de l'arbre d'accessibilité. */
   const inertProps = drawerHidden
     ? ({ inert: "", "aria-hidden": true } as Record<string, unknown>)
     : {};
@@ -2655,8 +2497,8 @@ export default function DashboardSidebar({
           aria-controls="app-sidebar"
           onClick={() => setMobileOpen(true)}
           className={[
-            "fixed left-3 top-3 z-30 flex h-10 w-10 items-center justify-center rounded-xl border",
-            "transition-transform duration-200 active:scale-[0.94] motion-reduce:transition-none",
+            "fixed left-3 top-3 z-30 flex h-10 w-10 items-center justify-center rounded-lg border",
+            "transition-colors duration-150 motion-reduce:transition-none",
             focus,
             t.aside,
             t.menuIcon,
@@ -2671,8 +2513,8 @@ export default function DashboardSidebar({
         <div
           aria-hidden="true"
           onClick={() => setMobileOpen(false)}
-          className="sb-backdrop fixed inset-0 z-30 bg-black/40 backdrop-blur-[2px]"
-        />
+          className="sb-backdrop fixed inset-0 z-30 bg-slate-950/40 backdrop-blur-[2px]"
+        >
       )}
 
       <div
@@ -2681,47 +2523,48 @@ export default function DashboardSidebar({
           "fixed",
           isMobile ? "inset-y-3 left-3 z-40" : "inset-y-8 left-4 z-20",
           "transition-[opacity,transform]",
-          "duration-500",
-          "ease-[cubic-bezier(0.32,0.72,0,1)]",
+          "duration-300",
+          "ease-out",
           "motion-reduce:transition-none",
           drawerHidden
             ? "pointer-events-none -translate-x-[120%] opacity-0"
             : hasMounted
               ? "translate-x-0 opacity-100"
-              : "-translate-x-6 opacity-0",
+              : "-translate-x-4 opacity-0",
         ].join(" ")}
       >
         <style>{SIDEBAR_KEYFRAMES}</style>
 
         {/*
-          Largeur : 420 ms.
-          - Ouverture : la largeur démarre tout de suite, les textes suivent.
-          - Fermeture : les textes partent en 100 ms, la largeur attend 120 ms.
-          La classe de durée est écrite en dur (Tailwind ne génère pas de
-          classes dynamiques) : garder 420 en phase avec SIDEBAR_WIDTH_MS.
+          Largeur : 300 ms. Ouverture : la largeur démarre, les textes
+          suivent à 90 ms. Fermeture : les textes partent en 100 ms, la
+          largeur attend 90 ms. La durée est en dur : garder 300 en phase
+          avec SIDEBAR_WIDTH_MS.
         */}
         <aside
           id="app-sidebar"
           data-width-ms={SIDEBAR_WIDTH_MS}
           style={
             {
-              "--sidebar-hover-bg": isDark ? "#34343a" : "#e0e0dc",
+              "--sidebar-hover-bg": isDark
+                ? "rgba(30,41,59,0.6)"
+                : "#f1f5f9",
             } as React.CSSProperties
           }
           className={[
             "relative flex h-full flex-col",
-            "overflow-visible rounded-[28px]",
-            "border px-3 py-6",
+            "overflow-visible rounded-xl",
+            "border px-3 py-5",
             "transition-[width,box-shadow]",
-            "duration-[420ms]",
-            "ease-[cubic-bezier(0.4,0,0.2,1)]",
+            "duration-[300ms]",
+            "ease-out",
             "motion-reduce:transition-none",
             t.aside,
             compact
-              ? "w-[68px] delay-[120ms]"
+              ? "w-[72px] delay-[90ms]"
               : isMobile
                 ? "w-[248px] max-w-[calc(100vw-24px)] delay-0"
-                : "w-[200px] delay-0",
+                : "w-[224px] delay-0",
           ].join(" ")}
         >
           {/* Logo */}
@@ -2729,7 +2572,7 @@ export default function DashboardSidebar({
             className={[
               "flex items-center gap-2",
               "select-none",
-              "overflow-hidden px-1.5",
+              "overflow-hidden px-1.5 pb-1",
               t.brand,
             ].join(" ")}
           >
@@ -2737,17 +2580,13 @@ export default function DashboardSidebar({
               src={isDark ? "/images/icon_nav.png" : "/images/icon.png"}
               alt="Stone logo"
               draggable={false}
-              className={[
-                "h-9 w-8 shrink-0 select-none object-contain",
-                "transition-transform duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)]",
-                "hover:-rotate-6 motion-reduce:transition-none motion-reduce:hover:rotate-0",
-              ].join(" ")}
+              className="h-9 w-8 shrink-0 select-none object-contain"
             />
 
             <span
               className={[
                 "select-none",
-                "text-[20px] font-semibold",
+                "text-[19px] font-semibold",
                 "leading-none tracking-tight",
                 labelClass,
               ].join(" ")}
@@ -2759,7 +2598,7 @@ export default function DashboardSidebar({
           {/* Navigation */}
           <nav
             className={[
-              "-mx-1 mt-5 flex min-h-0 flex-1",
+              "-mx-1 mt-4 flex min-h-0 flex-1",
               "flex-col overflow-y-auto",
               "overflow-x-hidden px-1",
               "[scrollbar-width:none]",
@@ -2782,16 +2621,15 @@ export default function DashboardSidebar({
                     "select-none",
                     "overflow-hidden",
                     "whitespace-nowrap",
-                    "px-3 text-[12px]",
-                    "font-medium leading-4",
+                    "px-3 text-[10.5px] font-semibold uppercase tracking-wider leading-4",
                     "transition-[height,margin,opacity,transform]",
-                    "duration-300",
-                    "ease-[cubic-bezier(0.4,0,0.2,1)]",
+                    "duration-200",
+                    "ease-out",
                     "motion-reduce:transition-none",
-                    t.muted,
+                    t.sectionLabel,
                     compact
-                      ? "mb-0 h-0 -translate-x-2 opacity-0 delay-0"
-                      : "mb-1.5 h-4 translate-x-0 opacity-100 delay-[120ms]",
+                      ? "mb-0 h-0 -translate-x-1.5 opacity-0 delay-0"
+                      : "mb-1.5 h-4 translate-x-0 opacity-100 delay-[90ms]",
                   ].join(" ")}
                 >
                   {section.label}
@@ -2873,11 +2711,9 @@ export default function DashboardSidebar({
                 onClick={toggleCollapsed}
                 className={[
                   "group/toggle relative flex shrink-0 select-none",
-                  "items-center justify-center rounded-xl",
-                  "transition-[background-color,color,transform] duration-200",
-                  "active:scale-[0.94]",
+                  "items-center justify-center rounded-lg",
+                  "transition-colors duration-150",
                   "motion-reduce:transition-none",
-                  "motion-reduce:active:scale-100",
                   compact ? "order-first h-9 w-full" : "order-last h-9 w-9",
                   focus,
                   t.menuIcon,
@@ -2896,7 +2732,7 @@ export default function DashboardSidebar({
                     className={[
                       "pointer-events-none absolute z-50 flex items-center gap-2",
                       "whitespace-nowrap rounded-lg border px-2.5 py-1.5",
-                      "text-[11.5px] font-medium",
+                      "text-[11.5px] font-medium shadow-sm",
                       "opacity-0 transition-opacity duration-150 delay-0",
                       "group-hover/toggle:opacity-100 group-hover/toggle:delay-500",
                       "group-focus-visible/toggle:opacity-100",
@@ -2929,7 +2765,7 @@ export default function DashboardSidebar({
                       "z-50 mb-2 w-[264px] max-w-[calc(100vw-48px)]",
                       "origin-bottom-left",
                       "overflow-hidden",
-                      "rounded-[16px]",
+                      "rounded-xl",
                       "border",
                       t.menu,
                     ].join(" ")}
@@ -2983,10 +2819,10 @@ export default function DashboardSidebar({
                             <div
                               className={[
                                 "h-full rounded-full",
-                                "transition-[width] duration-500 motion-reduce:transition-none",
+                                "transition-[width] duration-300 motion-reduce:transition-none",
                                 planFull
                                   ? t.accent
-                                  : "bg-current opacity-60",
+                                  : ["opacity-70", t.accent].join(" "),
                               ].join(" ")}
                               style={{ width: `${planPct}%` }}
                             />
@@ -3005,20 +2841,16 @@ export default function DashboardSidebar({
                           "group mt-3 flex w-full",
                           "select-none",
                           "items-center justify-center",
-                          "gap-2 rounded-[10px]",
+                          "gap-2 rounded-lg",
                           "border px-3 py-2",
                           "text-[12px] font-semibold",
-                          "transition-[background-color,border-color,transform,filter]",
-                          "duration-150",
-                          "active:scale-[0.98]",
+                          "transition-colors duration-150",
                           "motion-reduce:transition-none",
                           focus,
-                          planFull
-                            ? t.accentSolid
-                            : t.upgrade,
+                          planFull ? t.accentSolid : t.upgrade,
                         ].join(" ")}
                       >
-                        <BoltIcon className="h-4 w-4 transition-transform duration-200 group-hover:-rotate-12 motion-reduce:transition-none motion-reduce:group-hover:rotate-0" />
+                        <BoltIcon className="h-4 w-4" />
                         {planFull ? "Upgrade to add more channels" : "Upgrade Plan"}
                       </button>
                     </div>
@@ -3034,7 +2866,7 @@ export default function DashboardSidebar({
                       >
                         {group.map((item) => {
                           const Icon = item.icon;
-                          const delay = 60 + menuItemIndex++ * 25;
+                          const delay = 40 + menuItemIndex++ * 20;
                           const isLogout = item.action === "logout";
                           const isDisabled =
                             Boolean(item.disabled) || (isLogout && loggingOut);
@@ -3055,7 +2887,7 @@ export default function DashboardSidebar({
 
                                 setMenuOpen(false);
 
-                                // Activation au clavier : on rend le focus au déclencheur.
+                                // Activation au clavier : focus rendu au déclencheur.
                                 if (event.detail === 0) {
                                   triggerRef.current?.focus();
                                 }
@@ -3069,15 +2901,14 @@ export default function DashboardSidebar({
                                 "w-full",
                                 "select-none",
                                 "items-center gap-3",
-                                "rounded-[10px]",
+                                "rounded-lg",
                                 "px-2.5 py-2",
                                 "text-left text-[12.5px]",
                                 "font-medium",
-                                "transition-[background-color,transform] duration-150",
-                                "active:scale-[0.98]",
+                                "transition-colors duration-150",
                                 "motion-reduce:transition-none",
                                 "disabled:cursor-not-allowed disabled:opacity-50",
-                                "disabled:hover:bg-transparent disabled:active:scale-100",
+                                "disabled:hover:bg-transparent",
                                 focus,
                                 t.menuItem,
                               ].join(" ")}
@@ -3101,8 +2932,8 @@ export default function DashboardSidebar({
                                 <span
                                   className={[
                                     "select-none",
-                                    "rounded-full",
-                                    "px-2 py-0.5",
+                                    "rounded",
+                                    "px-1.5 py-0.5",
                                     "text-[10px]",
                                     "font-semibold",
                                     t.badge,
@@ -3119,7 +2950,7 @@ export default function DashboardSidebar({
                   </div>
                 )}
 
-                {/* Profile trigger : tooltip stylé (nom + raccourci) quand réduit */}
+                {/* Profile trigger : tooltip quand réduit */}
                 <Tip
                   label={account.name}
                   shortcut={shortcutLabel("p")}
@@ -3141,12 +2972,9 @@ export default function DashboardSidebar({
                       "select-none",
                       "items-center gap-3",
                       "overflow-hidden",
-                      "rounded-xl px-1.5",
-                      "transition-[background-color,transform]",
-                      "duration-200",
-                      "active:scale-[0.97]",
+                      "rounded-lg px-1.5",
+                      "transition-colors duration-150",
                       "motion-reduce:transition-none",
-                      "motion-reduce:active:scale-100",
                       focus,
                       menuOpen ? t.rowOpen : t.row,
                     ].join(" ")}
@@ -3159,7 +2987,7 @@ export default function DashboardSidebar({
                         draggable={false}
                         className={[
                           "h-8 w-8 shrink-0 select-none rounded-full object-cover",
-                          "ring-2 ring-transparent transition-shadow duration-200",
+                          "ring-2 ring-transparent transition-shadow duration-150",
                           t.avatarRing,
                         ].join(" ")}
                         onError={() => setAvatarLoadFailed(true)}
@@ -3168,7 +2996,7 @@ export default function DashboardSidebar({
                       <span
                         className={[
                           "flex h-8 w-8 shrink-0",
-                          "ring-2 ring-transparent transition-shadow duration-200",
+                          "ring-2 ring-transparent transition-shadow duration-150",
                           t.avatarRing,
                           "select-none",
                           "items-center justify-center",
