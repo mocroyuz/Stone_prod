@@ -19,7 +19,14 @@ export type CachedProfile = { connection: Connection; savedAt: number };
 // Alias conservé pour ne pas casser les imports existants.
 export type CachedTikTok = CachedProfile;
 
+// Durée de validité du statut "connecté / déconnecté".
 export const CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000; // 24 h
+
+// Durée après laquelle l'AVATAR doit être revalidé auprès du serveur.
+// Les URLs d'avatar TikTok / Pinterest expirent en quelques heures :
+// on garde le cache pour l'affichage instantané, mais on reconsulte
+// le serveur au moins toutes les heures.
+export const AVATAR_MAX_AGE_MS = 60 * 60 * 1000; // 1 h
 
 // Liste de tous les réseaux qui ont un cache (utile pour les hooks).
 export const CACHE_PROVIDERS: CacheProvider[] = ["tiktok", "youtube", "pinterest"];
@@ -100,4 +107,20 @@ export function clearCache(
   }
 
   notifyChange();
+}
+
+// ── Fraîcheur ────────────────────────────────────────────────
+
+/** Le statut connecté / déconnecté est-il encore valable (24 h) ? */
+export function isCacheFresh(entry: CachedProfile | null): boolean {
+  return Boolean(entry && Date.now() - entry.savedAt < CACHE_MAX_AGE_MS);
+}
+
+/**
+ * L'avatar doit-il être revalidé auprès du serveur (> 1 h) ?
+ * À utiliser dans le hook à la place de CACHE_MAX_AGE_MS pour décider
+ * s'il faut rappeler getTikTokStatus() en arrière-plan.
+ */
+export function isAvatarStale(entry: CachedProfile | null): boolean {
+  return !entry || Date.now() - entry.savedAt >= AVATAR_MAX_AGE_MS;
 }
