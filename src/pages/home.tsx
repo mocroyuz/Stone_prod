@@ -49,7 +49,6 @@ import {
   getTikTokStatus,
   startTikTokLogin,
   disconnectTikTok,
-  refreshTikTokCache,
 } from "../services/tiktok";
 import {
   getPinterestStatus,
@@ -719,7 +718,6 @@ function ChannelsCard({
   used,
   max,
   planName,
-  userId,
   onAdd,
   onManage,
 }: {
@@ -728,7 +726,6 @@ function ChannelsCard({
   used: number;
   max: number;
   planName: string;
-  userId: string | null;
   onAdd: () => void;
   onManage: () => void;
 }) {
@@ -822,15 +819,7 @@ function ChannelsCard({
                       FOCUS
                     )}
                   >
-                    <AccountAvatar
-                      channel={channel}
-                      isDark={isDark}
-                      onBroken={
-                        networkId === "tiktok" && userId
-                          ? () => void refreshTikTokCache(userId, { force: true })
-                          : undefined
-                      }
-                    />
+                    <AccountAvatar channel={channel} isDark={isDark} />
 
                     <div className="min-w-0 flex-1">
                       <p
@@ -1636,7 +1625,6 @@ export default function Home() {
                 used={connectedCount}
                 max={PLAN.maxChannels}
                 planName={PLAN.name}
-                userId={userId}
                 onAdd={openConnectModal}
                 onManage={() => navigate("channels")}
               />
