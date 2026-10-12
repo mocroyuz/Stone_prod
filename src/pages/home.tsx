@@ -49,7 +49,6 @@ import {
   getTikTokStatus,
   startTikTokLogin,
   disconnectTikTok,
-  refreshTikTokCache,
 } from "../services/tiktok";
 import {
   getPinterestStatus,
@@ -63,8 +62,8 @@ import {
   disconnectYouTube,
 } from "../services/youtube";
 import {
+  CACHE_MAX_AGE_MS,
   clearCache,
-  isAvatarStale,
   readCache,
   writeCache,
   type CacheProvider,
@@ -78,12 +77,8 @@ import {
   Check,
   ChevronRight,
   Heart,
-  Link2,
   MessageCircle,
   Plus,
-  Send,
-  TrendingDown,
-  TrendingUp,
   Users,
 } from "lucide-react";
 
@@ -98,50 +93,29 @@ import {
 } from "../components/IntegrationIcons";
 
 /* ============================================================
-   DESIGN TOKENS
-   Un seul endroit pour les classes de thème : surfaces, bordures,
-   textes. Les composants ne contiennent plus de couleurs en dur.
+   LAYOUT
 ============================================================ */
 
-const cx = (...parts: Array<string | false | null | undefined>) =>
-  parts.filter(Boolean).join(" ");
+const cardClass = (isDark: boolean) =>
+  isDark
+    ? "border-white/[0.07] bg-[#141416]"
+    : "border-black/[0.06] bg-white";
 
-const ui = (isDark: boolean) => ({
-  page: isDark ? "bg-[#0a0a0b]" : "bg-[#f6f7f9]",
-  card: isDark
-    ? "border-white/[0.08] bg-[#111113]"
-    : "border-zinc-200 bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04)]",
-  cardHover: isDark ? "hover:bg-white/[0.03]" : "hover:bg-zinc-50",
-  inset: isDark ? "bg-white/[0.04]" : "bg-zinc-100/70",
-  line: isDark ? "border-white/[0.07]" : "border-zinc-200/80",
-  strong: isDark ? "text-zinc-50" : "text-zinc-900",
-  body: isDark ? "text-zinc-300" : "text-zinc-600",
-  muted: isDark ? "text-zinc-500" : "text-zinc-500",
-  iconBox: isDark
-    ? "bg-white/[0.06] text-zinc-200"
-    : "bg-zinc-100 text-zinc-600",
-  ring: isDark ? "ring-[#111113]" : "ring-white",
-});
+/* Fond partagé : panneau Comments / Up Next + bloc Followers / Likes */
+const panelSurfaceClass = (isDark: boolean) =>
+  isDark
+    ? "border-white/[0.07] bg-white/[0.03]"
+    : "border-black/[0.06] bg-neutral-50";
 
-const FOCUS =
-  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/70";
+/* Couleur des anneaux d'avatar = couleur effective du fond panelSurfaceClass */
+const panelRingClass = (isDark: boolean) =>
+  isDark ? "ring-[#101011]" : "ring-neutral-50";
 
-const primaryButton = cx(
-  "inline-flex items-center justify-center gap-2 rounded-lg px-3.5 py-2",
-  "bg-indigo-600 text-[13px] font-semibold text-white shadow-sm",
-  "transition-colors hover:bg-indigo-500 active:bg-indigo-700",
-  FOCUS
-);
+const mutedClass = (isDark: boolean) =>
+  isDark ? "text-neutral-600" : "text-neutral-400";
 
-const secondaryButton = (isDark: boolean) =>
-  cx(
-    "inline-flex items-center justify-center gap-2 rounded-lg border px-3 py-1.5",
-    "text-[13px] font-medium transition-colors",
-    isDark
-      ? "border-white/10 text-zinc-200 hover:bg-white/[0.06]"
-      : "border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50",
-    FOCUS
-  );
+const strongClass = (isDark: boolean) =>
+  isDark ? "text-white" : "text-neutral-900";
 
 /* ============================================================
    USER CACHE
@@ -188,7 +162,7 @@ const OAUTH_PROVIDERS: Record<
 > = {
   tiktok: {
     label: "TikTok",
-    getStatus: () => getTikTokStatus(),
+    getStatus: getTikTokStatus,
     login: startTikTokLogin,
     disconnect: disconnectTikTok,
   },
@@ -258,16 +232,6 @@ const NETWORK_ICONS: Record<
   pinterest: PinterestIcon,
 };
 
-const NETWORK_LABELS: Record<SocialNetworkKey, string> = {
-  x: "X",
-  facebook: "Facebook",
-  instagram: "Instagram",
-  linkedin: "LinkedIn",
-  tiktok: "TikTok",
-  youtube: "YouTube",
-  pinterest: "Pinterest",
-};
-
 function getNetworkId(
   channel: ConnectedChannel
 ): SocialNetworkKey | null {
@@ -289,26 +253,6 @@ function getNetworkId(
 
   return null;
 }
-
-/* ============================================================
-   OVERVIEW (valeurs de démonstration : à brancher sur l'API)
-============================================================ */
-
-// TODO: remplacer par les vraies métriques des comptes connectés.
-const OVERVIEW_STATS = [
-  { key: "followers", label: "Followers", value: "27K", change: "-2%" },
-  { key: "likes", label: "Likes", value: "12.4K", change: "+16%" },
-  { key: "comments", label: "Comments", value: "342", change: "+5%" },
-] as const;
-
-const STAT_ICONS: Record<
-  (typeof OVERVIEW_STATS)[number]["key"],
-  ReactNode
-> = {
-  followers: <Users className="h-4 w-4" />,
-  likes: <Heart className="h-4 w-4" />,
-  comments: <MessageCircle className="h-4 w-4" />,
-};
 
 /* ============================================================
    BLOG
@@ -376,94 +320,7 @@ function getGreeting(date: Date = new Date()): string {
 }
 
 /* ============================================================
-   PRIMITIVES
-============================================================ */
-
-function Card({
-  isDark,
-  className,
-  children,
-}: {
-  isDark: boolean;
-  className?: string;
-  children: ReactNode;
-}) {
-  return (
-    <section
-      className={cx("min-w-0 rounded-xl border", ui(isDark).card, className)}
-    >
-      {children}
-    </section>
-  );
-}
-
-function CardHeader({
-  isDark,
-  title,
-  description,
-  action,
-}: {
-  isDark: boolean;
-  title: string;
-  description?: string;
-  action?: ReactNode;
-}) {
-  const t = ui(isDark);
-
-  return (
-    <div className="flex items-start justify-between gap-4 px-5 pt-5">
-      <div className="min-w-0">
-        <h2
-          className={cx(
-            "text-[15px] font-semibold tracking-[-0.01em]",
-            t.strong
-          )}
-        >
-          {title}
-        </h2>
-
-        {description && (
-          <p className={cx("mt-0.5 text-[13px]", t.muted)}>{description}</p>
-        )}
-      </div>
-
-      {action}
-    </div>
-  );
-}
-
-function TextLink({
-  isDark,
-  onClick,
-  children,
-}: {
-  isDark: boolean;
-  onClick?: () => void;
-  children: ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={!onClick}
-      className={cx(
-        "inline-flex shrink-0 items-center gap-0.5 rounded-md px-1.5 py-1",
-        "text-[13px] font-medium transition-colors",
-        "disabled:cursor-default disabled:opacity-40",
-        isDark
-          ? "text-zinc-400 enabled:hover:text-white"
-          : "text-zinc-500 enabled:hover:text-zinc-900",
-        FOCUS
-      )}
-    >
-      {children}
-      <ChevronRight className="h-3.5 w-3.5" />
-    </button>
-  );
-}
-
-/* ============================================================
-   AVATARS
+   AVATAR
 ============================================================ */
 
 function GreetingAvatar({
@@ -486,104 +343,77 @@ function GreetingAvatar({
       <img
         src={avatarUrl}
         alt="Profile"
-        referrerPolicy="no-referrer"
         onError={() => setFailed(true)}
-        className="h-11 w-11 rounded-full object-cover"
+        className="h-9 w-9 rounded-full object-cover"
       />
     );
   }
 
   return (
     <div
-      className={cx(
-        "flex h-11 w-11 items-center justify-center rounded-full",
-        "text-[14px] font-semibold",
-        isDark ? "bg-indigo-500/20 text-indigo-200" : "bg-indigo-100 text-indigo-700"
-      )}
+      className={[
+        "flex h-9 w-9 items-center justify-center rounded-full",
+        "text-[12px] font-semibold",
+        isDark
+          ? "bg-white text-black"
+          : "bg-neutral-900 text-white",
+      ].join(" ")}
     >
       {initials}
     </div>
   );
 }
 
-/* Avatar d'un compte connecté. Quand l'image échoue (URL signée
-   expirée), on affiche la lettre et on demande UNE fois par URL un
-   rafraîchissement du profil au serveur. */
-function AccountAvatar({
-  channel,
+/* ============================================================
+   CLOCK
+============================================================ */
+
+function ClockDisplay({
   isDark,
-  onBroken,
+  now,
 }: {
-  channel: ConnectedChannel;
   isDark: boolean;
-  onBroken?: () => void;
+  now: Date;
 }) {
-  const [failed, setFailed] = useState(false);
-  const retriedFor = useRef<string | null>(null);
+  const time = now.toLocaleTimeString("fr-FR", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 
-  useEffect(() => {
-    setFailed(false);
-  }, [channel.avatarUrl]);
-
-  const t = ui(isDark);
-
-  const label = channel.handle || channel.name || "Channel";
-  const initial = label.replace(/^@/, "").charAt(0).toUpperCase() || "?";
-
-  const networkId = getNetworkId(channel);
-  const NetworkIcon = networkId ? NETWORK_ICONS[networkId] : null;
+  const date = now.toLocaleDateString("fr-FR", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+  });
 
   return (
-    <div className="relative h-10 w-10 shrink-0">
-      {channel.avatarUrl && !failed ? (
-        <img
-          src={channel.avatarUrl}
-          alt={label}
-          referrerPolicy="no-referrer"
-          onError={() => {
-            setFailed(true);
+    <div className="text-right">
+      <p
+        className={[
+          "text-[16px] font-semibold tabular-nums",
+          strongClass(isDark),
+        ].join(" ")}
+      >
+        {time}
+      </p>
 
-            const url = channel.avatarUrl ?? null;
-
-            if (url && retriedFor.current !== url) {
-              retriedFor.current = url;
-              onBroken?.();
-            }
-          }}
-          className="h-full w-full rounded-full object-cover"
-        />
-      ) : (
-        <div
-          className={cx(
-            "flex h-full w-full items-center justify-center rounded-full",
-            "text-[13px] font-semibold",
-            isDark ? "bg-white/10 text-zinc-100" : "bg-zinc-200 text-zinc-700"
-          )}
-        >
-          {initial}
-        </div>
-      )}
-
-      {NetworkIcon && (
-        <span
-          className={cx(
-            "absolute -bottom-0.5 -right-0.5 flex h-[18px] w-[18px] items-center",
-            "justify-center rounded-full bg-white text-black ring-2",
-            t.ring
-          )}
-        >
-          <NetworkIcon className="h-2.5 w-2.5" />
-        </span>
-      )}
+      <p
+        className={[
+          "text-[11px] font-medium capitalize",
+          mutedClass(isDark),
+        ].join(" ")}
+      >
+        {date}
+      </p>
     </div>
   );
 }
 
 /* ============================================================
-   KPI
+   STAT
 ============================================================ */
 
-function StatCard({
+function Stat({
   isDark,
   icon,
   label,
@@ -596,62 +426,72 @@ function StatCard({
   value: string;
   change: string;
 }) {
-  const t = ui(isDark);
   const positive = change.startsWith("+");
-  const Trend = positive ? TrendingUp : TrendingDown;
 
   return (
-    <Card isDark={isDark} className="p-5">
-      <div className="flex items-center justify-between gap-3">
-        <p className={cx("text-[13px] font-medium", t.body)}>{label}</p>
-
-        <span
-          className={cx(
-            "flex h-8 w-8 items-center justify-center rounded-lg",
-            t.iconBox
-          )}
-        >
-          {icon}
-        </span>
+    <div
+      className={[
+        "flex min-w-0 items-center gap-3",
+        "sm:border-r sm:last:border-r-0 sm:pr-5 sm:last:pr-0",
+        isDark
+          ? "border-white/[0.07]"
+          : "border-black/[0.07]",
+      ].join(" ")}
+    >
+      <div
+        className={[
+          "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl",
+          isDark
+            ? "bg-white/[0.06] text-white"
+            : "bg-white text-neutral-700 shadow-sm ring-1 ring-black/[0.05]",
+        ].join(" ")}
+      >
+        {icon}
       </div>
 
-      <div className="mt-4 flex items-end justify-between gap-3">
+      <div className="min-w-0">
         <p
-          className={cx(
-            "text-[30px] font-semibold leading-none tracking-[-0.03em] tabular-nums",
-            t.strong
-          )}
+          className={[
+            "truncate text-[10px] font-medium",
+            isDark
+              ? "text-neutral-500"
+              : "text-neutral-400",
+          ].join(" ")}
         >
-          {value}
+          {label}
         </p>
 
-        <span
-          className={cx(
-            "inline-flex items-center gap-1 rounded-md px-1.5 py-0.5",
-            "text-[12px] font-semibold tabular-nums",
-            positive
-              ? isDark
-                ? "bg-emerald-500/15 text-emerald-400"
-                : "bg-emerald-50 text-emerald-700"
-              : isDark
-                ? "bg-rose-500/15 text-rose-400"
-                : "bg-rose-50 text-rose-700"
-          )}
-        >
-          <Trend className="h-3 w-3" strokeWidth={2.4} />
-          {change}
-        </span>
-      </div>
+        <div className="mt-0.5 flex items-baseline gap-1.5">
+          <span
+            className={[
+              "text-[17px] font-bold tracking-tight",
+              strongClass(isDark),
+            ].join(" ")}
+          >
+            {value}
+          </span>
 
-      <p className={cx("mt-3 text-[12px]", t.muted)}>vs. previous period</p>
-    </Card>
+          <span
+            className={[
+              "text-[9px] font-semibold",
+              positive
+                ? "text-emerald-500"
+                : "text-rose-500",
+            ].join(" ")}
+          >
+            {change}
+          </span>
+        </div>
+      </div>
+    </div>
   );
 }
 
 /* ============================================================
    STREAK
    Semaine du lundi au dimanche. `completedDays` = index (0 = Mon)
-   des jours validés.
+   des jours validés. Mode clair : coche noire sur pastille noire
+   translucide. Mode sombre : couleurs inversées (coche blanche).
 ============================================================ */
 
 const WEEK_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -663,64 +503,169 @@ function Streak({
   isDark: boolean;
   completedDays?: number[];
 }) {
-  const t = ui(isDark);
-
   /* getDay(): 0 = dimanche → on ramène à 0 = lundi */
   const todayIndex = (new Date().getDay() + 6) % 7;
 
   return (
-    <Card isDark={isDark} className="pb-5">
-      <CardHeader
-        isDark={isDark}
-        title="Posting streak"
-        description={`${completedDays.length} of 7 days this week`}
-        action={
-          <span
-            className={cx(
-              "flex h-8 w-8 items-center justify-center rounded-lg",
-              t.iconBox
-            )}
-          >
-            <CalendarDays className="h-4 w-4" />
-          </span>
-        }
+    <div
+      className={[
+        "flex flex-col rounded-2xl border px-4 pb-3.5 pt-3",
+        "transition-colors duration-300",
+        isDark
+          ? "border-white/[0.08] bg-[#141416]"
+          : "border-black/[0.06] bg-[#f6f6f6] shadow-[0_2px_10px_rgba(0,0,0,0.05)]",
+      ].join(" ")}
+    >
+      {/* Titre */}
+      <div className="flex items-center gap-2">
+        <CalendarDays
+          className={["h-4 w-4", strongClass(isDark)].join(" ")}
+          strokeWidth={1.7}
+        />
+
+        <h2
+          className={[
+            "text-[13px] font-semibold tracking-[-0.02em]",
+            strongClass(isDark),
+          ].join(" ")}
+        >
+          Streak
+        </h2>
+      </div>
+
+      {/* Séparateur */}
+      <div
+        className={[
+          "mt-2.5 h-px w-full",
+          isDark ? "bg-white/[0.08]" : "bg-black/[0.08]",
+        ].join(" ")}
       />
 
-      <div className="mt-5 grid grid-cols-7 gap-1.5 px-5">
+      {/* Jours */}
+      <div className="mt-3 grid grid-cols-7 gap-1">
         {WEEK_LABELS.map((label, index) => {
           const done = completedDays.includes(index);
           const isToday = index === todayIndex;
 
           return (
-            <div key={label} className="flex flex-col items-center gap-2">
+            <div
+              key={label}
+              className="flex flex-col items-center gap-1.5"
+            >
               <span
-                className={cx(
-                  "text-[12px]",
-                  isToday ? cx("font-semibold", t.strong) : t.muted
-                )}
+                className={[
+                  "text-[10px]",
+                  isToday ? "font-semibold" : "font-normal",
+                  isToday
+                    ? strongClass(isDark)
+                    : isDark
+                      ? "text-neutral-400"
+                      : "text-neutral-600",
+                ].join(" ")}
               >
                 {label}
               </span>
 
               <div
-                aria-label={`${label}${done ? " completed" : ""}`}
-                className={cx(
-                  "flex h-8 w-8 items-center justify-center rounded-full",
+                className={[
+                  "flex h-6 w-6 items-center justify-center rounded-full",
+                  "transition-colors",
                   done
-                    ? "bg-indigo-600 text-white"
+                    ? isDark
+                      ? "bg-white/20 text-white"
+                      : "bg-black/15 text-black"
                     : isDark
-                      ? "bg-white/[0.06]"
-                      : "bg-zinc-100",
-                  isToday && !done && "ring-2 ring-indigo-500/60"
-                )}
+                      ? "bg-white/[0.07]"
+                      : "bg-black/[0.07]",
+                ].join(" ")}
+                aria-label={`${label}${done ? " completed" : ""}`}
               >
-                {done && <Check className="h-3.5 w-3.5" strokeWidth={3} />}
+                {done && (
+                  <Check className="h-3 w-3" strokeWidth={2.8} />
+                )}
               </div>
             </div>
           );
         })}
       </div>
-    </Card>
+    </div>
+  );
+}
+
+/* ============================================================
+   CHANNEL AVATAR
+============================================================ */
+
+function ChannelAvatar({
+  channel,
+  isDark,
+  overlap,
+}: {
+  channel: ConnectedChannel;
+  isDark: boolean;
+  overlap: boolean;
+}) {
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    setFailed(false);
+  }, [channel.avatarUrl]);
+
+  const label = channel.handle || channel.name || "Channel";
+
+  const initial =
+    label.replace(/^@/, "").charAt(0).toUpperCase() || "?";
+
+  const networkId = getNetworkId(channel);
+
+  const NetworkIcon = networkId
+    ? NETWORK_ICONS[networkId]
+    : null;
+
+  return (
+    <div
+      className="relative h-9 w-9 shrink-0"
+      style={{ marginLeft: overlap ? -8 : 0 }}
+      title={label}
+    >
+      {channel.avatarUrl && !failed ? (
+        <img
+          src={channel.avatarUrl}
+          alt={label}
+          referrerPolicy="no-referrer"
+          onError={() => setFailed(true)}
+          className={[
+            "h-full w-full rounded-full object-cover ring-2",
+            panelRingClass(isDark),
+          ].join(" ")}
+        />
+      ) : (
+        <div
+          className={[
+            "flex h-full w-full items-center justify-center rounded-full",
+            "text-[11px] font-semibold ring-2",
+            isDark
+              ? "bg-[#29292c] text-white"
+              : "bg-neutral-900 text-white",
+            panelRingClass(isDark),
+          ].join(" ")}
+        >
+          {initial}
+        </div>
+      )}
+
+      {NetworkIcon && (
+        <span
+          className={[
+            "absolute -bottom-1 -right-1 flex h-4 w-4 items-center",
+            "justify-center rounded-full bg-white text-black ring-1",
+            panelRingClass(isDark),
+          ].join(" ")}
+        >
+          <NetworkIcon className="h-2.5 w-2.5" />
+        </span>
+      )}
+    </div>
   );
 }
 
@@ -728,203 +673,154 @@ function Streak({
    CHANNELS
 ============================================================ */
 
-function ChannelsCard({
+function Channels({
   isDark,
   channels,
-  used,
-  max,
-  planName,
-  userId,
   onAdd,
-  onManage,
 }: {
   isDark: boolean;
   channels: ConnectedChannel[];
-  used: number;
-  max: number;
-  planName: string;
-  userId: string | null;
   onAdd: () => void;
-  onManage: () => void;
 }) {
-  const t = ui(isDark);
-
-  const percent = max > 0 ? Math.min(100, Math.round((used / max) * 100)) : 0;
-  const atLimit = max > 0 && used >= max;
-
   return (
-    <Card isDark={isDark}>
-      <CardHeader
-        isDark={isDark}
-        title="Channels"
-        description="Accounts you can publish to"
-        action={
-          channels.length > 0 ? (
-            <button
-              type="button"
-              onClick={onAdd}
-              className={secondaryButton(isDark)}
-            >
-              <Plus className="h-3.5 w-3.5" />
-              Add channel
-            </button>
-          ) : undefined
-        }
-      />
-
+    <div
+      className={[
+        "flex min-h-[74px] items-center justify-between gap-4 rounded-2xl border px-4",
+        panelSurfaceClass(isDark),
+      ].join(" ")}
+    >
       {channels.length === 0 ? (
-        <div className="flex flex-col items-center px-6 pb-8 pt-8 text-center">
-          <div
-            className={cx(
-              "flex h-12 w-12 items-center justify-center rounded-xl",
-              t.iconBox
-            )}
+        <div className="flex items-center gap-3">
+          {/* + : ouvre ConnectChannelModal */}
+          <button
+            type="button"
+            aria-label="Connect a channel"
+            onClick={onAdd}
+            className={[
+              "flex h-9 w-9 items-center justify-center rounded-xl transition",
+              isDark
+                ? "bg-white/[0.06] hover:bg-white/[0.12]"
+                : "bg-white shadow-sm ring-1 ring-black/[0.05] hover:bg-neutral-100",
+            ].join(" ")}
           >
-            <Link2 className="h-5 w-5" />
-          </div>
-
-          <p className={cx("mt-4 text-[15px] font-semibold", t.strong)}>
-            Connect your first channel
-          </p>
-
-          <p className={cx("mt-1 max-w-[320px] text-[13px]", t.muted)}>
-            Link TikTok, YouTube or Pinterest to start publishing and
-            scheduling from one place.
-          </p>
-
-          <button type="button" onClick={onAdd} className={cx(primaryButton, "mt-5")}>
-            <Plus className="h-4 w-4" />
-            Connect channel
+            <Plus
+              className={[
+                "h-4 w-4",
+                isDark ? "text-white" : "text-neutral-700",
+              ].join(" ")}
+            />
           </button>
+
+          <div>
+            <p
+              className={[
+                "text-[11px] font-semibold",
+                strongClass(isDark),
+              ].join(" ")}
+            >
+              Connect your first channel
+            </p>
+
+            <p
+              className={[
+                "mt-0.5 text-[10px]",
+                mutedClass(isDark),
+              ].join(" ")}
+            >
+              Start publishing to social networks.
+            </p>
+          </div>
         </div>
       ) : (
-        <>
-          <ul className="mt-4">
-            {channels.map((channel) => {
-              const networkId = getNetworkId(channel);
-              const name = channel.handle || channel.name || "Channel";
-
-              return (
-                <li
-                  key={channel.key}
-                  className={cx("border-t first:border-t-0", t.line)}
-                >
-                  <button
-                    type="button"
-                    onClick={onManage}
-                    className={cx(
-                      "flex w-full items-center gap-3 px-5 py-3 text-left",
-                      "transition-colors",
-                      t.cardHover,
-                      FOCUS
-                    )}
-                  >
-                    <AccountAvatar
-                      channel={channel}
-                      isDark={isDark}
-                      onBroken={
-                        networkId === "tiktok" && userId
-                          ? () => void refreshTikTokCache(userId, { force: true })
-                          : undefined
-                      }
-                    />
-
-                    <div className="min-w-0 flex-1">
-                      <p
-                        className={cx(
-                          "truncate text-[14px] font-medium",
-                          t.strong
-                        )}
-                      >
-                        {name}
-                      </p>
-
-                      <p className={cx("truncate text-[12px]", t.muted)}>
-                        {networkId ? NETWORK_LABELS[networkId] : "Social account"}
-                      </p>
-                    </div>
-
-                    <span
-                      className={cx(
-                        "inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1",
-                        "text-[12px] font-medium",
-                        isDark
-                          ? "bg-emerald-500/15 text-emerald-400"
-                          : "bg-emerald-50 text-emerald-700"
-                      )}
-                    >
-                      <span className="h-1.5 w-1.5 rounded-full bg-current" />
-                      Connected
-                    </span>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-
-          <div className={cx("border-t px-5 py-4", t.line)}>
-            <div className="flex items-center justify-between gap-3">
-              <p className={cx("text-[13px] font-medium", t.body)}>
-                {used} of {max} channels used
-                <span className={cx("ml-1.5 font-normal", t.muted)}>
-                  · {planName} plan
-                </span>
-              </p>
-
-              <TextLink isDark={isDark} onClick={onManage}>
-                Manage
-              </TextLink>
-            </div>
-
-            <div
-              className={cx(
-                "mt-2.5 h-1.5 w-full overflow-hidden rounded-full",
-                isDark ? "bg-white/10" : "bg-zinc-100"
-              )}
-              role="progressbar"
-              aria-valuemin={0}
-              aria-valuemax={max}
-              aria-valuenow={used}
-              aria-label="Channels used"
-            >
-              <div
-                className={cx(
-                  "h-full rounded-full transition-[width] duration-500",
-                  atLimit ? "bg-amber-500" : "bg-indigo-600"
-                )}
-                style={{ width: `${percent}%` }}
+        <div className="flex items-center gap-3">
+          <div className="group flex items-center pl-1">
+            {channels.slice(0, 6).map((channel, index) => (
+              <ChannelAvatar
+                key={channel.key}
+                channel={channel}
+                isDark={isDark}
+                overlap={index > 0}
               />
-            </div>
+            ))}
 
-            {atLimit && (
-              <p
-                className={cx(
-                  "mt-2 text-[12px]",
-                  isDark ? "text-amber-400" : "text-amber-700"
-                )}
-              >
-                You reached the channel limit of your plan.
-              </p>
-            )}
+            {/* + : même forme que les avatars, légèrement imbriqué */}
+            <button
+              type="button"
+              aria-label="Connect another channel"
+              title="Connect another channel"
+              onClick={onAdd}
+              className={[
+                "-ml-2 flex h-9 w-9 shrink-0 items-center justify-center",
+                "relative z-10 rounded-full border transition-all duration-200",
+                "ring-2",
+                panelRingClass(isDark),
+                isDark
+                  ? "border-white/[0.14] bg-[#1b1b1e] text-white hover:bg-[#242428] hover:border-white/25"
+                  : "border-black/[0.10] bg-white text-neutral-700 shadow-sm hover:bg-neutral-50 hover:border-black/20",
+              ].join(" ")}
+            >
+              <Plus
+                className="h-[15px] w-[15px] transition-transform duration-200 group-hover:rotate-90"
+                strokeWidth={1.8}
+              />
+            </button>
           </div>
-        </>
+
+          <div>
+            <p
+              className={[
+                "text-[11px] font-semibold",
+                strongClass(isDark),
+              ].join(" ")}
+            >
+              {channels.length}{" "}
+              {channels.length === 1 ? "channel" : "channels"}{" "}
+              connected
+            </p>
+
+            <p
+              className={[
+                "text-[10px]",
+                mutedClass(isDark),
+              ].join(" ")}
+            >
+              Ready to publish
+            </p>
+          </div>
+        </div>
       )}
-    </Card>
+
+      <button
+        type="button"
+        onClick={() => (channels.length === 0 ? onAdd() : navigate("channels"))}
+        className={[
+          "flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-2",
+          "text-[10px] font-semibold transition",
+          isDark
+            ? "text-white hover:bg-white/[0.06]"
+            : "text-neutral-900 hover:bg-neutral-100",
+        ].join(" ")}
+      >
+        {channels.length === 0 ? "Connect" : "Manage"}
+
+        <ArrowUpRight className="h-3 w-3" />
+      </button>
+    </div>
   );
 }
 
 /* ============================================================
-   ACTIVITY PANEL (Comments / Up Next)
+   PANEL
 ============================================================ */
 
-function ActivityPanel({
+function Panel({
   isDark,
   title,
   meta,
   onViewAll,
   icon,
-  emptyTitle,
-  emptyText,
+  line1,
+  line2,
   action,
 }: {
   isDark: boolean;
@@ -932,136 +828,103 @@ function ActivityPanel({
   meta: string;
   onViewAll?: () => void;
   icon: ReactNode;
-  emptyTitle: string;
-  emptyText: string;
+  line1: string;
+  line2: string;
   action?: {
     label: string;
     onClick: () => void;
   };
 }) {
-  const t = ui(isDark);
-
   return (
-    <Card isDark={isDark} className="flex flex-col">
-      <CardHeader
-        isDark={isDark}
-        title={title}
-        description={meta}
-        action={
-          <TextLink isDark={isDark} onClick={onViewAll}>
-            View all
-          </TextLink>
-        }
-      />
+    <section className="min-w-0">
+      <div className="mb-3 flex items-center justify-between">
+        <p
+          className={[
+            "text-[12px] font-semibold",
+            isDark ? "text-neutral-300" : "text-neutral-700",
+          ].join(" ")}
+        >
+          {title}
 
-      <div className="flex flex-1 flex-col items-center justify-center px-6 pb-8 pt-6 text-center">
+          <span
+            className={[
+              "ml-1.5 font-normal",
+              mutedClass(isDark),
+            ].join(" ")}
+          >
+            · {meta}
+          </span>
+        </p>
+
+        <button
+          type="button"
+          disabled={!onViewAll}
+          onClick={onViewAll}
+          className={[
+            "flex items-center gap-0.5 text-[11px] font-semibold transition",
+            "disabled:cursor-default disabled:opacity-40",
+            isDark
+              ? "text-neutral-400 enabled:hover:text-white"
+              : "text-neutral-500 enabled:hover:text-neutral-900",
+          ].join(" ")}
+        >
+          View All
+          <ChevronRight className="h-3.5 w-3.5" />
+        </button>
+      </div>
+
+      <div
+        className={[
+          "flex min-h-[190px] flex-col items-center justify-center",
+          "gap-1 rounded-2xl border px-4 py-6 text-center",
+          panelSurfaceClass(isDark),
+        ].join(" ")}
+      >
         <div
-          className={cx(
-            "flex h-11 w-11 items-center justify-center rounded-xl",
-            t.iconBox
-          )}
+          className={[
+            "mb-2 flex h-11 w-11 items-center justify-center rounded-full",
+            isDark
+              ? "bg-white/[0.07] text-neutral-300"
+              : "bg-neutral-200/70 text-neutral-600",
+          ].join(" ")}
         >
           {icon}
         </div>
 
-        <p className={cx("mt-3 text-[14px] font-medium", t.strong)}>
-          {emptyTitle}
+        <p
+          className={[
+            "text-[12px] font-medium",
+            strongClass(isDark),
+          ].join(" ")}
+        >
+          {line1}
         </p>
 
-        <p className={cx("mt-1 max-w-[260px] text-[13px]", t.muted)}>
-          {emptyText}
-        </p>
+        <p className="text-[12px] text-neutral-500">{line2}</p>
 
         {action && (
           <button
             type="button"
             onClick={action.onClick}
-            className={cx(secondaryButton(isDark), "mt-4")}
+            className={[
+              "mt-3 flex items-center gap-1.5 rounded-lg border px-3 py-1.5",
+              "text-[11px] font-semibold transition",
+              isDark
+                ? "border-white/10 text-white hover:bg-white/[0.07]"
+                : "border-black/10 text-neutral-900 hover:bg-neutral-100",
+            ].join(" ")}
           >
             <Plus className="h-3.5 w-3.5" />
             {action.label}
           </button>
         )}
       </div>
-    </Card>
+    </section>
   );
 }
 
 /* ============================================================
-   QUICK ACTIONS
-============================================================ */
-
-type QuickAction = {
-  key: string;
-  label: string;
-  hint: string;
-  icon: ReactNode;
-  onClick: () => void;
-};
-
-function QuickActions({
-  isDark,
-  actions,
-}: {
-  isDark: boolean;
-  actions: QuickAction[];
-}) {
-  const t = ui(isDark);
-
-  return (
-    <Card isDark={isDark} className="pb-2">
-      <CardHeader isDark={isDark} title="Quick actions" />
-
-      <ul className="mt-3">
-        {actions.map((action) => (
-          <li key={action.key}>
-            <button
-              type="button"
-              onClick={action.onClick}
-              className={cx(
-                "group flex w-full items-center gap-3 px-5 py-2.5 text-left",
-                "transition-colors",
-                t.cardHover,
-                FOCUS
-              )}
-            >
-              <span
-                className={cx(
-                  "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg",
-                  t.iconBox
-                )}
-              >
-                {action.icon}
-              </span>
-
-              <span className="min-w-0 flex-1">
-                <span
-                  className={cx("block text-[14px] font-medium", t.strong)}
-                >
-                  {action.label}
-                </span>
-
-                <span className={cx("block truncate text-[12px]", t.muted)}>
-                  {action.hint}
-                </span>
-              </span>
-
-              <ArrowRight
-                className={cx(
-                  "h-4 w-4 shrink-0 transition-transform group-hover:translate-x-0.5",
-                  t.muted
-                )}
-              />
-            </button>
-          </li>
-        ))}
-      </ul>
-    </Card>
-  );
-}
-
-/* ============================================================
-   BLOG
+   BLOG IMAGE
 ============================================================ */
 
 function BlogImage({
@@ -1080,10 +943,10 @@ function BlogImage({
   if (!src || failed) {
     return (
       <div
-        className={cx(
-          "aspect-[16/9] w-full rounded-lg",
-          isDark ? "bg-white/[0.06]" : "bg-zinc-100"
-        )}
+        className={[
+          "h-[140px] w-full rounded-xl",
+          isDark ? "bg-white/[0.06]" : "bg-neutral-200/70",
+        ].join(" ")}
       />
     );
   }
@@ -1095,85 +958,87 @@ function BlogImage({
       loading="lazy"
       draggable={false}
       onError={() => setFailed(true)}
-      className="aspect-[16/9] w-full rounded-lg object-cover"
+      className="h-[140px] w-full rounded-xl object-cover"
     />
   );
 }
 
-function BlogSection({ isDark }: { isDark: boolean }) {
-  const t = ui(isDark);
+/* ============================================================
+   BLOG SECTION
+============================================================ */
 
+function BlogSection({ isDark }: { isDark: boolean }) {
   return (
     <section>
-      <div className="mb-4 flex items-end justify-between gap-4">
-        <div>
-          <h2
-            className={cx(
-              "text-[15px] font-semibold tracking-[-0.01em]",
-              t.strong
-            )}
-          >
-            Learn and grow
-          </h2>
-
-          <p className={cx("mt-0.5 text-[13px]", t.muted)}>
-            Guides and ideas from the Stone blog
-          </p>
-        </div>
+      <div className="mb-3 flex items-center justify-between">
+        <p
+          className={[
+            "text-[12px] font-semibold",
+            isDark ? "text-neutral-300" : "text-neutral-700",
+          ].join(" ")}
+        >
+          From the Blog
+        </p>
 
         <a
           href={BLOG_URL}
           {...linkProps(BLOG_URL)}
-          className={cx(
-            "inline-flex shrink-0 items-center gap-0.5 rounded-md px-1.5 py-1",
-            "text-[13px] font-medium transition-colors",
+          className={[
+            "flex items-center gap-0.5 text-[11px] font-semibold transition",
             isDark
-              ? "text-zinc-400 hover:text-white"
-              : "text-zinc-500 hover:text-zinc-900",
-            FOCUS
-          )}
+              ? "text-neutral-400 hover:text-white"
+              : "text-neutral-500 hover:text-neutral-900",
+          ].join(" ")}
         >
-          All articles
+          View All Articles
           <ChevronRight className="h-3.5 w-3.5" />
         </a>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {BLOG_POSTS.map((post) => (
           <a
             key={post.title}
             href={post.url}
             {...linkProps(post.url)}
-            className={cx(
-              "group flex min-w-0 flex-col rounded-xl border p-3 transition-colors",
-              t.card,
-              t.cardHover,
-              FOCUS
-            )}
+            className={[
+              "group flex flex-col rounded-2xl border p-3.5 transition",
+              cardClass(isDark),
+              isDark
+                ? "hover:bg-[#1a1a1d]"
+                : "hover:bg-neutral-50",
+            ].join(" ")}
           >
             <BlogImage src={post.image} isDark={isDark} />
 
-            <div className="mt-3 flex items-center justify-between gap-2 px-1">
+            <div className="mt-3.5 flex items-center justify-between gap-2 px-0.5">
               <span
-                className={cx(
-                  "rounded-md px-2 py-0.5 text-[12px] font-medium",
+                className={[
+                  "rounded-md px-2 py-0.5 text-[10px] font-semibold",
                   isDark
-                    ? "bg-indigo-500/15 text-indigo-300"
-                    : "bg-indigo-50 text-indigo-700"
-                )}
+                    ? "bg-[#16304f] text-[#a9cdf5]"
+                    : "bg-blue-50 text-blue-700",
+                ].join(" ")}
               >
                 {post.label}
               </span>
 
-              <span className={cx("text-[12px]", t.muted)}>{post.date}</span>
+              <span
+                className={[
+                  "text-[10px]",
+                  mutedClass(isDark),
+                ].join(" ")}
+              >
+                {post.date}
+              </span>
             </div>
 
             <h3
-              className={cx(
-                "mt-2.5 px-1 text-[14px] font-semibold leading-snug",
+              className={[
+                "mt-2.5 px-0.5 text-[14px] font-semibold leading-snug",
                 "tracking-[-0.01em]",
-                t.strong
-              )}
+                strongClass(isDark),
+              ].join(" ")}
               style={{
                 display: "-webkit-box",
                 WebkitLineClamp: 2,
@@ -1184,15 +1049,14 @@ function BlogSection({ isDark }: { isDark: boolean }) {
               {post.title}
             </h3>
 
-            <span
-              className={cx(
-                "mt-3 inline-flex items-center gap-1 px-1 text-[13px] font-medium",
-                isDark ? "text-indigo-300" : "text-indigo-600"
-              )}
-            >
-              Read article
-              <ArrowUpRight className="h-3.5 w-3.5 transition-transform group-hover:-translate-y-px group-hover:translate-x-px" />
-            </span>
+            <div className="mt-3 flex justify-end px-0.5">
+              <ArrowRight
+                className={[
+                  "h-4 w-4 transition-transform group-hover:translate-x-0.5",
+                  strongClass(isDark),
+                ].join(" ")}
+              />
+            </div>
           </a>
         ))}
       </div>
@@ -1207,7 +1071,6 @@ function BlogSection({ isDark }: { isDark: boolean }) {
 export default function Home() {
   const { theme } = useTheme();
   const isDark = theme === "dark";
-  const t = ui(isDark);
 
   const sidebarOffset = useSidebarOffset();
 
@@ -1260,8 +1123,7 @@ export default function Home() {
   const limitReached = connectedCount >= PLAN.maxChannels;
 
   /* Statut des comptes : cache affiché tout de suite, rechargement
-     silencieux dès que l'avatar a plus d'1 h (les URLs d'avatar des
-     réseaux expirent en quelques heures). */
+     silencieux si le cache est ancien. */
   useEffect(() => {
     if (!userId) return;
 
@@ -1276,7 +1138,7 @@ export default function Home() {
           [provider]: cached.connection,
         }));
 
-        if (!isAvatarStale(cached)) return;
+        if (Date.now() - cached.savedAt < CACHE_MAX_AGE_MS) return;
       }
 
       void (async () => {
@@ -1412,11 +1274,11 @@ export default function Home() {
   const closeConnectModal = () => setShowConnectModal(false);
 
   /* ----------------------------------------------------------
-     CLOCK (salutation + date)
+     CLOCK
   ---------------------------------------------------------- */
 
   useEffect(() => {
-    const interval = setInterval(() => setNow(new Date()), 60000);
+    const interval = setInterval(() => setNow(new Date()), 15000);
 
     return () => clearInterval(interval);
   }, []);
@@ -1459,23 +1321,12 @@ export default function Home() {
 
   const greeting = getGreeting(now);
 
-  const dateLabel = now.toLocaleDateString("en-GB", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-  });
-
   /* ----------------------------------------------------------
      CREATE POST
   ---------------------------------------------------------- */
 
   const handleCreatePost = async (payload: NewPostPayload) => {
     console.log("Nouveau post à envoyer :", payload);
-  };
-
-  const openNewPost = () => {
-    setIsFolderOpen(false);
-    setIsNewPostOpen(true);
   };
 
   /* ----------------------------------------------------------
@@ -1499,7 +1350,8 @@ export default function Home() {
   const handleBottomBarChange = (id: BottomBarTab) => {
     switch (id) {
       case "add":
-        openNewPost();
+        setIsFolderOpen(false);
+        setIsNewPostOpen(true);
         break;
 
       case "files":
@@ -1511,171 +1363,211 @@ export default function Home() {
     }
   };
 
-  const quickActions: QuickAction[] = [
-    {
-      key: "post",
-      label: "Create a post",
-      hint: "Write and publish to your channels",
-      icon: <Send className="h-4 w-4" />,
-      onClick: openNewPost,
-    },
-    {
-      key: "calendar",
-      label: "Open the calendar",
-      hint: "Plan and schedule your content",
-      icon: <CalendarDays className="h-4 w-4" />,
-      onClick: () => navigate("calendar"),
-    },
-    {
-      key: "comments",
-      label: "Reply to comments",
-      hint: "Stay close to your community",
-      icon: <MessageCircle className="h-4 w-4" />,
-      onClick: handleViewAllComments,
-    },
-    {
-      key: "channels",
-      label: "Manage channels",
-      hint: "Connect or disconnect accounts",
-      icon: <Link2 className="h-4 w-4" />,
-      onClick: () => navigate("channels"),
-    },
-  ];
-
   /* ==========================================================
      RENDER
   ========================================================== */
 
   return (
     <main
-      className={cx(
+      className={[
         "relative h-screen w-full overflow-hidden",
         "transition-colors duration-300",
-        t.page
-      )}
+        isDark ? "bg-[#09090a]" : "bg-[#f5f3ef]",
+      ].join(" ")}
     >
       <DashboardSidebar theme={theme} />
 
       <div
-        className={cx(
+        className={[
           "h-full overflow-y-auto overflow-x-hidden",
           "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
           "transition-[padding-left] duration-[380ms]",
           "ease-[cubic-bezier(0.4,0,0.2,1)]",
-          "motion-reduce:transition-none"
-        )}
+          "motion-reduce:transition-none",
+        ].join(" ")}
         style={{ paddingLeft: sidebarOffset }}
       >
         <div
-          className={cx(
-            "mx-auto flex w-full max-w-[1200px] flex-col gap-6",
-            "px-[clamp(16px,3vw,40px)]",
-            "pb-[120px] pt-[clamp(20px,3vw,36px)]"
-          )}
+          className={[
+            "mx-auto flex w-full max-w-[1280px]",
+            "flex-col px-[clamp(18px,3vw,40px)]",
+            "pb-[120px] pt-[clamp(18px,3vw,30px)]",
+          ].join(" ")}
         >
           {/* HEADER */}
 
-          <header className="flex flex-wrap items-center justify-between gap-4">
-            <div className="flex min-w-0 items-center gap-3.5">
+          <header className="flex shrink-0 items-center justify-between">
+            <div className="flex items-center gap-3">
               <GreetingAvatar
                 avatarUrl={user?.avatar_url}
                 initials={initials}
                 isDark={isDark}
               />
 
-              <div className="min-w-0">
-                <p className={cx("text-[13px] font-medium", t.muted)}>
-                  {greeting} · <span className="capitalize">{dateLabel}</span>
+              <div>
+                <p
+                  className={[
+                    "text-[10px] font-medium",
+                    mutedClass(isDark),
+                  ].join(" ")}
+                >
+                  {greeting}
                 </p>
 
-                <h1
-                  className={cx(
-                    "truncate text-[24px] font-semibold leading-tight",
-                    "tracking-[-0.03em]",
-                    t.strong
-                  )}
-                >
-                  {fullName || "Welcome"}
-                </h1>
+                <div className="mt-0.5 flex min-w-0 items-center gap-2">
+                  <h1
+                    className={[
+                      "truncate text-[22px] font-semibold",
+                      "tracking-[-0.035em]",
+                      strongClass(isDark),
+                    ].join(" ")}
+                  >
+                    {fullName || "Welcome"}
+                  </h1>
+                </div>
               </div>
             </div>
 
-            <button type="button" onClick={openNewPost} className={primaryButton}>
-              <Plus className="h-4 w-4" />
-              Create post
-            </button>
+            <ClockDisplay isDark={isDark} now={now} />
           </header>
 
-          {/* KPI */}
+          {/* OVERVIEW */}
 
-          <section
-            aria-label="Overview"
-            className="grid grid-cols-1 gap-4 sm:grid-cols-3"
-          >
-            {OVERVIEW_STATS.map((stat) => (
-              <StatCard
-                key={stat.key}
-                isDark={isDark}
-                icon={STAT_ICONS[stat.key]}
-                label={stat.label}
-                value={stat.value}
-                change={stat.change}
-              />
-            ))}
-          </section>
+          <section className="mt-7 shrink-0">
+            <div className="mb-3">
+              <p
+                className={[
+                  "text-[11px] font-semibold",
+                  isDark ? "text-neutral-500" : "text-neutral-400",
+                ].join(" ")}
+              >
+                Overview
+              </p>
 
-          {/* MAIN GRID */}
-
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
-            <div className="flex min-w-0 flex-col gap-6">
-              <ChannelsCard
-                isDark={isDark}
-                channels={connectedChannels}
-                used={connectedCount}
-                max={PLAN.maxChannels}
-                planName={PLAN.name}
-                userId={userId}
-                onAdd={openConnectModal}
-                onManage={() => navigate("channels")}
-              />
-
-              <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
-                <ActivityPanel
-                  isDark={isDark}
-                  title="Up next"
-                  meta="0 posts scheduled"
-                  onViewAll={() => navigate("calendar")}
-                  icon={<CalendarDays className="h-5 w-5" />}
-                  emptyTitle="Nothing scheduled"
-                  emptyText="Schedule a post and it will show up here."
-                  action={{
-                    label: "Create post",
-                    onClick: openNewPost,
-                  }}
-                />
-
-                <ActivityPanel
-                  isDark={isDark}
-                  title="Comments"
-                  meta="0 unanswered"
-                  onViewAll={handleViewAllComments}
-                  icon={<MessageCircle className="h-5 w-5" />}
-                  emptyTitle="No comments yet"
-                  emptyText="The latest comments on your posts will appear here."
-                />
-              </div>
+              <p
+                className={[
+                  "mt-0.5 text-[10px]",
+                  isDark ? "text-neutral-700" : "text-neutral-400",
+                ].join(" ")}
+              >
+                Your activity at a glance
+              </p>
             </div>
 
-            <aside className="flex min-w-0 flex-col gap-6">
-              <Streak isDark={isDark} completedDays={[0]} />
+            <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1fr_320px]">
+              {/* Même fond que le panneau Comments */}
+              <div
+                className={[
+                  "grid grid-cols-1 content-center gap-3 rounded-2xl border p-4",
+                  "sm:grid-cols-3",
+                  panelSurfaceClass(isDark),
+                ].join(" ")}
+              >
+                <Stat
+                  isDark={isDark}
+                  label="Followers"
+                  value="27K"
+                  change="-2%"
+                  icon={<Users className="h-4 w-4" />}
+                />
 
-              <QuickActions isDark={isDark} actions={quickActions} />
-            </aside>
+                <Stat
+                  isDark={isDark}
+                  label="Likes"
+                  value="12.4K"
+                  change="+16%"
+                  icon={<Heart className="h-4 w-4" />}
+                />
+
+                <Stat
+                  isDark={isDark}
+                  label="Comments"
+                  value="342"
+                  change="+5%"
+                  icon={<MessageCircle className="h-4 w-4" />}
+                />
+              </div>
+
+              <Streak isDark={isDark} completedDays={[0]} />
+            </div>
+          </section>
+
+          {/* CHANNELS */}
+
+          <section className="mt-5 shrink-0">
+            <div className="mb-3 flex items-center justify-between">
+              <div>
+                <p
+                  className={[
+                    "text-[11px] font-semibold",
+                    isDark ? "text-neutral-500" : "text-neutral-400",
+                  ].join(" ")}
+                >
+                  Channels
+                </p>
+
+                <p
+                  className={[
+                    "mt-0.5 text-[10px]",
+                    isDark ? "text-neutral-700" : "text-neutral-400",
+                  ].join(" ")}
+                >
+                  Your connected accounts
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => navigate("channels")}
+                className={[
+                  "text-[10px] font-semibold",
+                  isDark
+                    ? "text-neutral-500 hover:text-white"
+                    : "text-neutral-400 hover:text-neutral-900",
+                ].join(" ")}
+              >
+                Manage
+              </button>
+            </div>
+
+            <Channels
+              isDark={isDark}
+              channels={connectedChannels}
+              onAdd={openConnectModal}
+            />
+          </section>
+
+          {/* COMMENTS + UP NEXT */}
+
+          <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
+            <Panel
+              isDark={isDark}
+              title="Comments"
+              meta="0 unanswered"
+              onViewAll={handleViewAllComments}
+              icon={<MessageCircle className="h-5 w-5" />}
+              line1="No comments yet."
+              line2="You'll see the latest comments here."
+            />
+
+            <Panel
+              isDark={isDark}
+              title="Up Next"
+              meta="0 posts scheduled"
+              onViewAll={() => navigate("calendar")}
+              icon={<CalendarDays className="h-5 w-5" />}
+              line1="No posts scheduled yet."
+              line2="You'll see upcoming posts here."
+              action={{
+                label: "Create Post",
+                onClick: () => setIsNewPostOpen(true),
+              }}
+            />
           </div>
 
           {/* BLOG */}
 
-          <div className="mt-2">
+          <div className="mt-8">
             <BlogSection isDark={isDark} />
           </div>
         </div>
