@@ -2168,11 +2168,13 @@ export default function DashboardSidebar({
               className={[
                 "sb-menu absolute bottom-3 z-50 w-[264px] max-w-[calc(100vw-24px)]",
                 "origin-bottom-left overflow-hidden rounded-2xl border",
-                /* Position copiée de la maquette : menu ancré en bas à gauche,
-                   aligné sur le bord gauche de la sidebar, s'ouvrant vers le haut
-                   au-dessus de l'avatar. En mode réduit il flotte à droite du
-                   rail (sinon il recouvrirait les icônes). */
-                compact ? "left-full ml-2" : "left-2",
+                /* Position copiée sur la maquette : le bord gauche du menu est
+                   aligné sur le centre horizontal de la photo de profil, le
+                   menu s'ouvrant vers le haut au-dessus de l'avatar.
+                   Sidebar ouverte : footer px-2 + bouton px-1.5 + demi-avatar
+                   (8 + 6 + 18) = 32 px. Sidebar réduite : rail centré, avatar
+                   de 36px dans un bouton de 44px → centre à 32 px aussi. */
+                "left-[32px]",
                 t.menu,
               ].join(" ")}
             >
