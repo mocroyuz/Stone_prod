@@ -1061,19 +1061,12 @@ function SidebarChannelsImpl({
       )}
 
       {channels.length === 0 && !compact && (
-        <div
-          className={[
-            "flex h-8 w-full items-center justify-between px-2.5",
-            t.title,
-          ].join(" ")}
-        >
-          <span className="text-[12.5px] font-semibold">Connect channels</span>
-
+        <div className="flex h-8 w-full items-center justify-end px-2.5">
           <span className="flex items-center gap-1">
             <button
               type="button"
-              aria-label="Settings"
-              onClick={() => onNavigate("settings")}
+              aria-label="Channels"
+              onClick={() => onNavigate("channels")}
               className={[
                 "flex h-7 w-7 items-center justify-center rounded-lg",
                 "transition-colors duration-150 motion-reduce:transition-none",
