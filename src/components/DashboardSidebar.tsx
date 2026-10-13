@@ -2168,7 +2168,11 @@ export default function DashboardSidebar({
               className={[
                 "sb-menu absolute bottom-3 z-50 w-[264px] max-w-[calc(100vw-24px)]",
                 "origin-bottom-left overflow-hidden rounded-2xl border",
-                "left-full ml-2",
+                /* Position copiée de la maquette : menu ancré en bas à gauche,
+                   aligné sur le bord gauche de la sidebar, s'ouvrant vers le haut
+                   au-dessus de l'avatar. En mode réduit il flotte à droite du
+                   rail (sinon il recouvrirait les icônes). */
+                compact ? "left-full ml-2" : "left-2",
                 t.menu,
               ].join(" ")}
             >
