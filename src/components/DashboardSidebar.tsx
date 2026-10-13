@@ -377,6 +377,12 @@ const ChevronDownIcon = (p: IconProps) => (
   </Svg>
 );
 
+const PlusIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M12 5v14M5 12h14" />
+  </Svg>
+);
+
 const MenuIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="M4 7h16M4 12h16M4 17h16" />
@@ -1055,24 +1061,46 @@ function SidebarChannelsImpl({
       )}
 
       {channels.length === 0 && !compact && (
-        <button
-          type="button"
-          onClick={onConnect}
+        <div
           className={[
-            "flex w-full flex-col items-start gap-1 rounded-xl border border-dashed p-2.5 text-left",
-            "transition-colors duration-150 motion-reduce:transition-none",
-            t.rail,
-            t.row,
-            focus,
+            "flex h-8 w-full items-center justify-between px-2.5",
+            t.title,
           ].join(" ")}
         >
-          <span className={["text-[12.5px] font-semibold", t.title].join(" ")}>
-            Connect your first channel
+          <span className="text-[12.5px] font-semibold">Connect channels</span>
+
+          <span className="flex items-center gap-1">
+            <button
+              type="button"
+              aria-label="Settings"
+              onClick={() => onNavigate("settings")}
+              className={[
+                "flex h-7 w-7 items-center justify-center rounded-lg",
+                "transition-colors duration-150 motion-reduce:transition-none",
+                focus,
+                t.menuIcon,
+                t.row,
+              ].join(" ")}
+            >
+              <SettingsIcon className="h-4 w-4" />
+            </button>
+
+            <button
+              type="button"
+              aria-label="Connect a channel"
+              onClick={onConnect}
+              className={[
+                "flex h-7 w-7 items-center justify-center rounded-lg",
+                "transition-colors duration-150 motion-reduce:transition-none",
+                focus,
+                t.menuIcon,
+                t.row,
+              ].join(" ")}
+            >
+              <PlusIcon className="h-4 w-4" />
+            </button>
           </span>
-          <span className={["text-[11px] leading-snug", t.muted].join(" ")}>
-            Link Instagram, TikTok, YouTube… to start scheduling.
-          </span>
-        </button>
+        </div>
       )}
 
       {channels.map((channel) => {
