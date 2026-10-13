@@ -2166,15 +2166,14 @@ export default function DashboardSidebar({
               aria-label="Account menu"
               onKeyDown={onMenuKeyDown}
               className={[
-                "sb-menu absolute bottom-3 z-50 w-[264px] max-w-[calc(100vw-24px)]",
+                "sb-menu absolute z-50 w-[264px] max-w-[calc(100vw-24px)]",
                 "origin-bottom-left overflow-hidden rounded-2xl border",
                 /* Position copiée sur la maquette : le bord gauche du menu est
-                   aligné sur le centre horizontal de la photo de profil, le
-                   menu s'ouvrant vers le haut au-dessus de l'avatar.
-                   Sidebar ouverte : footer px-2 + bouton px-1.5 + demi-avatar
-                   (8 + 6 + 18) = 32 px. Sidebar réduite : rail centré, avatar
-                   de 36px dans un bouton de 44px → centre à 32 px aussi. */
-                "left-[32px]",
+                   aligné sur le centre horizontal de la photo de profil, et le
+                   menu flotte juste au-dessus de l'avatar, légèrement séparé.
+                   Footer : py-2.5 (10px) + bouton h-11 (44px) → sommet de
+                   l'avatar à 54px du bas ; +6px d'espiration → bottom-[60px]. */
+                "left-[32px] bottom-[60px]",
                 t.menu,
               ].join(" ")}
             >
