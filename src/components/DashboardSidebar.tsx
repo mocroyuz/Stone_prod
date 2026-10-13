@@ -1061,7 +1061,7 @@ function SidebarChannelsImpl({
       )}
 
       {channels.length === 0 && !compact && (
-        <div className="flex h-8 w-full items-center justify-end px-2.5">
+        <div className="flex h-8 w-full items-center px-2.5">
           <span className="flex items-center gap-1">
             <button
               type="button"
@@ -2127,7 +2127,9 @@ export default function DashboardSidebar({
             />
           ))}
 
-          <div className={["my-3 h-px", compact ? "w-8 self-center" : "mx-1", t.divider].join(" ")} />
+          {compact && (
+            <div className={["my-3 h-px w-8 self-center", t.divider].join(" ")} />
+          )}
 
           <SidebarChannels
             channels={connectedChannels}
@@ -2194,7 +2196,7 @@ export default function DashboardSidebar({
                    menu flotte juste au-dessus de l'avatar, légèrement séparé.
                    Footer : py-2.5 (10px) + bouton h-11 (44px) → sommet de
                    l'avatar à 54px du bas ; +6px d'espiration → bottom-[60px]. */
-                "left-[32px] bottom-[60px]",
+                "left-[16px] bottom-[60px]",
                 t.menu,
               ].join(" ")}
             >
@@ -2272,7 +2274,7 @@ export default function DashboardSidebar({
                 <div
                   key={group[0]?.label ?? groupIndex}
                   role="none"
-                  className={["border-t px-1.5 py-1.5", t.menuDivider].join(" ")}
+                  className="px-1.5 py-1.5"
                 >
                   {group.map((item) => {
                     const Icon = item.icon;
