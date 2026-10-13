@@ -134,13 +134,13 @@ type StatusResponse = {
 
 /* ============================================================================
    Dimensions
-   Sidebar classique collée au bord gauche, pleine hauteur.
-   Réduite : 96 px (rail d'icônes). Ouverte : 240 px.
-   Les valeurs Tailwind (w-[96px] / w-[240px]) doivent rester en phase.
+   Sidebar fine collée au bord gauche, pleine hauteur.
+   Réduite : 64 px (rail d'icônes). Ouverte : 200 px.
+   Les valeurs Tailwind (w-[64px] / w-[200px]) doivent rester en phase.
 ============================================================================ */
 
-export const SIDEBAR_COLLAPSED_OFFSET = 96;
-export const SIDEBAR_EXPANDED_OFFSET = 240;
+export const SIDEBAR_COLLAPSED_OFFSET = 64;
+export const SIDEBAR_EXPANDED_OFFSET = 200;
 
 /* ============================================================================
    Keyframes
@@ -377,12 +377,6 @@ const ChevronDownIcon = (p: IconProps) => (
   </Svg>
 );
 
-const PlusIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M12 5v14M5 12h14" />
-  </Svg>
-);
-
 const MenuIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="M4 7h16M4 12h16M4 17h16" />
@@ -584,12 +578,12 @@ function NavItemViewImpl({
           "group relative flex items-center rounded-xl text-[13px] font-medium",
           "transition-[background-color,color,transform] duration-200",
           "active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:scale-100",
-          compact ? "h-11 w-11 justify-center" : "h-10 w-full gap-3 px-3",
+          compact ? "h-10 w-10 justify-center" : "h-9 w-full gap-2.5 px-2.5",
           focus,
           isActive ? t.navActive : t.navIdle,
         ].join(" ")}
       >
-        <Icon className="h-[20px] w-[20px] shrink-0" />
+        <Icon className="h-[18px] w-[18px] shrink-0" />
 
         {!compact && (
           <>
@@ -611,7 +605,7 @@ function NavItemViewImpl({
           <span
             aria-hidden="true"
             className={[
-              "absolute right-1.5 top-1.5 h-2 w-2 rounded-full ring-2",
+              "absolute right-1 top-1 h-2 w-2 rounded-full ring-2",
               t.accent,
               t.dotRing,
             ].join(" ")}
@@ -720,8 +714,8 @@ function ChannelAvatar({
 
   const label = channel.handle || channel.name;
   const initial = label.replace(/^@/, "").charAt(0).toUpperCase() || "?";
-  const box = size === "lg" ? "h-11 w-11" : "h-7 w-7";
-  const radius = size === "lg" ? "rounded-xl" : "rounded-full";
+  const box = size === "lg" ? "h-9 w-9" : "h-7 w-7";
+  const radius = size === "lg" ? "rounded-lg" : "rounded-full";
 
   return (
     <span className={["relative shrink-0", box].join(" ")}>
@@ -756,8 +750,8 @@ function ChannelAvatar({
       {NetworkIcon && (
         <span
           className={[
-            "absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center",
-            "rounded-[5px] bg-white text-black ring-2",
+            "absolute -bottom-0.5 -right-0.5 flex h-4 w-4 items-center justify-center",
+            "rounded-[5px] bg-black text-white ring-2",
             dotRing,
           ].join(" ")}
         >
@@ -1053,7 +1047,7 @@ function SidebarChannelsImpl({
   return (
     <div className="flex flex-col gap-1">
       {!compact && (
-        <div className="sb-fade flex h-6 items-center justify-between px-3">
+        <div className="sb-fade flex h-6 items-center justify-between px-2.5">
           <span className={["text-[12px] font-medium", t.muted].join(" ")}>
             Channels
           </span>
@@ -1065,7 +1059,7 @@ function SidebarChannelsImpl({
           type="button"
           onClick={onConnect}
           className={[
-            "flex w-full flex-col items-start gap-1 rounded-xl border border-dashed p-3 text-left",
+            "flex w-full flex-col items-start gap-1 rounded-xl border border-dashed p-2.5 text-left",
             "transition-colors duration-150 motion-reduce:transition-none",
             t.rail,
             t.row,
@@ -1125,7 +1119,7 @@ function SidebarChannelsImpl({
                   "group relative flex items-center rounded-xl text-[13px] font-medium",
                   "transition-[background-color,color,transform] duration-200",
                   "active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:scale-100",
-                  compact ? "h-14 w-14 justify-center" : "h-11 w-full gap-3 px-3",
+                  compact ? "h-12 w-12 justify-center" : "h-10 w-full gap-2.5 px-2.5",
                   focus,
                   isOpen || isActiveChannel ? t.rowOpen : "",
                   t.navIdle,
@@ -1167,7 +1161,7 @@ function SidebarChannelsImpl({
                 <div className="overflow-hidden">
                   <div
                     className={[
-                      "ml-[22px] mt-1 flex flex-col gap-0.5 border-l pl-3",
+                      "ml-[20px] mt-1 flex flex-col gap-0.5 border-l pl-2.5",
                       t.rail,
                     ].join(" ")}
                   >
@@ -1670,38 +1664,38 @@ export default function DashboardSidebar({
   );
 
   /* --------------------------------------------------------------------------
-     Theme tokens
+     Theme tokens — noir profond
   -------------------------------------------------------------------------- */
 
   const t = useMemo<ThemeTokens>(
     () =>
       isDark
         ? {
-            aside: "border-white/10 bg-[#0f0f10]",
-            divider: "bg-white/10",
-            navActive: "bg-[#2a2a2e] text-white",
-            navIdle: "text-white/70 hover:bg-[#2a2a2e] hover:text-white",
-            count: "bg-white/10 text-[#d7d7d2]",
-            dotRing: "ring-[#0f0f10]",
-            rail: "border-white/10",
-            sub: "text-[#99a2a2] hover:bg-[#2a2a2e] hover:text-white",
-            subActive: "bg-[#2a2a2e] text-white",
-            row: "hover:bg-[#2a2a2e]",
-            rowOpen: "bg-[#2a2a2e]",
-            avatar: "bg-[#f0f0ed] text-[#111111]",
-            title: "text-[#f3f3ef]",
-            muted: "text-[#99a2a2]",
-            menu: "border-white/10 bg-[#1c1d1d] text-[#f3f3ef] shadow-[0_18px_40px_rgba(0,0,0,0.55)]",
-            menuDivider: "border-white/10",
-            menuItem: "text-[#ecece8] hover:bg-[#34343a] focus-visible:bg-[#34343a]",
-            menuIcon: "text-[#a9aeae] hover:text-white",
+            aside: "border-white/[0.07] bg-[#060606]",
+            divider: "bg-white/[0.07]",
+            navActive: "bg-[#17171a] text-white",
+            navIdle: "text-white/60 hover:bg-[#141416] hover:text-white",
+            count: "bg-white/[0.08] text-[#c9c9c4]",
+            dotRing: "ring-[#060606]",
+            rail: "border-white/[0.07]",
+            sub: "text-[#8a8f8f] hover:bg-[#141416] hover:text-white",
+            subActive: "bg-[#17171a] text-white",
+            row: "hover:bg-[#141416]",
+            rowOpen: "bg-[#17171a]",
+            avatar: "bg-[#e8e8e4] text-[#0a0a0a]",
+            title: "text-[#e9e9e5]",
+            muted: "text-[#828686]",
+            menu: "border-white/[0.08] bg-[#101011] text-[#e9e9e5] shadow-[0_18px_40px_rgba(0,0,0,0.7)]",
+            menuDivider: "border-white/[0.07]",
+            menuItem: "text-[#dcdcd8] hover:bg-[#1c1c1f] focus-visible:bg-[#1c1c1f]",
+            menuIcon: "text-[#969a9a] hover:text-white",
             upgrade:
-              "border-white/10 bg-white/[0.04] text-[#f3f3ef] hover:border-white/20 hover:bg-[#34343a]",
+              "border-white/[0.08] bg-white/[0.03] text-[#e9e9e5] hover:border-white/15 hover:bg-[#1c1c1f]",
             badge: "bg-white text-black",
             accent: "bg-white",
             accentSolid: "border-transparent bg-white text-black hover:bg-white/90",
-            avatarRing: "group-hover:ring-white/60",
-            ring: "focus-visible:ring-white/30",
+            avatarRing: "group-hover:ring-white/50",
+            ring: "focus-visible:ring-white/25",
           }
         : {
             aside: "border-black/10 bg-white",
@@ -1789,7 +1783,7 @@ export default function DashboardSidebar({
 
   const closeConnect = useCallback(() => setConnectOpen(false), []);
 
-  /* Alt (⌥) + touche : P = menu compte, N = connecter un canal, autres = pages. */
+  /* Alt (⌥) + touche : P = menu compte, autres = pages. */
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (!event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
@@ -1807,12 +1801,6 @@ export default function DashboardSidebar({
         return;
       }
 
-      if (key === "n") {
-        event.preventDefault();
-        openConnect();
-        return;
-      }
-
       const route = SHORTCUT_ROUTES[key];
 
       if (route) {
@@ -1824,7 +1812,7 @@ export default function DashboardSidebar({
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [connectOpen, openConnect]);
+  }, [connectOpen]);
 
   const handleExpand = useCallback(() => setIsCollapsed(false), []);
 
@@ -2057,7 +2045,7 @@ export default function DashboardSidebar({
         />
       )}
 
-      {/* Sidebar classique : collée au bord gauche, pleine hauteur. */}
+      {/* Sidebar fine : collée au bord gauche, pleine hauteur. */}
       <aside
         id="app-sidebar"
         {...inertProps}
@@ -2069,17 +2057,17 @@ export default function DashboardSidebar({
           t.aside,
           drawerHidden ? "pointer-events-none -translate-x-full" : "translate-x-0",
           compact
-            ? "w-[96px]"
+            ? "w-[64px]"
             : isMobile
-              ? "w-[260px] max-w-[85vw]"
-              : "w-[240px]",
+              ? "w-[220px] max-w-[85vw]"
+              : "w-[200px]",
         ].join(" ")}
       >
         {/* Logo */}
         <div
           className={[
-            "flex h-16 shrink-0 items-center",
-            compact ? "justify-center" : "gap-2.5 px-5",
+            "flex h-14 shrink-0 items-center",
+            compact ? "justify-center" : "gap-2 px-4",
             t.title,
           ].join(" ")}
         >
@@ -2087,43 +2075,14 @@ export default function DashboardSidebar({
             src={isDark ? "/images/icon_nav.png" : "/images/icon.png"}
             alt="Stone logo"
             draggable={false}
-            className="h-9 w-8 shrink-0 select-none object-contain"
+            className="h-8 w-7 shrink-0 select-none object-contain"
           />
 
           {!compact && (
-            <span className="sb-fade select-none text-[20px] font-semibold leading-none tracking-tight">
+            <span className="sb-fade select-none text-[18px] font-semibold leading-none tracking-tight">
               Stone
             </span>
           )}
-        </div>
-
-        {/* Bouton principal : connecter un canal */}
-        <div className={["shrink-0 pb-3", compact ? "flex justify-center" : "px-3"].join(" ")}>
-          <Tip
-            label="Connect a channel"
-            shortcut={shortcutLabel("n")}
-            enabled={compact}
-            menuClass={t.menu}
-            countClass={t.count}
-          >
-            <button
-              type="button"
-              aria-label="Connect a channel"
-              aria-keyshortcuts={ariaShortcut("n")}
-              onClick={openConnect}
-              className={[
-                "group flex items-center justify-center gap-2 rounded-2xl",
-                "bg-[#8fd17f] text-[13px] font-semibold text-black hover:bg-[#9fdc90]",
-                "transition-[background-color,transform] duration-200",
-                "active:scale-[0.96] motion-reduce:transition-none motion-reduce:active:scale-100",
-                compact ? "h-14 w-14" : "h-11 w-full",
-                focus,
-              ].join(" ")}
-            >
-              <PlusIcon className="h-5 w-5 transition-transform duration-300 group-hover:rotate-90 motion-reduce:transition-none motion-reduce:group-hover:rotate-0" />
-              {!compact && <span className="sb-fade">Connect channel</span>}
-            </button>
-          </Tip>
         </div>
 
         {/* Navigation */}
@@ -2131,7 +2090,7 @@ export default function DashboardSidebar({
           aria-label="Main"
           className={[
             "flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto overflow-x-hidden pb-3",
-            compact ? "items-center px-0" : "px-3",
+            compact ? "items-center px-0" : "px-2",
             "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
           ].join(" ")}
         >
@@ -2147,7 +2106,7 @@ export default function DashboardSidebar({
             />
           ))}
 
-          <div className={["my-3 h-px", compact ? "w-10 self-center" : "mx-1", t.divider].join(" ")} />
+          <div className={["my-3 h-px", compact ? "w-8 self-center" : "mx-1", t.divider].join(" ")} />
 
           <SidebarChannels
             channels={connectedChannels}
@@ -2165,9 +2124,9 @@ export default function DashboardSidebar({
         <div
           ref={profileRef}
           className={[
-            "relative shrink-0 border-t py-3",
+            "relative shrink-0 border-t py-2.5",
             t.rail,
-            compact ? "flex flex-col items-center gap-2" : "flex items-center gap-1.5 px-3",
+            compact ? "flex flex-col items-center gap-2" : "flex items-center gap-1.5 px-2",
           ].join(" ")}
         >
           {/* Toggle sidebar */}
@@ -2186,7 +2145,7 @@ export default function DashboardSidebar({
             title={`${compact ? "Expand" : "Collapse"} sidebar (${TOGGLE_SHORTCUT_LABEL})`}
             onClick={toggleCollapsed}
             className={[
-              "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl",
+              "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl",
               "transition-[background-color,color,transform] duration-200",
               "active:scale-[0.94] motion-reduce:transition-none motion-reduce:active:scale-100",
               compact ? "" : "order-last",
@@ -2195,7 +2154,7 @@ export default function DashboardSidebar({
               t.row,
             ].join(" ")}
           >
-            <SidebarToggleIcon className="h-[20px] w-[20px]" open={!compact} />
+            <SidebarToggleIcon className="h-[18px] w-[18px]" open={!compact} />
           </button>
 
           {/* Menu du compte */}
@@ -2209,7 +2168,7 @@ export default function DashboardSidebar({
               className={[
                 "sb-menu absolute bottom-3 z-50 w-[264px] max-w-[calc(100vw-24px)]",
                 "origin-bottom-left overflow-hidden rounded-2xl border",
-                compact ? "left-full ml-2" : "left-full ml-2",
+                "left-full ml-2",
                 t.menu,
               ].join(" ")}
             >
@@ -2380,7 +2339,7 @@ export default function DashboardSidebar({
                   "group flex items-center rounded-xl",
                   "transition-[background-color,transform] duration-200",
                   "active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:scale-100",
-                  compact ? "h-12 w-12 justify-center" : "h-12 w-full gap-3 px-1.5",
+                  compact ? "h-11 w-11 justify-center" : "h-11 w-full gap-2.5 px-1.5",
                   focus,
                   menuOpen ? t.rowOpen : t.row,
                 ].join(" ")}
@@ -2392,7 +2351,7 @@ export default function DashboardSidebar({
                     alt="Profile"
                     draggable={false}
                     className={[
-                      "h-10 w-10 shrink-0 select-none rounded-xl object-cover",
+                      "h-9 w-9 shrink-0 select-none rounded-lg object-cover",
                       "ring-2 ring-transparent transition-shadow duration-200",
                       t.avatarRing,
                     ].join(" ")}
@@ -2401,7 +2360,7 @@ export default function DashboardSidebar({
                 ) : (
                   <span
                     className={[
-                      "flex h-10 w-10 shrink-0 select-none items-center justify-center rounded-xl",
+                      "flex h-9 w-9 shrink-0 select-none items-center justify-center rounded-lg",
                       "text-[11px] font-semibold",
                       "ring-2 ring-transparent transition-shadow duration-200",
                       t.avatarRing,
