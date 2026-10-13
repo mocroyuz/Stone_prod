@@ -1389,8 +1389,10 @@ export default function Home() {
       >
         <div
           className={[
-            "mx-auto flex w-full max-w-[1280px]",
-            "flex-col px-[clamp(18px,3vw,40px)]",
+            /* Page allongée : largeur maximale repoussée à 1720px
+               pour occuper beaucoup plus d'espace sur les côtés. */
+            "mx-auto flex w-full max-w-[1720px]",
+            "flex-col px-[clamp(18px,3vw,48px)]",
             "pb-[120px] pt-[clamp(18px,3vw,30px)]",
           ].join(" ")}
         >
@@ -1454,7 +1456,7 @@ export default function Home() {
               </p>
             </div>
 
-            <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1fr_320px]">
+            <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1fr_380px]">
               {/* Même fond que le panneau Comments */}
               <div
                 className={[
