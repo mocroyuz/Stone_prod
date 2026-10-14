@@ -374,18 +374,68 @@ function ClockDisplay({ isDark, now }: { isDark: boolean; now: Date }) {
    STAT
 ============================================================ */
 
+/* Petit « ! » cerclé : explique en infobulle ce que montre la statistique.
+   Visible au survol ET au focus clavier. */
+function InfoHint({ isDark, text }: { isDark: boolean; text: string }) {
+  return (
+    <span className="group relative flex shrink-0 items-center">
+      <button
+        type="button"
+        aria-label={text}
+        className={[
+          "flex h-3.5 w-3.5 items-center justify-center rounded-full transition",
+          "focus-visible:outline-none focus-visible:ring-1",
+          isDark
+            ? "text-neutral-600 hover:text-neutral-300 focus-visible:ring-white/30"
+            : "text-neutral-400 hover:text-neutral-700 focus-visible:ring-black/30",
+        ].join(" ")}
+      >
+        <svg
+          viewBox="0 0 24 24"
+          className="h-full w-full"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <circle cx="12" cy="12" r="9.5" />
+          <path d="M12 7.5v5.5" />
+          <path d="M12 16.6v.1" strokeWidth="2.6" />
+        </svg>
+      </button>
+
+      <span
+        role="tooltip"
+        className={[
+          "pointer-events-none absolute bottom-full left-1/2 z-30 mb-2 w-max max-w-[210px]",
+          "-translate-x-1/2 rounded-lg px-2.5 py-1.5 text-center text-[11px] font-medium leading-snug",
+          "opacity-0 shadow-lg transition-opacity duration-150",
+          "group-hover:opacity-100 group-focus-within:opacity-100",
+          isDark ? "bg-[#2e2e31] text-white" : "bg-neutral-900 text-white",
+        ].join(" ")}
+      >
+        {text}
+      </span>
+    </span>
+  );
+}
+
 function Stat({
   isDark,
   icon,
   label,
   value,
   change,
+  hint,
 }: {
   isDark: boolean;
   icon: ReactNode;
   label: string;
   value: string;
   change: string;
+  hint: string;
 }) {
   const positive = change.startsWith("+");
 
@@ -408,14 +458,18 @@ function Stat({
         {icon}
       </div>
       <div className="min-w-0">
-        <p
-          className={[
-            "truncate text-[10px] font-medium",
-            isDark ? "text-neutral-500" : "text-neutral-400",
-          ].join(" ")}
-        >
-          {label}
-        </p>
+        {/* L'infobulle est hors du <p> tronqué pour ne pas être coupée. */}
+        <div className="flex items-center gap-1">
+          <p
+            className={[
+              "truncate text-[10px] font-medium",
+              isDark ? "text-neutral-500" : "text-neutral-400",
+            ].join(" ")}
+          >
+            {label}
+          </p>
+          <InfoHint isDark={isDark} text={hint} />
+        </div>
         <div className="mt-0.5 flex items-baseline gap-1.5">
           <span
             className={[
@@ -1245,6 +1299,7 @@ export default function Home() {
                 label="Followers"
                 value="27K"
                 change="-2%"
+                hint="Total followers across all your connected channels, compared to the previous period."
                 icon={<Users className="h-4 w-4" />}
               />
               <Stat
@@ -1252,6 +1307,7 @@ export default function Home() {
                 label="Likes"
                 value="12.4K"
                 change="+16%"
+                hint="Total likes received on your posts across all channels, compared to the previous period."
                 icon={<Heart className="h-4 w-4" />}
               />
               <Stat
@@ -1259,6 +1315,7 @@ export default function Home() {
                 label="Comments"
                 value="342"
                 change="+5%"
+                hint="Total comments received on your posts across all channels, compared to the previous period."
                 icon={<MessageCircle className="h-4 w-4" />}
               />
             </div>
