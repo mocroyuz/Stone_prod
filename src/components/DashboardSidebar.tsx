@@ -70,8 +70,8 @@ import {
   type Connection,
 } from "../services/channelsCache";
 
-/* ============================================================================
-   Types
+/* ============================================================================ 
+   Types 
 ============================================================================ */
 
 type IconProps = { className?: string };
@@ -132,18 +132,18 @@ type StatusResponse = {
     | undefined;
 };
 
-/* ============================================================================
-   Dimensions
-   Sidebar fine collée au bord gauche, pleine hauteur.
-   Réduite : 64 px (rail d'icônes). Ouverte : 200 px.
-   Les valeurs Tailwind (w-[64px] / w-[200px]) doivent rester en phase.
+/* ============================================================================ 
+   Dimensions 
+   Sidebar fine collée au bord gauche, pleine hauteur. 
+   Réduite : 64 px (rail d'icônes). Ouverte : 200 px. 
+   Les valeurs Tailwind (w-[64px] / w-[200px]) doivent rester en phase. 
 ============================================================================ */
 
 export const SIDEBAR_COLLAPSED_OFFSET = 64;
 export const SIDEBAR_EXPANDED_OFFSET = 200;
 
-/* ============================================================================
-   Keyframes
+/* ============================================================================ 
+   Keyframes 
 ============================================================================ */
 
 const SIDEBAR_KEYFRAMES = `
@@ -177,10 +177,10 @@ const SIDEBAR_KEYFRAMES = `
 }
 `;
 
-/* ============================================================================
-   Raccourcis clavier
-   - Ctrl/⌘ + B : réduire / ouvrir la sidebar
-   - Alt (⌥) + lettre : pages
+/* ============================================================================ 
+   Raccourcis clavier 
+   - Ctrl/⌘ + B : réduire / ouvrir la sidebar 
+   - Alt (⌥) + lettre : pages 
 ============================================================================ */
 
 const IS_MAC =
@@ -237,8 +237,8 @@ function Kbd({ children, className }: { children: ReactNode; className?: string 
   );
 }
 
-/* ============================================================================
-   Responsive : sous 768 px la sidebar devient un tiroir
+/* ============================================================================ 
+   Responsive : sous 768 px la sidebar devient un tiroir 
 ============================================================================ */
 
 const MOBILE_QUERY = "(max-width: 767px)";
@@ -260,8 +260,8 @@ function useIsMobile(): boolean {
   return useSyncExternalStore(subscribeMobile, getMobileSnapshot, () => false);
 }
 
-/* ============================================================================
-   Icons
+/* ============================================================================ 
+   Icons 
 ============================================================================ */
 
 function Svg({
@@ -427,8 +427,8 @@ function SidebarToggleIcon({ className, open }: IconProps & { open: boolean }) {
   );
 }
 
-/* ============================================================================
-   Tooltip flottant (portal)
+/* ============================================================================ 
+   Tooltip flottant (portal) 
 ============================================================================ */
 
 const TIP_DELAY_MS = 280;
@@ -506,8 +506,8 @@ function Tip({
   );
 }
 
-/* ============================================================================
-   Navigation data
+/* ============================================================================ 
+   Navigation data 
 ============================================================================ */
 
 const navItems: NavItem[] = [
@@ -541,9 +541,9 @@ const menuGroups: MenuItem[][] = [
   [{ label: "Log out", icon: LogoutIcon, action: "logout" }],
 ];
 
-/* ============================================================================
-   Navigation item
-   Réduit : bouton icône centré. Ouvert : ligne pleine largeur avec libellé.
+/* ============================================================================ 
+   Navigation item 
+   Réduit : bouton icône centré. Ouvert : ligne pleine largeur avec libellé. 
 ============================================================================ */
 
 function NavItemViewImpl({
@@ -624,8 +624,8 @@ function NavItemViewImpl({
 
 const NavItemView = memo(NavItemViewImpl);
 
-/* ============================================================================
-   Channels (réseaux connectés)
+/* ============================================================================ 
+   Channels (réseaux connectés) 
 ============================================================================ */
 
 type NetworkKey =
@@ -768,10 +768,10 @@ function ChannelAvatar({
   );
 }
 
-/* ============================================================================
-   Popover d'une ligne de canal (sidebar réduite uniquement)
-   Rendu en portal. Clavier : → ouvre et place le focus, ↑/↓/Home/End
-   naviguent, Échap / ← referment.
+/* ============================================================================ 
+   Popover d'une ligne de canal (sidebar réduite uniquement) 
+   Rendu en portal. Clavier : → ouvre et place le focus, ↑/↓/Home/End 
+   naviguent, Échap / ← referment. 
 ============================================================================ */
 
 const HOVER_CARD_SHOW_MS = 200;
@@ -1243,8 +1243,8 @@ function SidebarChannelsImpl({
 
 const SidebarChannels = memo(SidebarChannelsImpl);
 
-/* ============================================================================
-   Sidebar memory
+/* ============================================================================ 
+   Sidebar memory 
 ============================================================================ */
 
 const SIDEBAR_STORAGE_KEY = "stone.sidebar.collapsed";
@@ -1314,8 +1314,8 @@ export function useSidebarOffset(): number {
   return collapsed ? SIDEBAR_COLLAPSED_OFFSET : SIDEBAR_EXPANDED_OFFSET;
 }
 
-/* ============================================================================
-   Channel-connections helpers
+/* ============================================================================ 
+   Channel-connections helpers 
 ============================================================================ */
 
 type OAuthProvider = "tiktok" | "pinterest" | "youtube";
@@ -1376,8 +1376,8 @@ function pluralizeChannels(count: number): string {
   return `${count} channel${count === 1 ? "" : "s"}`;
 }
 
-/* ============================================================================
-   Sidebar
+/* ============================================================================ 
+   Sidebar 
 ============================================================================ */
 
 type DashboardSidebarProps = {
@@ -1436,6 +1436,7 @@ export default function DashboardSidebar({
     pinterest: false,
     youtube: false,
   });
+
   const placeholderTimer = useRef<number | undefined>(undefined);
 
   const profileRef = useRef<HTMLDivElement>(null);
@@ -2195,7 +2196,7 @@ export default function DashboardSidebar({
                    aligné sur le centre horizontal de la photo de profil, et le
                    menu flotte juste au-dessus de l'avatar, légèrement séparé.
                    Footer : py-2.5 (10px) + bouton h-11 (44px) → sommet de
-                   l'avatar à 54px du bas ; +6px d'espiration → bottom-[60px]. */
+                   l'avatar à 54px du bas ; +6px d'esiration → bottom-[60px]. */
                 "left-[16px] bottom-[60px]",
                 t.menu,
               ].join(" ")}
@@ -2378,11 +2379,7 @@ export default function DashboardSidebar({
                     src={account.avatarUrl}
                     alt="Profile"
                     draggable={false}
-                    className={[
-                      "h-9 w-9 shrink-0 select-none rounded-lg object-cover",
-                      "ring-2 ring-transparent transition-shadow duration-200",
-                      t.avatarRing,
-                    ].join(" ")}
+                    className="h-9 w-9 shrink-0 select-none rounded-lg object-cover"
                     onError={() => setAvatarLoadFailed(true)}
                   />
                 ) : (
@@ -2390,8 +2387,6 @@ export default function DashboardSidebar({
                     className={[
                       "flex h-9 w-9 shrink-0 select-none items-center justify-center rounded-lg",
                       "text-[11px] font-semibold",
-                      "ring-2 ring-transparent transition-shadow duration-200",
-                      t.avatarRing,
                       t.avatar,
                     ].join(" ")}
                   >
