@@ -222,10 +222,10 @@ const ArrowLeftIcon = ({ className = "h-5 w-5" }: IconProps) => (
   </svg>
 );
 
-const ChevronsLeftIcon = ({ className = "h-[18px] w-[18px]" }: IconProps) => (
+const SidebarIcon = ({ className = "h-[18px] w-[18px]" }: IconProps) => (
   <svg {...baseIcon} className={className}>
-    <path d="m11 17-5-5 5-5" />
-    <path d="m18 17-5-5 5-5" />
+    <rect x="3" y="3" width="18" height="18" rx="3" />
+    <path d="M9 3v18" />
   </svg>
 );
 
@@ -388,9 +388,9 @@ function SectionCard({
 }) {
   return (
     <section
-      className={`rounded-[14px] border p-[clamp(18px,2vw,26px)] transition-colors duration-300 ${
-        tokens.cardBg
-      } ${danger ? tokens.dangerBorder : tokens.cardBorder}`}
+      className={`border-b pb-[clamp(20px,2.4vw,32px)] transition-colors duration-300 last:border-b-0 last:pb-0 ${
+        danger ? tokens.dangerBorder : tokens.cardBorder
+      }`}
     >
       <header className="mb-2">
         <h3
@@ -620,21 +620,9 @@ function SettingsSidebar({
           aria-expanded={!collapsed}
           aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          className={`${itemBase} ${tokens.sidebarItem} ${tokens.sidebarItemHover}`}
+          className={`flex h-10 w-10 items-center justify-center rounded-[10px] transition-colors ${tokens.sidebarItem} ${tokens.sidebarItemHover}`}
         >
-          <span className="shrink-0">
-            <ChevronsLeftIcon
-              className={`h-[18px] w-[18px] transition-transform duration-300 ${ease} motion-reduce:transition-none ${
-                collapsed ? "rotate-180" : "rotate-0"
-              }`}
-            />
-          </span>
-
-          <span
-            className={`min-w-0 flex-1 truncate transition-opacity duration-200 motion-reduce:transition-none ${fade}`}
-          >
-            Collapse
-          </span>
+          <SidebarIcon />
         </button>
       </div>
     </aside>
