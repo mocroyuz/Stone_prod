@@ -1225,6 +1225,16 @@ export default function Home() {
 
   const greeting = getGreeting(now);
 
+  /* Formatage de la date pour correspondre à l'image : "Wed, Oct 14 2026" */
+  const formattedDate = `${now.toLocaleDateString("en-US", {
+    weekday: "short",
+  })}, ${now.toLocaleDateString("en-US", {
+    month: "short",
+  })} ${now.getDate()} ${now.getFullYear()}`;
+
+  /* Nom affiché : on utilise le nom complet, ou un fallback */
+  const displayName = fullName || "adamnolke";
+
   /* ----------------------------------------------------------
      CREATE POST
   ---------------------------------------------------------- */
@@ -1296,46 +1306,29 @@ export default function Home() {
           ].join(" ")}
         >
           {/* HEADER */}
-          <header className="flex shrink-0 items-center justify-between">
-            <div className="flex items-center gap-3">
-              <GreetingAvatar
-                avatarUrl={user?.avatar_url}
-                initials={initials}
-                isDark={isDark}
-                loading={!userLoaded}
-              />
-              <div>
-                <p
-                  className={[
-                    "text-[10px] font-medium",
-                    mutedClass(isDark),
-                  ].join(" ")}
-                >
-                  {greeting}
-                </p>
-                <div className="mt-0.5 flex min-w-0 items-center gap-2">
-                  <h1
-                    className={[
-                      "truncate text-[22px] font-semibold",
-                      "tracking-[-0.035em]",
-                      strongClass(isDark),
-                    ].join(" ")}
-                  >
-                    {fullName ? (
-                      fullName
-                    ) : userLoaded ? (
-                      "Welcome"
-                    ) : (
-                      <span
-                        aria-hidden="true"
-                        className="block h-[22px] w-40 animate-pulse rounded-md bg-neutral-500/20"
-                      />
-                    )}
-                  </h1>
-                </div>
-              </div>
+          <header className="flex shrink-0 items-start justify-between">
+            {/* Partie gauche : Texte de salutation + Date (format image) */}
+            <div className="flex min-w-0 flex-col">
+              <h1
+                className={[
+                  "truncate text-[24px] font-semibold tracking-[-0.035em]",
+                  strongClass(isDark),
+                ].join(" ")}
+              >
+                {greeting.charAt(0).toUpperCase() + greeting.slice(1)},{" "}
+                {displayName}!
+              </h1>
+              <p
+                className={[
+                  "mt-1 text-[13px] font-medium",
+                  mutedClass(isDark),
+                ].join(" ")}
+              >
+                {formattedDate}
+              </p>
             </div>
 
+            {/* Partie droite : Horloge (inchangée) */}
             <ClockDisplay isDark={isDark} now={now} />
           </header>
 
