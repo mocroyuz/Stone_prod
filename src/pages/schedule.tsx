@@ -21,13 +21,6 @@ function ChevronDownIcon() {
   );
 }
 
-function FilterIcon() {
-  return (
-    <svg viewBox="0 0 24 24" className="h-[14px] w-[14px]" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M4 6h16M7 12h10M10 18h4" />
-    </svg>
-  );
-}
 
 function PlusIcon() {
   return (
@@ -91,6 +84,232 @@ function ArrowDownIcon({ className = "h-[14px] w-[14px]" }: { className?: string
   );
 }
 
+function ChevronLeftIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-[16px] w-[16px]" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="m15 6-6 6 6 6" />
+    </svg>
+  );
+}
+
+function ChevronRightIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-[16px] w-[16px]" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="m9 6 6 6-6 6" />
+    </svg>
+  );
+}
+
+function ChannelsIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-[15px] w-[15px]" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="7" cy="7" r="2.6" />
+      <circle cx="17" cy="7" r="2.6" />
+      <circle cx="7" cy="17" r="2.6" />
+      <circle cx="17" cy="17" r="2.6" />
+    </svg>
+  );
+}
+
+function PostsIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-[15px] w-[15px]" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="3" width="13" height="13" rx="2" />
+      <path d="M8 20h11a2 2 0 0 0 2-2V8" />
+    </svg>
+  );
+}
+
+function TagIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-[15px] w-[15px]" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8Z" />
+      <circle cx="7.5" cy="7.5" r="1" fill="currentColor" />
+    </svg>
+  );
+}
+
+function NoDateIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-[15px] w-[15px]" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <path d="M9 4v16" />
+      <path d="m16 10-2 2 2 2" />
+    </svg>
+  );
+}
+
+function GlobeIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-[15px] w-[15px]" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M3 12h18" />
+      <path d="M12 3a14 14 0 0 1 0 18 14 14 0 0 1 0-18Z" />
+    </svg>
+  );
+}
+
+function MoreVerticalIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-[15px] w-[15px]" fill="currentColor">
+      <circle cx="12" cy="5" r="1.6" />
+      <circle cx="12" cy="12" r="1.6" />
+      <circle cx="12" cy="19" r="1.6" />
+    </svg>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Toolbar building blocks                                             */
+/* ------------------------------------------------------------------ */
+
+type ToolbarPanel = "view" | "channels" | "posts" | "tags" | "timezone" | "more";
+
+function ToolbarButton({
+  isDark,
+  icon,
+  open = false,
+  active = false,
+  chevron = true,
+  onClick,
+  children,
+}: {
+  isDark: boolean;
+  icon?: React.ReactNode;
+  open?: boolean;
+  active?: boolean;
+  chevron?: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  const highlighted = open || active;
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-expanded={chevron ? open : undefined}
+      aria-pressed={chevron ? undefined : active}
+      className={[
+        "flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[13px] font-medium transition",
+        highlighted
+          ? isDark
+            ? "bg-white/10 text-white"
+            : "bg-black/[0.06] text-neutral-900"
+          : isDark
+            ? "text-neutral-200 hover:bg-white/5"
+            : "text-neutral-700 hover:bg-black/[0.04]",
+      ].join(" ")}
+    >
+      {icon}
+      {children}
+      {chevron && (
+        <span className={["flex transition-transform duration-200", open ? "rotate-180" : ""].join(" ")}>
+          <ChevronDownIcon />
+        </span>
+      )}
+    </button>
+  );
+}
+
+function ToolbarIconButton({
+  isDark,
+  label,
+  open,
+  onClick,
+  children,
+}: {
+  isDark: boolean;
+  label: string;
+  open?: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      aria-expanded={open}
+      onClick={onClick}
+      className={[
+        "flex h-8 w-8 items-center justify-center rounded-lg transition",
+        open
+          ? isDark
+            ? "bg-white/10 text-white"
+            : "bg-black/[0.06] text-neutral-900"
+          : isDark
+            ? "text-neutral-300 hover:bg-white/5 hover:text-white"
+            : "text-neutral-500 hover:bg-black/[0.04] hover:text-neutral-900",
+      ].join(" ")}
+    >
+      {children}
+    </button>
+  );
+}
+
+function MenuPanel({
+  isDark,
+  align = "left",
+  width = "w-48",
+  children,
+}: {
+  isDark: boolean;
+  align?: "left" | "right";
+  width?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      role="menu"
+      className={[
+        "absolute top-full z-40 mt-2 overflow-hidden rounded-[12px] border py-1.5 shadow-lg",
+        align === "right" ? "right-0" : "left-0",
+        width,
+        isDark ? "border-white/10 bg-[#1c1c1e]" : "border-black/[0.06] bg-white",
+      ].join(" ")}
+    >
+      {children}
+    </div>
+  );
+}
+
+function MenuItem({
+  isDark,
+  selected = false,
+  icon,
+  onClick,
+  children,
+}: {
+  isDark: boolean;
+  selected?: boolean;
+  icon?: React.ReactNode;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      role="menuitem"
+      onClick={onClick}
+      className={[
+        "flex w-full items-center justify-between gap-2 px-4 py-2 text-left text-[12.5px] transition",
+        selected
+          ? isDark
+            ? "font-semibold text-white"
+            : "font-semibold text-neutral-900"
+          : isDark
+            ? "text-neutral-300 hover:bg-white/5"
+            : "text-neutral-600 hover:bg-black/[0.03]",
+      ].join(" ")}
+    >
+      <span className="flex items-center gap-2">
+        {icon}
+        {children}
+      </span>
+      {selected && <CheckIcon />}
+    </button>
+  );
+}
+
 /* ------------------------------------------------------------------ */
 /* Date helpers                                                        */
 /* ------------------------------------------------------------------ */
@@ -110,17 +329,6 @@ function addDays(date: Date, days: number) {
   return d;
 }
 
-function formatWeekRange(start: Date, end: Date) {
-  const month = (d: Date, style: "long" | "short") => d.toLocaleDateString(LOCALE, { month: style });
-
-  if (start.getFullYear() !== end.getFullYear()) {
-    return `${start.getDate()} ${month(start, "short")} ${start.getFullYear()} - ${end.getDate()} ${month(end, "short")} ${end.getFullYear()}`;
-  }
-  if (start.getMonth() !== end.getMonth()) {
-    return `${start.getDate()} ${month(start, "short")} - ${end.getDate()} ${month(end, "short")} ${end.getFullYear()}`;
-  }
-  return `${start.getDate()}-${end.getDate()} ${month(end, "long")} ${end.getFullYear()}`;
-}
 
 /* ------------------------------------------------------------------ */
 /* Time <-> decimal hour helpers                                       */
@@ -186,8 +394,13 @@ function formatEventTime(start: number, end: number) {
   return `${formatTime(start)} - ${formatTime(end)}`;
 }
 
-const RANGE_OPTIONS = ["Last week", "This week", "Next week"];
-const RANGE_OFFSET: Record<string, number> = { "Last week": -1, "This week": 0, "Next week": 1 };
+const VIEW_OPTIONS = ["Week"];
+const CHANNELS = [
+  { id: "instagram", name: "Instagram" },
+  { id: "facebook", name: "Facebook" },
+  { id: "linkedin", name: "LinkedIn" },
+];
+const TIMEZONES = ["Paris", "London", "New York", "Tokyo"];
 const SCOPE_OPTIONS = ["All", "Publié", "À publier"];
 
 /* ------------------------------------------------------------------ */
@@ -688,14 +901,17 @@ export default function Schedule() {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
 
   const [activeCategory, setActiveCategory] = useState<string | "All">("All");
-  const [filterOpen, setFilterOpen] = useState(false);
-  const [range, setRange] = useState("This week");
+  const [weekOffset, setWeekOffset] = useState(0);
+  const [openPanel, setOpenPanel] = useState<ToolbarPanel | null>(null);
+  const [view, setView] = useState("Week");
+  const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
+  const [timezone, setTimezone] = useState("Paris");
+  const [showNoDate, setShowNoDate] = useState(false);
   const [scope, setScope] = useState("All");
 
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
   const [catCreatorOpen, setCatCreatorOpen] = useState(false);
-  const [catMenuOpenId, setCatMenuOpenId] = useState<string | null>(null);
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
 
   const [eventFormOpen, setEventFormOpen] = useState(false);
@@ -731,26 +947,20 @@ export default function Schedule() {
     };
   }, [openMenuId]);
 
-  /* ---------------- Category UI close on outside click / Escape ---------------- */
+  /* ---------------- Toolbar menus close on outside click / Escape ---------------- */
   useEffect(() => {
-    if (!catCreatorOpen && !catMenuOpenId && !editingCategoryId) return;
+    if (!openPanel && !catCreatorOpen && !editingCategoryId) return;
 
+    const closeAll = () => {
+      setOpenPanel(null);
+      setCatCreatorOpen(false);
+      setEditingCategoryId(null);
+    };
     const onPointerDown = (e: MouseEvent) => {
-      const t = e.target as HTMLElement;
-      if (catCreatorOpen && !t.closest("[data-cat-creator]")) {
-        setCatCreatorOpen(false);
-      }
-      if ((catMenuOpenId || editingCategoryId) && !t.closest("[data-cat-pill]")) {
-        setCatMenuOpenId(null);
-        setEditingCategoryId(null);
-      }
+      if (!(e.target as HTMLElement).closest("[data-toolbar-menu]")) closeAll();
     };
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        setCatCreatorOpen(false);
-        setCatMenuOpenId(null);
-        setEditingCategoryId(null);
-      }
+      if (e.key === "Escape") closeAll();
     };
 
     document.addEventListener("mousedown", onPointerDown);
@@ -759,7 +969,7 @@ export default function Schedule() {
       document.removeEventListener("mousedown", onPointerDown);
       document.removeEventListener("keydown", onKeyDown);
     };
-  }, [catCreatorOpen, catMenuOpenId, editingCategoryId]);
+  }, [openPanel, catCreatorOpen, editingCategoryId]);
 
   /* ---------------- Real clock ---------------- */
   const [now, setNow] = useState(() => new Date());
@@ -776,13 +986,13 @@ export default function Schedule() {
     const n = new Date();
     const hour = n.getHours() + n.getMinutes() / 60;
     const target =
-      range === "This week"
+      weekOffset === 0
         ? Math.max(0, (hour - NOW_CONTEXT_HOURS - START_HOUR) * HOUR_HEIGHT)
         : (DEFAULT_SCROLL_HOUR - START_HOUR) * HOUR_HEIGHT;
 
     el.scrollTop = target;
     setScrollTop(el.scrollTop);
-  }, [range]);
+  }, [weekOffset]);
 
   /* ---------------- Viewport measure ---------------- */
   useEffect(() => {
@@ -809,9 +1019,9 @@ export default function Schedule() {
 
   /* ---------------- Week days ---------------- */
   const weekStart = useMemo(
-    () => addDays(startOfWeek(now), RANGE_OFFSET[range] * 7),
+    () => addDays(startOfWeek(now), weekOffset * 7),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [now.toDateString(), range],
+    [now.toDateString(), weekOffset],
   );
 
   const days = useMemo(
@@ -828,7 +1038,14 @@ export default function Schedule() {
     [weekStart, now],
   );
 
-  const weekLabel = formatWeekRange(days[0].date, days[6].date);
+  /* Le mois affiché suit le milieu de la semaine (évite les semaines à cheval). */
+  const monthLabel = days[3].date.toLocaleDateString(LOCALE, { month: "long", year: "numeric" });
+
+  const togglePanel = (panel: ToolbarPanel) => {
+    setCatCreatorOpen(false);
+    setEditingCategoryId(null);
+    setOpenPanel((cur) => (cur === panel ? null : panel));
+  };
 
   const nowHour = now.getHours() + now.getMinutes() / 60;
   const nowLabel = `${now.getHours()}:${String(now.getMinutes()).padStart(2, "0")}`;
@@ -927,7 +1144,6 @@ export default function Schedule() {
       prev.map((e) => (e.categoryId === id ? { ...e, categoryId: undefined } : e)),
     );
     if (editingCategoryId === id) setEditingCategoryId(null);
-    if (catMenuOpenId === id) setCatMenuOpenId(null);
   };
 
   const handleDeleteEvent = (id: string) => {
@@ -1017,268 +1233,309 @@ export default function Schedule() {
         <PageTransition>
           {/* Pleine largeur (plus de max-w) ; pb-[96px] réserve la place de la BottomBar. */}
           <div className="flex h-[100dvh] w-full max-w-none flex-col px-[clamp(12px,1.5vw,24px)] pt-[clamp(14px,1.8vw,24px)] pb-[96px]">
-            {/* Heading row */}
-            <div className="grid shrink-0 items-center gap-4 lg:grid-cols-[1fr_auto_1fr]">
-              {/* Categories */}
-              <div className="order-2 flex flex-col gap-1.5 lg:order-none lg:justify-start">
-                <span className={["text-[11px] font-medium", isDark ? "text-neutral-500" : "text-neutral-400"].join(" ")}>
-                  Catégorie
-                </span>
+            {/* Toolbar */}
+            <div className="flex shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-2">
+              {/* Gauche : navigation + vue */}
+              <div className="flex items-center gap-1">
+                <ToolbarIconButton isDark={isDark} label="Previous week" onClick={() => setWeekOffset((o) => o - 1)}>
+                  <ChevronLeftIcon />
+                </ToolbarIconButton>
+                <ToolbarIconButton isDark={isDark} label="Next week" onClick={() => setWeekOffset((o) => o + 1)}>
+                  <ChevronRightIcon />
+                </ToolbarIconButton>
 
-                <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setActiveCategory("All")}
-                    className={[
-                      "flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[12.5px] font-medium transition",
-                      activeCategory === "All"
-                        ? isDark
-                          ? "bg-neutral-900 text-white"
-                          : "bg-white text-neutral-900"
-                        : isDark
-                          ? "bg-[#1c1c1e] text-neutral-300 hover:bg-[#242427]"
-                          : "bg-white text-neutral-600 hover:bg-neutral-50",
-                    ].join(" ")}
-                  >
-                    {activeCategory === "All" && <CheckIcon />}
-                    All
-                  </button>
-
-                  {categories.map((cat) => {
-                    const tone = TONE_STYLES[cat.tone];
-                    const isActive = activeCategory === cat.id;
-                    const isMenuOpen = catMenuOpenId === cat.id;
-                    const isEditing = editingCategoryId === cat.id;
-
-                    return (
-                      <div key={cat.id} className="relative" data-cat-pill>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setActiveCategory(cat.id);
-                            setEditingCategoryId(null);
-                            setCatMenuOpenId(null);
-                          }}
-                          className={[
-                            "flex items-center gap-1.5 rounded-full border py-1.5 pl-3.5 pr-8 text-[12.5px] font-medium transition",
-                            isActive
-                              ? [
-                                  isDark ? tone.bgDark : tone.bgLight,
-                                  isDark ? tone.borderDark : tone.borderLight,
-                                  isDark ? tone.textDark : tone.textLight,
-                                ].join(" ")
-                              : [
-                                  isDark
-                                    ? "border-transparent bg-[#1c1c1e] text-neutral-300 hover:bg-[#242427]"
-                                    : "border-transparent bg-white text-neutral-600 hover:bg-neutral-50",
-                                ].join(" "),
-                          ].join(" ")}
-                        >
-                          {isActive && <CheckIcon />}
-                          {cat.name}
-                        </button>
-
-                        <button
-                          type="button"
-                          aria-label={`Options ${cat.name}`}
-                          aria-haspopup="menu"
-                          aria-expanded={isMenuOpen}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setCatCreatorOpen(false);
-                            setEditingCategoryId(null);
-                            setCatMenuOpenId((cur) => (cur === cat.id ? null : cat.id));
-                          }}
-                          className={[
-                            "absolute right-1.5 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-full transition",
-                            isMenuOpen
-                              ? isDark
-                                ? "bg-white/10 text-white"
-                                : "bg-black/10 text-neutral-900"
-                              : isDark
-                                ? "text-neutral-400 hover:bg-white/10 hover:text-white"
-                                : "text-neutral-400 hover:bg-black/10 hover:text-neutral-900",
-                          ].join(" ")}
-                        >
-                          <MoreIcon />
-                        </button>
-
-                        {isMenuOpen && (
-                          <div
-                            role="menu"
-                            className={[
-                              "absolute left-0 top-full z-40 mt-1 w-36 overflow-hidden rounded-[12px] border py-1 shadow-lg",
-                              isDark ? "border-white/10 bg-[#1c1c1e]" : "border-black/[0.06] bg-white",
-                            ].join(" ")}
-                          >
-                            <button
-                              type="button"
-                              role="menuitem"
-                              onClick={() => {
-                                setCatMenuOpenId(null);
-                                setEditingCategoryId(cat.id);
-                              }}
-                              className={[
-                                "flex w-full items-center gap-2 px-3 py-2 text-left text-[12.5px] transition",
-                                isDark ? "text-neutral-200 hover:bg-white/5" : "text-neutral-700 hover:bg-black/[0.03]",
-                              ].join(" ")}
-                            >
-                              <PencilIcon />
-                              Modifier
-                            </button>
-                            <button
-                              type="button"
-                              role="menuitem"
-                              onClick={() => {
-                                setCatMenuOpenId(null);
-                                handleDeleteCategory(cat.id);
-                              }}
-                              className={[
-                                "flex w-full items-center gap-2 px-3 py-2 text-left text-[12.5px] transition",
-                                isDark ? "text-[#F0A79E] hover:bg-white/5" : "text-[#C24B41] hover:bg-black/[0.03]",
-                              ].join(" ")}
-                            >
-                              <TrashIcon />
-                              Supprimer
-                            </button>
-                          </div>
-                        )}
-
-                        {isEditing && (
-                          <CategoryEditorPopover
-                            isDark={isDark}
-                            title="Modifier la catégorie"
-                            initial={{ name: cat.name, tone: cat.tone }}
-                            submitLabel="Enregistrer"
-                            onCancel={() => setEditingCategoryId(null)}
-                            onSave={(data) => handleUpdateCategory(cat.id, data)}
-                          />
-                        )}
-                      </div>
-                    );
-                  })}
-
-                  <div className="relative" data-cat-creator>
-                    <button
-                      type="button"
-                      aria-label="Ajouter une catégorie"
-                      aria-expanded={catCreatorOpen}
-                      onClick={() => {
-                        setCatMenuOpenId(null);
-                        setEditingCategoryId(null);
-                        setCatCreatorOpen((v) => !v);
-                      }}
-                      className={[
-                        "flex h-7 w-7 items-center justify-center rounded-full border transition",
-                        isDark
-                          ? "border-white/10 bg-[#1c1c1e] text-neutral-300 hover:bg-[#242427]"
-                          : "border-black/[0.06] bg-white text-neutral-500 hover:bg-neutral-50",
-                      ].join(" ")}
-                    >
-                      <PlusIcon />
-                    </button>
-
-                    {catCreatorOpen && (
-                      <CategoryEditorPopover
-                        isDark={isDark}
-                        title="Nouvelle catégorie"
-                        initial={null}
-                        submitLabel="Créer"
-                        onCancel={() => setCatCreatorOpen(false)}
-                        onSave={handleCreateCategory}
-                      />
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <h1
-                className={[
-                  "order-1 text-center font-display text-[clamp(20px,2vw,26px)] font-semibold tracking-[-0.01em] lg:order-none",
-                  isDark ? "text-white" : "text-neutral-900",
-                ].join(" ")}
-              >
-                {weekLabel}
-              </h1>
-
-              <div className="order-3 flex flex-wrap items-center gap-2 lg:order-none lg:justify-end">
-                <div className="relative">
-                  <button
-                    type="button"
-                    onClick={() => setFilterOpen((v) => !v)}
-                    aria-expanded={filterOpen}
-                    className={[
-                      "flex items-center gap-1.5 rounded-full border px-3.5 py-2 text-[12.5px] font-medium transition",
-                      isDark ? "border-white/10 bg-[#1c1c1e] text-neutral-200 hover:bg-[#242427]" : "border-black/[0.06] bg-white text-neutral-700 hover:bg-neutral-50",
-                    ].join(" ")}
-                  >
-                    <FilterIcon />
-                    Filter
-                    <span className={["flex transition-transform duration-200", filterOpen ? "rotate-180" : ""].join(" ")}>
-                      <ChevronDownIcon />
-                    </span>
-                  </button>
-
-                  {filterOpen && (
-                    <div
-                      className={[
-                        "absolute right-0 z-20 mt-2 w-48 overflow-hidden rounded-[12px] border py-1.5 shadow-lg",
-                        isDark ? "border-white/10 bg-[#1c1c1e]" : "border-black/[0.06] bg-white",
-                      ].join(" ")}
-                    >
-                      {[
-                        { title: "Period", options: RANGE_OPTIONS, value: range, set: setRange },
-                        { title: "Type", options: SCOPE_OPTIONS, value: scope, set: setScope },
-                      ].map((group, gi) => (
-                        <div
-                          key={group.title}
-                          className={gi > 0 ? ["mt-1.5 border-t pt-1.5", isDark ? "border-white/10" : "border-black/[0.06]"].join(" ") : ""}
-                        >
-                          <p className={["px-4 pb-1 pt-1 text-[11px] font-medium", isDark ? "text-neutral-500" : "text-neutral-400"].join(" ")}>
-                            {group.title}
-                          </p>
-                          {group.options.map((option) => {
-                            const selected = group.value === option;
-                            return (
-                              <button
-                                key={option}
-                                type="button"
-                                onClick={() => group.set(option)}
-                                className={[
-                                  "flex w-full items-center justify-between px-4 py-2 text-left text-[12.5px] transition",
-                                  selected
-                                    ? isDark
-                                      ? "font-semibold text-white"
-                                      : "font-semibold text-neutral-900"
-                                    : isDark
-                                      ? "text-neutral-300 hover:bg-white/5"
-                                      : "text-neutral-600 hover:bg-black/[0.03]",
-                                ].join(" ")}
-                              >
-                                {option}
-                                {selected && <CheckIcon />}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                <h1
+                  className={[
+                    "mx-3 font-display text-[clamp(17px,1.5vw,20px)] font-semibold tracking-[-0.01em]",
+                    isDark ? "text-white" : "text-neutral-900",
+                  ].join(" ")}
+                >
+                  {monthLabel}
+                </h1>
 
                 <button
                   type="button"
-                  onClick={handleAddEvent}
+                  onClick={() => setWeekOffset(0)}
                   className={[
-                    "flex items-center gap-1.5 rounded-full px-4 py-2 text-[12.5px] font-semibold transition",
+                    "rounded-lg border px-4 py-1.5 text-[13px] font-medium transition",
                     isDark
-                      ? "bg-neutral-900 text-white hover:bg-neutral-800"
-                      : "bg-white text-neutral-900 hover:bg-neutral-100",
+                      ? "border-white/10 bg-white/[0.04] text-white hover:bg-white/[0.08]"
+                      : "border-black/[0.08] bg-white text-neutral-900 hover:bg-neutral-50",
                   ].join(" ")}
                 >
-                  <PlusIcon />
-                  Add Event
+                  Today
                 </button>
+
+                <div className="relative ml-3" data-toolbar-menu>
+                  <ToolbarButton isDark={isDark} open={openPanel === "view"} onClick={() => togglePanel("view")}>
+                    {view}
+                  </ToolbarButton>
+                  {openPanel === "view" && (
+                    <MenuPanel isDark={isDark} width="w-40">
+                      {VIEW_OPTIONS.map((option) => (
+                        <MenuItem
+                          key={option}
+                          isDark={isDark}
+                          selected={view === option}
+                          onClick={() => {
+                            setView(option);
+                            setOpenPanel(null);
+                          }}
+                        >
+                          {option}
+                        </MenuItem>
+                      ))}
+                    </MenuPanel>
+                  )}
+                </div>
+              </div>
+
+              {/* Droite : filtres */}
+              <div className="flex flex-wrap items-center gap-1">
+                {/* Channels */}
+                <div className="relative" data-toolbar-menu>
+                  <ToolbarButton
+                    isDark={isDark}
+                    icon={<ChannelsIcon />}
+                    open={openPanel === "channels"}
+                    onClick={() => togglePanel("channels")}
+                  >
+                    Channels{selectedChannels.length > 0 ? ` (${selectedChannels.length})` : ""}
+                  </ToolbarButton>
+                  {openPanel === "channels" && (
+                    <MenuPanel isDark={isDark} align="right" width="w-52">
+                      <MenuItem
+                        isDark={isDark}
+                        selected={selectedChannels.length === 0}
+                        onClick={() => setSelectedChannels([])}
+                      >
+                        All channels
+                      </MenuItem>
+                      {CHANNELS.map((ch) => (
+                        <MenuItem
+                          key={ch.id}
+                          isDark={isDark}
+                          selected={selectedChannels.includes(ch.id)}
+                          onClick={() =>
+                            setSelectedChannels((cur) =>
+                              cur.includes(ch.id) ? cur.filter((x) => x !== ch.id) : [...cur, ch.id],
+                            )
+                          }
+                        >
+                          {ch.name}
+                        </MenuItem>
+                      ))}
+                    </MenuPanel>
+                  )}
+                </div>
+
+                {/* All Posts */}
+                <div className="relative" data-toolbar-menu>
+                  <ToolbarButton
+                    isDark={isDark}
+                    icon={<PostsIcon />}
+                    open={openPanel === "posts"}
+                    onClick={() => togglePanel("posts")}
+                  >
+                    {scope === "All" ? "All Posts" : scope}
+                  </ToolbarButton>
+                  {openPanel === "posts" && (
+                    <MenuPanel isDark={isDark} align="right" width="w-44">
+                      {SCOPE_OPTIONS.map((option) => (
+                        <MenuItem
+                          key={option}
+                          isDark={isDark}
+                          selected={scope === option}
+                          onClick={() => {
+                            setScope(option);
+                            setOpenPanel(null);
+                          }}
+                        >
+                          {option === "All" ? "All Posts" : option}
+                        </MenuItem>
+                      ))}
+                    </MenuPanel>
+                  )}
+                </div>
+
+                {/* Tags (catégories) */}
+                <div className="relative" data-toolbar-menu>
+                  <ToolbarButton
+                    isDark={isDark}
+                    icon={<TagIcon />}
+                    open={openPanel === "tags"}
+                    onClick={() => togglePanel("tags")}
+                  >
+                    Tags
+                  </ToolbarButton>
+
+                  {openPanel === "tags" && !catCreatorOpen && !editingCategoryId && (
+                    <MenuPanel isDark={isDark} align="right" width="w-60">
+                      <MenuItem
+                        isDark={isDark}
+                        selected={activeCategory === "All"}
+                        onClick={() => setActiveCategory("All")}
+                      >
+                        All tags
+                      </MenuItem>
+
+                      {categories.map((cat) => {
+                        const tone = TONE_STYLES[cat.tone];
+                        const isActive = activeCategory === cat.id;
+                        return (
+                          <div key={cat.id} className="group flex items-center">
+                            <button
+                              type="button"
+                              role="menuitem"
+                              onClick={() => setActiveCategory(cat.id)}
+                              className={[
+                                "flex min-w-0 flex-1 items-center gap-2 py-2 pl-4 pr-2 text-left text-[12.5px] transition",
+                                isActive
+                                  ? isDark
+                                    ? "font-semibold text-white"
+                                    : "font-semibold text-neutral-900"
+                                  : isDark
+                                    ? "text-neutral-300 hover:bg-white/5"
+                                    : "text-neutral-600 hover:bg-black/[0.03]",
+                              ].join(" ")}
+                            >
+                              <span
+                                className={[
+                                  "h-2 w-2 shrink-0 rounded-full bg-current",
+                                  isDark ? tone.textDark : tone.textLight,
+                                ].join(" ")}
+                              />
+                              <span className="flex-1 truncate">{cat.name}</span>
+                              {isActive && <CheckIcon />}
+                            </button>
+                            <button
+                              type="button"
+                              aria-label={`Modifier ${cat.name}`}
+                              onClick={() => setEditingCategoryId(cat.id)}
+                              className={[
+                                "rounded-md p-1 opacity-0 transition focus-visible:opacity-100 group-hover:opacity-100",
+                                isDark ? "text-neutral-400 hover:bg-white/10 hover:text-white" : "text-neutral-400 hover:bg-black/5 hover:text-neutral-900",
+                              ].join(" ")}
+                            >
+                              <PencilIcon />
+                            </button>
+                            <button
+                              type="button"
+                              aria-label={`Supprimer ${cat.name}`}
+                              onClick={() => handleDeleteCategory(cat.id)}
+                              className={[
+                                "mr-2 rounded-md p-1 opacity-0 transition focus-visible:opacity-100 group-hover:opacity-100",
+                                isDark ? "text-[#F0A79E] hover:bg-white/10" : "text-[#C24B41] hover:bg-black/5",
+                              ].join(" ")}
+                            >
+                              <TrashIcon />
+                            </button>
+                          </div>
+                        );
+                      })}
+
+                      <div className={["mt-1.5 border-t pt-1.5", isDark ? "border-white/10" : "border-black/[0.06]"].join(" ")}>
+                        <MenuItem isDark={isDark} icon={<PlusIcon />} onClick={() => setCatCreatorOpen(true)}>
+                          New tag
+                        </MenuItem>
+                      </div>
+                    </MenuPanel>
+                  )}
+
+                  {openPanel === "tags" && (catCreatorOpen || editingCategoryId) && (
+                    <CategoryEditorPopover
+                      key={editingCategoryId ?? "new"}
+                      isDark={isDark}
+                      title={editingCategoryId ? "Modifier la catégorie" : "Nouvelle catégorie"}
+                      initial={
+                        editingCategoryId && categoryById.get(editingCategoryId)
+                          ? {
+                              name: categoryById.get(editingCategoryId)!.name,
+                              tone: categoryById.get(editingCategoryId)!.tone,
+                            }
+                          : null
+                      }
+                      submitLabel={editingCategoryId ? "Enregistrer" : "Créer"}
+                      onCancel={() => {
+                        setCatCreatorOpen(false);
+                        setEditingCategoryId(null);
+                      }}
+                      onSave={(data) =>
+                        editingCategoryId
+                          ? handleUpdateCategory(editingCategoryId, data)
+                          : handleCreateCategory(data)
+                      }
+                    />
+                  )}
+                </div>
+
+                {/* No Date */}
+                <ToolbarButton
+                  isDark={isDark}
+                  icon={<NoDateIcon />}
+                  chevron={false}
+                  active={showNoDate}
+                  onClick={() => setShowNoDate((v) => !v)}
+                >
+                  No Date
+                </ToolbarButton>
+
+                <span className={["mx-1 h-5 w-px", isDark ? "bg-white/10" : "bg-black/10"].join(" ")} />
+
+                {/* Fuseau horaire */}
+                <div className="relative" data-toolbar-menu>
+                  <ToolbarButton
+                    isDark={isDark}
+                    icon={<GlobeIcon />}
+                    open={openPanel === "timezone"}
+                    onClick={() => togglePanel("timezone")}
+                  >
+                    {timezone}
+                  </ToolbarButton>
+                  {openPanel === "timezone" && (
+                    <MenuPanel isDark={isDark} align="right" width="w-44">
+                      {TIMEZONES.map((tz) => (
+                        <MenuItem
+                          key={tz}
+                          isDark={isDark}
+                          selected={timezone === tz}
+                          onClick={() => {
+                            setTimezone(tz);
+                            setOpenPanel(null);
+                          }}
+                        >
+                          {tz}
+                        </MenuItem>
+                      ))}
+                    </MenuPanel>
+                  )}
+                </div>
+
+                {/* Plus */}
+                <div className="relative" data-toolbar-menu>
+                  <ToolbarIconButton
+                    isDark={isDark}
+                    label="Plus d'options"
+                    open={openPanel === "more"}
+                    onClick={() => togglePanel("more")}
+                  >
+                    <MoreVerticalIcon />
+                  </ToolbarIconButton>
+                  {openPanel === "more" && (
+                    <MenuPanel isDark={isDark} align="right" width="w-44">
+                      <MenuItem
+                        isDark={isDark}
+                        icon={<PlusIcon />}
+                        onClick={() => {
+                          setOpenPanel(null);
+                          handleAddEvent();
+                        }}
+                      >
+                        Add event
+                      </MenuItem>
+                    </MenuPanel>
+                  )}
+                </div>
               </div>
             </div>
 
