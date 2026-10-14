@@ -77,20 +77,31 @@ import {
    LAYOUT
 ============================================================ */
 
+/* Fond de la page (visible autour du panneau arrondi + derrière la sidebar) */
+const pageBgClass = (isDark: boolean) =>
+  isDark ? "bg-[#09090a]" : "bg-[#f5f3ef]";
+
+/* Grand panneau arrondi qui contient toute la page */
+const mainPanelClass = (isDark: boolean) =>
+  isDark
+    ? "border-white/[0.07] bg-[#0f0f11]"
+    : "border-black/[0.06] bg-white";
+
 const cardClass = (isDark: boolean) =>
   isDark
     ? "border-white/[0.07] bg-[#141416]"
     : "border-black/[0.06] bg-white";
 
-/* Fond partagé : panneau Comments / Up Next + bloc Followers / Likes */
+/* Fond partagé : panneaux Comments / Up Next, Overview, Channels.
+   Sur le panneau blanc, ils prennent la teinte beige du fond de page. */
 const panelSurfaceClass = (isDark: boolean) =>
   isDark
     ? "border-white/[0.07] bg-white/[0.03]"
-    : "border-black/[0.06] bg-neutral-50";
+    : "border-black/[0.06] bg-[#f6f4f0]";
 
 /* Couleur des anneaux d'avatar = couleur effective du fond panelSurfaceClass */
 const panelRingClass = (isDark: boolean) =>
-  isDark ? "ring-[#101011]" : "ring-neutral-50";
+  isDark ? "ring-[#151517]" : "ring-[#f6f4f0]";
 
 const mutedClass = (isDark: boolean) =>
   isDark ? "text-neutral-600" : "text-neutral-400";
@@ -734,7 +745,7 @@ function Channels({
           focusRingClass(isDark),
           isDark
             ? "text-white hover:bg-white/[0.06]"
-            : "text-neutral-900 hover:bg-neutral-100",
+            : "text-neutral-900 hover:bg-black/[0.04]",
         ].join(" ")}
       >
         {channels.length === 0 ? "Connect" : "Manage"}
@@ -840,7 +851,7 @@ function Panel({
               focusRingClass(isDark),
               isDark
                 ? "border-white/10 text-white hover:bg-white/[0.07]"
-                : "border-black/10 text-neutral-900 hover:bg-neutral-100",
+                : "border-black/10 text-neutral-900 hover:bg-black/[0.04]",
             ].join(" ")}
           >
             <Plus className="h-3.5 w-3.5" />
@@ -929,7 +940,7 @@ function BlogSection({ isDark }: { isDark: boolean }) {
               "group flex flex-col rounded-2xl border p-3.5 transition",
               focusRingClass(isDark),
               cardClass(isDark),
-              isDark ? "hover:bg-[#1a1a1d]" : "hover:bg-neutral-50",
+              isDark ? "hover:bg-[#1a1a1d]" : "hover:bg-[#f6f4f0]",
             ].join(" ")}
           >
             <BlogImage src={post.image} isDark={isDark} />
@@ -1225,7 +1236,7 @@ export default function Home() {
 
   const greeting = getGreeting(now);
 
-  /* Formatage de la date pour correspondre à l'image : "Wed, Oct 14 2026" */
+  /* Formatage de la date : "Wed, Oct 14 2026" */
   const formattedDate = `${now.toLocaleDateString("en-US", {
     weekday: "short",
   })}, ${now.toLocaleDateString("en-US", {
@@ -1281,132 +1292,84 @@ export default function Home() {
       className={[
         "relative h-screen w-full overflow-hidden",
         "transition-colors duration-300",
-        isDark ? "bg-[#09090a]" : "bg-[#f5f3ef]",
+        pageBgClass(isDark),
       ].join(" ")}
     >
       <DashboardSidebar theme={theme} />
 
+      {/* Zone à droite de la sidebar : laisse une marge autour du panneau
+          (haut / droite / bas) pour faire ressortir ses coins arrondis. */}
       <div
         className={[
-          "h-full overflow-y-auto overflow-x-hidden",
-          "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+          "h-full py-3 pr-3",
           "transition-[padding-left] duration-[380ms]",
           "ease-[cubic-bezier(0.4,0,0.2,1)]",
           "motion-reduce:transition-none",
         ].join(" ")}
         style={{ paddingLeft: sidebarOffset }}
       >
+        {/* PANNEAU ARRONDI : c'est lui qui scrolle */}
         <div
           className={[
-            /* Page allongée : largeur maximale repoussée à 1720px
-               pour occuper beaucoup plus d'espace sur les côtés. */
-            "mx-auto flex w-full max-w-[1720px]",
-            "flex-col px-[clamp(18px,3vw,48px)]",
-            "pb-[120px] pt-[clamp(18px,3vw,30px)]",
+            "h-full overflow-y-auto overflow-x-hidden",
+            "rounded-[28px] border",
+            "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+            "transition-colors duration-300",
+            mainPanelClass(isDark),
           ].join(" ")}
         >
-          {/* HEADER */}
-          <header className="flex shrink-0 items-start justify-between">
-            {/* Partie gauche : Avatar + Texte de salutation + Date */}
-            <div className="flex items-center gap-4">
-              <GreetingAvatar
-                avatarUrl={user?.avatar_url}
-                initials={initials}
-                isDark={isDark}
-                loading={!userLoaded}
-              />
-              <div className="flex min-w-0 flex-col">
-                <h1
-                  className={[
-                    "truncate text-[24px] font-semibold tracking-[-0.035em]",
-                    strongClass(isDark),
-                  ].join(" ")}
-                >
-                  {greeting.charAt(0).toUpperCase() + greeting.slice(1)},{" "}
-                  {displayName}!
-                </h1>
-                <p
-                  className={[
-                    "mt-0.5 text-[13px] font-medium",
-                    mutedClass(isDark),
-                  ].join(" ")}
-                >
-                  {formattedDate}
-                </p>
+          <div
+            className={[
+              "mx-auto flex w-full max-w-[1720px]",
+              "flex-col px-[clamp(18px,3vw,48px)]",
+              "pb-[120px] pt-[clamp(18px,3vw,30px)]",
+            ].join(" ")}
+          >
+            {/* HEADER */}
+            <header className="flex shrink-0 items-start justify-between">
+              {/* Partie gauche : Avatar + Texte de salutation + Date */}
+              <div className="flex items-center gap-4">
+                <GreetingAvatar
+                  avatarUrl={user?.avatar_url}
+                  initials={initials}
+                  isDark={isDark}
+                  loading={!userLoaded}
+                />
+                <div className="flex min-w-0 flex-col">
+                  <h1
+                    className={[
+                      "truncate text-[24px] font-semibold tracking-[-0.035em]",
+                      strongClass(isDark),
+                    ].join(" ")}
+                  >
+                    {greeting.charAt(0).toUpperCase() + greeting.slice(1)},{" "}
+                    {displayName}!
+                  </h1>
+                  <p
+                    className={[
+                      "mt-0.5 text-[13px] font-medium",
+                      mutedClass(isDark),
+                    ].join(" ")}
+                  >
+                    {formattedDate}
+                  </p>
+                </div>
               </div>
-            </div>
 
-            {/* Partie droite : Horloge (inchangée) */}
-            <ClockDisplay isDark={isDark} now={now} />
-          </header>
+              {/* Partie droite : Horloge */}
+              <ClockDisplay isDark={isDark} now={now} />
+            </header>
 
-          {/* OVERVIEW */}
-          <section className="mt-7 shrink-0">
-            <div className="mb-3">
-              <p
-                className={[
-                  "text-[11px] font-semibold",
-                  isDark ? "text-neutral-500" : "text-neutral-400",
-                ].join(" ")}
-              >
-                Overview
-              </p>
-              <p
-                className={[
-                  "mt-0.5 text-[10px]",
-                  isDark ? "text-neutral-700" : "text-neutral-400",
-                ].join(" ")}
-              >
-                Your activity at a glance
-              </p>
-            </div>
-
-            {/* Même fond que le panneau Comments */}
-            <div
-              className={[
-                "grid grid-cols-1 gap-3 rounded-2xl border p-4",
-                "sm:grid-cols-3",
-                panelSurfaceClass(isDark),
-              ].join(" ")}
-            >
-              <Stat
-                isDark={isDark}
-                label="Followers"
-                value="27K"
-                change="-2%"
-                hint="Total followers across all your connected channels, compared to the previous period."
-                icon={<Users className="h-4 w-4" />}
-              />
-              <Stat
-                isDark={isDark}
-                label="Likes"
-                value="12.4K"
-                change="+16%"
-                hint="Total likes received on your posts across all channels, compared to the previous period."
-                icon={<Heart className="h-4 w-4" />}
-              />
-              <Stat
-                isDark={isDark}
-                label="Comments"
-                value="342"
-                change="+5%"
-                hint="Total comments received on your posts across all channels, compared to the previous period."
-                icon={<MessageCircle className="h-4 w-4" />}
-              />
-            </div>
-          </section>
-
-          {/* CHANNELS */}
-          <section className="mt-5 shrink-0">
-            <div className="mb-3 flex items-center justify-between">
-              <div>
+            {/* OVERVIEW */}
+            <section className="mt-7 shrink-0">
+              <div className="mb-3">
                 <p
                   className={[
                     "text-[11px] font-semibold",
                     isDark ? "text-neutral-500" : "text-neutral-400",
                   ].join(" ")}
                 >
-                  Channels
+                  Overview
                 </p>
                 <p
                   className={[
@@ -1414,56 +1377,113 @@ export default function Home() {
                     isDark ? "text-neutral-700" : "text-neutral-400",
                   ].join(" ")}
                 >
-                  Your connected accounts
+                  Your activity at a glance
                 </p>
               </div>
+
+              <div
+                className={[
+                  "grid grid-cols-1 gap-3 rounded-2xl border p-4",
+                  "sm:grid-cols-3",
+                  panelSurfaceClass(isDark),
+                ].join(" ")}
+              >
+                <Stat
+                  isDark={isDark}
+                  label="Followers"
+                  value="27K"
+                  change="-2%"
+                  hint="Total followers across all your connected channels, compared to the previous period."
+                  icon={<Users className="h-4 w-4" />}
+                />
+                <Stat
+                  isDark={isDark}
+                  label="Likes"
+                  value="12.4K"
+                  change="+16%"
+                  hint="Total likes received on your posts across all channels, compared to the previous period."
+                  icon={<Heart className="h-4 w-4" />}
+                />
+                <Stat
+                  isDark={isDark}
+                  label="Comments"
+                  value="342"
+                  change="+5%"
+                  hint="Total comments received on your posts across all channels, compared to the previous period."
+                  icon={<MessageCircle className="h-4 w-4" />}
+                />
+              </div>
+            </section>
+
+            {/* CHANNELS */}
+            <section className="mt-5 shrink-0">
+              <div className="mb-3 flex items-center justify-between">
+                <div>
+                  <p
+                    className={[
+                      "text-[11px] font-semibold",
+                      isDark ? "text-neutral-500" : "text-neutral-400",
+                    ].join(" ")}
+                  >
+                    Channels
+                  </p>
+                  <p
+                    className={[
+                      "mt-0.5 text-[10px]",
+                      isDark ? "text-neutral-700" : "text-neutral-400",
+                    ].join(" ")}
+                  >
+                    Your connected accounts
+                  </p>
+                </div>
+              </div>
+
+              <Channels
+                isDark={isDark}
+                channels={connectedChannels}
+                onAdd={openConnectModal}
+              />
+            </section>
+
+            {/* COMMENTS + UP NEXT */}
+            <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
+              <Panel
+                isDark={isDark}
+                title="Comments"
+                meta="0 unanswered"
+                onViewAll={handleViewAllComments}
+                icon={<MessageCircle className="h-5 w-5" />}
+                line1="No comments yet."
+                line2={
+                  connectedChannels.length === 0
+                    ? "Connect a channel to start receiving comments."
+                    : "You'll see the latest comments here."
+                }
+                action={
+                  connectedChannels.length === 0
+                    ? { label: "Connect a channel", onClick: openConnectModal }
+                    : undefined
+                }
+              />
+              <Panel
+                isDark={isDark}
+                title="Up Next"
+                meta="0 posts scheduled"
+                onViewAll={() => navigate("calendar")}
+                icon={<CalendarDays className="h-5 w-5" />}
+                line1="No posts scheduled yet."
+                line2="You'll see upcoming posts here."
+                action={{
+                  label: "Create Post",
+                  onClick: () => setIsNewPostOpen(true),
+                }}
+              />
             </div>
 
-            <Channels
-              isDark={isDark}
-              channels={connectedChannels}
-              onAdd={openConnectModal}
-            />
-          </section>
-
-          {/* COMMENTS + UP NEXT */}
-          <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
-            <Panel
-              isDark={isDark}
-              title="Comments"
-              meta="0 unanswered"
-              onViewAll={handleViewAllComments}
-              icon={<MessageCircle className="h-5 w-5" />}
-              line1="No comments yet."
-              line2={
-                connectedChannels.length === 0
-                  ? "Connect a channel to start receiving comments."
-                  : "You'll see the latest comments here."
-              }
-              action={
-                connectedChannels.length === 0
-                  ? { label: "Connect a channel", onClick: openConnectModal }
-                  : undefined
-              }
-            />
-            <Panel
-              isDark={isDark}
-              title="Up Next"
-              meta="0 posts scheduled"
-              onViewAll={() => navigate("calendar")}
-              icon={<CalendarDays className="h-5 w-5" />}
-              line1="No posts scheduled yet."
-              line2="You'll see upcoming posts here."
-              action={{
-                label: "Create Post",
-                onClick: () => setIsNewPostOpen(true),
-              }}
-            />
-          </div>
-
-          {/* BLOG */}
-          <div className="mt-8">
-            <BlogSection isDark={isDark} />
+            {/* BLOG */}
+            <div className="mt-8">
+              <BlogSection isDark={isDark} />
+            </div>
           </div>
         </div>
       </div>
