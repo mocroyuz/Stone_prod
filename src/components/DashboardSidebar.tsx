@@ -712,6 +712,13 @@ const CHANNEL_LINKS: {
   },
 ];
 
+/* Liens affichés comme des nav items normaux quand aucun canal
+   n'est connecté : ils mènent aux pages sans paramètre channel. */
+const STANDALONE_LINKS = [
+  { label: "Insights", route: "insights", icon: InsightsIcon, badge: "New" },
+  { label: "Community", route: "community", icon: CommunityIcon },
+];
+
 const CHANNEL_ROUTES = new Set(["insights", "community"]);
 
 function ChannelAvatar({
@@ -1114,6 +1121,70 @@ function SidebarChannelsImpl({
           </span>
         </div>
       )}
+
+      {/* Aucun canal connecté : Insights et Community deviennent des
+          nav items normaux (sans paramètre channel). */}
+      {channels.length === 0 &&
+        STANDALONE_LINKS.map((link) => {
+          const Icon = link.icon;
+          const isActive = link.route === currentRoute;
+
+          return (
+            <Tip
+              key={link.route}
+              label={link.label}
+              enabled={compact}
+              menuClass={t.menu}
+              countClass={t.count}
+            >
+              <button
+                type="button"
+                aria-label={link.label}
+                aria-current={isActive ? "page" : undefined}
+                onClick={() => onNavigate(link.route)}
+                className={[
+                  "group relative flex items-center rounded-xl text-[13px] font-medium",
+                  "transition-[background-color,color,transform] duration-200",
+                  "active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:scale-100",
+                  compact ? "h-10 w-10 justify-center" : "h-9 w-full gap-2.5 px-2.5",
+                  focus,
+                  isActive ? t.navActive : t.navIdle,
+                ].join(" ")}
+              >
+                <Icon className="h-[18px] w-[18px] shrink-0" />
+
+                {!compact && (
+                  <>
+                    <span className="sb-fade flex-1 truncate text-left">
+                      {link.label}
+                    </span>
+                    {link.badge && (
+                      <span
+                        className={[
+                          "rounded-full px-2 py-0.5 text-[10px] font-semibold",
+                          t.badge,
+                        ].join(" ")}
+                      >
+                        {link.badge}
+                      </span>
+                    )}
+                  </>
+                )}
+
+                {compact && link.badge && (
+                  <span
+                    aria-hidden="true"
+                    className={[
+                      "absolute right-1 top-1 h-2 w-2 rounded-full ring-2",
+                      t.accent,
+                      t.dotRing,
+                    ].join(" ")}
+                  />
+                )}
+              </button>
+            </Tip>
+          );
+        })}
 
       {channels.map((channel) => {
         const id = getNetworkId(channel);
