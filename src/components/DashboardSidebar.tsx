@@ -135,10 +135,10 @@ type StatusResponse = {
 /* ============================================================================ 
    Dimensions 
    Sidebar fine collée au bord gauche, pleine hauteur. 
-   Réduite : 64 px (rail d'icônes). Ouverte : 240 px. 
+   Réduite : 56 px (rail d'icônes). Ouverte : 240 px. 
 ============================================================================ */
 
-export const SIDEBAR_COLLAPSED_OFFSET = 64;
+export const SIDEBAR_COLLAPSED_OFFSET = 56;
 export const SIDEBAR_EXPANDED_OFFSET = 240;
 
 /* ============================================================================ 
@@ -588,6 +588,7 @@ function NavItemViewImpl({
           "group relative flex items-center rounded-xl text-[13px] font-medium",
           "transition-[background-color,color,transform] duration-200",
           "active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:scale-100",
+          // ✅ Ajustement de la taille pour la sidebar réduite (56px)
           compact ? "h-10 w-10 justify-center" : "h-9 w-full gap-2.5 px-2.5",
           focus,
           isActive ? t.navActive : t.navIdle,
@@ -717,8 +718,7 @@ const CHANNEL_ROUTES = new Set(["insights", "community"]);
 
 /**
  * Avatar d'un canal connecté.
- * Plus de ring de hover (noir/blanc) autour de la photo :
- * l'avatar reste net en clair comme en sombre.
+ * ✅ MODIFICATION : Utilisation de "rounded-xl" pour un style carré arrondi (comme sur l'image).
  */
 function ChannelAvatar({
   channel,
@@ -739,8 +739,10 @@ function ChannelAvatar({
 
   const label = channel.handle || channel.name;
   const initial = label.replace(/^@/, "").charAt(0).toUpperCase() || "?";
+  // Ajustement des dimensions : lg = 36px (h-9 w-9), md = 28px (h-7 w-7)
   const box = size === "lg" ? "h-9 w-9" : "h-7 w-7";
-  const radius = size === "lg" ? "rounded-lg" : "rounded-full";
+  // ✅ Style carré arrondi pour les deux tailles
+  const radius = "rounded-xl";
 
   return (
     <span className={["relative shrink-0", box].join(" ")}>
@@ -768,15 +770,16 @@ function ChannelAvatar({
         </span>
       )}
 
+      {/* ✅ Badge de réseau social ajusté pour correspondre à l'image */}
       {NetworkIcon && (
         <span
           className={[
-            "absolute -bottom-1 -right-1 flex h-[18px] w-[18px] items-center justify-center",
-            "rounded-[6px] bg-white shadow-[0_0_0_1px_rgba(0,0,0,0.12)] ring-2",
+            "absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center",
+            "rounded-md bg-white shadow-[0_0_0_1px_rgba(0,0,0,0.12)] ring-2",
             dotRing,
           ].join(" ")}
         >
-          <NetworkIcon className="h-3 w-3" />
+          <NetworkIcon className="h-3.5 w-3.5" />
         </span>
       )}
     </span>
@@ -1126,9 +1129,14 @@ function SidebarChannelsImpl({
           );
         })}
 
+      {/* ✅ AJOUT DU SÉPARATEUR HORIZONTAL (visible uniquement en mode réduit) */}
+      {compact && (
+        <div className={["my-2 h-px w-8 mx-auto", t.divider].join(" ")} />
+      )}
+
       {!compact && (
         /* 
-         * ✅ MODIFICATION : le conteneur devient un "group/channels". 
+         * Le conteneur devient un "group/channels". 
          * Les boutons (engrenage + plus) sont invisibles par défaut et 
          * n'apparaissent QUE au survol de cette zone (ou au focus clavier).
          */
@@ -1224,7 +1232,8 @@ function SidebarChannelsImpl({
                   "group relative flex items-center rounded-xl text-[13px] font-medium",
                   "transition-[background-color,color,transform] duration-200",
                   "active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:scale-100",
-                  compact ? "h-12 w-12 justify-center" : "h-10 w-full gap-2.5 px-2.5",
+                  // ✅ Ajustement de la taille pour coller à l'image
+                  compact ? "h-10 w-10 justify-center" : "h-10 w-full gap-2.5 px-2.5",
                   focus,
                   isOpen || isActiveChannel ? t.rowOpen : "",
                   t.navIdle,
@@ -2157,8 +2166,9 @@ export default function DashboardSidebar({
           "ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
           t.aside,
           drawerHidden ? "pointer-events-none -translate-x-full" : "translate-x-0",
+          // ✅ Largeur réduite de 64px à 56px
           compact
-            ? "w-[64px]"
+            ? "w-[56px]"
             : isMobile
               ? "w-[260px] max-w-[85vw]"
               : "w-[240px]",
@@ -2449,13 +2459,14 @@ export default function DashboardSidebar({
                     src={account.avatarUrl}
                     alt="Profile"
                     draggable={false}
-                    className="h-9 w-9 shrink-0 select-none rounded-lg object-cover"
+                    // ✅ Style carré arrondi pour le profil principal
+                    className="h-9 w-9 shrink-0 select-none rounded-xl object-cover"
                     onError={() => setAvatarLoadFailed(true)}
                   />
                 ) : (
                   <span
                     className={[
-                      "flex h-9 w-9 shrink-0 select-none items-center justify-center rounded-lg",
+                      "flex h-9 w-9 shrink-0 select-none items-center justify-center rounded-xl",
                       "text-[11px] font-semibold",
                       t.avatar,
                     ].join(" ")}

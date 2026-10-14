@@ -25,7 +25,7 @@ const MONO_WHITE = "#ffffff";
  * Fabrique d'icônes multicolores.
  * Important : on ne passe PAS la prop `color` à Iconify quand elle n'est pas
  * définie, sinon Iconify interprète `undefined` comme `currentColor` et
- * écrase les couleurs de marque (c'est ce qui rendait Instagram noir).
+ * écrase les couleurs de marque.
  */
 function createIcon(
   iconName: string,
@@ -284,9 +284,9 @@ export function GoogleCalendarIcon({
 ========================================================= */
 
 /**
- * Instagram — SVG inline avec le dégradé officiel (jaune → orange → rose → violet → bleu).
- * Le glyphe garde TOUJOURS ses couleurs, en thème clair comme en thème sombre.
- * Recommandation : l'afficher sur un fond blanc/clair (voir la pastille de la sidebar).
+ * Instagram — SVG inline avec le dégradé officiel.
+ * Le glyphe garde TOUJOURS ses couleurs, en thème clair comme sombre.
+ * Aucun fond n'est ajouté ici : le parent décide.
  */
 export function InstagramIcon({
   className = "h-5 w-5",
@@ -325,19 +325,11 @@ export function InstagramIcon({
 }
 
 export const FacebookIcon = createIcon("logos:facebook", "Facebook");
-
-/** TikTok — couleurs officielles (cyan, rose, noir). */
 export const TikTokIcon = createIcon("logos:tiktok-icon", "TikTok");
-
 export const YouTubeIcon = createIcon("logos:youtube-icon", "YouTube");
 export const PinterestIcon = createIcon("logos:pinterest", "Pinterest");
-
-/** Threads — glyphe officiel noir (rendu sur pastille claire). */
 export const ThreadsIcon = createIcon("simple-icons:threads", "Threads", "#000000");
-
-/** X (ex-Twitter) — glyphe officiel noir (rendu sur pastille claire). */
 export const XIcon = createIcon("simple-icons:x", "X", "#000000");
-
 export const LinkedInIcon = createIcon("logos:linkedin-icon", "LinkedIn");
 
 /* =========================================================
