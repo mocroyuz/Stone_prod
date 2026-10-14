@@ -407,6 +407,25 @@ const InsightsIcon = (p: IconProps) => (
   </Svg>
 );
 
+/** Poignée de glisser-déposer : 2 colonnes × 3 points. */
+function GripIcon({ className = "h-4 w-2.5" }: IconProps) {
+  return (
+    <svg
+      viewBox="0 0 10 16"
+      className={["select-none", className].join(" ")}
+      fill="currentColor"
+      aria-hidden="true"
+    >
+      <circle cx="2.5" cy="3" r="1.15" />
+      <circle cx="7.5" cy="3" r="1.15" />
+      <circle cx="2.5" cy="8" r="1.15" />
+      <circle cx="7.5" cy="8" r="1.15" />
+      <circle cx="2.5" cy="13" r="1.15" />
+      <circle cx="7.5" cy="13" r="1.15" />
+    </svg>
+  );
+}
+
 function SidebarToggleIcon({ className, open }: IconProps & { open: boolean }) {
   return (
     <Svg className={className}>
@@ -710,6 +729,60 @@ const STANDALONE_LINKS = [
 ];
 
 const CHANNEL_ROUTES = new Set(["insights", "community"]);
+
+/* ----------------------------------------------------------------------------
+   Ordre des canaux (glisser-déposer) — mémorisé par utilisateur
+---------------------------------------------------------------------------- */
+
+type DropPosition = "before" | "after";
+
+const ORDER_STORAGE_PREFIX = "stone.channels.order";
+
+function orderStorageKey(userId: string | null): string {
+  return `${ORDER_STORAGE_PREFIX}.${userId ?? "anon"}`;
+}
+
+function readStoredOrder(userId: string | null): string[] {
+  if (typeof window === "undefined") return [];
+
+  try {
+    const raw = window.localStorage.getItem(orderStorageKey(userId));
+    const parsed: unknown = raw ? JSON.parse(raw) : [];
+
+    return Array.isArray(parsed)
+      ? parsed.filter((key): key is string => typeof key === "string")
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeStoredOrder(userId: string | null, order: string[]) {
+  try {
+    window.localStorage.setItem(orderStorageKey(userId), JSON.stringify(order));
+  } catch {
+    /* stockage indisponible : l'ordre reste en mémoire pour la session */
+  }
+}
+
+/** Trie les canaux selon l'ordre mémorisé ; les nouveaux canaux vont à la fin. */
+function applyOrder(
+  channels: ConnectedChannel[],
+  order: string[]
+): ConnectedChannel[] {
+  if (order.length === 0) return channels;
+
+  const rank = new Map(order.map((key, index) => [key, index]));
+
+  return channels
+    .map((channel, index) => ({ channel, index }))
+    .sort((a, b) => {
+      const ra = rank.get(a.channel.key) ?? order.length;
+      const rb = rank.get(b.channel.key) ?? order.length;
+      return ra - rb || a.index - b.index;
+    })
+    .map(({ channel }) => channel);
+}
 
 /**
  * Avatar d'un canal connecté.
@@ -1026,7 +1099,8 @@ function ChannelHoverCard({
 }
 
 function SidebarChannelsImpl({
-  channels,
+  channels: rawChannels,
+  userId,
   compact,
   currentRoute,
   focus,
@@ -1036,6 +1110,7 @@ function SidebarChannelsImpl({
   onConnect,
 }: {
   channels: ConnectedChannel[];
+  userId: string | null;
   compact: boolean;
   currentRoute: string;
   focus: string;
@@ -1050,6 +1125,97 @@ function SidebarChannelsImpl({
     channelsMemory.open = openKeys;
   }, [openKeys]);
 
+  /* ---------------------------- Ordre + drag & drop --------------------------- */
+
+  const [order, setOrder] = useState<string[]>(() => readStoredOrder(userId));
+  const [dragKey, setDragKey] = useState<string | null>(null);
+  const [dropTarget, setDropTarget] = useState<{
+    key: string;
+    position: DropPosition;
+  } | null>(null);
+
+  const listRef = useRef<HTMLDivElement>(null);
+  const focusKeyRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    setOrder(readStoredOrder(userId));
+  }, [userId]);
+
+  const channels = useMemo(
+    () => applyOrder(rawChannels, order),
+    [rawChannels, order]
+  );
+
+  // Réordonner n'a de sens qu'avec au moins 2 canaux et la barre développée.
+  const canReorder = !compact && channels.length > 1;
+
+  const commitOrder = useCallback(
+    (keys: string[]) => {
+      setOrder(keys);
+      writeStoredOrder(userId, keys);
+    },
+    [userId]
+  );
+
+  const moveChannel = useCallback(
+    (fromKey: string, toKey: string, position: DropPosition) => {
+      if (fromKey === toKey) return;
+
+      const keys = channels.map((channel) => channel.key);
+      const from = keys.indexOf(fromKey);
+      if (from === -1) return;
+
+      keys.splice(from, 1);
+
+      const to = keys.indexOf(toKey);
+      if (to === -1) return;
+
+      keys.splice(position === "after" ? to + 1 : to, 0, fromKey);
+      commitOrder(keys);
+    },
+    [channels, commitOrder]
+  );
+
+  const shiftChannel = useCallback(
+    (key: string, delta: -1 | 1) => {
+      const keys = channels.map((channel) => channel.key);
+      const from = keys.indexOf(key);
+      const to = from + delta;
+
+      if (from === -1 || to < 0 || to >= keys.length) return;
+
+      [keys[from], keys[to]] = [keys[to], keys[from]];
+      focusKeyRef.current = key;
+      commitOrder(keys);
+    },
+    [channels, commitOrder]
+  );
+
+  // Redonne le focus au canal déplacé au clavier (le DOM a été réordonné).
+  useEffect(() => {
+    const key = focusKeyRef.current;
+    if (!key) return;
+
+    focusKeyRef.current = null;
+
+    listRef.current
+      ?.querySelector<HTMLElement>(
+        `[data-channel-key="${CSS.escape(key)}"] button[aria-expanded]`
+      )
+      ?.focus({ preventScroll: true });
+  }, [order]);
+
+  const endDrag = useCallback(() => {
+    setDragKey(null);
+    setDropTarget(null);
+  }, []);
+
+  useEffect(() => {
+    if (!canReorder) endDrag();
+  }, [canReorder, endDrag]);
+
+  /* ------------------------------------------------------------------------- */
+
   const hashChannel = CHANNEL_ROUTES.has(currentRoute) ? getHashChannel() : null;
 
   const toggleKey = (key: string) =>
@@ -1061,7 +1227,7 @@ function SidebarChannelsImpl({
     setOpenKeys((prev) => (prev.includes(key) ? prev : [...prev, key]));
 
   return (
-    <div className="flex flex-col gap-1">
+    <div ref={listRef} className="flex flex-col gap-1">
       {channels.length === 0 &&
         STANDALONE_LINKS.map((link) => {
           const Icon = link.icon;
@@ -1191,66 +1357,168 @@ function SidebarChannelsImpl({
             ? channels[0]?.key === channel.key
             : hashChannel === channel.key);
 
-        return (
-          <div key={channel.key} className="flex flex-col">
-            <ChannelHoverCard
-              channel={channel}
-              label={label}
-              NetworkIcon={NetworkIcon}
-              currentRoute={currentRoute}
-              hashChannel={hashChannel}
-              firstChannelKey={channels[0]?.key}
-              focus={focus}
-              t={t}
-              enabled={compact}
-              onNavigate={onNavigate}
-            >
-              <button
-                type="button"
-                aria-expanded={isOpen}
-                aria-haspopup={compact ? "menu" : undefined}
-                aria-label={label.replace(/^@/, "")}
-                onClick={() => {
-                  if (compact) {
-                    onExpand();
-                    openKey(groupKey);
-                  } else {
-                    toggleKey(groupKey);
-                  }
-                }}
-                className={[
-                  "group relative flex items-center rounded-xl text-[13px] font-medium",
-                  "transition-[background-color,color,transform] duration-200",
-                  "active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:scale-100",
-                  compact ? "h-10 w-10 justify-center" : "h-9 w-full gap-2.5 px-2.5",
-                  focus,
-                  isOpen || isActiveChannel ? t.rowOpen : "",
-                  t.navIdle,
-                ].join(" ")}
-              >
-                <ChannelAvatar
-                  channel={channel}
-                  NetworkIcon={NetworkIcon}
-                  dotRing={t.dotRing}
-                  size={compact ? "lg" : "md"}
-                />
+        const isDragging = dragKey === channel.key;
+        const dropLine =
+          dropTarget?.key === channel.key ? dropTarget.position : null;
 
-                {!compact && (
-                  <>
-                    <span className="sb-fade min-w-0 flex-1 truncate text-left">
-                      {label.replace(/^@/, "")}
-                    </span>
-                    <ChevronDownIcon
-                      className={[
-                        "h-3.5 w-3.5 shrink-0 opacity-60",
-                        "transition-transform duration-300 motion-reduce:transition-none",
-                        isOpen ? "rotate-0" : "-rotate-90",
-                      ].join(" ")}
-                    />
-                  </>
-                )}
-              </button>
-            </ChannelHoverCard>
+        return (
+          <div
+            key={channel.key}
+            data-channel-key={channel.key}
+            className="flex flex-col"
+          >
+            {/* Ligne du canal = zone de dépôt */}
+            <div
+              className={[
+                "group/row relative transition-opacity duration-150 motion-reduce:transition-none",
+                isDragging ? "opacity-40" : "",
+              ].join(" ")}
+              onDragOver={(event) => {
+                if (!canReorder || !dragKey) return;
+
+                event.preventDefault();
+                event.dataTransfer.dropEffect = "move";
+
+                if (dragKey === channel.key) {
+                  if (dropTarget) setDropTarget(null);
+                  return;
+                }
+
+                const rect = event.currentTarget.getBoundingClientRect();
+                const position: DropPosition =
+                  event.clientY < rect.top + rect.height / 2 ? "before" : "after";
+
+                setDropTarget((previous) =>
+                  previous &&
+                  previous.key === channel.key &&
+                  previous.position === position
+                    ? previous
+                    : { key: channel.key, position }
+                );
+              }}
+              onDrop={(event) => {
+                if (!canReorder || !dragKey) return;
+
+                event.preventDefault();
+                if (dropTarget) {
+                  moveChannel(dragKey, dropTarget.key, dropTarget.position);
+                }
+                endDrag();
+              }}
+            >
+              {/* Indicateur de dépôt */}
+              {dropLine && (
+                <span
+                  aria-hidden="true"
+                  className={[
+                    "pointer-events-none absolute inset-x-1 z-10 h-0.5 rounded-full",
+                    dropLine === "before" ? "-top-px" : "-bottom-px",
+                    t.accent,
+                  ].join(" ")}
+                />
+              )}
+
+              {/* Poignée de glisser-déposer */}
+              {canReorder && (
+                <span
+                  draggable
+                  aria-hidden="true"
+                  title="Drag to reorder"
+                  onDragStart={(event) => {
+                    const row = event.currentTarget.parentElement;
+
+                    event.dataTransfer.effectAllowed = "move";
+                    event.dataTransfer.setData("text/plain", channel.key);
+                    if (row) {
+                      event.dataTransfer.setDragImage(row, 16, row.offsetHeight / 2);
+                    }
+
+                    // Différé : modifier le DOM pendant dragstart peut annuler le drag.
+                    window.setTimeout(() => setDragKey(channel.key), 0);
+                  }}
+                  onDragEnd={endDrag}
+                  className={[
+                    "absolute -left-[7px] top-1/2 z-10 flex h-6 w-[10px] -translate-y-1/2",
+                    "cursor-grab items-center justify-center rounded active:cursor-grabbing",
+                    "transition-opacity duration-150 motion-reduce:transition-none",
+                    isDragging
+                      ? "opacity-100"
+                      : "opacity-0 group-hover/row:opacity-100 group-focus-within/row:opacity-100",
+                    t.menuIcon,
+                  ].join(" ")}
+                >
+                  <GripIcon />
+                </span>
+              )}
+
+              <ChannelHoverCard
+                channel={channel}
+                label={label}
+                NetworkIcon={NetworkIcon}
+                currentRoute={currentRoute}
+                hashChannel={hashChannel}
+                firstChannelKey={channels[0]?.key}
+                focus={focus}
+                t={t}
+                enabled={compact}
+                onNavigate={onNavigate}
+              >
+                <button
+                  type="button"
+                  aria-expanded={isOpen}
+                  aria-haspopup={compact ? "menu" : undefined}
+                  aria-label={label.replace(/^@/, "")}
+                  aria-keyshortcuts={canReorder ? "Alt+ArrowUp Alt+ArrowDown" : undefined}
+                  onKeyDown={(event) => {
+                    // Alt + ↑ / ↓ : déplacer le canal au clavier
+                    if (!canReorder || !event.altKey) return;
+                    if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
+
+                    event.preventDefault();
+                    shiftChannel(channel.key, event.key === "ArrowUp" ? -1 : 1);
+                  }}
+                  onClick={() => {
+                    if (compact) {
+                      onExpand();
+                      openKey(groupKey);
+                    } else {
+                      toggleKey(groupKey);
+                    }
+                  }}
+                  className={[
+                    "group relative flex items-center rounded-xl text-[13px] font-medium",
+                    "transition-[background-color,color,transform] duration-200",
+                    "active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:scale-100",
+                    compact ? "h-10 w-10 justify-center" : "h-9 w-full gap-2.5 px-2.5",
+                    focus,
+                    isOpen || isActiveChannel ? t.rowOpen : "",
+                    t.navIdle,
+                  ].join(" ")}
+                >
+                  <ChannelAvatar
+                    channel={channel}
+                    NetworkIcon={NetworkIcon}
+                    dotRing={t.dotRing}
+                    size={compact ? "lg" : "md"}
+                  />
+
+                  {!compact && (
+                    <>
+                      <span className="sb-fade min-w-0 flex-1 truncate text-left">
+                        {label.replace(/^@/, "")}
+                      </span>
+                      <ChevronDownIcon
+                        className={[
+                          "h-3.5 w-3.5 shrink-0 opacity-60",
+                          "transition-transform duration-300 motion-reduce:transition-none",
+                          isOpen ? "rotate-0" : "-rotate-90",
+                        ].join(" ")}
+                      />
+                    </>
+                  )}
+                </button>
+              </ChannelHoverCard>
+            </div>
 
             {!compact && (
               <div
@@ -2162,6 +2430,7 @@ export default function DashboardSidebar({
 
           <SidebarChannels
             channels={connectedChannels}
+            userId={userId}
             compact={compact}
             currentRoute={currentRoute}
             focus={focus}
