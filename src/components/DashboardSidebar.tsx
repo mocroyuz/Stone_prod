@@ -33,6 +33,7 @@ import {
   YouTubeIcon,
   PinterestIcon,
   ThreadsIcon,
+  type MonoTone,
 } from "./IntegrationIcons";
 import ConnectChannelModal, {
   type ConnectChannelModalProps,
@@ -74,7 +75,7 @@ import {
    Types 
 ============================================================================ */
 
-type IconProps = { className?: string };
+type IconProps = { className?: string; mono?: MonoTone };
 type IconComponent = (props: IconProps) => React.ReactElement;
 
 type NavItem = {
@@ -520,7 +521,7 @@ function Tip({
 
 const navItems: NavItem[] = [
   { label: "Home", icon: HomeIcon, route: "home" },
-  { label: "Calendar", icon: CalendarIcon, route: "schedule" },
+  { label: "Publish", icon: CalendarIcon, route: "schedule" },
   { label: "Templates", icon: TemplatesIcon, route: "template" },
   { label: "Create", icon: LightbulbIcon, route: "create", badge: "New" },
 ];
@@ -778,12 +779,12 @@ function ChannelAvatar({
       {NetworkIcon && (
         <span
           className={[
-            "absolute -bottom-0.5 -right-0.5 flex h-4 w-4 items-center justify-center",
-            "rounded-[5px] bg-black text-white ring-2",
+            "absolute -bottom-1 -right-1 flex h-[18px] w-[18px] items-center justify-center",
+            "rounded-[6px] bg-white shadow-[0_0_0_1px_rgba(0,0,0,0.12)] ring-2",
             dotRing,
           ].join(" ")}
         >
-          <NetworkIcon className="h-2.5 w-2.5" />
+          <NetworkIcon mono="black" className="h-3 w-3" />
         </span>
       )}
     </span>
@@ -1478,6 +1479,14 @@ export default function DashboardSidebar({
   const currentRoute = useHashRoute();
   const connectedChannels = useConnectedChannels();
   const isMobile = useIsMobile();
+
+  /* Dès qu'un réseau est connecté, « Publish » vit sous chaque canal :
+     on retire l'entrée globale pour ne pas la dupliquer. */
+  const hasChannels = connectedChannels.length > 0;
+  const visibleNavItems = useMemo(
+    () => (hasChannels ? navItems.filter((item) => item.route !== "schedule") : navItems),
+    [hasChannels]
+  );
 
   const { user } = useUser();
   const userId = user?.id ?? null;
@@ -2199,7 +2208,7 @@ export default function DashboardSidebar({
             "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
           ].join(" ")}
         >
-          {navItems.map((item) => (
+          {visibleNavItems.map((item) => (
             <NavItemView
               key={item.route}
               item={item}
