@@ -1,9 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTheme } from "../hooks/useTheme";
 import DashboardSidebar, {
   useSidebarOffset,
 } from "../components/DashboardSidebar";
-import PageTransition from "../components/PageTransition";
 import BottomBar, { type BottomBarTab } from "../components/Bottombar";
 import Folder from "../components/Folder";
 import NewPostModal, { type NewPostPayload } from "../components/Newpostmodal";
@@ -22,9 +21,42 @@ import {
   CanvaIcon,
 } from "../components/IntegrationIcons";
 
-/* ------------------------------------------------------------------ */
-/* Icons                                                               */
-/* ------------------------------------------------------------------ */
+/* ============================================================
+   SHELL (identique à Home)
+============================================================ */
+
+const pageBgClass = (isDark: boolean) =>
+  isDark ? "bg-[#09090a]" : "bg-[#f5f3ef]";
+
+const mainPanelClass = (isDark: boolean) =>
+  isDark
+    ? "border-white/[0.07] bg-[#0f0f11]"
+    : "border-black/[0.06] bg-white";
+
+const cardClass = (isDark: boolean) =>
+  isDark
+    ? "border-white/[0.07] bg-[#141416]"
+    : "border-black/[0.06] bg-white";
+
+const panelSurfaceClass = (isDark: boolean) =>
+  isDark
+    ? "border-white/[0.07] bg-white/[0.03]"
+    : "border-black/[0.06] bg-[#f6f4f0]";
+
+const mutedClass = (isDark: boolean) =>
+  isDark ? "text-neutral-500" : "text-neutral-400";
+
+const strongClass = (isDark: boolean) =>
+  isDark ? "text-white" : "text-neutral-900";
+
+const focusRingClass = (isDark: boolean) =>
+  isDark
+    ? "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
+    : "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/25";
+
+/* ============================================================
+   ICONS
+============================================================ */
 
 function PlugIcon() {
   return (
@@ -155,9 +187,9 @@ function SunMoonIcon({ isDark }: { isDark: boolean }) {
   );
 }
 
-/* ------------------------------------------------------------------ */
-/* Data                                                                */
-/* ------------------------------------------------------------------ */
+/* ============================================================
+   DATA
+============================================================ */
 
 type IntegrationCardData = {
   title: string;
@@ -199,21 +231,11 @@ const ICONS: Record<string, (props: { className?: string }) => JSX.Element | nul
 const FILTERS = ["Toutes", "Connectées", "Disponibles"] as const;
 type Filter = (typeof FILTERS)[number];
 
-/* Seuil à partir duquel une intégration est considérée comme connectée. */
 const CONNECTED_THRESHOLD = 60;
 
-/* ------------------------------------------------------------------ */
-/* Shared styling                                                      */
-/* ------------------------------------------------------------------ */
-
-const focusRing = (isDark: boolean) =>
-  isDark
-    ? "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
-    : "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/25";
-
-/* ------------------------------------------------------------------ */
-/* Card                                                                */
-/* ------------------------------------------------------------------ */
+/* ============================================================
+   PROGRESS BAR
+============================================================ */
 
 function ProgressBar({ value, isDark }: { value: number; isDark: boolean }) {
   return (
@@ -229,12 +251,19 @@ function ProgressBar({ value, isDark }: { value: number; isDark: boolean }) {
       ].join(" ")}
     >
       <div
-        className={["h-full rounded-full", isDark ? "bg-white" : "bg-neutral-900"].join(" ")}
+        className={[
+          "h-full rounded-full",
+          isDark ? "bg-white" : "bg-neutral-900",
+        ].join(" ")}
         style={{ width: `${value}%` }}
       />
     </div>
   );
 }
+
+/* ============================================================
+   CARD
+============================================================ */
 
 function IntegrationCard({
   data,
@@ -249,19 +278,28 @@ function IntegrationCard({
   return (
     <div
       className={[
-        "group flex h-full flex-col rounded-[clamp(16px,1.6vw,22px)] border p-[clamp(16px,1.6vw,22px)] transition",
+        "group flex h-full flex-col rounded-2xl border p-4 transition",
+        cardClass(isDark),
+        focusRingClass(isDark),
         isDark
-          ? "border-white/10 bg-[#151517] hover:bg-[#19191c]"
-          : "border-black/[0.06] bg-white hover:border-black/[0.12]",
+          ? "hover:bg-[#19191c] hover:border-white/[0.12]"
+          : "hover:bg-[#f6f4f0] hover:border-black/[0.12]",
       ].join(" ")}
     >
       <div className="flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-3">
-          {Icon && <Icon className="h-5 w-5 shrink-0" />}
+          {Icon && (
+            <Icon
+              className={[
+                "h-5 w-5 shrink-0",
+                isDark ? "text-white" : "text-neutral-900",
+              ].join(" ")}
+            />
+          )}
           <h3
             className={[
-              "truncate font-display text-[clamp(14px,1.1vw,17px)] font-semibold",
-              isDark ? "text-white" : "text-neutral-900",
+              "truncate text-[14px] font-semibold tracking-[-0.01em]",
+              strongClass(isDark),
             ].join(" ")}
           >
             {data.title}
@@ -273,7 +311,7 @@ function IntegrationCard({
           aria-label={`Configurer ${data.title}`}
           className={[
             "flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition",
-            focusRing(isDark),
+            focusRingClass(isDark),
             isDark
               ? "text-neutral-400 hover:bg-white/10 hover:text-white"
               : "text-neutral-400 hover:bg-black/5 hover:text-neutral-900",
@@ -300,7 +338,7 @@ function IntegrationCard({
         )}
         <p
           className={[
-            "text-[clamp(11.5px,0.95vw,13px)] leading-[1.45]",
+            "text-[12px] leading-[1.45]",
             isDark ? "text-neutral-400" : "text-neutral-600",
           ].join(" ")}
         >
@@ -316,20 +354,27 @@ function IntegrationCard({
               ? isDark
                 ? "text-emerald-400"
                 : "text-emerald-600"
-              : isDark
-                ? "text-neutral-500"
-                : "text-neutral-400",
+              : mutedClass(isDark),
           ].join(" ")}
         >
           <span
             className={[
               "h-1.5 w-1.5 rounded-full",
-              connected ? "bg-emerald-500" : isDark ? "bg-neutral-600" : "bg-neutral-300",
+              connected
+                ? "bg-emerald-500"
+                : isDark
+                  ? "bg-neutral-600"
+                  : "bg-neutral-300",
             ].join(" ")}
           />
           {connected ? "Connected" : "Available"}
         </span>
-        <span className={["text-[10.5px] tabular-nums", isDark ? "text-neutral-600" : "text-neutral-400"].join(" ")}>
+        <span
+          className={[
+            "text-[10.5px] tabular-nums",
+            isDark ? "text-neutral-600" : "text-neutral-400",
+          ].join(" ")}
+        >
           {data.progress}%
         </span>
       </div>
@@ -337,29 +382,24 @@ function IntegrationCard({
   );
 }
 
-/* ------------------------------------------------------------------ */
-/* Page                                                                */
-/* ------------------------------------------------------------------ */
+/* ============================================================
+   PAGE
+============================================================ */
 
 export default function Integrations() {
   const { theme, setTheme } = useTheme();
   const isDark = theme === "dark";
-
-  /* Marge gauche : suit l'état réduit / ouvert de la sidebar. */
   const sidebarOffset = useSidebarOffset();
 
-  /* Recherche & filtre de la grille. */
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("Toutes");
   const [filterOpen, setFilterOpen] = useState(false);
   const filterRef = useRef<HTMLDivElement>(null);
 
-  /* BottomBar / Folder / NewPostModal (recherche de la barre indépendante). */
   const [bottomQuery, setBottomQuery] = useState("");
   const [isFolderOpen, setIsFolderOpen] = useState(false);
   const [isNewPostOpen, setIsNewPostOpen] = useState(false);
 
-  /* Ferme le menu du filtre au clic extérieur / Échap. */
   useEffect(() => {
     if (!filterOpen) return;
 
@@ -380,18 +420,22 @@ export default function Integrations() {
 
   const needle = query.trim().toLowerCase();
 
-  const visible = INTEGRATIONS.filter((item) => {
-    const matchesQuery =
-      needle.length === 0 ||
-      `${item.title} ${item.meta ?? ""}`.toLowerCase().includes(needle);
+  const visible = useMemo(
+    () =>
+      INTEGRATIONS.filter((item) => {
+        const matchesQuery =
+          needle.length === 0 ||
+          `${item.title} ${item.meta ?? ""}`.toLowerCase().includes(needle);
 
-    const isConnected = item.progress >= CONNECTED_THRESHOLD;
-    const matchesFilter =
-      filter === "Toutes" ||
-      (filter === "Connectées" ? isConnected : !isConnected);
+        const isConnected = item.progress >= CONNECTED_THRESHOLD;
+        const matchesFilter =
+          filter === "Toutes" ||
+          (filter === "Connectées" ? isConnected : !isConnected);
 
-    return matchesQuery && matchesFilter;
-  });
+        return matchesQuery && matchesFilter;
+      }),
+    [needle, filter]
+  );
 
   const hasActiveFilters = needle.length > 0 || filter !== "Toutes";
 
@@ -413,66 +457,92 @@ export default function Integrations() {
   };
 
   const handleCreatePost = async (payload: NewPostPayload) => {
-    // TODO : brancher ici le vrai envoi (Supabase, file d'attente, etc.).
     console.log("Nouveau post :", payload);
   };
 
   return (
     <main
       className={[
-        "relative min-h-screen w-full transition-colors duration-500",
-        isDark ? "bg-[#09090a]" : "bg-[#f3f1ed]",
+        "relative h-screen w-full overflow-hidden",
+        "transition-colors duration-300",
+        pageBgClass(isDark),
       ].join(" ")}
     >
       <DashboardSidebar theme={theme} />
 
-      {/* Le padding-left suit l'ouverture/fermeture de la sidebar. */}
+      {/* Zone à droite de la sidebar : marge autour du panneau arrondi */}
       <div
         className={[
+          "h-full py-3 pr-3",
           "transition-[padding-left] duration-[380ms]",
           "ease-[cubic-bezier(0.4,0,0.2,1)]",
           "motion-reduce:transition-none",
         ].join(" ")}
         style={{ paddingLeft: sidebarOffset }}
       >
-        <PageTransition>
-          {/* Pleine largeur ; pb-[96px] réserve la place de la BottomBar. */}
-          <div className="w-full max-w-none px-[clamp(12px,1.5vw,24px)] pt-[clamp(16px,2vw,28px)] pb-[96px]">
-            {/* Titre de la page : en haut à gauche */}
+        {/* PANNEAU ARRONDI : c'est lui qui scrolle */}
+        <div
+          className={[
+            "h-full overflow-y-auto overflow-x-hidden",
+            "rounded-[28px] border",
+            "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+            "transition-colors duration-300",
+            mainPanelClass(isDark),
+          ].join(" ")}
+        >
+          <div
+            className={[
+              "mx-auto flex w-full max-w-[1720px]",
+              "flex-col px-[clamp(18px,3vw,48px)]",
+              "pb-[120px] pt-[clamp(18px,3vw,30px)]",
+            ].join(" ")}
+          >
+            {/* HEADER */}
             <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
-              <div className="flex items-center gap-2.5">
+              <div className="flex items-center gap-3">
                 <div
                   className={[
-                    "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border",
+                    "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border",
                     isDark
-                      ? "border-white/10 bg-white/[0.03] text-white"
-                      : "border-black/[0.08] bg-white text-neutral-900 shadow-sm",
+                      ? "border-white/[0.08] bg-white/[0.04] text-white"
+                      : "border-black/[0.06] bg-white text-neutral-900 shadow-sm",
                   ].join(" ")}
                 >
                   <PlugIcon />
                 </div>
-                <h1
-                  className={[
-                    "font-display text-[clamp(17px,1.5vw,20px)] font-semibold tracking-[-0.01em]",
-                    isDark ? "text-white" : "text-neutral-900",
-                  ].join(" ")}
-                >
-                  Integrations
-                </h1>
+                <div className="flex min-w-0 flex-col">
+                  <h1
+                    className={[
+                      "text-[24px] font-semibold tracking-[-0.035em]",
+                      strongClass(isDark),
+                    ].join(" ")}
+                  >
+                    Integrations
+                  </h1>
+                  <p
+                    className={[
+                      "mt-0.5 text-[12px] font-medium",
+                      mutedClass(isDark),
+                    ].join(" ")}
+                  >
+                    Connect your favorite tools and services.
+                  </p>
+                </div>
               </div>
 
-              {/* Actions à droite */}
               <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
                   onClick={() => setTheme(isDark ? "light" : "dark")}
-                  aria-label={isDark ? "Switch to light theme" : "Switch to dark theme"}
+                  aria-label={
+                    isDark ? "Switch to light theme" : "Switch to dark theme"
+                  }
                   className={[
                     "flex h-9 w-9 items-center justify-center rounded-full border transition",
-                    focusRing(isDark),
+                    focusRingClass(isDark),
                     isDark
-                      ? "border-white/10 text-neutral-300 hover:bg-white/10"
-                      : "border-black/[0.06] text-neutral-500 hover:bg-black/5",
+                      ? "border-white/[0.08] text-neutral-300 hover:bg-white/[0.06]"
+                      : "border-black/[0.06] text-neutral-500 hover:bg-black/[0.04]",
                   ].join(" ")}
                 >
                   <SunMoonIcon isDark={isDark} />
@@ -482,7 +552,7 @@ export default function Integrations() {
                   type="button"
                   className={[
                     "flex items-center gap-1.5 rounded-full px-4 py-2 text-[13px] font-semibold transition",
-                    focusRing(isDark),
+                    focusRingClass(isDark),
                     isDark
                       ? "bg-white text-neutral-900 hover:bg-neutral-200"
                       : "bg-neutral-900 text-white hover:bg-neutral-800",
@@ -494,14 +564,14 @@ export default function Integrations() {
               </div>
             </header>
 
-            {/* Recherche + filtre */}
-            <div className="mt-[clamp(14px,2vw,22px)] flex flex-wrap items-center gap-2">
+            {/* SEARCH + FILTER */}
+            <div className="mt-6 flex flex-wrap items-center gap-2">
               <label
                 className={[
                   "flex min-w-0 flex-1 items-center gap-2.5 rounded-full border px-3.5 py-2 transition sm:max-w-[360px]",
                   "focus-within:ring-2",
                   isDark
-                    ? "border-white/10 bg-[#1c1c1e] text-neutral-500 focus-within:ring-white/20"
+                    ? "border-white/[0.08] bg-white/[0.03] text-neutral-500 focus-within:ring-white/20"
                     : "border-black/[0.06] bg-white text-neutral-400 focus-within:ring-black/15",
                 ].join(" ")}
               >
@@ -528,14 +598,19 @@ export default function Integrations() {
                   aria-expanded={filterOpen}
                   className={[
                     "flex items-center gap-2 rounded-full border px-4 py-2 text-[12.5px] font-medium transition",
-                    focusRing(isDark),
+                    focusRingClass(isDark),
                     isDark
-                      ? "border-white/10 bg-[#1c1c1e] text-neutral-200 hover:bg-[#242427]"
+                      ? "border-white/[0.08] bg-white/[0.03] text-neutral-200 hover:bg-white/[0.06]"
                       : "border-black/[0.06] bg-white text-neutral-700 hover:bg-neutral-50",
                   ].join(" ")}
                 >
                   {filter}
-                  <span className={["flex transition-transform duration-200", filterOpen ? "rotate-180" : ""].join(" ")}>
+                  <span
+                    className={[
+                      "flex transition-transform duration-200",
+                      filterOpen ? "rotate-180" : "",
+                    ].join(" ")}
+                  >
                     <ChevronDownIcon />
                   </span>
                 </button>
@@ -544,9 +619,9 @@ export default function Integrations() {
                   <div
                     role="menu"
                     className={[
-                      "absolute left-0 z-20 mt-2 w-44 overflow-hidden rounded-[12px] border py-1 shadow-lg",
+                      "absolute left-0 z-20 mt-2 w-44 overflow-hidden rounded-xl border py-1 shadow-lg",
                       isDark
-                        ? "border-white/10 bg-[#1c1c1e]"
+                        ? "border-white/[0.08] bg-[#16161a]"
                         : "border-black/[0.06] bg-white",
                     ].join(" ")}
                   >
@@ -569,7 +644,7 @@ export default function Integrations() {
                                 ? "font-semibold text-white"
                                 : "font-semibold text-neutral-900"
                               : isDark
-                                ? "text-neutral-400 hover:bg-white/5"
+                                ? "text-neutral-400 hover:bg-white/[0.05]"
                                 : "text-neutral-500 hover:bg-black/[0.03]",
                           ].join(" ")}
                         >
@@ -584,31 +659,32 @@ export default function Integrations() {
 
               <span
                 aria-live="polite"
-                className={["ml-auto text-[12px]", isDark ? "text-neutral-500" : "text-neutral-400"].join(" ")}
+                className={[
+                  "ml-auto text-[12px]",
+                  mutedClass(isDark),
+                ].join(" ")}
               >
-                {visible.length} {visible.length === 1 ? "integration" : "integrations"}
+                {visible.length}{" "}
+                {visible.length === 1 ? "integration" : "integrations"}
               </span>
             </div>
 
-            {/* Cards grid */}
-            <div className="mt-[clamp(14px,2vw,22px)] grid grid-cols-1 gap-[clamp(12px,1.4vw,18px)] sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+            {/* GRID */}
+            <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
               {visible.map((card) => (
-                <IntegrationCard
-                  key={card.title}
-                  data={card}
-                  isDark={isDark}
-                />
+                <IntegrationCard key={card.title} data={card} isDark={isDark} />
               ))}
             </div>
 
             {visible.length === 0 && (
-              <div className="mt-16 flex flex-col items-center gap-3 text-center">
-                <p
-                  className={[
-                    "text-[13px]",
-                    isDark ? "text-neutral-500" : "text-neutral-400",
-                  ].join(" ")}
-                >
+              <div
+                className={[
+                  "mt-6 flex min-h-[280px] flex-col items-center justify-center gap-3",
+                  "rounded-2xl border px-4 py-10 text-center",
+                  panelSurfaceClass(isDark),
+                ].join(" ")}
+              >
+                <p className={["text-[13px]", mutedClass(isDark)].join(" ")}>
                   Aucune intégration ne correspond à votre recherche.
                 </p>
                 {hasActiveFilters && (
@@ -617,7 +693,7 @@ export default function Integrations() {
                     onClick={resetFilters}
                     className={[
                       "rounded-full border px-4 py-1.5 text-[12px] font-semibold transition",
-                      focusRing(isDark),
+                      focusRingClass(isDark),
                       isDark
                         ? "border-white/10 text-white hover:bg-white/[0.07]"
                         : "border-black/10 text-neutral-900 hover:bg-neutral-100",
@@ -629,10 +705,10 @@ export default function Integrations() {
               </div>
             )}
           </div>
-        </PageTransition>
+        </div>
       </div>
 
-      {/* Barre d'actions rapides, centrée sur la zone de contenu. */}
+      {/* FOLDER */}
       <Folder
         isOpen={isFolderOpen}
         onClose={() => setIsFolderOpen(false)}
@@ -640,6 +716,7 @@ export default function Integrations() {
         offsetLeft={sidebarOffset}
       />
 
+      {/* BOTTOM BAR */}
       <BottomBar
         isDark={isDark}
         offsetLeft={sidebarOffset}
@@ -649,6 +726,7 @@ export default function Integrations() {
         onQueryChange={setBottomQuery}
       />
 
+      {/* NEW POST */}
       <NewPostModal
         isOpen={isNewPostOpen}
         onClose={() => setIsNewPostOpen(false)}
