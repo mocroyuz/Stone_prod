@@ -118,7 +118,6 @@ type ThemeTokens = {
   ring: string;
   accent: string;
   accentSolid: string;
-  avatarRing: string;
 };
 
 type StatusResponse = {
@@ -136,8 +135,7 @@ type StatusResponse = {
 /* ============================================================================ 
    Dimensions 
    Sidebar fine collée au bord gauche, pleine hauteur. 
-   Réduite : 64 px (rail d'icônes). Ouverte : 200 px. 
-   Les valeurs Tailwind (w-[64px] / w-[240px]) doivent rester en phase. 
+   Réduite : 64 px (rail d'icônes). Ouverte : 240 px. 
 ============================================================================ */
 
 export const SIDEBAR_COLLAPSED_OFFSET = 64;
@@ -188,8 +186,6 @@ const SIDEBAR_KEYFRAMES = `
 
 /* ============================================================================ 
    Raccourcis clavier 
-   - Ctrl/⌘ + B : réduire / ouvrir la sidebar 
-   - Alt (⌥) + lettre : pages 
 ============================================================================ */
 
 const IS_MAC =
@@ -552,7 +548,6 @@ const menuGroups: MenuItem[][] = [
 
 /* ============================================================================ 
    Navigation item 
-   Réduit : bouton icône centré. Ouvert : ligne pleine largeur avec libellé. 
 ============================================================================ */
 
 function NavItemViewImpl({
@@ -713,8 +708,6 @@ const CHANNEL_LINKS: {
   },
 ];
 
-/* Liens affichés comme des nav items normaux quand aucun canal
-   n'est connecté : ils mènent aux pages sans paramètre channel. */
 const STANDALONE_LINKS = [
   { label: "Insights", route: "insights", icon: InsightsIcon, badge: "New" },
   { label: "Community", route: "community", icon: CommunityIcon },
@@ -722,18 +715,21 @@ const STANDALONE_LINKS = [
 
 const CHANNEL_ROUTES = new Set(["insights", "community"]);
 
+/**
+ * Avatar d'un canal connecté.
+ * Plus de ring de hover (noir/blanc) autour de la photo :
+ * l'avatar reste net en clair comme en sombre.
+ */
 function ChannelAvatar({
   channel,
   NetworkIcon,
   dotRing,
   size = "md",
-  ringClass = "",
 }: {
   channel: ConnectedChannel;
   NetworkIcon?: IconComponent;
   dotRing: string;
   size?: "md" | "lg";
-  ringClass?: string;
 }) {
   const [failed, setFailed] = useState(false);
 
@@ -758,8 +754,6 @@ function ChannelAvatar({
           className={[
             "h-full w-full select-none object-cover",
             radius,
-            "ring-2 ring-transparent transition-shadow duration-200",
-            ringClass,
           ].join(" ")}
         />
       ) : (
@@ -768,8 +762,6 @@ function ChannelAvatar({
             "flex h-full w-full items-center justify-center bg-neutral-700",
             radius,
             "text-[11px] font-semibold text-white",
-            "ring-2 ring-transparent transition-shadow duration-200",
-            ringClass,
           ].join(" ")}
         >
           {initial}
@@ -784,7 +776,7 @@ function ChannelAvatar({
             dotRing,
           ].join(" ")}
         >
-          <NetworkIcon mono="black" className="h-3 w-3" />
+          <NetworkIcon className="h-3 w-3" />
         </span>
       )}
     </span>
@@ -793,8 +785,6 @@ function ChannelAvatar({
 
 /* ============================================================================ 
    Popover d'une ligne de canal (sidebar réduite uniquement) 
-   Rendu en portal. Clavier : → ouvre et place le focus, ↑/↓/Home/End 
-   naviguent, Échap / ← referment. 
 ============================================================================ */
 
 const HOVER_CARD_SHOW_MS = 200;
@@ -968,7 +958,6 @@ function ChannelHoverCard({
                 channel={channel}
                 NetworkIcon={NetworkIcon}
                 dotRing={t.dotRing}
-                ringClass={t.avatarRing}
               />
               <span
                 className={[
@@ -1075,9 +1064,6 @@ function SidebarChannelsImpl({
 
   return (
     <div className="flex flex-col gap-1">
-      {/* Aucun canal connecté : Insights et Community apparaissent
-          au-dessus de la section Channels comme des nav items normaux
-          (sans paramètre channel). */}
       {channels.length === 0 &&
         STANDALONE_LINKS.map((link) => {
           const Icon = link.icon;
@@ -1235,7 +1221,6 @@ function SidebarChannelsImpl({
                   NetworkIcon={NetworkIcon}
                   dotRing={t.dotRing}
                   size={compact ? "lg" : "md"}
-                  ringClass={t.avatarRing}
                 />
 
                 {!compact && (
@@ -1480,8 +1465,6 @@ export default function DashboardSidebar({
   const connectedChannels = useConnectedChannels();
   const isMobile = useIsMobile();
 
-  /* Dès qu'un réseau est connecté, « Publish » vit sous chaque canal :
-     on retire l'entrée globale pour ne pas la dupliquer. */
   const hasChannels = connectedChannels.length > 0;
   const visibleNavItems = useMemo(
     () => (hasChannels ? navItems.filter((item) => item.route !== "schedule") : navItems),
@@ -1501,7 +1484,6 @@ export default function DashboardSidebar({
   const [loggingOut, setLoggingOut] = useState(false);
   const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
 
-  /* Mobile : le tiroir est soit fermé, soit ouvert en grand (jamais réduit). */
   const compact = isMobile ? false : isCollapsed;
   const drawerHidden = isMobile && !mobileOpen;
 
@@ -1601,7 +1583,6 @@ export default function DashboardSidebar({
       if (returned[provider]) clearCache(userId, provider);
     });
 
-    // Nettoyage de l'URL uniquement sur la route "channels".
     if (
       (returned.tiktok || returned.pinterest || returned.youtube) &&
       basePath.includes("channels")
@@ -1694,7 +1675,6 @@ export default function DashboardSidebar({
     if (!isMobile) setMobileOpen(false);
   }, [isMobile]);
 
-  /* Tiroir mobile : Échap + pas de scroll derrière. */
   useEffect(() => {
     if (!mobileOpen) return;
 
@@ -1778,7 +1758,7 @@ export default function DashboardSidebar({
   );
 
   /* --------------------------------------------------------------------------
-     Theme tokens — noir profond
+     Theme tokens
   -------------------------------------------------------------------------- */
 
   const t = useMemo<ThemeTokens>(
@@ -1808,7 +1788,6 @@ export default function DashboardSidebar({
             badge: "bg-white text-black",
             accent: "bg-white",
             accentSolid: "border-transparent bg-white text-black hover:bg-white/90",
-            avatarRing: "group-hover:ring-white/50",
             ring: "focus-visible:ring-white/25",
           }
         : {
@@ -1835,7 +1814,6 @@ export default function DashboardSidebar({
             badge: "bg-black text-white",
             accent: "bg-black",
             accentSolid: "border-transparent bg-black text-white hover:bg-black/85",
-            avatarRing: "group-hover:ring-black/40",
             ring: "focus-visible:ring-black/20",
           },
     [isDark]
@@ -1863,7 +1841,6 @@ export default function DashboardSidebar({
     setIsCollapsed((previous) => !previous);
   }, [isMobile]);
 
-  /* Cmd/Ctrl + B */
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (
@@ -1897,7 +1874,6 @@ export default function DashboardSidebar({
 
   const closeConnect = useCallback(() => setConnectOpen(false), []);
 
-  /* Alt (⌥) + touche : P = menu compte, autres = pages. */
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (!event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
@@ -2131,7 +2107,6 @@ export default function DashboardSidebar({
     <>
       <style>{SIDEBAR_KEYFRAMES}</style>
 
-      {/* Mobile : bouton flottant qui ouvre le tiroir. */}
       {isMobile && !mobileOpen && (
         <button
           type="button"
@@ -2150,7 +2125,6 @@ export default function DashboardSidebar({
         </button>
       )}
 
-      {/* Mobile : fond cliquable derrière le tiroir. */}
       {isMobile && mobileOpen && (
         <div
           aria-hidden="true"
@@ -2159,7 +2133,6 @@ export default function DashboardSidebar({
         />
       )}
 
-      {/* Sidebar fine : collée au bord gauche, pleine hauteur. */}
       <aside
         id="app-sidebar"
         {...inertProps}
@@ -2219,9 +2192,6 @@ export default function DashboardSidebar({
               onNavigate={handleNavigate}
             />
           ))}
-
-          {/* Rail réduit : pas de séparateur, Insights et Community
-              s'intègrent comme des nav items normaux. */}
 
           <SidebarChannels
             channels={connectedChannels}
@@ -2283,11 +2253,6 @@ export default function DashboardSidebar({
               className={[
                 "sb-menu absolute z-50 w-[264px] max-w-[calc(100vw-24px)]",
                 "origin-bottom-left overflow-hidden rounded-2xl border",
-                /* Position copiée sur la maquette : le bord gauche du menu est
-                   aligné sur le centre horizontal de la photo de profil, et le
-                   menu flotte juste au-dessus de l'avatar, légèrement séparé.
-                   Footer : py-2.5 (10px) + bouton h-11 (44px) → sommet de
-                   l'avatar à 54px du bas ; +6px d'esiration → bottom-[60px]. */
                 "left-[16px] bottom-[60px]",
                 t.menu,
               ].join(" ")}
