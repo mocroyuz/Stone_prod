@@ -195,7 +195,6 @@ const TOGGLE_SHORTCUT_LABEL = IS_MAC ? "⌘B" : "Ctrl B";
 const SHORTCUT_ROUTES: Record<string, string> = {
   h: "home",
   d: "schedule",
-  t: "template",
   s: "settings",
   l: "channels",
   u: "pricing",
@@ -299,13 +298,6 @@ const CalendarIcon = (p: IconProps) => (
   <Svg {...p}>
     <rect x="3.5" y="5.5" width="17" height="15" rx="2.5" />
     <path d="M8 3.5v4M16 3.5v4M3.5 9.5h17" />
-  </Svg>
-);
-
-const TemplatesIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M7 5.5h10a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2Z" />
-    <path d="M8 10h8M8 14h8" />
   </Svg>
 );
 
@@ -535,7 +527,6 @@ function Tip({
 const navItems: NavItem[] = [
   { label: "Home", icon: HomeIcon, route: "home" },
   { label: "Publish", icon: CalendarIcon, route: "schedule" },
-  { label: "Templates", icon: TemplatesIcon, route: "template" },
   { label: "Create", icon: LightbulbIcon, route: "create", badge: "New" },
 ];
 
