@@ -166,8 +166,13 @@ type CalendarEvent = {
 const START_HOUR = 0;
 const END_HOUR = 24;
 const SPAN = END_HOUR - START_HOUR;
-const HOUR_HEIGHT = 60;
+const HOUR_HEIGHT = 72;
 const TOTAL_HEIGHT = SPAN * HOUR_HEIGHT;
+
+/* Heure de départ du scroll quand on n'est pas sur la semaine en cours. */
+const DEFAULT_SCROLL_HOUR = 8;
+/* Nombre d'heures de contexte affichées avant « maintenant ». */
+const NOW_CONTEXT_HOURS = 2;
 
 const HOURS = Array.from({ length: SPAN + 1 }, (_, i) => START_HOUR + i);
 
@@ -763,11 +768,20 @@ export default function Schedule() {
     return () => window.clearInterval(id);
   }, []);
 
-  /* ---------------- Scroll reset ---------------- */
+  /* ---------------- Initial scroll : heure actuelle ---------------- */
   useEffect(() => {
     const el = scrollRef.current;
-    if (el) el.scrollTop = 0;
-    setScrollTop(0);
+    if (!el) return;
+
+    const n = new Date();
+    const hour = n.getHours() + n.getMinutes() / 60;
+    const target =
+      range === "This week"
+        ? Math.max(0, (hour - NOW_CONTEXT_HOURS - START_HOUR) * HOUR_HEIGHT)
+        : (DEFAULT_SCROLL_HOUR - START_HOUR) * HOUR_HEIGHT;
+
+    el.scrollTop = target;
+    setScrollTop(el.scrollTop);
   }, [range]);
 
   /* ---------------- Viewport measure ---------------- */
@@ -807,7 +821,7 @@ export default function Schedule() {
         return {
           date,
           n: date.getDate(),
-          label: date.toLocaleDateString(LOCALE, { weekday: "long" }),
+          label: date.toLocaleDateString(LOCALE, { weekday: "short" }),
           isToday: date.toDateString() === now.toDateString(),
         };
       }),
@@ -1001,8 +1015,8 @@ export default function Schedule() {
         style={{ paddingLeft: sidebarOffset }}
       >
         <PageTransition>
-          {/* pb-[96px] : réserve la place de la BottomBar. */}
-          <div className="mx-auto flex h-[100dvh] w-full max-w-[1320px] flex-col px-[clamp(16px,3vw,40px)] pt-[clamp(20px,2.6vw,34px)] pb-[96px]">
+          {/* Pleine largeur (plus de max-w) ; pb-[96px] réserve la place de la BottomBar. */}
+          <div className="flex h-[100dvh] w-full max-w-none flex-col px-[clamp(12px,1.5vw,24px)] pt-[clamp(14px,1.8vw,24px)] pb-[96px]">
             {/* Heading row */}
             <div className="grid shrink-0 items-center gap-4 lg:grid-cols-[1fr_auto_1fr]">
               {/* Categories */}
@@ -1271,17 +1285,18 @@ export default function Schedule() {
             {/* Calendar grid */}
             <div
               className={[
-                "mt-[clamp(14px,2vw,22px)] flex min-h-0 flex-1 flex-col overflow-hidden rounded-[18px] border",
+                "mt-[clamp(12px,1.6vw,18px)] flex min-h-0 flex-1 flex-col overflow-hidden rounded-[18px] border",
                 isDark ? "border-white/10 bg-[#111113]" : "border-black/[0.06] bg-white",
               ].join(" ")}
             >
-              <div className="grid shrink-0 grid-cols-[56px_repeat(7,1fr)]">
+              {/* Day headers */}
+              <div className="grid shrink-0 grid-cols-[56px_repeat(7,minmax(0,1fr))]">
                 <div className={["border-b", isDark ? "border-white/10" : "border-black/[0.06]"].join(" ")} />
                 {days.map((day) => (
                   <div
                     key={day.date.toISOString()}
                     className={[
-                      "truncate border-b border-l px-3 py-3 text-[12.5px]",
+                      "flex items-center justify-center gap-2 border-b border-l py-3 text-[12.5px]",
                       isDark ? "border-white/10" : "border-black/[0.06]",
                       day.isToday
                         ? isDark
@@ -1292,19 +1307,32 @@ export default function Schedule() {
                           : "font-medium text-neutral-500",
                     ].join(" ")}
                   >
-                    {day.n} - {day.label}
+                    <span>{day.label}</span>
+                    <span
+                      className={[
+                        "flex h-6 min-w-6 items-center justify-center rounded-full px-1.5 text-[12px]",
+                        day.isToday
+                          ? isDark
+                            ? "bg-white text-neutral-900"
+                            : "bg-neutral-900 text-white"
+                          : "",
+                      ].join(" ")}
+                    >
+                      {day.n}
+                    </span>
                   </div>
                 ))}
               </div>
 
               <div className="relative min-h-0 flex-1">
+                {/* Scrollbar masquée : l'en-tête reste parfaitement aligné avec la grille. */}
                 <div
                   ref={scrollRef}
                   onScroll={handleScroll}
-                  className="h-full overflow-y-auto overscroll-contain"
+                  className="h-full overflow-y-auto overscroll-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
                 >
                   <div
-                    className="grid grid-cols-[56px_repeat(7,1fr)]"
+                    className="grid grid-cols-[56px_repeat(7,minmax(0,1fr))]"
                     style={{ height: TOTAL_HEIGHT }}
                   >
                     <div className="relative">
