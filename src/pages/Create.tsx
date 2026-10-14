@@ -1,7 +1,12 @@
 // src/pages/Create.tsx
 // Page Create (route "create") : tableau d'idées (Board / Gallery) + modale « Create Idea ».
 // Noir et blanc, même thème et même structure que Community.tsx / Insights.tsx.
-// Les données sont fournies par `useIdeas` (state local pour l'instant) : branche-le sur ton backend.
+//
+// Concept : les colonnes du board SONT des tags (Unassigned, To Do, In Progress…).
+//  - on peut créer / renommer / supprimer des tags,
+//  - on peut réordonner les colonnes (drag par l'en-tête),
+//  - on peut déplacer les idées entre colonnes et les réordonner (drag de la carte).
+// Les données vivent dans `useBoard` (state local) : branche-le sur ton backend.
 
 import { useEffect, useRef, useState } from "react";
 import type { DragEvent, ReactNode } from "react";
@@ -14,18 +19,28 @@ import DashboardSidebar, {
 
 type Tab = "ideas" | "templates" | "feeds";
 type View = "board" | "gallery";
-type Status = "unassigned" | "todo" | "inprogress";
+
+type Tag = { id: string; label: string };
 
 type Idea = {
   id: string;
   title: string;
   description: string;
   imageUrl?: string;
-  status: Status;
-  tags: string[];
+  tagId: string;
 };
 
+type DragState = { type: "idea" | "col"; id: string } | null;
+
 type IconProps = { className?: string };
+
+const UNASSIGNED = "unassigned";
+
+const DEFAULT_TAGS: Tag[] = [
+  { id: UNASSIGNED, label: "Unassigned" },
+  { id: "todo", label: "To Do" },
+  { id: "inprogress", label: "In Progress" },
+];
 
 const TABS: { key: Tab; label: string }[] = [
   { key: "ideas", label: "Ideas" },
@@ -33,29 +48,73 @@ const TABS: { key: Tab; label: string }[] = [
   { key: "feeds", label: "Feeds" },
 ];
 
-const COLUMNS: { key: Status; label: string }[] = [
-  { key: "unassigned", label: "Unassigned" },
-  { key: "todo", label: "To Do" },
-  { key: "inprogress", label: "In Progress" },
-];
-
-const TAGS = ["Promo", "Behind the scenes", "Tutorial", "Product", "Event"];
-
 /* ───────── Données (à remplacer par ton API) ───────── */
 
-function useIdeas() {
+function useBoard() {
+  const [tags, setTags] = useState<Tag[]>(DEFAULT_TAGS);
   const [ideas, setIdeas] = useState<Idea[]>([]);
+
+  /** Crée un tag (ou renvoie l'id de celui qui existe déjà avec ce nom). */
+  const addTag = (label: string): string | null => {
+    const l = label.trim();
+    if (!l) return null;
+    const existing = tags.find((t) => t.label.toLowerCase() === l.toLowerCase());
+    if (existing) return existing.id;
+    const id = crypto.randomUUID();
+    setTags((prev) => [...prev, { id, label: l }]);
+    return id;
+  };
+
+  const renameTag = (id: string, label: string) => {
+    const l = label.trim();
+    if (!l || id === UNASSIGNED) return;
+    setTags((prev) => prev.map((t) => (t.id === id ? { ...t, label: l } : t)));
+  };
+
+  /** Supprime un tag : ses idées retournent dans Unassigned. */
+  const deleteTag = (id: string) => {
+    if (id === UNASSIGNED) return;
+    setIdeas((prev) => prev.map((i) => (i.tagId === id ? { ...i, tagId: UNASSIGNED } : i)));
+    setTags((prev) => prev.filter((t) => t.id !== id));
+  };
+
+  /** Place la colonne `id` à la position de la colonne `toId` (Unassigned reste en premier). */
+  const moveTag = (id: string, toId: string) => {
+    setTags((prev) => {
+      const from = prev.findIndex((t) => t.id === id);
+      const to = prev.findIndex((t) => t.id === toId);
+      if (from < 1 || to < 1 || from === to) return prev;
+      const next = [...prev];
+      const [m] = next.splice(from, 1);
+      next.splice(to, 0, m);
+      return next;
+    });
+  };
 
   const addIdea = (idea: Omit<Idea, "id">) =>
     setIdeas((prev) => [{ ...idea, id: crypto.randomUUID() }, ...prev]);
 
-  const moveIdea = (id: string, status: Status) =>
-    setIdeas((prev) => prev.map((i) => (i.id === id ? { ...i, status } : i)));
+  /** Déplace une idée dans un tag, avant `beforeId` (ou en fin de colonne). */
+  const moveIdea = (id: string, tagId: string, beforeId?: string) =>
+    setIdeas((prev) => {
+      const idea = prev.find((i) => i.id === id);
+      if (!idea) return prev;
+      const rest = prev.filter((i) => i.id !== id);
+      const moved = { ...idea, tagId };
+      if (beforeId && beforeId !== id) {
+        const at = rest.findIndex((i) => i.id === beforeId);
+        if (at >= 0) {
+          rest.splice(at, 0, moved);
+          return rest;
+        }
+      }
+      return [...rest, moved];
+    });
 
-  const moveAll = (from: Status, to: Status) =>
-    setIdeas((prev) => prev.map((i) => (i.status === from ? { ...i, status: to } : i)));
+  const moveAll = (from: string, to: string) =>
+    setIdeas((prev) => prev.map((i) => (i.tagId === from ? { ...i, tagId: to } : i)));
 
-  return { ideas, addIdea, moveIdea, moveAll };
+  return { tags, ideas, addTag, renameTag, deleteTag, moveTag, addIdea, moveIdea, moveAll };
 }
 
 /* ───────── Icônes ───────── */
@@ -123,6 +182,11 @@ const DotsIcon = (p: IconProps) => (
     <path d="M5 12h.01M12 12h.01M19 12h.01" strokeWidth="2.6" />
   </Svg>
 );
+const GripIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M9 6h.01M15 6h.01M9 12h.01M15 12h.01M9 18h.01M15 18h.01" strokeWidth="2.6" />
+  </Svg>
+);
 const ChevronDownIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="m6 9 6 6 6-6" />
@@ -148,12 +212,6 @@ const GalleryIcon = (p: IconProps) => (
     <rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.5" />
   </Svg>
 );
-const ColumnsIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <rect x="3.5" y="4.5" width="17" height="15" rx="2.5" />
-    <path d="M9.2 4.5v15M14.8 4.5v15" />
-  </Svg>
-);
 const CloseIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="M6 6l12 12M18 6 6 18" />
@@ -175,186 +233,6 @@ const SmileIcon = (p: IconProps) => (
 );
 
 /* ───────── Petits composants ───────── */
-
-function Menu<T extends string>({
-  value,
-  options,
-  onChange,
-  icon,
-  isDark,
-  ghost,
-  align = "right",
-  bordered,
-  line,
-}: {
-  value: T;
-  options: { key: T; label: string }[];
-  onChange: (k: T) => void;
-  icon: ReactNode;
-  isDark: boolean;
-  ghost: string;
-  align?: "left" | "right";
-  bordered?: boolean;
-  line?: string;
-}) {
-  const [open, setOpen] = useState(false);
-  const current = options.find((o) => o.key === value);
-
-  return (
-    <div className="relative">
-      <button
-        type="button"
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
-        className={`flex items-center gap-2 rounded-xl px-3 py-2 text-[14px] font-medium transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 ${ghost} ${
-          bordered ? `border ${line}` : ""
-        } ${isDark ? "focus-visible:ring-white/40" : "focus-visible:ring-black/30"}`}
-      >
-        {icon}
-        {current?.label}
-        <ChevronDownIcon className="h-4 w-4 opacity-60" />
-      </button>
-
-      {open && (
-        <>
-          <button
-            type="button"
-            aria-label="Close menu"
-            tabIndex={-1}
-            className="fixed inset-0 z-30 cursor-default"
-            onClick={() => setOpen(false)}
-          />
-          <ul
-            role="listbox"
-            className={`absolute ${align === "right" ? "right-0" : "left-0"} z-40 mt-2 min-w-[180px] overflow-hidden rounded-xl border p-1 shadow-lg ${
-              isDark ? "border-white/10 bg-[#0c0c0c]" : "border-black/10 bg-white"
-            }`}
-          >
-            {options.map((o) => (
-              <li key={o.key}>
-                <button
-                  type="button"
-                  role="option"
-                  aria-selected={o.key === value}
-                  onClick={() => {
-                    onChange(o.key);
-                    setOpen(false);
-                  }}
-                  className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-[13px] font-medium transition-colors ${
-                    o.key === value
-                      ? isDark
-                        ? "bg-white/10"
-                        : "bg-black/[0.06]"
-                      : isDark
-                      ? "hover:bg-white/[0.06]"
-                      : "hover:bg-black/[0.04]"
-                  }`}
-                >
-                  {o.label}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </>
-      )}
-    </div>
-  );
-}
-
-/** Sélecteur de tags (multi-sélection). `selected` vide = « Tags ». */
-function TagMenu({
-  selected,
-  onToggle,
-  isDark,
-  ghost,
-  bordered,
-  line,
-  align = "right",
-}: {
-  selected: string[];
-  onToggle: (t: string) => void;
-  isDark: boolean;
-  ghost: string;
-  bordered?: boolean;
-  line?: string;
-  align?: "left" | "right";
-}) {
-  const [open, setOpen] = useState(false);
-  return (
-    <div className="relative">
-      <button
-        type="button"
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
-        className={`flex items-center gap-2 rounded-xl px-3 py-2 text-[14px] font-medium transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 ${ghost} ${
-          bordered ? `border ${line}` : ""
-        } ${isDark ? "focus-visible:ring-white/40" : "focus-visible:ring-black/30"}`}
-      >
-        <TagIcon className="h-4 w-4" />
-        Tags
-        {selected.length > 0 && (
-          <span
-            className={`rounded-full px-1.5 text-[11px] tabular-nums ${
-              isDark ? "bg-white text-black" : "bg-black text-white"
-            }`}
-          >
-            {selected.length}
-          </span>
-        )}
-        <ChevronDownIcon className="h-4 w-4 opacity-60" />
-      </button>
-
-      {open && (
-        <>
-          <button
-            type="button"
-            aria-label="Close menu"
-            tabIndex={-1}
-            className="fixed inset-0 z-[60] cursor-default"
-            onClick={() => setOpen(false)}
-          />
-          <ul
-            className={`absolute ${align === "right" ? "right-0" : "left-0"} z-[70] mt-2 min-w-[200px] overflow-hidden rounded-xl border p-1 shadow-lg ${
-              isDark ? "border-white/10 bg-[#0c0c0c]" : "border-black/10 bg-white"
-            }`}
-          >
-            {TAGS.map((t) => {
-              const on = selected.includes(t);
-              return (
-                <li key={t}>
-                  <button
-                    type="button"
-                    onClick={() => onToggle(t)}
-                    className={`flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left text-[13px] font-medium transition-colors ${
-                      isDark ? "hover:bg-white/[0.06]" : "hover:bg-black/[0.04]"
-                    }`}
-                  >
-                    {t}
-                    <span
-                      className={`flex h-4 w-4 items-center justify-center rounded border text-[10px] ${
-                        on
-                          ? isDark
-                            ? "border-white bg-white text-black"
-                            : "border-black bg-black text-white"
-                          : isDark
-                          ? "border-white/25"
-                          : "border-black/25"
-                      }`}
-                    >
-                      {on ? "✓" : ""}
-                    </span>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        </>
-      )}
-    </div>
-  );
-}
 
 function IconButton({
   label,
@@ -398,69 +276,335 @@ function IconButton({
   );
 }
 
-/** Carte d'idée (utilisée dans le board et la galerie). */
+/** Champ « créer un tag » : Entrée ou clic sur + pour valider. */
+function CreateTagInput({
+  onCreate,
+  isDark,
+  placeholder = "Create a tag…",
+  autoFocus,
+}: {
+  onCreate: (label: string) => void;
+  isDark: boolean;
+  placeholder?: string;
+  autoFocus?: boolean;
+}) {
+  const [value, setValue] = useState("");
+
+  const submit = () => {
+    if (!value.trim()) return;
+    onCreate(value);
+    setValue("");
+  };
+
+  return (
+    <div
+      className={`flex items-center gap-1 rounded-lg border px-2 ${
+        isDark ? "border-white/15" : "border-black/15"
+      }`}
+    >
+      <input
+        autoFocus={autoFocus}
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            submit();
+          }
+        }}
+        placeholder={placeholder}
+        maxLength={30}
+        className={`min-w-0 flex-1 bg-transparent py-2 text-[13px] outline-none ${
+          isDark ? "placeholder:text-neutral-600" : "placeholder:text-neutral-400"
+        }`}
+      />
+      <button
+        type="button"
+        aria-label="Create tag"
+        onClick={submit}
+        disabled={!value.trim()}
+        className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md transition-colors disabled:opacity-30 ${
+          isDark ? "hover:bg-white/10" : "hover:bg-black/[0.06]"
+        }`}
+      >
+        <PlusIcon className="h-4 w-4" />
+      </button>
+    </div>
+  );
+}
+
+/** Menu « Tags » de la barre d'outils : afficher / masquer les colonnes + créer un tag. */
+function TagsMenu({
+  tags,
+  hidden,
+  onToggle,
+  onCreate,
+  isDark,
+  ghost,
+}: {
+  tags: Tag[];
+  hidden: string[];
+  onToggle: (id: string) => void;
+  onCreate: (label: string) => void;
+  isDark: boolean;
+  ghost: string;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+        className={`flex items-center gap-2 rounded-xl px-3 py-2 text-[14px] font-medium transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 ${ghost} ${
+          isDark ? "focus-visible:ring-white/40" : "focus-visible:ring-black/30"
+        }`}
+      >
+        <TagIcon className="h-4 w-4" />
+        Tags
+        {hidden.length > 0 && (
+          <span
+            className={`rounded-full px-1.5 text-[11px] tabular-nums ${
+              isDark ? "bg-white text-black" : "bg-black text-white"
+            }`}
+          >
+            {tags.length - hidden.length}/{tags.length}
+          </span>
+        )}
+        <ChevronDownIcon className="h-4 w-4 opacity-60" />
+      </button>
+
+      {open && (
+        <>
+          <button
+            type="button"
+            aria-label="Close menu"
+            tabIndex={-1}
+            className="fixed inset-0 z-30 cursor-default"
+            onClick={() => setOpen(false)}
+          />
+          <div
+            className={`absolute right-0 z-40 mt-2 w-[240px] rounded-xl border p-1 shadow-lg ${
+              isDark ? "border-white/10 bg-[#0c0c0c]" : "border-black/10 bg-white"
+            }`}
+          >
+            <ul className="max-h-[260px] overflow-y-auto">
+              {tags.map((t) => {
+                const on = !hidden.includes(t.id);
+                return (
+                  <li key={t.id}>
+                    <button
+                      type="button"
+                      onClick={() => onToggle(t.id)}
+                      className={`flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left text-[13px] font-medium transition-colors ${
+                        isDark ? "hover:bg-white/[0.06]" : "hover:bg-black/[0.04]"
+                      }`}
+                    >
+                      <span className="truncate">{t.label}</span>
+                      <span
+                        className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[10px] ${
+                          on
+                            ? isDark
+                              ? "border-white bg-white text-black"
+                              : "border-black bg-black text-white"
+                            : isDark
+                            ? "border-white/25"
+                            : "border-black/25"
+                        }`}
+                      >
+                        {on ? "✓" : ""}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+            <div className={`mt-1 border-t p-1 pt-2 ${isDark ? "border-white/10" : "border-black/10"}`}>
+              <CreateTagInput onCreate={onCreate} isDark={isDark} />
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+/** Sélecteur de tag (un seul) de la modale, avec création à la volée. */
+function TagSelect({
+  tags,
+  value,
+  onChange,
+  onCreate,
+  isDark,
+  ghost,
+  line,
+}: {
+  tags: Tag[];
+  value: string;
+  onChange: (id: string) => void;
+  onCreate: (label: string) => string | null;
+  isDark: boolean;
+  ghost: string;
+  line: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const current = tags.find((t) => t.id === value);
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+        className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-[14px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 ${ghost} ${line} ${
+          isDark ? "focus-visible:ring-white/40" : "focus-visible:ring-black/30"
+        }`}
+      >
+        <TagIcon className="h-4 w-4" />
+        {current?.label ?? "Tag"}
+        <ChevronDownIcon className="h-4 w-4 opacity-60" />
+      </button>
+
+      {open && (
+        <>
+          <button
+            type="button"
+            aria-label="Close menu"
+            tabIndex={-1}
+            className="fixed inset-0 z-[60] cursor-default"
+            onClick={() => setOpen(false)}
+          />
+          <div
+            className={`absolute right-0 z-[70] mt-2 w-[240px] rounded-xl border p-1 shadow-lg ${
+              isDark ? "border-white/10 bg-[#0c0c0c]" : "border-black/10 bg-white"
+            }`}
+          >
+            <ul role="listbox" className="max-h-[220px] overflow-y-auto">
+              {tags.map((t) => (
+                <li key={t.id}>
+                  <button
+                    type="button"
+                    role="option"
+                    aria-selected={t.id === value}
+                    onClick={() => {
+                      onChange(t.id);
+                      setOpen(false);
+                    }}
+                    className={`flex w-full items-center rounded-lg px-3 py-2 text-left text-[13px] font-medium transition-colors ${
+                      t.id === value
+                        ? isDark
+                          ? "bg-white/10"
+                          : "bg-black/[0.06]"
+                        : isDark
+                        ? "hover:bg-white/[0.06]"
+                        : "hover:bg-black/[0.04]"
+                    }`}
+                  >
+                    <span className="truncate">{t.label}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+            <div className={`mt-1 border-t p-1 pt-2 ${isDark ? "border-white/10" : "border-black/10"}`}>
+              <CreateTagInput
+                isDark={isDark}
+                onCreate={(label) => {
+                  const id = onCreate(label);
+                  if (id) {
+                    onChange(id);
+                    setOpen(false);
+                  }
+                }}
+              />
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+/** Carte d'idée (board : draggable ; galerie : statique). */
 function IdeaCard({
   idea,
+  tagLabel,
   isDark,
   muted,
   draggable,
+  dragging,
+  dropBefore,
+  onDragStart,
+  onDragEnd,
+  onDragOver,
+  onDrop,
 }: {
   idea: Idea;
+  tagLabel?: string;
   isDark: boolean;
   muted: string;
   draggable?: boolean;
+  dragging?: boolean;
+  dropBefore?: boolean;
+  onDragStart?: (e: DragEvent) => void;
+  onDragEnd?: () => void;
+  onDragOver?: (e: DragEvent) => void;
+  onDrop?: (e: DragEvent) => void;
 }) {
   return (
-    <article
-      draggable={draggable}
-      onDragStart={(e: DragEvent) => {
-        e.dataTransfer.setData("text/plain", idea.id);
-        e.dataTransfer.effectAllowed = "move";
-      }}
-      className={`overflow-hidden rounded-xl border ${
-        draggable ? "cursor-grab active:cursor-grabbing" : ""
-      } ${
-        isDark
-          ? "border-white/10 bg-[#0c0c0c] hover:border-white/25"
-          : "border-black/10 bg-white hover:border-black/25"
-      } transition-colors`}
-    >
-      {idea.imageUrl && (
-        <img
-          src={idea.imageUrl}
-          alt=""
-          className="h-[150px] w-full object-cover"
-          draggable={false}
+    <div className="relative" onDragOver={onDragOver} onDrop={onDrop}>
+      {dropBefore && (
+        <span
+          className={`absolute -top-2 left-0 right-0 h-0.5 rounded-full ${
+            isDark ? "bg-white" : "bg-black"
+          }`}
         />
       )}
-      <div className="flex flex-col gap-1 px-4 py-4">
-        <h3 className="truncate text-[15px] font-semibold">{idea.title}</h3>
-        {idea.description && (
-          <p className={`line-clamp-2 text-[14px] ${muted}`}>{idea.description}</p>
+      <article
+        draggable={draggable}
+        onDragStart={onDragStart}
+        onDragEnd={onDragEnd}
+        className={`overflow-hidden rounded-xl border transition-colors ${
+          draggable ? "cursor-grab active:cursor-grabbing" : ""
+        } ${dragging ? "opacity-40" : ""} ${
+          isDark
+            ? "border-white/10 bg-[#0c0c0c] hover:border-white/25"
+            : "border-black/10 bg-white hover:border-black/25"
+        }`}
+      >
+        {idea.imageUrl && (
+          <img
+            src={idea.imageUrl}
+            alt=""
+            className="h-[150px] w-full object-cover"
+            draggable={false}
+          />
         )}
-        {idea.tags.length > 0 && (
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            {idea.tags.map((t) => (
-              <span
-                key={t}
-                className={`rounded-md px-2 py-0.5 text-[11px] font-medium ${
-                  isDark ? "bg-white/10" : "bg-black/[0.06]"
-                }`}
-              >
-                {t}
-              </span>
-            ))}
-          </div>
-        )}
-      </div>
-    </article>
+        <div className="flex flex-col gap-1 px-4 py-4">
+          <h3 className="truncate text-[15px] font-semibold">{idea.title}</h3>
+          {idea.description && (
+            <p className={`line-clamp-2 text-[14px] ${muted}`}>{idea.description}</p>
+          )}
+          {tagLabel && (
+            <span
+              className={`mt-2 w-fit rounded-md px-2 py-0.5 text-[11px] font-medium ${
+                isDark ? "bg-white/10" : "bg-black/[0.06]"
+              }`}
+            >
+              {tagLabel}
+            </span>
+          )}
+        </div>
+      </article>
+    </div>
   );
 }
 
 /* ───────── Modale « Create Idea » ───────── */
 
 function IdeaModal({
-  initialStatus,
+  tags,
+  initialTagId,
   isDark,
   ghost,
   line,
@@ -468,8 +612,10 @@ function IdeaModal({
   ring,
   onClose,
   onSave,
+  onCreateTag,
 }: {
-  initialStatus: Status;
+  tags: Tag[];
+  initialTagId: string;
   isDark: boolean;
   ghost: string;
   line: string;
@@ -477,11 +623,11 @@ function IdeaModal({
   ring: string;
   onClose: () => void;
   onSave: (idea: Omit<Idea, "id">) => void;
+  onCreateTag: (label: string) => string | null;
 }) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [status, setStatus] = useState<Status>(initialStatus);
-  const [tags, setTags] = useState<string[]>([]);
+  const [tagId, setTagId] = useState(initialTagId);
   const [imageUrl, setImageUrl] = useState<string | undefined>();
   const [dragOver, setDragOver] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -505,14 +651,10 @@ function IdeaModal({
       title: title.trim(),
       description: description.trim(),
       imageUrl,
-      tags,
-      status: asPost && status === "unassigned" ? "todo" : status,
+      tagId: asPost && tagId === UNASSIGNED ? "todo" : tagId,
     });
     onClose();
   };
-
-  const toggleTag = (t: string) =>
-    setTags((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]));
 
   const primary = isDark
     ? "bg-white text-black hover:bg-neutral-200"
@@ -549,26 +691,15 @@ function IdeaModal({
         {/* Header */}
         <div className="flex items-center justify-between gap-3 px-6 pt-6">
           <h2 className="text-[18px] font-semibold tracking-tight">Create Idea</h2>
-          <div className="flex items-center gap-2">
-            <Menu
-              value={status}
-              options={COLUMNS}
-              onChange={setStatus}
-              icon={<ColumnsIcon className="h-4 w-4" />}
-              isDark={isDark}
-              ghost={ghost}
-              bordered
-              line={line}
-            />
-            <TagMenu
-              selected={tags}
-              onToggle={toggleTag}
-              isDark={isDark}
-              ghost={ghost}
-              bordered
-              line={line}
-            />
-          </div>
+          <TagSelect
+            tags={tags}
+            value={tagId}
+            onChange={setTagId}
+            onCreate={onCreateTag}
+            isDark={isDark}
+            ghost={ghost}
+            line={line}
+          />
         </div>
 
         {/* Body */}
@@ -587,7 +718,7 @@ function IdeaModal({
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder={description ? "" : "Everything begins with an idea…"}
+              placeholder="Everything begins with an idea…"
               className={`h-full min-h-[200px] w-full resize-none bg-transparent text-[15px] leading-relaxed outline-none ${
                 isDark ? "placeholder:text-neutral-600" : "placeholder:text-neutral-400"
               }`}
@@ -711,15 +842,26 @@ export default function Create() {
   const isDark = theme === "dark";
   const sidebarOffset = useSidebarOffset();
 
-  const { ideas, addIdea, moveIdea, moveAll } = useIdeas();
+  const { tags, ideas, addTag, renameTag, deleteTag, moveTag, addIdea, moveIdea, moveAll } =
+    useBoard();
 
   const [tab, setTab] = useState<Tab>("ideas");
   const [view, setView] = useState<View>("board");
-  const [tagFilter, setTagFilter] = useState<string[]>([]);
+  const [hidden, setHidden] = useState<string[]>([]);
   const [saved, setSaved] = useState(false);
-  const [modal, setModal] = useState<Status | null>(null);
-  const [overCol, setOverCol] = useState<Status | null>(null);
-  const [colMenu, setColMenu] = useState<Status | null>(null);
+  const [modalTag, setModalTag] = useState<string | null>(null);
+
+  // Drag & drop
+  const drag = useRef<DragState>(null);
+  const [dragKind, setDragKind] = useState<"idea" | "col" | null>(null);
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [overCol, setOverCol] = useState<string | null>(null);
+  const [overCard, setOverCard] = useState<string | null>(null);
+
+  // Menu « … » d'une colonne / renommage / ajout de colonne
+  const [colMenu, setColMenu] = useState<string | null>(null);
+  const [editing, setEditing] = useState<string | null>(null);
+  const [addingCol, setAddingCol] = useState(false);
 
   const page = isDark ? "bg-black text-white" : "bg-white text-black";
   const line = isDark ? "border-white/10" : "border-black/10";
@@ -730,19 +872,58 @@ export default function Create() {
   const outline = isDark ? "border-white/15 hover:bg-white/10" : "border-black/15 hover:bg-black/5";
   const chip = isDark ? "bg-white/10" : "bg-black/[0.07]";
 
-  const visible = tagFilter.length
-    ? ideas.filter((i) => i.tags.some((t) => tagFilter.includes(t)))
-    : ideas;
+  const visibleTags = tags.filter((t) => !hidden.includes(t.id));
+  const tagLabel = (id: string) => tags.find((t) => t.id === id)?.label;
 
-  const toggleFilter = (t: string) =>
-    setTagFilter((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]));
+  const toggleHidden = (id: string) =>
+    setHidden((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
 
-  const onDropColumn = (e: DragEvent, status: Status) => {
-    e.preventDefault();
-    const id = e.dataTransfer.getData("text/plain");
-    if (id) moveIdea(id, status);
-    setOverCol(null);
+  const createTag = (label: string) => {
+    const id = addTag(label);
+    if (id) setHidden((prev) => prev.filter((x) => x !== id));
+    return id;
   };
+
+  const endDrag = () => {
+    drag.current = null;
+    setDragKind(null);
+    setDragId(null);
+    setOverCol(null);
+    setOverCard(null);
+  };
+
+  const startDrag = (e: DragEvent, type: "idea" | "col", id: string) => {
+    drag.current = { type, id };
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", id);
+    setDragKind(type);
+    setDragId(id);
+  };
+
+  const onColumnDragOver = (e: DragEvent, tagId: string) => {
+    if (!drag.current) return;
+    e.preventDefault();
+    setOverCol(tagId);
+  };
+
+  const onColumnDrop = (e: DragEvent, tagId: string) => {
+    e.preventDefault();
+    const d = drag.current;
+    if (d?.type === "idea") moveIdea(d.id, tagId);
+    else if (d?.type === "col") moveTag(d.id, tagId);
+    endDrag();
+  };
+
+  const onCardDrop = (e: DragEvent, tagId: string, cardId: string) => {
+    const d = drag.current;
+    if (d?.type !== "idea") return; // un drag de colonne remonte jusqu'à la colonne
+    e.preventDefault();
+    e.stopPropagation();
+    moveIdea(d.id, tagId, cardId);
+    endDrag();
+  };
+
+  const visibleIdeas = ideas.filter((i) => !hidden.includes(i.tagId));
 
   return (
     <main
@@ -801,7 +982,7 @@ export default function Create() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setModal("unassigned")}
+                  onClick={() => setModalTag(UNASSIGNED)}
                   className={`flex items-center gap-2 rounded-xl border px-4 py-2 text-[14px] font-medium transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 ${outline} ${ring}`}
                 >
                   <PlusIcon className="h-[18px] w-[18px]" />
@@ -835,9 +1016,11 @@ export default function Create() {
 
               {tab === "ideas" && (
                 <div className="flex items-center gap-2 pb-2">
-                  <TagMenu
-                    selected={tagFilter}
-                    onToggle={toggleFilter}
+                  <TagsMenu
+                    tags={tags}
+                    hidden={hidden}
+                    onToggle={toggleHidden}
+                    onCreate={(l) => void createTag(l)}
                     isDark={isDark}
                     ghost={ghost}
                   />
@@ -892,61 +1075,101 @@ export default function Create() {
                 </div>
               )}
 
+              {/* ───── Board ───── */}
               {tab === "ideas" && view === "board" && (
                 <div className="flex min-h-0 flex-1 gap-4 overflow-x-auto pb-2">
-                  {COLUMNS.map((col) => {
-                    const items = visible.filter((i) => i.status === col.key);
-                    const isOver = overCol === col.key;
+                  {visibleTags.map((tag) => {
+                    const items = ideas.filter((i) => i.tagId === tag.id);
+                    const fixed = tag.id === UNASSIGNED;
+                    const isColDragged = dragKind === "col" && dragId === tag.id;
+                    const isOver = overCol === tag.id && dragId !== tag.id;
+                    const reorderTarget = isOver && dragKind === "col";
+                    const ideaTarget = isOver && dragKind === "idea";
+
                     return (
                       <section
-                        key={col.key}
-                        onDragOver={(e) => {
-                          e.preventDefault();
-                          setOverCol(col.key);
-                        }}
-                        onDragLeave={() => setOverCol((c) => (c === col.key ? null : c))}
-                        onDrop={(e) => onDropColumn(e, col.key)}
+                        key={tag.id}
+                        onDragOver={(e) => onColumnDragOver(e, tag.id)}
+                        onDragLeave={() => setOverCol((c) => (c === tag.id ? null : c))}
+                        onDrop={(e) => onColumnDrop(e, tag.id)}
                         className={`flex min-h-0 w-[min(420px,85vw)] shrink-0 flex-col rounded-2xl p-3 transition-colors motion-reduce:transition-none ${
-                          isOver
+                          ideaTarget
                             ? isDark
                               ? "bg-white/[0.12]"
                               : "bg-black/[0.09]"
                             : column
+                        } ${isColDragged ? "opacity-40" : ""} ${
+                          reorderTarget
+                            ? isDark
+                              ? "ring-2 ring-white/60"
+                              : "ring-2 ring-black/50"
+                            : ""
                         }`}
                       >
-                        <div className="flex items-center justify-between px-2 pb-3 pt-1">
-                          <div className="flex items-center gap-2.5">
-                            <h2 className="text-[15px] font-semibold">{col.label}</h2>
+                        {/* En-tête : poignée de drag pour réordonner les colonnes */}
+                        <div
+                          draggable={!fixed && editing !== tag.id}
+                          onDragStart={(e) => !fixed && startDrag(e, "col", tag.id)}
+                          onDragEnd={endDrag}
+                          className={`group/head flex items-center justify-between px-2 pb-3 pt-1 ${
+                            fixed ? "" : "cursor-grab active:cursor-grabbing"
+                          }`}
+                        >
+                          <div className="flex min-w-0 items-center gap-2.5">
+                            {!fixed && (
+                              <GripIcon
+                                className={`-ml-1 h-4 w-4 shrink-0 opacity-0 transition-opacity group-hover/head:opacity-100 ${muted}`}
+                              />
+                            )}
+                            {editing === tag.id ? (
+                              <input
+                                autoFocus
+                                defaultValue={tag.label}
+                                maxLength={30}
+                                onBlur={(e) => {
+                                  renameTag(tag.id, e.target.value);
+                                  setEditing(null);
+                                }}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") e.currentTarget.blur();
+                                  if (e.key === "Escape") setEditing(null);
+                                }}
+                                className={`w-[150px] rounded-md border bg-transparent px-2 py-0.5 text-[15px] font-semibold outline-none ${
+                                  isDark ? "border-white/30" : "border-black/30"
+                                }`}
+                              />
+                            ) : (
+                              <h2 className="truncate text-[15px] font-semibold">{tag.label}</h2>
+                            )}
                             <span
                               className={`rounded-full px-2.5 py-0.5 text-[13px] font-medium tabular-nums ${chip} ${muted}`}
                             >
                               {items.length}
                             </span>
                           </div>
+
                           <div className="relative flex items-center">
                             <IconButton
                               label="New idea"
-                              onClick={() => setModal(col.key)}
+                              onClick={() => setModalTag(tag.id)}
                               ghost={ghost}
                               isDark={isDark}
                               className="h-8 w-8"
                             >
                               <PlusIcon className="h-[18px] w-[18px]" />
                             </IconButton>
-                            {col.key !== "unassigned" && (
+                            {!fixed && (
                               <>
                                 <IconButton
-                                  label="Column options"
-                                  onClick={() =>
-                                    setColMenu((c) => (c === col.key ? null : col.key))
-                                  }
+                                  label="Tag options"
+                                  onClick={() => setColMenu((c) => (c === tag.id ? null : tag.id))}
                                   ghost={ghost}
                                   isDark={isDark}
                                   className="h-8 w-8"
                                 >
                                   <DotsIcon className="h-[18px] w-[18px]" />
                                 </IconButton>
-                                {colMenu === col.key && (
+                                {colMenu === tag.id && (
                                   <>
                                     <button
                                       type="button"
@@ -956,26 +1179,42 @@ export default function Create() {
                                       onClick={() => setColMenu(null)}
                                     />
                                     <div
-                                      className={`absolute right-0 top-full z-40 mt-1 min-w-[200px] rounded-xl border p-1 shadow-lg ${
+                                      className={`absolute right-0 top-full z-40 mt-1 min-w-[210px] rounded-xl border p-1 shadow-lg ${
                                         isDark
                                           ? "border-white/10 bg-[#0c0c0c]"
                                           : "border-black/10 bg-white"
                                       }`}
                                     >
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          moveAll(col.key, "unassigned");
-                                          setColMenu(null);
-                                        }}
-                                        className={`w-full rounded-lg px-3 py-2 text-left text-[13px] font-medium transition-colors ${
-                                          isDark
-                                            ? "hover:bg-white/[0.06]"
-                                            : "hover:bg-black/[0.04]"
-                                        }`}
-                                      >
-                                        Move all to Unassigned
-                                      </button>
+                                      {[
+                                        {
+                                          label: "Rename tag",
+                                          run: () => setEditing(tag.id),
+                                        },
+                                        {
+                                          label: "Move all to Unassigned",
+                                          run: () => moveAll(tag.id, UNASSIGNED),
+                                        },
+                                        {
+                                          label: "Delete tag",
+                                          run: () => deleteTag(tag.id),
+                                        },
+                                      ].map((o) => (
+                                        <button
+                                          key={o.label}
+                                          type="button"
+                                          onClick={() => {
+                                            o.run();
+                                            setColMenu(null);
+                                          }}
+                                          className={`w-full rounded-lg px-3 py-2 text-left text-[13px] font-medium transition-colors ${
+                                            isDark
+                                              ? "hover:bg-white/[0.06]"
+                                              : "hover:bg-black/[0.04]"
+                                          }`}
+                                        >
+                                          {o.label}
+                                        </button>
+                                      ))}
                                     </div>
                                   </>
                                 )}
@@ -992,11 +1231,25 @@ export default function Create() {
                               isDark={isDark}
                               muted={muted}
                               draggable
+                              dragging={dragKind === "idea" && dragId === idea.id}
+                              dropBefore={
+                                dragKind === "idea" && overCard === idea.id && dragId !== idea.id
+                              }
+                              onDragStart={(e) => startDrag(e, "idea", idea.id)}
+                              onDragEnd={endDrag}
+                              onDragOver={(e) => {
+                                if (drag.current?.type !== "idea") return;
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setOverCard(idea.id);
+                                setOverCol(tag.id);
+                              }}
+                              onDrop={(e) => onCardDrop(e, tag.id, idea.id)}
                             />
                           ))}
                           <button
                             type="button"
-                            onClick={() => setModal(col.key)}
+                            onClick={() => setModalTag(tag.id)}
                             className={`mt-1 flex items-center justify-center gap-2 rounded-xl px-3 py-3 text-[15px] font-medium transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 ${ghost} ${ring}`}
                           >
                             <PlusIcon className="h-[18px] w-[18px]" />
@@ -1006,12 +1259,50 @@ export default function Create() {
                       </section>
                     );
                   })}
+
+                  {/* Ajouter une colonne (= créer un tag) */}
+                  <div className="w-[min(300px,80vw)] shrink-0">
+                    {addingCol ? (
+                      <div className={`rounded-2xl p-3 ${column}`}>
+                        <CreateTagInput
+                          autoFocus
+                          isDark={isDark}
+                          placeholder="Tag name…"
+                          onCreate={(l) => {
+                            createTag(l);
+                            setAddingCol(false);
+                          }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setAddingCol(false)}
+                          className={`mt-2 w-full rounded-lg px-3 py-1.5 text-[13px] font-medium ${muted} ${ghost}`}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setAddingCol(true)}
+                        className={`flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed px-4 py-4 text-[15px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 ${ring} ${
+                          isDark
+                            ? "border-white/20 hover:bg-white/[0.06]"
+                            : "border-black/20 hover:bg-black/[0.04]"
+                        }`}
+                      >
+                        <PlusIcon className="h-[18px] w-[18px]" />
+                        New tag
+                      </button>
+                    )}
+                  </div>
                 </div>
               )}
 
+              {/* ───── Gallery ───── */}
               {tab === "ideas" && view === "gallery" && (
                 <div className="min-h-0 flex-1 overflow-y-auto">
-                  {visible.length === 0 ? (
+                  {visibleIdeas.length === 0 ? (
                     <div className="mt-16 flex flex-col items-center gap-3 text-center">
                       <h2 className="text-[20px] font-semibold tracking-tight">No ideas yet</h2>
                       <p className={`max-w-[360px] text-[14px] leading-relaxed ${muted}`}>
@@ -1019,7 +1310,7 @@ export default function Create() {
                       </p>
                       <button
                         type="button"
-                        onClick={() => setModal("unassigned")}
+                        onClick={() => setModalTag(UNASSIGNED)}
                         className={`mt-2 flex items-center gap-2 rounded-xl border px-4 py-2 text-[14px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 ${outline} ${ring}`}
                       >
                         <PlusIcon className="h-[18px] w-[18px]" />
@@ -1028,8 +1319,14 @@ export default function Create() {
                     </div>
                   ) : (
                     <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-4 pb-4">
-                      {visible.map((idea) => (
-                        <IdeaCard key={idea.id} idea={idea} isDark={isDark} muted={muted} />
+                      {visibleIdeas.map((idea) => (
+                        <IdeaCard
+                          key={idea.id}
+                          idea={idea}
+                          tagLabel={tagLabel(idea.tagId)}
+                          isDark={isDark}
+                          muted={muted}
+                        />
                       ))}
                     </div>
                   )}
@@ -1040,16 +1337,18 @@ export default function Create() {
         </div>
       </div>
 
-      {modal && (
+      {modalTag && (
         <IdeaModal
-          initialStatus={modal}
+          tags={tags}
+          initialTagId={modalTag}
           isDark={isDark}
           ghost={ghost}
           line={line}
           muted={muted}
           ring={ring}
-          onClose={() => setModal(null)}
+          onClose={() => setModalTag(null)}
           onSave={addIdea}
+          onCreateTag={createTag}
         />
       )}
     </main>
