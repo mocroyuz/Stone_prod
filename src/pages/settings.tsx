@@ -35,8 +35,13 @@ type Tokens = {
   cardBorder: string;
   cardDivide: string;
   sidebarBg: string;
+  sidebarBorder: string;
+  sidebarGroup: string;
+  sidebarItem: string;
   sidebarItemHover: string;
   sidebarItemActive: string;
+  sidebarBack: string;
+  badgeNew: string;
   labelText: string;
   heading: string;
   body: string;
@@ -57,7 +62,6 @@ type Tokens = {
   toggleKnob: string;
   toast: string;
   avatarRing: string;
-  backButton: string;
   eyeHover: string;
   badgeVerified: string;
   badgePending: string;
@@ -70,9 +74,14 @@ const DARK_TOKENS: Tokens = {
   cardBg: "bg-[#0a0a0a]",
   cardBorder: "border-white/[0.08]",
   cardDivide: "divide-white/[0.08]",
-  sidebarBg: "bg-[#080808]",
+  sidebarBg: "bg-[#0a0a0a]",
+  sidebarBorder: "border-white/[0.08]",
+  sidebarGroup: "text-neutral-500",
+  sidebarItem: "text-neutral-300",
   sidebarItemHover: "hover:bg-white/[0.05]",
-  sidebarItemActive: "bg-white/[0.08] text-white",
+  sidebarItemActive: "bg-white/[0.09] text-white",
+  sidebarBack: "text-neutral-300 hover:bg-white/[0.06]",
+  badgeNew: "bg-fuchsia-500/20 text-fuchsia-300",
   labelText: "text-neutral-300",
   heading: "text-white",
   body: "text-neutral-400",
@@ -94,8 +103,6 @@ const DARK_TOKENS: Tokens = {
   toggleKnob: "bg-black",
   toast: "border-white/10 bg-[#111] text-white",
   avatarRing: "ring-white/10",
-  backButton:
-    "border-white/10 bg-white/[0.04] text-white hover:bg-white/10",
   eyeHover: "hover:bg-white/10 hover:text-neutral-200",
   badgeVerified: "bg-emerald-500/15 text-emerald-300",
   badgePending: "bg-amber-500/15 text-amber-300",
@@ -104,13 +111,18 @@ const DARK_TOKENS: Tokens = {
 };
 
 const LIGHT_TOKENS: Tokens = {
-  pageBg: "bg-[#f3f1ed]",
+  pageBg: "bg-white",
   cardBg: "bg-white",
   cardBorder: "border-neutral-200",
   cardDivide: "divide-neutral-200",
-  sidebarBg: "bg-white",
-  sidebarItemHover: "hover:bg-neutral-100",
-  sidebarItemActive: "bg-neutral-900 text-white",
+  sidebarBg: "bg-[#f7f6f3]",
+  sidebarBorder: "border-neutral-200",
+  sidebarGroup: "text-neutral-500",
+  sidebarItem: "text-neutral-700",
+  sidebarItemHover: "hover:bg-black/[0.04]",
+  sidebarItemActive: "bg-black/[0.07] text-neutral-900",
+  sidebarBack: "text-neutral-700 hover:bg-black/[0.05]",
+  badgeNew: "bg-fuchsia-100 text-fuchsia-700",
   labelText: "text-neutral-700",
   heading: "text-neutral-900",
   body: "text-neutral-600",
@@ -132,8 +144,6 @@ const LIGHT_TOKENS: Tokens = {
   toggleKnob: "bg-white",
   toast: "border-neutral-200 bg-white text-neutral-900",
   avatarRing: "ring-black/10",
-  backButton:
-    "border-neutral-300 bg-white/70 text-neutral-900 hover:bg-white",
   eyeHover: "hover:bg-neutral-200 hover:text-neutral-800",
   badgeVerified: "bg-emerald-50 text-emerald-700",
   badgePending: "bg-amber-50 text-amber-700",
@@ -163,50 +173,50 @@ const baseIcon = {
   "aria-hidden": true,
 };
 
-const UserIcon = ({ className = "h-4 w-4" }: IconProps) => (
+const UserIcon = ({ className = "h-[18px] w-[18px]" }: IconProps) => (
   <svg {...baseIcon} className={className}>
     <circle cx="12" cy="8" r="4" />
     <path d="M4 21a8 8 0 0 1 16 0" />
   </svg>
 );
 
-const LockIcon = ({ className = "h-4 w-4" }: IconProps) => (
+const SlidersIcon = ({ className = "h-[18px] w-[18px]" }: IconProps) => (
   <svg {...baseIcon} className={className}>
-    <rect x="4" y="11" width="16" height="10" rx="2" />
-    <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+    <path d="M6 3v6M6 13v8M12 3v10M12 17v4M18 3v3M18 10v11" />
+    <path d="M4 9h4M10 13h4M16 6h4" />
   </svg>
 );
 
-const SunIcon = ({ className = "h-4 w-4" }: IconProps) => (
+const SunIcon = ({ className = "h-[18px] w-[18px]" }: IconProps) => (
   <svg {...baseIcon} className={className}>
     <circle cx="12" cy="12" r="4" />
     <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
   </svg>
 );
 
-const BellIcon = ({ className = "h-4 w-4" }: IconProps) => (
+const BellIcon = ({ className = "h-[18px] w-[18px]" }: IconProps) => (
   <svg {...baseIcon} className={className}>
     <path d="M6 8a6 6 0 0 1 12 0c0 7 3 8 3 8H3s3-1 3-8" />
     <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
   </svg>
 );
 
-const CardIcon = ({ className = "h-4 w-4" }: IconProps) => (
+const BillingIcon = ({ className = "h-[18px] w-[18px]" }: IconProps) => (
   <svg {...baseIcon} className={className}>
-    <rect x="2" y="5" width="20" height="14" rx="2" />
-    <path d="M2 10h20" />
+    <circle cx="12" cy="12" r="9" />
+    <path d="M14.8 9.2c-.4-.8-1.4-1.2-2.8-1.2-1.6 0-2.8.8-2.8 2s1 1.7 2.8 2 2.8.8 2.8 2-1.2 2-2.8 2c-1.4 0-2.4-.4-2.8-1.2M12 6.5V8M12 16v1.5" />
   </svg>
 );
 
-const AlertIcon = ({ className = "h-4 w-4" }: IconProps) => (
+const AlertIcon = ({ className = "h-[18px] w-[18px]" }: IconProps) => (
   <svg {...baseIcon} className={className}>
     <path d="M12 9v4M12 17h.01" />
     <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" />
   </svg>
 );
 
-const ArrowLeftIcon = ({ className = "h-4 w-4" }: IconProps) => (
-  <svg {...baseIcon} strokeWidth={2.1} className={className}>
+const ArrowLeftIcon = ({ className = "h-5 w-5" }: IconProps) => (
+  <svg {...baseIcon} strokeWidth={2} className={className}>
     <path d="M19 12H5" />
     <path d="m11 6-6 6 6 6" />
   </svg>
@@ -397,7 +407,9 @@ function SectionCard({
 }
 
 /* ──────────────────────────────────────────────────────────────
-   Sections
+   Sidebar
+   Colonne pleine hauteur : retour + titre, puis groupes de
+   sections (Account / Organization / Other).
    ────────────────────────────────────────────────────────────── */
 
 type SectionKey =
@@ -408,18 +420,141 @@ type SectionKey =
   | "billing"
   | "danger";
 
-const SECTIONS: {
+type SidebarItem = {
   key: SectionKey;
   label: string;
   icon: ReactNode;
-}[] = [
-  { key: "profile", label: "Profile", icon: <UserIcon /> },
-  { key: "account", label: "Account", icon: <LockIcon /> },
-  { key: "appearance", label: "Appearance", icon: <SunIcon /> },
-  { key: "notifications", label: "Notifications", icon: <BellIcon /> },
-  { key: "billing", label: "Billing", icon: <CardIcon /> },
-  { key: "danger", label: "Danger zone", icon: <AlertIcon /> },
+  badge?: string;
+};
+
+type SidebarGroup = {
+  label: string;
+  items: SidebarItem[];
+};
+
+const SIDEBAR_GROUPS: SidebarGroup[] = [
+  {
+    label: "Account",
+    items: [
+      { key: "profile", label: "Profile", icon: <UserIcon /> },
+      { key: "account", label: "Security", icon: <SlidersIcon /> },
+      { key: "notifications", label: "Notifications", icon: <BellIcon /> },
+    ],
+  },
+  {
+    label: "Organization",
+    items: [{ key: "billing", label: "Billing", icon: <BillingIcon /> }],
+  },
+  {
+    label: "Other",
+    items: [
+      {
+        key: "appearance",
+        label: "Appearance",
+        icon: <SunIcon />,
+        badge: "New",
+      },
+      { key: "danger", label: "Danger zone", icon: <AlertIcon /> },
+    ],
+  },
 ];
+
+const SECTION_TITLES: Record<SectionKey, string> = {
+  profile: "Profile",
+  account: "Security",
+  appearance: "Appearance",
+  notifications: "Notifications",
+  billing: "Billing",
+  danger: "Danger zone",
+};
+
+function SettingsSidebar({
+  active,
+  onSelect,
+  onBack,
+  tokens,
+}: {
+  active: SectionKey;
+  onSelect: (key: SectionKey) => void;
+  onBack: () => void;
+  tokens: Tokens;
+}) {
+  return (
+    <aside
+      className={`flex shrink-0 flex-col border-r transition-colors duration-300 max-md:w-full max-md:border-r-0 max-md:border-b md:sticky md:top-0 md:h-screen md:w-[260px] md:overflow-y-auto ${tokens.sidebarBg} ${tokens.sidebarBorder}`}
+    >
+      {/* Back + title */}
+
+      <div className="flex items-center gap-3 px-4 pt-6 pb-4">
+        <button
+          type="button"
+          onClick={onBack}
+          aria-label="Back to home"
+          title="Back to home"
+          className={`flex h-8 w-8 items-center justify-center rounded-full transition-colors ${tokens.sidebarBack}`}
+        >
+          <ArrowLeftIcon />
+        </button>
+
+        <h2
+          className={`font-display text-[20px] font-semibold tracking-[-0.01em] ${tokens.heading}`}
+        >
+          Settings
+        </h2>
+      </div>
+
+      {/* Groups */}
+
+      <nav aria-label="Settings sections" className="px-3 pb-6">
+        {SIDEBAR_GROUPS.map((group, index) => (
+          <div key={group.label} className={index === 0 ? "mt-2" : "mt-7"}>
+            <p className={`mb-2 px-3 text-[13px] ${tokens.sidebarGroup}`}>
+              {group.label}
+            </p>
+
+            <ul className="flex flex-col gap-1 max-md:flex-row max-md:flex-wrap">
+              {group.items.map((item) => {
+                const isActive = active === item.key;
+
+                return (
+                  <li key={item.key}>
+                    <button
+                      type="button"
+                      onClick={() => onSelect(item.key)}
+                      aria-current={isActive ? "page" : undefined}
+                      className={[
+                        "flex w-full items-center gap-3 rounded-[10px] px-3 py-2.5 text-left text-[15px] font-medium whitespace-nowrap transition-colors",
+                        isActive
+                          ? tokens.sidebarItemActive
+                          : `${tokens.sidebarItem} ${tokens.sidebarItemHover}`,
+                      ].join(" ")}
+                    >
+                      <span className="shrink-0">{item.icon}</span>
+
+                      <span className="flex-1">{item.label}</span>
+
+                      {item.badge && (
+                        <span
+                          className={`rounded-full px-2 py-0.5 text-[12px] font-medium ${tokens.badgeNew}`}
+                        >
+                          {item.badge}
+                        </span>
+                      )}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ))}
+      </nav>
+    </aside>
+  );
+}
+
+/* ──────────────────────────────────────────────────────────────
+   Page
+   ────────────────────────────────────────────────────────────── */
 
 /*
  * Les props sont conservées uniquement pour rester compatible avec
@@ -483,82 +618,28 @@ export default function Settings(_props: SettingsProps) {
     [theme, toggle]
   );
 
+  const handleBack = useCallback(() => navigate("home"), []);
+
   return (
     <main
-      className={`relative min-h-screen w-full transition-colors duration-500 ${tokens.pageBg}`}
+      className={`min-h-screen w-full transition-colors duration-500 ${tokens.pageBg}`}
     >
-      {/* Back to home */}
+      <div className="flex w-full max-md:flex-col">
+        <SettingsSidebar
+          active={active}
+          onSelect={setActive}
+          onBack={handleBack}
+          tokens={tokens}
+        />
 
-      <div className="absolute top-[clamp(16px,2vw,30px)] right-[clamp(16px,2vw,30px)] z-20">
-        <button
-          type="button"
-          onClick={() => navigate("home")}
-          aria-label="Back to home"
-          title="Back to home"
-          className={`flex h-[clamp(36px,3.4vw,44px)] w-[clamp(36px,3.4vw,44px)] items-center justify-center rounded-full border backdrop-blur-md transition-colors duration-200 ${tokens.backButton}`}
-        >
-          <ArrowLeftIcon />
-        </button>
-      </div>
+        {/* Content */}
 
-      <div className="mx-auto w-full max-w-[1080px] px-[clamp(16px,4vw,40px)] py-[clamp(28px,5vw,64px)]">
-        {/* Header */}
-
-        <header className="mb-[clamp(24px,3vw,40px)]">
-          <p
-            className={`text-[11.5px] tracking-wide uppercase ${tokens.subtle}`}
-          >
-            Account
-          </p>
-
+        <div className="mx-auto w-full max-w-[820px] min-w-0 flex-1 px-[clamp(16px,4vw,48px)] py-[clamp(28px,4vw,56px)]">
           <h1
-            className={`mt-1 font-display text-[clamp(24px,2.6vw,34px)] font-semibold tracking-[-0.02em] ${tokens.heading}`}
+            className={`mb-[clamp(20px,2.4vw,32px)] font-display text-[clamp(24px,2.6vw,34px)] font-semibold tracking-[-0.02em] ${tokens.heading}`}
           >
-            Settings
+            {SECTION_TITLES[active]}
           </h1>
-
-          <p className={`mt-2 text-[clamp(12.5px,1vw,14px)] ${tokens.body}`}>
-            Manage your profile, security, and preferences.
-          </p>
-        </header>
-
-        <div className="grid gap-[clamp(20px,2.4vw,32px)] md:grid-cols-[220px_1fr]">
-          {/* Sidebar */}
-
-          <nav
-            aria-label="Settings sections"
-            className={`h-fit rounded-[14px] border p-2 transition-colors duration-300 max-md:mx-auto max-md:max-w-full md:self-center ${tokens.sidebarBg} ${tokens.cardBorder}`}
-          >
-            <ul className="flex gap-1 overflow-x-auto md:flex-col md:overflow-visible">
-              {SECTIONS.map((section) => {
-                const isActive = active === section.key;
-                const isDanger = section.key === "danger";
-
-                return (
-                  <li key={section.key} className="shrink-0 md:shrink">
-                    <button
-                      type="button"
-                      onClick={() => setActive(section.key)}
-                      className={[
-                        "flex w-full items-center gap-2.5 rounded-[10px] px-3 py-2.5 text-left text-[13px] font-medium whitespace-nowrap transition",
-                        isActive
-                          ? isDanger
-                            ? "bg-red-500 text-white"
-                            : tokens.sidebarItemActive
-                          : `${tokens.body} ${tokens.sidebarItemHover}`,
-                      ].join(" ")}
-                    >
-                      <span className="shrink-0">{section.icon}</span>
-
-                      {section.label}
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          </nav>
-
-          {/* Content */}
 
           <div className="flex flex-col gap-[clamp(16px,1.8vw,22px)]">
             {active === "profile" && (
@@ -1029,7 +1110,7 @@ function ProfileSection({
 }
 
 /* ──────────────────────────────────────────────────────────────
-   Account
+   Account (Security)
    ────────────────────────────────────────────────────────────── */
 
 function AccountSection({
