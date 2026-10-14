@@ -2218,9 +2218,8 @@ export default function DashboardSidebar({
             />
           ))}
 
-          {compact && (
-            <div className={["my-3 h-px w-8 self-center", t.divider].join(" ")} />
-          )}
+          {/* Rail réduit : pas de séparateur, Insights et Community
+              s'intègrent comme des nav items normaux. */}
 
           <SidebarChannels
             channels={connectedChannels}
