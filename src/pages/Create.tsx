@@ -5,7 +5,7 @@
 // Concept : les colonnes du board SONT des tags (Unassigned, To Do, In Progress…).
 //  - on peut créer / renommer / supprimer des tags,
 //  - on peut réordonner les colonnes (drag par l'en-tête, fantôme flottant + décalage fluide),
-//  - on peut déplacer les idées entre colonnes et les réordonner (drag natif de la carte).
+//  - on peut déplacer les idées entre colonnes et les réordonner (même drag fluide que les colonnes).
 // Les données vivent dans `useBoard` (state local) : branche-le sur ton backend.
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
@@ -29,8 +29,6 @@ type Idea = {
   imageUrl?: string;
   tagId: string;
 };
-
-type DragState = { type: "idea"; id: string } | null;
 
 type IconProps = { className?: string };
 
@@ -163,13 +161,6 @@ const ChatHeartIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="M12 20.5a8.5 8.5 0 1 0-7.4-4.3L3.5 20.5l4.5-1.1a8.4 8.4 0 0 0 4 1.1Z" />
     <path d="M12 14.6s-2.8-1.6-2.8-3.4a1.6 1.6 0 0 1 2.8-1 1.6 1.6 0 0 1 2.8 1c0 1.8-2.8 3.4-2.8 3.4Z" />
-  </Svg>
-);
-const WandIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="m4 20 11-11" />
-    <path d="m13.5 6.5 4 4" />
-    <path d="M18 3v3M16.5 4.5h3M7 4v2M6 5h2M20 14v2M19 15h2" />
   </Svg>
 );
 const PlusIcon = (p: IconProps) => (
@@ -529,48 +520,39 @@ function TagSelect({
   );
 }
 
-/** Carte d'idée (board : draggable ; galerie : statique). */
+/** Carte d'idée (board : déplaçable aux pointer events ; galerie : statique). */
 function IdeaCard({
   idea,
   tagLabel,
   isDark,
   muted,
   draggable,
-  dragging,
-  dropBefore,
-  onDragStart,
-  onDragEnd,
-  onDragOver,
-  onDrop,
+  placeholder,
+  onPointerDown,
 }: {
   idea: Idea;
   tagLabel?: string;
   isDark: boolean;
   muted: string;
   draggable?: boolean;
-  dragging?: boolean;
-  dropBefore?: boolean;
-  onDragStart?: (e: DragEvent) => void;
-  onDragEnd?: () => void;
-  onDragOver?: (e: DragEvent) => void;
-  onDrop?: (e: DragEvent) => void;
+  placeholder?: boolean;
+  onPointerDown?: (e: RPointerEvent) => void;
 }) {
   return (
-    <div className="relative" onDragOver={onDragOver} onDrop={onDrop}>
-      {dropBefore && (
-        <span
-          className={`absolute -top-2 left-0 right-0 h-0.5 rounded-full ${
-            isDark ? "bg-white" : "bg-black"
-          }`}
-        />
-      )}
+    <div
+      data-card={draggable ? idea.id : undefined}
+      onPointerDown={onPointerDown}
+      className={`relative rounded-xl ${
+        draggable ? "cursor-grab touch-none select-none active:cursor-grabbing" : ""
+      } ${
+        placeholder
+          ? `${isDark ? "bg-white/[0.08]" : "bg-black/[0.07]"} [&>*]:invisible`
+          : ""
+      }`}
+    >
       <article
-        draggable={draggable}
-        onDragStart={onDragStart}
-        onDragEnd={onDragEnd}
+        onDragStart={(e) => e.preventDefault()}
         className={`overflow-hidden rounded-xl border transition-colors ${
-          draggable ? "cursor-grab active:cursor-grabbing" : ""
-        } ${dragging ? "opacity-40" : ""} ${
           isDark
             ? "border-white/10 bg-[#0c0c0c] hover:border-white/25"
             : "border-black/10 bg-white hover:border-black/25"
@@ -606,6 +588,8 @@ function IdeaCard({
 
 /* ───────── Modale « Create Idea » ───────── */
 
+const MAX_IMAGE_MB = 10;
+
 function IdeaModal({
   tags,
   initialTagId,
@@ -633,8 +617,13 @@ function IdeaModal({
   const [description, setDescription] = useState("");
   const [tagId, setTagId] = useState(initialTagId);
   const [imageUrl, setImageUrl] = useState<string | undefined>();
+  const [imageError, setImageError] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
+  const imageRef = useRef<string | undefined>(undefined);
+  const savedRef = useRef(false);
+
+  imageRef.current = imageUrl;
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
@@ -642,15 +631,60 @@ function IdeaModal({
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
+  // libère l'aperçu si la modale est fermée sans enregistrer
+  useEffect(
+    () => () => {
+      if (!savedRef.current && imageRef.current) URL.revokeObjectURL(imageRef.current);
+    },
+    []
+  );
+
   const canSave = title.trim().length > 0;
 
+  /** Ajoute (ou remplace) l'image : vérifie le type et la taille. */
   const setFile = (file?: File | null) => {
-    if (file && file.type.startsWith("image/")) setImageUrl(URL.createObjectURL(file));
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setImageError("Only image files are supported.");
+      return;
+    }
+    if (file.size > MAX_IMAGE_MB * 1024 * 1024) {
+      setImageError(`This image is larger than ${MAX_IMAGE_MB} MB.`);
+      return;
+    }
+    setImageError(null);
+    if (imageRef.current) URL.revokeObjectURL(imageRef.current);
+    setImageUrl(URL.createObjectURL(file));
   };
+
+  const removeImage = () => {
+    if (imageRef.current) URL.revokeObjectURL(imageRef.current);
+    setImageUrl(undefined);
+    setImageError(null);
+  };
+
+  // Coller une image (Ctrl/Cmd + V)
+  const setFileRef = useRef(setFile);
+  setFileRef.current = setFile;
+  useEffect(() => {
+    const onPaste = (e: ClipboardEvent) => {
+      const file = Array.from(e.clipboardData?.files ?? []).find((f) =>
+        f.type.startsWith("image/")
+      );
+      if (!file) return;
+      e.preventDefault();
+      setFileRef.current(file);
+    };
+    window.addEventListener("paste", onPaste);
+    return () => window.removeEventListener("paste", onPaste);
+  }, []);
+
+  const hasFiles = (e: DragEvent) => Array.from(e.dataTransfer.types).includes("Files");
 
   const save = (asPost: boolean) => {
     if (!canSave) return;
     // « Create Post » : branche ici la redirection vers ton éditeur de post si besoin.
+    savedRef.current = true;
     onSave({
       title: title.trim(),
       description: description.trim(),
@@ -706,8 +740,30 @@ function IdeaModal({
           />
         </div>
 
-        {/* Body */}
-        <div className="flex min-h-[360px] flex-1 flex-col gap-3 overflow-y-auto px-6 pb-4 pt-5">
+        {/* Body : on peut déposer une image n'importe où */}
+        <div
+          onDragEnter={(e) => {
+            if (!hasFiles(e)) return;
+            e.preventDefault();
+            setDragOver(true);
+          }}
+          onDragOver={(e) => {
+            if (!hasFiles(e)) return;
+            e.preventDefault();
+            e.dataTransfer.dropEffect = "copy";
+            setDragOver(true);
+          }}
+          onDragLeave={(e) => {
+            if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDragOver(false);
+          }}
+          onDrop={(e) => {
+            if (!hasFiles(e)) return;
+            e.preventDefault();
+            setDragOver(false);
+            setFile(e.dataTransfer.files?.[0]);
+          }}
+          className="relative flex min-h-[360px] flex-1 flex-col gap-3 overflow-y-auto px-6 pb-4 pt-5"
+        >
           <input
             autoFocus
             value={title}
@@ -730,64 +786,72 @@ function IdeaModal({
           </div>
 
           {/* Upload */}
-          <div className="flex items-end gap-3">
+          <div className="flex flex-col gap-2">
             <input
               ref={fileRef}
               type="file"
               accept="image/*"
               className="hidden"
-              onChange={(e) => setFile(e.target.files?.[0])}
+              onChange={(e) => {
+                setFile(e.target.files?.[0]);
+                e.target.value = "";
+              }}
             />
             {imageUrl ? (
               <div className="group relative h-[140px] w-[140px] overflow-hidden rounded-xl">
-                <img src={imageUrl} alt="" className="h-full w-full object-cover" />
+                <img
+                  src={imageUrl}
+                  alt=""
+                  className="h-full w-full object-cover"
+                  draggable={false}
+                />
                 <button
                   type="button"
                   aria-label="Remove image"
-                  onClick={() => setImageUrl(undefined)}
+                  onClick={removeImage}
                   className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-black/70 text-white opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
                 >
                   <CloseIcon className="h-3.5 w-3.5" />
                 </button>
+                <button
+                  type="button"
+                  onClick={() => fileRef.current?.click()}
+                  className="absolute inset-x-0 bottom-0 bg-black/60 py-1.5 text-[12px] font-medium text-white opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+                >
+                  Replace
+                </button>
               </div>
             ) : (
-              <div
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  setDragOver(true);
-                }}
-                onDragLeave={() => setDragOver(false)}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  setDragOver(false);
-                  setFile(e.dataTransfer.files?.[0]);
-                }}
-                className={`flex h-[140px] w-[140px] flex-col items-center justify-center gap-2 rounded-xl border border-dashed text-center text-[13px] transition-colors ${muted} ${
+              <button
+                type="button"
+                onClick={() => fileRef.current?.click()}
+                className={`flex h-[140px] w-[200px] flex-col items-center justify-center gap-2 rounded-xl border border-dashed px-3 text-center text-[13px] transition-colors focus-visible:outline-none focus-visible:ring-2 ${ring} ${muted} ${
                   dragOver
                     ? isDark
                       ? "border-white/60 bg-white/10"
                       : "border-black/60 bg-black/[0.06]"
                     : isDark
-                    ? "border-white/20"
-                    : "border-black/20"
+                    ? "border-white/20 hover:bg-white/[0.04]"
+                    : "border-black/20 hover:bg-black/[0.03]"
                 }`}
               >
                 <ImagePlusIcon className="h-7 w-7" />
                 <span className="leading-snug">
-                  Drag &amp; drop
-                  <br />
-                  or{" "}
-                  <button
-                    type="button"
-                    onClick={() => fileRef.current?.click()}
+                  Drop, paste or{" "}
+                  <span
                     className={`font-medium underline underline-offset-2 ${
                       isDark ? "text-white" : "text-black"
                     }`}
                   >
-                    select a file
-                  </button>
+                    select an image
+                  </span>
                 </span>
-              </div>
+              </button>
+            )}
+            {imageError && (
+              <p role="alert" className="text-[12px] font-medium text-red-500">
+                {imageError}
+              </p>
             )}
           </div>
 
@@ -800,15 +864,20 @@ function IdeaModal({
             <IconButton label="Emoji" ghost={ghost} isDark={isDark} className="h-9 w-9">
               <SmileIcon className="h-[18px] w-[18px]" />
             </IconButton>
-            <span className={`mx-1 h-5 w-px ${isDark ? "bg-white/10" : "bg-black/10"}`} />
-            <button
-              type="button"
-              className={`flex items-center gap-2 rounded-xl px-3 py-2 text-[14px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 ${ghost} ${ring}`}
-            >
-              <WandIcon className="h-[18px] w-[18px]" />
-              AI Assistant
-            </button>
           </div>
+
+          {/* Surcouche affichée quand on survole la modale avec un fichier */}
+          {dragOver && (
+            <div
+              className={`pointer-events-none absolute inset-2 flex items-center justify-center rounded-xl border-2 border-dashed text-[15px] font-medium backdrop-blur-[1px] ${
+                isDark
+                  ? "border-white/50 bg-black/70 text-white"
+                  : "border-black/40 bg-white/80 text-black"
+              }`}
+            >
+              Drop your image here
+            </div>
+          )}
         </div>
 
         {/* Footer */}
@@ -841,6 +910,31 @@ function IdeaModal({
 
 /* ───────── Page ───────── */
 
+/** Style commun des « fantômes » flottants (colonne ou carte attrapée). */
+function styleGhost(
+  el: HTMLElement,
+  rect: DOMRect,
+  isDark: boolean,
+  bg: string | null,
+  radius: string
+) {
+  Object.assign(el.style, {
+    position: "fixed",
+    margin: "0",
+    width: `${rect.width}px`,
+    height: `${rect.height}px`,
+    zIndex: "200",
+    pointerEvents: "none",
+    transition: "none",
+    transform: "rotate(2deg)",
+    transformOrigin: "50% 0",
+    opacity: "1",
+    borderRadius: radius,
+    boxShadow: isDark ? "0 18px 40px rgba(0,0,0,0.7)" : "0 18px 40px rgba(0,0,0,0.18)",
+    ...(bg ? { background: bg } : {}),
+  } as Partial<CSSStyleDeclaration>);
+}
+
 export default function Create() {
   const { theme, toggle: onToggleTheme } = useTheme();
   const isDark = theme === "dark";
@@ -855,18 +949,14 @@ export default function Create() {
   const [saved, setSaved] = useState(false);
   const [modalTag, setModalTag] = useState<string | null>(null);
 
-  // Drag & drop des idées (natif HTML5)
-  const drag = useRef<DragState>(null);
-  const [dragKind, setDragKind] = useState<"idea" | null>(null);
-  const [dragId, setDragId] = useState<string | null>(null);
-  const [overCol, setOverCol] = useState<string | null>(null);
-  const [overCard, setOverCard] = useState<string | null>(null);
-
-  // Drag des colonnes (pointer events : fantôme flottant + décalage fluide)
+  // Drag (pointer events) : colonnes et cartes
   const [colDrag, setColDrag] = useState<string | null>(null);
+  const [cardDrag, setCardDrag] = useState<string | null>(null);
+  const [overCol, setOverCol] = useState<string | null>(null);
   const boardRef = useRef<HTMLDivElement>(null);
   const colRefs = useRef(new Map<string, HTMLElement>());
   const prevLefts = useRef(new Map<string, number>());
+  const prevCards = useRef(new Map<string, { y: number; col: string }>());
   const visibleRef = useRef<Tag[]>([]);
 
   // Menu « … » d'une colonne / renommage / ajout de colonne
@@ -896,47 +986,7 @@ export default function Create() {
     return id;
   };
 
-  /* ── Drag des idées (natif) ── */
-
-  const endDrag = () => {
-    drag.current = null;
-    setDragKind(null);
-    setDragId(null);
-    setOverCol(null);
-    setOverCard(null);
-  };
-
-  const startDrag = (e: DragEvent, id: string) => {
-    drag.current = { type: "idea", id };
-    e.dataTransfer.effectAllowed = "move";
-    e.dataTransfer.setData("text/plain", id);
-    setDragKind("idea");
-    setDragId(id);
-  };
-
-  const onColumnDragOver = (e: DragEvent, tagId: string) => {
-    if (!drag.current) return;
-    e.preventDefault();
-    setOverCol(tagId);
-  };
-
-  const onColumnDrop = (e: DragEvent, tagId: string) => {
-    e.preventDefault();
-    const d = drag.current;
-    if (d?.type === "idea") moveIdea(d.id, tagId);
-    endDrag();
-  };
-
-  const onCardDrop = (e: DragEvent, tagId: string, cardId: string) => {
-    const d = drag.current;
-    if (d?.type !== "idea") return;
-    e.preventDefault();
-    e.stopPropagation();
-    moveIdea(d.id, tagId, cardId);
-    endDrag();
-  };
-
-  /* ── Drag des colonnes : fantôme flottant + les autres colonnes se décalent en direct ── */
+  /* ── Drag d'une colonne : fantôme flottant + les autres colonnes se décalent en direct ── */
 
   const onHeaderPointerDown = (e: RPointerEvent, tagId: string) => {
     if (e.button !== 0) return;
@@ -953,27 +1003,11 @@ export default function Create() {
 
     const onMove = (ev: PointerEvent) => {
       if (!ghostEl) {
-        // seuil de 5px avant de démarrer (laisse passer les simples clics)
         if (Math.hypot(ev.clientX - startX, ev.clientY - startY) < 5) return;
 
         ghostEl = section.cloneNode(true) as HTMLElement;
-        Object.assign(ghostEl.style, {
-          position: "fixed",
-          margin: "0",
-          width: `${rect.width}px`,
-          height: `${rect.height}px`,
-          zIndex: "200",
-          pointerEvents: "none",
-          transition: "none",
-          transform: "rotate(2deg)",
-          transformOrigin: "50% 0",
-          background: isDark ? "#141414" : "#f5f5f5",
-          color: getComputedStyle(section).color,
-          opacity: "1",
-          boxShadow: isDark
-            ? "0 18px 40px rgba(0,0,0,0.7)"
-            : "0 18px 40px rgba(0,0,0,0.18)",
-        } as Partial<CSSStyleDeclaration>);
+        styleGhost(ghostEl, rect, isDark, isDark ? "#141414" : "#f5f5f5", "16px");
+        ghostEl.style.color = getComputedStyle(section).color;
         const grip = ghostEl.querySelector<HTMLElement>("[data-grip]");
         if (grip) grip.style.opacity = "1";
         document.body.appendChild(ghostEl);
@@ -1025,24 +1059,136 @@ export default function Create() {
     window.addEventListener("pointercancel", onUp);
   };
 
-  /** FLIP : anime les colonnes qui changent de place pour laisser sa place à celle qu'on déplace. */
+  /* ── Drag d'une carte : fantôme flottant, les autres cartes se décalent, entre colonnes aussi ── */
+
+  const onCardPointerDown = (e: RPointerEvent, ideaId: string) => {
+    if (e.button !== 0) return;
+    const wrapper = e.currentTarget as HTMLElement;
+
+    const rect = wrapper.getBoundingClientRect();
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const offX = e.clientX - rect.left;
+    const offY = e.clientY - rect.top;
+    let ghostEl: HTMLElement | null = null;
+    let last = "";
+
+    const onMove = (ev: PointerEvent) => {
+      if (!ghostEl) {
+        if (Math.hypot(ev.clientX - startX, ev.clientY - startY) < 5) return;
+
+        ghostEl = wrapper.cloneNode(true) as HTMLElement;
+        ghostEl.removeAttribute("data-card");
+        styleGhost(ghostEl, rect, isDark, null, "12px");
+        ghostEl.style.color = getComputedStyle(wrapper).color;
+        document.body.appendChild(ghostEl);
+        document.body.style.cursor = "grabbing";
+        document.body.style.userSelect = "none";
+        setCardDrag(ideaId);
+      }
+
+      ghostEl.style.left = `${ev.clientX - offX}px`;
+      ghostEl.style.top = `${ev.clientY - offY}px`;
+
+      const board = boardRef.current;
+      if (!board) return;
+      const b = board.getBoundingClientRect();
+
+      // auto-scroll horizontal du board
+      if (ev.clientX > b.right - 60) board.scrollLeft += 14;
+      else if (ev.clientX < b.left + 60) board.scrollLeft -= 14;
+
+      // colonne sous le curseur
+      let section: HTMLElement | null = null;
+      for (const s of Array.from(board.querySelectorAll<HTMLElement>("[data-col]"))) {
+        const r = s.getBoundingClientRect();
+        if (ev.clientX >= r.left && ev.clientX <= r.right) {
+          section = s;
+          break;
+        }
+      }
+      if (!section) return;
+      const tagId = section.dataset.col as string;
+      setOverCol(tagId);
+
+      const list = section.querySelector<HTMLElement>("[data-list]");
+      if (!list) return;
+      const lr = list.getBoundingClientRect();
+
+      // auto-scroll vertical de la colonne
+      if (ev.clientY > lr.bottom - 50) list.scrollTop += 12;
+      else if (ev.clientY < lr.top + 50) list.scrollTop -= 12;
+
+      // carte devant laquelle insérer (positions de layout, la liste est `relative`)
+      const y = ev.clientY - lr.top + list.scrollTop;
+      let before: string | undefined;
+      for (const c of Array.from(list.querySelectorAll<HTMLElement>("[data-card]"))) {
+        if (c.dataset.card === ideaId) continue;
+        if (y < c.offsetTop + c.offsetHeight / 2) {
+          before = c.dataset.card;
+          break;
+        }
+      }
+
+      const key = `${tagId}:${before ?? ""}`;
+      if (key !== last) {
+        last = key;
+        moveIdea(ideaId, tagId, before);
+      }
+    };
+
+    const onUp = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
+      ghostEl?.remove();
+      ghostEl = null;
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      setCardDrag(null);
+      setOverCol(null);
+    };
+
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
+  };
+
+  /** FLIP : anime les colonnes et les cartes qui changent de place. */
   useLayoutEffect(() => {
-    const next = new Map<string, number>();
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    const play = (el: HTMLElement, from: string) => {
+      if (reduce) return;
+      el.style.transition = "none";
+      el.style.transform = from;
+      el.getBoundingClientRect(); // force le reflow
+      el.style.transition = "transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1)";
+      el.style.transform = "";
+      el.addEventListener("transitionend", () => (el.style.transition = ""), { once: true });
+    };
+
+    // colonnes
+    const nextLefts = new Map<string, number>();
     colRefs.current.forEach((el, id) => {
       const left = el.offsetLeft;
-      next.set(id, left);
+      nextLefts.set(id, left);
       const prev = prevLefts.current.get(id);
-      if (prev !== undefined && prev !== left && !reduce) {
-        el.style.transition = "none";
-        el.style.transform = `translateX(${prev - left}px)`;
-        el.getBoundingClientRect(); // force le reflow
-        el.style.transition = "transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1)";
-        el.style.transform = "";
-        el.addEventListener("transitionend", () => (el.style.transition = ""), { once: true });
-      }
+      if (prev !== undefined && prev !== left) play(el, `translateX(${prev - left}px)`);
     });
-    prevLefts.current = next;
+    prevLefts.current = nextLefts;
+
+    // cartes (position verticale dans la colonne ; pas d'animation si la carte change de colonne)
+    const nextCards = new Map<string, { y: number; col: string }>();
+    boardRef.current?.querySelectorAll<HTMLElement>("[data-card]").forEach((el) => {
+      const id = el.dataset.card as string;
+      const col = el.closest<HTMLElement>("[data-col]")?.dataset.col ?? "";
+      const y = el.offsetTop;
+      nextCards.set(id, { y, col });
+      const prev = prevCards.current.get(id);
+      if (prev && prev.col === col && prev.y !== y) play(el, `translateY(${prev.y - y}px)`);
+    });
+    prevCards.current = nextCards;
   });
 
   const visibleIdeas = ideas.filter((i) => !hidden.includes(i.tagId));
@@ -1093,19 +1239,12 @@ export default function Create() {
                 </IconButton>
                 <button
                   type="button"
+                  onClick={() => setModalTag(UNASSIGNED)}
                   className={`flex items-center gap-2 rounded-xl px-4 py-2 text-[14px] font-medium transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 ${ring} ${
                     isDark
                       ? "bg-white text-black hover:bg-neutral-200"
                       : "bg-black text-white hover:bg-neutral-800"
                   }`}
-                >
-                  <WandIcon className="h-[18px] w-[18px]" />
-                  Generate Ideas
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setModalTag(UNASSIGNED)}
-                  className={`flex items-center gap-2 rounded-xl border px-4 py-2 text-[14px] font-medium transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 ${outline} ${ring}`}
                 >
                   <PlusIcon className="h-[18px] w-[18px]" />
                   New Idea
@@ -1207,26 +1346,23 @@ export default function Create() {
                     const items = ideas.filter((i) => i.tagId === tag.id);
                     const fixed = tag.id === UNASSIGNED;
                     const isPlaceholder = colDrag === tag.id;
-                    const isOver = overCol === tag.id && dragId !== tag.id;
-                    const ideaTarget = isOver && dragKind === "idea";
+                    const ideaTarget = cardDrag !== null && overCol === tag.id;
 
                     return (
                       <section
                         key={tag.id}
+                        data-col={tag.id}
                         ref={(el) => {
                           if (el) colRefs.current.set(tag.id, el);
                           else colRefs.current.delete(tag.id);
                         }}
-                        onDragOver={(e) => onColumnDragOver(e, tag.id)}
-                        onDragLeave={() => setOverCol((c) => (c === tag.id ? null : c))}
-                        onDrop={(e) => onColumnDrop(e, tag.id)}
                         className={`group/col relative flex min-h-0 w-[min(300px,85vw)] shrink-0 flex-col rounded-2xl p-3 transition-colors motion-reduce:transition-none ${
                           isPlaceholder
                             ? `${isDark ? "bg-white/[0.08]" : "bg-black/[0.07]"} [&>*]:invisible`
                             : ideaTarget
                             ? isDark
-                              ? "bg-white/[0.12]"
-                              : "bg-black/[0.09]"
+                              ? "bg-white/[0.10]"
+                              : "bg-black/[0.07]"
                             : column
                         }`}
                       >
@@ -1353,7 +1489,11 @@ export default function Create() {
                           </div>
                         </div>
 
-                        <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto">
+                        {/* Liste : `relative` pour que offsetTop des cartes soit relatif à elle */}
+                        <div
+                          data-list
+                          className="relative flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto"
+                        >
                           {items.map((idea) => (
                             <IdeaCard
                               key={idea.id}
@@ -1361,20 +1501,8 @@ export default function Create() {
                               isDark={isDark}
                               muted={muted}
                               draggable
-                              dragging={dragKind === "idea" && dragId === idea.id}
-                              dropBefore={
-                                dragKind === "idea" && overCard === idea.id && dragId !== idea.id
-                              }
-                              onDragStart={(e) => startDrag(e, idea.id)}
-                              onDragEnd={endDrag}
-                              onDragOver={(e) => {
-                                if (drag.current?.type !== "idea") return;
-                                e.preventDefault();
-                                e.stopPropagation();
-                                setOverCard(idea.id);
-                                setOverCol(tag.id);
-                              }}
-                              onDrop={(e) => onCardDrop(e, tag.id, idea.id)}
+                              placeholder={cardDrag === idea.id}
+                              onPointerDown={(e) => onCardPointerDown(e, idea.id)}
                             />
                           ))}
                           <button
