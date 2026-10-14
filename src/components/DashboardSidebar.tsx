@@ -1235,20 +1235,48 @@ function SidebarChannelsImpl({
     setOrder(next);
   }, []);
 
-  const handleListDragOver = (event: React.DragEvent<HTMLDivElement>) => {
-    if (!canReorder || !dragKeyRef.current) return;
+  // Drag par événements pointeur (souris + tactile) : plus fiable que le
+  // drag & drop natif quand le DOM est réordonné pendant le glissement.
+  const dragCleanupRef = useRef<(() => void) | null>(null);
+
+  const startPointerDrag = (event: React.PointerEvent, key: string) => {
+    if (!canReorder) return;
+    if (event.pointerType === "mouse" && event.button !== 0) return;
 
     event.preventDefault();
-    event.dataTransfer.dropEffect = "move";
-    reorderLive(event.clientY);
+    dragCleanupRef.current?.();
+
+    dragKeyRef.current = key;
+    liveOrderRef.current = null;
+    setDragKey(key);
+
+    const previousCursor = document.body.style.cursor;
+    const previousSelect = document.body.style.userSelect;
+    document.body.style.cursor = "grabbing";
+    document.body.style.userSelect = "none";
+
+    const onMove = (e: PointerEvent) => {
+      e.preventDefault();
+      reorderLive(e.clientY);
+    };
+
+    const finish = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", finish);
+      window.removeEventListener("pointercancel", finish);
+      document.body.style.cursor = previousCursor;
+      document.body.style.userSelect = previousSelect;
+      dragCleanupRef.current = null;
+      endDrag();
+    };
+
+    window.addEventListener("pointermove", onMove, { passive: false });
+    window.addEventListener("pointerup", finish);
+    window.addEventListener("pointercancel", finish);
+    dragCleanupRef.current = finish;
   };
 
-  const handleListDrop = (event: React.DragEvent<HTMLDivElement>) => {
-    if (!canReorder || !dragKeyRef.current) return;
-
-    event.preventDefault();
-    endDrag();
-  };
+  useEffect(() => () => dragCleanupRef.current?.(), []);
 
   /* ------------------------------------------------------------------------- */
 
@@ -1266,8 +1294,6 @@ function SidebarChannelsImpl({
     <div
       ref={listRef}
       className="flex flex-col gap-1"
-      onDragOver={handleListDragOver}
-      onDrop={handleListDrop}
     >
       {channels.length === 0 &&
         STANDALONE_LINKS.map((link) => {
@@ -1418,30 +1444,12 @@ function SidebarChannelsImpl({
               {/* Poignée de glisser-déposer (6 points) — DANS la zone de survol */}
               {canReorder && (
                 <span
-                  draggable
                   aria-hidden="true"
-                  title="Drag to reorder"
-                  onDragStart={(event) => {
-                    const row = event.currentTarget.parentElement;
-
-                    event.dataTransfer.effectAllowed = "move";
-                    event.dataTransfer.setData("text/plain", channel.key);
-                    if (row) {
-                      event.dataTransfer.setDragImage(row, 16, row.offsetHeight / 2);
-                    }
-
-                    // Ref synchrone pour les handlers de la liste
-                    dragKeyRef.current = channel.key;
-                    liveOrderRef.current = null;
-
-                    // Différé : modifier le DOM pendant dragstart peut annuler le drag.
-                    window.setTimeout(() => setDragKey(channel.key), 0);
-                  }}
-                  onDragEnd={endDrag}
+                  onPointerDown={(event) => startPointerDrag(event, channel.key)}
                   className={[
                     // À l'intérieur de la ligne (plus de décalage négatif)
                     "absolute left-[1px] top-1/2 z-10 flex h-7 w-[9px] -translate-y-1/2",
-                    "cursor-grab items-center justify-center rounded active:cursor-grabbing",
+                    "touch-none cursor-grab items-center justify-center rounded active:cursor-grabbing",
                     // Animation : glisse depuis la gauche + léger zoom
                     "transition-[opacity,transform,color] duration-200 ease-out motion-reduce:transition-none",
                     "hover:scale-125 active:scale-110",
