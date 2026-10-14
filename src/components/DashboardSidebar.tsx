@@ -1068,48 +1068,50 @@ function SidebarChannelsImpl({
   return (
     <div className="flex flex-col gap-1">
       {!compact && (
-        <div className="sb-fade flex h-6 items-center justify-between px-2.5">
+        <div className="sb-fade mt-3 flex h-6 items-center justify-between px-2.5">
           <span className={["text-[12px] font-medium", t.muted].join(" ")}>
-            Channels
+            {channels.length === 0 ? "Connect channels" : "Channels"}
+          </span>
+
+          <span className="flex items-center gap-0.5">
+            <button
+              type="button"
+              aria-label="Channels"
+              onClick={() => onNavigate("channels")}
+              className={[
+                "flex h-6 w-6 items-center justify-center rounded-lg",
+                "transition-colors duration-150 motion-reduce:transition-none",
+                focus,
+                t.menuIcon,
+                t.row,
+              ].join(" ")}
+            >
+              <SettingsIcon className="h-[15px] w-[15px]" />
+            </button>
+
+            <button
+              type="button"
+              aria-label="Connect a channel"
+              onClick={onConnect}
+              className={[
+                "flex h-6 w-6 items-center justify-center rounded-lg",
+                "transition-colors duration-150 motion-reduce:transition-none",
+                focus,
+                t.menuIcon,
+                t.row,
+              ].join(" ")}
+            >
+              <PlusIcon className="h-[15px] w-[15px]" />
+            </button>
           </span>
         </div>
       )}
 
       {channels.length === 0 && !compact && (
-        <div
-          className={[
-            "sb-fade mt-2 flex h-8 w-full items-center gap-1.5 px-1",
-          ].join(" ")}
-        >
-          <button
-            type="button"
-            aria-label="Channels"
-            onClick={() => onNavigate("channels")}
-            className={[
-              "flex h-7 w-7 items-center justify-center rounded-lg",
-              "transition-colors duration-150 motion-reduce:transition-none",
-              focus,
-              t.menuIcon,
-              t.row,
-            ].join(" ")}
-          >
-            <SettingsIcon className="h-4 w-4" />
-          </button>
-
-          <button
-            type="button"
-            aria-label="Connect a channel"
-            onClick={onConnect}
-            className={[
-              "flex h-7 w-7 items-center justify-center rounded-lg",
-              "transition-colors duration-150 motion-reduce:transition-none",
-              focus,
-              t.menuIcon,
-              t.row,
-            ].join(" ")}
-          >
-            <PlusIcon className="h-4 w-4" />
-          </button>
+        <div className="sb-fade mt-2 flex h-8 w-full items-center px-2.5">
+          <span className={["text-[12px]", t.muted].join(" ")}>
+            Start publishing to social networks.
+          </span>
         </div>
       )}
 
