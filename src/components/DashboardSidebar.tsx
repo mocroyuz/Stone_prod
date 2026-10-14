@@ -2540,7 +2540,7 @@ export default function DashboardSidebar({
         <nav
           aria-label="Main"
           className={[
-            "flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto overflow-x-hidden pb-3",
+            "flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto overflow-x-hidden pb-3 pt-4",
             compact ? "items-center px-0" : "px-2",
             "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
           ].join(" ")}
