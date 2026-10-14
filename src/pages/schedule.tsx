@@ -84,6 +84,15 @@ function ArrowDownIcon({ className = "h-[14px] w-[14px]" }: { className?: string
   );
 }
 
+function CalendarIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-[22px] w-[22px]" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="3.5" y="5" width="17" height="15.5" rx="3" />
+      <path d="M8 3v4M16 3v4M3.5 10.5h17" />
+    </svg>
+  );
+}
+
 function ChevronLeftIcon() {
   return (
     <svg viewBox="0 0 24 24" className="h-[16px] w-[16px]" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1232,7 +1241,29 @@ export default function Schedule() {
       >
         <PageTransition>
           {/* Pleine largeur (plus de max-w) ; pb-[96px] réserve la place de la BottomBar. */}
-          <div className="flex h-[100dvh] w-full max-w-none flex-col px-[clamp(12px,1.5vw,24px)] pt-[clamp(14px,1.8vw,24px)] pb-[96px]">
+          <div className="flex h-[100dvh] w-full max-w-none flex-col px-[clamp(12px,1.5vw,24px)] pt-[clamp(16px,2vw,28px)] pb-[96px]">
+            {/* Titre de la page : en haut à gauche */}
+            <header className="mb-[clamp(10px,1.4vw,16px)] flex shrink-0 items-center gap-3.5">
+              <div
+                className={[
+                  "flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border",
+                  isDark
+                    ? "border-white/10 bg-white/[0.03] text-white"
+                    : "border-black/[0.08] bg-white text-neutral-900 shadow-sm",
+                ].join(" ")}
+              >
+                <CalendarIcon />
+              </div>
+              <h1
+                className={[
+                  "font-display text-[clamp(22px,2vw,28px)] font-semibold tracking-[-0.02em]",
+                  isDark ? "text-white" : "text-neutral-900",
+                ].join(" ")}
+              >
+                Publish
+              </h1>
+            </header>
+
             {/* Toolbar */}
             <div className="flex shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-2">
               {/* Gauche : navigation + vue */}
@@ -1244,14 +1275,14 @@ export default function Schedule() {
                   <ChevronRightIcon />
                 </ToolbarIconButton>
 
-                <h1
+                <h2
                   className={[
                     "mx-3 font-display text-[clamp(17px,1.5vw,20px)] font-semibold tracking-[-0.01em]",
                     isDark ? "text-white" : "text-neutral-900",
                   ].join(" ")}
                 >
                   {monthLabel}
-                </h1>
+                </h2>
 
                 <button
                   type="button"
