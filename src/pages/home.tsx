@@ -334,7 +334,7 @@ function GreetingAvatar({
     return (
       <div
         aria-hidden="true"
-        className="h-11 w-11 animate-pulse rounded-full bg-neutral-500/20"
+        className="h-14 w-14 animate-pulse rounded-full bg-neutral-500/20"
       />
     );
   }
@@ -345,7 +345,7 @@ function GreetingAvatar({
         src={avatarUrl}
         alt="Profile"
         onError={() => setFailed(true)}
-        className="h-11 w-11 rounded-full object-cover"
+        className="h-14 w-14 rounded-full object-cover"
       />
     );
   }
@@ -353,8 +353,8 @@ function GreetingAvatar({
   return (
     <div
       className={[
-        "flex h-11 w-11 items-center justify-center rounded-full",
-        "text-[14px] font-semibold",
+        "flex h-14 w-14 items-center justify-center rounded-full",
+        "text-[16px] font-semibold",
         isDark ? "bg-white text-black" : "bg-neutral-900 text-white",
       ].join(" ")}
     >
@@ -383,7 +383,7 @@ function ClockDisplay({ isDark, now }: { isDark: boolean; now: Date }) {
     <div className="text-right">
       <p
         className={[
-          "text-[16px] font-semibold tabular-nums",
+          "text-[18px] font-semibold tabular-nums",
           strongClass(isDark),
         ].join(" ")}
       >
@@ -391,7 +391,7 @@ function ClockDisplay({ isDark, now }: { isDark: boolean; now: Date }) {
       </p>
       <p
         className={[
-          "text-[11px] font-medium capitalize",
+          "text-[12px] font-medium capitalize",
           mutedClass(isDark),
         ].join(" ")}
       >
@@ -414,7 +414,7 @@ function InfoHint({ isDark, text }: { isDark: boolean; text: string }) {
         type="button"
         aria-label={text}
         className={[
-          "flex h-3.5 w-3.5 items-center justify-center rounded-full transition",
+          "flex h-4 w-4 items-center justify-center rounded-full transition",
           "focus-visible:outline-none focus-visible:ring-1",
           isDark
             ? "text-neutral-600 hover:text-neutral-300 focus-visible:ring-white/30"
@@ -440,7 +440,7 @@ function InfoHint({ isDark, text }: { isDark: boolean; text: string }) {
       <span
         role="tooltip"
         className={[
-          "pointer-events-none absolute bottom-full left-1/2 z-30 mb-2 w-max max-w-[210px]",
+          "pointer-events-none absolute bottom-full left-1/2 z-30 mb-2 w-max max-w-[230px]",
           "-translate-x-1/2 rounded-lg px-2.5 py-1.5 text-center text-[11px] font-medium leading-snug",
           "opacity-0 shadow-lg transition-opacity duration-150",
           "group-hover:opacity-100 group-focus-within:opacity-100",
@@ -475,14 +475,14 @@ function Stat({
       className={[
         "flex min-w-0 items-center gap-3",
         /* Mobile : séparateur horizontal ; desktop : séparateur vertical. */
-        "border-b pb-3 last:border-b-0 last:pb-0 sm:border-b-0 sm:pb-0",
-        "sm:border-r sm:last:border-r-0 sm:pr-5 sm:last:pr-0",
+        "border-b pb-4 last:border-b-0 last:pb-0 sm:border-b-0 sm:pb-0",
+        "sm:border-r sm:last:border-r-0 sm:pr-6 sm:last:pr-0",
         isDark ? "border-white/[0.07]" : "border-black/[0.07]",
       ].join(" ")}
     >
       <div
         className={[
-          "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl",
+          "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl",
           isDark
             ? "bg-white/[0.06] text-white"
             : "bg-white text-neutral-700 shadow-sm ring-1 ring-black/[0.05]",
@@ -495,7 +495,7 @@ function Stat({
         <div className="flex items-center gap-1">
           <p
             className={[
-              "truncate text-[10px] font-medium",
+              "truncate text-[11px] font-medium",
               isDark ? "text-neutral-500" : "text-neutral-400",
             ].join(" ")}
           >
@@ -503,10 +503,10 @@ function Stat({
           </p>
           <InfoHint isDark={isDark} text={hint} />
         </div>
-        <div className="mt-0.5 flex items-baseline gap-1.5">
+        <div className="mt-1 flex items-baseline gap-1.5">
           <span
             className={[
-              "text-[17px] font-bold tracking-tight",
+              "text-[20px] font-bold tracking-tight",
               strongClass(isDark),
             ].join(" ")}
           >
@@ -515,7 +515,7 @@ function Stat({
           {/* Pastille + flèche : la tendance ne repose plus uniquement sur la couleur. */}
           <span
             className={[
-              "flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[9px] font-semibold",
+              "flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-semibold",
               positive
                 ? isDark
                   ? "bg-emerald-500/10 text-emerald-400"
@@ -526,9 +526,9 @@ function Stat({
             ].join(" ")}
           >
             {positive ? (
-              <TrendingUp className="h-2.5 w-2.5" aria-hidden="true" />
+              <TrendingUp className="h-3 w-3" aria-hidden="true" />
             ) : (
-              <TrendingDown className="h-2.5 w-2.5" aria-hidden="true" />
+              <TrendingDown className="h-3 w-3" aria-hidden="true" />
             )}
             <span className="sr-only">{positive ? "Up " : "Down "}</span>
             {change}
@@ -565,8 +565,8 @@ function ChannelAvatar({
 
   return (
     <div
-      className="relative h-9 w-9 shrink-0"
-      style={{ marginLeft: overlap ? -8 : 0 }}
+      className="relative h-11 w-11 shrink-0"
+      style={{ marginLeft: overlap ? -10 : 0 }}
       title={label}
     >
       {channel.avatarUrl && !failed ? (
@@ -584,7 +584,7 @@ function ChannelAvatar({
         <div
           className={[
             "flex h-full w-full items-center justify-center rounded-full",
-            "text-[11px] font-semibold ring-2",
+            "text-[12px] font-semibold ring-2",
             isDark ? "bg-[#29292c] text-white" : "bg-neutral-900 text-white",
             panelRingClass(isDark),
           ].join(" ")}
@@ -596,12 +596,12 @@ function ChannelAvatar({
       {NetworkIcon && (
         <span
           className={[
-            "absolute -bottom-1 -right-1 flex h-4 w-4 items-center",
+            "absolute -bottom-1 -right-1 flex h-5 w-5 items-center",
             "justify-center rounded-full bg-white text-black ring-1",
             panelRingClass(isDark),
           ].join(" ")}
         >
-          <NetworkIcon className="h-2.5 w-2.5" />
+          <NetworkIcon className="h-3 w-3" />
         </span>
       )}
     </div>
@@ -624,7 +624,7 @@ function Channels({
   return (
     <div
       className={[
-        "flex min-h-[74px] items-center justify-between gap-4 rounded-2xl border px-4",
+        "flex min-h-[88px] items-center justify-between gap-4 rounded-2xl border px-5",
         panelSurfaceClass(isDark),
       ].join(" ")}
     >
@@ -636,7 +636,7 @@ function Channels({
             aria-label="Connect a channel"
             onClick={onAdd}
             className={[
-              "flex h-9 w-9 items-center justify-center rounded-xl transition",
+              "flex h-11 w-11 items-center justify-center rounded-xl transition",
               focusRingClass(isDark),
               isDark
                 ? "bg-white/[0.06] hover:bg-white/[0.12]"
@@ -645,7 +645,7 @@ function Channels({
           >
             <Plus
               className={[
-                "h-4 w-4",
+                "h-5 w-5",
                 isDark ? "text-white" : "text-neutral-700",
               ].join(" ")}
             />
@@ -653,14 +653,14 @@ function Channels({
           <div>
             <p
               className={[
-                "text-[11px] font-semibold",
+                "text-[13px] font-semibold",
                 strongClass(isDark),
               ].join(" ")}
             >
               Connect your first channel
             </p>
             <p
-              className={["mt-0.5 text-[10px]", mutedClass(isDark)].join(" ")}
+              className={["mt-0.5 text-[11px]", mutedClass(isDark)].join(" ")}
             >
               Start publishing to social networks.
             </p>
@@ -685,8 +685,8 @@ function Channels({
                   channels.length - 6 === 1 ? "channel" : "channels"
                 }`}
                 className={[
-                  "-ml-2 flex h-9 w-9 shrink-0 items-center justify-center rounded-full",
-                  "text-[10px] font-semibold ring-2",
+                  "-ml-2.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-full",
+                  "text-[11px] font-semibold ring-2",
                   isDark ? "bg-[#29292c] text-white" : "bg-neutral-200 text-neutral-700",
                   panelRingClass(isDark),
                 ].join(" ")}
@@ -702,7 +702,7 @@ function Channels({
               title="Connect another channel"
               onClick={onAdd}
               className={[
-                "-ml-2 flex h-9 w-9 shrink-0 items-center justify-center",
+                "-ml-2.5 flex h-11 w-11 shrink-0 items-center justify-center",
                 "relative z-10 rounded-full border transition-all duration-200",
                 focusRingClass(isDark),
                 "ring-2",
@@ -713,7 +713,7 @@ function Channels({
               ].join(" ")}
             >
               <Plus
-                className="h-[15px] w-[15px] transition-transform duration-200 group-hover:rotate-90"
+                className="h-[18px] w-[18px] transition-transform duration-200 group-hover:rotate-90"
                 strokeWidth={1.8}
               />
             </button>
@@ -722,14 +722,14 @@ function Channels({
           <div>
             <p
               className={[
-                "text-[11px] font-semibold",
+                "text-[13px] font-semibold",
                 strongClass(isDark),
               ].join(" ")}
             >
               {channels.length}{" "}
               {channels.length === 1 ? "channel" : "channels"} connected
             </p>
-            <p className={["text-[10px]", mutedClass(isDark)].join(" ")}>
+            <p className={["text-[11px]", mutedClass(isDark)].join(" ")}>
               Ready to publish
             </p>
           </div>
@@ -740,8 +740,8 @@ function Channels({
         type="button"
         onClick={() => (channels.length === 0 ? onAdd() : navigate("channels"))}
         className={[
-          "flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-2",
-          "text-[10px] font-semibold transition",
+          "flex shrink-0 items-center gap-1.5 rounded-lg px-3.5 py-2.5",
+          "text-[11px] font-semibold transition",
           focusRingClass(isDark),
           isDark
             ? "text-white hover:bg-white/[0.06]"
@@ -749,7 +749,7 @@ function Channels({
         ].join(" ")}
       >
         {channels.length === 0 ? "Connect" : "Manage"}
-        <ArrowUpRight className="h-3 w-3" />
+        <ArrowUpRight className="h-3.5 w-3.5" />
       </button>
     </div>
   );
@@ -786,7 +786,7 @@ function Panel({
       <div className="mb-3 flex items-center justify-between">
         <p
           className={[
-            "text-[12px] font-semibold",
+            "text-[13px] font-semibold",
             isDark ? "text-neutral-300" : "text-neutral-700",
           ].join(" ")}
         >
@@ -803,7 +803,7 @@ function Panel({
           disabled={!onViewAll}
           onClick={onViewAll}
           className={[
-            "flex items-center gap-0.5 rounded-md text-[11px] font-semibold transition",
+            "flex items-center gap-0.5 rounded-md text-[12px] font-semibold transition",
             focusRingClass(isDark),
             "disabled:cursor-default disabled:opacity-40",
             isDark
@@ -812,49 +812,50 @@ function Panel({
           ].join(" ")}
         >
           View All
-          <ChevronRight className="h-3.5 w-3.5" />
+          <ChevronRight className="h-4 w-4" />
         </button>
       </div>
 
       <div
         className={[
-          "flex min-h-[190px] flex-col items-center justify-center",
-          "gap-1 rounded-2xl border px-4 py-6 text-center",
+          "flex min-h-[230px] flex-col items-center justify-center",
+          "gap-1 rounded-2xl border px-4 py-8 text-center",
           panelSurfaceClass(isDark),
         ].join(" ")}
       >
         <div
           className={[
-            "mb-2 flex h-11 w-11 items-center justify-center rounded-full",
+            "mb-2 flex h-13 w-13 items-center justify-center rounded-full",
             isDark
               ? "bg-white/[0.07] text-neutral-300"
               : "bg-neutral-200/70 text-neutral-600",
           ].join(" ")}
+          style={{ width: 52, height: 52 }}
         >
           {icon}
         </div>
 
         <p
-          className={["text-[12px] font-medium", strongClass(isDark)].join(" ")}
+          className={["text-[13px] font-medium", strongClass(isDark)].join(" ")}
         >
           {line1}
         </p>
-        <p className="text-[12px] text-neutral-500">{line2}</p>
+        <p className="text-[13px] text-neutral-500">{line2}</p>
 
         {action && (
           <button
             type="button"
             onClick={action.onClick}
             className={[
-              "mt-3 flex items-center gap-1.5 rounded-lg border px-3 py-1.5",
-              "text-[11px] font-semibold transition",
+              "mt-3 flex items-center gap-1.5 rounded-lg border px-3.5 py-2",
+              "text-[12px] font-semibold transition",
               focusRingClass(isDark),
               isDark
                 ? "border-white/10 text-white hover:bg-white/[0.07]"
                 : "border-black/10 text-neutral-900 hover:bg-black/[0.04]",
             ].join(" ")}
           >
-            <Plus className="h-3.5 w-3.5" />
+            <Plus className="h-4 w-4" />
             {action.label}
           </button>
         )}
@@ -878,7 +879,7 @@ function BlogImage({ src, isDark }: { src?: string; isDark: boolean }) {
     return (
       <div
         className={[
-          "h-[140px] w-full rounded-xl",
+          "h-[170px] w-full rounded-xl",
           isDark ? "bg-white/[0.06]" : "bg-neutral-200/70",
         ].join(" ")}
       />
@@ -892,7 +893,7 @@ function BlogImage({ src, isDark }: { src?: string; isDark: boolean }) {
       loading="lazy"
       draggable={false}
       onError={() => setFailed(true)}
-      className="h-[140px] w-full rounded-xl object-cover"
+      className="h-[170px] w-full rounded-xl object-cover"
     />
   );
 }
@@ -907,7 +908,7 @@ function BlogSection({ isDark }: { isDark: boolean }) {
       <div className="mb-3 flex items-center justify-between">
         <p
           className={[
-            "text-[12px] font-semibold",
+            "text-[13px] font-semibold",
             isDark ? "text-neutral-300" : "text-neutral-700",
           ].join(" ")}
         >
@@ -918,7 +919,7 @@ function BlogSection({ isDark }: { isDark: boolean }) {
           href={BLOG_URL}
           {...linkProps(BLOG_URL)}
           className={[
-            "flex items-center gap-0.5 rounded-md text-[11px] font-semibold transition",
+            "flex items-center gap-0.5 rounded-md text-[12px] font-semibold transition",
             focusRingClass(isDark),
             isDark
               ? "text-neutral-400 hover:text-white"
@@ -926,18 +927,18 @@ function BlogSection({ isDark }: { isDark: boolean }) {
           ].join(" ")}
         >
           View All Articles
-          <ChevronRight className="h-3.5 w-3.5" />
+          <ChevronRight className="h-4 w-4" />
         </a>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {BLOG_POSTS.map((post) => (
           <a
             key={post.title}
             href={post.url}
             {...linkProps(post.url)}
             className={[
-              "group flex flex-col rounded-2xl border p-3.5 transition",
+              "group flex flex-col rounded-2xl border p-4 transition",
               focusRingClass(isDark),
               cardClass(isDark),
               isDark ? "hover:bg-[#1a1a1d]" : "hover:bg-[#f6f4f0]",
@@ -948,7 +949,7 @@ function BlogSection({ isDark }: { isDark: boolean }) {
             <div className="mt-3.5 flex items-center justify-between gap-2 px-0.5">
               <span
                 className={[
-                  "rounded-md px-2 py-0.5 text-[10px] font-semibold",
+                  "rounded-md px-2 py-0.5 text-[11px] font-semibold",
                   isDark
                     ? "bg-[#16304f] text-[#a9cdf5]"
                     : "bg-blue-50 text-blue-700",
@@ -957,7 +958,7 @@ function BlogSection({ isDark }: { isDark: boolean }) {
                 {post.label}
               </span>
               <span
-                className={["text-[10px]", mutedClass(isDark)].join(" ")}
+                className={["text-[11px]", mutedClass(isDark)].join(" ")}
               >
                 {post.date}
               </span>
@@ -965,7 +966,7 @@ function BlogSection({ isDark }: { isDark: boolean }) {
 
             <h3
               className={[
-                "mt-2.5 px-0.5 text-[14px] font-semibold leading-snug",
+                "mt-2.5 px-0.5 text-[15px] font-semibold leading-snug",
                 "tracking-[-0.01em]",
                 strongClass(isDark),
               ].join(" ")}
@@ -982,9 +983,10 @@ function BlogSection({ isDark }: { isDark: boolean }) {
             <div className="mt-3 flex justify-end px-0.5">
               <ArrowRight
                 className={[
-                  "h-4 w-4 transition-transform group-hover:translate-x-0.5",
+                  "h-4.5 w-4.5 transition-transform group-hover:translate-x-0.5",
                   strongClass(isDark),
                 ].join(" ")}
+                style={{ width: 18, height: 18 }}
               />
             </div>
           </a>
@@ -1318,11 +1320,13 @@ export default function Home() {
             mainPanelClass(isDark),
           ].join(" ")}
         >
+          {/* Conteneur agrandi : largeur max plus grande, paddings élargis,
+              plus d'air vertical pour laisser respirer le contenu. */}
           <div
             className={[
-              "mx-auto flex w-full max-w-[1720px]",
-              "flex-col px-[clamp(18px,3vw,48px)]",
-              "pb-[120px] pt-[clamp(18px,3vw,30px)]",
+              "mx-auto flex w-full max-w-[2240px]",
+              "flex-col px-[clamp(18px,2.2vw,64px)]",
+              "pb-[140px] pt-[clamp(20px,2.6vw,42px)]",
             ].join(" ")}
           >
             {/* HEADER */}
@@ -1338,7 +1342,7 @@ export default function Home() {
                 <div className="flex min-w-0 flex-col">
                   <h1
                     className={[
-                      "truncate text-[24px] font-semibold tracking-[-0.035em]",
+                      "truncate text-[28px] font-semibold tracking-[-0.035em]",
                       strongClass(isDark),
                     ].join(" ")}
                   >
@@ -1347,7 +1351,7 @@ export default function Home() {
                   </h1>
                   <p
                     className={[
-                      "mt-0.5 text-[13px] font-medium",
+                      "mt-1 text-[14px] font-medium",
                       mutedClass(isDark),
                     ].join(" ")}
                   >
@@ -1361,11 +1365,11 @@ export default function Home() {
             </header>
 
             {/* OVERVIEW */}
-            <section className="mt-7 shrink-0">
+            <section className="mt-8 shrink-0">
               <div className="mb-3">
                 <p
                   className={[
-                    "text-[11px] font-semibold",
+                    "text-[12px] font-semibold",
                     isDark ? "text-neutral-500" : "text-neutral-400",
                   ].join(" ")}
                 >
@@ -1373,7 +1377,7 @@ export default function Home() {
                 </p>
                 <p
                   className={[
-                    "mt-0.5 text-[10px]",
+                    "mt-0.5 text-[11px]",
                     isDark ? "text-neutral-700" : "text-neutral-400",
                   ].join(" ")}
                 >
@@ -1383,7 +1387,7 @@ export default function Home() {
 
               <div
                 className={[
-                  "grid grid-cols-1 gap-3 rounded-2xl border p-4",
+                  "grid grid-cols-1 gap-4 rounded-2xl border p-5",
                   "sm:grid-cols-3",
                   panelSurfaceClass(isDark),
                 ].join(" ")}
@@ -1394,7 +1398,7 @@ export default function Home() {
                   value="27K"
                   change="-2%"
                   hint="Total followers across all your connected channels, compared to the previous period."
-                  icon={<Users className="h-4 w-4" />}
+                  icon={<Users className="h-5 w-5" />}
                 />
                 <Stat
                   isDark={isDark}
@@ -1402,7 +1406,7 @@ export default function Home() {
                   value="12.4K"
                   change="+16%"
                   hint="Total likes received on your posts across all channels, compared to the previous period."
-                  icon={<Heart className="h-4 w-4" />}
+                  icon={<Heart className="h-5 w-5" />}
                 />
                 <Stat
                   isDark={isDark}
@@ -1410,18 +1414,18 @@ export default function Home() {
                   value="342"
                   change="+5%"
                   hint="Total comments received on your posts across all channels, compared to the previous period."
-                  icon={<MessageCircle className="h-4 w-4" />}
+                  icon={<MessageCircle className="h-5 w-5" />}
                 />
               </div>
             </section>
 
             {/* CHANNELS */}
-            <section className="mt-5 shrink-0">
+            <section className="mt-6 shrink-0">
               <div className="mb-3 flex items-center justify-between">
                 <div>
                   <p
                     className={[
-                      "text-[11px] font-semibold",
+                      "text-[12px] font-semibold",
                       isDark ? "text-neutral-500" : "text-neutral-400",
                     ].join(" ")}
                   >
@@ -1429,7 +1433,7 @@ export default function Home() {
                   </p>
                   <p
                     className={[
-                      "mt-0.5 text-[10px]",
+                      "mt-0.5 text-[11px]",
                       isDark ? "text-neutral-700" : "text-neutral-400",
                     ].join(" ")}
                   >
@@ -1446,13 +1450,13 @@ export default function Home() {
             </section>
 
             {/* COMMENTS + UP NEXT */}
-            <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="mt-7 grid grid-cols-1 gap-5 md:grid-cols-2">
               <Panel
                 isDark={isDark}
                 title="Comments"
                 meta="0 unanswered"
                 onViewAll={handleViewAllComments}
-                icon={<MessageCircle className="h-5 w-5" />}
+                icon={<MessageCircle className="h-6 w-6" />}
                 line1="No comments yet."
                 line2={
                   connectedChannels.length === 0
@@ -1470,7 +1474,7 @@ export default function Home() {
                 title="Up Next"
                 meta="0 posts scheduled"
                 onViewAll={() => navigate("calendar")}
-                icon={<CalendarDays className="h-5 w-5" />}
+                icon={<CalendarDays className="h-6 w-6" />}
                 line1="No posts scheduled yet."
                 line2="You'll see upcoming posts here."
                 action={{
@@ -1481,7 +1485,7 @@ export default function Home() {
             </div>
 
             {/* BLOG */}
-            <div className="mt-8">
+            <div className="mt-10">
               <BlogSection isDark={isDark} />
             </div>
           </div>
