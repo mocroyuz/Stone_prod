@@ -1074,56 +1074,9 @@ function SidebarChannelsImpl({
 
   return (
     <div className="flex flex-col gap-1">
-      {!compact && (
-        <div className="sb-fade mt-3 flex h-6 items-center justify-between px-2.5">
-          <span className={["text-[12px] font-medium", t.muted].join(" ")}>
-            {channels.length === 0 ? "Connect channels" : "Channels"}
-          </span>
-
-          <span className="flex items-center gap-0.5">
-            <button
-              type="button"
-              aria-label="Channels"
-              onClick={() => onNavigate("channels")}
-              className={[
-                "flex h-6 w-6 items-center justify-center rounded-lg",
-                "transition-colors duration-150 motion-reduce:transition-none",
-                focus,
-                t.menuIcon,
-                t.row,
-              ].join(" ")}
-            >
-              <SettingsIcon className="h-[15px] w-[15px]" />
-            </button>
-
-            <button
-              type="button"
-              aria-label="Connect a channel"
-              onClick={onConnect}
-              className={[
-                "flex h-6 w-6 items-center justify-center rounded-lg",
-                "transition-colors duration-150 motion-reduce:transition-none",
-                focus,
-                t.menuIcon,
-                t.row,
-              ].join(" ")}
-            >
-              <PlusIcon className="h-[15px] w-[15px]" />
-            </button>
-          </span>
-        </div>
-      )}
-
-      {channels.length === 0 && !compact && (
-        <div className="sb-fade mt-2 flex h-8 w-full items-center px-2.5">
-          <span className={["text-[12px]", t.muted].join(" ")}>
-            Start publishing to social networks.
-          </span>
-        </div>
-      )}
-
-      {/* Aucun canal connecté : Insights et Community deviennent des
-          nav items normaux (sans paramètre channel). */}
+      {/* Aucun canal connecté : Insights et Community apparaissent
+          au-dessus de la section Channels comme des nav items normaux
+          (sans paramètre channel). */}
       {channels.length === 0 &&
         STANDALONE_LINKS.map((link) => {
           const Icon = link.icon;
@@ -1185,6 +1138,46 @@ function SidebarChannelsImpl({
             </Tip>
           );
         })}
+
+      {!compact && (
+        <div className="sb-fade mt-3 flex h-6 items-center justify-between px-2.5">
+          <span className={["text-[12px] font-medium", t.muted].join(" ")}>
+            {channels.length === 0 ? "Connect channels" : "Channels"}
+          </span>
+
+          <span className="flex items-center gap-0.5">
+            <button
+              type="button"
+              aria-label="Channels"
+              onClick={() => onNavigate("channels")}
+              className={[
+                "flex h-6 w-6 items-center justify-center rounded-lg",
+                "transition-colors duration-150 motion-reduce:transition-none",
+                focus,
+                t.menuIcon,
+                t.row,
+              ].join(" ")}
+            >
+              <SettingsIcon className="h-[15px] w-[15px]" />
+            </button>
+
+            <button
+              type="button"
+              aria-label="Connect a channel"
+              onClick={onConnect}
+              className={[
+                "flex h-6 w-6 items-center justify-center rounded-lg",
+                "transition-colors duration-150 motion-reduce:transition-none",
+                focus,
+                t.menuIcon,
+                t.row,
+              ].join(" ")}
+            >
+              <PlusIcon className="h-[15px] w-[15px]" />
+            </button>
+          </span>
+        </div>
+      )}
 
       {channels.map((channel) => {
         const id = getNetworkId(channel);
