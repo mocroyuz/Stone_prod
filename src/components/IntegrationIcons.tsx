@@ -21,34 +21,39 @@ type BrandIconProps = IconProps & {
 const MONO_BLACK = "#0a0a0a";
 const MONO_WHITE = "#ffffff";
 
+/**
+ * Fabrique d'icônes multicolores.
+ * Important : on ne passe PAS la prop `color` à Iconify quand elle n'est pas
+ * définie, sinon Iconify interprète `undefined` comme `currentColor` et
+ * écrase les couleurs de marque (c'est ce qui rendait Instagram noir).
+ */
 function createIcon(
   iconName: string,
   defaultTitle: string,
-  color?: string
+  fixedColor?: string
 ) {
   return function BrandIcon({
     className = "h-5 w-5",
     size = 20,
     title = defaultTitle,
   }: BrandIconProps) {
-    return (
-      <Icon
-        icon={iconName}
-        width={size}
-        height={size}
-        className={className}
-        color={color}
-        aria-label={title}
-        role="img"
-      />
-    );
+    const common = {
+      icon: iconName,
+      width: size,
+      height: size,
+      className,
+      "aria-label": title,
+      role: "img" as const,
+    };
+
+    return fixedColor
+      ? <Icon {...common} color={fixedColor} />
+      : <Icon {...common} />;
   };
 }
 
 /**
  * Conservé pour compatibilité (imports externes potentiels).
- * Les nouvelles icônes ci‑dessous n'utilisent plus cette fabrique :
- * elles gardent leurs couleurs de marque en clair comme en sombre.
  */
 function createMonoIcon(
   iconName: string,
@@ -89,13 +94,8 @@ function createMonoIcon(
 
 export const ZapierIcon = createIcon("logos:zapier-icon", "Zapier");
 export const ClaudeIcon = createIcon("logos:claude-icon", "Claude");
-
-// Couleurs officielles OpenAI (plus de noir/blanc adaptatif).
 export const ChatGPTIcon = createIcon("logos:openai-icon", "ChatGPT");
-
-// Notion : version couleur officielle.
 export const NotionIcon = createIcon("logos:notion-icon", "Notion");
-
 export const GoogleIcon = createIcon("logos:google-icon", "Google");
 export const N8nIcon = createIcon("logos:n8n", "n8n");
 export const RaycastIcon = createIcon(
@@ -103,18 +103,13 @@ export const RaycastIcon = createIcon(
   "Raycast",
   "#FF6363"
 );
-
-// Perplexity : version couleur officielle.
 export const PerplexityIcon = createIcon(
   "logos:perplexity-icon",
   "Perplexity"
 );
 
 /*
- * Canva
- *
- * Logo officiel Canva Wordmark avec dégradé.
- * Source SVG : OpenIconLibrary (licence libre pour usage éditorial).
+ * Canva — Logo officiel avec dégradé (SVG inline).
  */
 export function CanvaIcon({
   className = "h-5 w-5",
@@ -285,24 +280,62 @@ export function GoogleCalendarIcon({
 }
 
 /* =========================================================
-   SOCIAL MEDIA
-   Toutes les icônes conservent leurs couleurs de marque,
-   en thème clair comme en thème sombre.
+   SOCIAL MEDIA — couleurs officielles garanties
 ========================================================= */
 
-export const InstagramIcon = createIcon("logos:instagram-icon", "Instagram");
+/**
+ * Instagram — SVG inline avec le dégradé officiel (jaune → orange → rose → violet → bleu).
+ * Le glyphe garde TOUJOURS ses couleurs, en thème clair comme en thème sombre.
+ * Recommandation : l'afficher sur un fond blanc/clair (voir la pastille de la sidebar).
+ */
+export function InstagramIcon({
+  className = "h-5 w-5",
+  size = 20,
+}: IconProps) {
+  return (
+    <svg
+      className={className}
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-label="Instagram"
+      role="img"
+    >
+      <defs>
+        <radialGradient
+          id="ig-brand-gradient"
+          cx="30%"
+          cy="107%"
+          r="150%"
+        >
+          <stop offset="0%" stopColor="#fdf497" />
+          <stop offset="5%" stopColor="#fdf497" />
+          <stop offset="45%" stopColor="#fd5949" />
+          <stop offset="60%" stopColor="#d6249f" />
+          <stop offset="90%" stopColor="#285AEB" />
+        </radialGradient>
+      </defs>
+      <path
+        fill="url(#ig-brand-gradient)"
+        d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"
+      />
+    </svg>
+  );
+}
+
 export const FacebookIcon = createIcon("logos:facebook", "Facebook");
 
-// TikTok : version couleur officielle (cyan/rose/noir).
+/** TikTok — couleurs officielles (cyan, rose, noir). */
 export const TikTokIcon = createIcon("logos:tiktok-icon", "TikTok");
 
 export const YouTubeIcon = createIcon("logos:youtube-icon", "YouTube");
 export const PinterestIcon = createIcon("logos:pinterest", "Pinterest");
 
-// Threads : version couleur officielle.
-export const ThreadsIcon = createIcon("logos:threads-icon", "Threads");
+/** Threads — glyphe officiel noir (rendu sur pastille claire). */
+export const ThreadsIcon = createIcon("simple-icons:threads", "Threads", "#000000");
 
-// X : marque noire → couleur fixe, plus d'adaptation au thème.
+/** X (ex-Twitter) — glyphe officiel noir (rendu sur pastille claire). */
 export const XIcon = createIcon("simple-icons:x", "X", "#000000");
 
 export const LinkedInIcon = createIcon("logos:linkedin-icon", "LinkedIn");
@@ -338,22 +371,15 @@ export function MCPIcon({
 ========================================================= */
 
 export const ManusIcon = createIcon("logos:manus-icon", "Manus");
-
-// Grok utilise le glyphe X ; couleur de marque fixe (noire).
 export const GrokIcon = createIcon("simple-icons:x", "Grok", "#000000");
-
-// Cursor : couleur de marque fixe (noire).
 export const CursorIcon = createIcon("simple-icons:cursor", "Cursor", "#000000");
-
 export const AntigravityIcon = createIcon("material-symbols:rocket-launch-rounded", "Antigravity");
 
 /* =========================================================
    ADDITIONAL BRANDS
 ========================================================= */
 
-// GitHub : version couleur officielle.
 export const GitHubIcon = createIcon("logos:github-icon", "GitHub");
-
 export const SlackIcon = createIcon("logos:slack-icon", "Slack");
 export const DiscordIcon = createIcon("logos:discord-icon", "Discord");
 export const MicrosoftIcon = createIcon("logos:microsoft-icon", "Microsoft");

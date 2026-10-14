@@ -1127,12 +1127,26 @@ function SidebarChannelsImpl({
         })}
 
       {!compact && (
-        <div className="sb-fade mt-3 flex h-6 items-center justify-between px-2.5">
+        /* 
+         * ✅ MODIFICATION : le conteneur devient un "group/channels". 
+         * Les boutons (engrenage + plus) sont invisibles par défaut et 
+         * n'apparaissent QUE au survol de cette zone (ou au focus clavier).
+         */
+        <div className="sb-fade group/channels mt-3 flex h-6 items-center justify-between px-2.5">
           <span className={["text-[12px] font-medium", t.muted].join(" ")}>
             {channels.length === 0 ? "Connect channels" : "Channels"}
           </span>
 
-          <span className="flex items-center gap-0.5">
+          <span
+            className={[
+              "flex items-center gap-0.5",
+              "opacity-0 transition-opacity duration-200",
+              "group-hover/channels:opacity-100",
+              "group-focus-within/channels:opacity-100",
+              "focus-within:opacity-100",
+              "motion-reduce:transition-none",
+            ].join(" ")}
+          >
             <button
               type="button"
               aria-label="Channels"
