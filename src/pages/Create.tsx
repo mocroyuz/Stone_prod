@@ -1,11 +1,11 @@
 // src/pages/Create.tsx
 // Page Create (route "create") : tableau d'idées (Board / Gallery) + modale « Create Idea ».
-// Noir et blanc, même thème et même structure que Community.tsx / Insights.tsx.
+// Shell visuel aligné sur Home : fond de page + panneau arrondi à la jointure de la sidebar.
 //
 // Concept : les colonnes du board SONT des tags (Unassigned, To Do, In Progress…).
 //  - on peut créer / renommer / supprimer des tags,
 //  - on peut réordonner les colonnes (drag par l'en-tête, fantôme flottant + décalage fluide),
-//  - on peut déplacer les idées entre colonnes et les réordonner (même drag fluide que les colonnes).
+//  - on peut déplacer les idées entre colonnes et les réordonner.
 // Les données vivent dans `useBoard` (state local) : branche-le sur ton backend.
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
@@ -52,7 +52,6 @@ function useBoard() {
   const [tags, setTags] = useState<Tag[]>(DEFAULT_TAGS);
   const [ideas, setIdeas] = useState<Idea[]>([]);
 
-  /** Crée un tag (ou renvoie l'id de celui qui existe déjà avec ce nom). */
   const addTag = (label: string): string | null => {
     const l = label.trim();
     if (!l) return null;
@@ -69,14 +68,14 @@ function useBoard() {
     setTags((prev) => prev.map((t) => (t.id === id ? { ...t, label: l } : t)));
   };
 
-  /** Supprime un tag : ses idées retournent dans Unassigned. */
   const deleteTag = (id: string) => {
     if (id === UNASSIGNED) return;
-    setIdeas((prev) => prev.map((i) => (i.tagId === id ? { ...i, tagId: UNASSIGNED } : i)));
+    setIdeas((prev) =>
+      prev.map((i) => (i.tagId === id ? { ...i, tagId: UNASSIGNED } : i))
+    );
     setTags((prev) => prev.filter((t) => t.id !== id));
   };
 
-  /** Place la colonne `id` à la position de la colonne `toId` (Unassigned reste en premier). */
   const moveTag = (id: string, toId: string) => {
     setTags((prev) => {
       const from = prev.findIndex((t) => t.id === id);
@@ -92,7 +91,6 @@ function useBoard() {
   const addIdea = (idea: Omit<Idea, "id">) =>
     setIdeas((prev) => [{ ...idea, id: crypto.randomUUID() }, ...prev]);
 
-  /** Déplace une idée dans un tag, avant `beforeId` (ou en fin de colonne). */
   const moveIdea = (id: string, tagId: string, beforeId?: string) =>
     setIdeas((prev) => {
       const idea = prev.find((i) => i.id === id);
@@ -112,7 +110,8 @@ function useBoard() {
   const updateIdea = (id: string, patch: Omit<Idea, "id">) =>
     setIdeas((prev) => prev.map((i) => (i.id === id ? { ...i, ...patch } : i)));
 
-  const deleteIdea = (id: string) => setIdeas((prev) => prev.filter((i) => i.id !== id));
+  const deleteIdea = (id: string) =>
+    setIdeas((prev) => prev.filter((i) => i.id !== id));
 
   const moveAll = (from: string, to: string) =>
     setIdeas((prev) => prev.map((i) => (i.tagId === from ? { ...i, tagId: to } : i)));
@@ -203,7 +202,6 @@ const DotsIcon = (p: IconProps) => (
     <path d="M5 12h.01M12 12h.01M19 12h.01" strokeWidth="2.6" />
   </Svg>
 );
-/** Les 6 points (2 × 3) affichés en haut au centre d'une colonne déplaçable. */
 const DragDotsIcon = (p: IconProps) => (
   <Svg {...p}>
     <path
@@ -283,7 +281,7 @@ function IconButton({
         aria-label={label}
         onClick={onClick}
         className={`flex items-center justify-center rounded-xl transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 ${ghost} ${
-          isDark ? "focus-visible:ring-white/40" : "focus-visible:ring-black/30"
+          isDark ? "focus-visible:ring-white/30" : "focus-visible:ring-black/25"
         } ${className}`}
       >
         {children}
@@ -292,7 +290,7 @@ function IconButton({
       <span
         role="tooltip"
         className={`pointer-events-none absolute top-full z-50 mt-2 w-max max-w-[240px] rounded-lg px-3 py-2 text-[13px] font-medium leading-snug text-white opacity-0 shadow-lg transition-opacity duration-150 motion-reduce:transition-none group-hover:opacity-100 group-hover:delay-300 group-focus-within:opacity-100 ${
-          isDark ? "bg-neutral-700" : "bg-neutral-900"
+          isDark ? "bg-[#2e2e31]" : "bg-neutral-900"
         } ${align === "end" ? "right-0" : "left-1/2 -translate-x-1/2"}`}
       >
         {label}
@@ -324,7 +322,7 @@ function CreateTagInput({
   return (
     <div
       className={`flex items-center gap-1 rounded-lg border px-2 ${
-        isDark ? "border-white/15" : "border-black/15"
+        isDark ? "border-white/[0.10]" : "border-black/[0.10]"
       }`}
     >
       <input
@@ -349,7 +347,7 @@ function CreateTagInput({
         onClick={submit}
         disabled={!value.trim()}
         className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md transition-colors disabled:opacity-30 ${
-          isDark ? "hover:bg-white/10" : "hover:bg-black/[0.06]"
+          isDark ? "hover:bg-white/[0.06]" : "hover:bg-black/[0.04]"
         }`}
       >
         <PlusIcon className="h-4 w-4" />
@@ -358,7 +356,7 @@ function CreateTagInput({
   );
 }
 
-/** Menu « Tags » de la barre d'outils : afficher / masquer les colonnes + créer un tag. */
+/** Menu « Tags » de la barre d'outils. */
 function TagsMenu({
   tags,
   hidden,
@@ -382,8 +380,8 @@ function TagsMenu({
         aria-haspopup="listbox"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className={`flex items-center gap-2 rounded-xl px-3 py-2 text-[14px] font-medium transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 ${ghost} ${
-          isDark ? "focus-visible:ring-white/40" : "focus-visible:ring-black/30"
+        className={`flex items-center gap-2 rounded-xl px-3 py-2 text-[13px] font-medium transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 ${ghost} ${
+          isDark ? "focus-visible:ring-white/30" : "focus-visible:ring-black/25"
         }`}
       >
         <TagIcon className="h-4 w-4" />
@@ -411,7 +409,9 @@ function TagsMenu({
           />
           <div
             className={`absolute right-0 z-40 mt-2 w-[240px] rounded-xl border p-1 shadow-lg ${
-              isDark ? "border-white/10 bg-[#0c0c0c]" : "border-black/10 bg-white"
+              isDark
+                ? "border-white/[0.08] bg-[#16161a]"
+                : "border-black/[0.06] bg-white"
             }`}
           >
             <ul className="max-h-[260px] overflow-y-auto">
@@ -434,8 +434,8 @@ function TagsMenu({
                               ? "border-white bg-white text-black"
                               : "border-black bg-black text-white"
                             : isDark
-                            ? "border-white/25"
-                            : "border-black/25"
+                              ? "border-white/25"
+                              : "border-black/25"
                         }`}
                       >
                         {on ? "✓" : ""}
@@ -445,7 +445,11 @@ function TagsMenu({
                 );
               })}
             </ul>
-            <div className={`mt-1 border-t p-1 pt-2 ${isDark ? "border-white/10" : "border-black/10"}`}>
+            <div
+              className={`mt-1 border-t p-1 pt-2 ${
+                isDark ? "border-white/[0.07]" : "border-black/[0.06]"
+              }`}
+            >
               <CreateTagInput onCreate={onCreate} isDark={isDark} />
             </div>
           </div>
@@ -482,8 +486,8 @@ function TagSelect({
         aria-haspopup="listbox"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-[14px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 ${ghost} ${line} ${
-          isDark ? "focus-visible:ring-white/40" : "focus-visible:ring-black/30"
+        className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 ${ghost} ${line} ${
+          isDark ? "focus-visible:ring-white/30" : "focus-visible:ring-black/25"
         }`}
       >
         <TagIcon className="h-4 w-4" />
@@ -502,7 +506,9 @@ function TagSelect({
           />
           <div
             className={`absolute right-0 z-[70] mt-2 w-[240px] rounded-xl border p-1 shadow-lg ${
-              isDark ? "border-white/10 bg-[#0c0c0c]" : "border-black/10 bg-white"
+              isDark
+                ? "border-white/[0.08] bg-[#16161a]"
+                : "border-black/[0.06] bg-white"
             }`}
           >
             <ul role="listbox" className="max-h-[220px] overflow-y-auto">
@@ -519,11 +525,11 @@ function TagSelect({
                     className={`flex w-full items-center rounded-lg px-3 py-2 text-left text-[13px] font-medium transition-colors ${
                       t.id === value
                         ? isDark
-                          ? "bg-white/10"
-                          : "bg-black/[0.06]"
+                          ? "bg-white/[0.08]"
+                          : "bg-black/[0.05]"
                         : isDark
-                        ? "hover:bg-white/[0.06]"
-                        : "hover:bg-black/[0.04]"
+                          ? "hover:bg-white/[0.06]"
+                          : "hover:bg-black/[0.04]"
                     }`}
                   >
                     <span className="truncate">{t.label}</span>
@@ -531,7 +537,11 @@ function TagSelect({
                 </li>
               ))}
             </ul>
-            <div className={`mt-1 border-t p-1 pt-2 ${isDark ? "border-white/10" : "border-black/10"}`}>
+            <div
+              className={`mt-1 border-t p-1 pt-2 ${
+                isDark ? "border-white/[0.07]" : "border-black/[0.06]"
+              }`}
+            >
               <CreateTagInput
                 isDark={isDark}
                 onCreate={(label) => {
@@ -550,8 +560,7 @@ function TagSelect({
   );
 }
 
-/** Carte d'idée (board : déplaçable aux pointer events ; galerie : statique).
- *  Au survol : bouton « … » aligné avec le titre → Edit / Delete. */
+/** Carte d'idée (board : déplaçable aux pointer events ; galerie : statique). */
 function IdeaCard({
   idea,
   tagLabel,
@@ -585,10 +594,12 @@ function IdeaCard({
       data-card={draggable ? idea.id : undefined}
       onPointerDown={onPointerDown}
       className={`group/card relative rounded-xl ${menu ? "z-20" : ""} ${
-        draggable ? "cursor-grab touch-none select-none active:cursor-grabbing" : ""
+        draggable
+          ? "cursor-grab touch-none select-none active:cursor-grabbing"
+          : ""
       } ${
         placeholder
-          ? `${isDark ? "bg-white/[0.08]" : "bg-black/[0.07]"} [&>*]:invisible`
+          ? `${isDark ? "bg-white/[0.06]" : "bg-black/[0.05]"} [&>*]:invisible`
           : ""
       }`}
     >
@@ -596,8 +607,8 @@ function IdeaCard({
         onDragStart={(e) => e.preventDefault()}
         className={`rounded-xl border transition-colors ${
           isDark
-            ? "border-white/10 bg-[#0c0c0c] hover:border-white/25"
-            : "border-black/10 bg-white hover:border-black/25"
+            ? "border-white/[0.07] bg-[#141416] hover:border-white/[0.12]"
+            : "border-black/[0.06] bg-white hover:border-black/[0.12]"
         }`}
       >
         {idea.imageUrl && (
@@ -609,9 +620,10 @@ function IdeaCard({
           />
         )}
         <div className="flex flex-col gap-1 px-4 py-4">
-          {/* Titre + bouton « … » sur la même ligne */}
           <div className="flex items-center justify-between gap-2">
-            <h3 className="min-w-0 flex-1 truncate text-[15px] font-semibold">{idea.title}</h3>
+            <h3 className="min-w-0 flex-1 truncate text-[14px] font-semibold tracking-[-0.01em]">
+              {idea.title}
+            </h3>
 
             {hasMenu && (
               <div className="relative -my-1 -mr-2 shrink-0">
@@ -625,8 +637,8 @@ function IdeaCard({
                     menu ? "opacity-100" : "opacity-0"
                   } ${
                     isDark
-                      ? "hover:bg-white/10 focus-visible:ring-white/40"
-                      : "hover:bg-black/[0.07] focus-visible:ring-black/30"
+                      ? "hover:bg-white/[0.06] focus-visible:ring-white/30"
+                      : "hover:bg-black/[0.05] focus-visible:ring-black/25"
                   }`}
                 >
                   <DotsIcon className="h-[18px] w-[18px]" />
@@ -644,7 +656,9 @@ function IdeaCard({
                     <div
                       role="menu"
                       className={`absolute right-0 top-full z-40 mt-1 min-w-[140px] rounded-xl border p-1 shadow-lg ${
-                        isDark ? "border-white/10 bg-[#0c0c0c]" : "border-black/10 bg-white"
+                        isDark
+                          ? "border-white/[0.08] bg-[#16161a]"
+                          : "border-black/[0.06] bg-white"
                       }`}
                     >
                       {onEdit && (
@@ -669,7 +683,9 @@ function IdeaCard({
                             setMenu(false);
                             onDelete();
                           }}
-                          className={`${item} text-red-500`}
+                          className={`${item} ${
+                            isDark ? "text-rose-400" : "text-rose-600"
+                          }`}
                         >
                           <TrashIcon className="h-4 w-4" />
                           Delete
@@ -683,12 +699,14 @@ function IdeaCard({
           </div>
 
           {idea.description && (
-            <p className={`line-clamp-2 text-[14px] ${muted}`}>{idea.description}</p>
+            <p className={`line-clamp-2 text-[13px] ${muted}`}>
+              {idea.description}
+            </p>
           )}
           {tagLabel && (
             <span
               className={`mt-2 w-fit rounded-md px-2 py-0.5 text-[11px] font-medium ${
-                isDark ? "bg-white/10" : "bg-black/[0.06]"
+                isDark ? "bg-white/[0.06]" : "bg-black/[0.05]"
               }`}
             >
               {tagLabel}
@@ -747,24 +765,22 @@ function IdeaModal({
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  // libère l'aperçu si la modale est fermée sans enregistrer
   useEffect(
     () => () => {
       if (!savedRef.current && imageRef.current && imageRef.current !== idea?.imageUrl)
         URL.revokeObjectURL(imageRef.current);
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     []
   );
 
   const canSave = title.trim().length > 0;
 
-  /** Libère l'aperçu courant, sauf l'image d'origine de l'idée (encore utilisée si on annule). */
   const release = () => {
     if (imageRef.current && imageRef.current !== idea?.imageUrl)
       URL.revokeObjectURL(imageRef.current);
   };
 
-  /** Ajoute (ou remplace) l'image : vérifie le type et la taille. */
   const setFile = (file?: File | null) => {
     if (!file) return;
     if (!file.type.startsWith("image/")) {
@@ -786,7 +802,6 @@ function IdeaModal({
     setImageError(null);
   };
 
-  // Coller une image (Ctrl/Cmd + V)
   const setFileRef = useRef(setFile);
   setFileRef.current = setFile;
   useEffect(() => {
@@ -802,11 +817,11 @@ function IdeaModal({
     return () => window.removeEventListener("paste", onPaste);
   }, []);
 
-  const hasFiles = (e: DragEvent) => Array.from(e.dataTransfer.types).includes("Files");
+  const hasFiles = (e: DragEvent) =>
+    Array.from(e.dataTransfer.types).includes("Files");
 
   const save = (asPost: boolean) => {
     if (!canSave) return;
-    // « Create Post » : branche ici la redirection vers ton éditeur de post si besoin.
     savedRef.current = true;
     onSave({
       title: title.trim(),
@@ -820,7 +835,9 @@ function IdeaModal({
   const primary = isDark
     ? "bg-white text-black hover:bg-neutral-200"
     : "bg-black text-white hover:bg-neutral-800";
-  const disabled = isDark ? "bg-white/10 text-neutral-500" : "bg-black/[0.08] text-neutral-400";
+  const disabled = isDark
+    ? "bg-white/[0.08] text-neutral-500"
+    : "bg-black/[0.06] text-neutral-400";
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
@@ -835,7 +852,9 @@ function IdeaModal({
         aria-modal="true"
         aria-label={idea ? "Edit Idea" : "Create Idea"}
         className={`relative flex max-h-[92vh] w-full max-w-[720px] flex-col rounded-2xl border shadow-2xl ${
-          isDark ? "border-white/10 bg-[#0c0c0c] text-white" : "border-black/10 bg-white text-black"
+          isDark
+            ? "border-white/[0.08] bg-[#0f0f11] text-white"
+            : "border-black/[0.06] bg-white text-neutral-900"
         }`}
       >
         <button
@@ -843,7 +862,9 @@ function IdeaModal({
           onClick={onClose}
           aria-label="Close"
           className={`absolute -right-2 -top-2 flex h-8 w-8 items-center justify-center rounded-full border ${ring} focus-visible:outline-none focus-visible:ring-2 ${
-            isDark ? "border-white/15 bg-black" : "border-black/15 bg-white"
+            isDark
+              ? "border-white/[0.10] bg-[#0f0f11]"
+              : "border-black/[0.08] bg-white"
           }`}
         >
           <CloseIcon className="h-4 w-4" />
@@ -851,7 +872,9 @@ function IdeaModal({
 
         {/* Header */}
         <div className="flex items-center justify-between gap-3 px-6 pt-6">
-          <h2 className="text-[18px] font-semibold tracking-tight">{idea ? "Edit Idea" : "Create Idea"}</h2>
+          <h2 className="text-[18px] font-semibold tracking-[-0.02em]">
+            {idea ? "Edit Idea" : "Create Idea"}
+          </h2>
           <TagSelect
             tags={tags}
             value={tagId}
@@ -863,7 +886,7 @@ function IdeaModal({
           />
         </div>
 
-        {/* Body : on peut déposer une image n'importe où */}
+        {/* Body */}
         <div
           onDragEnter={(e) => {
             if (!hasFiles(e)) return;
@@ -877,7 +900,8 @@ function IdeaModal({
             setDragOver(true);
           }}
           onDragLeave={(e) => {
-            if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDragOver(false);
+            if (!e.currentTarget.contains(e.relatedTarget as Node | null))
+              setDragOver(false);
           }}
           onDrop={(e) => {
             if (!hasFiles(e)) return;
@@ -893,7 +917,9 @@ function IdeaModal({
             onChange={(e) => setTitle(e.target.value)}
             placeholder="Give your idea a title"
             className={`w-full bg-transparent text-[22px] font-semibold tracking-tight outline-none ${
-              isDark ? "placeholder:text-neutral-600" : "placeholder:text-neutral-400"
+              isDark
+                ? "placeholder:text-neutral-600"
+                : "placeholder:text-neutral-400"
             }`}
           />
 
@@ -903,12 +929,13 @@ function IdeaModal({
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Everything begins with an idea…"
               className={`h-full min-h-[200px] w-full resize-none bg-transparent text-[15px] leading-relaxed outline-none ${
-                isDark ? "placeholder:text-neutral-600" : "placeholder:text-neutral-400"
+                isDark
+                  ? "placeholder:text-neutral-600"
+                  : "placeholder:text-neutral-400"
               }`}
             />
           </div>
 
-          {/* Upload */}
           <div className="flex flex-col gap-2">
             <input
               ref={fileRef}
@@ -951,11 +978,11 @@ function IdeaModal({
                 className={`flex h-[140px] w-[200px] flex-col items-center justify-center gap-2 rounded-xl border border-dashed px-3 text-center text-[13px] transition-colors focus-visible:outline-none focus-visible:ring-2 ${ring} ${muted} ${
                   dragOver
                     ? isDark
-                      ? "border-white/60 bg-white/10"
-                      : "border-black/60 bg-black/[0.06]"
+                      ? "border-white/60 bg-white/[0.06]"
+                      : "border-black/60 bg-black/[0.04]"
                     : isDark
-                    ? "border-white/20 hover:bg-white/[0.04]"
-                    : "border-black/20 hover:bg-black/[0.03]"
+                      ? "border-white/[0.15] hover:bg-white/[0.04]"
+                      : "border-black/[0.15] hover:bg-black/[0.03]"
                 }`}
               >
                 <ImagePlusIcon className="h-7 w-7" />
@@ -972,24 +999,26 @@ function IdeaModal({
               </button>
             )}
             {imageError && (
-              <p role="alert" className="text-[12px] font-medium text-red-500">
+              <p role="alert" className="text-[12px] font-medium text-rose-500">
                 {imageError}
               </p>
             )}
           </div>
 
-          {/* Mini toolbar */}
           <div className="flex items-center gap-1">
             <IconButton label="Add" ghost={ghost} isDark={isDark} className="h-9 w-9">
               <PlusIcon className="h-[18px] w-[18px]" />
             </IconButton>
-            <span className={`mx-1 h-5 w-px ${isDark ? "bg-white/10" : "bg-black/10"}`} />
+            <span
+              className={`mx-1 h-5 w-px ${
+                isDark ? "bg-white/[0.08]" : "bg-black/[0.08]"
+              }`}
+            />
             <IconButton label="Emoji" ghost={ghost} isDark={isDark} className="h-9 w-9">
               <SmileIcon className="h-[18px] w-[18px]" />
             </IconButton>
           </div>
 
-          {/* Surcouche affichée quand on survole la modale avec un fichier */}
           {dragOver && (
             <div
               className={`pointer-events-none absolute inset-2 flex items-center justify-center rounded-xl border-2 border-dashed text-[15px] font-medium backdrop-blur-[1px] ${
@@ -1010,7 +1039,7 @@ function IdeaModal({
               type="button"
               disabled={!canSave}
               onClick={() => save(true)}
-              className={`rounded-xl px-5 py-2.5 text-[15px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 ${ring} ${
+              className={`rounded-xl px-5 py-2.5 text-[14px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 ${ring} ${
                 canSave ? primary : `cursor-not-allowed ${disabled}`
               }`}
             >
@@ -1021,7 +1050,7 @@ function IdeaModal({
             type="button"
             disabled={!canSave}
             onClick={() => save(false)}
-            className={`rounded-xl px-5 py-2.5 text-[15px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 ${ring} ${
+            className={`rounded-xl px-5 py-2.5 text-[14px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 ${ring} ${
               canSave ? primary : `cursor-not-allowed ${disabled}`
             }`}
           >
@@ -1055,7 +1084,9 @@ function styleGhost(
     transformOrigin: "50% 0",
     opacity: "1",
     borderRadius: radius,
-    boxShadow: isDark ? "0 18px 40px rgba(0,0,0,0.7)" : "0 18px 40px rgba(0,0,0,0.18)",
+    boxShadow: isDark
+      ? "0 18px 40px rgba(0,0,0,0.7)"
+      : "0 18px 40px rgba(0,0,0,0.18)",
     ...(bg ? { background: bg } : {}),
   } as Partial<CSSStyleDeclaration>);
 }
@@ -1084,9 +1115,8 @@ export default function Create() {
   const [hidden, setHidden] = useState<string[]>([]);
   const [saved, setSaved] = useState(false);
   const [modalTag, setModalTag] = useState<string | null>(null);
-  const [ideaEdit, setIdeaEdit] = useState<Idea | null>(null); // idée en cours de modification
+  const [ideaEdit, setIdeaEdit] = useState<Idea | null>(null);
 
-  // Drag (pointer events) : colonnes et cartes
   const [colDrag, setColDrag] = useState<string | null>(null);
   const [cardDrag, setCardDrag] = useState<string | null>(null);
   const [overCol, setOverCol] = useState<string | null>(null);
@@ -1096,26 +1126,36 @@ export default function Create() {
   const prevCards = useRef(new Map<string, { y: number; col: string }>());
   const visibleRef = useRef<Tag[]>([]);
 
-  // Menu « … » d'une colonne / renommage / ajout de colonne
   const [colMenu, setColMenu] = useState<string | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
   const [addingCol, setAddingCol] = useState(false);
 
-  const page = isDark ? "bg-black text-white" : "bg-white text-black";
-  const line = isDark ? "border-white/10" : "border-black/10";
-  const muted = isDark ? "text-neutral-400" : "text-neutral-500";
-  const ghost = isDark ? "hover:bg-neutral-700/70" : "hover:bg-neutral-200";
-  const ring = isDark ? "focus-visible:ring-white/40" : "focus-visible:ring-black/30";
-  const column = isDark ? "bg-white/[0.04]" : "bg-[#f5f5f5]";
-  const outline = isDark ? "border-white/15 hover:bg-white/10" : "border-black/15 hover:bg-black/5";
-  const chip = isDark ? "bg-white/10" : "bg-black/[0.07]";
+  /* ───────── Shell tokens (alignés sur Home) ───────── */
+
+  const page = isDark ? "bg-[#09090a]" : "bg-[#f5f3ef]";
+  const panel = isDark
+    ? "border-white/[0.07] bg-[#0f0f11]"
+    : "border-black/[0.06] bg-white";
+  const line = isDark ? "border-white/[0.07]" : "border-black/[0.06]";
+  const muted = isDark ? "text-neutral-500" : "text-neutral-400";
+  const ghost = isDark ? "hover:bg-white/[0.06]" : "hover:bg-black/[0.04]";
+  const ring = isDark
+    ? "focus-visible:ring-white/30"
+    : "focus-visible:ring-black/25";
+  const column = isDark ? "bg-white/[0.03]" : "bg-[#f6f4f0]";
+  const outline = isDark
+    ? "border-white/[0.10] hover:bg-white/[0.06]"
+    : "border-black/[0.08] hover:bg-black/[0.03]";
+  const chip = isDark ? "bg-white/[0.06]" : "bg-black/[0.05]";
 
   const visibleTags = tags.filter((t) => !hidden.includes(t.id));
   visibleRef.current = visibleTags;
   const tagLabel = (id: string) => tags.find((t) => t.id === id)?.label;
 
   const toggleHidden = (id: string) =>
-    setHidden((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+    setHidden((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
 
   const openEdit = (idea: Idea) => {
     setIdeaEdit(idea);
@@ -1133,7 +1173,7 @@ export default function Create() {
     return id;
   };
 
-  /* ── Drag d'une colonne : fantôme flottant + les autres colonnes se décalent en direct ── */
+  /* ── Drag d'une colonne ── */
 
   const onHeaderPointerDown = (e: RPointerEvent, tagId: string) => {
     if (e.button !== 0) return;
@@ -1153,7 +1193,13 @@ export default function Create() {
         if (Math.hypot(ev.clientX - startX, ev.clientY - startY) < 5) return;
 
         ghostEl = section.cloneNode(true) as HTMLElement;
-        styleGhost(ghostEl, rect, isDark, isDark ? "#141414" : "#f5f5f5", "16px");
+        styleGhost(
+          ghostEl,
+          rect,
+          isDark,
+          isDark ? "#141416" : "#f6f4f0",
+          "16px"
+        );
         ghostEl.style.color = getComputedStyle(section).color;
         const grip = ghostEl.querySelector<HTMLElement>("[data-grip]");
         if (grip) grip.style.opacity = "1";
@@ -1170,11 +1216,9 @@ export default function Create() {
       if (!board) return;
       const b = board.getBoundingClientRect();
 
-      // auto-scroll horizontal près des bords
       if (ev.clientX > b.right - 60) board.scrollLeft += 14;
       else if (ev.clientX < b.left + 60) board.scrollLeft -= 14;
 
-      // réordonne en direct (positions de layout, indépendantes des animations)
       const x = ev.clientX - b.left + board.scrollLeft;
       const order = visibleRef.current;
       const from = order.findIndex((t) => t.id === tagId);
@@ -1184,8 +1228,8 @@ export default function Create() {
         const el = colRefs.current.get(order[i].id);
         if (!el) continue;
         const mid = el.offsetLeft + el.offsetWidth / 2;
-        if (i > from && x > mid) target = i; // le plus loin vers la droite
-        else if (i < from && x < mid && target === null) target = i; // le plus loin vers la gauche
+        if (i > from && x > mid) target = i;
+        else if (i < from && x < mid && target === null) target = i;
       }
       if (target !== null) moveTag(tagId, order[target].id);
     };
@@ -1206,11 +1250,11 @@ export default function Create() {
     window.addEventListener("pointercancel", onUp);
   };
 
-  /* ── Drag d'une carte : fantôme flottant, les autres cartes se décalent, entre colonnes aussi ── */
+  /* ── Drag d'une carte ── */
 
   const onCardPointerDown = (e: RPointerEvent, ideaId: string) => {
     if (e.button !== 0) return;
-    if ((e.target as HTMLElement).closest("button")) return; // bouton « … » et son menu
+    if ((e.target as HTMLElement).closest("button")) return;
     const wrapper = e.currentTarget as HTMLElement;
 
     const rect = wrapper.getBoundingClientRect();
@@ -1242,13 +1286,13 @@ export default function Create() {
       if (!board) return;
       const b = board.getBoundingClientRect();
 
-      // auto-scroll horizontal du board
       if (ev.clientX > b.right - 60) board.scrollLeft += 14;
       else if (ev.clientX < b.left + 60) board.scrollLeft -= 14;
 
-      // colonne sous le curseur
       let section: HTMLElement | null = null;
-      for (const s of Array.from(board.querySelectorAll<HTMLElement>("[data-col]"))) {
+      for (const s of Array.from(
+        board.querySelectorAll<HTMLElement>("[data-col]")
+      )) {
         const r = s.getBoundingClientRect();
         if (ev.clientX >= r.left && ev.clientX <= r.right) {
           section = s;
@@ -1263,14 +1307,14 @@ export default function Create() {
       if (!list) return;
       const lr = list.getBoundingClientRect();
 
-      // auto-scroll vertical de la colonne
       if (ev.clientY > lr.bottom - 50) list.scrollTop += 12;
       else if (ev.clientY < lr.top + 50) list.scrollTop -= 12;
 
-      // carte devant laquelle insérer (positions de layout, la liste est `relative`)
       const y = ev.clientY - lr.top + list.scrollTop;
       let before: string | undefined;
-      for (const c of Array.from(list.querySelectorAll<HTMLElement>("[data-card]"))) {
+      for (const c of Array.from(
+        list.querySelectorAll<HTMLElement>("[data-card]")
+      )) {
         if (c.dataset.card === ideaId) continue;
         if (y < c.offsetTop + c.offsetHeight / 2) {
           before = c.dataset.card;
@@ -1310,32 +1354,38 @@ export default function Create() {
       if (reduce) return;
       el.style.transition = "none";
       el.style.transform = from;
-      el.getBoundingClientRect(); // force le reflow
+      el.getBoundingClientRect();
       el.style.transition = "transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1)";
       el.style.transform = "";
-      el.addEventListener("transitionend", () => (el.style.transition = ""), { once: true });
+      el.addEventListener(
+        "transitionend",
+        () => (el.style.transition = ""),
+        { once: true }
+      );
     };
 
-    // colonnes
     const nextLefts = new Map<string, number>();
     colRefs.current.forEach((el, id) => {
       const left = el.offsetLeft;
       nextLefts.set(id, left);
       const prev = prevLefts.current.get(id);
-      if (prev !== undefined && prev !== left) play(el, `translateX(${prev - left}px)`);
+      if (prev !== undefined && prev !== left)
+        play(el, `translateX(${prev - left}px)`);
     });
     prevLefts.current = nextLefts;
 
-    // cartes (position verticale dans la colonne ; pas d'animation si la carte change de colonne)
     const nextCards = new Map<string, { y: number; col: string }>();
-    boardRef.current?.querySelectorAll<HTMLElement>("[data-card]").forEach((el) => {
-      const id = el.dataset.card as string;
-      const col = el.closest<HTMLElement>("[data-col]")?.dataset.col ?? "";
-      const y = el.offsetTop;
-      nextCards.set(id, { y, col });
-      const prev = prevCards.current.get(id);
-      if (prev && prev.col === col && prev.y !== y) play(el, `translateY(${prev.y - y}px)`);
-    });
+    boardRef.current
+      ?.querySelectorAll<HTMLElement>("[data-card]")
+      .forEach((el) => {
+        const id = el.dataset.card as string;
+        const col = el.closest<HTMLElement>("[data-col]")?.dataset.col ?? "";
+        const y = el.offsetTop;
+        nextCards.set(id, { y, col });
+        const prev = prevCards.current.get(id);
+        if (prev && prev.col === col && prev.y !== y)
+          play(el, `translateY(${prev.y - y}px)`);
+      });
     prevCards.current = nextCards;
   });
 
@@ -1343,31 +1393,59 @@ export default function Create() {
 
   return (
     <main
-      className={`relative h-screen w-full overflow-hidden transition-colors duration-300 ${page}`}
+      className={[
+        "relative h-screen w-full overflow-hidden",
+        "transition-colors duration-300",
+        page,
+      ].join(" ")}
     >
       <DashboardSidebar theme={theme} onToggleTheme={onToggleTheme} />
 
-      {/* Même structure que Community.tsx / Channels.tsx : le wrapper animé ne porte
-          que le padding-left (block, pas flex) ; le layout flex vit dans l'enfant. */}
+      {/* Zone à droite de la sidebar : marge autour du panneau arrondi */}
       <div
-        className="h-full overflow-hidden transition-[padding-left] duration-[380ms] ease-[cubic-bezier(0.4,0,0.2,1)] motion-reduce:transition-none"
+        className={[
+          "h-full py-3 pr-3",
+          "transition-[padding-left] duration-[380ms]",
+          "ease-[cubic-bezier(0.4,0,0.2,1)]",
+          "motion-reduce:transition-none",
+        ].join(" ")}
         style={{ paddingLeft: sidebarOffset }}
       >
-        <div className="flex h-full min-h-0 flex-col">
-          <div className="flex min-h-0 w-full flex-1 flex-col px-[clamp(12px,1.5vw,24px)] pb-8 pt-[clamp(16px,2vw,28px)]">
+        {/* PANNEAU ARRONDI (comme Home). Pour la board on garde h-full flex. */}
+        <div
+          className={[
+            "flex h-full flex-col overflow-hidden",
+            "rounded-[28px] border",
+            "transition-colors duration-300",
+            panel,
+          ].join(" ")}
+        >
+          <div
+            className={[
+              "flex min-h-0 w-full flex-1 flex-col",
+              "px-[clamp(18px,3vw,48px)]",
+              "pb-6 pt-[clamp(18px,3vw,30px)]",
+            ].join(" ")}
+          >
             {/* Header */}
-            <header className="flex items-center justify-between gap-4 pb-4">
+            <header className="flex shrink-0 items-center justify-between gap-4 pb-4">
               <div className="flex min-w-0 items-center gap-2.5">
                 <div
-                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border ${
+                  className={[
+                    "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border",
                     isDark
-                      ? "border-white/10 bg-white/[0.03] text-white"
-                      : "border-black/[0.08] bg-white text-neutral-900 shadow-sm"
-                  }`}
+                      ? "border-white/[0.08] bg-white/[0.04] text-white"
+                      : "border-black/[0.06] bg-white text-neutral-900 shadow-sm",
+                  ].join(" ")}
                 >
-                  <BulbIcon className="h-[17px] w-[17px]" />
+                  <BulbIcon className="h-[18px] w-[18px]" />
                 </div>
-                <h1 className="font-display text-[clamp(17px,1.5vw,20px)] font-semibold tracking-[-0.01em]">
+                <h1
+                  className={[
+                    "text-[24px] font-semibold tracking-[-0.035em]",
+                    isDark ? "text-white" : "text-neutral-900",
+                  ].join(" ")}
+                >
                   Create
                 </h1>
                 <IconButton
@@ -1388,11 +1466,14 @@ export default function Create() {
                 <button
                   type="button"
                   onClick={() => setModalTag(UNASSIGNED)}
-                  className={`flex items-center gap-2 rounded-xl px-4 py-2 text-[14px] font-medium transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 ${ring} ${
+                  className={[
+                    "flex items-center gap-2 rounded-xl px-4 py-2 text-[13px] font-semibold transition-colors motion-reduce:transition-none",
+                    "focus-visible:outline-none focus-visible:ring-2",
+                    ring,
                     isDark
                       ? "bg-white text-black hover:bg-neutral-200"
-                      : "bg-black text-white hover:bg-neutral-800"
-                  }`}
+                      : "bg-neutral-900 text-white hover:bg-neutral-800",
+                  ].join(" ")}
                 >
                   <PlusIcon className="h-[18px] w-[18px]" />
                   New Idea
@@ -1401,7 +1482,12 @@ export default function Create() {
             </header>
 
             {/* Tabs + toolbar */}
-            <div className={`flex items-center justify-between gap-4 border-b ${line}`}>
+            <div
+              className={[
+                "flex shrink-0 items-center justify-between gap-4 border-b",
+                line,
+              ].join(" ")}
+            >
               <div role="tablist" aria-label="Create" className="flex gap-6">
                 {TABS.map((t) => (
                   <button
@@ -1410,13 +1496,20 @@ export default function Create() {
                     role="tab"
                     aria-selected={tab === t.key}
                     onClick={() => setTab(t.key)}
-                    className={`-mb-px border-b-2 px-1 pb-3 pt-2 text-[15px] font-medium transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 ${ring} ${
+                    className={[
+                      "-mb-px border-b-2 px-1 pb-3 pt-2 text-[14px] font-medium transition-colors motion-reduce:transition-none",
+                      "focus-visible:outline-none focus-visible:ring-2",
+                      ring,
                       tab === t.key
                         ? isDark
                           ? "border-white text-white"
-                          : "border-black text-black"
-                        : `border-transparent ${muted} ${isDark ? "hover:text-white" : "hover:text-black"}`
-                    }`}
+                          : "border-neutral-900 text-neutral-900"
+                        : `border-transparent ${muted} ${
+                            isDark
+                              ? "hover:text-white"
+                              : "hover:text-neutral-900"
+                          }`,
+                    ].join(" ")}
                   >
                     {t.label}
                   </button>
@@ -1436,12 +1529,23 @@ export default function Create() {
                   <div
                     role="tablist"
                     aria-label="View"
-                    className={`inline-flex gap-1 rounded-xl border p-1 ${line}`}
+                    className={[
+                      "inline-flex gap-1 rounded-xl border p-1",
+                      line,
+                    ].join(" ")}
                   >
                     {(
                       [
-                        { key: "board", label: "Board", icon: <BoardIcon className="h-4 w-4" /> },
-                        { key: "gallery", label: "Gallery", icon: <GalleryIcon className="h-4 w-4" /> },
+                        {
+                          key: "board",
+                          label: "Board",
+                          icon: <BoardIcon className="h-4 w-4" />,
+                        },
+                        {
+                          key: "gallery",
+                          label: "Gallery",
+                          icon: <GalleryIcon className="h-4 w-4" />,
+                        },
                       ] as { key: View; label: string; icon: ReactNode }[]
                     ).map((o) => (
                       <button
@@ -1450,15 +1554,18 @@ export default function Create() {
                         role="tab"
                         aria-selected={view === o.key}
                         onClick={() => setView(o.key)}
-                        className={`flex items-center gap-2 rounded-lg px-3 py-1.5 text-[13px] font-medium transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 ${ring} ${
+                        className={[
+                          "flex items-center gap-2 rounded-lg px-3 py-1.5 text-[12.5px] font-semibold transition-colors motion-reduce:transition-none",
+                          "focus-visible:outline-none focus-visible:ring-2",
+                          ring,
                           view === o.key
                             ? isDark
                               ? "bg-white text-black"
-                              : "bg-black text-white"
+                              : "bg-neutral-900 text-white"
                             : isDark
-                            ? "text-neutral-400 hover:text-white"
-                            : "text-neutral-500 hover:text-black"
-                        }`}
+                              ? "text-neutral-400 hover:text-white"
+                              : "text-neutral-500 hover:text-neutral-900",
+                        ].join(" ")}
                       >
                         {o.icon}
                         {o.label}
@@ -1473,10 +1580,20 @@ export default function Create() {
             <div className="flex min-h-0 flex-1 flex-col pt-5">
               {tab !== "ideas" && (
                 <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center">
-                  <h2 className="text-[20px] font-semibold tracking-tight">
+                  <h2
+                    className={[
+                      "text-[20px] font-semibold tracking-[-0.02em]",
+                      isDark ? "text-white" : "text-neutral-900",
+                    ].join(" ")}
+                  >
                     {tab === "templates" ? "No templates yet" : "No feeds yet"}
                   </h2>
-                  <p className={`max-w-[380px] text-[14px] leading-relaxed ${muted}`}>
+                  <p
+                    className={[
+                      "max-w-[380px] text-[13px] leading-relaxed",
+                      muted,
+                    ].join(" ")}
+                  >
                     {tab === "templates"
                       ? "Save a post as a template to reuse it later."
                       : "Follow sources to get fresh content ideas here."}
@@ -1504,17 +1621,20 @@ export default function Create() {
                           if (el) colRefs.current.set(tag.id, el);
                           else colRefs.current.delete(tag.id);
                         }}
-                        className={`group/col relative flex min-h-0 w-[min(300px,85vw)] shrink-0 flex-col rounded-2xl p-3 transition-colors motion-reduce:transition-none ${
+                        className={[
+                          "group/col relative flex min-h-0 w-[min(300px,85vw)] shrink-0 flex-col rounded-2xl p-3",
+                          "transition-colors motion-reduce:transition-none",
                           isPlaceholder
-                            ? `${isDark ? "bg-white/[0.08]" : "bg-black/[0.07]"} [&>*]:invisible`
+                            ? `${
+                                isDark ? "bg-white/[0.06]" : "bg-black/[0.05]"
+                              } [&>*]:invisible`
                             : ideaTarget
-                            ? isDark
-                              ? "bg-white/[0.10]"
-                              : "bg-black/[0.07]"
-                            : column
-                        }`}
+                              ? isDark
+                                ? "bg-white/[0.08]"
+                                : "bg-black/[0.05]"
+                              : column,
+                        ].join(" ")}
                       >
-                        {/* Les 6 points, centrés en haut (survol + fantôme) */}
                         {!fixed && (
                           <span
                             data-grip
@@ -1525,14 +1645,19 @@ export default function Create() {
                           </span>
                         )}
 
-                        {/* En-tête : on l'attrape ici pour déplacer la colonne */}
+                        {/* En-tête : attraper ici pour déplacer la colonne */}
                         <div
                           onPointerDown={(e) =>
-                            !fixed && editing !== tag.id && onHeaderPointerDown(e, tag.id)
+                            !fixed &&
+                            editing !== tag.id &&
+                            onHeaderPointerDown(e, tag.id)
                           }
-                          className={`flex items-center justify-between px-2 pb-3 pt-3 ${
-                            fixed ? "" : "cursor-grab touch-none select-none active:cursor-grabbing"
-                          }`}
+                          className={[
+                            "flex items-center justify-between px-2 pb-3 pt-3",
+                            fixed
+                              ? ""
+                              : "cursor-grab touch-none select-none active:cursor-grabbing",
+                          ].join(" ")}
                         >
                           <div className="flex min-w-0 items-center gap-2.5">
                             {editing === tag.id ? (
@@ -1548,15 +1673,27 @@ export default function Create() {
                                   if (e.key === "Enter") e.currentTarget.blur();
                                   if (e.key === "Escape") setEditing(null);
                                 }}
-                                className={`w-[120px] rounded-md border bg-transparent px-2 py-0.5 text-[15px] font-semibold outline-none ${
-                                  isDark ? "border-white/30" : "border-black/30"
-                                }`}
+                                className={[
+                                  "w-[120px] rounded-md border bg-transparent px-2 py-0.5 text-[14px] font-semibold outline-none",
+                                  isDark
+                                    ? "border-white/30"
+                                    : "border-black/30",
+                                ].join(" ")}
                               />
                             ) : (
-                              <h2 className="truncate text-[15px] font-semibold">{tag.label}</h2>
+                              <h2
+                                className={[
+                                  "truncate text-[14px] font-semibold",
+                                  isDark
+                                    ? "text-white"
+                                    : "text-neutral-900",
+                                ].join(" ")}
+                              >
+                                {tag.label}
+                              </h2>
                             )}
                             <span
-                              className={`rounded-full px-2.5 py-0.5 text-[13px] font-medium tabular-nums ${chip} ${muted}`}
+                              className={`rounded-full px-2.5 py-0.5 text-[12px] font-medium tabular-nums ${chip} ${muted}`}
                             >
                               {items.length}
                             </span>
@@ -1576,7 +1713,11 @@ export default function Create() {
                               <>
                                 <IconButton
                                   label="Tag options"
-                                  onClick={() => setColMenu((c) => (c === tag.id ? null : tag.id))}
+                                  onClick={() =>
+                                    setColMenu((c) =>
+                                      c === tag.id ? null : tag.id
+                                    )
+                                  }
                                   ghost={ghost}
                                   isDark={isDark}
                                   className="h-8 w-8"
@@ -1595,8 +1736,8 @@ export default function Create() {
                                     <div
                                       className={`absolute right-0 top-full z-40 mt-1 min-w-[210px] rounded-xl border p-1 shadow-lg ${
                                         isDark
-                                          ? "border-white/10 bg-[#0c0c0c]"
-                                          : "border-black/10 bg-white"
+                                          ? "border-white/[0.08] bg-[#16161a]"
+                                          : "border-black/[0.06] bg-white"
                                       }`}
                                     >
                                       {[
@@ -1637,7 +1778,7 @@ export default function Create() {
                           </div>
                         </div>
 
-                        {/* Liste : `relative` pour que offsetTop des cartes soit relatif à elle */}
+                        {/* Liste */}
                         <div
                           data-list
                           className="relative flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto"
@@ -1650,7 +1791,9 @@ export default function Create() {
                               muted={muted}
                               draggable
                               placeholder={cardDrag === idea.id}
-                              onPointerDown={(e) => onCardPointerDown(e, idea.id)}
+                              onPointerDown={(e) =>
+                                onCardPointerDown(e, idea.id)
+                              }
                               onEdit={() => openEdit(idea)}
                               onDelete={() => deleteIdea(idea.id)}
                             />
@@ -1658,7 +1801,15 @@ export default function Create() {
                           <button
                             type="button"
                             onClick={() => setModalTag(tag.id)}
-                            className={`mt-1 flex items-center justify-center gap-2 rounded-xl px-3 py-3 text-[15px] font-medium transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 ${ghost} ${ring}`}
+                            className={[
+                              "mt-1 flex items-center justify-center gap-2 rounded-xl px-3 py-3 text-[14px] font-medium transition-colors motion-reduce:transition-none",
+                              "focus-visible:outline-none focus-visible:ring-2",
+                              ghost,
+                              ring,
+                              isDark
+                                ? "text-neutral-300"
+                                : "text-neutral-600",
+                            ].join(" ")}
                           >
                             <PlusIcon className="h-[18px] w-[18px]" />
                             New Idea
@@ -1668,7 +1819,7 @@ export default function Create() {
                     );
                   })}
 
-                  {/* Ajouter une colonne (= créer un tag) */}
+                  {/* Ajouter une colonne */}
                   <div className="w-[min(260px,80vw)] shrink-0">
                     {addingCol ? (
                       <div className={`rounded-2xl p-3 ${column}`}>
@@ -1693,11 +1844,14 @@ export default function Create() {
                       <button
                         type="button"
                         onClick={() => setAddingCol(true)}
-                        className={`flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed px-4 py-4 text-[15px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 ${ring} ${
+                        className={[
+                          "flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed px-4 py-4 text-[14px] font-medium transition-colors",
+                          "focus-visible:outline-none focus-visible:ring-2",
+                          ring,
                           isDark
-                            ? "border-white/20 hover:bg-white/[0.06]"
-                            : "border-black/20 hover:bg-black/[0.04]"
-                        }`}
+                            ? "border-white/[0.14] text-neutral-300 hover:bg-white/[0.04]"
+                            : "border-black/[0.10] text-neutral-600 hover:bg-black/[0.03]",
+                        ].join(" ")}
                       >
                         <PlusIcon className="h-[18px] w-[18px]" />
                         New tag
@@ -1712,14 +1866,31 @@ export default function Create() {
                 <div className="min-h-0 flex-1 overflow-y-auto">
                   {visibleIdeas.length === 0 ? (
                     <div className="mt-16 flex flex-col items-center gap-3 text-center">
-                      <h2 className="text-[20px] font-semibold tracking-tight">No ideas yet</h2>
-                      <p className={`max-w-[360px] text-[14px] leading-relaxed ${muted}`}>
+                      <h2
+                        className={[
+                          "text-[20px] font-semibold tracking-[-0.02em]",
+                          isDark ? "text-white" : "text-neutral-900",
+                        ].join(" ")}
+                      >
+                        No ideas yet
+                      </h2>
+                      <p
+                        className={[
+                          "max-w-[360px] text-[13px] leading-relaxed",
+                          muted,
+                        ].join(" ")}
+                      >
                         Capture your next post idea before it gets away.
                       </p>
                       <button
                         type="button"
                         onClick={() => setModalTag(UNASSIGNED)}
-                        className={`mt-2 flex items-center gap-2 rounded-xl border px-4 py-2 text-[14px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 ${outline} ${ring}`}
+                        className={[
+                          "mt-2 flex items-center gap-2 rounded-xl border px-4 py-2 text-[13px] font-semibold transition-colors",
+                          "focus-visible:outline-none focus-visible:ring-2",
+                          outline,
+                          ring,
+                        ].join(" ")}
                       >
                         <PlusIcon className="h-[18px] w-[18px]" />
                         New Idea
@@ -1759,7 +1930,9 @@ export default function Create() {
           muted={muted}
           ring={ring}
           onClose={closeModal}
-          onSave={(data) => (ideaEdit ? updateIdea(ideaEdit.id, data) : addIdea(data))}
+          onSave={(data) =>
+            ideaEdit ? updateIdea(ideaEdit.id, data) : addIdea(data)
+          }
           onCreateTag={createTag}
         />
       )}
