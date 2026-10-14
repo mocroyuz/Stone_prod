@@ -59,6 +59,8 @@ import {
   Heart,
   MessageCircle,
   Plus,
+  TrendingDown,
+  TrendingUp,
   Users,
 } from "lucide-react";
 import {
@@ -95,6 +97,12 @@ const mutedClass = (isDark: boolean) =>
 
 const strongClass = (isDark: boolean) =>
   isDark ? "text-white" : "text-neutral-900";
+
+/* Anneau de focus clavier commun à tous les boutons / liens */
+const focusRingClass = (isDark: boolean) =>
+  isDark
+    ? "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
+    : "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/25";
 
 /* ============================================================
    USER CACHE
@@ -297,16 +305,28 @@ function GreetingAvatar({
   avatarUrl,
   initials,
   isDark,
+  loading = false,
 }: {
   avatarUrl?: string | null;
   initials: string;
   isDark: boolean;
+  loading?: boolean;
 }) {
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     setFailed(false);
   }, [avatarUrl]);
+
+  /* Évite le flash « U » avant l'arrivée du vrai profil. */
+  if (loading) {
+    return (
+      <div
+        aria-hidden="true"
+        className="h-9 w-9 animate-pulse rounded-full bg-neutral-500/20"
+      />
+    );
+  }
 
   if (avatarUrl && !failed) {
     return (
@@ -337,12 +357,12 @@ function GreetingAvatar({
 ============================================================ */
 
 function ClockDisplay({ isDark, now }: { isDark: boolean; now: Date }) {
-  const time = now.toLocaleTimeString("fr-FR", {
+  const time = now.toLocaleTimeString("en-GB", {
     hour: "2-digit",
     minute: "2-digit",
   });
 
-  const date = now.toLocaleDateString("fr-FR", {
+  const date = now.toLocaleDateString("en-GB", {
     weekday: "short",
     day: "numeric",
     month: "short",
@@ -443,6 +463,8 @@ function Stat({
     <div
       className={[
         "flex min-w-0 items-center gap-3",
+        /* Mobile : séparateur horizontal ; desktop : séparateur vertical. */
+        "border-b pb-3 last:border-b-0 last:pb-0 sm:border-b-0 sm:pb-0",
         "sm:border-r sm:last:border-r-0 sm:pr-5 sm:last:pr-0",
         isDark ? "border-white/[0.07]" : "border-black/[0.07]",
       ].join(" ")}
@@ -479,12 +501,25 @@ function Stat({
           >
             {value}
           </span>
+          {/* Pastille + flèche : la tendance ne repose plus uniquement sur la couleur. */}
           <span
             className={[
-              "text-[9px] font-semibold",
-              positive ? "text-emerald-500" : "text-rose-500",
+              "flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[9px] font-semibold",
+              positive
+                ? isDark
+                  ? "bg-emerald-500/10 text-emerald-400"
+                  : "bg-emerald-500/10 text-emerald-600"
+                : isDark
+                  ? "bg-rose-500/10 text-rose-400"
+                  : "bg-rose-500/10 text-rose-600",
             ].join(" ")}
           >
+            {positive ? (
+              <TrendingUp className="h-2.5 w-2.5" aria-hidden="true" />
+            ) : (
+              <TrendingDown className="h-2.5 w-2.5" aria-hidden="true" />
+            )}
+            <span className="sr-only">{positive ? "Up " : "Down "}</span>
             {change}
           </span>
         </div>
@@ -591,6 +626,7 @@ function Channels({
             onClick={onAdd}
             className={[
               "flex h-9 w-9 items-center justify-center rounded-xl transition",
+              focusRingClass(isDark),
               isDark
                 ? "bg-white/[0.06] hover:bg-white/[0.12]"
                 : "bg-white shadow-sm ring-1 ring-black/[0.05] hover:bg-neutral-100",
@@ -631,6 +667,23 @@ function Channels({
               />
             ))}
 
+            {/* Canaux au-delà des 6 premiers avatars */}
+            {channels.length > 6 && (
+              <span
+                title={`${channels.length - 6} more ${
+                  channels.length - 6 === 1 ? "channel" : "channels"
+                }`}
+                className={[
+                  "-ml-2 flex h-9 w-9 shrink-0 items-center justify-center rounded-full",
+                  "text-[10px] font-semibold ring-2",
+                  isDark ? "bg-[#29292c] text-white" : "bg-neutral-200 text-neutral-700",
+                  panelRingClass(isDark),
+                ].join(" ")}
+              >
+                +{channels.length - 6}
+              </span>
+            )}
+
             {/* + : même forme que les avatars, légèrement imbriqué */}
             <button
               type="button"
@@ -640,6 +693,7 @@ function Channels({
               className={[
                 "-ml-2 flex h-9 w-9 shrink-0 items-center justify-center",
                 "relative z-10 rounded-full border transition-all duration-200",
+                focusRingClass(isDark),
                 "ring-2",
                 panelRingClass(isDark),
                 isDark
@@ -677,6 +731,7 @@ function Channels({
         className={[
           "flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-2",
           "text-[10px] font-semibold transition",
+          focusRingClass(isDark),
           isDark
             ? "text-white hover:bg-white/[0.06]"
             : "text-neutral-900 hover:bg-neutral-100",
@@ -737,7 +792,8 @@ function Panel({
           disabled={!onViewAll}
           onClick={onViewAll}
           className={[
-            "flex items-center gap-0.5 text-[11px] font-semibold transition",
+            "flex items-center gap-0.5 rounded-md text-[11px] font-semibold transition",
+            focusRingClass(isDark),
             "disabled:cursor-default disabled:opacity-40",
             isDark
               ? "text-neutral-400 enabled:hover:text-white"
@@ -781,6 +837,7 @@ function Panel({
             className={[
               "mt-3 flex items-center gap-1.5 rounded-lg border px-3 py-1.5",
               "text-[11px] font-semibold transition",
+              focusRingClass(isDark),
               isDark
                 ? "border-white/10 text-white hover:bg-white/[0.07]"
                 : "border-black/10 text-neutral-900 hover:bg-neutral-100",
@@ -850,7 +907,8 @@ function BlogSection({ isDark }: { isDark: boolean }) {
           href={BLOG_URL}
           {...linkProps(BLOG_URL)}
           className={[
-            "flex items-center gap-0.5 text-[11px] font-semibold transition",
+            "flex items-center gap-0.5 rounded-md text-[11px] font-semibold transition",
+            focusRingClass(isDark),
             isDark
               ? "text-neutral-400 hover:text-white"
               : "text-neutral-500 hover:text-neutral-900",
@@ -869,6 +927,7 @@ function BlogSection({ isDark }: { isDark: boolean }) {
             {...linkProps(post.url)}
             className={[
               "group flex flex-col rounded-2xl border p-3.5 transition",
+              focusRingClass(isDark),
               cardClass(isDark),
               isDark ? "hover:bg-[#1a1a1d]" : "hover:bg-neutral-50",
             ].join(" ")}
@@ -940,6 +999,9 @@ export default function Home() {
   const [isNewPostOpen, setIsNewPostOpen] = useState(false);
   const [isFolderOpen, setIsFolderOpen] = useState(false);
   const [user, setUser] = useState<UserProfile | null>(userProfileCache.profile);
+  const [userLoaded, setUserLoaded] = useState(
+    userProfileCache.profile !== null
+  );
   const [now, setNow] = useState(() => new Date());
   const connectedChannels = useConnectedChannels();
 
@@ -1142,6 +1204,8 @@ export default function Home() {
         }
       } catch (error) {
         console.error("Error loading user on Home:", error);
+      } finally {
+        if (mounted) setUserLoaded(true);
       }
     }
 
@@ -1238,6 +1302,7 @@ export default function Home() {
                 avatarUrl={user?.avatar_url}
                 initials={initials}
                 isDark={isDark}
+                loading={!userLoaded}
               />
               <div>
                 <p
@@ -1256,7 +1321,16 @@ export default function Home() {
                       strongClass(isDark),
                     ].join(" ")}
                   >
-                    {fullName || "Welcome"}
+                    {fullName ? (
+                      fullName
+                    ) : userLoaded ? (
+                      "Welcome"
+                    ) : (
+                      <span
+                        aria-hidden="true"
+                        className="block h-[22px] w-40 animate-pulse rounded-md bg-neutral-500/20"
+                      />
+                    )}
                   </h1>
                 </div>
               </div>
@@ -1342,18 +1416,6 @@ export default function Home() {
                   Your connected accounts
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={() => navigate("channels")}
-                className={[
-                  "text-[10px] font-semibold",
-                  isDark
-                    ? "text-neutral-500 hover:text-white"
-                    : "text-neutral-400 hover:text-neutral-900",
-                ].join(" ")}
-              >
-                Manage
-              </button>
             </div>
 
             <Channels
@@ -1372,7 +1434,16 @@ export default function Home() {
               onViewAll={handleViewAllComments}
               icon={<MessageCircle className="h-5 w-5" />}
               line1="No comments yet."
-              line2="You'll see the latest comments here."
+              line2={
+                connectedChannels.length === 0
+                  ? "Connect a channel to start receiving comments."
+                  : "You'll see the latest comments here."
+              }
+              action={
+                connectedChannels.length === 0
+                  ? { label: "Connect a channel", onClick: openConnectModal }
+                  : undefined
+              }
             />
             <Panel
               isDark={isDark}
