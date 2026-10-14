@@ -196,11 +196,10 @@ const EditIcon = (p: IconProps) => (
     <path d="M17.5 3.5a1.8 1.8 0 0 1 2.5 2.5L12 14l-3.5 1 1-3.5 8-8Z" />
   </Svg>
 );
-const UsersIcon = (p: IconProps) => (
+const ChatsIcon = (p: IconProps) => (
   <Svg {...p}>
-    <circle cx="9" cy="8.5" r="3.2" />
-    <path d="M3 19.5a6 6 0 0 1 12 0" />
-    <path d="M16 5.6a3.2 3.2 0 0 1 0 5.8M18 14.2a6 6 0 0 1 3 5.3" />
+    <path d="M5.5 8H12.5A2.5 2.5 0 0 1 15 10.5V15.5A2.5 2.5 0 0 1 12.5 18H9L5.5 21V18A2.5 2.5 0 0 1 3 15.5V10.5A2.5 2.5 0 0 1 5.5 8Z" />
+    <path d="M8 8V5.5A2.5 2.5 0 0 1 10.5 3H18.5A2.5 2.5 0 0 1 21 5.5V10.5A2.5 2.5 0 0 1 18.5 13H18V16L15 13" />
   </Svg>
 );
 const PlusIcon = (p: IconProps) => (
@@ -404,13 +403,15 @@ export default function Community() {
   const visiblePosts = showAll ? posts : posts.filter((p) => p.commentCount > 0);
 
   return (
-    <main
-      className={`flex h-screen flex-col pb-8 pr-[clamp(12px,1.5vw,24px)] pt-[clamp(16px,2vw,28px)] transition-[padding-left] duration-[380ms] ease-[cubic-bezier(0.4,0,0.2,1)] motion-reduce:transition-none ${page}`}
-      style={{ paddingLeft: sidebarOffset }}
-    >
-      <DashboardSidebar />
+    <main className={`relative h-screen w-full overflow-hidden transition-colors duration-300 ${page}`}>
+      <DashboardSidebar theme={theme} />
 
-      <div className="flex min-h-0 w-full flex-1 flex-col">
+      {/* Le padding-left suit l'ouverture/fermeture de la sidebar. */}
+      <div
+        className="flex h-full flex-col transition-[padding-left] duration-[380ms] ease-[cubic-bezier(0.4,0,0.2,1)] motion-reduce:transition-none"
+        style={{ paddingLeft: sidebarOffset }}
+      >
+      <div className="flex min-h-0 w-full flex-1 flex-col px-[clamp(12px,1.5vw,24px)] pb-8 pt-[clamp(16px,2vw,28px)]">
         {/* Header */}
         <header className="flex items-center justify-between gap-4 pb-4">
           {/* Titre de la page : en haut à gauche */}
@@ -422,7 +423,7 @@ export default function Community() {
                   : "border-black/[0.08] bg-white text-neutral-900 shadow-sm"
               }`}
             >
-              <UsersIcon className="h-[17px] w-[17px]" />
+              <ChatsIcon className="h-[17px] w-[17px]" />
             </div>
             <h1 className="font-display text-[clamp(17px,1.5vw,20px)] font-semibold tracking-[-0.01em]">
               Community
@@ -672,6 +673,7 @@ export default function Community() {
             </div>
           </section>
         </div>
+      </div>
       </div>
     </main>
   );
