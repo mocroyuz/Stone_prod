@@ -4,12 +4,12 @@
 //
 // Concept : les colonnes du board SONT des tags (Unassigned, To Do, In Progress…).
 //  - on peut créer / renommer / supprimer des tags,
-//  - on peut réordonner les colonnes (drag par l'en-tête),
-//  - on peut déplacer les idées entre colonnes et les réordonner (drag de la carte).
+//  - on peut réordonner les colonnes (drag par l'en-tête, fantôme flottant + décalage fluide),
+//  - on peut déplacer les idées entre colonnes et les réordonner (drag natif de la carte).
 // Les données vivent dans `useBoard` (state local) : branche-le sur ton backend.
 
-import { useEffect, useRef, useState } from "react";
-import type { DragEvent, ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import type { DragEvent, PointerEvent as RPointerEvent, ReactNode } from "react";
 import { useTheme } from "../hooks/useTheme";
 import DashboardSidebar, {
   useSidebarOffset,
@@ -30,7 +30,7 @@ type Idea = {
   tagId: string;
 };
 
-type DragState = { type: "idea" | "col"; id: string } | null;
+type DragState = { type: "idea"; id: string } | null;
 
 type IconProps = { className?: string };
 
@@ -182,9 +182,13 @@ const DotsIcon = (p: IconProps) => (
     <path d="M5 12h.01M12 12h.01M19 12h.01" strokeWidth="2.6" />
   </Svg>
 );
-const GripIcon = (p: IconProps) => (
+/** Les 6 points (2 × 3) affichés en haut au centre d'une colonne déplaçable. */
+const DragDotsIcon = (p: IconProps) => (
   <Svg {...p}>
-    <path d="M9 6h.01M15 6h.01M9 12h.01M15 12h.01M9 18h.01M15 18h.01" strokeWidth="2.6" />
+    <path
+      d="M8.5 10h.01M12 10h.01M15.5 10h.01M8.5 14h.01M12 14h.01M15.5 14h.01"
+      strokeWidth="2.6"
+    />
   </Svg>
 );
 const ChevronDownIcon = (p: IconProps) => (
@@ -851,12 +855,19 @@ export default function Create() {
   const [saved, setSaved] = useState(false);
   const [modalTag, setModalTag] = useState<string | null>(null);
 
-  // Drag & drop
+  // Drag & drop des idées (natif HTML5)
   const drag = useRef<DragState>(null);
-  const [dragKind, setDragKind] = useState<"idea" | "col" | null>(null);
+  const [dragKind, setDragKind] = useState<"idea" | null>(null);
   const [dragId, setDragId] = useState<string | null>(null);
   const [overCol, setOverCol] = useState<string | null>(null);
   const [overCard, setOverCard] = useState<string | null>(null);
+
+  // Drag des colonnes (pointer events : fantôme flottant + décalage fluide)
+  const [colDrag, setColDrag] = useState<string | null>(null);
+  const boardRef = useRef<HTMLDivElement>(null);
+  const colRefs = useRef(new Map<string, HTMLElement>());
+  const prevLefts = useRef(new Map<string, number>());
+  const visibleRef = useRef<Tag[]>([]);
 
   // Menu « … » d'une colonne / renommage / ajout de colonne
   const [colMenu, setColMenu] = useState<string | null>(null);
@@ -873,6 +884,7 @@ export default function Create() {
   const chip = isDark ? "bg-white/10" : "bg-black/[0.07]";
 
   const visibleTags = tags.filter((t) => !hidden.includes(t.id));
+  visibleRef.current = visibleTags;
   const tagLabel = (id: string) => tags.find((t) => t.id === id)?.label;
 
   const toggleHidden = (id: string) =>
@@ -884,6 +896,8 @@ export default function Create() {
     return id;
   };
 
+  /* ── Drag des idées (natif) ── */
+
   const endDrag = () => {
     drag.current = null;
     setDragKind(null);
@@ -892,11 +906,11 @@ export default function Create() {
     setOverCard(null);
   };
 
-  const startDrag = (e: DragEvent, type: "idea" | "col", id: string) => {
-    drag.current = { type, id };
+  const startDrag = (e: DragEvent, id: string) => {
+    drag.current = { type: "idea", id };
     e.dataTransfer.effectAllowed = "move";
     e.dataTransfer.setData("text/plain", id);
-    setDragKind(type);
+    setDragKind("idea");
     setDragId(id);
   };
 
@@ -910,18 +924,126 @@ export default function Create() {
     e.preventDefault();
     const d = drag.current;
     if (d?.type === "idea") moveIdea(d.id, tagId);
-    else if (d?.type === "col") moveTag(d.id, tagId);
     endDrag();
   };
 
   const onCardDrop = (e: DragEvent, tagId: string, cardId: string) => {
     const d = drag.current;
-    if (d?.type !== "idea") return; // un drag de colonne remonte jusqu'à la colonne
+    if (d?.type !== "idea") return;
     e.preventDefault();
     e.stopPropagation();
     moveIdea(d.id, tagId, cardId);
     endDrag();
   };
+
+  /* ── Drag des colonnes : fantôme flottant + les autres colonnes se décalent en direct ── */
+
+  const onHeaderPointerDown = (e: RPointerEvent, tagId: string) => {
+    if (e.button !== 0) return;
+    if ((e.target as HTMLElement).closest("button,input")) return;
+    const section = colRefs.current.get(tagId);
+    if (!section) return;
+
+    const rect = section.getBoundingClientRect();
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const offX = e.clientX - rect.left;
+    const offY = e.clientY - rect.top;
+    let ghostEl: HTMLElement | null = null;
+
+    const onMove = (ev: PointerEvent) => {
+      if (!ghostEl) {
+        // seuil de 5px avant de démarrer (laisse passer les simples clics)
+        if (Math.hypot(ev.clientX - startX, ev.clientY - startY) < 5) return;
+
+        ghostEl = section.cloneNode(true) as HTMLElement;
+        Object.assign(ghostEl.style, {
+          position: "fixed",
+          margin: "0",
+          width: `${rect.width}px`,
+          height: `${rect.height}px`,
+          zIndex: "200",
+          pointerEvents: "none",
+          transition: "none",
+          transform: "rotate(2deg)",
+          transformOrigin: "50% 0",
+          background: isDark ? "#141414" : "#f5f5f5",
+          color: getComputedStyle(section).color,
+          opacity: "1",
+          boxShadow: isDark
+            ? "0 18px 40px rgba(0,0,0,0.7)"
+            : "0 18px 40px rgba(0,0,0,0.18)",
+        } as Partial<CSSStyleDeclaration>);
+        const grip = ghostEl.querySelector<HTMLElement>("[data-grip]");
+        if (grip) grip.style.opacity = "1";
+        document.body.appendChild(ghostEl);
+        document.body.style.cursor = "grabbing";
+        document.body.style.userSelect = "none";
+        setColDrag(tagId);
+      }
+
+      ghostEl.style.left = `${ev.clientX - offX}px`;
+      ghostEl.style.top = `${ev.clientY - offY}px`;
+
+      const board = boardRef.current;
+      if (!board) return;
+      const b = board.getBoundingClientRect();
+
+      // auto-scroll horizontal près des bords
+      if (ev.clientX > b.right - 60) board.scrollLeft += 14;
+      else if (ev.clientX < b.left + 60) board.scrollLeft -= 14;
+
+      // réordonne en direct (positions de layout, indépendantes des animations)
+      const x = ev.clientX - b.left + board.scrollLeft;
+      const order = visibleRef.current;
+      const from = order.findIndex((t) => t.id === tagId);
+      let target: number | null = null;
+      for (let i = 1; i < order.length; i++) {
+        if (i === from) continue;
+        const el = colRefs.current.get(order[i].id);
+        if (!el) continue;
+        const mid = el.offsetLeft + el.offsetWidth / 2;
+        if (i > from && x > mid) target = i; // le plus loin vers la droite
+        else if (i < from && x < mid && target === null) target = i; // le plus loin vers la gauche
+      }
+      if (target !== null) moveTag(tagId, order[target].id);
+    };
+
+    const onUp = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
+      ghostEl?.remove();
+      ghostEl = null;
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      setColDrag(null);
+    };
+
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
+  };
+
+  /** FLIP : anime les colonnes qui changent de place pour laisser sa place à celle qu'on déplace. */
+  useLayoutEffect(() => {
+    const next = new Map<string, number>();
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    colRefs.current.forEach((el, id) => {
+      const left = el.offsetLeft;
+      next.set(id, left);
+      const prev = prevLefts.current.get(id);
+      if (prev !== undefined && prev !== left && !reduce) {
+        el.style.transition = "none";
+        el.style.transform = `translateX(${prev - left}px)`;
+        el.getBoundingClientRect(); // force le reflow
+        el.style.transition = "transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1)";
+        el.style.transform = "";
+        el.addEventListener("transitionend", () => (el.style.transition = ""), { once: true });
+      }
+    });
+    prevLefts.current = next;
+  });
 
   const visibleIdeas = ideas.filter((i) => !hidden.includes(i.tagId));
 
@@ -1077,50 +1199,58 @@ export default function Create() {
 
               {/* ───── Board ───── */}
               {tab === "ideas" && view === "board" && (
-                <div className="flex min-h-0 flex-1 gap-4 overflow-x-auto pb-2">
+                <div
+                  ref={boardRef}
+                  className="relative flex min-h-0 flex-1 gap-4 overflow-x-auto pb-2"
+                >
                   {visibleTags.map((tag) => {
                     const items = ideas.filter((i) => i.tagId === tag.id);
                     const fixed = tag.id === UNASSIGNED;
-                    const isColDragged = dragKind === "col" && dragId === tag.id;
+                    const isPlaceholder = colDrag === tag.id;
                     const isOver = overCol === tag.id && dragId !== tag.id;
-                    const reorderTarget = isOver && dragKind === "col";
                     const ideaTarget = isOver && dragKind === "idea";
 
                     return (
                       <section
                         key={tag.id}
+                        ref={(el) => {
+                          if (el) colRefs.current.set(tag.id, el);
+                          else colRefs.current.delete(tag.id);
+                        }}
                         onDragOver={(e) => onColumnDragOver(e, tag.id)}
                         onDragLeave={() => setOverCol((c) => (c === tag.id ? null : c))}
                         onDrop={(e) => onColumnDrop(e, tag.id)}
-                        className={`flex min-h-0 w-[min(420px,85vw)] shrink-0 flex-col rounded-2xl p-3 transition-colors motion-reduce:transition-none ${
-                          ideaTarget
+                        className={`group/col relative flex min-h-0 w-[min(300px,85vw)] shrink-0 flex-col rounded-2xl p-3 transition-colors motion-reduce:transition-none ${
+                          isPlaceholder
+                            ? `${isDark ? "bg-white/[0.08]" : "bg-black/[0.07]"} [&>*]:invisible`
+                            : ideaTarget
                             ? isDark
                               ? "bg-white/[0.12]"
                               : "bg-black/[0.09]"
                             : column
-                        } ${isColDragged ? "opacity-40" : ""} ${
-                          reorderTarget
-                            ? isDark
-                              ? "ring-2 ring-white/60"
-                              : "ring-2 ring-black/50"
-                            : ""
                         }`}
                       >
-                        {/* En-tête : poignée de drag pour réordonner les colonnes */}
+                        {/* Les 6 points, centrés en haut (survol + fantôme) */}
+                        {!fixed && (
+                          <span
+                            data-grip
+                            aria-hidden="true"
+                            className={`pointer-events-none absolute left-1/2 top-0.5 -translate-x-1/2 opacity-0 transition-opacity group-hover/col:opacity-100 ${muted}`}
+                          >
+                            <DragDotsIcon className="h-5 w-5" />
+                          </span>
+                        )}
+
+                        {/* En-tête : on l'attrape ici pour déplacer la colonne */}
                         <div
-                          draggable={!fixed && editing !== tag.id}
-                          onDragStart={(e) => !fixed && startDrag(e, "col", tag.id)}
-                          onDragEnd={endDrag}
-                          className={`group/head flex items-center justify-between px-2 pb-3 pt-1 ${
-                            fixed ? "" : "cursor-grab active:cursor-grabbing"
+                          onPointerDown={(e) =>
+                            !fixed && editing !== tag.id && onHeaderPointerDown(e, tag.id)
+                          }
+                          className={`flex items-center justify-between px-2 pb-3 pt-3 ${
+                            fixed ? "" : "cursor-grab touch-none select-none active:cursor-grabbing"
                           }`}
                         >
                           <div className="flex min-w-0 items-center gap-2.5">
-                            {!fixed && (
-                              <GripIcon
-                                className={`-ml-1 h-4 w-4 shrink-0 opacity-0 transition-opacity group-hover/head:opacity-100 ${muted}`}
-                              />
-                            )}
                             {editing === tag.id ? (
                               <input
                                 autoFocus
@@ -1134,7 +1264,7 @@ export default function Create() {
                                   if (e.key === "Enter") e.currentTarget.blur();
                                   if (e.key === "Escape") setEditing(null);
                                 }}
-                                className={`w-[150px] rounded-md border bg-transparent px-2 py-0.5 text-[15px] font-semibold outline-none ${
+                                className={`w-[120px] rounded-md border bg-transparent px-2 py-0.5 text-[15px] font-semibold outline-none ${
                                   isDark ? "border-white/30" : "border-black/30"
                                 }`}
                               />
@@ -1235,7 +1365,7 @@ export default function Create() {
                               dropBefore={
                                 dragKind === "idea" && overCard === idea.id && dragId !== idea.id
                               }
-                              onDragStart={(e) => startDrag(e, "idea", idea.id)}
+                              onDragStart={(e) => startDrag(e, idea.id)}
                               onDragEnd={endDrag}
                               onDragOver={(e) => {
                                 if (drag.current?.type !== "idea") return;
@@ -1261,7 +1391,7 @@ export default function Create() {
                   })}
 
                   {/* Ajouter une colonne (= créer un tag) */}
-                  <div className="w-[min(300px,80vw)] shrink-0">
+                  <div className="w-[min(260px,80vw)] shrink-0">
                     {addingCol ? (
                       <div className={`rounded-2xl p-3 ${column}`}>
                         <CreateTagInput
