@@ -407,7 +407,7 @@ const InsightsIcon = (p: IconProps) => (
   </Svg>
 );
 
-/** Poignée de glisser-déposer : 2 colonnes × 3 points. */
+/** Poignée de glisser-déposer : 2 colonnes × 3 points (6 points). */
 function GripIcon({ className = "h-4 w-2.5" }: IconProps) {
   return (
     <svg
@@ -786,8 +786,8 @@ function applyOrder(
 
 /**
  * Avatar d'un canal connecté.
- * ✅ Photo plus petite : lg = 32px (h-8 w-8), md = 24px (h-6 w-6).
- * ✅ Style carré arrondi (rounded-lg) pour coller au visuel.
+ * Taille : lg = 32px (h-8 w-8), md = 24px (h-6 w-6).
+ * Style carré arrondi (rounded-lg).
  */
 function ChannelAvatar({
   channel,
@@ -808,7 +808,6 @@ function ChannelAvatar({
 
   const label = channel.handle || channel.name;
   const initial = label.replace(/^@/, "").charAt(0).toUpperCase() || "?";
-  // ✅ Tailles réduites
   const box = size === "lg" ? "h-8 w-8" : "h-6 w-6";
   const radius = "rounded-lg";
 
@@ -838,7 +837,7 @@ function ChannelAvatar({
         </span>
       )}
 
-      {/* ✅ Badge réseau encore plus petit : 14px (h-3.5 w-3.5), icône 10px */}
+      {/* Badge réseau : 14px (h-3.5 w-3.5), icône 10px */}
       {NetworkIcon && (
         <span
           className={[
@@ -1367,10 +1366,12 @@ function SidebarChannelsImpl({
             data-channel-key={channel.key}
             className="flex flex-col"
           >
-            {/* Ligne du canal = zone de dépôt */}
+            {/* Ligne du canal = zone de survol + zone de dépôt */}
             <div
               className={[
-                "group/row relative transition-opacity duration-150 motion-reduce:transition-none",
+                "group/row relative rounded-xl",
+                "transition-[opacity,background-color] duration-150 motion-reduce:transition-none",
+                canReorder ? t.row : "",
                 isDragging ? "opacity-40" : "",
               ].join(" ")}
               onDragOver={(event) => {
@@ -1418,7 +1419,7 @@ function SidebarChannelsImpl({
                 />
               )}
 
-              {/* Poignée de glisser-déposer */}
+              {/* Poignée de glisser-déposer (6 points) — DANS la zone de survol */}
               {canReorder && (
                 <span
                   draggable
@@ -1438,16 +1439,23 @@ function SidebarChannelsImpl({
                   }}
                   onDragEnd={endDrag}
                   className={[
-                    "absolute -left-[7px] top-1/2 z-10 flex h-6 w-[10px] -translate-y-1/2",
+                    // À l'intérieur de la ligne (plus de décalage négatif)
+                    "absolute left-[1px] top-1/2 z-10 flex h-7 w-[9px] -translate-y-1/2",
                     "cursor-grab items-center justify-center rounded active:cursor-grabbing",
-                    "transition-opacity duration-150 motion-reduce:transition-none",
+                    // Animation : glisse depuis la gauche + léger zoom
+                    "transition-[opacity,transform,color] duration-200 ease-out motion-reduce:transition-none",
+                    "hover:scale-125 active:scale-110",
                     isDragging
-                      ? "opacity-100"
-                      : "opacity-0 group-hover/row:opacity-100 group-focus-within/row:opacity-100",
+                      ? "translate-x-0 scale-100 opacity-100"
+                      : [
+                          "-translate-x-1 scale-90 opacity-0",
+                          "group-hover/row:translate-x-0 group-hover/row:scale-100 group-hover/row:opacity-100",
+                          "group-focus-within/row:translate-x-0 group-focus-within/row:scale-100 group-focus-within/row:opacity-100",
+                        ].join(" "),
                     t.menuIcon,
                   ].join(" ")}
                 >
-                  <GripIcon />
+                  <GripIcon className="h-4 w-2" />
                 </span>
               )}
 
@@ -1487,9 +1495,15 @@ function SidebarChannelsImpl({
                   }}
                   className={[
                     "group relative flex items-center rounded-xl text-[13px] font-medium",
-                    "transition-[background-color,color,transform] duration-200",
+                    "transition-[background-color,color,transform,padding] duration-200",
                     "active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:scale-100",
                     compact ? "h-10 w-10 justify-center" : "h-9 w-full gap-2.5 px-2.5",
+                    // L'avatar se décale légèrement pour laisser place à la poignée
+                    canReorder
+                      ? isDragging
+                        ? "pl-3.5"
+                        : "group-hover/row:pl-3.5 group-focus-within/row:pl-3.5"
+                      : "",
                     focus,
                     isOpen || isActiveChannel ? t.rowOpen : "",
                     t.navIdle,
@@ -2669,7 +2683,7 @@ export default function DashboardSidebar({
                     src={account.avatarUrl}
                     alt="Profile"
                     draggable={false}
-                    // ✅ Photo de profil réduite : h-8 w-8 (32px), rounded-lg
+                    // Photo de profil : h-8 w-8 (32px), rounded-lg
                     className="h-8 w-8 shrink-0 select-none rounded-lg object-cover"
                     onError={() => setAvatarLoadFailed(true)}
                   />
