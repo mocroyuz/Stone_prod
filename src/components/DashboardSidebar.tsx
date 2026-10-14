@@ -2145,16 +2145,23 @@ export default function DashboardSidebar({
     []
   );
 
+  /* --------------------------------------------------------------------------
+     Thème.
+     La sidebar a EXACTEMENT le même fond que la page (Home → pageBgClass) :
+       sombre  #09090a
+       clair   #f5f3ef
+     Le panneau de contenu arrondi (blanc / #0f0f11) se détache dessus.
+  -------------------------------------------------------------------------- */
   const t = useMemo<ThemeTokens>(
     () =>
       isDark
         ? {
-            aside: "border-white/[0.07] bg-[#060606]",
+            aside: "bg-[#09090a]",
             divider: "bg-white/[0.07]",
             navActive: "bg-[#17171a] text-white",
             navIdle: "text-white/60 hover:bg-[#141416] hover:text-white",
             count: "bg-white/[0.08] text-[#c9c9c4]",
-            dotRing: "ring-[#060606]",
+            dotRing: "ring-[#09090a]",
             rail: "border-white/[0.07]",
             sub: "text-[#8a8f8f] hover:bg-[#141416] hover:text-white",
             subActive: "bg-[#17171a] text-white",
@@ -2175,12 +2182,12 @@ export default function DashboardSidebar({
             ring: "focus-visible:ring-white/25",
           }
         : {
-            aside: "border-black/10 bg-white",
+            aside: "bg-[#f5f3ef]",
             divider: "bg-black/[0.07]",
             navActive: "bg-[#e8e8e4] text-[#151515]",
             navIdle: "text-[#55544f] hover:bg-[#e8e8e4] hover:text-[#151515]",
             count: "bg-black/[0.06] text-[#3f3f3d]",
-            dotRing: "ring-white",
+            dotRing: "ring-[#f5f3ef]",
             rail: "border-black/[0.08]",
             sub: "text-[#71706d] hover:bg-[#e8e8e4] hover:text-[#151515]",
             subActive: "bg-[#e8e8e4] text-[#151515]",
@@ -2471,6 +2478,7 @@ export default function DashboardSidebar({
     <>
       <style>{SIDEBAR_KEYFRAMES}</style>
 
+      {/* Bouton menu mobile : bordure visible car la sidebar se fond dans le fond de page */}
       {isMobile && !mobileOpen && (
         <button
           type="button"
@@ -2482,6 +2490,7 @@ export default function DashboardSidebar({
             "transition-transform duration-200 active:scale-[0.94] motion-reduce:transition-none",
             focus,
             t.aside,
+            t.rail,
             t.menuIcon,
           ].join(" ")}
         >
@@ -2506,6 +2515,9 @@ export default function DashboardSidebar({
           "transition-[width,transform] duration-[380ms]",
           "ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
           t.aside,
+          // Desktop : aucune séparation visible (fond identique à la page).
+          // Mobile (tiroir) : bordure visible pour détacher le tiroir du fond assombri.
+          isMobile ? t.rail : "border-transparent",
           drawerHidden ? "pointer-events-none -translate-x-full" : "translate-x-0",
           compact
             ? "w-[56px]"
