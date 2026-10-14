@@ -17,6 +17,7 @@ import Schedule from "./pages/schedule";
 import Pricing from "./pages/pricing";
 import Insights from "./pages/Insights";
 import Community from "./pages/Community";
+import Create from "./pages/Create";
 import Channels from "./pages/channels";
 import Faq from "./pages/Faq";
 import Tos from "./pages/tos";
@@ -381,6 +382,7 @@ const PROTECTED_ROUTES = new Set([
   "youtube-callback",
 ]);
 
+// "create" a sa propre page (pages/Create.tsx) : il n'est plus rendu par DashboardHome.
 const DASHBOARD_HOME_ROUTES = new Set([
   "home",
   "billing",
@@ -389,7 +391,6 @@ const DASHBOARD_HOME_ROUTES = new Set([
   "apps",
   "beta",
   "refer",
-  "create",
 ]);
 
 const AUTH_ROUTES = new Set(["signin", "signup"]);
@@ -761,6 +762,18 @@ function AppContentInner({
     return (
       <div className="relative h-screen w-screen overflow-hidden font-sans">
         <Community />
+      </div>
+    );
+  }
+
+  /* ─────────────────────────────────────────────
+     CREATE
+     ───────────────────────────────────────────── */
+
+  if (route === "create") {
+    return (
+      <div className="relative h-screen w-screen overflow-hidden font-sans">
+        <Create />
       </div>
     );
   }
