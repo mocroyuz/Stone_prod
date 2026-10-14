@@ -134,8 +134,6 @@ type StatusResponse = {
 
 /* ============================================================================ 
    Dimensions 
-   Sidebar fine collée au bord gauche, pleine hauteur. 
-   Réduite : 56 px (rail d'icônes). Ouverte : 240 px. 
 ============================================================================ */
 
 export const SIDEBAR_COLLAPSED_OFFSET = 56;
@@ -409,7 +407,6 @@ const InsightsIcon = (p: IconProps) => (
   </Svg>
 );
 
-/** Icône « panneau latéral » : le panneau gauche se remplit quand la sidebar est ouverte. */
 function SidebarToggleIcon({ className, open }: IconProps & { open: boolean }) {
   return (
     <Svg className={className}>
@@ -588,7 +585,6 @@ function NavItemViewImpl({
           "group relative flex items-center rounded-xl text-[13px] font-medium",
           "transition-[background-color,color,transform] duration-200",
           "active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:scale-100",
-          // ✅ Ajustement de la taille pour la sidebar réduite (56px)
           compact ? "h-10 w-10 justify-center" : "h-9 w-full gap-2.5 px-2.5",
           focus,
           isActive ? t.navActive : t.navIdle,
@@ -680,7 +676,6 @@ function getNetworkId(channel: ConnectedChannel): NetworkKey | null {
   return null;
 }
 
-/** Canal ciblé par /#/insights?channel=<key> ou /#/community?channel=<key>. */
 function getHashChannel(): string | null {
   if (typeof window === "undefined") return null;
 
@@ -718,7 +713,8 @@ const CHANNEL_ROUTES = new Set(["insights", "community"]);
 
 /**
  * Avatar d'un canal connecté.
- * ✅ MODIFICATION : Utilisation de "rounded-xl" pour un style carré arrondi (comme sur l'image).
+ * ✅ Photo plus petite : lg = 32px (h-8 w-8), md = 24px (h-6 w-6).
+ * ✅ Style carré arrondi (rounded-lg) pour coller au visuel.
  */
 function ChannelAvatar({
   channel,
@@ -739,10 +735,9 @@ function ChannelAvatar({
 
   const label = channel.handle || channel.name;
   const initial = label.replace(/^@/, "").charAt(0).toUpperCase() || "?";
-  // Ajustement des dimensions : lg = 36px (h-9 w-9), md = 28px (h-7 w-7)
-  const box = size === "lg" ? "h-9 w-9" : "h-7 w-7";
-  // ✅ Style carré arrondi pour les deux tailles
-  const radius = "rounded-xl";
+  // ✅ Tailles réduites
+  const box = size === "lg" ? "h-8 w-8" : "h-6 w-6";
+  const radius = "rounded-lg";
 
   return (
     <span className={["relative shrink-0", box].join(" ")}>
@@ -763,23 +758,23 @@ function ChannelAvatar({
           className={[
             "flex h-full w-full items-center justify-center bg-neutral-700",
             radius,
-            "text-[11px] font-semibold text-white",
+            "text-[10px] font-semibold text-white",
           ].join(" ")}
         >
           {initial}
         </span>
       )}
 
-      {/* ✅ Badge de réseau social ajusté pour correspondre à l'image */}
+      {/* ✅ Badge réseau encore plus petit : 14px (h-3.5 w-3.5), icône 10px */}
       {NetworkIcon && (
         <span
           className={[
-            "absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center",
-            "rounded-md bg-white shadow-[0_0_0_1px_rgba(0,0,0,0.12)] ring-2",
+            "absolute -bottom-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center",
+            "rounded-[4px] bg-white shadow-[0_0_0_1px_rgba(0,0,0,0.12)] ring-2",
             dotRing,
           ].join(" ")}
         >
-          <NetworkIcon className="h-3.5 w-3.5" />
+          <NetworkIcon className="h-2.5 w-2.5" />
         </span>
       )}
     </span>
@@ -1129,17 +1124,12 @@ function SidebarChannelsImpl({
           );
         })}
 
-      {/* ✅ AJOUT DU SÉPARATEUR HORIZONTAL (visible uniquement en mode réduit) */}
+      {/* Séparateur horizontal (mode réduit uniquement) */}
       {compact && (
         <div className={["my-2 h-px w-8 mx-auto", t.divider].join(" ")} />
       )}
 
       {!compact && (
-        /* 
-         * Le conteneur devient un "group/channels". 
-         * Les boutons (engrenage + plus) sont invisibles par défaut et 
-         * n'apparaissent QUE au survol de cette zone (ou au focus clavier).
-         */
         <div className="sb-fade group/channels mt-3 flex h-6 items-center justify-between px-2.5">
           <span className={["text-[12px] font-medium", t.muted].join(" ")}>
             {channels.length === 0 ? "Connect channels" : "Channels"}
@@ -1232,8 +1222,7 @@ function SidebarChannelsImpl({
                   "group relative flex items-center rounded-xl text-[13px] font-medium",
                   "transition-[background-color,color,transform] duration-200",
                   "active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:scale-100",
-                  // ✅ Ajustement de la taille pour coller à l'image
-                  compact ? "h-10 w-10 justify-center" : "h-10 w-full gap-2.5 px-2.5",
+                  compact ? "h-10 w-10 justify-center" : "h-9 w-full gap-2.5 px-2.5",
                   focus,
                   isOpen || isActiveChannel ? t.rowOpen : "",
                   t.navIdle,
@@ -1389,10 +1378,6 @@ function resetSidebarModuleState() {
   channelsMemory.open = [];
 }
 
-/**
- * Marge gauche que les pages doivent appliquer pour ne pas passer sous la sidebar.
- * Sur mobile la sidebar est un tiroir qui recouvre la page : aucun décalage.
- */
 export function useSidebarOffset(): number {
   const collapsed = useSyncExternalStore(
     subscribeSidebar,
@@ -1510,7 +1495,6 @@ export default function DashboardSidebar({
   const compact = isMobile ? false : isCollapsed;
   const drawerHidden = isMobile && !mobileOpen;
 
-  /* ── Channel connections ── */
   const [connections, setConnections] = useState<ConnectionState>(() => {
     if (!userId) return initialConnections;
 
@@ -1540,10 +1524,6 @@ export default function DashboardSidebar({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  /* --------------------------------------------------------------------------
-     Load profile
-  -------------------------------------------------------------------------- */
-
   useEffect(() => {
     let mounted = true;
 
@@ -1567,10 +1547,6 @@ export default function DashboardSidebar({
       mounted = false;
     };
   }, []);
-
-  /* --------------------------------------------------------------------------
-     Sync channel statuses (cache + backend) + retour OAuth
-  -------------------------------------------------------------------------- */
 
   useEffect(() => {
     if (!userId) return;
@@ -1679,10 +1655,6 @@ export default function DashboardSidebar({
     };
   }, [userId]);
 
-  /* --------------------------------------------------------------------------
-     Persist sidebar state + cleanup
-  -------------------------------------------------------------------------- */
-
   useEffect(() => {
     setSidebarCollapsed(isCollapsed);
   }, [isCollapsed]);
@@ -1716,10 +1688,6 @@ export default function DashboardSidebar({
       window.removeEventListener("keydown", onKeyDown);
     };
   }, [mobileOpen, menuOpen, connectOpen]);
-
-  /* --------------------------------------------------------------------------
-     Account menu : clic extérieur, Échap, focus initial
-  -------------------------------------------------------------------------- */
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -1779,10 +1747,6 @@ export default function DashboardSidebar({
     },
     []
   );
-
-  /* --------------------------------------------------------------------------
-     Theme tokens
-  -------------------------------------------------------------------------- */
 
   const t = useMemo<ThemeTokens>(
     () =>
@@ -1848,10 +1812,6 @@ export default function DashboardSidebar({
     "focus-visible:ring-2",
     t.ring,
   ].join(" ");
-
-  /* --------------------------------------------------------------------------
-     Actions
-  -------------------------------------------------------------------------- */
 
   const toggleCollapsed = useCallback(() => {
     setMenuOpen(false);
@@ -1928,10 +1888,6 @@ export default function DashboardSidebar({
   }, [connectOpen]);
 
   const handleExpand = useCallback(() => setIsCollapsed(false), []);
-
-  /* --------------------------------------------------------------------------
-     Channel connect handlers
-  -------------------------------------------------------------------------- */
 
   const limitReached =
     Object.values(connections).filter((c) => c.connected).length >=
@@ -2052,10 +2008,6 @@ export default function DashboardSidebar({
     }
   };
 
-  /* --------------------------------------------------------------------------
-     Logout
-  -------------------------------------------------------------------------- */
-
   const handleLogout = useCallback(async () => {
     if (loggingOut) return;
 
@@ -2071,10 +2023,6 @@ export default function DashboardSidebar({
       window.location.replace("/");
     }
   }, [loggingOut]);
-
-  /* --------------------------------------------------------------------------
-     Account data
-  -------------------------------------------------------------------------- */
 
   let menuItemIndex = 0;
 
@@ -2122,10 +2070,6 @@ export default function DashboardSidebar({
     ? ({ inert: "", "aria-hidden": true } as Record<string, unknown>)
     : {};
 
-  /* ==========================================================================
-     Render
-  ========================================================================== */
-
   return (
     <>
       <style>{SIDEBAR_KEYFRAMES}</style>
@@ -2166,7 +2110,6 @@ export default function DashboardSidebar({
           "ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
           t.aside,
           drawerHidden ? "pointer-events-none -translate-x-full" : "translate-x-0",
-          // ✅ Largeur réduite de 64px à 56px
           compact
             ? "w-[56px]"
             : isMobile
@@ -2238,7 +2181,6 @@ export default function DashboardSidebar({
             compact ? "flex flex-col items-center gap-2" : "flex items-center gap-1.5 px-2",
           ].join(" ")}
         >
-          {/* Toggle sidebar */}
           <button
             type="button"
             aria-expanded={!compact}
@@ -2266,7 +2208,6 @@ export default function DashboardSidebar({
             <SidebarToggleIcon className="h-[18px] w-[18px]" open={!compact} />
           </button>
 
-          {/* Menu du compte */}
           {menuOpen && (
             <div
               ref={menuRef}
@@ -2448,7 +2389,7 @@ export default function DashboardSidebar({
                   "group flex items-center rounded-xl",
                   "transition-[background-color,transform] duration-200",
                   "active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:scale-100",
-                  compact ? "h-11 w-11 justify-center" : "h-11 w-full gap-2.5 px-1.5",
+                  compact ? "h-10 w-10 justify-center" : "h-10 w-full gap-2.5 px-1.5",
                   focus,
                   menuOpen ? t.rowOpen : t.row,
                 ].join(" ")}
@@ -2459,14 +2400,14 @@ export default function DashboardSidebar({
                     src={account.avatarUrl}
                     alt="Profile"
                     draggable={false}
-                    // ✅ Style carré arrondi pour le profil principal
-                    className="h-9 w-9 shrink-0 select-none rounded-xl object-cover"
+                    // ✅ Photo de profil réduite : h-8 w-8 (32px), rounded-lg
+                    className="h-8 w-8 shrink-0 select-none rounded-lg object-cover"
                     onError={() => setAvatarLoadFailed(true)}
                   />
                 ) : (
                   <span
                     className={[
-                      "flex h-9 w-9 shrink-0 select-none items-center justify-center rounded-xl",
+                      "flex h-8 w-8 shrink-0 select-none items-center justify-center rounded-lg",
                       "text-[11px] font-semibold",
                       t.avatar,
                     ].join(" ")}
@@ -2491,7 +2432,6 @@ export default function DashboardSidebar({
         </div>
       </aside>
 
-      {/* ConnectChannelModal fait lui-même son createPortal(document.body). */}
       {connectOpen && (
         <ConnectChannelModal
           {...channelConnectProps}
