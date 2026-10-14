@@ -1,5 +1,4 @@
-import { useState } from "react";
-import { navigate } from "../hooks/useHashRoute";
+import { useEffect, useRef, useState } from "react";
 import { useTheme } from "../hooks/useTheme";
 import DashboardSidebar, {
   useSidebarOffset,
@@ -23,51 +22,42 @@ import {
   CanvaIcon,
 } from "../components/IntegrationIcons";
 
+/* ------------------------------------------------------------------ */
+/* Icons                                                               */
+/* ------------------------------------------------------------------ */
+
+function PlugIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-[22px] w-[22px]"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M9 3v4M15 3v4" />
+      <path d="M6.5 7h11v4.5a5.5 5.5 0 0 1-11 0V7Z" />
+      <path d="M12 17v4" />
+    </svg>
+  );
+}
+
 function SearchIcon() {
   return (
     <svg
       viewBox="0 0 24 24"
-      className="h-[17px] w-[17px]"
+      className="h-[16px] w-[16px] shrink-0"
       fill="none"
       stroke="currentColor"
       strokeWidth="1.8"
       strokeLinecap="round"
+      aria-hidden="true"
     >
       <circle cx="11" cy="11" r="7" />
       <path d="m21 21-4.3-4.3" />
-    </svg>
-  );
-}
-
-function BellIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className="h-[18px] w-[18px]"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M6 8a6 6 0 0 1 12 0c0 4 1.5 5.5 2 6.5H4c.5-1 2-2.5 2-6.5Z" />
-      <path d="M9.5 17.5a2.5 2.5 0 0 0 5 0" />
-    </svg>
-  );
-}
-
-function BookmarkIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className="h-[18px] w-[18px]"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M6 4.5h12v15l-6-3.6-6 3.6v-15Z" />
     </svg>
   );
 }
@@ -82,8 +72,43 @@ function ChevronDownIcon() {
       strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
+      aria-hidden="true"
     >
       <path d="m6 9 6 6 6-6" />
+    </svg>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-[12px] w-[12px]"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="m4 12 6 6L20 6" />
+    </svg>
+  );
+}
+
+function PlusIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-[13px] w-[13px]"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M12 5v14M5 12h14" />
     </svg>
   );
 }
@@ -98,6 +123,7 @@ function ArrowRightIcon() {
       strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
+      aria-hidden="true"
     >
       <path d="M5 12h14" />
       <path d="m13 6 6 6-6 6" />
@@ -105,122 +131,105 @@ function ArrowRightIcon() {
   );
 }
 
+function SunMoonIcon({ isDark }: { isDark: boolean }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-[17px] w-[17px]"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      {isDark ? (
+        <>
+          <circle cx="12" cy="12" r="4" />
+          <path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4 7 17M17 7l1.4-1.4" />
+        </>
+      ) : (
+        <path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5Z" />
+      )}
+    </svg>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Data                                                                */
+/* ------------------------------------------------------------------ */
+
 type IntegrationCardData = {
   title: string;
   meta?: string;
   body: string;
   progress: number;
-  variant: "soft" | "card" | "dark";
-  big?: string;
-  logos?: string[];
 };
 
 const INTEGRATIONS: IntegrationCardData[] = [
-  {
-    title: "Zapier",
-    meta: "Automatisation",
-    body: "Automate workflows with Zapier",
-    progress: 70,
-    variant: "card",
-  },
-  {
-    title: "Claude",
-    meta: "IA",
-    body: "Manage your content from Claude and Claude Code",
-    progress: 85,
-    variant: "card",
-  },
-  {
-    title: "ChatGPT",
-    meta: "IA",
-    body: "Manage your content from ChatGPT and Codex",
-    progress: 75,
-    variant: "card",
-  },
-  {
-    title: "Notion",
-    meta: "Documentation",
-    body: "Manage your content from Notion custom agents",
-    progress: 60,
-    variant: "card",
-  },
-  {
-    title: "Google",
-    meta: "Productivité",
-    body: "Connect Google services and tools",
-    progress: 65,
-    variant: "card",
-  },
-  {
-    title: "n8n",
-    meta: "Automatisation",
-    body: "Workflow automation with n8n",
-    progress: 60,
-    variant: "card",
-  },
-  {
-    title: "Raycast",
-    meta: "Productivité",
-    body: "Quick actions from your menu bar",
-    progress: 70,
-    variant: "card",
-  },
-  {
-    title: "Perplexity",
-    meta: "IA",
-    body: "Manage your content from Perplexity Web and Desktop",
-    progress: 50,
-    variant: "card",
-  },
-  {
-    title: "Canva",
-    meta: "Design",
-    body: "Create and manage your designs from Canva",
-    progress: 55,
-    variant: "card",
-  },
-  {
-    title: "Google Drive",
-    meta: "Stockage",
-    body: "Sync and manage your files from Google Drive",
-    progress: 75,
-    variant: "card",
-  },
-  {
-    title: "Gmail",
-    meta: "Email",
-    body: "Manage your emails and automate responses",
-    progress: 80,
-    variant: "card",
-  },
-  {
-    title: "Google Calendar",
-    meta: "Planning",
-    body: "Sync your calendar and automate scheduling",
-    progress: 65,
-    variant: "card",
-  },
+  { title: "Zapier", meta: "Automatisation", body: "Automate workflows with Zapier", progress: 70 },
+  { title: "Claude", meta: "IA", body: "Manage your content from Claude and Claude Code", progress: 85 },
+  { title: "ChatGPT", meta: "IA", body: "Manage your content from ChatGPT and Codex", progress: 75 },
+  { title: "Notion", meta: "Documentation", body: "Manage your content from Notion custom agents", progress: 60 },
+  { title: "Google", meta: "Productivité", body: "Connect Google services and tools", progress: 65 },
+  { title: "n8n", meta: "Automatisation", body: "Workflow automation with n8n", progress: 60 },
+  { title: "Raycast", meta: "Productivité", body: "Quick actions from your menu bar", progress: 70 },
+  { title: "Perplexity", meta: "IA", body: "Manage your content from Perplexity Web and Desktop", progress: 50 },
+  { title: "Canva", meta: "Design", body: "Create and manage your designs from Canva", progress: 55 },
+  { title: "Google Drive", meta: "Stockage", body: "Sync and manage your files from Google Drive", progress: 75 },
+  { title: "Gmail", meta: "Email", body: "Manage your emails and automate responses", progress: 80 },
+  { title: "Google Calendar", meta: "Planning", body: "Sync your calendar and automate scheduling", progress: 65 },
 ];
 
-function ProgressBar({
-  value,
-  tone,
-}: {
-  value: number;
-  tone: "onLight" | "onDark";
-}) {
+const ICONS: Record<string, (props: { className?: string }) => JSX.Element | null> = {
+  Zapier: ZapierIcon,
+  Claude: ClaudeIcon,
+  ChatGPT: ChatGPTIcon,
+  Notion: NotionIcon,
+  Google: GoogleIcon,
+  n8n: N8nIcon,
+  Raycast: RaycastIcon,
+  Perplexity: PerplexityIcon,
+  Canva: CanvaIcon,
+  "Google Drive": GoogleDriveIcon,
+  Gmail: GmailIcon,
+  "Google Calendar": GoogleCalendarIcon,
+};
+
+const FILTERS = ["Toutes", "Connectées", "Disponibles"] as const;
+type Filter = (typeof FILTERS)[number];
+
+/* Seuil à partir duquel une intégration est considérée comme connectée. */
+const CONNECTED_THRESHOLD = 60;
+
+/* ------------------------------------------------------------------ */
+/* Shared styling                                                      */
+/* ------------------------------------------------------------------ */
+
+const focusRing = (isDark: boolean) =>
+  isDark
+    ? "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
+    : "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/25";
+
+/* ------------------------------------------------------------------ */
+/* Card                                                                */
+/* ------------------------------------------------------------------ */
+
+function ProgressBar({ value, isDark }: { value: number; isDark: boolean }) {
   return (
     <div
+      role="progressbar"
+      aria-valuenow={value}
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-label="Setup progress"
       className={[
         "h-[3px] w-full overflow-hidden rounded-full",
-        tone === "onDark" ? "bg-white/15" : "bg-black/10",
+        isDark ? "bg-white/15" : "bg-black/10",
       ].join(" ")}
     >
       <div
-        className={[
-          "h-full rounded-full",
-          tone === "onDark" ? "bg-white" : "bg-neutral-900",
-        ].join(" ")}
+        className={["h-full rounded-full", isDark ? "bg-white" : "bg-neutral-900"].join(" ")}
         style={{ width: `${value}%` }}
       />
     </div>
@@ -234,101 +243,40 @@ function IntegrationCard({
   data: IntegrationCardData;
   isDark: boolean;
 }) {
-  const isDarkCard = data.variant === "dark";
-  const isSoft = data.variant === "soft";
-
-  const cardBg = isDarkCard
-    ? "bg-[#111113]"
-    : isSoft
-      ? isDark
-        ? "bg-[#1c1c1e]"
-        : "bg-[#f3f1ed]"
-      : isDark
-        ? "bg-[#151517]"
-        : "bg-white";
-
-  const cardBorder = isDarkCard
-    ? "border-white/10"
-    : isDark
-      ? "border-white/10"
-      : "border-black/[0.06]";
-  const titleColor = isDarkCard
-    ? "text-white"
-    : isDark
-      ? "text-white"
-      : "text-neutral-900";
-  const metaColor = isDarkCard
-    ? "text-neutral-500"
-    : isDark
-      ? "text-neutral-500"
-      : "text-neutral-400";
-  const bodyColor = isDarkCard
-    ? "text-neutral-400"
-    : isDark
-      ? "text-neutral-400"
-      : "text-neutral-600";
-
-  const getIcon = () => {
-    switch (data.title) {
-      case "Zapier":
-        return <ZapierIcon className="h-5 w-5" />;
-      case "Claude":
-        return <ClaudeIcon className="h-5 w-5" />;
-      case "ChatGPT":
-        return <ChatGPTIcon className="h-5 w-5" />;
-      case "Notion":
-        return <NotionIcon className="h-5 w-5" />;
-      case "Google":
-        return <GoogleIcon className="h-5 w-5" />;
-      case "n8n":
-        return <N8nIcon className="h-5 w-5" />;
-      case "Raycast":
-        return <RaycastIcon className="h-5 w-5" />;
-      case "Perplexity":
-        return <PerplexityIcon className="h-5 w-5" />;
-      case "Canva":
-        return <CanvaIcon className="h-5 w-5" />;
-      case "Google Drive":
-        return <GoogleDriveIcon className="h-5 w-5" />;
-      case "Gmail":
-        return <GmailIcon className="h-5 w-5" />;
-      case "Google Calendar":
-        return <GoogleCalendarIcon className="h-5 w-5" />;
-      default:
-        return null;
-    }
-  };
+  const Icon = ICONS[data.title];
+  const connected = data.progress >= CONNECTED_THRESHOLD;
 
   return (
     <div
       className={[
-        "group flex h-full flex-col rounded-[clamp(16px,1.6vw,22px)] border p-[clamp(16px,1.6vw,22px)] transition-colors",
-        cardBg,
-        cardBorder,
+        "group flex h-full flex-col rounded-[clamp(16px,1.6vw,22px)] border p-[clamp(16px,1.6vw,22px)] transition",
+        isDark
+          ? "border-white/10 bg-[#151517] hover:bg-[#19191c]"
+          : "border-black/[0.06] bg-white hover:border-black/[0.12]",
       ].join(" ")}
     >
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          {getIcon()}
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-3">
+          {Icon && <Icon className="h-5 w-5 shrink-0" />}
           <h3
             className={[
-              "font-display text-[clamp(14px,1.1vw,17px)] font-semibold",
-              titleColor,
+              "truncate font-display text-[clamp(14px,1.1vw,17px)] font-semibold",
+              isDark ? "text-white" : "text-neutral-900",
             ].join(" ")}
           >
             {data.title}
           </h3>
         </div>
+
         <button
           type="button"
           aria-label={`Configurer ${data.title}`}
           className={[
-            "flex h-6 w-6 items-center justify-center rounded-full transition",
-            isDarkCard
+            "flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition",
+            focusRing(isDark),
+            isDark
               ? "text-neutral-400 hover:bg-white/10 hover:text-white"
-              : isDark
-                ? "text-neutral-400 hover:bg-white/10 hover:text-white"
-                : "text-neutral-400 hover:bg-black/5 hover:text-neutral-900",
+              : "text-neutral-400 hover:bg-black/5 hover:text-neutral-900",
           ].join(" ")}
         >
           <ArrowRightIcon />
@@ -336,10 +284,7 @@ function IntegrationCard({
       </div>
 
       <div className="mt-3">
-        <ProgressBar
-          value={data.progress}
-          tone={isDarkCard ? "onDark" : isDark ? "onDark" : "onLight"}
-        />
+        <ProgressBar value={data.progress} isDark={isDark} />
       </div>
 
       <div className="mt-3 flex items-start gap-2">
@@ -347,7 +292,7 @@ function IntegrationCard({
           <span
             className={[
               "shrink-0 text-[10.5px] font-medium tracking-wide",
-              metaColor,
+              isDark ? "text-neutral-500" : "text-neutral-400",
             ].join(" ")}
           >
             {data.meta}
@@ -356,68 +301,104 @@ function IntegrationCard({
         <p
           className={[
             "text-[clamp(11.5px,0.95vw,13px)] leading-[1.45]",
-            bodyColor,
+            isDark ? "text-neutral-400" : "text-neutral-600",
           ].join(" ")}
         >
           {data.body}
         </p>
       </div>
 
-      {data.logos && (
-        <div className="mt-4 flex gap-2">
-          {data.logos.map((label) => (
-            <span
-              key={label}
-              className={[
-                "flex h-7 items-center justify-center rounded-full px-2.5 text-[10px] font-semibold tracking-wide",
-                isDark
-                  ? "bg-[#2a2a2d] text-white"
-                  : "bg-white text-neutral-900 shadow-sm",
-              ].join(" ")}
-            >
-              {label}
-            </span>
-          ))}
-        </div>
-      )}
+      <div className="mt-auto flex items-center justify-between pt-4">
+        <span
+          className={[
+            "flex items-center gap-1.5 text-[10.5px] font-medium",
+            connected
+              ? isDark
+                ? "text-emerald-400"
+                : "text-emerald-600"
+              : isDark
+                ? "text-neutral-500"
+                : "text-neutral-400",
+          ].join(" ")}
+        >
+          <span
+            className={[
+              "h-1.5 w-1.5 rounded-full",
+              connected ? "bg-emerald-500" : isDark ? "bg-neutral-600" : "bg-neutral-300",
+            ].join(" ")}
+          />
+          {connected ? "Connected" : "Available"}
+        </span>
+        <span className={["text-[10.5px] tabular-nums", isDark ? "text-neutral-600" : "text-neutral-400"].join(" ")}>
+          {data.progress}%
+        </span>
+      </div>
     </div>
   );
 }
+
+/* ------------------------------------------------------------------ */
+/* Page                                                                */
+/* ------------------------------------------------------------------ */
 
 export default function Integrations() {
   const { theme, setTheme } = useTheme();
   const isDark = theme === "dark";
 
-  // Largeur dynamique de la sidebar (identique à la Home et Channels).
+  /* Marge gauche : suit l'état réduit / ouvert de la sidebar. */
   const sidebarOffset = useSidebarOffset();
 
-  // Recherche & filtre de la grille d'intégrations.
+  /* Recherche & filtre de la grille. */
   const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState("Toutes");
+  const [filter, setFilter] = useState<Filter>("Toutes");
   const [filterOpen, setFilterOpen] = useState(false);
+  const filterRef = useRef<HTMLDivElement>(null);
 
-  // Recherche de la BottomBar (state indépendant de `query`).
+  /* BottomBar / Folder / NewPostModal (recherche de la barre indépendante). */
   const [bottomQuery, setBottomQuery] = useState("");
-
-  // BottomBar / Folder / NewPostModal.
   const [isFolderOpen, setIsFolderOpen] = useState(false);
   const [isNewPostOpen, setIsNewPostOpen] = useState(false);
 
-  const filters = ["Toutes", "Connectées", "Disponibles"];
+  /* Ferme le menu du filtre au clic extérieur / Échap. */
+  useEffect(() => {
+    if (!filterOpen) return;
+
+    const onPointerDown = (e: MouseEvent) => {
+      if (!filterRef.current?.contains(e.target as Node)) setFilterOpen(false);
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setFilterOpen(false);
+    };
+
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [filterOpen]);
+
+  const needle = query.trim().toLowerCase();
 
   const visible = INTEGRATIONS.filter((item) => {
     const matchesQuery =
-      query.trim().length === 0 ||
-      (item.title + " " + (item.meta ?? ""))
-        .toLowerCase()
-        .includes(query.trim().toLowerCase());
+      needle.length === 0 ||
+      `${item.title} ${item.meta ?? ""}`.toLowerCase().includes(needle);
 
+    const isConnected = item.progress >= CONNECTED_THRESHOLD;
     const matchesFilter =
       filter === "Toutes" ||
-      (filter === "Connectées" ? item.progress >= 60 : item.progress < 60);
+      (filter === "Connectées" ? isConnected : !isConnected);
 
     return matchesQuery && matchesFilter;
   });
+
+  const hasActiveFilters = needle.length > 0 || filter !== "Toutes";
+
+  const resetFilters = () => {
+    setQuery("");
+    setFilter("Toutes");
+  };
 
   const handleBottomBarChange = (id: BottomBarTab) => {
     switch (id) {
@@ -445,8 +426,7 @@ export default function Integrations() {
     >
       <DashboardSidebar theme={theme} />
 
-      {/* Le padding-left suit l'ouverture/fermeture de la sidebar, avec
-          la même animation que la Home et Channels. */}
+      {/* Le padding-left suit l'ouverture/fermeture de la sidebar. */}
       <div
         className={[
           "transition-[padding-left] duration-[380ms]",
@@ -456,138 +436,165 @@ export default function Integrations() {
         style={{ paddingLeft: sidebarOffset }}
       >
         <PageTransition>
-          {/* pb-[96px] réserve la place de la BottomBar. */}
-          <div className="mx-auto w-full max-w-[1320px] px-[clamp(16px,3vw,40px)] pt-[clamp(20px,2.6vw,34px)] pb-[96px]">
-            {/* Top bar */}
-            <div className="flex items-center justify-between gap-4">
-              <button
-                type="button"
-                onClick={() => navigate("home")}
-                className={[
-                  "flex items-center gap-2.5 rounded-full border px-3.5 py-2 text-left transition",
-                  isDark
-                    ? "border-white/10 bg-[#1c1c1e] text-neutral-500 hover:text-neutral-300"
-                    : "border-black/[0.06] bg-white text-neutral-400 hover:text-neutral-600",
-                ].join(" ")}
-              >
-                <SearchIcon />
-                <input
-                  value={query}
-                  onChange={(event) => setQuery(event.target.value)}
-                  placeholder="Rechercher une intégration"
+          {/* Pleine largeur ; pb-[96px] réserve la place de la BottomBar. */}
+          <div className="w-full max-w-none px-[clamp(12px,1.5vw,24px)] pt-[clamp(16px,2vw,28px)] pb-[96px]">
+            {/* Titre de la page : en haut à gauche */}
+            <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
+              <div className="flex items-center gap-3.5">
+                <div
                   className={[
-                    "w-[160px] bg-transparent text-[13px] outline-none placeholder:text-inherit sm:w-[220px]",
-                    isDark ? "text-white" : "text-neutral-800",
+                    "flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border",
+                    isDark
+                      ? "border-white/10 bg-white/[0.03] text-white"
+                      : "border-black/[0.08] bg-white text-neutral-900 shadow-sm",
                   ].join(" ")}
-                />
-              </button>
+                >
+                  <PlugIcon />
+                </div>
+                <h1
+                  className={[
+                    "font-display text-[clamp(22px,2vw,28px)] font-semibold tracking-[-0.02em]",
+                    isDark ? "text-white" : "text-neutral-900",
+                  ].join(" ")}
+                >
+                  Integrations
+                </h1>
+              </div>
 
-              <div className="flex items-center gap-2">
+              {/* Actions à droite */}
+              <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
                   onClick={() => setTheme(isDark ? "light" : "dark")}
-                  aria-label="Toggle theme"
+                  aria-label={isDark ? "Switch to light theme" : "Switch to dark theme"}
                   className={[
                     "flex h-9 w-9 items-center justify-center rounded-full border transition",
+                    focusRing(isDark),
                     isDark
                       ? "border-white/10 text-neutral-300 hover:bg-white/10"
                       : "border-black/[0.06] text-neutral-500 hover:bg-black/5",
                   ].join(" ")}
                 >
-                  <BellIcon />
+                  <SunMoonIcon isDark={isDark} />
                 </button>
+
                 <button
                   type="button"
                   className={[
-                    "hidden h-9 w-9 items-center justify-center rounded-full border transition sm:flex",
-                    isDark
-                      ? "border-white/10 text-neutral-300 hover:bg-white/10"
-                      : "border-black/[0.06] text-neutral-500 hover:bg-black/5",
-                  ].join(" ")}
-                  aria-label="Bookmarks"
-                >
-                  <BookmarkIcon />
-                </button>
-                <button
-                  type="button"
-                  className={[
-                    "rounded-full px-4 py-2 text-[13px] font-semibold transition",
+                    "flex items-center gap-1.5 rounded-full px-4 py-2 text-[13px] font-semibold transition",
+                    focusRing(isDark),
                     isDark
                       ? "bg-white text-neutral-900 hover:bg-neutral-200"
                       : "bg-neutral-900 text-white hover:bg-neutral-800",
                   ].join(" ")}
                 >
+                  <PlusIcon />
                   Nouvelle intégration
                 </button>
               </div>
-            </div>
+            </header>
 
-            {/* Heading row */}
-            <div className="mt-[clamp(20px,3vw,36px)] flex flex-wrap items-center justify-between gap-4">
-              <h1
+            {/* Recherche + filtre */}
+            <div className="mt-[clamp(14px,2vw,22px)] flex flex-wrap items-center gap-2">
+              <label
                 className={[
-                  "font-display text-[clamp(26px,3vw,40px)] font-semibold tracking-[-0.02em]",
-                  isDark ? "text-white" : "text-neutral-900",
+                  "flex min-w-0 flex-1 items-center gap-2.5 rounded-full border px-3.5 py-2 transition sm:max-w-[360px]",
+                  "focus-within:ring-2",
+                  isDark
+                    ? "border-white/10 bg-[#1c1c1e] text-neutral-500 focus-within:ring-white/20"
+                    : "border-black/[0.06] bg-white text-neutral-400 focus-within:ring-black/15",
                 ].join(" ")}
               >
-                Intégrations
-              </h1>
+                <SearchIcon />
+                <input
+                  type="search"
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder="Rechercher une intégration"
+                  aria-label="Rechercher une intégration"
+                  className={[
+                    "w-full min-w-0 bg-transparent text-[13px] outline-none placeholder:text-inherit",
+                    "[&::-webkit-search-cancel-button]:appearance-none",
+                    isDark ? "text-white" : "text-neutral-800",
+                  ].join(" ")}
+                />
+              </label>
 
-              <div className="relative">
+              <div className="relative" ref={filterRef}>
                 <button
                   type="button"
                   onClick={() => setFilterOpen((value) => !value)}
+                  aria-haspopup="menu"
+                  aria-expanded={filterOpen}
                   className={[
                     "flex items-center gap-2 rounded-full border px-4 py-2 text-[12.5px] font-medium transition",
+                    focusRing(isDark),
                     isDark
                       ? "border-white/10 bg-[#1c1c1e] text-neutral-200 hover:bg-[#242427]"
                       : "border-black/[0.06] bg-white text-neutral-700 hover:bg-neutral-50",
                   ].join(" ")}
                 >
                   {filter}
-                  <ChevronDownIcon />
+                  <span className={["flex transition-transform duration-200", filterOpen ? "rotate-180" : ""].join(" ")}>
+                    <ChevronDownIcon />
+                  </span>
                 </button>
+
                 {filterOpen && (
                   <div
+                    role="menu"
                     className={[
-                      "absolute right-0 z-10 mt-2 w-40 overflow-hidden rounded-[12px] border shadow-lg",
+                      "absolute left-0 z-20 mt-2 w-44 overflow-hidden rounded-[12px] border py-1 shadow-lg",
                       isDark
                         ? "border-white/10 bg-[#1c1c1e]"
                         : "border-black/[0.06] bg-white",
                     ].join(" ")}
                   >
-                    {filters.map((option) => (
-                      <button
-                        key={option}
-                        type="button"
-                        onClick={() => {
-                          setFilter(option);
-                          setFilterOpen(false);
-                        }}
-                        className={[
-                          "block w-full px-4 py-2.5 text-left text-[12.5px] transition",
-                          option === filter
-                            ? isDark
-                              ? "text-white"
-                              : "text-neutral-900"
-                            : isDark
-                              ? "text-neutral-400 hover:bg-white/5"
-                              : "text-neutral-500 hover:bg-black/[0.03]",
-                        ].join(" ")}
-                      >
-                        {option}
-                      </button>
-                    ))}
+                    {FILTERS.map((option) => {
+                      const selected = option === filter;
+                      return (
+                        <button
+                          key={option}
+                          type="button"
+                          role="menuitemradio"
+                          aria-checked={selected}
+                          onClick={() => {
+                            setFilter(option);
+                            setFilterOpen(false);
+                          }}
+                          className={[
+                            "flex w-full items-center justify-between px-4 py-2.5 text-left text-[12.5px] transition",
+                            selected
+                              ? isDark
+                                ? "font-semibold text-white"
+                                : "font-semibold text-neutral-900"
+                              : isDark
+                                ? "text-neutral-400 hover:bg-white/5"
+                                : "text-neutral-500 hover:bg-black/[0.03]",
+                          ].join(" ")}
+                        >
+                          {option}
+                          {selected && <CheckIcon />}
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
               </div>
+
+              <span
+                aria-live="polite"
+                className={["ml-auto text-[12px]", isDark ? "text-neutral-500" : "text-neutral-400"].join(" ")}
+              >
+                {visible.length} {visible.length === 1 ? "integration" : "integrations"}
+              </span>
             </div>
 
             {/* Cards grid */}
-            <div className="mt-[clamp(20px,3vw,32px)] grid grid-cols-1 gap-[clamp(14px,1.6vw,20px)] sm:grid-cols-2 lg:grid-cols-3">
+            <div className="mt-[clamp(14px,2vw,22px)] grid grid-cols-1 gap-[clamp(12px,1.4vw,18px)] sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
               {visible.map((card) => (
                 <IntegrationCard
-                  key={card.title + card.meta}
+                  key={card.title}
                   data={card}
                   isDark={isDark}
                 />
@@ -595,14 +602,31 @@ export default function Integrations() {
             </div>
 
             {visible.length === 0 && (
-              <p
-                className={[
-                  "mt-10 text-center text-[13px]",
-                  isDark ? "text-neutral-500" : "text-neutral-400",
-                ].join(" ")}
-              >
-                Aucune intégration ne correspond à votre recherche.
-              </p>
+              <div className="mt-16 flex flex-col items-center gap-3 text-center">
+                <p
+                  className={[
+                    "text-[13px]",
+                    isDark ? "text-neutral-500" : "text-neutral-400",
+                  ].join(" ")}
+                >
+                  Aucune intégration ne correspond à votre recherche.
+                </p>
+                {hasActiveFilters && (
+                  <button
+                    type="button"
+                    onClick={resetFilters}
+                    className={[
+                      "rounded-full border px-4 py-1.5 text-[12px] font-semibold transition",
+                      focusRing(isDark),
+                      isDark
+                        ? "border-white/10 text-white hover:bg-white/[0.07]"
+                        : "border-black/10 text-neutral-900 hover:bg-neutral-100",
+                    ].join(" ")}
+                  >
+                    Réinitialiser les filtres
+                  </button>
+                )}
+              </div>
             )}
           </div>
         </PageTransition>
