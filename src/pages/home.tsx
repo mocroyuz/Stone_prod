@@ -323,7 +323,7 @@ function GreetingAvatar({
     return (
       <div
         aria-hidden="true"
-        className="h-9 w-9 animate-pulse rounded-full bg-neutral-500/20"
+        className="h-11 w-11 animate-pulse rounded-full bg-neutral-500/20"
       />
     );
   }
@@ -334,7 +334,7 @@ function GreetingAvatar({
         src={avatarUrl}
         alt="Profile"
         onError={() => setFailed(true)}
-        className="h-9 w-9 rounded-full object-cover"
+        className="h-11 w-11 rounded-full object-cover"
       />
     );
   }
@@ -342,8 +342,8 @@ function GreetingAvatar({
   return (
     <div
       className={[
-        "flex h-9 w-9 items-center justify-center rounded-full",
-        "text-[12px] font-semibold",
+        "flex h-11 w-11 items-center justify-center rounded-full",
+        "text-[14px] font-semibold",
         isDark ? "bg-white text-black" : "bg-neutral-900 text-white",
       ].join(" ")}
     >
@@ -1307,25 +1307,33 @@ export default function Home() {
         >
           {/* HEADER */}
           <header className="flex shrink-0 items-start justify-between">
-            {/* Partie gauche : Texte de salutation + Date (format image) */}
-            <div className="flex min-w-0 flex-col">
-              <h1
-                className={[
-                  "truncate text-[24px] font-semibold tracking-[-0.035em]",
-                  strongClass(isDark),
-                ].join(" ")}
-              >
-                {greeting.charAt(0).toUpperCase() + greeting.slice(1)},{" "}
-                {displayName}!
-              </h1>
-              <p
-                className={[
-                  "mt-1 text-[13px] font-medium",
-                  mutedClass(isDark),
-                ].join(" ")}
-              >
-                {formattedDate}
-              </p>
+            {/* Partie gauche : Avatar + Texte de salutation + Date */}
+            <div className="flex items-center gap-4">
+              <GreetingAvatar
+                avatarUrl={user?.avatar_url}
+                initials={initials}
+                isDark={isDark}
+                loading={!userLoaded}
+              />
+              <div className="flex min-w-0 flex-col">
+                <h1
+                  className={[
+                    "truncate text-[24px] font-semibold tracking-[-0.035em]",
+                    strongClass(isDark),
+                  ].join(" ")}
+                >
+                  {greeting.charAt(0).toUpperCase() + greeting.slice(1)},{" "}
+                  {displayName}!
+                </h1>
+                <p
+                  className={[
+                    "mt-0.5 text-[13px] font-medium",
+                    mutedClass(isDark),
+                  ].join(" ")}
+                >
+                  {formattedDate}
+                </p>
+              </div>
             </div>
 
             {/* Partie droite : Horloge (inchangée) */}
