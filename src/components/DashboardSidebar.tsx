@@ -3,6 +3,7 @@ import React, {
   memo,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -1098,6 +1099,7 @@ function ChannelHoverCard({
 function SidebarChannelsImpl({
   channels: rawChannels,
   userId,
+  isDark,
   compact,
   currentRoute,
   focus,
@@ -1108,6 +1110,7 @@ function SidebarChannelsImpl({
 }: {
   channels: ConnectedChannel[];
   userId: string | null;
+  isDark: boolean;
   compact: boolean;
   currentRoute: string;
   focus: string;
@@ -1185,23 +1188,12 @@ function SidebarChannelsImpl({
       ?.focus({ preventScroll: true });
   }, [order]);
 
-  // Fin du drag : on mémorise l'ordre obtenu en direct.
-  const endDrag = useCallback(() => {
-    if (liveOrderRef.current) {
-      writeStoredOrder(userId, liveOrderRef.current);
-      liveOrderRef.current = null;
-    }
-    dragKeyRef.current = null;
-    setDragKey(null);
-  }, [userId]);
+  /* ── Drag façon Create.tsx : fantôme flottant + emplacement vide + décalage fluide ── */
 
-  useEffect(() => {
-    if (!canReorder) endDrag();
-  }, [canReorder, endDrag]);
+  const dragCleanupRef = useRef<((cancel?: boolean) => void) | null>(null);
 
-  // Réordonnancement EN DIRECT : dès que le curseur passe la moitié d'une
-  // autre ligne, le canal glissé prend sa place.
-  const reorderLive = useCallback((clientY: number) => {
+  // Réordonne EN DIRECT : dès que le curseur passe la moitié d'une autre ligne.
+  const moveLive = useCallback((clientY: number) => {
     const fromKey = dragKeyRef.current;
     const list = listRef.current;
     if (!fromKey || !list) return;
@@ -1209,18 +1201,20 @@ function SidebarChannelsImpl({
     const currentKeys = channelsRef.current.map((channel) => channel.key);
     const others = currentKeys.filter((key) => key !== fromKey);
 
-    // Première ligne (hors canal glissé) dont le milieu est sous le curseur
+    // La liste est `relative` : offsetTop des lignes est relatif à elle,
+    // indépendamment des animations (transform) et du scroll.
+    const y = clientY - list.getBoundingClientRect().top;
+
     let insertAt = others.length;
 
     for (let i = 0; i < others.length; i++) {
       const el = list.querySelector<HTMLElement>(
         `[data-channel-key="${CSS.escape(others[i])}"]`
       );
-      const row = (el?.firstElementChild as HTMLElement | null) ?? el;
+      const row = el?.firstElementChild as HTMLElement | null;
       if (!row) continue;
 
-      const rect = row.getBoundingClientRect();
-      if (clientY < rect.top + rect.height / 2) {
+      if (y < row.offsetTop + row.offsetHeight / 2) {
         insertAt = i;
         break;
       }
@@ -1235,48 +1229,169 @@ function SidebarChannelsImpl({
     setOrder(next);
   }, []);
 
-  // Drag par événements pointeur (souris + tactile) : plus fiable que le
-  // drag & drop natif quand le DOM est réordonné pendant le glissement.
-  const dragCleanupRef = useRef<(() => void) | null>(null);
-
-  const startPointerDrag = (event: React.PointerEvent, key: string) => {
+  const onHandlePointerDown = (event: React.PointerEvent, key: string) => {
     if (!canReorder) return;
     if (event.pointerType === "mouse" && event.button !== 0) return;
 
-    event.preventDefault();
-    dragCleanupRef.current?.();
+    const wrapper = (event.currentTarget as HTMLElement).closest<HTMLElement>(
+      "[data-channel-key]"
+    );
+    const row = wrapper?.firstElementChild as HTMLElement | null;
+    if (!row) return;
 
-    dragKeyRef.current = key;
-    liveOrderRef.current = null;
-    setDragKey(key);
+    event.preventDefault();
+    dragCleanupRef.current?.(true);
+
+    const rect = row.getBoundingClientRect();
+    const startX = event.clientX;
+    const startY = event.clientY;
+    const offY = event.clientY - rect.top;
+    const originalOrder = channelsRef.current.map((channel) => channel.key);
 
     const previousCursor = document.body.style.cursor;
     const previousSelect = document.body.style.userSelect;
-    document.body.style.cursor = "grabbing";
-    document.body.style.userSelect = "none";
+    let ghost: HTMLElement | null = null;
 
-    const onMove = (e: PointerEvent) => {
-      e.preventDefault();
-      reorderLive(e.clientY);
+    const onMove = (ev: PointerEvent) => {
+      if (!ghost) {
+        // Seuil de 5 px : un simple clic ne déclenche pas de drag
+        if (Math.hypot(ev.clientX - startX, ev.clientY - startY) < 5) return;
+
+        ghost = row.cloneNode(true) as HTMLElement;
+        ghost.setAttribute("aria-hidden", "true");
+
+        Object.assign(ghost.style, {
+          position: "fixed",
+          margin: "0",
+          left: `${rect.left}px`,
+          top: `${rect.top}px`,
+          width: `${rect.width}px`,
+          height: `${rect.height}px`,
+          zIndex: "200",
+          pointerEvents: "none",
+          transition: "none",
+          transform: "rotate(2deg)",
+          transformOrigin: "50% 0",
+          opacity: "1",
+          borderRadius: "12px",
+          background: isDark ? "#17171a" : "#e8e8e4",
+          color: getComputedStyle(row).color,
+          boxShadow: isDark
+            ? "0 18px 40px rgba(0,0,0,0.7)"
+            : "0 18px 40px rgba(0,0,0,0.18)",
+        } as Partial<CSSStyleDeclaration>);
+
+        const grip = ghost.querySelector<HTMLElement>("[data-grip]");
+        if (grip) {
+          grip.style.opacity = "1";
+          grip.style.transform = "none";
+          grip.style.transition = "none";
+        }
+
+        document.body.appendChild(ghost);
+        document.body.style.cursor = "grabbing";
+        document.body.style.userSelect = "none";
+
+        dragKeyRef.current = key;
+        liveOrderRef.current = null;
+        setDragKey(key);
+      }
+
+      // Le fantôme suit le curseur verticalement
+      ghost.style.top = `${ev.clientY - offY}px`;
+
+      // Auto-scroll de la navigation près des bords
+      const nav = listRef.current?.closest("nav");
+      if (nav) {
+        const nr = nav.getBoundingClientRect();
+        if (ev.clientY > nr.bottom - 40) nav.scrollTop += 10;
+        else if (ev.clientY < nr.top + 40) nav.scrollTop -= 10;
+      }
+
+      moveLive(ev.clientY);
     };
 
-    const finish = () => {
+    const onKey = (ev: KeyboardEvent) => {
+      if (ev.key === "Escape") finish(true);
+    };
+
+    const finish = (cancel = false) => {
       window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", finish);
-      window.removeEventListener("pointercancel", finish);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
+      window.removeEventListener("keydown", onKey);
+
+      ghost?.remove();
+      ghost = null;
       document.body.style.cursor = previousCursor;
       document.body.style.userSelect = previousSelect;
       dragCleanupRef.current = null;
-      endDrag();
+
+      if (dragKeyRef.current) {
+        if (cancel) {
+          setOrder(originalOrder);
+        } else if (liveOrderRef.current) {
+          writeStoredOrder(userId, liveOrderRef.current);
+        }
+      }
+
+      liveOrderRef.current = null;
+      dragKeyRef.current = null;
+      setDragKey(null);
     };
 
-    window.addEventListener("pointermove", onMove, { passive: false });
-    window.addEventListener("pointerup", finish);
-    window.addEventListener("pointercancel", finish);
+    const onUp = () => finish(false);
+
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
+    window.addEventListener("keydown", onKey);
     dragCleanupRef.current = finish;
   };
 
-  useEffect(() => () => dragCleanupRef.current?.(), []);
+  // Annule le drag si la barre est réduite ou démontée
+  useEffect(() => {
+    if (!canReorder) dragCleanupRef.current?.(true);
+  }, [canReorder]);
+
+  useEffect(() => () => dragCleanupRef.current?.(true), []);
+
+  /** FLIP : les réseaux qui changent de place glissent au lieu de sauter. */
+  const prevTops = useRef(new Map<string, number>());
+  const prevOrderKey = useRef("");
+
+  useLayoutEffect(() => {
+    const list = listRef.current;
+    if (!list) return;
+
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const orderKey = channels.map((channel) => channel.key).join("|");
+    const orderChanged = orderKey !== prevOrderKey.current;
+    const next = new Map<string, number>();
+
+    list.querySelectorAll<HTMLElement>("[data-channel-key]").forEach((el) => {
+      const key = el.dataset.channelKey as string;
+      const top = el.offsetTop;
+      next.set(key, top);
+
+      const prev = prevTops.current.get(key);
+
+      // On n'anime que si l'ordre a changé (pas à l'ouverture d'un sous-menu)
+      if (!reduce && orderChanged && prev !== undefined && prev !== top) {
+        el.style.transition = "none";
+        el.style.transform = `translateY(${prev - top}px)`;
+        el.getBoundingClientRect(); // force le reflow
+        el.style.transition = "transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1)";
+        el.style.transform = "";
+        el.addEventListener("transitionend", () => (el.style.transition = ""), {
+          once: true,
+        });
+      }
+    });
+
+    prevTops.current = next;
+    prevOrderKey.current = orderKey;
+  });
 
   /* ------------------------------------------------------------------------- */
 
@@ -1293,7 +1408,7 @@ function SidebarChannelsImpl({
   return (
     <div
       ref={listRef}
-      className="flex flex-col gap-1"
+      className="relative flex flex-col gap-1"
     >
       {channels.length === 0 &&
         STANDALONE_LINKS.map((link) => {
@@ -1438,17 +1553,18 @@ function SidebarChannelsImpl({
                 "group/row relative rounded-xl",
                 "transition-[opacity,background-color] duration-150 motion-reduce:transition-none",
                 canReorder ? t.row : "",
-                isDragging ? "opacity-40" : "",
+                isDragging ? `${t.rowOpen} [&>*]:invisible` : "",
               ].join(" ")}
             >
               {/* Poignée de glisser-déposer (6 points) — DANS la zone de survol */}
               {canReorder && (
                 <span
                   aria-hidden="true"
-                  onPointerDown={(event) => startPointerDrag(event, channel.key)}
+                  data-grip
+                  onPointerDown={(event) => onHandlePointerDown(event, channel.key)}
                   className={[
                     // À l'intérieur de la ligne (plus de décalage négatif)
-                    "absolute left-[1px] top-1/2 z-10 flex h-7 w-[9px] -translate-y-1/2",
+                    "absolute left-[1px] top-1/2 z-10 flex h-7 w-3 -translate-y-1/2",
                     "touch-none cursor-grab items-center justify-center rounded active:cursor-grabbing",
                     // Animation : glisse depuis la gauche + léger zoom
                     "transition-[opacity,transform,color] duration-200 ease-out motion-reduce:transition-none",
@@ -2453,6 +2569,7 @@ export default function DashboardSidebar({
           <SidebarChannels
             channels={connectedChannels}
             userId={userId}
+            isDark={isDark}
             compact={compact}
             currentRoute={currentRoute}
             focus={focus}
