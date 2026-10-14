@@ -1,13 +1,36 @@
+// src/pages/Schedule.tsx
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTheme } from "../hooks/useTheme";
 import DashboardSidebar, {
   useSidebarOffset,
 } from "../components/DashboardSidebar";
-import PageTransition from "../components/PageTransition";
 import BottomBar, { type BottomBarTab } from "../components/Bottombar";
 import Folder from "../components/Folder";
 import NewPostModal, { type NewPostPayload } from "../components/Newpostmodal";
 import { DateTimePicker } from "../components/DateTimePicker";
+
+/* ------------------------------------------------------------------ */
+/* Shell (identique à Home)                                            */
+/* ------------------------------------------------------------------ */
+
+const pageBgClass = (isDark: boolean) =>
+  isDark ? "bg-[#09090a]" : "bg-[#f5f3ef]";
+
+const mainPanelClass = (isDark: boolean) =>
+  isDark
+    ? "border-white/[0.07] bg-[#0f0f11]"
+    : "border-black/[0.06] bg-white";
+
+const mutedClass = (isDark: boolean) =>
+  isDark ? "text-neutral-500" : "text-neutral-400";
+
+const strongClass = (isDark: boolean) =>
+  isDark ? "text-white" : "text-neutral-900";
+
+const focusRingClass = (isDark: boolean) =>
+  isDark
+    ? "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
+    : "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/25";
 
 /* ------------------------------------------------------------------ */
 /* Icons                                                               */
@@ -20,7 +43,6 @@ function ChevronDownIcon() {
     </svg>
   );
 }
-
 
 function PlusIcon() {
   return (
@@ -200,12 +222,13 @@ function ToolbarButton({
       aria-pressed={chevron ? undefined : active}
       className={[
         "flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[13px] font-medium transition",
+        focusRingClass(isDark),
         highlighted
           ? isDark
-            ? "bg-white/10 text-white"
-            : "bg-black/[0.06] text-neutral-900"
+            ? "bg-white/[0.08] text-white"
+            : "bg-black/[0.05] text-neutral-900"
           : isDark
-            ? "text-neutral-200 hover:bg-white/5"
+            ? "text-neutral-300 hover:bg-white/[0.05]"
             : "text-neutral-700 hover:bg-black/[0.04]",
       ].join(" ")}
     >
@@ -241,12 +264,13 @@ function ToolbarIconButton({
       onClick={onClick}
       className={[
         "flex h-8 w-8 items-center justify-center rounded-lg transition",
+        focusRingClass(isDark),
         open
           ? isDark
-            ? "bg-white/10 text-white"
-            : "bg-black/[0.06] text-neutral-900"
+            ? "bg-white/[0.08] text-white"
+            : "bg-black/[0.05] text-neutral-900"
           : isDark
-            ? "text-neutral-300 hover:bg-white/5 hover:text-white"
+            ? "text-neutral-300 hover:bg-white/[0.05] hover:text-white"
             : "text-neutral-500 hover:bg-black/[0.04] hover:text-neutral-900",
       ].join(" ")}
     >
@@ -270,10 +294,10 @@ function MenuPanel({
     <div
       role="menu"
       className={[
-        "absolute top-full z-40 mt-2 overflow-hidden rounded-[12px] border py-1.5 shadow-lg",
+        "absolute top-full z-40 mt-2 overflow-hidden rounded-xl border py-1.5 shadow-lg",
         align === "right" ? "right-0" : "left-0",
         width,
-        isDark ? "border-white/10 bg-[#1c1c1e]" : "border-black/[0.06] bg-white",
+        isDark ? "border-white/[0.08] bg-[#16161a]" : "border-black/[0.06] bg-white",
       ].join(" ")}
     >
       {children}
@@ -306,7 +330,7 @@ function MenuItem({
             ? "font-semibold text-white"
             : "font-semibold text-neutral-900"
           : isDark
-            ? "text-neutral-300 hover:bg-white/5"
+            ? "text-neutral-300 hover:bg-white/[0.05]"
             : "text-neutral-600 hover:bg-black/[0.03]",
       ].join(" ")}
     >
@@ -337,7 +361,6 @@ function addDays(date: Date, days: number) {
   d.setDate(d.getDate() + days);
   return d;
 }
-
 
 /* ------------------------------------------------------------------ */
 /* Time <-> decimal hour helpers                                       */
@@ -386,9 +409,7 @@ const SPAN = END_HOUR - START_HOUR;
 const HOUR_HEIGHT = 72;
 const TOTAL_HEIGHT = SPAN * HOUR_HEIGHT;
 
-/* Heure de départ du scroll quand on n'est pas sur la semaine en cours. */
 const DEFAULT_SCROLL_HOUR = 8;
-/* Nombre d'heures de contexte affichées avant « maintenant ». */
 const NOW_CONTEXT_HOURS = 2;
 
 const HOURS = Array.from({ length: SPAN + 1 }, (_, i) => START_HOUR + i);
@@ -484,7 +505,7 @@ function fieldClass(isDark: boolean) {
   return [
     "w-full rounded-[10px] border px-3 py-2 text-[13px] outline-none transition",
     isDark
-      ? "border-white/10 bg-[#242427] text-white placeholder:text-neutral-500 focus:border-white/25"
+      ? "border-white/[0.08] bg-white/[0.04] text-white placeholder:text-neutral-500 focus:border-white/25"
       : "border-black/[0.08] bg-neutral-50 text-neutral-900 placeholder:text-neutral-400 focus:border-black/20",
   ].join(" ");
 }
@@ -520,8 +541,8 @@ function CategoryEditorPopover({
   return (
     <div
       className={[
-        "absolute left-0 top-full z-30 mt-2 w-60 rounded-[12px] border p-3 shadow-lg",
-        isDark ? "border-white/10 bg-[#1c1c1e]" : "border-black/[0.06] bg-white",
+        "absolute left-0 top-full z-30 mt-2 w-60 rounded-xl border p-3 shadow-lg",
+        isDark ? "border-white/[0.08] bg-[#16161a]" : "border-black/[0.06] bg-white",
       ].join(" ")}
     >
       <p className={["mb-2 text-[11px] font-medium", isDark ? "text-neutral-500" : "text-neutral-400"].join(" ")}>
@@ -571,7 +592,7 @@ function CategoryEditorPopover({
           onClick={onCancel}
           className={[
             "rounded-full px-3 py-1.5 text-[12px] font-medium transition",
-            isDark ? "text-neutral-300 hover:bg-white/5" : "text-neutral-600 hover:bg-black/5",
+            isDark ? "text-neutral-300 hover:bg-white/[0.05]" : "text-neutral-600 hover:bg-black/[0.05]",
           ].join(" ")}
         >
           Annuler
@@ -583,8 +604,8 @@ function CategoryEditorPopover({
           className={[
             "rounded-full px-3.5 py-1.5 text-[12px] font-semibold transition disabled:cursor-not-allowed disabled:opacity-40",
             isDark
-              ? "bg-neutral-900 text-white hover:bg-neutral-800"
-              : "bg-white text-neutral-900 hover:bg-neutral-100",
+              ? "bg-white text-neutral-900 hover:bg-neutral-200"
+              : "bg-neutral-900 text-white hover:bg-neutral-800",
           ].join(" ")}
         >
           {submitLabel}
@@ -643,7 +664,7 @@ function EventCard({
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       className={[
-        "absolute inset-x-1 flex flex-col gap-2 rounded-[12px] border px-3 py-2.5 transition-[box-shadow]",
+        "absolute inset-x-1 flex flex-col gap-2 rounded-xl border px-3 py-2.5 transition-[box-shadow]",
         isFront ? "shadow-lg" : "",
         isDark ? tone.bgDark : tone.bgLight,
         isDark ? tone.borderDark : tone.borderLight,
@@ -669,8 +690,8 @@ function EventCard({
             onClick={onToggleMenu}
             className={[
               "rounded-full p-0.5 transition",
-              menuOpen ? (isDark ? "bg-white/10" : "bg-black/5") : "",
-              isDark ? "text-neutral-400 hover:bg-white/10" : "text-neutral-400 hover:bg-black/5",
+              menuOpen ? (isDark ? "bg-white/[0.08]" : "bg-black/[0.05]") : "",
+              isDark ? "text-neutral-400 hover:bg-white/[0.08]" : "text-neutral-400 hover:bg-black/[0.05]",
             ].join(" ")}
           >
             <MoreIcon />
@@ -680,8 +701,8 @@ function EventCard({
             <div
               role="menu"
               className={[
-                "absolute right-0 top-full z-40 mt-1.5 w-36 overflow-hidden rounded-[12px] border py-1 shadow-lg",
-                isDark ? "border-white/10 bg-[#1c1c1e]" : "border-black/[0.06] bg-white",
+                "absolute right-0 top-full z-40 mt-1.5 w-36 overflow-hidden rounded-xl border py-1 shadow-lg",
+                isDark ? "border-white/[0.08] bg-[#16161a]" : "border-black/[0.06] bg-white",
               ].join(" ")}
             >
               <button
@@ -690,7 +711,7 @@ function EventCard({
                 onClick={handleEdit}
                 className={[
                   "flex w-full items-center gap-2 px-3 py-2 text-left text-[12.5px] transition",
-                  isDark ? "text-neutral-200 hover:bg-white/5" : "text-neutral-700 hover:bg-black/[0.03]",
+                  isDark ? "text-neutral-200 hover:bg-white/[0.05]" : "text-neutral-700 hover:bg-black/[0.03]",
                 ].join(" ")}
               >
                 <PencilIcon />
@@ -702,7 +723,7 @@ function EventCard({
                 onClick={handleDelete}
                 className={[
                   "flex w-full items-center gap-2 px-3 py-2 text-left text-[12.5px] transition",
-                  isDark ? "text-[#F0A79E] hover:bg-white/5" : "text-[#C24B41] hover:bg-black/[0.03]",
+                  isDark ? "text-rose-300 hover:bg-white/[0.05]" : "text-rose-600 hover:bg-black/[0.03]",
                 ].join(" ")}
               >
                 <TrashIcon />
@@ -717,7 +738,7 @@ function EventCard({
         <span
           className={[
             "flex w-fit items-center gap-1 rounded-full px-2 py-[3px] text-[10px] font-medium",
-            isDark ? "bg-white/10 text-white" : "bg-white text-neutral-700 shadow-sm",
+            isDark ? "bg-white/[0.08] text-white" : "bg-white text-neutral-700 shadow-sm",
           ].join(" ")}
         >
           <CheckIcon className="h-[9px] w-[9px]" />
@@ -790,18 +811,18 @@ function EventFormModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onCancel} />
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onCancel} />
       <div
         role="dialog"
         aria-modal="true"
         className={[
-          "relative z-10 w-full max-w-md rounded-[18px] border p-5 shadow-2xl",
-          isDark ? "border-white/10 bg-[#1c1c1e]" : "border-black/[0.06] bg-white",
+          "relative z-10 w-full max-w-md rounded-2xl border p-5 shadow-2xl",
+          isDark ? "border-white/[0.08] bg-[#16161a]" : "border-black/[0.06] bg-white",
         ].join(" ")}
       >
         <h2
           className={[
-            "mb-4 font-display text-[17px] font-semibold",
+            "mb-4 text-[17px] font-semibold tracking-[-0.02em]",
             isDark ? "text-white" : "text-neutral-900",
           ].join(" ")}
         >
@@ -860,7 +881,7 @@ function EventFormModal({
           </div>
 
           {!canSave && (
-            <p className={["text-[11px]", isDark ? "text-[#F0A79E]" : "text-[#C24B41]"].join(" ")}>
+            <p className={["text-[11px]", isDark ? "text-rose-300" : "text-rose-600"].join(" ")}>
               Renseigne un titre et une heure de fin postérieure à l'heure de début.
             </p>
           )}
@@ -872,7 +893,7 @@ function EventFormModal({
             onClick={onCancel}
             className={[
               "rounded-full px-3.5 py-2 text-[12.5px] font-medium transition",
-              isDark ? "text-neutral-300 hover:bg-white/5" : "text-neutral-600 hover:bg-black/5",
+              isDark ? "text-neutral-300 hover:bg-white/[0.05]" : "text-neutral-600 hover:bg-black/[0.05]",
             ].join(" ")}
           >
             Annuler
@@ -902,10 +923,8 @@ export default function Schedule() {
   const { theme } = useTheme();
   const isDark = theme === "dark";
 
-  /* Marge gauche : suit l'état réduit / ouvert de la sidebar. */
   const sidebarOffset = useSidebarOffset();
 
-  /* ---------------- State ---------------- */
   const [categories, setCategories] = useState<Category[]>([]);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
 
@@ -926,18 +945,15 @@ export default function Schedule() {
   const [eventFormOpen, setEventFormOpen] = useState(false);
   const [editingEventId, setEditingEventId] = useState<string | null>(null);
 
-  /* ---------------- BottomBar state ---------------- */
   const [bottomQuery, setBottomQuery] = useState("");
   const [isFolderOpen, setIsFolderOpen] = useState(false);
   const [isNewPostOpen, setIsNewPostOpen] = useState(false);
-  /* Date/heure préremplies quand le modal est ouvert depuis une case du calendrier. */
   const [newPostDate, setNewPostDate] = useState<Date | null>(null);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const [scrollTop, setScrollTop] = useState(0);
   const [viewportHeight, setViewportHeight] = useState(0);
 
-  /* ---------------- Menu close on outside click / Escape ---------------- */
   useEffect(() => {
     if (openMenuId === null) return;
 
@@ -956,7 +972,6 @@ export default function Schedule() {
     };
   }, [openMenuId]);
 
-  /* ---------------- Toolbar menus close on outside click / Escape ---------------- */
   useEffect(() => {
     if (!openPanel && !catCreatorOpen && !editingCategoryId) return;
 
@@ -980,14 +995,12 @@ export default function Schedule() {
     };
   }, [openPanel, catCreatorOpen, editingCategoryId]);
 
-  /* ---------------- Real clock ---------------- */
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
     const id = window.setInterval(() => setNow(new Date()), 60_000);
     return () => window.clearInterval(id);
   }, []);
 
-  /* ---------------- Initial scroll : heure actuelle ---------------- */
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
@@ -1003,7 +1016,6 @@ export default function Schedule() {
     setScrollTop(el.scrollTop);
   }, [weekOffset]);
 
-  /* ---------------- Viewport measure ---------------- */
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
@@ -1026,7 +1038,6 @@ export default function Schedule() {
     setScrollTop(e.currentTarget.scrollTop);
   };
 
-  /* ---------------- Week days ---------------- */
   const weekStart = useMemo(
     () => addDays(startOfWeek(now), weekOffset * 7),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1047,7 +1058,6 @@ export default function Schedule() {
     [weekStart, now],
   );
 
-  /* Le mois affiché suit le milieu de la semaine (évite les semaines à cheval). */
   const monthLabel = days[3].date.toLocaleDateString(LOCALE, { month: "long", year: "numeric" });
 
   const togglePanel = (panel: ToolbarPanel) => {
@@ -1060,11 +1070,9 @@ export default function Schedule() {
   const nowLabel = `${now.getHours()}:${String(now.getMinutes()).padStart(2, "0")}`;
   const showNowLine = nowHour >= START_HOUR && nowHour <= END_HOUR;
 
-  /* Minuit d'aujourd'hui : les jours >= cette date reçoivent le « + ». */
   const todayStart = new Date(now);
   todayStart.setHours(0, 0, 0, 0);
 
-  /* ---------------- Derived data ---------------- */
   const categoryById = useMemo(() => {
     const m = new Map<string, Category>();
     categories.forEach((c) => m.set(c.id, c));
@@ -1131,8 +1139,6 @@ export default function Schedule() {
     }
   };
 
-  /* ---------------- Handlers ---------------- */
-
   const handleCreateCategory = (data: { name: string; tone: Tone }) => {
     const id = `cat-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     setCategories((prev) => [...prev, { id, name: data.name, tone: data.tone }]);
@@ -1190,7 +1196,6 @@ export default function Schedule() {
 
   const editingEvent = editingEventId ? events.find((e) => e.id === editingEventId) ?? null : null;
 
-  /* ---------------- BottomBar handlers ---------------- */
   const handleBottomBarChange = (id: BottomBarTab) => {
     switch (id) {
       case "add":
@@ -1204,13 +1209,11 @@ export default function Schedule() {
     }
   };
 
-  /* Ouvre le New Post modal avec la date/heure de la case cliquée. */
   const openNewPostAt = (day: Date, hour: number) => {
     const slot = new Date(day);
     slot.setHours(hour, 0, 0, 0);
 
     if (slot.getTime() <= Date.now()) {
-      // Heure en cours (déjà commencée) : prochain multiple de 5 min.
       const d = new Date();
       d.setMinutes(Math.ceil((d.getMinutes() + 1) / 5) * 5, 0, 0);
       setNewPostDate(d);
@@ -1225,48 +1228,68 @@ export default function Schedule() {
     console.log("Nouveau post :", payload);
   };
 
-  /* ---------------- Render ---------------- */
+  const calendarBorder = isDark ? "border-white/[0.07]" : "border-black/[0.06]";
+  const calendarHead = isDark ? "border-white/[0.07]" : "border-black/[0.06]";
+
   return (
     <main
       className={[
-        "relative h-[100dvh] w-full overflow-hidden transition-colors duration-500",
-        isDark ? "bg-[#09090a]" : "bg-[#f3f1ed]",
+        "relative h-screen w-full overflow-hidden",
+        "transition-colors duration-300",
+        pageBgClass(isDark),
       ].join(" ")}
     >
       <DashboardSidebar theme={theme} />
 
       <div
-        className="h-full transition-[padding-left] duration-[380ms] ease-[cubic-bezier(0.4,0,0.2,1)] motion-reduce:transition-none"
+        className={[
+          "h-full py-3 pr-3",
+          "transition-[padding-left] duration-[380ms]",
+          "ease-[cubic-bezier(0.4,0,0.2,1)]",
+          "motion-reduce:transition-none",
+        ].join(" ")}
         style={{ paddingLeft: sidebarOffset }}
       >
-        <PageTransition>
-          {/* Pleine largeur (plus de max-w) ; pb-[96px] réserve la place de la BottomBar. */}
-          <div className="flex h-[100dvh] w-full max-w-none flex-col px-[clamp(12px,1.5vw,24px)] pt-[clamp(16px,2vw,28px)] pb-[96px]">
-            {/* Titre de la page : en haut à gauche */}
-            <header className="mb-[clamp(10px,1.4vw,16px)] flex shrink-0 items-center gap-2.5">
+        {/* PANNEAU ARRONDI (flex column car le calendrier doit remplir la hauteur) */}
+        <div
+          className={[
+            "flex h-full flex-col overflow-hidden",
+            "rounded-[28px] border",
+            "transition-colors duration-300",
+            mainPanelClass(isDark),
+          ].join(" ")}
+        >
+          <div
+            className={[
+              "flex min-h-0 w-full flex-1 flex-col",
+              "px-[clamp(18px,3vw,48px)]",
+              "pb-4 pt-[clamp(18px,3vw,30px)]",
+            ].join(" ")}
+          >
+            {/* HEADER */}
+            <header className="mb-3 flex shrink-0 items-center gap-2.5">
               <div
                 className={[
-                  "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border",
+                  "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border",
                   isDark
-                    ? "border-white/10 bg-white/[0.03] text-white"
-                    : "border-black/[0.08] bg-white text-neutral-900 shadow-sm",
+                    ? "border-white/[0.08] bg-white/[0.04] text-white"
+                    : "border-black/[0.06] bg-white text-neutral-900 shadow-sm",
                 ].join(" ")}
               >
                 <CalendarIcon />
               </div>
               <h1
                 className={[
-                  "font-display text-[clamp(17px,1.5vw,20px)] font-semibold tracking-[-0.01em]",
-                  isDark ? "text-white" : "text-neutral-900",
+                  "text-[24px] font-semibold tracking-[-0.035em]",
+                  strongClass(isDark),
                 ].join(" ")}
               >
                 Publish
               </h1>
             </header>
 
-            {/* Toolbar */}
+            {/* TOOLBAR */}
             <div className="flex shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-2">
-              {/* Gauche : navigation + vue */}
               <div className="flex items-center gap-1">
                 <ToolbarIconButton isDark={isDark} label="Previous week" onClick={() => setWeekOffset((o) => o - 1)}>
                   <ChevronLeftIcon />
@@ -1277,8 +1300,8 @@ export default function Schedule() {
 
                 <h2
                   className={[
-                    "mx-3 font-display text-[clamp(17px,1.5vw,20px)] font-semibold tracking-[-0.01em]",
-                    isDark ? "text-white" : "text-neutral-900",
+                    "mx-3 text-[19px] font-semibold tracking-[-0.03em]",
+                    strongClass(isDark),
                   ].join(" ")}
                 >
                   {monthLabel}
@@ -1289,9 +1312,10 @@ export default function Schedule() {
                   onClick={() => setWeekOffset(0)}
                   className={[
                     "rounded-lg border px-4 py-1.5 text-[13px] font-medium transition",
+                    focusRingClass(isDark),
                     isDark
-                      ? "border-white/10 bg-white/[0.04] text-white hover:bg-white/[0.08]"
-                      : "border-black/[0.08] bg-white text-neutral-900 hover:bg-neutral-50",
+                      ? "border-white/[0.08] bg-white/[0.03] text-white hover:bg-white/[0.08]"
+                      : "border-black/[0.06] bg-white text-neutral-900 hover:bg-neutral-50",
                   ].join(" ")}
                 >
                   Today
@@ -1321,7 +1345,6 @@ export default function Schedule() {
                 </div>
               </div>
 
-              {/* Droite : filtres */}
               <div className="flex flex-wrap items-center gap-1">
                 {/* Channels */}
                 <div className="relative" data-toolbar-menu>
@@ -1426,7 +1449,7 @@ export default function Schedule() {
                                     ? "font-semibold text-white"
                                     : "font-semibold text-neutral-900"
                                   : isDark
-                                    ? "text-neutral-300 hover:bg-white/5"
+                                    ? "text-neutral-300 hover:bg-white/[0.05]"
                                     : "text-neutral-600 hover:bg-black/[0.03]",
                               ].join(" ")}
                             >
@@ -1445,7 +1468,7 @@ export default function Schedule() {
                               onClick={() => setEditingCategoryId(cat.id)}
                               className={[
                                 "rounded-md p-1 opacity-0 transition focus-visible:opacity-100 group-hover:opacity-100",
-                                isDark ? "text-neutral-400 hover:bg-white/10 hover:text-white" : "text-neutral-400 hover:bg-black/5 hover:text-neutral-900",
+                                isDark ? "text-neutral-400 hover:bg-white/[0.06] hover:text-white" : "text-neutral-400 hover:bg-black/[0.05] hover:text-neutral-900",
                               ].join(" ")}
                             >
                               <PencilIcon />
@@ -1456,7 +1479,7 @@ export default function Schedule() {
                               onClick={() => handleDeleteCategory(cat.id)}
                               className={[
                                 "mr-2 rounded-md p-1 opacity-0 transition focus-visible:opacity-100 group-hover:opacity-100",
-                                isDark ? "text-[#F0A79E] hover:bg-white/10" : "text-[#C24B41] hover:bg-black/5",
+                                isDark ? "text-rose-300 hover:bg-white/[0.06]" : "text-rose-600 hover:bg-black/[0.05]",
                               ].join(" ")}
                             >
                               <TrashIcon />
@@ -1465,7 +1488,7 @@ export default function Schedule() {
                         );
                       })}
 
-                      <div className={["mt-1.5 border-t pt-1.5", isDark ? "border-white/10" : "border-black/[0.06]"].join(" ")}>
+                      <div className={["mt-1.5 border-t pt-1.5", isDark ? "border-white/[0.07]" : "border-black/[0.06]"].join(" ")}>
                         <MenuItem isDark={isDark} icon={<PlusIcon />} onClick={() => setCatCreatorOpen(true)}>
                           New tag
                         </MenuItem>
@@ -1511,7 +1534,7 @@ export default function Schedule() {
                   No Date
                 </ToolbarButton>
 
-                <span className={["mx-1 h-5 w-px", isDark ? "bg-white/10" : "bg-black/10"].join(" ")} />
+                <span className={["mx-1 h-5 w-px", isDark ? "bg-white/[0.08]" : "bg-black/[0.08]"].join(" ")} />
 
                 {/* Fuseau horaire */}
                 <div className="relative" data-toolbar-menu>
@@ -1570,22 +1593,22 @@ export default function Schedule() {
               </div>
             </div>
 
-            {/* Calendar grid */}
+            {/* CALENDAR */}
             <div
               className={[
-                "mt-[clamp(12px,1.6vw,18px)] flex min-h-0 flex-1 flex-col overflow-hidden rounded-[18px] border",
-                isDark ? "border-white/10 bg-[#111113]" : "border-black/[0.06] bg-white",
+                "mt-4 flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border",
+                calendarBorder,
+                isDark ? "bg-white/[0.02]" : "bg-white",
               ].join(" ")}
             >
-              {/* Day headers */}
               <div className="grid shrink-0 grid-cols-[56px_repeat(7,minmax(0,1fr))]">
-                <div className={["border-b", isDark ? "border-white/10" : "border-black/[0.06]"].join(" ")} />
+                <div className={["border-b", calendarHead].join(" ")} />
                 {days.map((day) => (
                   <div
                     key={day.date.toISOString()}
                     className={[
                       "flex items-center justify-center gap-2 border-b border-l py-3 text-[12.5px]",
-                      isDark ? "border-white/10" : "border-black/[0.06]",
+                      calendarHead,
                       day.isToday
                         ? isDark
                           ? "font-semibold text-white"
@@ -1613,7 +1636,6 @@ export default function Schedule() {
               </div>
 
               <div className="relative min-h-0 flex-1">
-                {/* Scrollbar masquée : l'en-tête reste parfaitement aligné avec la grille. */}
                 <div
                   ref={scrollRef}
                   onScroll={handleScroll}
@@ -1629,7 +1651,7 @@ export default function Schedule() {
                           key={h}
                           className={[
                             "absolute inset-x-0 px-2 text-right text-[11px] leading-none",
-                            isDark ? "text-neutral-500" : "text-neutral-400",
+                            mutedClass(isDark),
                           ].join(" ")}
                           style={{
                             top: i * HOUR_HEIGHT,
@@ -1646,24 +1668,22 @@ export default function Schedule() {
                         key={day.date.toISOString()}
                         className={[
                           "relative border-l",
-                          isDark ? "border-white/10" : "border-black/[0.06]",
+                          calendarBorder,
                           day.isToday ? (isDark ? "bg-white/[0.02]" : "bg-black/[0.015]") : "",
                         ].join(" ")}
                       >
                         {HOURS.slice(0, -1).map((h, i) => (
                           <div
                             key={h}
-                            className={["absolute inset-x-0 border-b", isDark ? "border-white/[0.06]" : "border-black/[0.04]"].join(" ")}
+                            className={["absolute inset-x-0 border-b", isDark ? "border-white/[0.05]" : "border-black/[0.04]"].join(" ")}
                             style={{ top: (i + 1) * HOUR_HEIGHT }}
                           />
                         ))}
 
-                        {/* « + » au survol des cases d'aujourd'hui et des jours suivants */}
                         {day.date.getTime() >= todayStart.getTime() &&
                           HOURS.slice(0, -1).map((h) => {
                             const slotEnd = new Date(day.date);
                             slotEnd.setHours(h + 1, 0, 0, 0);
-                            // Heures entièrement passées : pas de « + ».
                             if (slotEnd.getTime() <= now.getTime()) return null;
 
                             return (
@@ -1679,8 +1699,8 @@ export default function Schedule() {
                                   className={[
                                     "absolute left-1/2 top-1/2 flex h-8 w-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-lg border opacity-0 transition group-hover:opacity-100 focus-visible:opacity-100",
                                     isDark
-                                      ? "border-white/10 bg-[#242427] text-neutral-300 hover:bg-[#2e2e31] hover:text-white"
-                                      : "border-black/10 bg-neutral-100 text-neutral-500 hover:bg-neutral-200 hover:text-neutral-900",
+                                      ? "border-white/[0.08] bg-white/[0.06] text-neutral-300 hover:bg-white/[0.10] hover:text-white"
+                                      : "border-black/[0.06] bg-white text-neutral-500 shadow-sm hover:bg-neutral-50 hover:text-neutral-900",
                                   ].join(" ")}
                                 >
                                   <PlusIcon />
@@ -1740,13 +1760,14 @@ export default function Schedule() {
                     aria-label="Événements au-dessus"
                     className={[
                       "absolute left-1/2 top-3 z-30 flex h-9 w-9 -translate-x-1/2 items-center justify-center rounded-full border shadow-lg transition hover:scale-105",
+                      focusRingClass(isDark),
                       isDark
-                        ? "border-white/15 bg-[#1c1c1e] text-white"
-                        : "border-black/10 bg-white text-neutral-800",
+                        ? "border-white/[0.10] bg-[#16161a] text-white"
+                        : "border-black/[0.06] bg-white text-neutral-800",
                     ].join(" ")}
                   >
                     <ArrowUpIcon />
-                    <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-[#EF4444] ring-2 ring-white dark:ring-[#1c1c1e]" />
+                    <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-[#EF4444] ring-2 ring-white dark:ring-[#16161a]" />
                   </button>
                 )}
 
@@ -1757,22 +1778,22 @@ export default function Schedule() {
                     aria-label="Événements en-dessous"
                     className={[
                       "absolute bottom-3 left-1/2 z-30 flex h-9 w-9 -translate-x-1/2 items-center justify-center rounded-full border shadow-lg transition hover:scale-105",
+                      focusRingClass(isDark),
                       isDark
-                        ? "border-white/15 bg-[#1c1c1e] text-white"
-                        : "border-black/10 bg-white text-neutral-800",
+                        ? "border-white/[0.10] bg-[#16161a] text-white"
+                        : "border-black/[0.06] bg-white text-neutral-800",
                     ].join(" ")}
                   >
                     <ArrowDownIcon />
-                    <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-[#EF4444] ring-2 ring-white dark:ring-[#1c1c1e]" />
+                    <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-[#EF4444] ring-2 ring-white dark:ring-[#16161a]" />
                   </button>
                 )}
               </div>
             </div>
           </div>
-        </PageTransition>
+        </div>
       </div>
 
-      {/* Event form modal */}
       {eventFormOpen && (
         <EventFormModal
           isDark={isDark}
@@ -1797,7 +1818,6 @@ export default function Schedule() {
         />
       )}
 
-      {/* Barre d'actions rapides. */}
       <Folder
         isOpen={isFolderOpen}
         onClose={() => setIsFolderOpen(false)}

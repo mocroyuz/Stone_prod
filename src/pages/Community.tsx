@@ -1,8 +1,4 @@
 // src/pages/Community.tsx
-// Page Community (route "community") : boîte de réception des commentaires et mentions.
-// Noir et blanc, même thème que la page Insights.
-// Les données (posts / commentaires) sont fournies par `useCommunity` : branche-le sur ton backend.
-
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { useTheme } from "../hooks/useTheme";
@@ -51,17 +47,41 @@ const FILTERS: { key: Filter; label: string }[] = [
   { key: "answered", label: "Answered" },
 ];
 
-/* ───────── Données (à remplacer par ton API) ───────── */
+/* ───────── Shell (identique à Home) ───────── */
+
+const pageBgClass = (isDark: boolean) =>
+  isDark ? "bg-[#09090a]" : "bg-[#f5f3ef]";
+
+const mainPanelClass = (isDark: boolean) =>
+  isDark
+    ? "border-white/[0.07] bg-[#0f0f11]"
+    : "border-black/[0.06] bg-white";
+
+const panelSurfaceClass = (isDark: boolean) =>
+  isDark
+    ? "border-white/[0.07] bg-white/[0.03]"
+    : "border-black/[0.06] bg-[#f6f4f0]";
+
+const mutedClass = (isDark: boolean) =>
+  isDark ? "text-neutral-500" : "text-neutral-400";
+
+const strongClass = (isDark: boolean) =>
+  isDark ? "text-white" : "text-neutral-900";
+
+const focusRingClass = (isDark: boolean) =>
+  isDark
+    ? "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
+    : "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/25";
+
+/* ───────── Données ───────── */
 
 function useCommunity(_channelKey: string | undefined, _tab: Tab, _filter: Filter) {
-  // Branche ici ton backend : renvoie les posts qui ont reçu des commentaires / mentions.
   const posts: Post[] = [];
   return { posts };
 }
 
 /* ───────── Helpers ───────── */
 
-/** Canal demandé via /#/community?channel=<key> (re-rendu à chaque navigation). */
 function useHashChannel(): string | null {
   useHashRoute();
   const hash = window.location.hash;
@@ -131,7 +151,6 @@ const SyncIcon = (p: IconProps) => (
     <path d="M18 3v4h-4M6 21v-4h4" />
   </Svg>
 );
-/** Cercle en pointillés avec flèche vers le haut (« remonter les posts »). */
 const BringToTopIcon = (p: IconProps) => (
   <Svg {...p}>
     <circle cx="12" cy="12" r="9" strokeDasharray="3 3.2" />
@@ -211,7 +230,6 @@ const PlusIcon = (p: IconProps) => (
 
 /* ───────── Petits composants ───────── */
 
-/** Logo du réseau dans une pastille blanche (même rendu que sur l'avatar du header). */
 function NetworkBadge({ Icon }: { Icon: IconComponent }) {
   return (
     <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-white text-black ring-1 ring-black/10">
@@ -245,9 +263,11 @@ function Menu<T extends string>({
         aria-haspopup="listbox"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className={`flex items-center gap-2 rounded-xl px-3 py-2 text-[14px] font-medium transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 ${ghost} ${
-          isDark ? "focus-visible:ring-white/40" : "focus-visible:ring-black/30"
-        }`}
+        className={[
+          "flex items-center gap-2 rounded-xl px-3 py-2 text-[13px] font-medium transition-colors motion-reduce:transition-none",
+          focusRingClass(isDark),
+          ghost,
+        ].join(" ")}
       >
         {current?.icon ?? icon}
         {current?.label}
@@ -265,9 +285,12 @@ function Menu<T extends string>({
           />
           <ul
             role="listbox"
-            className={`absolute right-0 z-40 mt-2 min-w-[200px] overflow-hidden rounded-xl border p-1 shadow-lg ${
-              isDark ? "border-white/10 bg-[#0c0c0c]" : "border-black/10 bg-white"
-            }`}
+            className={[
+              "absolute right-0 z-40 mt-2 min-w-[200px] overflow-hidden rounded-xl border p-1 shadow-lg",
+              isDark
+                ? "border-white/[0.08] bg-[#16161a]"
+                : "border-black/[0.06] bg-white",
+            ].join(" ")}
           >
             {options.map((o) => (
               <li key={o.key}>
@@ -279,15 +302,16 @@ function Menu<T extends string>({
                     onChange(o.key);
                     setOpen(false);
                   }}
-                  className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-[13px] font-medium transition-colors ${
+                  className={[
+                    "flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-[12.5px] font-medium transition-colors",
                     o.key === value
                       ? isDark
-                        ? "bg-white/10"
-                        : "bg-black/[0.06]"
+                        ? "bg-white/[0.08]"
+                        : "bg-black/[0.05]"
                       : isDark
-                      ? "hover:bg-white/[0.06]"
-                      : "hover:bg-black/[0.04]"
-                  }`}
+                        ? "hover:bg-white/[0.05]"
+                        : "hover:bg-black/[0.04]",
+                  ].join(" ")}
                 >
                   {o.icon}
                   {o.label}
@@ -316,7 +340,6 @@ function IconButton({
   ghost: string;
   isDark: boolean;
   className?: string;
-  /** "end" : l'infobulle s'aligne sur le bord droit (boutons proches du bord de l'écran). */
   align?: "center" | "end";
 }) {
   return (
@@ -325,18 +348,23 @@ function IconButton({
         type="button"
         aria-label={label}
         onClick={onClick}
-        className={`flex items-center justify-center rounded-xl transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 ${ghost} ${
-          isDark ? "focus-visible:ring-white/40" : "focus-visible:ring-black/30"
-        } ${className}`}
+        className={[
+          "flex items-center justify-center rounded-xl transition-colors motion-reduce:transition-none",
+          focusRingClass(isDark),
+          ghost,
+          className,
+        ].join(" ")}
       >
         {children}
       </button>
 
       <span
         role="tooltip"
-        className={`pointer-events-none absolute top-full z-50 mt-2 w-max max-w-[240px] rounded-lg px-3 py-2 text-[13px] font-medium leading-snug text-white opacity-0 shadow-lg transition-opacity duration-150 motion-reduce:transition-none group-hover:opacity-100 group-hover:delay-300 group-focus-within:opacity-100 ${
-          isDark ? "bg-neutral-700" : "bg-neutral-900"
-        } ${align === "end" ? "right-0" : "left-1/2 -translate-x-1/2"}`}
+        className={[
+          "pointer-events-none absolute top-full z-50 mt-2 w-max max-w-[240px] rounded-lg px-3 py-2 text-[13px] font-medium leading-snug text-white opacity-0 shadow-lg transition-opacity duration-150 motion-reduce:transition-none group-hover:opacity-100 group-hover:delay-300 group-focus-within:opacity-100",
+          isDark ? "bg-[#2e2e31]" : "bg-neutral-900",
+          align === "end" ? "right-0" : "left-1/2 -translate-x-1/2",
+        ].join(" ")}
       >
         {label}
       </span>
@@ -352,12 +380,9 @@ export default function Community() {
   const sidebarOffset = useSidebarOffset();
   const channels = useConnectedChannels();
 
-  // Le channel sélectionné vit dans un state local : le changement est instantané
-  // et ne dépend plus du routeur (qui ne gère pas le "?channel=…" dans le hash).
   const hashChannel = useHashChannel();
   const [selectedKey, setSelectedKey] = useState<string | null>(hashChannel);
 
-  // Si l'URL change de l'extérieur (lien, bouton retour), on suit.
   useEffect(() => {
     if (hashChannel) setSelectedKey(hashChannel);
   }, [hashChannel]);
@@ -372,13 +397,18 @@ export default function Community() {
 
   const { posts } = useCommunity(channel?.key, tab, filter);
 
-  const page = isDark ? "bg-black text-white" : "bg-white text-black";
-  const card = isDark ? "border-white/10 bg-[#0c0c0c]" : "border-black/10 bg-[#fafafa]";
-  const line = isDark ? "border-white/10" : "border-black/10";
-  const muted = isDark ? "text-neutral-400" : "text-neutral-500";
-  const ghost = isDark ? "hover:bg-neutral-700/70" : "hover:bg-neutral-200";
-  const outline = isDark ? "border-white/15 hover:bg-white/10" : "border-black/15 hover:bg-black/5";
-  const ring = isDark ? "focus-visible:ring-white/40" : "focus-visible:ring-black/30";
+  const line = isDark ? "border-white/[0.07]" : "border-black/[0.06]";
+  const muted = isDark ? "text-neutral-500" : "text-neutral-400";
+  const ghost = isDark ? "hover:bg-white/[0.06]" : "hover:bg-black/[0.04]";
+  const outline = isDark
+    ? "border-white/[0.10] hover:bg-white/[0.06]"
+    : "border-black/[0.08] hover:bg-black/[0.03]";
+  const ring = isDark
+    ? "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
+    : "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/25";
+  const card = isDark
+    ? "border-white/[0.07] bg-[#141416] hover:bg-[#19191c]"
+    : "border-black/[0.06] bg-white hover:bg-[#f6f4f0]";
 
   const channelOptions = channels.map((c) => {
     const Icon = getNetworkIcon(c);
@@ -391,7 +421,6 @@ export default function Community() {
 
   const goChannel = (key: string) => {
     setSelectedKey(key);
-    // Met l'URL à jour sans déclencher le routeur ni remonter la page.
     window.history.replaceState(
       null,
       "",
@@ -403,46 +432,59 @@ export default function Community() {
 
   return (
     <main
-      className={`relative h-screen w-full overflow-hidden transition-colors duration-300 ${page}`}
+      className={[
+        "relative h-screen w-full overflow-hidden",
+        "transition-colors duration-300",
+        pageBgClass(isDark),
+      ].join(" ")}
     >
-      {/* Sidebar : reçoit onToggleTheme comme dans Channels.tsx, pour que
-          useSidebarOffset() soit bien synchronisé avec l'ouverture/fermeture. */}
       <DashboardSidebar theme={theme} onToggleTheme={onToggleTheme} />
 
-      {/*
-        IMPORTANT — même structure que Channels.tsx pour une transition fluide :
-
-        1. Ce wrapper porte UNIQUEMENT le `padding-left` animé. Il est en `block`
-           (PAS flex) avec `overflow-hidden`. Résultat : à chaque frame, seul le
-           padding change, sans recalcul du layout flex → pas de saccade.
-
-        2. Le layout flex vit dans un wrapper ENFANT, dont la largeur suit
-           simplement le content-box du parent. Le navigateur n'a pas à relancer
-           l'algorithme flex sur toute la page à chaque frame.
-
-        À l'inverse, mettre `flex flex-col` directement sur le wrapper animé
-        (comme avant) force un recalcul flex complet à chaque frame → jank.
-      */}
+      {/* Zone à droite de la sidebar : marge autour du panneau arrondi */}
       <div
-        className="h-full overflow-hidden transition-[padding-left] duration-[380ms] ease-[cubic-bezier(0.4,0,0.2,1)] motion-reduce:transition-none"
+        className={[
+          "h-full py-3 pr-3",
+          "transition-[padding-left] duration-[380ms]",
+          "ease-[cubic-bezier(0.4,0,0.2,1)]",
+          "motion-reduce:transition-none",
+        ].join(" ")}
         style={{ paddingLeft: sidebarOffset }}
       >
-        <div className="flex h-full min-h-0 flex-col">
-          <div className="flex min-h-0 w-full flex-1 flex-col px-[clamp(12px,1.5vw,24px)] pb-8 pt-[clamp(16px,2vw,28px)]">
+        {/* PANNEAU ARRONDI (flex column car le layout "By post" réserve de la hauteur) */}
+        <div
+          className={[
+            "flex h-full flex-col overflow-hidden",
+            "rounded-[28px] border",
+            "transition-colors duration-300",
+            mainPanelClass(isDark),
+          ].join(" ")}
+        >
+          <div
+            className={[
+              "flex min-h-0 w-full flex-1 flex-col",
+              "px-[clamp(18px,3vw,48px)]",
+              "pb-6 pt-[clamp(18px,3vw,30px)]",
+            ].join(" ")}
+          >
             {/* Header */}
-            <header className="flex items-center justify-between gap-4 pb-4">
-              {/* Titre de la page : en haut à gauche */}
+            <header className="flex shrink-0 items-center justify-between gap-4 pb-4">
               <div className="flex min-w-0 items-center gap-2.5">
                 <div
-                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border ${
+                  className={[
+                    "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border",
                     isDark
-                      ? "border-white/10 bg-white/[0.03] text-white"
-                      : "border-black/[0.08] bg-white text-neutral-900 shadow-sm"
-                  }`}
+                      ? "border-white/[0.08] bg-white/[0.04] text-white"
+                      : "border-black/[0.06] bg-white text-neutral-900 shadow-sm",
+                  ].join(" ")}
                 >
-                  <ChatsIcon className="h-[17px] w-[17px]" />
+                  <ChatsIcon className="h-[18px] w-[18px]" />
                 </div>
-                <h1 className="font-display text-[clamp(17px,1.5vw,20px)] font-semibold tracking-[-0.01em]">
+                <h1
+                  className={[
+                    "text-[24px] font-semibold tracking-[-0.035em]",
+                    strongClass(isDark),
+                  ].join(" ")}
+                >
                   Community
                 </h1>
               </div>
@@ -458,7 +500,7 @@ export default function Community() {
                 <div
                   role="tablist"
                   aria-label="Layout"
-                  className={`ml-2 inline-flex gap-1 rounded-xl border p-1 ${line}`}
+                  className={["ml-2 inline-flex gap-1 rounded-xl border p-1", line].join(" ")}
                 >
                   {(
                     [
@@ -472,15 +514,17 @@ export default function Community() {
                       role="tab"
                       aria-selected={layout === o.key}
                       onClick={() => setLayout(o.key)}
-                      className={`flex items-center gap-2 rounded-lg px-3 py-1.5 text-[13px] font-medium transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 ${ring} ${
+                      className={[
+                        "flex items-center gap-2 rounded-lg px-3 py-1.5 text-[12.5px] font-semibold transition-colors motion-reduce:transition-none",
+                        focusRingClass(isDark),
                         layout === o.key
                           ? isDark
                             ? "bg-white text-black"
-                            : "bg-black text-white"
+                            : "bg-neutral-900 text-white"
                           : isDark
-                          ? "text-neutral-400 hover:text-white"
-                          : "text-neutral-500 hover:text-black"
-                      }`}
+                            ? "text-neutral-400 hover:text-white"
+                            : "text-neutral-500 hover:text-neutral-900",
+                      ].join(" ")}
                     >
                       {o.icon}
                       {o.label}
@@ -491,7 +535,7 @@ export default function Community() {
             </header>
 
             {/* Tabs + toolbar */}
-            <div className={`flex items-center justify-between gap-4 border-b ${line}`}>
+            <div className={["flex shrink-0 items-center justify-between gap-4 border-b", line].join(" ")}>
               <div role="tablist" aria-label="Inbox" className="flex gap-6">
                 {TABS.map((t) => (
                   <button
@@ -500,13 +544,15 @@ export default function Community() {
                     role="tab"
                     aria-selected={tab === t.key}
                     onClick={() => setTab(t.key)}
-                    className={`-mb-px border-b-2 px-1 pb-3 pt-2 text-[15px] font-medium transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 ${ring} ${
+                    className={[
+                      "-mb-px border-b-2 px-1 pb-3 pt-2 text-[14px] font-medium transition-colors motion-reduce:transition-none",
+                      focusRingClass(isDark),
                       tab === t.key
                         ? isDark
                           ? "border-white text-white"
-                          : "border-black text-black"
-                        : `border-transparent ${muted} ${isDark ? "hover:text-white" : "hover:text-black"}`
-                    }`}
+                          : "border-neutral-900 text-neutral-900"
+                        : `border-transparent ${muted} ${isDark ? "hover:text-white" : "hover:text-neutral-900"}`,
+                    ].join(" ")}
                   >
                     {t.label}
                   </button>
@@ -545,11 +591,10 @@ export default function Community() {
 
             {/* Body */}
             <div className="flex min-h-0 flex-1">
-              {/* Posts panel */}
               {layout === "post" && postsOpen && (
-                <aside className={`flex w-[300px] shrink-0 flex-col border-r pr-4 pt-4 ${line}`}>
+                <aside className={["flex w-[300px] shrink-0 flex-col border-r pr-4 pt-4", line].join(" ")}>
                   <div className="flex items-center justify-between">
-                    <h2 className={`text-[15px] font-medium ${muted}`}>Posts</h2>
+                    <h2 className={["text-[14px] font-medium", muted].join(" ")}>Posts</h2>
                     <div className="flex items-center">
                       <IconButton
                         label="Bring posts with the newest unanswered comments to the top."
@@ -582,15 +627,21 @@ export default function Community() {
 
                   {visiblePosts.length === 0 ? (
                     <div className="mt-16 flex flex-col items-center gap-3 px-2 text-center">
-                      <h3 className="text-[20px] font-semibold tracking-tight">No posts found</h3>
-                      <p className={`text-[14px] leading-relaxed ${muted}`}>
+                      <h3 className={["text-[18px] font-semibold tracking-[-0.02em]", strongClass(isDark)].join(" ")}>
+                        No posts found
+                      </h3>
+                      <p className={["text-[13px] leading-relaxed", muted].join(" ")}>
                         When your posts receive comments, they&rsquo;ll appear here. Want to see all
                         your posts?
                       </p>
                       <button
                         type="button"
                         onClick={() => setShowAll(true)}
-                        className={`mt-2 rounded-xl border px-4 py-2 text-[14px] font-medium transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 ${outline} ${ring}`}
+                        className={[
+                          "mt-2 rounded-xl border px-4 py-2 text-[13px] font-semibold transition-colors motion-reduce:transition-none",
+                          focusRingClass(isDark),
+                          outline,
+                        ].join(" ")}
                       >
                         Show all posts
                       </button>
@@ -601,10 +652,13 @@ export default function Community() {
                         <li key={p.id}>
                           <button
                             type="button"
-                            className={`flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-left text-[13px] font-medium transition-colors ${ghost}`}
+                            className={[
+                              "flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-left text-[13px] font-medium transition-colors",
+                              ghost,
+                            ].join(" ")}
                           >
                             <span className="truncate">{p.title}</span>
-                            <span className={`tabular-nums ${muted}`}>{p.commentCount}</span>
+                            <span className={["tabular-nums", muted].join(" ")}>{p.commentCount}</span>
                           </button>
                         </li>
                       ))}
@@ -632,18 +686,19 @@ export default function Community() {
                 <div className="my-auto flex w-full max-w-[560px] flex-col items-center gap-10">
                   <div className="flex flex-col items-center gap-3 text-center">
                     <span
-                      className={`flex h-20 w-20 items-center justify-center rounded-full ${
-                        isDark ? "bg-white/10" : "bg-black/[0.06]"
-                      }`}
+                      className={[
+                        "flex h-20 w-20 items-center justify-center rounded-full",
+                        isDark ? "bg-white/[0.07] text-neutral-300" : "bg-black/[0.05] text-neutral-600",
+                      ].join(" ")}
                     >
                       <ListenIcon className="h-9 w-9" />
                     </span>
-                    <h2 className="text-[22px] font-semibold tracking-tight">
+                    <h2 className={["text-[22px] font-semibold tracking-[-0.03em]", strongClass(isDark)].join(" ")}>
                       {tab === "comments"
                         ? "We\u2019re listening for new comments"
                         : "We\u2019re listening for new mentions"}
                     </h2>
-                    <p className={`max-w-[420px] text-[15px] leading-relaxed ${muted}`}>
+                    <p className={["max-w-[420px] text-[14px] leading-relaxed", muted].join(" ")}>
                       {tab === "comments"
                         ? "We\u2019ll let you know when someone comments on your posts."
                         : "We\u2019ll let you know when someone mentions you."}
@@ -651,21 +706,25 @@ export default function Community() {
                   </div>
 
                   <div className="flex w-full flex-col gap-3">
-                    <p className={`text-center text-[14px] ${muted}`}>
+                    <p className={["text-center text-[13px]", muted].join(" ")}>
                       In the meantime, keep exploring:
                     </p>
 
                     <button
                       type="button"
                       onClick={() => navigate("create")}
-                      className={`flex items-start gap-4 rounded-2xl border p-5 text-left transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 ${card} ${ring} ${
-                        isDark ? "hover:bg-white/[0.06]" : "hover:bg-black/[0.04]"
-                      }`}
+                      className={[
+                        "flex items-start gap-4 rounded-2xl border p-5 text-left transition-colors motion-reduce:transition-none",
+                        focusRingClass(isDark),
+                        card,
+                      ].join(" ")}
                     >
-                      <EditIcon className={`mt-0.5 h-5 w-5 shrink-0 ${muted}`} />
+                      <EditIcon className={["mt-0.5 h-5 w-5 shrink-0", muted].join(" ")} />
                       <span>
-                        <span className="block text-[16px] font-semibold">Post something new</span>
-                        <span className={`mt-1 block text-[14px] leading-relaxed ${muted}`}>
+                        <span className={["block text-[15px] font-semibold", strongClass(isDark)].join(" ")}>
+                          Post something new
+                        </span>
+                        <span className={["mt-1 block text-[13px] leading-relaxed", muted].join(" ")}>
                           Use templates to create content that starts conversations. Pro tip: ask a
                           question.
                         </span>
@@ -675,14 +734,18 @@ export default function Community() {
                     <button
                       type="button"
                       onClick={() => navigate("channels")}
-                      className={`flex items-start gap-4 rounded-2xl border p-5 text-left transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 ${card} ${ring} ${
-                        isDark ? "hover:bg-white/[0.06]" : "hover:bg-black/[0.04]"
-                      }`}
+                      className={[
+                        "flex items-start gap-4 rounded-2xl border p-5 text-left transition-colors motion-reduce:transition-none",
+                        focusRingClass(isDark),
+                        card,
+                      ].join(" ")}
                     >
-                      <PlusIcon className={`mt-0.5 h-5 w-5 shrink-0 ${muted}`} />
+                      <PlusIcon className={["mt-0.5 h-5 w-5 shrink-0", muted].join(" ")} />
                       <span>
-                        <span className="block text-[16px] font-semibold">Connect more channels</span>
-                        <span className={`mt-1 block text-[14px] leading-relaxed ${muted}`}>
+                        <span className={["block text-[15px] font-semibold", strongClass(isDark)].join(" ")}>
+                          Connect more channels
+                        </span>
+                        <span className={["mt-1 block text-[13px] leading-relaxed", muted].join(" ")}>
                           Manage conversations from all your channels in a single, distraction-free
                           inbox.
                         </span>
