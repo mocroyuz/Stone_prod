@@ -734,8 +734,6 @@ const CHANNEL_ROUTES = new Set(["insights", "community"]);
    Ordre des canaux (glisser-déposer) — mémorisé par utilisateur
 ---------------------------------------------------------------------------- */
 
-type DropPosition = "before" | "after";
-
 const ORDER_STORAGE_PREFIX = "stone.channels.order";
 
 function orderStorageKey(userId: string | null): string {
@@ -1128,18 +1126,12 @@ function SidebarChannelsImpl({
 
   const [order, setOrder] = useState<string[]>(() => readStoredOrder(userId));
   const [dragKey, setDragKey] = useState<string | null>(null);
-  const [dropTarget, setDropTarget] = useState<{
-    key: string;
-    position: DropPosition;
-  } | null>(null);
 
   const listRef = useRef<HTMLDivElement>(null);
   const focusKeyRef = useRef<string | null>(null);
   // Refs synchrones : évitent les états périmés pendant le drag
   const dragKeyRef = useRef<string | null>(null);
-  const dropTargetRef = useRef<{ key: string; position: DropPosition } | null>(
-    null
-  );
+  const liveOrderRef = useRef<string[] | null>(null);
 
   useEffect(() => {
     setOrder(readStoredOrder(userId));
@@ -1150,6 +1142,9 @@ function SidebarChannelsImpl({
     [rawChannels, order]
   );
 
+  const channelsRef = useRef(channels);
+  channelsRef.current = channels;
+
   // Réordonner n'a de sens qu'avec au moins 2 canaux et la barre développée.
   const canReorder = !compact && channels.length > 1;
 
@@ -1159,25 +1154,6 @@ function SidebarChannelsImpl({
       writeStoredOrder(userId, keys);
     },
     [userId]
-  );
-
-  const moveChannel = useCallback(
-    (fromKey: string, toKey: string, position: DropPosition) => {
-      if (fromKey === toKey) return;
-
-      const keys = channels.map((channel) => channel.key);
-      const from = keys.indexOf(fromKey);
-      if (from === -1) return;
-
-      keys.splice(from, 1);
-
-      const to = keys.indexOf(toKey);
-      if (to === -1) return;
-
-      keys.splice(position === "after" ? to + 1 : to, 0, fromKey);
-      commitOrder(keys);
-    },
-    [channels, commitOrder]
   );
 
   const shiftChannel = useCallback(
@@ -1209,52 +1185,54 @@ function SidebarChannelsImpl({
       ?.focus({ preventScroll: true });
   }, [order]);
 
+  // Fin du drag : on mémorise l'ordre obtenu en direct.
   const endDrag = useCallback(() => {
+    if (liveOrderRef.current) {
+      writeStoredOrder(userId, liveOrderRef.current);
+      liveOrderRef.current = null;
+    }
     dragKeyRef.current = null;
-    dropTargetRef.current = null;
     setDragKey(null);
-    setDropTarget(null);
-  }, []);
+  }, [userId]);
 
   useEffect(() => {
     if (!canReorder) endDrag();
   }, [canReorder, endDrag]);
 
-  // Calcule la position de dépôt d'après le curseur, sur TOUTE la liste
-  // (les espaces entre les lignes comptent aussi).
-  const updateDropTarget = useCallback((clientY: number) => {
+  // Réordonnancement EN DIRECT : dès que le curseur passe la moitié d'une
+  // autre ligne, le canal glissé prend sa place.
+  const reorderLive = useCallback((clientY: number) => {
     const fromKey = dragKeyRef.current;
     const list = listRef.current;
     if (!fromKey || !list) return;
 
-    const wrappers = Array.from(
-      list.querySelectorAll<HTMLElement>("[data-channel-key]")
-    ).filter((el) => el.dataset.channelKey !== fromKey);
+    const currentKeys = channelsRef.current.map((channel) => channel.key);
+    const others = currentKeys.filter((key) => key !== fromKey);
 
-    if (wrappers.length === 0) return;
+    // Première ligne (hors canal glissé) dont le milieu est sous le curseur
+    let insertAt = others.length;
 
-    let next: { key: string; position: DropPosition } | null = null;
+    for (let i = 0; i < others.length; i++) {
+      const el = list.querySelector<HTMLElement>(
+        `[data-channel-key="${CSS.escape(others[i])}"]`
+      );
+      const row = (el?.firstElementChild as HTMLElement | null) ?? el;
+      if (!row) continue;
 
-    for (const el of wrappers) {
-      const row = (el.firstElementChild as HTMLElement | null) ?? el;
       const rect = row.getBoundingClientRect();
-
       if (clientY < rect.top + rect.height / 2) {
-        next = { key: el.dataset.channelKey as string, position: "before" };
+        insertAt = i;
         break;
       }
     }
 
-    if (!next) {
-      const last = wrappers[wrappers.length - 1];
-      next = { key: last.dataset.channelKey as string, position: "after" };
-    }
+    const next = [...others];
+    next.splice(insertAt, 0, fromKey);
 
-    const prev = dropTargetRef.current;
-    if (prev && prev.key === next.key && prev.position === next.position) return;
+    if (next.every((key, index) => key === currentKeys[index])) return;
 
-    dropTargetRef.current = next;
-    setDropTarget(next);
+    liveOrderRef.current = next;
+    setOrder(next);
   }, []);
 
   const handleListDragOver = (event: React.DragEvent<HTMLDivElement>) => {
@@ -1262,27 +1240,14 @@ function SidebarChannelsImpl({
 
     event.preventDefault();
     event.dataTransfer.dropEffect = "move";
-    updateDropTarget(event.clientY);
+    reorderLive(event.clientY);
   };
 
   const handleListDrop = (event: React.DragEvent<HTMLDivElement>) => {
-    const fromKey = dragKeyRef.current;
-    if (!canReorder || !fromKey) return;
+    if (!canReorder || !dragKeyRef.current) return;
 
     event.preventDefault();
-
-    const target = dropTargetRef.current;
-    if (target) moveChannel(fromKey, target.key, target.position);
-
     endDrag();
-  };
-
-  const handleListDragLeave = (event: React.DragEvent<HTMLDivElement>) => {
-    const next = event.relatedTarget as Node | null;
-    if (next && event.currentTarget.contains(next)) return;
-
-    dropTargetRef.current = null;
-    setDropTarget(null);
   };
 
   /* ------------------------------------------------------------------------- */
@@ -1303,7 +1268,6 @@ function SidebarChannelsImpl({
       className="flex flex-col gap-1"
       onDragOver={handleListDragOver}
       onDrop={handleListDrop}
-      onDragLeave={handleListDragLeave}
     >
       {channels.length === 0 &&
         STANDALONE_LINKS.map((link) => {
@@ -1435,8 +1399,6 @@ function SidebarChannelsImpl({
             : hashChannel === channel.key);
 
         const isDragging = dragKey === channel.key;
-        const dropLine =
-          dropTarget?.key === channel.key ? dropTarget.position : null;
 
         return (
           <div
@@ -1453,18 +1415,6 @@ function SidebarChannelsImpl({
                 isDragging ? "opacity-40" : "",
               ].join(" ")}
             >
-              {/* Indicateur de dépôt */}
-              {dropLine && (
-                <span
-                  aria-hidden="true"
-                  className={[
-                    "pointer-events-none absolute inset-x-1 z-10 h-0.5 rounded-full",
-                    dropLine === "before" ? "-top-px" : "-bottom-px",
-                    t.accent,
-                  ].join(" ")}
-                />
-              )}
-
               {/* Poignée de glisser-déposer (6 points) — DANS la zone de survol */}
               {canReorder && (
                 <span
@@ -1482,7 +1432,7 @@ function SidebarChannelsImpl({
 
                     // Ref synchrone pour les handlers de la liste
                     dragKeyRef.current = channel.key;
-                    dropTargetRef.current = null;
+                    liveOrderRef.current = null;
 
                     // Différé : modifier le DOM pendant dragstart peut annuler le drag.
                     window.setTimeout(() => setDragKey(channel.key), 0);
