@@ -159,9 +159,17 @@ const SIDEBAR_KEYFRAMES = `
   from { opacity: 0; }
   to { opacity: 1; }
 }
+@keyframes sbLabelIn {
+  from { opacity: 0; transform: translateX(-4px); }
+  to { opacity: 1; transform: none; }
+}
 .sb-menu { animation: sbMenuIn 160ms cubic-bezier(0.32, 0.72, 0, 1) both; }
 .sb-tip { animation: sbTipIn 140ms cubic-bezier(0.32, 0.72, 0, 1) both; }
 .sb-fade { animation: sbFadeIn 220ms ease-out both; }
+.sb-label { animation: sbLabelIn 260ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+.sb-label-1 { animation-delay: 40ms; }
+.sb-label-2 { animation-delay: 70ms; }
+.sb-label-3 { animation-delay: 100ms; }
 .sb-backdrop { animation: sbFadeIn 200ms ease-out both; }
 
 #app-sidebar button,
@@ -173,7 +181,7 @@ const SIDEBAR_KEYFRAMES = `
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .sb-menu, .sb-tip, .sb-fade, .sb-backdrop { animation: none; }
+  .sb-menu, .sb-tip, .sb-fade, .sb-label, .sb-backdrop { animation: none; }
 }
 `;
 
@@ -593,7 +601,14 @@ function NavItemViewImpl({
 
         {!compact && (
           <>
-            <span className="sb-fade flex-1 truncate text-left">{item.label}</span>
+            <span
+              className={[
+                "sb-fade flex-1 truncate text-left",
+                !isActive ? "sb-label sb-label-1" : "",
+              ].join(" ")}
+            >
+              {item.label}
+            </span>
             {item.badge && (
               <span
                 className={[
@@ -1061,38 +1076,40 @@ function SidebarChannelsImpl({
       )}
 
       {channels.length === 0 && !compact && (
-        <div className="flex h-8 w-full items-center px-2.5">
-          <span className="flex items-center gap-1">
-            <button
-              type="button"
-              aria-label="Channels"
-              onClick={() => onNavigate("channels")}
-              className={[
-                "flex h-7 w-7 items-center justify-center rounded-lg",
-                "transition-colors duration-150 motion-reduce:transition-none",
-                focus,
-                t.menuIcon,
-                t.row,
-              ].join(" ")}
-            >
-              <SettingsIcon className="h-4 w-4" />
-            </button>
+        <div
+          className={[
+            "sb-fade mt-2 flex h-8 w-full items-center gap-1.5 px-1",
+          ].join(" ")}
+        >
+          <button
+            type="button"
+            aria-label="Channels"
+            onClick={() => onNavigate("channels")}
+            className={[
+              "flex h-7 w-7 items-center justify-center rounded-lg",
+              "transition-colors duration-150 motion-reduce:transition-none",
+              focus,
+              t.menuIcon,
+              t.row,
+            ].join(" ")}
+          >
+            <SettingsIcon className="h-4 w-4" />
+          </button>
 
-            <button
-              type="button"
-              aria-label="Connect a channel"
-              onClick={onConnect}
-              className={[
-                "flex h-7 w-7 items-center justify-center rounded-lg",
-                "transition-colors duration-150 motion-reduce:transition-none",
-                focus,
-                t.menuIcon,
-                t.row,
-              ].join(" ")}
-            >
-              <PlusIcon className="h-4 w-4" />
-            </button>
-          </span>
+          <button
+            type="button"
+            aria-label="Connect a channel"
+            onClick={onConnect}
+            className={[
+              "flex h-7 w-7 items-center justify-center rounded-lg",
+              "transition-colors duration-150 motion-reduce:transition-none",
+              focus,
+              t.menuIcon,
+              t.row,
+            ].join(" ")}
+          >
+            <PlusIcon className="h-4 w-4" />
+          </button>
         </div>
       )}
 
@@ -2074,8 +2091,8 @@ export default function DashboardSidebar({
         className={[
           "fixed inset-y-0 left-0 flex flex-col border-r",
           isMobile ? "z-40" : "z-20",
-          "transition-[width,transform] duration-300",
-          "ease-[cubic-bezier(0.4,0,0.2,1)] motion-reduce:transition-none",
+          "transition-[width,transform] duration-[380ms]",
+          "ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
           t.aside,
           drawerHidden ? "pointer-events-none -translate-x-full" : "translate-x-0",
           compact
