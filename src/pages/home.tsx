@@ -55,7 +55,6 @@ import {
   ArrowRight,
   ArrowUpRight,
   CalendarDays,
-  Check,
   ChevronRight,
   Heart,
   MessageCircle,
@@ -435,104 +434,6 @@ function Stat({
             {change}
           </span>
         </div>
-      </div>
-    </div>
-  );
-}
-
-/* ============================================================
-   STREAK
-   Semaine du lundi au dimanche. `completedDays` = index (0 = Mon)
-   des jours validés. Mode clair : coche noire sur pastille noire
-   translucide. Mode sombre : couleurs inversées (coche blanche).
-============================================================ */
-
-const WEEK_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-
-function Streak({
-  isDark,
-  completedDays = [0],
-}: {
-  isDark: boolean;
-  completedDays?: number[];
-}) {
-  /* getDay(): 0 = dimanche → on ramène à 0 = lundi */
-  const todayIndex = (new Date().getDay() + 6) % 7;
-
-  return (
-    <div
-      className={[
-        "flex flex-col rounded-2xl border px-4 pb-3.5 pt-3",
-        "transition-colors duration-300",
-        isDark
-          ? "border-white/[0.08] bg-[#141416]"
-          : "border-black/[0.06] bg-[#f6f6f6] shadow-[0_2px_10px_rgba(0,0,0,0.05)]",
-      ].join(" ")}
-    >
-      {/* Titre */}
-      <div className="flex items-center gap-2">
-        <CalendarDays
-          className={["h-4 w-4", strongClass(isDark)].join(" ")}
-          strokeWidth={1.7}
-        />
-        <h2
-          className={[
-            "text-[13px] font-semibold tracking-[-0.02em]",
-            strongClass(isDark),
-          ].join(" ")}
-        >
-          Streak
-        </h2>
-      </div>
-
-      {/* Séparateur */}
-      <div
-        className={[
-          "mt-2.5 h-px w-full",
-          isDark ? "bg-white/[0.08]" : "bg-black/[0.08]",
-        ].join(" ")}
-      />
-
-      {/* Jours */}
-      <div className="mt-3 grid grid-cols-7 gap-1">
-        {WEEK_LABELS.map((label, index) => {
-          const done = completedDays.includes(index);
-          const isToday = index === todayIndex;
-
-          return (
-            <div key={label} className="flex flex-col items-center gap-1.5">
-              <span
-                className={[
-                  "text-[10px]",
-                  isToday ? "font-semibold" : "font-normal",
-                  isToday
-                    ? strongClass(isDark)
-                    : isDark
-                      ? "text-neutral-400"
-                      : "text-neutral-600",
-                ].join(" ")}
-              >
-                {label}
-              </span>
-              <div
-                className={[
-                  "flex h-6 w-6 items-center justify-center rounded-full",
-                  "transition-colors",
-                  done
-                    ? isDark
-                      ? "bg-white/20 text-white"
-                      : "bg-black/15 text-black"
-                    : isDark
-                      ? "bg-white/[0.07]"
-                      : "bg-black/[0.07]",
-                ].join(" ")}
-                aria-label={`${label}${done ? " completed" : ""}`}
-              >
-                {done && <Check className="h-3 w-3" strokeWidth={2.8} />}
-              </div>
-            </div>
-          );
-        })}
       </div>
     </div>
   );
@@ -1331,39 +1232,35 @@ export default function Home() {
               </p>
             </div>
 
-            <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1fr_380px]">
-              {/* Même fond que le panneau Comments */}
-              <div
-                className={[
-                  "grid grid-cols-1 content-center gap-3 rounded-2xl border p-4",
-                  "sm:grid-cols-3",
-                  panelSurfaceClass(isDark),
-                ].join(" ")}
-              >
-                <Stat
-                  isDark={isDark}
-                  label="Followers"
-                  value="27K"
-                  change="-2%"
-                  icon={<Users className="h-4 w-4" />}
-                />
-                <Stat
-                  isDark={isDark}
-                  label="Likes"
-                  value="12.4K"
-                  change="+16%"
-                  icon={<Heart className="h-4 w-4" />}
-                />
-                <Stat
-                  isDark={isDark}
-                  label="Comments"
-                  value="342"
-                  change="+5%"
-                  icon={<MessageCircle className="h-4 w-4" />}
-                />
-              </div>
-
-              <Streak isDark={isDark} completedDays={[0]} />
+            {/* Même fond que le panneau Comments */}
+            <div
+              className={[
+                "grid grid-cols-1 gap-3 rounded-2xl border p-4",
+                "sm:grid-cols-3",
+                panelSurfaceClass(isDark),
+              ].join(" ")}
+            >
+              <Stat
+                isDark={isDark}
+                label="Followers"
+                value="27K"
+                change="-2%"
+                icon={<Users className="h-4 w-4" />}
+              />
+              <Stat
+                isDark={isDark}
+                label="Likes"
+                value="12.4K"
+                change="+16%"
+                icon={<Heart className="h-4 w-4" />}
+              />
+              <Stat
+                isDark={isDark}
+                label="Comments"
+                value="342"
+                change="+5%"
+                icon={<MessageCircle className="h-4 w-4" />}
+              />
             </div>
           </section>
 
