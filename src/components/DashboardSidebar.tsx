@@ -136,11 +136,11 @@ type StatusResponse = {
    Dimensions 
    Sidebar fine collée au bord gauche, pleine hauteur. 
    Réduite : 64 px (rail d'icônes). Ouverte : 200 px. 
-   Les valeurs Tailwind (w-[64px] / w-[200px]) doivent rester en phase. 
+   Les valeurs Tailwind (w-[64px] / w-[240px]) doivent rester en phase. 
 ============================================================================ */
 
 export const SIDEBAR_COLLAPSED_OFFSET = 64;
-export const SIDEBAR_EXPANDED_OFFSET = 200;
+export const SIDEBAR_EXPANDED_OFFSET = 240;
 
 /* ============================================================================ 
    Keyframes 
@@ -2164,8 +2164,8 @@ export default function DashboardSidebar({
           compact
             ? "w-[64px]"
             : isMobile
-              ? "w-[220px] max-w-[85vw]"
-              : "w-[200px]",
+              ? "w-[260px] max-w-[85vw]"
+              : "w-[240px]",
         ].join(" ")}
       >
         {/* Logo */}
