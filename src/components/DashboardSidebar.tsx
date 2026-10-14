@@ -2583,12 +2583,12 @@ export default function DashboardSidebar({
           />
         </nav>
 
-        {/* Bas : toggle + profil */}
+        {/* Bas : toggle + profil
+            (plus de border-t / t.rail : aucune barre au-dessus du profil) */}
         <div
           ref={profileRef}
           className={[
-            "relative shrink-0 border-t py-2.5",
-            t.rail,
+            "relative shrink-0 py-2.5",
             compact ? "flex flex-col items-center gap-2" : "flex items-center gap-1.5 px-2",
           ].join(" ")}
         >
