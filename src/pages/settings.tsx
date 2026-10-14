@@ -222,6 +222,13 @@ const ArrowLeftIcon = ({ className = "h-5 w-5" }: IconProps) => (
   </svg>
 );
 
+const ChevronsLeftIcon = ({ className = "h-[18px] w-[18px]" }: IconProps) => (
+  <svg {...baseIcon} className={className}>
+    <path d="m11 17-5-5 5-5" />
+    <path d="m18 17-5-5 5-5" />
+  </svg>
+);
+
 const EyeIcon = ({ className = "h-4 w-4" }: IconProps) => (
   <svg {...baseIcon} className={className}>
     <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
@@ -459,6 +466,8 @@ const SIDEBAR_GROUPS: SidebarGroup[] = [
   },
 ];
 
+const SIDEBAR_STORAGE_KEY = "settings:sidebar-collapsed";
+
 const SECTION_TITLES: Record<SectionKey, string> = {
   profile: "Profile",
   account: "Security",
@@ -472,32 +481,57 @@ function SettingsSidebar({
   active,
   onSelect,
   onBack,
+  collapsed,
+  onToggleCollapsed,
   tokens,
 }: {
   active: SectionKey;
   onSelect: (key: SectionKey) => void;
   onBack: () => void;
+  collapsed: boolean;
+  onToggleCollapsed: () => void;
   tokens: Tokens;
 }) {
+  /*
+   * Le repli ne s'applique qu'à partir de `md` (sur mobile la barre est
+   * horizontale et reste toujours ouverte) : toutes les classes liées à
+   * `collapsed` sont donc préfixées par `md:`.
+   *
+   * Animation : la largeur s'anime avec une courbe ease-in-out ; les
+   * textes s'effacent en fondu (avec un léger délai à la réouverture
+   * pour apparaître une fois la barre assez large).
+   */
+  const ease = "ease-[cubic-bezier(0.4,0,0.2,1)]";
+
+  const fade = collapsed
+    ? "opacity-100 md:opacity-0"
+    : "opacity-100 delay-100 motion-reduce:delay-0";
+
+  const itemBase =
+    "flex h-10 w-full items-center gap-3 rounded-[10px] px-[11px] text-left text-[14px] font-medium whitespace-nowrap transition-colors";
+
   return (
     <aside
-      className={`flex shrink-0 flex-col border-r transition-colors duration-300 max-md:w-full max-md:border-r-0 max-md:border-b md:sticky md:top-0 md:h-screen md:w-[260px] md:overflow-y-auto ${tokens.sidebarBg} ${tokens.sidebarBorder}`}
+      data-collapsed={collapsed}
+      className={`flex shrink-0 flex-col border-r transition-[width,background-color] duration-300 ${ease} motion-reduce:transition-none max-md:w-full max-md:border-r-0 max-md:border-b md:sticky md:top-0 md:h-screen md:overflow-x-hidden md:overflow-y-auto ${
+        collapsed ? "md:w-[64px]" : "md:w-[216px]"
+      } ${tokens.sidebarBg} ${tokens.sidebarBorder}`}
     >
       {/* Back + title */}
 
-      <div className="flex items-center gap-3 px-4 pt-6 pb-4">
+      <div className="flex items-center gap-2.5 px-3 pt-5 pb-3">
         <button
           type="button"
           onClick={onBack}
           aria-label="Back to home"
           title="Back to home"
-          className={`flex h-8 w-8 items-center justify-center rounded-full transition-colors ${tokens.sidebarBack}`}
+          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-colors ${tokens.sidebarBack}`}
         >
           <ArrowLeftIcon />
         </button>
 
         <h2
-          className={`font-display text-[20px] font-semibold tracking-[-0.01em] ${tokens.heading}`}
+          className={`font-display text-[17px] font-semibold tracking-[-0.01em] whitespace-nowrap transition-opacity duration-200 motion-reduce:transition-none ${fade} ${tokens.heading}`}
         >
           Settings
         </h2>
@@ -505,14 +539,36 @@ function SettingsSidebar({
 
       {/* Groups */}
 
-      <nav aria-label="Settings sections" className="px-3 pb-6">
+      <nav aria-label="Settings sections" className="px-3 pb-4">
         {SIDEBAR_GROUPS.map((group, index) => (
-          <div key={group.label} className={index === 0 ? "mt-2" : "mt-7"}>
-            <p className={`mb-2 px-3 text-[13px] ${tokens.sidebarGroup}`}>
+          <div
+            key={group.label}
+            className={`transition-[margin] duration-300 ${ease} motion-reduce:transition-none ${
+              index === 0 ? "mt-1" : collapsed ? "mt-5 md:mt-2" : "mt-5"
+            }`}
+          >
+            {/* Séparateur visible uniquement quand la barre est repliée */}
+
+            {index > 0 && (
+              <div
+                aria-hidden="true"
+                className={`mx-2 mb-2 border-t transition-opacity duration-300 motion-reduce:transition-none max-md:hidden ${
+                  tokens.sidebarBorder
+                } ${collapsed ? "opacity-100" : "opacity-0"}`}
+              />
+            )}
+
+            <p
+              className={`overflow-hidden px-3 text-[12px] whitespace-nowrap transition-all duration-300 ${ease} motion-reduce:transition-none ${
+                collapsed
+                  ? "mb-1.5 h-[18px] opacity-100 md:mb-0 md:h-0 md:opacity-0"
+                  : "mb-1.5 h-[18px] opacity-100"
+              } ${tokens.sidebarGroup}`}
+            >
               {group.label}
             </p>
 
-            <ul className="flex flex-col gap-1 max-md:flex-row max-md:flex-wrap">
+            <ul className="flex flex-col gap-0.5 max-md:flex-row max-md:flex-wrap">
               {group.items.map((item) => {
                 const isActive = active === item.key;
 
@@ -522,8 +578,10 @@ function SettingsSidebar({
                       type="button"
                       onClick={() => onSelect(item.key)}
                       aria-current={isActive ? "page" : undefined}
+                      aria-label={collapsed ? item.label : undefined}
+                      title={collapsed ? item.label : undefined}
                       className={[
-                        "flex w-full items-center gap-3 rounded-[10px] px-3 py-2.5 text-left text-[15px] font-medium whitespace-nowrap transition-colors",
+                        itemBase,
                         isActive
                           ? tokens.sidebarItemActive
                           : `${tokens.sidebarItem} ${tokens.sidebarItemHover}`,
@@ -531,11 +589,15 @@ function SettingsSidebar({
                     >
                       <span className="shrink-0">{item.icon}</span>
 
-                      <span className="flex-1">{item.label}</span>
+                      <span
+                        className={`min-w-0 flex-1 truncate transition-opacity duration-200 motion-reduce:transition-none ${fade}`}
+                      >
+                        {item.label}
+                      </span>
 
                       {item.badge && (
                         <span
-                          className={`rounded-full px-2 py-0.5 text-[12px] font-medium ${tokens.badgeNew}`}
+                          className={`rounded-full px-1.5 py-0.5 text-[11px] font-medium transition-opacity duration-200 motion-reduce:transition-none ${fade} ${tokens.badgeNew}`}
                         >
                           {item.badge}
                         </span>
@@ -548,6 +610,33 @@ function SettingsSidebar({
           </div>
         ))}
       </nav>
+
+      {/* Bouton de repli (desktop uniquement) */}
+
+      <div className="mt-auto px-3 pb-4 max-md:hidden">
+        <button
+          type="button"
+          onClick={onToggleCollapsed}
+          aria-expanded={!collapsed}
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+          className={`${itemBase} ${tokens.sidebarItem} ${tokens.sidebarItemHover}`}
+        >
+          <span className="shrink-0">
+            <ChevronsLeftIcon
+              className={`h-[18px] w-[18px] transition-transform duration-300 ${ease} motion-reduce:transition-none ${
+                collapsed ? "rotate-180" : "rotate-0"
+              }`}
+            />
+          </span>
+
+          <span
+            className={`min-w-0 flex-1 truncate transition-opacity duration-200 motion-reduce:transition-none ${fade}`}
+          >
+            Collapse
+          </span>
+        </button>
+      </div>
     </aside>
   );
 }
@@ -574,6 +663,27 @@ export default function Settings(_props: SettingsProps) {
   const tokens = useMemo(() => buildTokens(isDark), [isDark]);
 
   const [active, setActive] = useState<SectionKey>("profile");
+
+  /* Sidebar repliée ? Mémorisé dans localStorage (avec try/catch). */
+  const [collapsed, setCollapsed] = useState<boolean>(() => {
+    try {
+      return window.localStorage.getItem(SIDEBAR_STORAGE_KEY) === "1";
+    } catch {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(SIDEBAR_STORAGE_KEY, collapsed ? "1" : "0");
+    } catch {
+      /* stockage indisponible : on ignore */
+    }
+  }, [collapsed]);
+
+  const toggleCollapsed = useCallback(() => {
+    setCollapsed((value) => !value);
+  }, []);
 
   const [toast, setToast] = useState<string | null>(null);
   const toastTimer = useRef<number | null>(null);
@@ -629,6 +739,8 @@ export default function Settings(_props: SettingsProps) {
           active={active}
           onSelect={setActive}
           onBack={handleBack}
+          collapsed={collapsed}
+          onToggleCollapsed={toggleCollapsed}
           tokens={tokens}
         />
 
