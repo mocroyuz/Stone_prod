@@ -797,8 +797,8 @@ function ChannelMenu({
           onClick={() => setOpen((o) => !o)}
           className={`flex items-center gap-3 rounded-xl py-1 pr-2 transition-colors disabled:cursor-default ${t.ring} ${canSwitch ? t.hover : ""}`}
         >
-          <Avatar channel={current} isDark={isDark} />
-          <span className={`max-w-[220px] truncate text-[22px] font-semibold tracking-[-0.035em] ${t.text}`}>
+          <Avatar channel={current} isDark={isDark} size={28} />
+          <span className={`max-w-[160px] truncate text-[14px] font-semibold tracking-[-0.01em] ${t.text}`}>
             {name(current)}
           </span>
           {canSwitch && <ChevronDown className={`h-4 w-4 ${t.muted}`} aria-hidden="true" />}
@@ -814,7 +814,7 @@ function ChannelMenu({
       {open && (
         <div
           role="menu"
-          className={`absolute left-0 z-30 mt-2 w-64 rounded-2xl border p-1.5 shadow-[0_12px_40px_rgba(0,0,0,0.5)] ${t.popover}`}
+          className={`absolute right-0 z-30 mt-2 w-64 rounded-2xl border p-1.5 shadow-[0_12px_40px_rgba(0,0,0,0.5)] ${t.popover}`}
         >
           {channels.map((c) => {
             const active = c.key === current?.key;
@@ -1005,6 +1005,24 @@ function RangePicker({
         </div>
       )}
     </div>
+  );
+}
+
+function InsightsIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-[17px] w-[17px]"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M4 20h16" />
+      <path d="M7 16v-5M12 16V6M17 16v-8" />
+    </svg>
   );
 }
 
@@ -1201,11 +1219,27 @@ export default function Insights() {
         className="h-full overflow-y-auto overflow-x-hidden transition-[padding-left] duration-[380ms] ease-[cubic-bezier(0.4,0,0.2,1)] motion-reduce:transition-none [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         style={{ paddingLeft: sidebarOffset }}
       >
-        <div className="mx-auto flex w-full max-w-[1280px] flex-col gap-6 px-[clamp(18px,3vw,40px)] pb-[120px] pt-[clamp(18px,3vw,30px)]">
+        <div className="flex w-full max-w-none flex-col gap-6 px-[clamp(12px,1.5vw,24px)] pb-[120px] pt-[clamp(16px,2vw,28px)]">
           {/* TOP BAR */}
           <header className="flex flex-wrap items-center justify-between gap-4">
-            <ChannelMenu channels={channels} current={channel} t={t} isDark={isDark} />
-            <div className="flex items-center gap-2.5 print:hidden">
+            {/* Titre de la page : en haut à gauche */}
+            <div className="flex items-center gap-2.5">
+              <div
+                className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border ${
+                  isDark
+                    ? "border-white/10 bg-white/[0.03] text-white"
+                    : "border-black/[0.08] bg-white text-neutral-900 shadow-sm"
+                }`}
+              >
+                <InsightsIcon />
+              </div>
+              <h1 className={`font-display text-[clamp(17px,1.5vw,20px)] font-semibold tracking-[-0.01em] ${t.text}`}>
+                Insights
+              </h1>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2.5 print:hidden">
+              <ChannelMenu channels={channels} current={channel} t={t} isDark={isDark} />
               <IconBtn label="Feedback" onClick={() => navigate("search")} t={t}>
                 <MessageCircle className="h-[18px] w-[18px]" aria-hidden="true" />
               </IconBtn>

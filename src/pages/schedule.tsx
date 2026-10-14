@@ -86,7 +86,7 @@ function ArrowDownIcon({ className = "h-[14px] w-[14px]" }: { className?: string
 
 function CalendarIcon() {
   return (
-    <svg viewBox="0 0 24 24" className="h-[22px] w-[22px]" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg viewBox="0 0 24 24" className="h-[17px] w-[17px]" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <rect x="3.5" y="5" width="17" height="15.5" rx="3" />
       <path d="M8 3v4M16 3v4M3.5 10.5h17" />
     </svg>
@@ -1243,10 +1243,10 @@ export default function Schedule() {
           {/* Pleine largeur (plus de max-w) ; pb-[96px] réserve la place de la BottomBar. */}
           <div className="flex h-[100dvh] w-full max-w-none flex-col px-[clamp(12px,1.5vw,24px)] pt-[clamp(16px,2vw,28px)] pb-[96px]">
             {/* Titre de la page : en haut à gauche */}
-            <header className="mb-[clamp(10px,1.4vw,16px)] flex shrink-0 items-center gap-3.5">
+            <header className="mb-[clamp(10px,1.4vw,16px)] flex shrink-0 items-center gap-2.5">
               <div
                 className={[
-                  "flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border",
+                  "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border",
                   isDark
                     ? "border-white/10 bg-white/[0.03] text-white"
                     : "border-black/[0.08] bg-white text-neutral-900 shadow-sm",
@@ -1256,7 +1256,7 @@ export default function Schedule() {
               </div>
               <h1
                 className={[
-                  "font-display text-[clamp(22px,2vw,28px)] font-semibold tracking-[-0.02em]",
+                  "font-display text-[clamp(17px,1.5vw,20px)] font-semibold tracking-[-0.01em]",
                   isDark ? "text-white" : "text-neutral-900",
                 ].join(" ")}
               >

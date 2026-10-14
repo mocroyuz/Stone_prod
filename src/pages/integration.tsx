@@ -30,7 +30,7 @@ function PlugIcon() {
   return (
     <svg
       viewBox="0 0 24 24"
-      className="h-[22px] w-[22px]"
+      className="h-[17px] w-[17px]"
       fill="none"
       stroke="currentColor"
       strokeWidth="1.8"
@@ -440,10 +440,10 @@ export default function Integrations() {
           <div className="w-full max-w-none px-[clamp(12px,1.5vw,24px)] pt-[clamp(16px,2vw,28px)] pb-[96px]">
             {/* Titre de la page : en haut à gauche */}
             <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
-              <div className="flex items-center gap-3.5">
+              <div className="flex items-center gap-2.5">
                 <div
                   className={[
-                    "flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border",
+                    "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border",
                     isDark
                       ? "border-white/10 bg-white/[0.03] text-white"
                       : "border-black/[0.08] bg-white text-neutral-900 shadow-sm",
@@ -453,7 +453,7 @@ export default function Integrations() {
                 </div>
                 <h1
                   className={[
-                    "font-display text-[clamp(22px,2vw,28px)] font-semibold tracking-[-0.02em]",
+                    "font-display text-[clamp(17px,1.5vw,20px)] font-semibold tracking-[-0.01em]",
                     isDark ? "text-white" : "text-neutral-900",
                   ].join(" ")}
                 >

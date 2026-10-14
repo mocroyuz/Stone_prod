@@ -196,6 +196,13 @@ const EditIcon = (p: IconProps) => (
     <path d="M17.5 3.5a1.8 1.8 0 0 1 2.5 2.5L12 14l-3.5 1 1-3.5 8-8Z" />
   </Svg>
 );
+const UsersIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <circle cx="9" cy="8.5" r="3.2" />
+    <path d="M3 19.5a6 6 0 0 1 12 0" />
+    <path d="M16 5.6a3.2 3.2 0 0 1 0 5.8M18 14.2a6 6 0 0 1 3 5.3" />
+  </Svg>
+);
 const PlusIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="M12 5v14M5 12h14" />
@@ -375,10 +382,6 @@ export default function Community() {
   const outline = isDark ? "border-white/15 hover:bg-white/10" : "border-black/15 hover:bg-black/5";
   const ring = isDark ? "focus-visible:ring-white/40" : "focus-visible:ring-black/30";
 
-  const label = channel ? channel.handle || channel.name : "No channel";
-  const name = label.replace(/^@/, "");
-  const NetworkIcon = channel ? getNetworkIcon(channel) : undefined;
-
   const channelOptions = channels.map((c) => {
     const Icon = getNetworkIcon(c);
     return {
@@ -402,44 +405,28 @@ export default function Community() {
 
   return (
     <main
-      className={`flex h-screen flex-col py-8 pr-8 transition-[padding-left] duration-[380ms] ease-[cubic-bezier(0.4,0,0.2,1)] motion-reduce:transition-none ${page}`}
+      className={`flex h-screen flex-col pb-8 pr-[clamp(12px,1.5vw,24px)] pt-[clamp(16px,2vw,28px)] transition-[padding-left] duration-[380ms] ease-[cubic-bezier(0.4,0,0.2,1)] motion-reduce:transition-none ${page}`}
       style={{ paddingLeft: sidebarOffset }}
     >
       <DashboardSidebar />
 
-      <div className="mx-auto flex min-h-0 w-full max-w-[1200px] flex-1 flex-col">
+      <div className="flex min-h-0 w-full flex-1 flex-col">
         {/* Header */}
         <header className="flex items-center justify-between gap-4 pb-4">
-          <div className="flex min-w-0 items-center gap-3">
-            <span className="relative h-12 w-12 shrink-0">
-              {channel?.avatarUrl ? (
-                <img
-                  src={channel.avatarUrl}
-                  alt=""
-                  referrerPolicy="no-referrer"
-                  className="h-full w-full rounded-full object-cover"
-                />
-              ) : (
-                <span
-                  className={`flex h-full w-full items-center justify-center rounded-full text-lg font-semibold ${
-                    isDark ? "bg-white text-black" : "bg-black text-white"
-                  }`}
-                >
-                  {name.charAt(0).toUpperCase() || "?"}
-                </span>
-              )}
-              {NetworkIcon && (
-                <span
-                  className={`absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-md bg-white text-black ring-2 ${
-                    isDark ? "ring-black" : "ring-white"
-                  }`}
-                >
-                  <NetworkIcon className="h-3 w-3" />
-                </span>
-              )}
-            </span>
-
-            <h1 className="truncate text-[26px] font-semibold tracking-tight">{name}</h1>
+          {/* Titre de la page : en haut à gauche */}
+          <div className="flex min-w-0 items-center gap-2.5">
+            <div
+              className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border ${
+                isDark
+                  ? "border-white/10 bg-white/[0.03] text-white"
+                  : "border-black/[0.08] bg-white text-neutral-900 shadow-sm"
+              }`}
+            >
+              <UsersIcon className="h-[17px] w-[17px]" />
+            </div>
+            <h1 className="font-display text-[clamp(17px,1.5vw,20px)] font-semibold tracking-[-0.01em]">
+              Community
+            </h1>
           </div>
 
           <div className="flex items-center gap-2">
