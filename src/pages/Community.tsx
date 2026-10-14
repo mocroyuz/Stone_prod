@@ -2,6 +2,7 @@
 // Page Community (route "community") : boîte de réception des commentaires et mentions.
 // Noir et blanc, même thème que la page Insights.
 // Les données (posts / commentaires) sont fournies par `useCommunity` : branche-le sur ton backend.
+
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { useTheme } from "../hooks/useTheme";
@@ -346,7 +347,7 @@ function IconButton({
 /* ───────── Page ───────── */
 
 export default function Community() {
-  const { theme } = useTheme();
+  const { theme, toggle: onToggleTheme } = useTheme();
   const isDark = theme === "dark";
   const sidebarOffset = useSidebarOffset();
   const channels = useConnectedChannels();
@@ -375,9 +376,7 @@ export default function Community() {
   const card = isDark ? "border-white/10 bg-[#0c0c0c]" : "border-black/10 bg-[#fafafa]";
   const line = isDark ? "border-white/10" : "border-black/10";
   const muted = isDark ? "text-neutral-400" : "text-neutral-500";
-  const ghost = isDark
-    ? "hover:bg-neutral-700/70"
-    : "hover:bg-neutral-200";
+  const ghost = isDark ? "hover:bg-neutral-700/70" : "hover:bg-neutral-200";
   const outline = isDark ? "border-white/15 hover:bg-white/10" : "border-black/15 hover:bg-black/5";
   const ring = isDark ? "focus-visible:ring-white/40" : "focus-visible:ring-black/30";
 
@@ -403,277 +402,283 @@ export default function Community() {
   const visiblePosts = showAll ? posts : posts.filter((p) => p.commentCount > 0);
 
   return (
-    <main className={`relative h-screen w-full overflow-hidden transition-colors duration-300 ${page}`}>
-      <DashboardSidebar theme={theme} />
+    <main
+      className={`relative h-screen w-full overflow-hidden transition-colors duration-300 ${page}`}
+    >
+      {/* Sidebar (animée : ouverture / fermeture fluide via useSidebarOffset) */}
+      <DashboardSidebar theme={theme} onToggleTheme={onToggleTheme} />
 
-      {/* Le padding-left suit l'ouverture/fermeture de la sidebar. */}
+      {/* Le padding-left suit l'ouverture/fermeture de la sidebar avec la même
+          courbe et la même durée que sur la page Channels. */}
       <div
-        className="flex h-full flex-col transition-[padding-left] duration-[380ms] ease-[cubic-bezier(0.4,0,0.2,1)] motion-reduce:transition-none"
+        className="flex h-full flex-col transition-[padding-left] duration-[380ms] ease-[cubic-bezier(0.4,0,0.2,1)] motion-reduce:transition-none will-change-[padding-left]"
         style={{ paddingLeft: sidebarOffset }}
       >
-      <div className="flex min-h-0 w-full flex-1 flex-col px-[clamp(12px,1.5vw,24px)] pb-8 pt-[clamp(16px,2vw,28px)]">
-        {/* Header */}
-        <header className="flex items-center justify-between gap-4 pb-4">
-          {/* Titre de la page : en haut à gauche */}
-          <div className="flex min-w-0 items-center gap-2.5">
-            <div
-              className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border ${
-                isDark
-                  ? "border-white/10 bg-white/[0.03] text-white"
-                  : "border-black/[0.08] bg-white text-neutral-900 shadow-sm"
-              }`}
-            >
-              <ChatsIcon className="h-[17px] w-[17px]" />
+        <div className="flex min-h-0 w-full flex-1 flex-col px-[clamp(12px,1.5vw,24px)] pb-8 pt-[clamp(16px,2vw,28px)]">
+          {/* Header */}
+          <header className="flex items-center justify-between gap-4 pb-4">
+            {/* Titre de la page : en haut à gauche */}
+            <div className="flex min-w-0 items-center gap-2.5">
+              <div
+                className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border ${
+                  isDark
+                    ? "border-white/10 bg-white/[0.03] text-white"
+                    : "border-black/[0.08] bg-white text-neutral-900 shadow-sm"
+                }`}
+              >
+                <ChatsIcon className="h-[17px] w-[17px]" />
+              </div>
+              <h1 className="font-display text-[clamp(17px,1.5vw,20px)] font-semibold tracking-[-0.01em]">
+                Community
+              </h1>
             </div>
-            <h1 className="font-display text-[clamp(17px,1.5vw,20px)] font-semibold tracking-[-0.01em]">
-              Community
-            </h1>
-          </div>
 
-          <div className="flex items-center gap-2">
-            <IconButton label="Auto-replies" ghost={ghost} isDark={isDark}>
-              <ChatHeartIcon className="h-5 w-5" />
-            </IconButton>
-            <IconButton label="Refresh comments" ghost={ghost} isDark={isDark}>
-              <SyncIcon className="h-5 w-5" />
-            </IconButton>
+            <div className="flex items-center gap-2">
+              <IconButton label="Auto-replies" ghost={ghost} isDark={isDark}>
+                <ChatHeartIcon className="h-5 w-5" />
+              </IconButton>
+              <IconButton label="Refresh comments" ghost={ghost} isDark={isDark}>
+                <SyncIcon className="h-5 w-5" />
+              </IconButton>
 
-            <div
-              role="tablist"
-              aria-label="Layout"
-              className={`ml-2 inline-flex gap-1 rounded-xl border p-1 ${line}`}
-            >
-              {(
-                [
-                  { key: "post", label: "By post", icon: <PanelIcon className="h-4 w-4" /> },
-                  { key: "list", label: "List", icon: <ListIcon className="h-4 w-4" /> },
-                ] as { key: Layout; label: string; icon: ReactNode }[]
-              ).map((o) => (
+              <div
+                role="tablist"
+                aria-label="Layout"
+                className={`ml-2 inline-flex gap-1 rounded-xl border p-1 ${line}`}
+              >
+                {(
+                  [
+                    { key: "post", label: "By post", icon: <PanelIcon className="h-4 w-4" /> },
+                    { key: "list", label: "List", icon: <ListIcon className="h-4 w-4" /> },
+                  ] as { key: Layout; label: string; icon: ReactNode }[]
+                ).map((o) => (
+                  <button
+                    key={o.key}
+                    type="button"
+                    role="tab"
+                    aria-selected={layout === o.key}
+                    onClick={() => setLayout(o.key)}
+                    className={`flex items-center gap-2 rounded-lg px-3 py-1.5 text-[13px] font-medium transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 ${ring} ${
+                      layout === o.key
+                        ? isDark
+                          ? "bg-white text-black"
+                          : "bg-black text-white"
+                        : isDark
+                        ? "text-neutral-400 hover:text-white"
+                        : "text-neutral-500 hover:text-black"
+                    }`}
+                  >
+                    {o.icon}
+                    {o.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </header>
+
+          {/* Tabs + toolbar */}
+          <div className={`flex items-center justify-between gap-4 border-b ${line}`}>
+            <div role="tablist" aria-label="Inbox" className="flex gap-6">
+              {TABS.map((t) => (
                 <button
-                  key={o.key}
+                  key={t.key}
                   type="button"
                   role="tab"
-                  aria-selected={layout === o.key}
-                  onClick={() => setLayout(o.key)}
-                  className={`flex items-center gap-2 rounded-lg px-3 py-1.5 text-[13px] font-medium transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 ${ring} ${
-                    layout === o.key
+                  aria-selected={tab === t.key}
+                  onClick={() => setTab(t.key)}
+                  className={`-mb-px border-b-2 px-1 pb-3 pt-2 text-[15px] font-medium transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 ${ring} ${
+                    tab === t.key
                       ? isDark
-                        ? "bg-white text-black"
-                        : "bg-black text-white"
-                      : isDark
-                      ? "text-neutral-400 hover:text-white"
-                      : "text-neutral-500 hover:text-black"
+                        ? "border-white text-white"
+                        : "border-black text-black"
+                      : `border-transparent ${muted} ${isDark ? "hover:text-white" : "hover:text-black"}`
                   }`}
                 >
-                  {o.icon}
-                  {o.label}
+                  {t.label}
                 </button>
               ))}
             </div>
-          </div>
-        </header>
 
-        {/* Tabs + toolbar */}
-        <div className={`flex items-center justify-between gap-4 border-b ${line}`}>
-          <div role="tablist" aria-label="Inbox" className="flex gap-6">
-            {TABS.map((t) => (
-              <button
-                key={t.key}
-                type="button"
-                role="tab"
-                aria-selected={tab === t.key}
-                onClick={() => setTab(t.key)}
-                className={`-mb-px border-b-2 px-1 pb-3 pt-2 text-[15px] font-medium transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 ${ring} ${
-                  tab === t.key
-                    ? isDark
-                      ? "border-white text-white"
-                      : "border-black text-black"
-                    : `border-transparent ${muted} ${isDark ? "hover:text-white" : "hover:text-black"}`
-                }`}
-              >
-                {t.label}
-              </button>
-            ))}
-          </div>
-
-          <div className="flex items-center gap-1 pb-2">
-            <Menu
-              value={channel?.key ?? ""}
-              options={
-                channelOptions.length
-                  ? channelOptions
-                  : [{ key: "", label: "Channels" }]
-              }
-              onChange={(k) => k && goChannel(k)}
-              icon={<GridIcon className="h-4 w-4" />}
-              isDark={isDark}
-              ghost={ghost}
-            />
-            <Menu
-              value={filter}
-              options={FILTERS}
-              onChange={setFilter}
-              icon={<BubbleIcon className="h-4 w-4" />}
-              isDark={isDark}
-              ghost={ghost}
-            />
-            <IconButton label="Sort and filter" ghost={ghost} isDark={isDark}>
-              <FilterIcon className="h-5 w-5" />
-            </IconButton>
-            <IconButton label="Mark all as read" ghost={ghost} isDark={isDark} align="end">
-              <CheckCircleIcon className="h-5 w-5" />
-            </IconButton>
-          </div>
-        </div>
-
-        {/* Body */}
-        <div className="flex min-h-0 flex-1">
-          {/* Posts panel */}
-          {layout === "post" && postsOpen && (
-            <aside className={`flex w-[300px] shrink-0 flex-col border-r pr-4 pt-4 ${line}`}>
-              <div className="flex items-center justify-between">
-                <h2 className={`text-[15px] font-medium ${muted}`}>Posts</h2>
-                <div className="flex items-center">
-                  <IconButton
-                    label="Bring posts with the newest unanswered comments to the top."
-                    ghost={ghost}
-                    isDark={isDark}
-                    className="h-8 w-8"
-                  >
-                    <BringToTopIcon className="h-[18px] w-[18px]" />
-                  </IconButton>
-                  <IconButton
-                    label={showAll ? "Only posts with comments" : "Show all posts"}
-                    onClick={() => setShowAll((v) => !v)}
-                    ghost={ghost}
-                    isDark={isDark}
-                    className="h-8 w-8"
-                  >
-                    <StackIcon className="h-[18px] w-[18px]" />
-                  </IconButton>
-                  <IconButton
-                    label="Hide posts panel"
-                    onClick={() => setPostsOpen(false)}
-                    ghost={ghost}
-                    isDark={isDark}
-                    className="h-8 w-8"
-                  >
-                    <PanelIcon className="h-[18px] w-[18px]" />
-                  </IconButton>
-                </div>
-              </div>
-
-              {visiblePosts.length === 0 ? (
-                <div className="mt-16 flex flex-col items-center gap-3 px-2 text-center">
-                  <h3 className="text-[20px] font-semibold tracking-tight">No posts found</h3>
-                  <p className={`text-[14px] leading-relaxed ${muted}`}>
-                    When your posts receive comments, they&rsquo;ll appear here. Want to see all
-                    your posts?
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => setShowAll(true)}
-                    className={`mt-2 rounded-xl border px-4 py-2 text-[14px] font-medium transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 ${outline} ${ring}`}
-                  >
-                    Show all posts
-                  </button>
-                </div>
-              ) : (
-                <ul className="mt-4 flex min-h-0 flex-col gap-1 overflow-y-auto">
-                  {visiblePosts.map((p) => (
-                    <li key={p.id}>
-                      <button
-                        type="button"
-                        className={`flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-left text-[13px] font-medium transition-colors ${ghost}`}
-                      >
-                        <span className="truncate">{p.title}</span>
-                        <span className={`tabular-nums ${muted}`}>{p.commentCount}</span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </aside>
-          )}
-
-          {layout === "post" && !postsOpen && (
-            <div className="pt-4 pr-3">
-              <IconButton
-                label="Show posts panel"
-                onClick={() => setPostsOpen(true)}
-                ghost={ghost}
+            <div className="flex items-center gap-1 pb-2">
+              <Menu
+                value={channel?.key ?? ""}
+                options={
+                  channelOptions.length
+                    ? channelOptions
+                    : [{ key: "", label: "Channels" }]
+                }
+                onChange={(k) => k && goChannel(k)}
+                icon={<GridIcon className="h-4 w-4" />}
                 isDark={isDark}
-                className="h-8 w-8"
-              >
-                <PanelIcon className="h-[18px] w-[18px]" />
+                ghost={ghost}
+              />
+              <Menu
+                value={filter}
+                options={FILTERS}
+                onChange={setFilter}
+                icon={<BubbleIcon className="h-4 w-4" />}
+                isDark={isDark}
+                ghost={ghost}
+              />
+              <IconButton label="Sort and filter" ghost={ghost} isDark={isDark}>
+                <FilterIcon className="h-5 w-5" />
+              </IconButton>
+              <IconButton label="Mark all as read" ghost={ghost} isDark={isDark} align="end">
+                <CheckCircleIcon className="h-5 w-5" />
               </IconButton>
             </div>
-          )}
+          </div>
 
-          {/* Inbox */}
-          <section className="flex min-w-0 flex-1 flex-col items-center overflow-y-auto px-6 py-10">
-            <div className="my-auto flex w-full max-w-[560px] flex-col items-center gap-10">
-              <div className="flex flex-col items-center gap-3 text-center">
-                <span
-                  className={`flex h-20 w-20 items-center justify-center rounded-full ${
-                    isDark ? "bg-white/10" : "bg-black/[0.06]"
-                  }`}
+          {/* Body */}
+          <div className="flex min-h-0 flex-1">
+            {/* Posts panel */}
+            {layout === "post" && postsOpen && (
+              <aside className={`flex w-[300px] shrink-0 flex-col border-r pr-4 pt-4 ${line}`}>
+                <div className="flex items-center justify-between">
+                  <h2 className={`text-[15px] font-medium ${muted}`}>Posts</h2>
+                  <div className="flex items-center">
+                    <IconButton
+                      label="Bring posts with the newest unanswered comments to the top."
+                      ghost={ghost}
+                      isDark={isDark}
+                      className="h-8 w-8"
+                    >
+                      <BringToTopIcon className="h-[18px] w-[18px]" />
+                    </IconButton>
+                    <IconButton
+                      label={showAll ? "Only posts with comments" : "Show all posts"}
+                      onClick={() => setShowAll((v) => !v)}
+                      ghost={ghost}
+                      isDark={isDark}
+                      className="h-8 w-8"
+                    >
+                      <StackIcon className="h-[18px] w-[18px]" />
+                    </IconButton>
+                    <IconButton
+                      label="Hide posts panel"
+                      onClick={() => setPostsOpen(false)}
+                      ghost={ghost}
+                      isDark={isDark}
+                      className="h-8 w-8"
+                    >
+                      <PanelIcon className="h-[18px] w-[18px]" />
+                    </IconButton>
+                  </div>
+                </div>
+
+                {visiblePosts.length === 0 ? (
+                  <div className="mt-16 flex flex-col items-center gap-3 px-2 text-center">
+                    <h3 className="text-[20px] font-semibold tracking-tight">No posts found</h3>
+                    <p className={`text-[14px] leading-relaxed ${muted}`}>
+                      When your posts receive comments, they&rsquo;ll appear here. Want to see all
+                      your posts?
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setShowAll(true)}
+                      className={`mt-2 rounded-xl border px-4 py-2 text-[14px] font-medium transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 ${outline} ${ring}`}
+                    >
+                      Show all posts
+                    </button>
+                  </div>
+                ) : (
+                  <ul className="mt-4 flex min-h-0 flex-col gap-1 overflow-y-auto">
+                    {visiblePosts.map((p) => (
+                      <li key={p.id}>
+                        <button
+                          type="button"
+                          className={`flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-left text-[13px] font-medium transition-colors ${ghost}`}
+                        >
+                          <span className="truncate">{p.title}</span>
+                          <span className={`tabular-nums ${muted}`}>{p.commentCount}</span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </aside>
+            )}
+
+            {layout === "post" && !postsOpen && (
+              <div className="pt-4 pr-3">
+                <IconButton
+                  label="Show posts panel"
+                  onClick={() => setPostsOpen(true)}
+                  ghost={ghost}
+                  isDark={isDark}
+                  className="h-8 w-8"
                 >
-                  <ListenIcon className="h-9 w-9" />
-                </span>
-                <h2 className="text-[22px] font-semibold tracking-tight">
-                  {tab === "comments"
-                    ? "We\u2019re listening for new comments"
-                    : "We\u2019re listening for new mentions"}
-                </h2>
-                <p className={`max-w-[420px] text-[15px] leading-relaxed ${muted}`}>
-                  {tab === "comments"
-                    ? "We\u2019ll let you know when someone comments on your posts."
-                    : "We\u2019ll let you know when someone mentions you."}
-                </p>
+                  <PanelIcon className="h-[18px] w-[18px]" />
+                </IconButton>
               </div>
+            )}
 
-              <div className="flex w-full flex-col gap-3">
-                <p className={`text-center text-[14px] ${muted}`}>In the meantime, keep exploring:</p>
-
-                <button
-                  type="button"
-                  onClick={() => navigate("create")}
-                  className={`flex items-start gap-4 rounded-2xl border p-5 text-left transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 ${card} ${ring} ${
-                    isDark ? "hover:bg-white/[0.06]" : "hover:bg-black/[0.04]"
-                  }`}
-                >
-                  <EditIcon className={`mt-0.5 h-5 w-5 shrink-0 ${muted}`} />
-                  <span>
-                    <span className="block text-[16px] font-semibold">Post something new</span>
-                    <span className={`mt-1 block text-[14px] leading-relaxed ${muted}`}>
-                      Use templates to create content that starts conversations. Pro tip: ask a
-                      question.
-                    </span>
+            {/* Inbox */}
+            <section className="flex min-w-0 flex-1 flex-col items-center overflow-y-auto px-6 py-10">
+              <div className="my-auto flex w-full max-w-[560px] flex-col items-center gap-10">
+                <div className="flex flex-col items-center gap-3 text-center">
+                  <span
+                    className={`flex h-20 w-20 items-center justify-center rounded-full ${
+                      isDark ? "bg-white/10" : "bg-black/[0.06]"
+                    }`}
+                  >
+                    <ListenIcon className="h-9 w-9" />
                   </span>
-                </button>
+                  <h2 className="text-[22px] font-semibold tracking-tight">
+                    {tab === "comments"
+                      ? "We\u2019re listening for new comments"
+                      : "We\u2019re listening for new mentions"}
+                  </h2>
+                  <p className={`max-w-[420px] text-[15px] leading-relaxed ${muted}`}>
+                    {tab === "comments"
+                      ? "We\u2019ll let you know when someone comments on your posts."
+                      : "We\u2019ll let you know when someone mentions you."}
+                  </p>
+                </div>
 
-                <button
-                  type="button"
-                  onClick={() => navigate("channels")}
-                  className={`flex items-start gap-4 rounded-2xl border p-5 text-left transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 ${card} ${ring} ${
-                    isDark ? "hover:bg-white/[0.06]" : "hover:bg-black/[0.04]"
-                  }`}
-                >
-                  <PlusIcon className={`mt-0.5 h-5 w-5 shrink-0 ${muted}`} />
-                  <span>
-                    <span className="block text-[16px] font-semibold">Connect more channels</span>
-                    <span className={`mt-1 block text-[14px] leading-relaxed ${muted}`}>
-                      Manage conversations from all your channels in a single, distraction-free
-                      inbox.
+                <div className="flex w-full flex-col gap-3">
+                  <p className={`text-center text-[14px] ${muted}`}>
+                    In the meantime, keep exploring:
+                  </p>
+
+                  <button
+                    type="button"
+                    onClick={() => navigate("create")}
+                    className={`flex items-start gap-4 rounded-2xl border p-5 text-left transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 ${card} ${ring} ${
+                      isDark ? "hover:bg-white/[0.06]" : "hover:bg-black/[0.04]"
+                    }`}
+                  >
+                    <EditIcon className={`mt-0.5 h-5 w-5 shrink-0 ${muted}`} />
+                    <span>
+                      <span className="block text-[16px] font-semibold">Post something new</span>
+                      <span className={`mt-1 block text-[14px] leading-relaxed ${muted}`}>
+                        Use templates to create content that starts conversations. Pro tip: ask a
+                        question.
+                      </span>
                     </span>
-                  </span>
-                </button>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => navigate("channels")}
+                    className={`flex items-start gap-4 rounded-2xl border p-5 text-left transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 ${card} ${ring} ${
+                      isDark ? "hover:bg-white/[0.06]" : "hover:bg-black/[0.04]"
+                    }`}
+                  >
+                    <PlusIcon className={`mt-0.5 h-5 w-5 shrink-0 ${muted}`} />
+                    <span>
+                      <span className="block text-[16px] font-semibold">Connect more channels</span>
+                      <span className={`mt-1 block text-[14px] leading-relaxed ${muted}`}>
+                        Manage conversations from all your channels in a single, distraction-free
+                        inbox.
+                      </span>
+                    </span>
+                  </button>
+                </div>
               </div>
-            </div>
-          </section>
+            </section>
+          </div>
         </div>
-      </div>
       </div>
     </main>
   );
