@@ -180,6 +180,19 @@ const ChatHeartIcon = (p: IconProps) => (
     <path d="M12 14.6s-2.8-1.6-2.8-3.4a1.6 1.6 0 0 1 2.8-1 1.6 1.6 0 0 1 2.8 1c0 1.8-2.8 3.4-2.8 3.4Z" />
   </Svg>
 );
+const PencilIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M4 20h4L19 9a2.1 2.1 0 0 0-3-3L5 17v3Z" />
+    <path d="m14 8 3 3" />
+  </Svg>
+);
+const TrashIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M4 7h16M10 11v6M14 11v6" />
+    <path d="M6 7l1 12a1.5 1.5 0 0 0 1.5 1.4h7A1.5 1.5 0 0 0 17 19l1-12" />
+    <path d="M9 7V4.5A.5.5 0 0 1 9.5 4h5a.5.5 0 0 1 .5.5V7" />
+  </Svg>
+);
 const PlusIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="M12 5v14M5 12h14" />
@@ -563,7 +576,7 @@ function IdeaCard({
   const [menu, setMenu] = useState(false);
   const hasMenu = !!(onEdit || onDelete);
 
-  const item = `flex w-full items-center rounded-lg px-3 py-2 text-left text-[13px] font-medium transition-colors ${
+  const item = `flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-[13px] font-medium transition-colors ${
     isDark ? "hover:bg-white/[0.06]" : "hover:bg-black/[0.04]"
   }`;
 
@@ -644,6 +657,7 @@ function IdeaCard({
                           }}
                           className={item}
                         >
+                          <PencilIcon className="h-4 w-4" />
                           Edit
                         </button>
                       )}
@@ -657,6 +671,7 @@ function IdeaCard({
                           }}
                           className={`${item} text-red-500`}
                         >
+                          <TrashIcon className="h-4 w-4" />
                           Delete
                         </button>
                       )}
