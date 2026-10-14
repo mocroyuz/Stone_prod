@@ -109,10 +109,27 @@ function useBoard() {
       return [...rest, moved];
     });
 
+  const updateIdea = (id: string, patch: Omit<Idea, "id">) =>
+    setIdeas((prev) => prev.map((i) => (i.id === id ? { ...i, ...patch } : i)));
+
+  const deleteIdea = (id: string) => setIdeas((prev) => prev.filter((i) => i.id !== id));
+
   const moveAll = (from: string, to: string) =>
     setIdeas((prev) => prev.map((i) => (i.tagId === from ? { ...i, tagId: to } : i)));
 
-  return { tags, ideas, addTag, renameTag, deleteTag, moveTag, addIdea, moveIdea, moveAll };
+  return {
+    tags,
+    ideas,
+    addTag,
+    renameTag,
+    deleteTag,
+    moveTag,
+    addIdea,
+    updateIdea,
+    deleteIdea,
+    moveIdea,
+    moveAll,
+  };
 }
 
 /* ───────── Icônes ───────── */
@@ -520,7 +537,8 @@ function TagSelect({
   );
 }
 
-/** Carte d'idée (board : déplaçable aux pointer events ; galerie : statique). */
+/** Carte d'idée (board : déplaçable aux pointer events ; galerie : statique).
+ *  Au survol : bouton « … » aligné avec le titre → Edit / Delete. */
 function IdeaCard({
   idea,
   tagLabel,
@@ -529,6 +547,8 @@ function IdeaCard({
   draggable,
   placeholder,
   onPointerDown,
+  onEdit,
+  onDelete,
 }: {
   idea: Idea;
   tagLabel?: string;
@@ -537,12 +557,21 @@ function IdeaCard({
   draggable?: boolean;
   placeholder?: boolean;
   onPointerDown?: (e: RPointerEvent) => void;
+  onEdit?: () => void;
+  onDelete?: () => void;
 }) {
+  const [menu, setMenu] = useState(false);
+  const hasMenu = !!(onEdit || onDelete);
+
+  const item = `flex w-full items-center rounded-lg px-3 py-2 text-left text-[13px] font-medium transition-colors ${
+    isDark ? "hover:bg-white/[0.06]" : "hover:bg-black/[0.04]"
+  }`;
+
   return (
     <div
       data-card={draggable ? idea.id : undefined}
       onPointerDown={onPointerDown}
-      className={`relative rounded-xl ${
+      className={`group/card relative rounded-xl ${menu ? "z-20" : ""} ${
         draggable ? "cursor-grab touch-none select-none active:cursor-grabbing" : ""
       } ${
         placeholder
@@ -552,7 +581,7 @@ function IdeaCard({
     >
       <article
         onDragStart={(e) => e.preventDefault()}
-        className={`overflow-hidden rounded-xl border transition-colors ${
+        className={`rounded-xl border transition-colors ${
           isDark
             ? "border-white/10 bg-[#0c0c0c] hover:border-white/25"
             : "border-black/10 bg-white hover:border-black/25"
@@ -562,12 +591,82 @@ function IdeaCard({
           <img
             src={idea.imageUrl}
             alt=""
-            className="h-[150px] w-full object-cover"
+            className="h-[150px] w-full rounded-t-[11px] object-cover"
             draggable={false}
           />
         )}
         <div className="flex flex-col gap-1 px-4 py-4">
-          <h3 className="truncate text-[15px] font-semibold">{idea.title}</h3>
+          {/* Titre + bouton « … » sur la même ligne */}
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="min-w-0 flex-1 truncate text-[15px] font-semibold">{idea.title}</h3>
+
+            {hasMenu && (
+              <div className="relative -my-1 -mr-2 shrink-0">
+                <button
+                  type="button"
+                  aria-label="Idea options"
+                  aria-haspopup="menu"
+                  aria-expanded={menu}
+                  onClick={() => setMenu((v) => !v)}
+                  className={`flex h-7 w-7 items-center justify-center rounded-lg transition-[opacity,background-color] focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 group-hover/card:opacity-100 [@media(hover:none)]:opacity-100 ${
+                    menu ? "opacity-100" : "opacity-0"
+                  } ${
+                    isDark
+                      ? "hover:bg-white/10 focus-visible:ring-white/40"
+                      : "hover:bg-black/[0.07] focus-visible:ring-black/30"
+                  }`}
+                >
+                  <DotsIcon className="h-[18px] w-[18px]" />
+                </button>
+
+                {menu && (
+                  <>
+                    <button
+                      type="button"
+                      aria-label="Close menu"
+                      tabIndex={-1}
+                      className="fixed inset-0 z-30 cursor-default"
+                      onClick={() => setMenu(false)}
+                    />
+                    <div
+                      role="menu"
+                      className={`absolute right-0 top-full z-40 mt-1 min-w-[140px] rounded-xl border p-1 shadow-lg ${
+                        isDark ? "border-white/10 bg-[#0c0c0c]" : "border-black/10 bg-white"
+                      }`}
+                    >
+                      {onEdit && (
+                        <button
+                          type="button"
+                          role="menuitem"
+                          onClick={() => {
+                            setMenu(false);
+                            onEdit();
+                          }}
+                          className={item}
+                        >
+                          Edit
+                        </button>
+                      )}
+                      {onDelete && (
+                        <button
+                          type="button"
+                          role="menuitem"
+                          onClick={() => {
+                            setMenu(false);
+                            onDelete();
+                          }}
+                          className={`${item} text-red-500`}
+                        >
+                          Delete
+                        </button>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+
           {idea.description && (
             <p className={`line-clamp-2 text-[14px] ${muted}`}>{idea.description}</p>
           )}
@@ -592,6 +691,7 @@ const MAX_IMAGE_MB = 10;
 
 function IdeaModal({
   tags,
+  idea,
   initialTagId,
   isDark,
   ghost,
@@ -603,6 +703,7 @@ function IdeaModal({
   onCreateTag,
 }: {
   tags: Tag[];
+  idea?: Idea;
   initialTagId: string;
   isDark: boolean;
   ghost: string;
@@ -613,14 +714,14 @@ function IdeaModal({
   onSave: (idea: Omit<Idea, "id">) => void;
   onCreateTag: (label: string) => string | null;
 }) {
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
+  const [title, setTitle] = useState(idea?.title ?? "");
+  const [description, setDescription] = useState(idea?.description ?? "");
   const [tagId, setTagId] = useState(initialTagId);
-  const [imageUrl, setImageUrl] = useState<string | undefined>();
+  const [imageUrl, setImageUrl] = useState<string | undefined>(idea?.imageUrl);
   const [imageError, setImageError] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
-  const imageRef = useRef<string | undefined>(undefined);
+  const imageRef = useRef<string | undefined>(idea?.imageUrl);
   const savedRef = useRef(false);
 
   imageRef.current = imageUrl;
@@ -634,12 +735,19 @@ function IdeaModal({
   // libère l'aperçu si la modale est fermée sans enregistrer
   useEffect(
     () => () => {
-      if (!savedRef.current && imageRef.current) URL.revokeObjectURL(imageRef.current);
+      if (!savedRef.current && imageRef.current && imageRef.current !== idea?.imageUrl)
+        URL.revokeObjectURL(imageRef.current);
     },
     []
   );
 
   const canSave = title.trim().length > 0;
+
+  /** Libère l'aperçu courant, sauf l'image d'origine de l'idée (encore utilisée si on annule). */
+  const release = () => {
+    if (imageRef.current && imageRef.current !== idea?.imageUrl)
+      URL.revokeObjectURL(imageRef.current);
+  };
 
   /** Ajoute (ou remplace) l'image : vérifie le type et la taille. */
   const setFile = (file?: File | null) => {
@@ -653,12 +761,12 @@ function IdeaModal({
       return;
     }
     setImageError(null);
-    if (imageRef.current) URL.revokeObjectURL(imageRef.current);
+    release();
     setImageUrl(URL.createObjectURL(file));
   };
 
   const removeImage = () => {
-    if (imageRef.current) URL.revokeObjectURL(imageRef.current);
+    release();
     setImageUrl(undefined);
     setImageError(null);
   };
@@ -710,7 +818,7 @@ function IdeaModal({
       <div
         role="dialog"
         aria-modal="true"
-        aria-label="Create Idea"
+        aria-label={idea ? "Edit Idea" : "Create Idea"}
         className={`relative flex max-h-[92vh] w-full max-w-[720px] flex-col rounded-2xl border shadow-2xl ${
           isDark ? "border-white/10 bg-[#0c0c0c] text-white" : "border-black/10 bg-white text-black"
         }`}
@@ -728,7 +836,7 @@ function IdeaModal({
 
         {/* Header */}
         <div className="flex items-center justify-between gap-3 px-6 pt-6">
-          <h2 className="text-[18px] font-semibold tracking-tight">Create Idea</h2>
+          <h2 className="text-[18px] font-semibold tracking-tight">{idea ? "Edit Idea" : "Create Idea"}</h2>
           <TagSelect
             tags={tags}
             value={tagId}
@@ -882,16 +990,18 @@ function IdeaModal({
 
         {/* Footer */}
         <div className={`flex justify-end gap-3 border-t px-6 py-4 ${line}`}>
-          <button
-            type="button"
-            disabled={!canSave}
-            onClick={() => save(true)}
-            className={`rounded-xl px-5 py-2.5 text-[15px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 ${ring} ${
-              canSave ? primary : `cursor-not-allowed ${disabled}`
-            }`}
-          >
-            Create Post
-          </button>
+          {!idea && (
+            <button
+              type="button"
+              disabled={!canSave}
+              onClick={() => save(true)}
+              className={`rounded-xl px-5 py-2.5 text-[15px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 ${ring} ${
+                canSave ? primary : `cursor-not-allowed ${disabled}`
+              }`}
+            >
+              Create Post
+            </button>
+          )}
           <button
             type="button"
             disabled={!canSave}
@@ -900,7 +1010,7 @@ function IdeaModal({
               canSave ? primary : `cursor-not-allowed ${disabled}`
             }`}
           >
-            Save Idea
+            {idea ? "Save changes" : "Save Idea"}
           </button>
         </div>
       </div>
@@ -940,14 +1050,26 @@ export default function Create() {
   const isDark = theme === "dark";
   const sidebarOffset = useSidebarOffset();
 
-  const { tags, ideas, addTag, renameTag, deleteTag, moveTag, addIdea, moveIdea, moveAll } =
-    useBoard();
+  const {
+    tags,
+    ideas,
+    addTag,
+    renameTag,
+    deleteTag,
+    moveTag,
+    addIdea,
+    updateIdea,
+    deleteIdea,
+    moveIdea,
+    moveAll,
+  } = useBoard();
 
   const [tab, setTab] = useState<Tab>("ideas");
   const [view, setView] = useState<View>("board");
   const [hidden, setHidden] = useState<string[]>([]);
   const [saved, setSaved] = useState(false);
   const [modalTag, setModalTag] = useState<string | null>(null);
+  const [ideaEdit, setIdeaEdit] = useState<Idea | null>(null); // idée en cours de modification
 
   // Drag (pointer events) : colonnes et cartes
   const [colDrag, setColDrag] = useState<string | null>(null);
@@ -979,6 +1101,16 @@ export default function Create() {
 
   const toggleHidden = (id: string) =>
     setHidden((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+
+  const openEdit = (idea: Idea) => {
+    setIdeaEdit(idea);
+    setModalTag(idea.tagId);
+  };
+
+  const closeModal = () => {
+    setModalTag(null);
+    setIdeaEdit(null);
+  };
 
   const createTag = (label: string) => {
     const id = addTag(label);
@@ -1063,6 +1195,7 @@ export default function Create() {
 
   const onCardPointerDown = (e: RPointerEvent, ideaId: string) => {
     if (e.button !== 0) return;
+    if ((e.target as HTMLElement).closest("button")) return; // bouton « … » et son menu
     const wrapper = e.currentTarget as HTMLElement;
 
     const rect = wrapper.getBoundingClientRect();
@@ -1503,6 +1636,8 @@ export default function Create() {
                               draggable
                               placeholder={cardDrag === idea.id}
                               onPointerDown={(e) => onCardPointerDown(e, idea.id)}
+                              onEdit={() => openEdit(idea)}
+                              onDelete={() => deleteIdea(idea.id)}
                             />
                           ))}
                           <button
@@ -1584,6 +1719,8 @@ export default function Create() {
                           tagLabel={tagLabel(idea.tagId)}
                           isDark={isDark}
                           muted={muted}
+                          onEdit={() => openEdit(idea)}
+                          onDelete={() => deleteIdea(idea.id)}
                         />
                       ))}
                     </div>
@@ -1597,15 +1734,17 @@ export default function Create() {
 
       {modalTag && (
         <IdeaModal
+          key={ideaEdit?.id ?? "new"}
           tags={tags}
+          idea={ideaEdit ?? undefined}
           initialTagId={modalTag}
           isDark={isDark}
           ghost={ghost}
           line={line}
           muted={muted}
           ring={ring}
-          onClose={() => setModalTag(null)}
-          onSave={addIdea}
+          onClose={closeModal}
+          onSave={(data) => (ideaEdit ? updateIdea(ideaEdit.id, data) : addIdea(data))}
           onCreateTag={createTag}
         />
       )}
