@@ -395,7 +395,7 @@ const CommunityIcon = (p: IconProps) => (
   </Svg>
 );
 
-// NOUVELLE ICÔNE INSIGHTS (Graphique à barres + courbe de tendance)
+// Icône Insights (graphique à barres + courbe de tendance)
 const InsightsIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="M4 20V4" strokeWidth="1.5" />
@@ -535,6 +535,12 @@ const navItems: NavItem[] = [
   { label: "Home", icon: HomeIcon, route: "home" },
   { label: "Publish", icon: CalendarIcon, route: "schedule" },
   { label: "Create", icon: LightbulbIcon, route: "create", badge: "New" },
+];
+
+// Liens ajoutés dans le flux normal de la navigation (après les canaux)
+const secondaryNavItems: NavItem[] = [
+  { label: "Insights", icon: InsightsIcon, route: "insights", badge: "New" },
+  { label: "Community", icon: CommunityIcon, route: "community" },
 ];
 
 const defaultAccount = {
@@ -704,7 +710,6 @@ function getHashChannel(): string | null {
   return new URLSearchParams(hash.slice(queryIndex + 1)).get("channel");
 }
 
-// MODIFIÉ : "Insights" et "Community" ont été retirés de CHANNEL_LINKS pour être mis en bas
 const CHANNEL_LINKS: {
   label: string;
   route: string;
@@ -713,12 +718,6 @@ const CHANNEL_LINKS: {
   perChannel?: boolean;
 }[] = [
   { label: "Publish", route: "schedule", icon: PublishIcon },
-];
-
-// NOUVEAU : Liens à afficher tout en bas de la sidebar
-const BOTTOM_LINKS = [
-  { label: "Insights", route: "insights", icon: InsightsIcon, badge: "New" },
-  { label: "Community", route: "community", icon: CommunityIcon },
 ];
 
 const CHANNEL_ROUTES = new Set(["insights", "community"]);
@@ -1148,7 +1147,6 @@ function SidebarChannelsImpl({
 
   const listRef = useRef<HTMLDivElement>(null);
   const focusKeyRef = useRef<string | null>(null);
-  // Refs synchrones : évitent les états périmés pendant le drag
   const dragKeyRef = useRef<string | null>(null);
   const liveOrderRef = useRef<string[] | null>(null);
 
@@ -1164,7 +1162,6 @@ function SidebarChannelsImpl({
   const channelsRef = useRef(channels);
   channelsRef.current = channels;
 
-  // Réordonner n'a de sens qu'avec au moins 2 canaux et la barre développée.
   const canReorder = !compact && channels.length > 1;
 
   const commitOrder = useCallback(
@@ -1190,7 +1187,6 @@ function SidebarChannelsImpl({
     [channels, commitOrder]
   );
 
-  // Redonne le focus au canal déplacé au clavier (le DOM a été réordonné).
   useEffect(() => {
     const key = focusKeyRef.current;
     if (!key) return;
@@ -1208,7 +1204,6 @@ function SidebarChannelsImpl({
 
   const dragCleanupRef = useRef<((cancel?: boolean) => void) | null>(null);
 
-  // Réordonne EN DIRECT : dès que le curseur passe la moitié d'une autre ligne.
   const moveLive = useCallback((clientY: number) => {
     const fromKey = dragKeyRef.current;
     const list = listRef.current;
@@ -1217,8 +1212,6 @@ function SidebarChannelsImpl({
     const currentKeys = channelsRef.current.map((channel) => channel.key);
     const others = currentKeys.filter((key) => key !== fromKey);
 
-    // La liste est `relative` : offsetTop des lignes est relatif à elle,
-    // indépendamment des animations (transform) et du scroll.
     const y = clientY - list.getBoundingClientRect().top;
 
     let insertAt = others.length;
@@ -1270,7 +1263,6 @@ function SidebarChannelsImpl({
 
     const onMove = (ev: PointerEvent) => {
       if (!ghost) {
-        // Seuil de 5 px : un simple clic ne déclenche pas de drag
         if (Math.hypot(ev.clientX - startX, ev.clientY - startY) < 5) return;
 
         ghost = row.cloneNode(true) as HTMLElement;
@@ -1304,7 +1296,6 @@ function SidebarChannelsImpl({
           grip.style.transition = "none";
         }
 
-        // Le bouton « + » n'a pas à apparaître sur le fantôme
         const plus = ghost.querySelector<HTMLElement>("[data-new-post]");
         if (plus) plus.style.display = "none";
 
@@ -1317,10 +1308,8 @@ function SidebarChannelsImpl({
         setDragKey(key);
       }
 
-      // Le fantôme suit le curseur verticalement
       ghost.style.top = `${ev.clientY - offY}px`;
 
-      // Auto-scroll de la navigation près des bords
       const nav = listRef.current?.closest("nav");
       if (nav) {
         const nr = nav.getBoundingClientRect();
@@ -1369,7 +1358,6 @@ function SidebarChannelsImpl({
     dragCleanupRef.current = finish;
   };
 
-  // Annule le drag si la barre est réduite ou démontée
   useEffect(() => {
     if (!canReorder) dragCleanupRef.current?.(true);
   }, [canReorder]);
@@ -1396,11 +1384,10 @@ function SidebarChannelsImpl({
 
       const prev = prevTops.current.get(key);
 
-      // On n'anime que si l'ordre a changé (pas à l'ouverture d'un sous-menu)
       if (!reduce && orderChanged && prev !== undefined && prev !== top) {
         el.style.transition = "none";
         el.style.transform = `translateY(${prev - top}px)`;
-        el.getBoundingClientRect(); // force le reflow
+        el.getBoundingClientRect();
         el.style.transition = "transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1)";
         el.style.transform = "";
         el.addEventListener("transitionend", () => (el.style.transition = ""), {
@@ -1426,12 +1413,7 @@ function SidebarChannelsImpl({
     setOpenKeys((prev) => (prev.includes(key) ? prev : [...prev, key]));
 
   return (
-    <div
-      ref={listRef}
-      className="relative flex flex-col gap-1"
-    >
-      {/* NOTE: STANDALONE_LINKS a été retiré d'ici, car il a été déplacé tout en bas de la sidebar */}
-
+    <div ref={listRef} className="relative flex flex-col gap-1">
       {!compact && (
         <div className="sb-fade group/channels mt-3 flex h-6 items-center justify-between px-2.5">
           <span className={["text-[12px] font-medium", t.muted].join(" ")}>
@@ -1503,7 +1485,6 @@ function SidebarChannelsImpl({
             data-channel-key={channel.key}
             className="flex flex-col"
           >
-            {/* Ligne du canal = zone de survol + zone de dépôt */}
             <div
               className={[
                 "group/row relative rounded-xl",
@@ -1512,17 +1493,14 @@ function SidebarChannelsImpl({
                 isDragging ? `${t.rowOpen} [&>*]:invisible` : "",
               ].join(" ")}
             >
-              {/* Poignée de glisser-déposer (6 points) — DANS la zone de survol */}
               {canReorder && (
                 <span
                   aria-hidden="true"
                   data-grip
                   onPointerDown={(event) => onHandlePointerDown(event, channel.key)}
                   className={[
-                    // À l'intérieur de la ligne (plus de décalage négatif)
                     "absolute left-[1px] top-1/2 z-10 flex h-7 w-3 -translate-y-1/2",
                     "touch-none cursor-grab items-center justify-center rounded active:cursor-grabbing",
-                    // Animation : glisse depuis la gauche + léger zoom
                     "transition-[opacity,transform,color] duration-200 ease-out motion-reduce:transition-none",
                     "hover:scale-125 active:scale-110",
                     isDragging
@@ -1539,9 +1517,6 @@ function SidebarChannelsImpl({
                 </span>
               )}
 
-              {/* Bouton « + » : poster directement avec ce compte.
-                  Frère du bouton principal (pas imbriqué : un <button> dans un <button> est invalide).
-                  Visible au survol / focus, toujours visible sur écran tactile. */}
               {!compact && (
                 <button
                   type="button"
@@ -1587,7 +1562,6 @@ function SidebarChannelsImpl({
                   aria-label={cleanLabel}
                   aria-keyshortcuts={canReorder ? "Alt+ArrowUp Alt+ArrowDown" : undefined}
                   onKeyDown={(event) => {
-                    // Alt + ↑ / ↓ : déplacer le canal au clavier
                     if (!canReorder || !event.altKey) return;
                     if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
 
@@ -1607,7 +1581,6 @@ function SidebarChannelsImpl({
                     "transition-[background-color,color,transform,padding] duration-200",
                     "active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:scale-100",
                     compact ? "h-10 w-10 justify-center" : "h-9 w-full gap-2.5 px-2.5",
-                    // L'avatar se décale légèrement pour laisser place à la poignée
                     canReorder
                       ? isDragging
                         ? "pl-3.5"
@@ -1627,7 +1600,6 @@ function SidebarChannelsImpl({
 
                   {!compact && (
                     <>
-                      {/* pr-7 au survol : le texte s'arrête avant le bouton « + » */}
                       <span className="sb-fade min-w-0 flex-1 truncate pr-0 text-left group-hover/row:pr-7 group-focus-within/row:pr-7">
                         {cleanLabel}
                       </span>
@@ -2140,13 +2112,6 @@ export default function DashboardSidebar({
     []
   );
 
-  /* --------------------------------------------------------------------------
-     Thème.
-     La sidebar a EXACTEMENT le même fond que la page (Home → pageBgClass) :
-       sombre  #09090a
-       clair   #f5f3ef
-     Le panneau de contenu arrondi (blanc / #0f0f11) se détache dessus.
-  -------------------------------------------------------------------------- */
   const t = useMemo<ThemeTokens>(
     () =>
       isDark
@@ -2248,13 +2213,7 @@ export default function DashboardSidebar({
     navigate(route);
   }, []);
 
-  /**
-   * Poster directement avec un canal : on demande au modal de s'ouvrir avec ce
-   * canal présélectionné. Si aucun modal n'est monté sur la page courante,
-   * on va sur « schedule » : le modal s'y monte et reprend la demande en attente.
-   */
   const handleNewPost = useCallback((channelKey: string) => {
-    // Le focus ne doit pas rester dans le tiroir au moment où il se cache
     (document.activeElement as HTMLElement | null)?.blur();
 
     setMenuOpen(false);
@@ -2489,7 +2448,6 @@ export default function DashboardSidebar({
     <>
       <style>{SIDEBAR_KEYFRAMES}</style>
 
-      {/* Bouton menu mobile : bordure visible car la sidebar se fond dans le fond de page */}
       {isMobile && !mobileOpen && (
         <button
           type="button"
@@ -2526,8 +2484,6 @@ export default function DashboardSidebar({
           "transition-[width,transform] duration-[380ms]",
           "ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
           t.aside,
-          // Desktop : aucune séparation visible (fond identique à la page).
-          // Mobile (tiroir) : bordure visible pour détacher le tiroir du fond assombri.
           isMobile ? t.rail : "border-transparent",
           drawerHidden ? "pointer-events-none -translate-x-full" : "translate-x-0",
           compact
@@ -2559,7 +2515,7 @@ export default function DashboardSidebar({
           )}
         </div>
 
-        {/* Navigation */}
+        {/* Navigation — tous les items sont collés ici, y compris Insights et Community */}
         <nav
           aria-label="Main"
           className={[
@@ -2568,6 +2524,7 @@ export default function DashboardSidebar({
             "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
           ].join(" ")}
         >
+          {/* Nav principale */}
           {visibleNavItems.map((item) => (
             <NavItemView
               key={item.route}
@@ -2580,6 +2537,7 @@ export default function DashboardSidebar({
             />
           ))}
 
+          {/* Canaux connectés */}
           <SidebarChannels
             channels={connectedChannels}
             userId={userId}
@@ -2593,60 +2551,24 @@ export default function DashboardSidebar({
             onConnect={openConnect}
             onNewPost={handleNewPost}
           />
+
+          {/* Insights & Community — intégrés dans le flux, collés aux autres items */}
+          <div className={["flex flex-col gap-1", compact ? "items-center" : ""].join(" ")}>
+            {secondaryNavItems.map((item) => (
+              <NavItemView
+                key={item.route}
+                item={item}
+                currentRoute={currentRoute}
+                compact={compact}
+                focus={focus}
+                t={t}
+                onNavigate={handleNavigate}
+              />
+            ))}
+          </div>
         </nav>
 
-        {/* NOUVEAU : Liens du bas (Insights & Community) */}
-        <div className={["flex flex-col gap-1", compact ? "items-center" : "px-2"].join(" ")}>
-          {BOTTOM_LINKS.map((link) => {
-            const Icon = link.icon;
-            const isActive = link.route === currentRoute;
-            return (
-              <Tip
-                key={link.route}
-                label={link.label}
-                enabled={compact}
-                menuClass={t.menu}
-                countClass={t.count}
-              >
-                <button
-                  type="button"
-                  aria-label={link.label}
-                  aria-current={isActive ? "page" : undefined}
-                  onClick={() => handleNavigate(link.route)}
-                  className={[
-                    "group relative flex items-center rounded-xl text-[13px] font-medium",
-                    "transition-[background-color,color,transform] duration-200",
-                    "active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:scale-100",
-                    compact ? "h-10 w-10 justify-center" : "h-9 w-full gap-2.5 px-2.5",
-                    focus,
-                    isActive ? t.navActive : t.navIdle,
-                  ].join(" ")}
-                >
-                  <Icon className="h-[18px] w-[18px] shrink-0" />
-                  {!compact && (
-                    <>
-                      <span className="sb-fade flex-1 truncate text-left">{link.label}</span>
-                      {link.badge && (
-                        <span className={["rounded-full px-2 py-0.5 text-[10px] font-semibold", t.badge].join(" ")}>
-                          {link.badge}
-                        </span>
-                      )}
-                    </>
-                  )}
-                  {compact && link.badge && (
-                    <span
-                      aria-hidden="true"
-                      className={["absolute right-1 top-1 h-2 w-2 rounded-full ring-2", t.accent, t.dotRing].join(" ")}
-                    />
-                  )}
-                </button>
-              </Tip>
-            );
-          })}
-        </div>
-
-        {/* Bas : toggle + profil
-            (plus de border-t / t.rail : aucune barre au-dessus du profil) */}
+        {/* Bas : toggle + profil */}
         <div
           ref={profileRef}
           className={[
@@ -2873,7 +2795,6 @@ export default function DashboardSidebar({
                     src={account.avatarUrl}
                     alt="Profile"
                     draggable={false}
-                    // Photo de profil : h-8 w-8 (32px), rounded-lg
                     className="h-8 w-8 shrink-0 select-none rounded-lg object-cover"
                     onError={() => setAvatarLoadFailed(true)}
                   />
