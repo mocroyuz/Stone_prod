@@ -71,7 +71,7 @@ import {
   type CacheProvider,
   type Connection,
 } from "../services/channelsCache";
-import { requestNewPost } from "../services/newPostBus";
+import { requestNewPost } from "../services/Newpostbus";
 
 /* ============================================================================ 
    Types 
