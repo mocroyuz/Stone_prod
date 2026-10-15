@@ -1014,12 +1014,7 @@ function InsightsIcon() {
       strokeLinejoin="round"
       aria-hidden="true"
     >
-      <path d="M4 20V4" strokeWidth="1.5" />
-      <path d="M4 20h16" strokeWidth="1.5" />
-      <rect x="7" y="13" width="2.5" height="5" rx="0.5" fill="currentColor" stroke="none" />
-      <rect x="12" y="9" width="2.5" height="9" rx="0.5" fill="currentColor" stroke="none" />
-      <rect x="17" y="11" width="2.5" height="7" rx="0.5" fill="currentColor" stroke="none" />
-      <path d="M5 14l5-5 5 3 5-7" strokeWidth="1.8" />
+      <path d="M5 18V9M12 18V5M19 18v-7M3 20h18" />
     </svg>
   );
 }
