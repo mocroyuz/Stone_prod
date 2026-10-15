@@ -71,6 +71,7 @@ import {
   type CacheProvider,
   type Connection,
 } from "../services/channelsCache";
+import { requestNewPost } from "../services/newPostBus";
 
 /* ============================================================================ 
    Types 
@@ -861,6 +862,7 @@ function ChannelHoverCard({
   t,
   enabled,
   onNavigate,
+  onNewPost,
   children,
 }: {
   channel: ConnectedChannel;
@@ -873,6 +875,7 @@ function ChannelHoverCard({
   t: ThemeTokens;
   enabled: boolean;
   onNavigate: (route: string) => void;
+  onNewPost: (channelKey: string) => void;
   children: ReactNode;
 }) {
   const anchorRef = useRef<HTMLSpanElement>(null);
@@ -1032,6 +1035,26 @@ function ChannelHoverCard({
             <div className={["border-t pt-1", t.menuDivider].join(" ")} />
 
             <div className="flex flex-col gap-0.5">
+              {/* Poster directement avec ce compte */}
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setPos(null);
+                  onNewPost(channel.key);
+                }}
+                className={[
+                  "group flex h-8 w-full items-center gap-2.5 whitespace-nowrap",
+                  "rounded-lg px-2 text-left text-[12.5px] font-semibold",
+                  "transition-colors duration-150 motion-reduce:transition-none",
+                  focus,
+                  t.sub,
+                ].join(" ")}
+              >
+                <PlusIcon className="h-4 w-4 shrink-0 opacity-70 group-hover:opacity-100" />
+                <span className="flex-1">New post</span>
+              </button>
+
               {CHANNEL_LINKS.map((link) => {
                 const Icon = link.icon;
 
@@ -1098,6 +1121,7 @@ function SidebarChannelsImpl({
   onNavigate,
   onExpand,
   onConnect,
+  onNewPost,
 }: {
   channels: ConnectedChannel[];
   userId: string | null;
@@ -1109,6 +1133,7 @@ function SidebarChannelsImpl({
   onNavigate: (route: string) => void;
   onExpand: () => void;
   onConnect: () => void;
+  onNewPost: (channelKey: string) => void;
 }) {
   const [openKeys, setOpenKeys] = useState<string[]>(channelsMemory.open);
 
@@ -1278,6 +1303,10 @@ function SidebarChannelsImpl({
           grip.style.transform = "none";
           grip.style.transition = "none";
         }
+
+        // Le bouton « + » n'a pas à apparaître sur le fantôme
+        const plus = ghost.querySelector<HTMLElement>("[data-new-post]");
+        if (plus) plus.style.display = "none";
 
         document.body.appendChild(ghost);
         document.body.style.cursor = "grabbing";
@@ -1521,6 +1550,7 @@ function SidebarChannelsImpl({
         const id = getNetworkId(channel);
         const NetworkIcon = id ? NETWORK_ICONS[id] : undefined;
         const label = channel.handle || channel.name;
+        const cleanLabel = label.replace(/^@/, "");
         const groupKey = `channel:${channel.key}`;
         const isOpen = openKeys.includes(groupKey) && !compact;
 
@@ -1574,6 +1604,34 @@ function SidebarChannelsImpl({
                 </span>
               )}
 
+              {/* Bouton « + » : poster directement avec ce compte.
+                  Frère du bouton principal (pas imbriqué : un <button> dans un <button> est invalide).
+                  Visible au survol / focus, toujours visible sur écran tactile. */}
+              {!compact && (
+                <button
+                  type="button"
+                  data-new-post
+                  title={`New post on ${cleanLabel}`}
+                  aria-label={`New post on ${cleanLabel}`}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onNewPost(channel.key);
+                  }}
+                  className={[
+                    "absolute right-8 top-1/2 z-10 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-lg",
+                    "opacity-0 transition-[opacity,background-color,color,transform] duration-150",
+                    "active:scale-90 motion-reduce:transition-none motion-reduce:active:scale-100",
+                    "group-hover/row:opacity-100 group-focus-within/row:opacity-100 focus-visible:opacity-100",
+                    "[@media(hover:none)]:opacity-100",
+                    focus,
+                    t.rowOpen,
+                    t.menuIcon,
+                  ].join(" ")}
+                >
+                  <PlusIcon className="h-[15px] w-[15px]" />
+                </button>
+              )}
+
               <ChannelHoverCard
                 channel={channel}
                 label={label}
@@ -1585,12 +1643,13 @@ function SidebarChannelsImpl({
                 t={t}
                 enabled={compact}
                 onNavigate={onNavigate}
+                onNewPost={onNewPost}
               >
                 <button
                   type="button"
                   aria-expanded={isOpen}
                   aria-haspopup={compact ? "menu" : undefined}
-                  aria-label={label.replace(/^@/, "")}
+                  aria-label={cleanLabel}
                   aria-keyshortcuts={canReorder ? "Alt+ArrowUp Alt+ArrowDown" : undefined}
                   onKeyDown={(event) => {
                     // Alt + ↑ / ↓ : déplacer le canal au clavier
@@ -1633,8 +1692,9 @@ function SidebarChannelsImpl({
 
                   {!compact && (
                     <>
-                      <span className="sb-fade min-w-0 flex-1 truncate text-left">
-                        {label.replace(/^@/, "")}
+                      {/* pr-7 au survol : le texte s'arrête avant le bouton « + » */}
+                      <span className="sb-fade min-w-0 flex-1 truncate pr-0 text-left group-hover/row:pr-7 group-focus-within/row:pr-7">
+                        {cleanLabel}
                       </span>
                       <ChevronDownIcon
                         className={[
@@ -2253,6 +2313,19 @@ export default function DashboardSidebar({
     navigate(route);
   }, []);
 
+  /**
+   * Poster directement avec un canal : on demande au modal de s'ouvrir avec ce
+   * canal présélectionné. Si aucun modal n'est monté sur la page courante,
+   * on va sur « schedule » : le modal s'y monte et reprend la demande en attente.
+   */
+  const handleNewPost = useCallback((channelKey: string) => {
+    setMenuOpen(false);
+    setMobileOpen(false);
+
+    const handled = requestNewPost(channelKey);
+    if (!handled) navigate("schedule");
+  }, []);
+
   const openConnect = useCallback(() => {
     setMenuOpen(false);
     setConnectError(null);
@@ -2580,6 +2653,7 @@ export default function DashboardSidebar({
             onNavigate={handleNavigate}
             onExpand={handleExpand}
             onConnect={openConnect}
+            onNewPost={handleNewPost}
           />
         </nav>
 

@@ -5,11 +5,11 @@ import { navigate } from "../hooks/useHashRoute";
 /* Ordre complet des liens du menu. */
 const LINKS = [
   "Home",
-  "Blogs",
+  "Our work",
   "FAQs",
   "Privacy policy",
   "Tos",
-  "Contact us",
+  "Support",
 ];
 
 /* Répartition : 3 premiers à gauche, 3 derniers à droite. */
@@ -21,12 +21,30 @@ const LINKS_RIGHT = LINKS.slice(HALF);
    Les clés doivent correspondre EXACTEMENT aux libellés de LINKS. */
 const LINK_ROUTES: Record<string, string> = {
   Home: "",
-  Blogs: "blogs",
+  "Our work": "",
   FAQs: "faq",
   "Privacy policy": "privacy",
   Tos: "tos",
-  "Contact us": "contact",
+  Support: "faq",
 };
+
+const LINK_TARGETS: Record<string, string> = {
+  "Our work": "our-work",
+  Support: "faq-support",
+};
+
+function scrollToTarget(id: string) {
+  window.requestAnimationFrame(() => {
+    window.requestAnimationFrame(() => {
+      document.getElementById(id)?.scrollIntoView({
+        behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
+          ? "auto"
+          : "smooth",
+        block: "start",
+      });
+    });
+  });
+}
 
 /* Garde-fou CSS : empêche la sélection de texte et le surlignage bleu sur
    tous les contrôles interactifs de la navbar (boutons, liens, icônes SVG).
@@ -93,7 +111,11 @@ export default function Navbar({ theme, onToggleTheme }: Props) {
   const go = (label: string) => {
     setOpen(false);
     const route = LINK_ROUTES[label];
-    if (route !== undefined) navigate(route);
+    if (route !== undefined) {
+      navigate(route);
+      const target = LINK_TARGETS[label];
+      if (target) scrollToTarget(target);
+    }
   };
 
   const hrefFor = (label: string) => {
@@ -110,7 +132,7 @@ export default function Navbar({ theme, onToggleTheme }: Props) {
           e.preventDefault();
           go(label);
         }}
-        className="block select-none text-center text-[clamp(12px,1.2vw,15px)] font-medium text-white/85 transition hover:text-white"
+        className="block select-none text-center text-[clamp(12px,1.2vw,15px)] font-medium text-white/85 transition hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
       >
         {label}
       </a>

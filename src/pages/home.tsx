@@ -14,7 +14,10 @@ import {
   type ConnectedChannel,
 } from "../hooks/useConnectedChannels";
 import DashboardSidebar, { useSidebarOffset } from "../components/DashboardSidebar";
-import NewPostModal, { type NewPostPayload } from "../components/Newpostmodal";
+import NewPostModal, {
+  type NewPostPayload,
+  unavailablePostActionMessage,
+} from "../components/Newpostmodal";
 import ConnectChannelModal from "../components/ConnectChannelModal";
 import HelpChatButton from "../components/Helpchatbutton";
 import BottomBar, { type BottomBarTab } from "../components/Bottombar";
@@ -1251,7 +1254,7 @@ export default function Home() {
   ---------------------------------------------------------- */
 
   const handleCreatePost = async (payload: NewPostPayload) => {
-    console.log("Nouveau post à envoyer :", payload);
+    throw new Error(unavailablePostActionMessage(payload));
   };
 
   /* ----------------------------------------------------------
@@ -1373,11 +1376,11 @@ export default function Home() {
                 </p>
                 <p
                   className={[
-                    "mt-0.5 text-[10px]",
-                    isDark ? "text-neutral-700" : "text-neutral-400",
+                    "mt-0.5 text-[11px]",
+                    isDark ? "text-neutral-400" : "text-neutral-500",
                   ].join(" ")}
                 >
-                  Your activity at a glance
+                  Example metrics · not connected to live channels
                 </p>
               </div>
 

@@ -20,6 +20,11 @@ import {
 } from "../hooks/useConnectedChannels";
 import { useNewPostShortcut } from "../hooks/useNewPostShortcut";
 import {
+  clearNewPostRequest,
+  peekNewPostRequest,
+  subscribeNewPostRequests,
+} from "../services/newPostBus";
+import {
   getTikTokCreatorInfo,
   publishToTikTok,
   publishPhotosToTikTok,
@@ -55,16 +60,42 @@ export type NewPostPayload = {
   media: File[];
 };
 
+export function unavailablePostActionMessage(payload: NewPostPayload): string {
+  if (payload.scheduleMode === "save_in_folder") {
+    return "Saving posts to a folder isn't connected yet. This post wasn't saved.";
+  }
+
+  const channelNames: Record<SocialNetworkId, string> = {
+    x: "X",
+    facebook: "Facebook",
+    instagram: "Instagram",
+    linkedin: "LinkedIn",
+    tiktok: "TikTok",
+    youtube: "YouTube",
+    pinterest: "Pinterest",
+    threads: "Threads",
+  };
+  const channels =
+    payload.networks.map((network) => channelNames[network]).join(", ") ||
+    "the selected channels";
+
+  return payload.scheduleMode === "later"
+    ? `Scheduling to ${channels} isn't connected yet. This post wasn't scheduled.`
+    : `Publishing to ${channels} isn't connected yet. This post wasn't sent there.`;
+}
+
 interface NewPostModalProps {
   isOpen: boolean;
   onClose: () => void;
   isDark: boolean;
-  onSubmit?: (payload: NewPostPayload) => void | Promise<void>;
+  onSubmit: (payload: NewPostPayload) => void | Promise<void>;
   /** Date/heure préremplies (ex. clic sur une case du calendrier). */
   initialScheduledAt?: Date | null;
   /**
-   * Appelé quand l'utilisateur presse N + P alors que la modale est fermée.
-   * Le parent doit y passer `isOpen` à true. Sans cette prop, le raccourci est désactivé.
+   * Appelé quand l'utilisateur presse N + P, OU clique sur le « + » d'un canal
+   * dans la sidebar, alors que la modale est fermée.
+   * Le parent doit y passer `isOpen` à true. Sans cette prop, ces deux
+   * déclencheurs sont désactivés.
    */
   onRequestOpen?: () => void;
 }
@@ -519,6 +550,10 @@ export default function NewPostModal({
   const [submitProgress, setSubmitProgress] = useState<string | null>(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
 
+  // Incrémenté à chaque demande « New post » reçue depuis la sidebar :
+  // relance l'effet qui présélectionne le canal.
+  const [requestTick, setRequestTick] = useState(0);
+
   // ── TikTok ──
   const [tiktokInfo, setTiktokInfo] = useState<TikTokCreatorInfo | null>(null);
   const [tiktokInfoError, setTiktokInfoError] = useState<string | null>(null);
@@ -561,6 +596,15 @@ export default function NewPostModal({
   // Dernière position du curseur dans le texte (null = jamais placé : on ajoute à la fin).
   const caretRef = useRef<{ start: number; end: number } | null>(null);
 
+  // Refs pour lire les dernières valeurs depuis l'abonnement au bus (créé une seule fois).
+  const isOpenRef = useRef(isOpen);
+  isOpenRef.current = isOpen;
+  const onRequestOpenRef = useRef(onRequestOpen);
+  onRequestOpenRef.current = onRequestOpen;
+
+  // Réseau présélectionné via le « + » de la sidebar (prioritaire sur un brouillon repris).
+  const preselectRef = useRef<SocialNetworkId | null>(null);
+
   const timeMin = useMemo(() => {
     const now = new Date();
     return isSameCalendarDay(scheduledAt, now) ? now : undefined;
@@ -587,6 +631,41 @@ export default function NewPostModal({
 
     return tiles.sort((a, b) => a.order - b.order);
   }, [connectedChannels]);
+
+  // ── « New post » depuis la sidebar ──
+  // On s'abonne dès le montage (même modale fermée) : si la demande arrive
+  // alors que la modale est fermée, on demande au parent de l'ouvrir.
+  // On lit aussi une demande déjà en attente (arrivée avant le montage,
+  // quand la sidebar a dû naviguer vers la page qui contient ce modal).
+  useEffect(() => {
+    const handle = () => {
+      if (!peekNewPostRequest()) return;
+      if (!isOpenRef.current) onRequestOpenRef.current?.();
+      setRequestTick((n) => n + 1);
+    };
+
+    const unsubscribe = subscribeNewPostRequests(handle);
+    handle();
+
+    return unsubscribe;
+  }, []);
+
+  // Une fois la modale ouverte, on sélectionne le canal demandé.
+  // Si les canaux ne sont pas encore chargés, la demande reste en attente
+  // et l'effet se relance quand `channelTiles` change.
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const request = peekNewPostRequest();
+    if (!request) return;
+
+    const tile = channelTiles.find((item) => item.channel.key === request.channelKey);
+    if (!tile) return;
+
+    clearNewPostRequest();
+    preselectRef.current = tile.network.id;
+    setNetworks([tile.network.id]);
+  }, [isOpen, requestTick, channelTiles]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -691,11 +770,12 @@ export default function NewPostModal({
 
   if (!isOpen) return null;
 
+  // Le simple choix d'un réseau (ex. via le « + » de la sidebar) ne compte pas
+  // comme du contenu : sinon fermer la modale sans rien écrire créerait un brouillon.
   const hasDraftContent =
     content.trim().length > 0 ||
     title.trim().length > 0 ||
     hashtags.length > 0 ||
-    networks.length > 0 ||
     media.length > 0;
 
   const clearForm = () => {
@@ -724,6 +804,7 @@ export default function NewPostModal({
     setTiktokAllow(TIKTOK_DEFAULT_ALLOW);
     setTiktokCommercial(TIKTOK_DEFAULT_COMMERCIAL);
     caretRef.current = null;
+    preselectRef.current = null;
   };
 
   // Fermeture après publication : on jette tout
@@ -758,7 +839,10 @@ export default function NewPostModal({
     setTitle(pendingDraft.title);
     setContent(pendingDraft.content);
     setHashtags(pendingDraft.hashtags);
-    setNetworks(pendingDraft.networks);
+    // Si on est arrivé via le « + » d'un canal, ce canal reste celui sélectionné.
+    setNetworks(
+      preselectRef.current ? [preselectRef.current] : pendingDraft.networks
+    );
     setScheduleAction(pendingDraft.scheduleAction);
     setScheduledAt(new Date(pendingDraft.scheduledAt));
     setMedia(
@@ -1077,8 +1161,11 @@ export default function NewPostModal({
         setNetworks((prev) => prev.filter((n) => n !== "tiktok"));
       }
 
-      if (remainingNetworks.length > 0) {
-        await onSubmit?.(payload);
+      if (
+        remainingNetworks.length > 0 ||
+        scheduleAction === "save_in_folder"
+      ) {
+        await onSubmit(payload);
       }
 
       discardAndClose();
@@ -1593,9 +1680,18 @@ export default function NewPostModal({
             {mediaError && <p className="mt-1 text-[11px] text-red-500">{mediaError}</p>}
 
             {submitProgress && (
-              <p className={["mt-2 text-[12px]", textSecondary].join(" ")}>{submitProgress}</p>
+              <p
+                role="status"
+                className={["mt-2 text-[12px]", textSecondary].join(" ")}
+              >
+                {submitProgress}
+              </p>
             )}
-            {submitError && <p className="mt-2 text-[12px] text-red-500">{submitError}</p>}
+            {submitError && (
+              <p role="alert" className="mt-2 text-[12px] text-red-500">
+                {submitError}
+              </p>
+            )}
 
             <div className={["mt-4 flex items-center gap-4 border-t pt-3", border].join(" ")}>
               <div ref={emojiWrapRef} className="relative">

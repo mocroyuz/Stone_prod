@@ -154,6 +154,7 @@ function LoadingDots() {
    ============================================================ */
 
 type FieldProps = {
+  id: string;
   label: string;
   type?: string;
   placeholder: string;
@@ -165,6 +166,7 @@ type FieldProps = {
 };
 
 function Field({
+  id,
   label,
   type = "text",
   placeholder,
@@ -175,24 +177,30 @@ function Field({
   trailing,
 }: FieldProps) {
   return (
-    <label className="block">
-      <span className="mb-1.5 block text-[clamp(11.5px,0.95vw,13px)] font-medium text-neutral-300">
+    <div className="block">
+      <label
+        htmlFor={id}
+        className="mb-1.5 block text-[clamp(11.5px,0.95vw,13px)] font-medium text-neutral-300"
+      >
         {label}
-      </span>
+      </label>
 
       <div className="relative">
         <input
+          id={id}
           type={type}
           value={value}
           placeholder={placeholder}
           autoComplete={autoComplete}
           onChange={(event) => onChange(event.target.value)}
+          aria-invalid={Boolean(error)}
+          aria-describedby={error ? `${id}-error` : undefined}
           className={[
             "w-full rounded-[9px] border bg-[#1c1c1e]",
             "px-3.5 py-[clamp(9px,0.9vw,12px)]",
             "text-[clamp(12.5px,1vw,14px)] text-white",
             "outline-none placeholder:text-neutral-500",
-            "transition focus:border-neutral-500",
+            "transition focus:border-neutral-500 focus-visible:ring-2 focus-visible:ring-white/60",
             trailing ? "pr-10" : "",
             error ? "border-red-500/70" : "border-white/10",
           ].join(" ")}
@@ -206,9 +214,11 @@ function Field({
       </div>
 
       {error && (
-        <span className="mt-1 block text-[11px] text-red-400">{error}</span>
+        <span id={`${id}-error`} className="mt-1 block text-[11px] text-red-400">
+          {error}
+        </span>
       )}
-    </label>
+    </div>
   );
 }
 
@@ -704,7 +714,10 @@ export default function Signup() {
                 </div>
 
                 {serverError && (
-                  <div className="mb-3.5 rounded-[9px] border border-red-500/30 bg-red-500/10 px-3.5 py-2.5 text-[12.5px] text-red-300">
+                  <div
+                    role="alert"
+                    className="mb-3.5 rounded-[9px] border border-red-500/30 bg-red-500/10 px-3.5 py-2.5 text-[12.5px] text-red-300"
+                  >
                     {serverError}
                   </div>
                 )}
@@ -712,6 +725,7 @@ export default function Signup() {
                 <form onSubmit={submit} noValidate className="space-y-3.5">
                   <div className="grid grid-cols-2 gap-3">
                     <Field
+                      id="signup-first-name"
                       label="First Name"
                       placeholder="eg. John"
                       value={first}
@@ -720,6 +734,7 @@ export default function Signup() {
                       error={errors.first}
                     />
                     <Field
+                      id="signup-last-name"
                       label="Last Name"
                       placeholder="eg. Francisco"
                       value={last}
@@ -730,6 +745,7 @@ export default function Signup() {
                   </div>
 
                   <Field
+                    id="signup-email"
                     label="Email"
                     type="email"
                     placeholder="eg. johnfrans@gmail.com"
@@ -740,6 +756,7 @@ export default function Signup() {
                   />
 
                   <Field
+                    id="signup-password"
                     label="Password"
                     type={show ? "text" : "password"}
                     placeholder="Enter your password"

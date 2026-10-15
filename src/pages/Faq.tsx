@@ -21,6 +21,19 @@ function consumePendingFaqKey(): string | null {
   }
 }
 
+function scrollToSupport() {
+  window.requestAnimationFrame(() => {
+    window.requestAnimationFrame(() => {
+      document.getElementById("faq-support")?.scrollIntoView({
+        behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
+          ? "auto"
+          : "smooth",
+        block: "start",
+      });
+    });
+  });
+}
+
 type FaqItem = { q: string; a: string };
 type Category = { id: string; label: string; items: FaqItem[] };
 
@@ -378,7 +391,11 @@ export default function Faq() {
             )}
 
             {filtered.map((cat) => (
-              <section key={cat.id}>
+              <section
+                key={cat.id}
+                id={cat.id === "support" ? "faq-support" : undefined}
+                className={cat.id === "support" ? "scroll-mt-24" : undefined}
+              >
                 {/* en-tête catégorie */}
                 <div className="mb-[clamp(12px,1.5vw,18px)] flex items-center gap-[clamp(10px,1.4vw,16px)]">
                   <h2
@@ -518,13 +535,17 @@ export default function Faq() {
             </p>
             <button
               type="button"
-              onClick={() => navigate("contact")}
+              onClick={() => {
+                setQuery("");
+                scrollToSupport();
+              }}
               className={[
                 "group inline-flex items-center gap-[6px] text-[clamp(11.5px,1.2vw,13.5px)] font-medium",
                 t.footerLink,
+                "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4",
               ].join(" ")}
             >
-              Contact Us
+              Browse support answers
               <span
                 className={[
                   "flex h-[18px] w-[18px] items-center justify-center rounded-full text-[10px] transition-transform duration-300 group-hover:translate-x-[2px]",

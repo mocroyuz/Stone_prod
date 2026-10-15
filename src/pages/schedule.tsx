@@ -6,7 +6,10 @@ import DashboardSidebar, {
 } from "../components/DashboardSidebar";
 import BottomBar, { type BottomBarTab } from "../components/Bottombar";
 import Folder from "../components/Folder";
-import NewPostModal, { type NewPostPayload } from "../components/Newpostmodal";
+import NewPostModal, {
+  type NewPostPayload,
+  unavailablePostActionMessage,
+} from "../components/Newpostmodal";
 import { DateTimePicker } from "../components/DateTimePicker";
 
 /* ------------------------------------------------------------------ */
@@ -1225,7 +1228,7 @@ export default function Schedule() {
   };
 
   const handleCreatePost = async (payload: NewPostPayload) => {
-    console.log("Nouveau post :", payload);
+    throw new Error(unavailablePostActionMessage(payload));
   };
 
   const calendarBorder = isDark ? "border-white/[0.07]" : "border-black/[0.06]";

@@ -120,23 +120,33 @@ function PasswordField({
   show,
   onToggle,
   error,
+  onForgot,
+  recoveryHelpOpen,
 }: {
   value: string;
   onChange: (value: string) => void;
   show: boolean;
   onToggle: () => void;
   error?: string;
+  onForgot: () => void;
+  recoveryHelpOpen: boolean;
 }) {
   return (
-    <label className="block">
+    <div className="block">
       <div className="mb-1.5 flex items-center justify-between">
-        <span className="text-[clamp(11.5px,0.95vw,13px)] font-medium text-neutral-300">
+        <label
+          htmlFor="signin-password"
+          className="text-[clamp(11.5px,0.95vw,13px)] font-medium text-neutral-300"
+        >
           Password
-        </span>
+        </label>
 
         <button
           type="button"
-          className="cursor-pointer text-[11px] text-neutral-400 transition hover:text-white"
+          onClick={onForgot}
+          aria-expanded={recoveryHelpOpen}
+          aria-controls="signin-recovery-help"
+          className="cursor-pointer text-[11px] text-neutral-400 transition hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
         >
           Forgot password?
         </button>
@@ -144,21 +154,24 @@ function PasswordField({
 
       <div className="relative">
         <input
+          id="signin-password"
           type={show ? "text" : "password"}
           value={value}
           onChange={(event) => onChange(event.target.value)}
           placeholder="Enter your password"
           autoComplete="current-password"
+          aria-invalid={Boolean(error)}
+          aria-describedby={error ? "signin-password-error" : undefined}
           className={`w-full rounded-[9px] border bg-[#1c1c1e] px-3.5 py-[clamp(9px,0.9vw,12px)] pr-9 text-[clamp(12.5px,1vw,14px)] text-white outline-none placeholder:text-neutral-500 transition focus:border-neutral-500 ${
             error ? "border-red-500/70" : "border-white/10"
-          }`}
+          } focus-visible:ring-2 focus-visible:ring-white/60`}
         />
 
         <button
           type="button"
           onClick={onToggle}
           aria-label={show ? "Hide password" : "Show password"}
-          className="absolute top-1/2 right-3 -translate-y-1/2 cursor-pointer text-neutral-500 hover:text-neutral-300"
+          className="absolute top-1/2 right-3 -translate-y-1/2 cursor-pointer text-neutral-500 hover:text-neutral-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-white"
         >
           <svg
             viewBox="0 0 24 24"
@@ -176,11 +189,28 @@ function PasswordField({
       </div>
 
       {error && (
-        <span className="mt-1 block text-[11px] text-red-400">
+        <span id="signin-password-error" className="mt-1 block text-[11px] text-red-400">
           {error}
         </span>
       )}
-    </label>
+
+      <p
+        id="signin-recovery-help"
+        role="status"
+        hidden={!recoveryHelpOpen}
+        className="mt-2 text-[11px] leading-relaxed text-neutral-400"
+      >
+        Password reset isn&apos;t available yet. For help signing in, visit the{" "}
+        <button
+          type="button"
+          onClick={() => navigate("faq")}
+          className="font-medium text-white underline underline-offset-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+        >
+          support FAQs
+        </button>
+        .
+      </p>
+    </div>
   );
 }
 
@@ -210,6 +240,7 @@ export default function Signin() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [show, setShow] = useState(false);
+  const [recoveryHelpOpen, setRecoveryHelpOpen] = useState(false);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -504,7 +535,10 @@ export default function Signin() {
                 </div>
 
                 {serverError && (
-                  <div className="mb-3.5 rounded-[9px] border border-red-500/30 bg-red-500/10 px-3.5 py-2.5 text-[12.5px] text-red-300">
+                  <div
+                    role="alert"
+                    className="mb-3.5 rounded-[9px] border border-red-500/30 bg-red-500/10 px-3.5 py-2.5 text-[12.5px] text-red-300"
+                  >
                     {serverError}
                   </div>
                 )}
@@ -520,20 +554,23 @@ export default function Signin() {
                     </span>
 
                     <input
+                      id="signin-email"
                       type="email"
                       value={email}
                       onChange={(event) => setEmail(event.target.value)}
                       placeholder="eg. johnfrans@gmail.com"
                       autoComplete="email"
+                      aria-invalid={Boolean(errors.email)}
+                      aria-describedby={errors.email ? "signin-email-error" : undefined}
                       className={`w-full rounded-[9px] border bg-[#1c1c1e] px-3.5 py-[clamp(9px,0.9vw,12px)] text-[clamp(12.5px,1vw,14px)] text-white outline-none placeholder:text-neutral-500 transition focus:border-neutral-500 ${
                         errors.email
                           ? "border-red-500/70"
                           : "border-white/10"
-                      }`}
+                      } focus-visible:ring-2 focus-visible:ring-white/60`}
                     />
 
                     {errors.email && (
-                      <span className="mt-1 block text-[11px] text-red-400">
+                      <span id="signin-email-error" className="mt-1 block text-[11px] text-red-400">
                         {errors.email}
                       </span>
                     )}
@@ -545,12 +582,14 @@ export default function Signin() {
                     show={show}
                     onToggle={() => setShow((value) => !value)}
                     error={errors.password}
+                    onForgot={() => setRecoveryHelpOpen((open) => !open)}
+                    recoveryHelpOpen={recoveryHelpOpen}
                   />
 
                   <button
                     type="submit"
                     disabled={loading || googleLoading || githubLoading}
-                    className="mt-1 w-full cursor-pointer rounded-[10px] bg-white py-[clamp(10px,0.95vw,13px)] text-[clamp(12.5px,1vw,14.5px)] font-semibold text-neutral-900 transition hover:bg-neutral-200 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="mt-1 w-full cursor-pointer rounded-[10px] bg-white py-[clamp(10px,0.95vw,13px)] text-[clamp(12.5px,1vw,14.5px)] font-semibold text-neutral-900 transition hover:bg-neutral-200 disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
                   >
                     {loading ? "Signing in..." : "Log In"}
                   </button>

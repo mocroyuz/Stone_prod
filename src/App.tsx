@@ -273,7 +273,10 @@ function useGentleWheelScroll(enabled: boolean) {
 function Home() {
   return (
     <main className="relative z-10 w-full">
-      <section className="flex min-h-screen w-full items-center justify-center px-[clamp(12px,3vw,48px)] pt-[clamp(78px,9vw,130px)] pb-[clamp(30px,6vw,90px)]">
+      <section
+        id="our-work"
+        className="scroll-mt-20 flex min-h-screen w-full items-center justify-center px-[clamp(12px,3vw,48px)] pt-[clamp(78px,9vw,130px)] pb-[clamp(30px,6vw,90px)]"
+      >
         <div className="relative w-full max-w-[1280px]">
           <h2 className="text-center font-display text-[clamp(38px,6.6vw,86px)] leading-[1.02] font-bold tracking-[-0.035em] tint text-neutral-900 dark:text-white">
             What We&rsquo;ve Built

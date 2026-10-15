@@ -5,7 +5,10 @@ import DashboardSidebar, {
 } from "../components/DashboardSidebar";
 import BottomBar, { type BottomBarTab } from "../components/Bottombar";
 import Folder from "../components/Folder";
-import NewPostModal, { type NewPostPayload } from "../components/Newpostmodal";
+import NewPostModal, {
+  type NewPostPayload,
+  unavailablePostActionMessage,
+} from "../components/Newpostmodal";
 import {
   ZapierIcon,
   ClaudeIcon,
@@ -457,7 +460,7 @@ export default function Integrations() {
   };
 
   const handleCreatePost = async (payload: NewPostPayload) => {
-    console.log("Nouveau post :", payload);
+    throw new Error(unavailablePostActionMessage(payload));
   };
 
   return (
