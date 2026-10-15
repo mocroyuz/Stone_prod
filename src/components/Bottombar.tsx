@@ -121,6 +121,7 @@ type BottomBarProps = {
   isDark?: boolean;
   onChange?: (id: BottomBarTab) => void;
   active?: BottomBarTab | null;
+  addLabel?: string;
   query: string;
   onQueryChange: (value: string) => void;
   offsetLeft?: number;
@@ -130,6 +131,7 @@ export default function BottomBar({
   isDark = false,
   onChange,
   active = null,
+  addLabel,
   query,
   onQueryChange,
   offsetLeft = 0,
@@ -331,7 +333,7 @@ export default function BottomBar({
           </div>
         </li>
 
-        {renderButton(ADD_ITEM)}
+        {renderButton(addLabel ? { ...ADD_ITEM, label: addLabel } : ADD_ITEM)}
       </ul>
     </nav>
   );

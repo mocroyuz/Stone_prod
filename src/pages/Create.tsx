@@ -8,6 +8,8 @@ import { useTheme } from "../hooks/useTheme";
 import DashboardSidebar, {
   useSidebarOffset,
 } from "../components/DashboardSidebar";
+import BottomBar, { type BottomBarTab } from "../components/Bottombar";
+import Folder from "../components/Folder";
 import HelpChatButton from "../components/Helpchatbutton";
 
 /* ───────── Types ───────── */
@@ -1111,6 +1113,8 @@ export default function Create() {
   const [saved, setSaved] = useState(false);
   const [modalTag, setModalTag] = useState<string | null>(null);
   const [ideaEdit, setIdeaEdit] = useState<Idea | null>(null);
+  const [query, setQuery] = useState("");
+  const [isFolderOpen, setIsFolderOpen] = useState(false);
 
   const [colDrag, setColDrag] = useState<string | null>(null);
   const [cardDrag, setCardDrag] = useState<string | null>(null);
@@ -1384,7 +1388,26 @@ export default function Create() {
     prevCards.current = nextCards;
   });
 
-  const visibleIdeas = ideas.filter((i) => !hidden.includes(i.tagId));
+  const searchTerm = query.trim().toLowerCase();
+  const visibleIdeas = ideas.filter((idea) => {
+    if (hidden.includes(idea.tagId)) return false;
+    if (!searchTerm) return true;
+
+    return [idea.title, idea.description, tagLabel(idea.tagId) ?? ""].some(
+      (value) => value.toLowerCase().includes(searchTerm)
+    );
+  });
+
+  const handleBottomBarChange = (id: BottomBarTab) => {
+    if (id === "add") {
+      setIsFolderOpen(false);
+      setIdeaEdit(null);
+      setModalTag(UNASSIGNED);
+      return;
+    }
+
+    setIsFolderOpen((open) => !open);
+  };
 
   return (
     <main
@@ -1931,6 +1954,23 @@ export default function Create() {
           onCreateTag={createTag}
         />
       )}
+
+      <Folder
+        isOpen={isFolderOpen}
+        onClose={() => setIsFolderOpen(false)}
+        isDark={isDark}
+        offsetLeft={sidebarOffset}
+      />
+
+      <BottomBar
+        isDark={isDark}
+        offsetLeft={sidebarOffset}
+        active={isFolderOpen ? "files" : null}
+        addLabel="New Idea"
+        onChange={handleBottomBarChange}
+        query={query}
+        onQueryChange={setQuery}
+      />
 
       {/* HELP — même bouton que sur Home */}
       <HelpChatButton isDark={isDark} />

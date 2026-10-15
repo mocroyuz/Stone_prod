@@ -558,7 +558,7 @@ function ChannelCard({
         "group relative rounded-2xl border px-4 py-4 transition-all duration-200",
         t.card,
         t.border,
-        !disabled && "hover:-translate-y-[1px]",
+        
         !disabled && t.cardHover,
         !disabled && t.borderHover,
         !disabled && "hover:shadow-[0_12px_35px_rgba(0,0,0,0.18)]",
