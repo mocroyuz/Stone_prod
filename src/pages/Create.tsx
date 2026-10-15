@@ -1,12 +1,6 @@
 // src/pages/Create.tsx
 // Page Create (route "create") : tableau d'idées (Board / Gallery) + modale « Create Idea ».
 // Shell visuel aligné sur Home : fond de page + panneau arrondi à la jointure de la sidebar.
-//
-// Concept : les colonnes du board SONT des tags (Unassigned, To Do, In Progress…).
-//  - on peut créer / renommer / supprimer des tags,
-//  - on peut réordonner les colonnes (drag par l'en-tête, fantôme flottant + décalage fluide),
-//  - on peut déplacer les idées entre colonnes et les réordonner.
-// Les données vivent dans `useBoard` (state local) : branche-le sur ton backend.
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { DragEvent, PointerEvent as RPointerEvent, ReactNode } from "react";
@@ -14,6 +8,7 @@ import { useTheme } from "../hooks/useTheme";
 import DashboardSidebar, {
   useSidebarOffset,
 } from "../components/DashboardSidebar";
+import HelpChatButton from "../components/Helpchatbutton";
 
 /* ───────── Types ───────── */
 
@@ -1092,7 +1087,7 @@ function styleGhost(
 }
 
 export default function Create() {
-  const { theme, toggle: onToggleTheme } = useTheme();
+  const { theme } = useTheme();
   const isDark = theme === "dark";
   const sidebarOffset = useSidebarOffset();
 
@@ -1399,7 +1394,7 @@ export default function Create() {
         page,
       ].join(" ")}
     >
-      <DashboardSidebar theme={theme} onToggleTheme={onToggleTheme} />
+      <DashboardSidebar theme={theme} />
 
       {/* Zone à droite de la sidebar : marge autour du panneau arrondi */}
       <div
@@ -1936,6 +1931,9 @@ export default function Create() {
           onCreateTag={createTag}
         />
       )}
+
+      {/* HELP — même bouton que sur Home */}
+      <HelpChatButton isDark={isDark} />
     </main>
   );
 }

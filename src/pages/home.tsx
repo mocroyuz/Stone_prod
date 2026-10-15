@@ -671,7 +671,7 @@ function Channels({
         </div>
       ) : (
         <div className="flex items-center gap-3">
-          <div className="group flex items-center pl-1">
+          <div className="flex items-center pl-1">
             {channels.slice(0, 6).map((channel, index) => (
               <ChannelAvatar
                 key={channel.key}
@@ -715,10 +715,7 @@ function Channels({
                   : "border-black/[0.10] bg-white text-neutral-700 shadow-sm hover:bg-neutral-50 hover:border-black/20",
               ].join(" ")}
             >
-              <Plus
-                className="h-[15px] w-[15px] transition-transform duration-200 group-hover:rotate-90"
-                strokeWidth={1.8}
-              />
+              <Plus className="h-[15px] w-[15px]" strokeWidth={1.8} />
             </button>
           </div>
 
