@@ -11,6 +11,7 @@ import NewPostModal, {
   unavailablePostActionMessage,
 } from "../components/Newpostmodal";
 import { DateTimePicker } from "../components/DateTimePicker";
+import HelpChatButton from "../components/Helpchatbutton";
 
 /* ------------------------------------------------------------------ */
 /* Shell (identique à Home)                                            */
@@ -1848,6 +1849,9 @@ export default function Schedule() {
         initialScheduledAt={newPostDate}
         onRequestOpen={() => setIsNewPostOpen(true)}
       />
+
+      {/* HELP — même bouton que sur Home */}
+      <HelpChatButton isDark={isDark} />
     </main>
   );
 }

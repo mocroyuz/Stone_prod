@@ -20,6 +20,7 @@ import {
   PinterestIcon,
   ThreadsIcon,
 } from "../components/IntegrationIcons";
+import HelpChatButton from "../components/Helpchatbutton";
 
 /* ───────── Types ───────── */
 
@@ -375,7 +376,7 @@ function IconButton({
 /* ───────── Page ───────── */
 
 export default function Community() {
-  const { theme, toggle: onToggleTheme } = useTheme();
+  const { theme } = useTheme();
   const isDark = theme === "dark";
   const sidebarOffset = useSidebarOffset();
   const channels = useConnectedChannels();
@@ -438,7 +439,7 @@ export default function Community() {
         pageBgClass(isDark),
       ].join(" ")}
     >
-      <DashboardSidebar theme={theme} onToggleTheme={onToggleTheme} />
+      <DashboardSidebar theme={theme} />
 
       {/* Zone à droite de la sidebar : marge autour du panneau arrondi */}
       <div
@@ -758,6 +759,9 @@ export default function Community() {
           </div>
         </div>
       </div>
+
+      {/* HELP — même bouton que sur Home */}
+      <HelpChatButton isDark={isDark} />
     </main>
   );
 }
