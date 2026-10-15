@@ -537,8 +537,9 @@ const navItems: NavItem[] = [
   { label: "Create", icon: LightbulbIcon, route: "create", badge: "New" },
 ];
 
-// Liens ajoutés dans le flux normal de la navigation (après les canaux)
-const secondaryNavItems: NavItem[] = [
+// Items affichés au niveau racine UNIQUEMENT quand aucun canal n'est connecté.
+// Une fois un canal connecté, ils migrent dans le sous-menu de chaque canal.
+const standaloneItems: NavItem[] = [
   { label: "Insights", icon: InsightsIcon, route: "insights", badge: "New" },
   { label: "Community", icon: CommunityIcon, route: "community" },
 ];
@@ -710,6 +711,8 @@ function getHashChannel(): string | null {
   return new URLSearchParams(hash.slice(queryIndex + 1)).get("channel");
 }
 
+// Sous-menu affiché dans chaque canal connecté.
+// Les pages "perChannel" reçoivent le paramètre ?channel=<clé>.
 const CHANNEL_LINKS: {
   label: string;
   route: string;
@@ -718,6 +721,8 @@ const CHANNEL_LINKS: {
   perChannel?: boolean;
 }[] = [
   { label: "Publish", route: "schedule", icon: PublishIcon },
+  { label: "Insights", route: "insights", icon: InsightsIcon, badge: "New", perChannel: true },
+  { label: "Community", route: "community", icon: CommunityIcon, perChannel: true },
 ];
 
 const CHANNEL_ROUTES = new Set(["insights", "community"]);
@@ -1838,8 +1843,17 @@ export default function DashboardSidebar({
   const isMobile = useIsMobile();
 
   const hasChannels = connectedChannels.length > 0;
+
+  // Nav principale : Publish migre dans le sous-menu dès qu'un canal est connecté.
   const visibleNavItems = useMemo(
     () => (hasChannels ? navItems.filter((item) => item.route !== "schedule") : navItems),
+    [hasChannels]
+  );
+
+  // Insights + Community ne restent au niveau racine QUE s'il n'y a aucun canal.
+  // Dès qu'un canal existe, ils migrent dans le sous-menu de chaque canal.
+  const visibleStandaloneItems = useMemo(
+    () => (hasChannels ? [] : standaloneItems),
     [hasChannels]
   );
 
@@ -2515,7 +2529,7 @@ export default function DashboardSidebar({
           )}
         </div>
 
-        {/* Navigation — tous les items sont collés ici, y compris Insights et Community */}
+        {/* Navigation */}
         <nav
           aria-label="Main"
           className={[
@@ -2524,7 +2538,7 @@ export default function DashboardSidebar({
             "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
           ].join(" ")}
         >
-          {/* Nav principale */}
+          {/* Nav principale (Home / Publish / Create) */}
           {visibleNavItems.map((item) => (
             <NavItemView
               key={item.route}
@@ -2537,7 +2551,8 @@ export default function DashboardSidebar({
             />
           ))}
 
-          {/* Canaux connectés */}
+          {/* Canaux connectés — chaque canal ouvre un sous-menu qui contient
+              désormais Publish, Insights et Community */}
           <SidebarChannels
             channels={connectedChannels}
             userId={userId}
@@ -2552,20 +2567,29 @@ export default function DashboardSidebar({
             onNewPost={handleNewPost}
           />
 
-          {/* Insights & Community — intégrés dans le flux, collés aux autres items */}
-          <div className={["flex flex-col gap-1", compact ? "items-center" : ""].join(" ")}>
-            {secondaryNavItems.map((item) => (
-              <NavItemView
-                key={item.route}
-                item={item}
-                currentRoute={currentRoute}
-                compact={compact}
-                focus={focus}
-                t={t}
-                onNavigate={handleNavigate}
-              />
-            ))}
-          </div>
+          {/* Insights & Community au niveau racine — visibles UNIQUEMENT
+              quand aucun canal n'est connecté. Dès qu'un canal existe,
+              ils basculent dans son sous-menu (via CHANNEL_LINKS). */}
+          {visibleStandaloneItems.length > 0 && (
+            <div
+              className={[
+                "flex flex-col gap-1",
+                compact ? "items-center" : "",
+              ].join(" ")}
+            >
+              {visibleStandaloneItems.map((item) => (
+                <NavItemView
+                  key={item.route}
+                  item={item}
+                  currentRoute={currentRoute}
+                  compact={compact}
+                  focus={focus}
+                  t={t}
+                  onNavigate={handleNavigate}
+                />
+              ))}
+            </div>
+          )}
         </nav>
 
         {/* Bas : toggle + profil */}
