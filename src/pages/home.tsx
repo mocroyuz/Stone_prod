@@ -66,6 +66,7 @@ import {
   Target,
   TrendingDown,
   TrendingUp,
+  Users,
 } from "lucide-react";
 import {
   XIcon,
@@ -1399,41 +1400,73 @@ export default function Home() {
                     isDark ? "text-neutral-400" : "text-neutral-500",
                   ].join(" ")}
                 >
-                  Your posting activity
+                  Followers and comments are example metrics · not connected to
+                  live channels
                 </p>
               </div>
 
               <div
                 className={[
-                  "grid grid-cols-1 gap-3 rounded-2xl border p-4",
-                  "sm:grid-cols-3",
+                  "flex flex-col gap-4 rounded-2xl border p-4",
                   panelSurfaceClass(isDark),
                 ].join(" ")}
               >
-                <Stat
-                  isDark={isDark}
-                  label="Week Streak"
-                  value="0"
-                  caption="Post this week to start one"
-                  hint="Number of consecutive weeks in which you published at least one post."
-                  icon={<Flame className="h-4 w-4" />}
+                {/* Ligne 1 : Followers + Comments (avec tendance verte / rouge) */}
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <Stat
+                    isDark={isDark}
+                    label="Followers"
+                    value="27K"
+                    change="-2%"
+                    hint="Total followers across all your connected channels, compared to the previous period."
+                    icon={<Users className="h-4 w-4" />}
+                  />
+                  <Stat
+                    isDark={isDark}
+                    label="Comments"
+                    value="342"
+                    change="+5%"
+                    hint="Total comments received on your posts across all channels, compared to the previous period."
+                    icon={<MessageCircle className="h-4 w-4" />}
+                  />
+                </div>
+
+                {/* Séparateur entre les deux lignes */}
+                <div
+                  aria-hidden="true"
+                  className={[
+                    "h-px w-full",
+                    isDark ? "bg-white/[0.07]" : "bg-black/[0.07]",
+                  ].join(" ")}
                 />
-                <Stat
-                  isDark={isDark}
-                  label="Posting Goals"
-                  value="0"
-                  caption="No goals met yet"
-                  hint="Posting goals you have reached, such as your weekly publishing target."
-                  icon={<Target className="h-4 w-4" />}
-                />
-                <Stat
-                  isDark={isDark}
-                  label="Comment Score"
-                  value="0"
-                  caption="No comments scored yet"
-                  hint="A score based on how many comments you receive and how quickly you reply to them."
-                  icon={<Star className="h-4 w-4" />}
-                />
+
+                {/* Ligne 2 : Week Streak + Posting Goals + Comment Score */}
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  <Stat
+                    isDark={isDark}
+                    label="Week Streak"
+                    value="0"
+                    caption="Post this week to start one"
+                    hint="Number of consecutive weeks in which you published at least one post."
+                    icon={<Flame className="h-4 w-4" />}
+                  />
+                  <Stat
+                    isDark={isDark}
+                    label="Posting Goals"
+                    value="0"
+                    caption="No goals met yet"
+                    hint="Posting goals you have reached, such as your weekly publishing target."
+                    icon={<Target className="h-4 w-4" />}
+                  />
+                  <Stat
+                    isDark={isDark}
+                    label="Comment Score"
+                    value="0"
+                    caption="No comments scored yet"
+                    hint="A score based on how many comments you receive and how quickly you reply to them."
+                    icon={<Star className="h-4 w-4" />}
+                  />
+                </div>
               </div>
             </section>
 
