@@ -996,6 +996,7 @@ export default function TemplatesPage() {
         onClose={() => setIsNewPostOpen(false)}
         isDark={isDark}
         onSubmit={handleCreatePost}
+        onRequestOpen={() => setIsNewPostOpen(true)}
       />
 
       {/* ============================================================

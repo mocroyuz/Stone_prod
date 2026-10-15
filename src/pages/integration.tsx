@@ -735,6 +735,7 @@ export default function Integrations() {
         onClose={() => setIsNewPostOpen(false)}
         isDark={isDark}
         onSubmit={handleCreatePost}
+        onRequestOpen={() => setIsNewPostOpen(true)}
       />
     </main>
   );

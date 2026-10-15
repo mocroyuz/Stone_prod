@@ -1515,6 +1515,7 @@ export default function Home() {
         onClose={() => setIsNewPostOpen(false)}
         isDark={isDark}
         onSubmit={handleCreatePost}
+        onRequestOpen={() => setIsNewPostOpen(true)}
       />
 
       {/* CONNECT CHANNEL */}

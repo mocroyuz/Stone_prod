@@ -10,7 +10,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import type { ComponentType, KeyboardEvent, ReactNode } from "react";
+import type { ComponentType, CSSProperties, KeyboardEvent, ReactNode, RefObject } from "react";
 
 import { useTheme } from "../hooks/useTheme";
 
@@ -82,6 +82,14 @@ function clearQueued() {
   }
 }
 
+function saveGoal(key: string, postsPerWeek: number) {
+  try {
+    localStorage.setItem(GOAL_KEY(key), String(postsPerWeek));
+  } catch {
+    /* noop */
+  }
+}
+
 /* ============================================================================
    PALETTE (blanc en dark, noir en light)
 ============================================================================ */
@@ -89,6 +97,7 @@ function clearQueued() {
 type Palette = {
   bg: string;
   border: string;
+  borderStrong: string;
   surface: string;
   surfaceHover: string;
   text: string;
@@ -103,6 +112,7 @@ function palette(isDark: boolean): Palette {
     ? {
         bg: "#141414",
         border: "#262626",
+        borderStrong: "#3a3a3a",
         surface: "#1a1a1a",
         surfaceHover: "#202020",
         text: "#ffffff",
@@ -114,6 +124,7 @@ function palette(isDark: boolean): Palette {
     : {
         bg: "#ffffff",
         border: "#e8e8ea",
+        borderStrong: "#d4d4d8",
         surface: "#fafafa",
         surfaceHover: "#f4f4f5",
         text: "#0a0a0a",
@@ -197,7 +208,7 @@ function Spinner({ className = "h-4 w-4" }: { className?: string }) {
 }
 
 /* ============================================================================
-   KEYFRAMES
+   KEYFRAMES + STYLES PARTAGÉS (hover via CSS, plus de handlers JS)
 ============================================================================ */
 
 function Keyframes() {
@@ -218,8 +229,19 @@ function Keyframes() {
         85%  { opacity: 1; }
         100% { opacity: 0; transform: translateY(46px) rotate(220deg); }
       }
+      @keyframes stone-check {
+        from { transform: scale(0.4); opacity: 0; }
+        to   { transform: scale(1); opacity: 1; }
+      }
+
+      .stone-ghost { transition: background-color .15s, color .15s; }
+      .stone-ghost:hover { background: var(--s-hover) !important; color: var(--s-text) !important; }
+      .stone-btn:hover:not(:disabled) { opacity: .86; }
+      .stone-card:not([aria-checked="true"]):hover { background: var(--s-hover) !important; border-color: var(--s-border-strong) !important; }
+      .stone-stepper:hover:not(:disabled) { background: var(--s-hover); }
+
       @media (prefers-reduced-motion: reduce) {
-        .stone-modal, .stone-modal * { animation-duration: 0.01ms !important; animation-delay: 0s !important; }
+        .stone-modal, .stone-modal * { animation-duration: 0.01ms !important; animation-delay: 0s !important; transition-duration: 0.01ms !important; }
       }
     `}</style>
   );
@@ -266,33 +288,65 @@ function Confetti({ p }: { p: Palette }) {
    SHELL
 ============================================================================ */
 
-function useModalBehavior(onClose: () => void) {
+const FOCUSABLE =
+  'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+/** Échap pour fermer, scroll verrouillé, focus piégé dans la modale puis restauré à la fermeture. */
+function useModalBehavior(onClose: () => void, dialogRef: RefObject<HTMLDivElement | null>) {
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
 
   useEffect(() => {
-    const onKey = (event: globalThis.KeyboardEvent) => {
-      if (event.key === "Escape") closeRef.current();
-    };
-    document.addEventListener("keydown", onKey);
-    const previous = document.body.style.overflow;
+    const previousFocus = document.activeElement as HTMLElement | null;
+    const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
+
+    const onKey = (event: globalThis.KeyboardEvent) => {
+      if (event.key === "Escape") {
+        closeRef.current();
+        return;
+      }
+      if (event.key !== "Tab") return;
+
+      const dialog = dialogRef.current;
+      if (!dialog) return;
+      const nodes = Array.from(dialog.querySelectorAll<HTMLElement>(FOCUSABLE));
+      if (nodes.length === 0) return;
+
+      const first = nodes[0];
+      const last = nodes[nodes.length - 1];
+      const active = document.activeElement as HTMLElement | null;
+
+      if (!active || !dialog.contains(active)) {
+        event.preventDefault();
+        first.focus();
+      } else if (event.shiftKey && active === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && active === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener("keydown", onKey);
     return () => {
       document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = previous;
+      document.body.style.overflow = previousOverflow;
+      if (previousFocus && document.contains(previousFocus)) previousFocus.focus();
     };
-  }, []);
+  }, [dialogRef]);
 }
 
 function StepDots({ current, total, p }: { current: number; total: number; p: Palette }) {
   return (
-    <div className="flex items-center gap-1.5" aria-label={`Étape ${current} sur ${total}`}>
+    <div className="flex items-center gap-1.5" role="img" aria-label={`Étape ${current} sur ${total}`}>
       {Array.from({ length: total }).map((_, i) => (
         <span
           key={i}
           className="h-[3px] rounded-full transition-all duration-300"
           style={{
-            width: i + 1 === current ? 20 : 10,
+            width: i + 1 === current ? 24 : 12,
             background: i + 1 <= current ? p.accent : p.border,
           }}
         />
@@ -318,26 +372,42 @@ function ModalShell({
   footer: ReactNode;
   withConfetti?: boolean;
 }) {
-  useModalBehavior(onClose);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const pressedOnBackdrop = useRef(false);
+  useModalBehavior(onClose, dialogRef);
+
+  const cssVars = {
+    "--s-hover": p.surfaceHover,
+    "--s-text": p.text,
+    "--s-border-strong": p.borderStrong,
+  } as CSSProperties;
 
   return (
     <div
       className="stone-modal fixed inset-0 z-[100] flex items-center justify-center px-4"
       style={{
+        ...cssVars,
         background: p.overlay,
-        backdropFilter: "blur(4px)",
+        backdropFilter: "blur(6px)",
         animation: "stone-fade 0.2s ease-out both",
       }}
+      // On ferme seulement si le clic commence ET finit sur le fond
+      // (évite de fermer en relâchant une sélection de texte hors de la modale).
       onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose();
+        pressedOnBackdrop.current = event.target === event.currentTarget;
+      }}
+      onMouseUp={(event) => {
+        if (pressedOnBackdrop.current && event.target === event.currentTarget) onClose();
+        pressedOnBackdrop.current = false;
       }}
     >
       <Keyframes />
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby={labelledBy}
-        className="relative flex min-h-[620px] w-full max-w-[780px] flex-col overflow-hidden rounded-[18px] border"
+        className="relative flex min-h-[560px] w-full max-w-[920px] flex-col overflow-hidden rounded-[20px] border sm:min-h-[640px]"
         style={{
           background: p.bg,
           borderColor: p.border,
@@ -349,7 +419,7 @@ function ModalShell({
       >
         {withConfetti && <Confetti p={p} />}
 
-        <div className="absolute left-6 top-7 z-10">
+        <div className="absolute left-6 top-7 z-10 sm:left-8">
           <StepDots current={step.current} total={step.total} p={p} />
         </div>
 
@@ -357,26 +427,18 @@ function ModalShell({
           type="button"
           aria-label="Fermer"
           onClick={onClose}
-          className="absolute right-5 top-5 z-10 flex h-8 w-8 items-center justify-center rounded-lg transition-colors"
-          style={{ color: p.muted }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = p.surfaceHover;
-            e.currentTarget.style.color = p.text;
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = "transparent";
-            e.currentTarget.style.color = p.muted;
-          }}
+          className="stone-ghost absolute right-5 top-5 z-10 flex h-8 w-8 items-center justify-center rounded-lg focus-visible:outline focus-visible:outline-2"
+          style={{ color: p.muted, outlineColor: p.accent }}
         >
           <CloseIcon className="h-4 w-4" />
         </button>
 
-        <div className="flex flex-1 flex-col items-center justify-center overflow-y-auto px-6 pb-8 pt-16 sm:px-[96px]">
-          {children}
+        <div className="flex flex-1 flex-col items-center justify-center overflow-y-auto px-6 pb-8 pt-16 sm:px-14">
+          <div className="flex w-full max-w-[680px] flex-col items-center">{children}</div>
         </div>
 
         <div
-          className="relative flex min-h-[64px] shrink-0 items-center justify-between gap-3 border-t px-6"
+          className="relative flex min-h-[68px] shrink-0 flex-wrap items-center justify-between gap-3 border-t px-6 py-3 sm:px-8"
           style={{ borderColor: p.border }}
         >
           {footer}
@@ -392,7 +454,7 @@ function Avatar({ account, p }: { account: OnboardingAccount; p: Palette }) {
   const hasImage = Boolean(account.avatarUrl) && !failed;
 
   return (
-    <div className="relative mb-8 h-[64px] w-[64px]" style={{ animation: "stone-rise 0.35s ease-out both" }}>
+    <div className="relative mb-7 h-[72px] w-[72px]" style={{ animation: "stone-rise 0.35s ease-out both" }}>
       {hasImage ? (
         <img
           src={account.avatarUrl}
@@ -400,19 +462,25 @@ function Avatar({ account, p }: { account: OnboardingAccount; p: Palette }) {
           referrerPolicy="no-referrer"
           onError={() => setFailed(true)}
           className="h-full w-full rounded-full object-cover"
+          style={{ boxShadow: `0 0 0 1px ${p.border}` }}
         />
       ) : (
         <div
           className="flex h-full w-full items-center justify-center rounded-full border"
           style={{ background: p.surface, borderColor: p.border }}
         >
-          <Icon className="h-6 w-6" size={24} />
+          <Icon className="h-7 w-7" size={28} />
         </div>
       )}
 
       <span
-        className="absolute -bottom-0.5 -right-0.5 flex h-[24px] w-[24px] items-center justify-center rounded-full border-2"
-        style={{ background: p.accent, color: p.accentText, borderColor: p.bg }}
+        className="absolute -bottom-0.5 -right-0.5 flex h-[26px] w-[26px] items-center justify-center rounded-full border-2"
+        style={{
+          background: p.accent,
+          color: p.accentText,
+          borderColor: p.bg,
+          animation: "stone-check 0.3s cubic-bezier(.2,.9,.25,1) 0.25s both",
+        }}
       >
         <CheckIcon className="h-3 w-3" />
       </span>
@@ -438,8 +506,9 @@ function PrimaryButton({
       type="button"
       autoFocus={autoFocus}
       disabled={loading}
+      aria-busy={loading || undefined}
       onClick={onClick}
-      className="inline-flex h-[36px] items-center justify-center gap-2 rounded-[10px] px-5 text-[13px] font-medium transition-all hover:opacity-85 active:scale-[0.97] disabled:cursor-wait disabled:opacity-70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+      className="stone-btn inline-flex h-[40px] min-w-[132px] items-center justify-center gap-2 rounded-[10px] px-5 text-[13px] font-medium transition-all active:scale-[0.97] disabled:cursor-wait disabled:opacity-70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
       style={{ background: p.accent, color: p.accentText, outlineColor: p.accent }}
     >
       {loading ? <Spinner /> : children}
@@ -450,29 +519,90 @@ function PrimaryButton({
 function GhostButton({
   p,
   onClick,
+  disabled,
   children,
+  ...aria
 }: {
   p: Palette;
   onClick: () => void;
+  disabled?: boolean;
   children: ReactNode;
+  "aria-expanded"?: boolean;
+  "aria-haspopup"?: boolean;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="inline-flex h-[36px] items-center gap-2 rounded-[10px] px-3 text-[13px] font-medium transition-colors"
-      style={{ color: p.muted }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.background = p.surfaceHover;
-        e.currentTarget.style.color = p.text;
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.background = "transparent";
-        e.currentTarget.style.color = p.muted;
-      }}
+      disabled={disabled}
+      {...aria}
+      className="stone-ghost inline-flex h-[40px] items-center gap-2 rounded-[10px] px-3 text-[13px] font-medium focus-visible:outline focus-visible:outline-2 disabled:opacity-50"
+      style={{ color: p.muted, outlineColor: p.accent }}
     >
       {children}
     </button>
+  );
+}
+
+/** Bulle d'aide : se ferme au clic extérieur. */
+function HelpPopover({
+  p,
+  label,
+  title,
+  children,
+}: {
+  p: Palette;
+  label: string;
+  title: string;
+  children: ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (event: MouseEvent) => {
+      if (rootRef.current && !rootRef.current.contains(event.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [open]);
+
+  return (
+    <div className="relative" ref={rootRef}>
+      <GhostButton p={p} onClick={() => setOpen((v) => !v)} aria-expanded={open} aria-haspopup>
+        <HelpIcon className="h-4 w-4" /> {label}
+      </GhostButton>
+      {open && (
+        <div
+          role="tooltip"
+          className="absolute bottom-[calc(100%+10px)] left-0 w-[300px] rounded-xl border p-4 text-[12.5px] leading-relaxed shadow-xl"
+          style={{
+            background: p.bg,
+            borderColor: p.border,
+            color: p.muted,
+            animation: "stone-rise 0.2s ease-out both",
+          }}
+        >
+          <span className="font-semibold" style={{ color: p.text }}>
+            {title}
+          </span>{" "}
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Title({ id, children }: { id: string; children: ReactNode }) {
+  return (
+    <h2
+      id={id}
+      className="text-balance text-center text-[24px] font-semibold leading-tight tracking-[-0.02em]"
+      style={{ animation: "stone-rise 0.35s ease-out 0.05s both" }}
+    >
+      {children}
+    </h2>
   );
 }
 
@@ -496,7 +626,6 @@ export function ConfirmAccountModal({
   onClose: () => void;
 }) {
   const p = palette(isDark);
-  const [showHelp, setShowHelp] = useState(false);
 
   return (
     <ModalShell
@@ -506,54 +635,33 @@ export function ConfirmAccountModal({
       step={{ current: 1, total: 2 }}
       footer={
         <>
-          <div className="relative">
-            <GhostButton p={p} onClick={() => setShowHelp((v) => !v)}>
-              <HelpIcon className="h-4 w-4" /> Need Help?
-            </GhostButton>
-            {showHelp && (
-              <div
-                role="tooltip"
-                className="absolute bottom-[calc(100%+10px)] left-0 w-[280px] rounded-xl border p-3.5 text-[12.5px] leading-relaxed shadow-xl"
-                style={{
-                  background: p.bg,
-                  borderColor: p.border,
-                  color: p.muted,
-                  animation: "stone-rise 0.2s ease-out both",
-                }}
-              >
-                <span className="font-semibold" style={{ color: p.text }}>
-                  Besoin d'aide ?
-                </span>{" "}
-                Si ce compte n'est pas le tien, déconnecte-le depuis la page Canaux puis reconnecte
-                le bon compte.
-              </div>
-            )}
-          </div>
+          <HelpPopover p={p} label="Need Help?" title="Besoin d'aide ?">
+            Si ce compte n'est pas le tien, déconnecte-le depuis la page Canaux puis reconnecte le bon compte.
+          </HelpPopover>
 
-          <PrimaryButton p={p} onClick={onConfirm} loading={loading} autoFocus>
-            Finish Connection <ArrowIcon className="h-4 w-4" />
-          </PrimaryButton>
+          <div className="ml-auto flex items-center gap-2">
+            <GhostButton p={p} onClick={onReject} disabled={loading}>
+              Not this account
+            </GhostButton>
+            <PrimaryButton p={p} onClick={onConfirm} loading={loading} autoFocus>
+              Finish Connection <ArrowIcon className="h-4 w-4" />
+            </PrimaryButton>
+          </div>
         </>
       }
     >
       <Avatar account={account} p={p} />
 
-      <h2
-        id="stone-confirm-title"
-        className="text-center text-[21px] font-semibold tracking-[-0.02em]"
-        style={{ animation: "stone-rise 0.35s ease-out 0.05s both" }}
-      >
-        Confirm your Account
-      </h2>
+      <Title id="stone-confirm-title">Confirm your Account</Title>
       <p
-        className="mb-7 mt-2.5 max-w-[360px] text-center text-[13.5px] leading-relaxed"
+        className="mb-8 mt-3 max-w-[400px] text-center text-[14px] leading-relaxed"
         style={{ color: p.muted, animation: "stone-rise 0.35s ease-out 0.1s both" }}
       >
         Vérifie que c'est bien le {account.accountLabel.toLowerCase()} que tu veux relier à Stone.
       </p>
 
       <div
-        className="flex w-full items-center gap-3 rounded-[12px] border px-4 py-3.5"
+        className="flex w-full max-w-[480px] items-center gap-3 rounded-[14px] border px-5 py-4"
         style={{
           background: p.surface,
           borderColor: p.accent,
@@ -561,13 +669,13 @@ export function ConfirmAccountModal({
         }}
       >
         <div className="min-w-0 flex-1">
-          <p className="truncate text-[14px] font-semibold">{account.handle || account.name}</p>
-          <p className="mt-0.5 text-[12px]" style={{ color: p.muted }}>
+          <p className="truncate text-[15px] font-semibold">{account.handle || account.name}</p>
+          <p className="mt-0.5 text-[12.5px]" style={{ color: p.muted }}>
             {account.accountLabel}
           </p>
         </div>
         <span
-          className="flex h-[20px] w-[20px] items-center justify-center rounded-full"
+          className="flex h-[22px] w-[22px] items-center justify-center rounded-full"
           style={{ background: p.accent, color: p.accentText }}
         >
           <CheckIcon className="h-3 w-3" />
@@ -583,18 +691,35 @@ export function ConfirmAccountModal({
 
 type FrequencyOption = {
   id: "1x" | "3x" | "5x" | "custom";
-  label: string;
+  title: string;
+  cadence: string;
   hint: string;
   tile: ReactNode;
+  badge?: string;
 };
 
 const OPTIONS: FrequencyOption[] = [
-  { id: "1x", label: "Keep it steady · 1 time/week", hint: "Idéal pour démarrer", tile: "1x" },
-  { id: "3x", label: "Build a presence · 3 times/week", hint: "Recommandé", tile: "3x" },
-  { id: "5x", label: "Reach new heights · 5 times/week", hint: "Croissance rapide", tile: "5x" },
-  { id: "custom", label: "Choose your goal", hint: "Ton propre rythme", tile: <PencilIcon className="h-4 w-4" /> },
+  { id: "1x", title: "Keep it steady", cadence: "1 time/week", hint: "Idéal pour démarrer", tile: "1x" },
+  {
+    id: "3x",
+    title: "Build a presence",
+    cadence: "3 times/week",
+    hint: "Le bon équilibre",
+    tile: "3x",
+    badge: "Recommandé",
+  },
+  { id: "5x", title: "Reach new heights", cadence: "5 times/week", hint: "Croissance rapide", tile: "5x" },
+  {
+    id: "custom",
+    title: "Choose your goal",
+    cadence: "Ton propre rythme",
+    hint: "De 1 à 21 par semaine",
+    tile: <PencilIcon className="h-4 w-4" />,
+  },
 ];
 
+const MIN_PER_WEEK = 1;
+const MAX_PER_WEEK = 21;
 
 export function PostingFrequencyModal({
   account,
@@ -610,15 +735,29 @@ export function PostingFrequencyModal({
   const p = palette(isDark);
   const [selected, setSelected] = useState<FrequencyOption["id"]>("3x");
   const [custom, setCustom] = useState(7);
-  const [showTip, setShowTip] = useState(false);
   const [saving, setSaving] = useState(false);
+  const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
 
   const perWeek = selected === "custom" ? custom : parseInt(selected, 10);
+  const perMonth = Math.round((perWeek * 52) / 12);
+
+  // Le focus démarre sur l'option active : flèches + Entrée marchent tout de suite.
+  useEffect(() => {
+    const index = OPTIONS.findIndex((o) => o.id === "3x");
+    optionRefs.current[index]?.focus();
+  }, []);
+
+  const submit = () => {
+    if (saving) return;
+    setSaving(true);
+    window.setTimeout(() => onNext(perWeek), 250);
+  };
 
   const move = (delta: number) => {
     const index = OPTIONS.findIndex((o) => o.id === selected);
-    const next = OPTIONS[(index + delta + OPTIONS.length) % OPTIONS.length];
-    setSelected(next.id);
+    const nextIndex = (index + delta + OPTIONS.length) % OPTIONS.length;
+    setSelected(OPTIONS[nextIndex].id);
+    optionRefs.current[nextIndex]?.focus();
   };
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
@@ -628,12 +767,10 @@ export function PostingFrequencyModal({
     } else if (event.key === "ArrowUp" || event.key === "ArrowLeft") {
       event.preventDefault();
       move(-1);
+    } else if (event.key === "Enter") {
+      event.preventDefault();
+      submit();
     }
-  };
-
-  const submit = () => {
-    setSaving(true);
-    window.setTimeout(() => onNext(perWeek), 250);
   };
 
   return (
@@ -645,80 +782,69 @@ export function PostingFrequencyModal({
       withConfetti
       footer={
         <>
-          <div className="relative">
-            <GhostButton p={p} onClick={() => setShowTip((v) => !v)}>
-              <HelpIcon className="h-4 w-4" /> What's a Recommended Time?
-            </GhostButton>
-            {showTip && (
-              <div
-                role="tooltip"
-                className="absolute bottom-[calc(100%+10px)] left-0 w-[280px] rounded-xl border p-3.5 text-[12.5px] leading-relaxed shadow-xl"
-                style={{
-                  background: p.bg,
-                  borderColor: p.border,
-                  color: p.muted,
-                  animation: "stone-rise 0.2s ease-out both",
-                }}
-              >
-                <span className="font-semibold" style={{ color: p.text }}>
-                  Les horaires recommandés
-                </span>{" "}
-                sont les créneaux où ton audience est la plus active. Stone les place dans ta file d'attente
-                selon ton objectif hebdomadaire.
-              </div>
-            )}
-          </div>
+          <HelpPopover p={p} label="What's a Recommended Time?" title="Les horaires recommandés">
+            sont les créneaux où ton audience est la plus active. Stone les place dans ta file d'attente selon
+            ton objectif hebdomadaire.
+          </HelpPopover>
 
-          <PrimaryButton p={p} onClick={submit} loading={saving} autoFocus>
-            Next <ArrowIcon className="h-4 w-4" />
-          </PrimaryButton>
+          <div className="ml-auto flex items-center gap-4">
+            <span
+              className="hidden text-[12.5px] tabular-nums sm:inline"
+              style={{ color: p.muted }}
+              aria-live="polite"
+            >
+              {perWeek} / semaine · environ {perMonth} / mois
+            </span>
+            <PrimaryButton p={p} onClick={submit} loading={saving}>
+              Next <ArrowIcon className="h-4 w-4" />
+            </PrimaryButton>
+          </div>
         </>
       }
     >
       <Avatar account={account} p={p} />
 
-      <h2
-        id="stone-frequency-title"
-        className="text-center text-[21px] font-semibold tracking-[-0.02em]"
-        style={{ animation: "stone-rise 0.35s ease-out 0.05s both" }}
+      <Title id="stone-frequency-title">How many times a week would you like to post?</Title>
+      <p
+        className="mb-8 mt-3 max-w-[420px] text-center text-[14px] leading-relaxed"
+        style={{ color: p.muted, animation: "stone-rise 0.35s ease-out 0.1s both" }}
       >
-        How many times a week would you like to post?
-      </h2>
-      <div className="mb-8" />
+        Tu pourras modifier cet objectif à tout moment.
+      </p>
 
       <div
         role="radiogroup"
         aria-label="Posting frequency"
         onKeyDown={onKeyDown}
-        className="flex w-full flex-col gap-2"
+        className="grid w-full grid-cols-1 gap-2.5 sm:grid-cols-2"
       >
         {OPTIONS.map((option, i) => {
           const active = selected === option.id;
+          const cadence = option.id === "custom" && active ? `${custom} times/week` : option.cadence;
 
           return (
             <button
               key={option.id}
+              ref={(node) => {
+                optionRefs.current[i] = node;
+              }}
               type="button"
               role="radio"
               aria-checked={active}
               tabIndex={active ? 0 : -1}
               onClick={() => setSelected(option.id)}
-              className="flex h-[52px] w-full items-center gap-3.5 rounded-[12px] border px-2.5 text-left transition-colors duration-150 active:scale-[0.995] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+              onDoubleClick={submit}
+              className="stone-card flex min-h-[76px] w-full items-center gap-3.5 rounded-[14px] border px-3.5 py-3 text-left transition-colors duration-150 active:scale-[0.995] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
               style={{
                 background: active ? p.surface : "transparent",
                 borderColor: active ? p.accent : p.border,
+                boxShadow: active ? `0 0 0 1px ${p.accent}` : "none",
                 outlineColor: p.accent,
                 animation: `stone-rise 0.35s ease-out ${120 + i * 45}ms both`,
               }}
-              onMouseEnter={(e) => {
-                if (!active) e.currentTarget.style.background = p.surfaceHover;
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = active ? p.surface : "transparent";
-              }}
             >
               <span
-                className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-[9px] text-[14px] font-semibold"
+                className="flex h-[40px] w-[40px] shrink-0 items-center justify-center rounded-[10px] text-[15px] font-semibold transition-colors"
                 style={{
                   background: active ? p.accent : p.surfaceHover,
                   color: active ? p.accentText : p.text,
@@ -728,18 +854,29 @@ export function PostingFrequencyModal({
               </span>
 
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-[13.5px] font-medium">{option.label}</span>
+                <span className="flex items-center gap-2">
+                  <span className="truncate text-[14px] font-semibold">{option.title}</span>
+                  {option.badge && (
+                    <span
+                      className="shrink-0 rounded-full px-2 py-[2px] text-[10.5px] font-medium"
+                      style={{ background: p.accent, color: p.accentText }}
+                    >
+                      {option.badge}
+                    </span>
+                  )}
+                </span>
+                <span className="mt-0.5 block truncate text-[12.5px]">{cadence}</span>
                 <span className="block truncate text-[11.5px]" style={{ color: p.muted }}>
                   {option.hint}
                 </span>
               </span>
 
               <span
-                className="mr-2 flex h-[16px] w-[16px] items-center justify-center rounded-full border-[1.5px] transition-colors"
+                className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border-[1.5px] transition-colors"
                 style={{ borderColor: active ? p.accent : p.muted }}
               >
                 <span
-                  className="h-[8px] w-[8px] rounded-full transition-transform duration-200"
+                  className="h-[9px] w-[9px] rounded-full transition-transform duration-200"
                   style={{ background: p.accent, transform: active ? "scale(1)" : "scale(0)" }}
                 />
               </span>
@@ -750,36 +887,41 @@ export function PostingFrequencyModal({
 
       {selected === "custom" && (
         <div
-          className="mt-2 flex w-full items-center justify-between rounded-[12px] border px-4 py-2.5"
+          className="mt-3 flex w-full items-center justify-between rounded-[14px] border px-5 py-3"
           style={{ background: p.surface, borderColor: p.border, animation: "stone-rise 0.25s ease-out both" }}
         >
-          <span className="text-[13px] font-medium">Publications par semaine</span>
+          <span className="text-[13.5px] font-medium">Publications par semaine</span>
           <div className="flex items-center gap-3">
             <button
               type="button"
               aria-label="Diminuer"
-              disabled={custom <= 1}
-              onClick={() => setCustom((n) => Math.max(1, n - 1))}
-              className="flex h-7 w-7 items-center justify-center rounded-lg border transition-opacity hover:opacity-70 disabled:opacity-30"
-              style={{ borderColor: p.border }}
+              disabled={custom <= MIN_PER_WEEK}
+              onClick={() => setCustom((n) => Math.max(MIN_PER_WEEK, n - 1))}
+              className="stone-stepper flex h-8 w-8 items-center justify-center rounded-lg border transition-colors disabled:opacity-30 focus-visible:outline focus-visible:outline-2"
+              style={{ borderColor: p.border, outlineColor: p.accent }}
             >
               <MinusIcon className="h-3.5 w-3.5" />
             </button>
-            <span className="w-6 text-center text-[15px] font-semibold tabular-nums">{custom}</span>
+            <span
+              className="w-8 text-center text-[16px] font-semibold tabular-nums"
+              role="status"
+              aria-label={`${custom} publications par semaine`}
+            >
+              {custom}
+            </span>
             <button
               type="button"
               aria-label="Augmenter"
-              disabled={custom >= 21}
-              onClick={() => setCustom((n) => Math.min(21, n + 1))}
-              className="flex h-7 w-7 items-center justify-center rounded-lg border transition-opacity hover:opacity-70 disabled:opacity-30"
-              style={{ borderColor: p.border }}
+              disabled={custom >= MAX_PER_WEEK}
+              onClick={() => setCustom((n) => Math.min(MAX_PER_WEEK, n + 1))}
+              className="stone-stepper flex h-8 w-8 items-center justify-center rounded-lg border transition-colors disabled:opacity-30 focus-visible:outline focus-visible:outline-2"
+              style={{ borderColor: p.border, outlineColor: p.accent }}
             >
               <PlusIcon className="h-3.5 w-3.5" />
             </button>
           </div>
         </div>
       )}
-
     </ModalShell>
   );
 }
@@ -814,11 +956,7 @@ export function openFrequencyOnboarding(account: OnboardingAccount, isDark: bool
       isDark={isDark}
       onClose={close}
       onNext={(postsPerWeek) => {
-        try {
-          localStorage.setItem(GOAL_KEY(account.key), String(postsPerWeek));
-        } catch {
-          /* noop */
-        }
+        saveGoal(account.key, postsPerWeek);
         close();
       }}
     />
@@ -843,11 +981,7 @@ export default function FrequencyOnboarding() {
       isDark={theme === "dark"}
       onClose={dismiss}
       onNext={(postsPerWeek) => {
-        try {
-          localStorage.setItem(GOAL_KEY(account.key), String(postsPerWeek));
-        } catch {
-          /* noop */
-        }
+        saveGoal(account.key, postsPerWeek);
         dismiss();
       }}
     />

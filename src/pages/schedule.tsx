@@ -1846,6 +1846,7 @@ export default function Schedule() {
         isDark={isDark}
         onSubmit={handleCreatePost}
         initialScheduledAt={newPostDate}
+        onRequestOpen={() => setIsNewPostOpen(true)}
       />
     </main>
   );
