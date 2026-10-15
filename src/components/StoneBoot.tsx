@@ -99,15 +99,7 @@ export default function StoneBoot({ onComplete }: StoneBootProps) {
         pointerEvents: leaving ? "none" : "auto",
       }}
     >
-      <style>{`
-        @keyframes stone-enter {
-          from { opacity: 0; transform: scale(0.96); }
-          to   { opacity: 1; transform: scale(1); }
-        }
-        .stone-enter { animation: stone-enter 800ms ease-out both; }
-      `}</style>
-
-      <div className="stone-enter relative">
+      <div className="relative">
         {/* Fond : version terne (le « vide ») */}
         <Brand className="opacity-[0.12]" />
 

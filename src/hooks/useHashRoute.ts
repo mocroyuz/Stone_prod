@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useLayoutEffect, useState } from "react";
 
 /**
  * Routeur basé sur le hash.
@@ -17,7 +17,7 @@ function readRoute(): string {
 export function useHashRoute(): string {
   const [route, setRoute] = useState<string>(readRoute);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const onRouteChange = () => {
       setRoute(readRoute());
       window.scrollTo({ top: 0, behavior: "auto" });
