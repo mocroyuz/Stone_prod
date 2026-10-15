@@ -12,7 +12,8 @@ import {
   openFrequencyOnboarding,
   type OnboardingAccount,
 } from "../components/OnboardingModals";
-import { useTheme, type Theme } from "../hooks/useTheme";
+import HelpChatButton from "../components/Helpchatbutton";
+import { useTheme } from "../hooks/useTheme";
 import { useUser } from "../contexts/UserContext";
 
 import {
@@ -76,14 +77,6 @@ export type Channel = {
 
 export type ConnectionState = Record<ChannelKey, Connection>;
 
-type ToggleOrigin = { x: number; y: number };
-type ToggleThemeFn = (origin?: ToggleOrigin) => void;
-
-type ChannelsProps = {
-  theme?: Theme;
-  onToggleTheme?: ToggleThemeFn;
-};
-
 type IconProps = { className?: string };
 
 type StatusResponse = {
@@ -120,11 +113,6 @@ const panelSurfaceClass = (isDark: boolean) =>
   isDark
     ? "border-white/[0.07] bg-white/[0.03]"
     : "border-black/[0.06] bg-[#f6f4f0]";
-
-const cardClass = (isDark: boolean) =>
-  isDark
-    ? "border-white/[0.07] bg-[#141416]"
-    : "border-black/[0.06] bg-white";
 
 const mutedClass = (isDark: boolean) =>
   isDark ? "text-neutral-500" : "text-neutral-400";
@@ -646,13 +634,8 @@ function ChannelCard({
    PAGE
 ============================================================================ */
 
-export default function Channels({
-  theme: themeProp,
-  onToggleTheme: onToggleThemeProp,
-}: ChannelsProps) {
-  const themeContext = useTheme();
-  const theme = themeProp ?? themeContext.theme;
-  const onToggleTheme = onToggleThemeProp ?? themeContext.toggle;
+export default function Channels() {
+  const { theme } = useTheme();
   const isDark = theme === "dark";
   const sidebarOffset = useSidebarOffset();
   const { user } = useUser();
@@ -1089,7 +1072,7 @@ export default function Channels({
         pageBgClass(isDark),
       ].join(" ")}
     >
-      <DashboardSidebar theme={theme} onToggleTheme={onToggleTheme} />
+      <DashboardSidebar theme={theme} />
 
       {/* Zone à droite de la sidebar : marge autour du panneau arrondi */}
       <div
@@ -1351,6 +1334,9 @@ export default function Channels({
       {toast && (
         <Toast key={toast.id} toast={toast} isDark={isDark} onClose={dismissToast} />
       )}
+
+      {/* HELP — même bouton que sur Home */}
+      <HelpChatButton isDark={isDark} />
     </main>
   );
 }

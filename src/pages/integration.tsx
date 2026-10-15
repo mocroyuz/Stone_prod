@@ -9,6 +9,7 @@ import NewPostModal, {
   type NewPostPayload,
   unavailablePostActionMessage,
 } from "../components/Newpostmodal";
+import HelpChatButton from "../components/Helpchatbutton";
 import {
   ZapierIcon,
   ClaudeIcon,
@@ -162,30 +163,6 @@ function ArrowRightIcon() {
     >
       <path d="M5 12h14" />
       <path d="m13 6 6 6-6 6" />
-    </svg>
-  );
-}
-
-function SunMoonIcon({ isDark }: { isDark: boolean }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className="h-[17px] w-[17px]"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      {isDark ? (
-        <>
-          <circle cx="12" cy="12" r="4" />
-          <path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4 7 17M17 7l1.4-1.4" />
-        </>
-      ) : (
-        <path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5Z" />
-      )}
     </svg>
   );
 }
@@ -390,7 +367,7 @@ function IntegrationCard({
 ============================================================ */
 
 export default function Integrations() {
-  const { theme, setTheme } = useTheme();
+  const { theme } = useTheme();
   const isDark = theme === "dark";
   const sidebarOffset = useSidebarOffset();
 
@@ -534,23 +511,6 @@ export default function Integrations() {
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setTheme(isDark ? "light" : "dark")}
-                  aria-label={
-                    isDark ? "Switch to light theme" : "Switch to dark theme"
-                  }
-                  className={[
-                    "flex h-9 w-9 items-center justify-center rounded-full border transition",
-                    focusRingClass(isDark),
-                    isDark
-                      ? "border-white/[0.08] text-neutral-300 hover:bg-white/[0.06]"
-                      : "border-black/[0.06] text-neutral-500 hover:bg-black/[0.04]",
-                  ].join(" ")}
-                >
-                  <SunMoonIcon isDark={isDark} />
-                </button>
-
                 <button
                   type="button"
                   className={[
@@ -737,6 +697,9 @@ export default function Integrations() {
         onSubmit={handleCreatePost}
         onRequestOpen={() => setIsNewPostOpen(true)}
       />
+
+      {/* HELP — même bouton que sur Home */}
+      <HelpChatButton isDark={isDark} />
     </main>
   );
 }
