@@ -71,7 +71,7 @@ import {
   type CacheProvider,
   type Connection,
 } from "../services/channelsCache";
-import { requestNewPost } from "../services/Newpostbus";
+import { requestNewPost } from "../services/newPostBus";
 
 /* ============================================================================ 
    Types 
@@ -2319,6 +2319,9 @@ export default function DashboardSidebar({
    * on va sur « schedule » : le modal s'y monte et reprend la demande en attente.
    */
   const handleNewPost = useCallback((channelKey: string) => {
+    // Le focus ne doit pas rester dans le tiroir au moment où il se cache
+    (document.activeElement as HTMLElement | null)?.blur();
+
     setMenuOpen(false);
     setMobileOpen(false);
 
@@ -2544,7 +2547,7 @@ export default function DashboardSidebar({
   };
 
   const inertProps = drawerHidden
-    ? ({ inert: "", "aria-hidden": true } as Record<string, unknown>)
+    ? ({ inert: "" } as Record<string, unknown>)
     : {};
 
   return (

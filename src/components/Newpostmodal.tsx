@@ -23,7 +23,7 @@ import {
   clearNewPostRequest,
   peekNewPostRequest,
   subscribeNewPostRequests,
-} from "../services/Newpostbus";
+} from "../services/newPostBus";
 import {
   getTikTokCreatorInfo,
   publishToTikTok,
