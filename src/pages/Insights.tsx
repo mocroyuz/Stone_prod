@@ -16,7 +16,6 @@ import {
 } from "react";
 import {
   Activity,
-  Bell,
   Bookmark,
   CalendarClock,
   Check,
@@ -30,14 +29,12 @@ import {
   FlaskConical,
   Image as ImageIcon,
   Info,
-  MessageCircle,
   MoreVertical,
   Pencil,
   Play,
   Plus,
   Repeat2,
   Send,
-  Settings,
   Tag,
   TrendingUp,
   Zap,
@@ -351,9 +348,9 @@ function smoothPath(pts: [number, number][]): string {
   let d = `M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`;
   for (let i = 0; i < n - 1; i++) {
     const h = dx[i] / 3;
-    d += ` C${(pts[i][0] + h).toFixed(1)},${(pts[i][1] + t[i] * h).toFixed(1)} ${(pts[i + 1][0] - h).toFixed(1)},${(
-      pts[i + 1][1] - t[i + 1] * h
-    ).toFixed(1)} ${pts[i + 1][0].toFixed(1)},${pts[i + 1][1].toFixed(1)}`;
+    d += ` C${(pts[i][0] + h).toFixed(1)},${(pts[i][1] + t[i] * h).toFixed(1)} ${(pts[i + 1][0] - h).toFixed(1)},${
+      (pts[i + 1][1] - t[i + 1] * h).toFixed(1)
+    } ${pts[i + 1][0].toFixed(1)},${pts[i + 1][1].toFixed(1)}`;
   }
   return d;
 }
@@ -401,7 +398,7 @@ function Chart({
     smoothPath(vals.map((v, i) => [x(i), y(si, v)] as [number, number]));
 
   const ticks = [0, 1, 2, 3, 4];
-  const labelIdx = Array.from(new Set([0, 0.5, 1].map((r) => Math.round(r * (n - 1)))));
+  const labelIdx = Array.from(new Set([0, 0.5, 1].map((r) => Math.round(r * (n - 1))))); 
   const area = `${path(0, series[0].values)} L${x(n - 1).toFixed(1)},${pad.t + ih} L${x(0).toFixed(1)},${pad.t + ih} Z`;
 
   const onPointer = (e: ReactPointerEvent<SVGSVGElement>) => {
@@ -802,9 +799,6 @@ function ChannelMenu({
         <IconBtn label={saved ? "Remove bookmark" : "Bookmark"} onClick={() => setSaved((s) => !s)} t={t}>
           <Bookmark className={`h-4 w-4 ${saved ? "fill-current" : ""}`} aria-hidden="true" />
         </IconBtn>
-        <IconBtn label="Settings" onClick={() => navigate("settings")} t={t}>
-          <Settings className="h-4 w-4" aria-hidden="true" />
-        </IconBtn>
       </div>
 
       {open && (
@@ -1004,11 +998,15 @@ function RangePicker({
   );
 }
 
+/* ============================================================
+   ICÔNE INSIGHTS — identique à celle de la sidebar
+============================================================ */
+
 function InsightsIcon() {
   return (
     <svg
       viewBox="0 0 24 24"
-      className="h-[17px] w-[17px]"
+      className="h-[18px] w-[18px]"
       fill="none"
       stroke="currentColor"
       strokeWidth="1.8"
@@ -1016,8 +1014,12 @@ function InsightsIcon() {
       strokeLinejoin="round"
       aria-hidden="true"
     >
-      <path d="M4 20h16" />
-      <path d="M7 16v-5M12 16V6M17 16v-8" />
+      <path d="M4 20V4" strokeWidth="1.5" />
+      <path d="M4 20h16" strokeWidth="1.5" />
+      <rect x="7" y="13" width="2.5" height="5" rx="0.5" fill="currentColor" stroke="none" />
+      <rect x="12" y="9" width="2.5" height="9" rx="0.5" fill="currentColor" stroke="none" />
+      <rect x="17" y="11" width="2.5" height="7" rx="0.5" fill="currentColor" stroke="none" />
+      <path d="M5 14l5-5 5 3 5-7" strokeWidth="1.8" />
     </svg>
   );
 }
@@ -1285,17 +1287,6 @@ export default function Insights() {
 
               <div className="flex flex-wrap items-center gap-2.5 print:hidden">
                 <ChannelMenu channels={channels} current={channel} t={t} isDark={isDark} />
-                <IconBtn label="Feedback" onClick={() => navigate("search")} t={t}>
-                  <MessageCircle className="h-[18px] w-[18px]" aria-hidden="true" />
-                </IconBtn>
-                <button
-                  type="button"
-                  aria-label="Notifications"
-                  onClick={() => navigate("notifications")}
-                  className={`flex h-9 w-9 items-center justify-center rounded-full transition-colors ${t.ring} ${t.iconBox} ${t.hover}`}
-                >
-                  <Bell className="h-[18px] w-[18px]" aria-hidden="true" />
-                </button>
                 <button
                   type="button"
                   onClick={exportCsv}

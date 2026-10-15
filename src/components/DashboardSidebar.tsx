@@ -395,9 +395,15 @@ const CommunityIcon = (p: IconProps) => (
   </Svg>
 );
 
+// NOUVELLE ICÔNE INSIGHTS (Graphique à barres + courbe de tendance)
 const InsightsIcon = (p: IconProps) => (
   <Svg {...p}>
-    <path d="M5 18V9M12 18V5M19 18v-7M3 20h18" />
+    <path d="M4 20V4" strokeWidth="1.5" />
+    <path d="M4 20h16" strokeWidth="1.5" />
+    <rect x="7" y="13" width="2.5" height="5" rx="0.5" fill="currentColor" stroke="none" />
+    <rect x="12" y="9" width="2.5" height="9" rx="0.5" fill="currentColor" stroke="none" />
+    <rect x="17" y="11" width="2.5" height="7" rx="0.5" fill="currentColor" stroke="none" />
+    <path d="M5 14l5-5 5 3 5-7" strokeWidth="1.8" />
   </Svg>
 );
 
@@ -698,6 +704,7 @@ function getHashChannel(): string | null {
   return new URLSearchParams(hash.slice(queryIndex + 1)).get("channel");
 }
 
+// MODIFIÉ : "Insights" et "Community" ont été retirés de CHANNEL_LINKS pour être mis en bas
 const CHANNEL_LINKS: {
   label: string;
   route: string;
@@ -706,17 +713,10 @@ const CHANNEL_LINKS: {
   perChannel?: boolean;
 }[] = [
   { label: "Publish", route: "schedule", icon: PublishIcon },
-  { label: "Community", route: "community", icon: CommunityIcon, perChannel: true },
-  {
-    label: "Insights",
-    route: "insights",
-    icon: InsightsIcon,
-    badge: "New",
-    perChannel: true,
-  },
 ];
 
-const STANDALONE_LINKS = [
+// NOUVEAU : Liens à afficher tout en bas de la sidebar
+const BOTTOM_LINKS = [
   { label: "Insights", route: "insights", icon: InsightsIcon, badge: "New" },
   { label: "Community", route: "community", icon: CommunityIcon },
 ];
@@ -1430,72 +1430,7 @@ function SidebarChannelsImpl({
       ref={listRef}
       className="relative flex flex-col gap-1"
     >
-      {channels.length === 0 &&
-        STANDALONE_LINKS.map((link) => {
-          const Icon = link.icon;
-          const isActive = link.route === currentRoute;
-
-          return (
-            <Tip
-              key={link.route}
-              label={link.label}
-              enabled={compact}
-              menuClass={t.menu}
-              countClass={t.count}
-            >
-              <button
-                type="button"
-                aria-label={link.label}
-                aria-current={isActive ? "page" : undefined}
-                onClick={() => onNavigate(link.route)}
-                className={[
-                  "group relative flex items-center rounded-xl text-[13px] font-medium",
-                  "transition-[background-color,color,transform] duration-200",
-                  "active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:scale-100",
-                  compact ? "h-10 w-10 justify-center" : "h-9 w-full gap-2.5 px-2.5",
-                  focus,
-                  isActive ? t.navActive : t.navIdle,
-                ].join(" ")}
-              >
-                <Icon className="h-[18px] w-[18px] shrink-0" />
-
-                {!compact && (
-                  <>
-                    <span className="sb-fade flex-1 truncate text-left">
-                      {link.label}
-                    </span>
-                    {link.badge && (
-                      <span
-                        className={[
-                          "rounded-full px-2 py-0.5 text-[10px] font-semibold",
-                          t.badge,
-                        ].join(" ")}
-                      >
-                        {link.badge}
-                      </span>
-                    )}
-                  </>
-                )}
-
-                {compact && link.badge && (
-                  <span
-                    aria-hidden="true"
-                    className={[
-                      "absolute right-1 top-1 h-2 w-2 rounded-full ring-2",
-                      t.accent,
-                      t.dotRing,
-                    ].join(" ")}
-                  />
-                )}
-              </button>
-            </Tip>
-          );
-        })}
-
-      {/* Séparateur horizontal (mode réduit uniquement) */}
-      {compact && (
-        <div className={["my-2 h-px w-8 mx-auto", t.divider].join(" ")} />
-      )}
+      {/* NOTE: STANDALONE_LINKS a été retiré d'ici, car il a été déplacé tout en bas de la sidebar */}
 
       {!compact && (
         <div className="sb-fade group/channels mt-3 flex h-6 items-center justify-between px-2.5">
@@ -2659,6 +2594,56 @@ export default function DashboardSidebar({
             onNewPost={handleNewPost}
           />
         </nav>
+
+        {/* NOUVEAU : Liens du bas (Insights & Community) */}
+        <div className={["flex flex-col gap-1", compact ? "items-center" : "px-2"].join(" ")}>
+          {BOTTOM_LINKS.map((link) => {
+            const Icon = link.icon;
+            const isActive = link.route === currentRoute;
+            return (
+              <Tip
+                key={link.route}
+                label={link.label}
+                enabled={compact}
+                menuClass={t.menu}
+                countClass={t.count}
+              >
+                <button
+                  type="button"
+                  aria-label={link.label}
+                  aria-current={isActive ? "page" : undefined}
+                  onClick={() => handleNavigate(link.route)}
+                  className={[
+                    "group relative flex items-center rounded-xl text-[13px] font-medium",
+                    "transition-[background-color,color,transform] duration-200",
+                    "active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:scale-100",
+                    compact ? "h-10 w-10 justify-center" : "h-9 w-full gap-2.5 px-2.5",
+                    focus,
+                    isActive ? t.navActive : t.navIdle,
+                  ].join(" ")}
+                >
+                  <Icon className="h-[18px] w-[18px] shrink-0" />
+                  {!compact && (
+                    <>
+                      <span className="sb-fade flex-1 truncate text-left">{link.label}</span>
+                      {link.badge && (
+                        <span className={["rounded-full px-2 py-0.5 text-[10px] font-semibold", t.badge].join(" ")}>
+                          {link.badge}
+                        </span>
+                      )}
+                    </>
+                  )}
+                  {compact && link.badge && (
+                    <span
+                      aria-hidden="true"
+                      className={["absolute right-1 top-1 h-2 w-2 rounded-full ring-2", t.accent, t.dotRing].join(" ")}
+                    />
+                  )}
+                </button>
+              </Tip>
+            );
+          })}
+        </div>
 
         {/* Bas : toggle + profil
             (plus de border-t / t.rail : aucune barre au-dessus du profil) */}
