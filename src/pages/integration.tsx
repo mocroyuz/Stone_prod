@@ -214,34 +214,6 @@ type Filter = (typeof FILTERS)[number];
 const CONNECTED_THRESHOLD = 60;
 
 /* ============================================================
-   PROGRESS BAR
-============================================================ */
-
-function ProgressBar({ value, isDark }: { value: number; isDark: boolean }) {
-  return (
-    <div
-      role="progressbar"
-      aria-valuenow={value}
-      aria-valuemin={0}
-      aria-valuemax={100}
-      aria-label="Setup progress"
-      className={[
-        "h-[3px] w-full overflow-hidden rounded-full",
-        isDark ? "bg-white/15" : "bg-black/10",
-      ].join(" ")}
-    >
-      <div
-        className={[
-          "h-full rounded-full",
-          isDark ? "bg-white" : "bg-neutral-900",
-        ].join(" ")}
-        style={{ width: `${value}%` }}
-      />
-    </div>
-  );
-}
-
-/* ============================================================
    CARD
 ============================================================ */
 
@@ -253,7 +225,6 @@ function IntegrationCard({
   isDark: boolean;
 }) {
   const Icon = ICONS[data.title];
-  const connected = data.progress >= CONNECTED_THRESHOLD;
 
   return (
     <div
@@ -301,10 +272,6 @@ function IntegrationCard({
         </button>
       </div>
 
-      <div className="mt-3">
-        <ProgressBar value={data.progress} isDark={isDark} />
-      </div>
-
       <div className="mt-3 flex items-start gap-2">
         {data.meta && (
           <span
@@ -324,39 +291,6 @@ function IntegrationCard({
         >
           {data.body}
         </p>
-      </div>
-
-      <div className="mt-auto flex items-center justify-between pt-4">
-        <span
-          className={[
-            "flex items-center gap-1.5 text-[10.5px] font-medium",
-            connected
-              ? isDark
-                ? "text-emerald-400"
-                : "text-emerald-600"
-              : mutedClass(isDark),
-          ].join(" ")}
-        >
-          <span
-            className={[
-              "h-1.5 w-1.5 rounded-full",
-              connected
-                ? "bg-emerald-500"
-                : isDark
-                  ? "bg-neutral-600"
-                  : "bg-neutral-300",
-            ].join(" ")}
-          />
-          {connected ? "Connected" : "Available"}
-        </span>
-        <span
-          className={[
-            "text-[10.5px] tabular-nums",
-            isDark ? "text-neutral-600" : "text-neutral-400",
-          ].join(" ")}
-        >
-          {data.progress}%
-        </span>
       </div>
     </div>
   );
