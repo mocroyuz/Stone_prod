@@ -6,6 +6,12 @@ import { navigate, useHashRoute } from "../hooks/useHashRoute";
 import DashboardSidebar, {
   useSidebarOffset,
 } from "../components/DashboardSidebar";
+import BottomBar, { type BottomBarTab } from "../components/Bottombar";
+import Folder from "../components/Folder";
+import NewPostModal, {
+  type NewPostPayload,
+  unavailablePostActionMessage,
+} from "../components/Newpostmodal";
 import {
   useConnectedChannels,
   type ConnectedChannel,
@@ -395,8 +401,12 @@ export default function Community() {
   const [filter, setFilter] = useState<Filter>("all");
   const [postsOpen, setPostsOpen] = useState(true);
   const [showAll, setShowAll] = useState(false);
+  const [isFolderOpen, setIsFolderOpen] = useState(false);
+  const [isNewPostOpen, setIsNewPostOpen] = useState(false);
+  const [query, setQuery] = useState("");
 
   const { posts } = useCommunity(channel?.key, tab, filter);
+  const needle = query.trim().toLowerCase();
 
   const line = isDark ? "border-white/[0.07]" : "border-black/[0.06]";
   const muted = isDark ? "text-neutral-500" : "text-neutral-400";
@@ -429,7 +439,24 @@ export default function Community() {
     );
   };
 
-  const visiblePosts = showAll ? posts : posts.filter((p) => p.commentCount > 0);
+  const visiblePosts = (showAll ? posts : posts.filter((p) => p.commentCount > 0))
+    .filter((post) => post.title.toLowerCase().includes(needle));
+
+  const handleBottomBarChange = (id: BottomBarTab) => {
+    switch (id) {
+      case "add":
+        setIsFolderOpen(false);
+        setIsNewPostOpen(true);
+        break;
+      case "files":
+        setIsFolderOpen((open) => !open);
+        break;
+    }
+  };
+
+  const handleCreatePost = async (payload: NewPostPayload) => {
+    throw new Error(unavailablePostActionMessage(payload));
+  };
 
   return (
     <main
@@ -759,6 +786,28 @@ export default function Community() {
           </div>
         </div>
       </div>
+
+      <Folder
+        isOpen={isFolderOpen}
+        onClose={() => setIsFolderOpen(false)}
+        isDark={isDark}
+        offsetLeft={sidebarOffset}
+      />
+      <BottomBar
+        isDark={isDark}
+        offsetLeft={sidebarOffset}
+        active={isFolderOpen ? "files" : null}
+        onChange={handleBottomBarChange}
+        query={query}
+        onQueryChange={setQuery}
+      />
+      <NewPostModal
+        isOpen={isNewPostOpen}
+        onClose={() => setIsNewPostOpen(false)}
+        isDark={isDark}
+        onSubmit={handleCreatePost}
+        onRequestOpen={() => setIsNewPostOpen(true)}
+      />
 
       {/* HELP — même bouton que sur Home */}
       <HelpChatButton isDark={isDark} />

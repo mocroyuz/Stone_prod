@@ -45,8 +45,14 @@ import {
 import { navigate, useHashRoute } from "../hooks/useHashRoute";
 import { useTheme } from "../hooks/useTheme";
 import DashboardSidebar, { useSidebarOffset } from "../components/DashboardSidebar";
+import BottomBar, { type BottomBarTab } from "../components/Bottombar";
+import Folder from "../components/Folder";
 import HelpChatButton from "../components/Helpchatbutton";
 import { CalendarPicker } from "../components/CalendarPicker";
+import NewPostModal, {
+  type NewPostPayload,
+  unavailablePostActionMessage,
+} from "../components/Newpostmodal";
 import { useConnectedChannels, type ConnectedChannel } from "../hooks/useConnectedChannels";
 import {
   InstagramIcon,
@@ -1084,6 +1090,9 @@ export default function Insights() {
   const [postsPeriod, setPostsPeriod] = useState<PostsPeriod>("this");
   const [metricTab, setMetricTab] = useState<MetricTab>("visibility");
   const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" } | null>(null);
+  const [isFolderOpen, setIsFolderOpen] = useState(false);
+  const [isNewPostOpen, setIsNewPostOpen] = useState(false);
+  const [query, setQuery] = useState("");
 
   const { start, end } = useMemo(
     () => resolveRange(range, customStart, customEnd),
@@ -1164,11 +1173,15 @@ export default function Insights() {
   ];
 
   const rows = postsPeriod === "this" ? posts : previousPosts;
+  const needle = query.trim().toLowerCase();
   const sortedRows = useMemo(() => {
-    if (!sort) return rows;
+    const matchingRows = needle
+      ? rows.filter((post) => post.label.toLowerCase().includes(needle))
+      : rows;
+    if (!sort) return matchingRows;
     const dir = sort.dir === "asc" ? 1 : -1;
-    return [...rows].sort((a, b) => (a[sort.key] - b[sort.key]) * dir);
-  }, [rows, sort]);
+    return [...matchingRows].sort((a, b) => (a[sort.key] - b[sort.key]) * dir);
+  }, [rows, sort, needle]);
   const toggleSort = (key: SortKey) =>
     setSort((s) => (s?.key === key ? { key, dir: s.dir === "desc" ? "asc" : "desc" } : { key, dir: "desc" }));
 
@@ -1188,6 +1201,22 @@ export default function Insights() {
       rowsCsv.push([toInput(p.date), p.followers, p.posts, p.reactions, p.comments, p.profileViews, previous[i].followers])
     );
     downloadCsv(`insights-${toInput(start)}-${toInput(end)}.csv`, rowsCsv);
+  };
+
+  const handleBottomBarChange = (id: BottomBarTab) => {
+    switch (id) {
+      case "add":
+        setIsFolderOpen(false);
+        setIsNewPostOpen(true);
+        break;
+      case "files":
+        setIsFolderOpen((open) => !open);
+        break;
+    }
+  };
+
+  const handleCreatePost = async (payload: NewPostPayload) => {
+    throw new Error(unavailablePostActionMessage(payload));
   };
 
   const mediaIcon = (m: PostRow["media"]) =>
@@ -1636,6 +1665,27 @@ export default function Insights() {
         </div>
       </div>
 
+      <Folder
+        isOpen={isFolderOpen}
+        onClose={() => setIsFolderOpen(false)}
+        isDark={isDark}
+        offsetLeft={sidebarOffset}
+      />
+      <BottomBar
+        isDark={isDark}
+        offsetLeft={sidebarOffset}
+        active={isFolderOpen ? "files" : null}
+        onChange={handleBottomBarChange}
+        query={query}
+        onQueryChange={setQuery}
+      />
+      <NewPostModal
+        isOpen={isNewPostOpen}
+        onClose={() => setIsNewPostOpen(false)}
+        isDark={isDark}
+        onSubmit={handleCreatePost}
+        onRequestOpen={() => setIsNewPostOpen(true)}
+      />
       <HelpChatButton isDark={isDark} />
     </main>
   );

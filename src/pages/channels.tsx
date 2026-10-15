@@ -6,7 +6,13 @@ import type { ComponentType, ReactNode } from "react";
 import DashboardSidebar, {
   useSidebarOffset,
 } from "../components/DashboardSidebar";
+import BottomBar, { type BottomBarTab } from "../components/Bottombar";
+import Folder from "../components/Folder";
 import ConnectChannelModal from "../components/ConnectChannelModal";
+import NewPostModal, {
+  type NewPostPayload,
+  unavailablePostActionMessage,
+} from "../components/Newpostmodal";
 import {
   ConfirmAccountModal,
   openFrequencyOnboarding,
@@ -660,6 +666,9 @@ export default function Channels() {
 
   const [pendingKey, setPendingKey] = useState<ChannelKey | null>(null);
   const [showConnectModal, setShowConnectModal] = useState(false);
+  const [isFolderOpen, setIsFolderOpen] = useState(false);
+  const [isNewPostOpen, setIsNewPostOpen] = useState(false);
+  const [query, setQuery] = useState("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [toast, setToast] = useState<ToastState | null>(null);
 
@@ -746,6 +755,31 @@ export default function Channels() {
   const connectedCount = connectedChannels.length;
   const limitReached = connectedCount >= PLAN.maxChannels;
   const slotsLeft = Math.max(0, PLAN.maxChannels - connectedCount);
+  const visibleChannels = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    if (!needle) return connectedChannels;
+    return connectedChannels.filter((channel) =>
+      `${channel.name} ${channel.accountLabel} ${connections[channel.key].handle ?? ""}`
+        .toLowerCase()
+        .includes(needle)
+    );
+  }, [connectedChannels, connections, query]);
+
+  const handleBottomBarChange = (id: BottomBarTab) => {
+    switch (id) {
+      case "add":
+        setIsFolderOpen(false);
+        setIsNewPostOpen(true);
+        break;
+      case "files":
+        setIsFolderOpen((open) => !open);
+        break;
+    }
+  };
+
+  const handleCreatePost = async (payload: NewPostPayload) => {
+    throw new Error(unavailablePostActionMessage(payload));
+  };
 
   /* ------------------------------------------------------------------------
      SYNC OAUTH
@@ -1267,9 +1301,34 @@ export default function Channels() {
                   Connect Channel
                 </button>
               </div>
+            ) : visibleChannels.length === 0 ? (
+              <div
+                className={[
+                  "mt-5 flex min-h-[280px] flex-col items-center justify-center gap-3",
+                  "rounded-2xl border px-4 py-10 text-center",
+                  panelSurfaceClass(isDark),
+                ].join(" ")}
+              >
+                <p className={["text-[13px]", mutedClass(isDark)].join(" ")}>
+                  No channels match your search.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setQuery("")}
+                  className={[
+                    "rounded-full border px-4 py-1.5 text-[12px] font-semibold transition",
+                    focusRingClass(isDark),
+                    isDark
+                      ? "border-white/10 text-white hover:bg-white/[0.07]"
+                      : "border-black/10 text-neutral-900 hover:bg-neutral-100",
+                  ].join(" ")}
+                >
+                  Clear search
+                </button>
+              </div>
             ) : (
               <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {connectedChannels.map((channel) => (
+                {visibleChannels.map((channel) => (
                   <ChannelCard
                     key={channel.key}
                     channel={channel}
@@ -1334,6 +1393,28 @@ export default function Channels() {
       {toast && (
         <Toast key={toast.id} toast={toast} isDark={isDark} onClose={dismissToast} />
       )}
+
+      <Folder
+        isOpen={isFolderOpen}
+        onClose={() => setIsFolderOpen(false)}
+        isDark={isDark}
+        offsetLeft={sidebarOffset}
+      />
+      <BottomBar
+        isDark={isDark}
+        offsetLeft={sidebarOffset}
+        active={isFolderOpen ? "files" : null}
+        onChange={handleBottomBarChange}
+        query={query}
+        onQueryChange={setQuery}
+      />
+      <NewPostModal
+        isOpen={isNewPostOpen}
+        onClose={() => setIsNewPostOpen(false)}
+        isDark={isDark}
+        onSubmit={handleCreatePost}
+        onRequestOpen={() => setIsNewPostOpen(true)}
+      />
 
       {/* HELP — même bouton que sur Home */}
       <HelpChatButton isDark={isDark} />
