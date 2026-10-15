@@ -59,12 +59,13 @@ import {
   ArrowUpRight,
   CalendarDays,
   ChevronRight,
-  Heart,
+  Flame,
   MessageCircle,
   Plus,
+  Star,
+  Target,
   TrendingDown,
   TrendingUp,
-  Users,
 } from "lucide-react";
 import {
   XIcon,
@@ -462,16 +463,20 @@ function Stat({
   label,
   value,
   change,
+  caption,
   hint,
 }: {
   isDark: boolean;
   icon: ReactNode;
   label: string;
   value: string;
-  change: string;
+  /* Tendance optionnelle, ex. "+5%" ou "-2%". */
+  change?: string;
+  /* Texte secondaire optionnel, ex. "No goals met yet". */
+  caption?: string;
   hint: string;
 }) {
-  const positive = change.startsWith("+");
+  const positive = change?.startsWith("+") ?? false;
 
   return (
     <div
@@ -515,28 +520,42 @@ function Stat({
           >
             {value}
           </span>
+
           {/* Pastille + flèche : la tendance ne repose plus uniquement sur la couleur. */}
-          <span
+          {change && (
+            <span
+              className={[
+                "flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[9px] font-semibold",
+                positive
+                  ? isDark
+                    ? "bg-emerald-500/10 text-emerald-400"
+                    : "bg-emerald-500/10 text-emerald-600"
+                  : isDark
+                    ? "bg-rose-500/10 text-rose-400"
+                    : "bg-rose-500/10 text-rose-600",
+              ].join(" ")}
+            >
+              {positive ? (
+                <TrendingUp className="h-2.5 w-2.5" aria-hidden="true" />
+              ) : (
+                <TrendingDown className="h-2.5 w-2.5" aria-hidden="true" />
+              )}
+              <span className="sr-only">{positive ? "Up " : "Down "}</span>
+              {change}
+            </span>
+          )}
+        </div>
+
+        {caption && (
+          <p
             className={[
-              "flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[9px] font-semibold",
-              positive
-                ? isDark
-                  ? "bg-emerald-500/10 text-emerald-400"
-                  : "bg-emerald-500/10 text-emerald-600"
-                : isDark
-                  ? "bg-rose-500/10 text-rose-400"
-                  : "bg-rose-500/10 text-rose-600",
+              "mt-0.5 truncate text-[10px] font-medium",
+              isDark ? "text-neutral-500" : "text-neutral-500",
             ].join(" ")}
           >
-            {positive ? (
-              <TrendingUp className="h-2.5 w-2.5" aria-hidden="true" />
-            ) : (
-              <TrendingDown className="h-2.5 w-2.5" aria-hidden="true" />
-            )}
-            <span className="sr-only">{positive ? "Up " : "Down "}</span>
-            {change}
-          </span>
-        </div>
+            {caption}
+          </p>
+        )}
       </div>
     </div>
   );
@@ -1380,7 +1399,7 @@ export default function Home() {
                     isDark ? "text-neutral-400" : "text-neutral-500",
                   ].join(" ")}
                 >
-                  Example metrics · not connected to live channels
+                  Your posting activity
                 </p>
               </div>
 
@@ -1393,27 +1412,27 @@ export default function Home() {
               >
                 <Stat
                   isDark={isDark}
-                  label="Followers"
-                  value="27K"
-                  change="-2%"
-                  hint="Total followers across all your connected channels, compared to the previous period."
-                  icon={<Users className="h-4 w-4" />}
+                  label="Week Streak"
+                  value="0"
+                  caption="Post this week to start one"
+                  hint="Number of consecutive weeks in which you published at least one post."
+                  icon={<Flame className="h-4 w-4" />}
                 />
                 <Stat
                   isDark={isDark}
-                  label="Likes"
-                  value="12.4K"
-                  change="+16%"
-                  hint="Total likes received on your posts across all channels, compared to the previous period."
-                  icon={<Heart className="h-4 w-4" />}
+                  label="Posting Goals"
+                  value="0"
+                  caption="No goals met yet"
+                  hint="Posting goals you have reached, such as your weekly publishing target."
+                  icon={<Target className="h-4 w-4" />}
                 />
                 <Stat
                   isDark={isDark}
-                  label="Comments"
-                  value="342"
-                  change="+5%"
-                  hint="Total comments received on your posts across all channels, compared to the previous period."
-                  icon={<MessageCircle className="h-4 w-4" />}
+                  label="Comment Score"
+                  value="0"
+                  caption="No comments scored yet"
+                  hint="A score based on how many comments you receive and how quickly you reply to them."
+                  icon={<Star className="h-4 w-4" />}
                 />
               </div>
             </section>
