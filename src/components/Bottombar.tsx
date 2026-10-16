@@ -366,11 +366,6 @@ export default function BottomBar({
                     icon={PostIcon}
                     title="Post"
                     description="Publish content to a channel"
-                    chipTone={
-                      isDark
-                        ? "bg-sky-400/15 text-sky-300"
-                        : "bg-sky-100 text-sky-700"
-                    }
                     isDark={isDark}
                     delay={30}
                     onClick={handleCreatePost}
@@ -382,11 +377,6 @@ export default function BottomBar({
                     icon={IdeaIcon}
                     title="Idea"
                     description="Capture a content idea"
-                    chipTone={
-                      isDark
-                        ? "bg-green-400/15 text-green-300"
-                        : "bg-green-100 text-green-700"
-                    }
                     isDark={isDark}
                     delay={70}
                     onClick={handleCreateIdea}
@@ -578,7 +568,6 @@ type MenuItemProps = {
   icon: ReactNode;
   title: string;
   description: string;
-  chipTone: string;
   isDark: boolean;
   delay: number;
   onClick: () => void;
@@ -588,7 +577,6 @@ function MenuItem({
   icon,
   title,
   description,
-  chipTone,
   isDark,
   delay,
   onClick,
@@ -612,7 +600,7 @@ function MenuItem({
         className={[
           "flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px]",
           "transition-transform duration-200 group-hover:scale-105",
-          chipTone,
+          isDark ? "bg-white/10 text-white" : "bg-black/[0.05] text-black",
         ].join(" ")}
       >
         {icon}
