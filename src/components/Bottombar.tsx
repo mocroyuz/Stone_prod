@@ -42,12 +42,9 @@ type BottomBarProps = {
 
   /**
    * Soumission de la modale « New idea » (gérée par le BottomBar).
-   * Si fourni, l'entrée « Idea » du menu ouvre la modale.
+   * Si fourni, l'entrée « Idea » du menu ouvre la modale (aucune navigation).
    */
   onSubmitIdea?: (values: NewIdeaValues) => void | Promise<void>;
-
-  /** Optionnel : notifié quand l'utilisateur choisit « Idea » (ouverture). */
-  onCreateIdea?: () => void;
 
   /** Choix « Post » dans le menu du « + ». */
   onCreatePost?: () => void;
@@ -87,7 +84,6 @@ const PlusIcon = (
   </svg>
 );
 
-/* Icônes du menu : 32 → 22 */
 const IdeaIcon = (
   <svg {...svgProps} width={22} height={22}>
     <path d="M9 18h6M10 21h4" />
@@ -174,7 +170,6 @@ export default function BottomBar({
   offsetLeft = 0,
   onSelectFiles,
   onSubmitIdea,
-  onCreateIdea,
   onCreatePost,
   onChange,
 }: BottomBarProps) {
@@ -188,7 +183,7 @@ export default function BottomBar({
   const menuRef = useRef<HTMLDivElement>(null);
 
   /** Le menu n'existe que si au moins un handler est branché. */
-  const hasIdea = Boolean(onSubmitIdea || onCreateIdea);
+  const hasIdea = Boolean(onSubmitIdea);
   const hasMenu = hasIdea || Boolean(onCreatePost);
 
   /* ── Effets : focus & clavier ──────────────────────────── */
@@ -255,12 +250,11 @@ export default function BottomBar({
     setIsAddMenuOpen((open) => !open);
   }, [hasMenu, onChange]);
 
-  /** Choix « Idea » → ferme le menu, ouvre la modale, prévient le parent. */
+  /** Choix « Idea » → ferme le menu et ouvre la modale. Aucune navigation. */
   const handleCreateIdea = useCallback(() => {
     setIsAddMenuOpen(false);
     setIsIdeaOpen(true);
-    onCreateIdea?.();
-  }, [onCreateIdea]);
+  }, []);
 
   const closeIdea = useCallback(() => setIsIdeaOpen(false), []);
 
@@ -367,7 +361,7 @@ export default function BottomBar({
         }}
       >
         <div className="relative">
-          {/* Menu « + » : plus compact (≈ 280px au lieu de 526px) */}
+          {/* Menu « + » */}
           {isAddMenuOpen && (
             <div className="pointer-events-none absolute bottom-full left-1/2 mb-2.5 flex w-0 justify-center">
               <div
