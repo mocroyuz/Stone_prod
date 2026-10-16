@@ -24,9 +24,6 @@ type BottomBarProps = {
   /** Libellé accessible du bouton de création et de son menu. */
   addLabel?: string;
 
-  /** Texte visible du bouton de création (affiché dès la largeur `sm`). */
-  addText?: string;
-
   /** Recherche : valeur contrôlée + setter. */
   query: string;
   onQueryChange: (value: string) => void;
@@ -115,9 +112,13 @@ const ANIMATION_KEYFRAMES = `
   55%  { transform: scale(1.1) rotate(4deg);  opacity: 1; }
   100% { transform: scale(1) rotate(0deg);    opacity: 1; }
 }
+@keyframes searchContentIn {
+  0%   { opacity: 0; transform: translateX(-8px); }
+  100% { opacity: 1; transform: translateX(0); }
+}
 @keyframes searchGlow {
   0%   { box-shadow: 0 0 0 0 rgba(128,128,128,0); }
-  45%  { box-shadow: 0 0 0 4px rgba(128,128,128,.14); }
+  45%  { box-shadow: 0 0 0 3px rgba(128,128,128,.12); }
   100% { box-shadow: 0 0 0 0 rgba(128,128,128,0); }
 }
 @keyframes addMenuIn {
@@ -148,7 +149,6 @@ export default function BottomBar({
   isDark = false,
   active = null,
   addLabel = "Nouvelle publication",
-  addText = "Créer",
   query,
   onQueryChange,
   offsetLeft = 0,
@@ -158,9 +158,9 @@ export default function BottomBar({
   onChange,
 }: BottomBarProps) {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isClosing, setIsClosing] = useState(false);
   const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
   const [isIdeaOpen, setIsIdeaOpen] = useState(false);
-  const [shortcutHint, setShortcutHint] = useState("Ctrl K");
 
   const inputRef = useRef<HTMLInputElement>(null);
   const addButtonRef = useRef<HTMLButtonElement>(null);
@@ -170,20 +170,26 @@ export default function BottomBar({
   const hasIdea = true;
   const hasMenu = hasIdea || Boolean(onCreatePost);
 
-  /** La recherche reste dépliée tant qu'un filtre est actif. */
-  const isExpanded = isSearchOpen || query.trim() !== "";
+  /** Recherche visuellement dépliée (animation d'origine). */
+  const isExpanded = isSearchOpen && !isClosing;
 
   /* ── Handlers internes ─────────────────────────────────── */
 
   const openSearch = useCallback(() => {
     setIsAddMenuOpen(false);
+    setIsClosing(false);
     setIsSearchOpen(true);
     // Focus synchrone : indispensable pour ouvrir le clavier sur iOS.
     inputRef.current?.focus({ preventScroll: true });
-    inputRef.current?.select();
   }, []);
 
-  const closeSearch = useCallback(() => setIsSearchOpen(false), []);
+  const closeSearch = useCallback(() => {
+    setIsClosing(true);
+    window.setTimeout(() => {
+      setIsSearchOpen(false);
+      setIsClosing(false);
+    }, 220);
+  }, []);
 
   const closeMenu = useCallback((restoreFocus = false) => {
     setIsAddMenuOpen(false);
@@ -265,11 +271,6 @@ export default function BottomBar({
 
   /* ── Effets ────────────────────────────────────────────── */
 
-  // Indice de raccourci adapté à la plateforme.
-  useEffect(() => {
-    if (/Mac|iPhone|iPad/.test(navigator.userAgent)) setShortcutHint("⌘K");
-  }, []);
-
   // Raccourci global : ⌘K / Ctrl+K ouvre la recherche.
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -338,10 +339,6 @@ export default function BottomBar({
   const searchTone = isDark
     ? "border-white/10 bg-[#141416] text-neutral-300 focus-within:border-white/35"
     : "border-black/10 bg-white text-black/70 focus-within:border-black/35";
-
-  const kbdTone = isDark
-    ? "border-white/10 text-neutral-500"
-    : "border-black/10 text-neutral-400";
 
   /* ── Rendu ─────────────────────────────────────────────── */
 
@@ -451,39 +448,43 @@ export default function BottomBar({
             <li>
               <div
                 className={[
-                  "bb-motion relative flex h-12 items-center overflow-hidden rounded-full border",
-                  "transition-[width,background-color,border-color,box-shadow] duration-[420ms]",
-                  EASE,
+                  "relative flex h-12 items-center overflow-hidden rounded-full border",
+                  "transition-[width,background-color,border-color,box-shadow]",
+                  "duration-[420ms] ease-[cubic-bezier(0.22,1,0.36,1)]",
                   searchTone,
-                  isExpanded
-                    ? "w-[min(calc(100vw-176px),260px)] sm:w-[320px]"
-                    : "w-12",
-                  isExpanded && "bb-anim animate-[searchGlow_500ms_ease-out]",
+                  isSearchOpen ? "w-[200px] sm:w-[290px]" : "w-12",
+                  isSearchOpen &&
+                    !isClosing &&
+                    "bb-anim animate-[searchGlow_500ms_ease-out]",
+                  isClosing && "w-12",
                 ].join(" ")}
               >
                 <button
                   type="button"
                   aria-label="Rechercher"
-                  aria-expanded={isExpanded}
-                  title={`Rechercher (${shortcutHint})`}
+                  aria-expanded={isSearchOpen}
+                  title="Rechercher"
                   onMouseDown={(event) => {
-                    if (isExpanded) event.preventDefault();
+                    if (isSearchOpen) event.preventDefault();
                   }}
                   onClick={() => {
-                    if (isExpanded) inputRef.current?.focus();
-                    else openSearch();
+                    if (isSearchOpen) {
+                      inputRef.current?.focus();
+                    } else {
+                      openSearch();
+                    }
                   }}
                   className={[
                     "relative z-10 flex h-12 w-12 shrink-0",
                     "items-center justify-center rounded-full",
                     focusRing,
-                    !isExpanded && "transition duration-150 active:scale-90",
+                    !isSearchOpen && "transition duration-150 active:scale-90",
                   ].join(" ")}
                 >
                   <span
                     className={[
                       "flex items-center justify-center",
-                      isSearchOpen
+                      isExpanded
                         ? "bb-anim animate-[searchIconOpen_420ms_cubic-bezier(0.22,1,0.36,1)]"
                         : "",
                     ].join(" ")}
@@ -494,12 +495,11 @@ export default function BottomBar({
 
                 <div
                   className={[
-                    "bb-motion flex min-w-0 flex-1 items-center",
-                    "transition-[opacity,transform] duration-300",
-                    EASE,
+                    "flex min-w-0 flex-1 items-center",
+                    "transition-opacity duration-200",
                     isExpanded
-                      ? "translate-x-0 opacity-100"
-                      : "pointer-events-none -translate-x-2 opacity-0",
+                      ? "opacity-100"
+                      : "pointer-events-none opacity-0",
                   ].join(" ")}
                 >
                   <input
@@ -515,28 +515,28 @@ export default function BottomBar({
                     }}
                     onKeyDown={(event) => {
                       if (event.key === "Escape") {
-                        event.preventDefault();
                         onQueryChange("");
                         closeSearch();
                         inputRef.current?.blur();
                       } else if (event.key === "Enter") {
-                        // Ferme le clavier mobile, garde le filtre actif.
                         inputRef.current?.blur();
                       }
                     }}
                     placeholder="Rechercher"
                     aria-label="Rechercher"
-                    aria-hidden={!isExpanded}
-                    tabIndex={isExpanded ? 0 : -1}
+                    aria-hidden={!isSearchOpen}
+                    tabIndex={isSearchOpen ? 0 : -1}
                     className={[
-                      "w-full min-w-0 bg-transparent pr-2 text-[14px] outline-none",
+                      "bb-anim w-full min-w-0 bg-transparent",
+                      "pr-2 text-[14px] outline-none",
                       "[&::-webkit-search-cancel-button]:hidden",
                       "placeholder:text-inherit placeholder:opacity-50",
+                      "animate-[searchContentIn_300ms_150ms_both]",
                       isDark ? "text-white" : "text-neutral-800",
                     ].join(" ")}
                   />
 
-                  {query !== "" ? (
+                  {query !== "" && isSearchOpen && (
                     <button
                       type="button"
                       aria-label="Effacer la recherche"
@@ -547,9 +547,8 @@ export default function BottomBar({
                         inputRef.current?.focus();
                       }}
                       className={[
-                        "mr-3 flex h-6 w-6 shrink-0 items-center justify-center rounded-full",
+                        "mr-2 flex h-6 w-6 shrink-0 items-center justify-center rounded-full",
                         "transition active:scale-90",
-                        focusRing,
                         isDark
                           ? "bg-white/10 hover:bg-white/20"
                           : "bg-black/5 hover:bg-black/10",
@@ -557,23 +556,12 @@ export default function BottomBar({
                     >
                       {ClearIcon}
                     </button>
-                  ) : (
-                    <kbd
-                      aria-hidden
-                      className={[
-                        "mr-3 hidden shrink-0 rounded-md border px-1.5 py-0.5 sm:block",
-                        "font-sans text-[11px] leading-none",
-                        kbdTone,
-                      ].join(" ")}
-                    >
-                      {shortcutHint}
-                    </kbd>
                   )}
                 </div>
               </div>
             </li>
 
-            {/* Créer */}
+            {/* « + » */}
             <li>
               <button
                 ref={addButtonRef}
@@ -585,9 +573,8 @@ export default function BottomBar({
                 aria-controls={hasMenu ? "bottombar-add-menu" : undefined}
                 onClick={handleAddClick}
                 className={[
-                  "bb-motion flex h-12 w-12 items-center justify-center gap-2 rounded-full",
-                  "text-[14px] font-semibold sm:w-auto sm:pl-4 sm:pr-5",
-                  "transition duration-150 active:scale-95",
+                  "bb-motion flex h-12 w-12 items-center justify-center rounded-full",
+                  "transition duration-150 active:scale-90",
                   focusRing,
                   addTone,
                 ].join(" ")}
@@ -602,7 +589,6 @@ export default function BottomBar({
                 >
                   {PlusIcon}
                 </span>
-                <span className="hidden sm:inline">{addText}</span>
               </button>
             </li>
           </ul>
