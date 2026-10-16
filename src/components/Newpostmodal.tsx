@@ -4,7 +4,7 @@ import { EmojiPicker as FrimousseEmojiPicker } from "frimousse";
 import {
   Maximize2, Minimize2, X, Tag, FileText,
   Eye, Smile, Hash, Image as ImageIcon, ImagePlus, Pencil, ChevronDown,
-  CalendarClock, Check, Sparkles, ArrowLeft, Wand2, Plus
+  CalendarClock, Check, Sparkles, ArrowLeft, Wand2, Plus, Zap
 } from "lucide-react";
 import {
   XIcon, FacebookIcon, InstagramIcon, LinkedInIcon,
@@ -50,6 +50,23 @@ type MediaItem = {
 
 export type ScheduleAction = "save_in_folder" | "now" | "set_date";
 
+/* ── YouTube ── */
+
+export type YouTubeVisibility = "public" | "unlisted" | "private";
+export type YouTubeLicense = "youtube" | "creativeCommon";
+export type YouTubeSettingsMode = "automatic" | "custom";
+
+export type YouTubeOptions = {
+  title: string;
+  /** ID de catégorie YouTube (ex. "2" = Autos & Vehicles). */
+  categoryId: string;
+  visibility: YouTubeVisibility;
+  license: YouTubeLicense;
+  notifySubscribers: boolean;
+  allowEmbedding: boolean;
+  madeForKids: boolean;
+};
+
 export type NewPostPayload = {
   title: string;
   content: string;
@@ -58,6 +75,8 @@ export type NewPostPayload = {
   scheduleMode: "now" | "save_in_folder" | "later";
   scheduledAt: string | null;
   media: File[];
+  /** Présent uniquement si YouTube fait partie des réseaux envoyés au parent. */
+  youtube?: YouTubeOptions;
 };
 
 export function unavailablePostActionMessage(payload: NewPostPayload): string {
@@ -177,6 +196,67 @@ const TIKTOK_DEFAULT_COMMERCIAL: TikTokCommercial = {
   branded: false,
 };
 
+/* ── YouTube : valeurs proposées ── */
+
+const YOUTUBE_TITLE_MAX = 100;
+
+// Catégories officielles de l'API YouTube (videoCategories).
+const YOUTUBE_CATEGORIES: { id: string; label: string }[] = [
+  { id: "2", label: "Autos & Vehicles" },
+  { id: "1", label: "Film & Animation" },
+  { id: "10", label: "Music" },
+  { id: "15", label: "Pets & Animals" },
+  { id: "17", label: "Sports" },
+  { id: "19", label: "Travel & Events" },
+  { id: "20", label: "Gaming" },
+  { id: "22", label: "People & Blogs" },
+  { id: "23", label: "Comedy" },
+  { id: "24", label: "Entertainment" },
+  { id: "25", label: "News & Politics" },
+  { id: "26", label: "Howto & Style" },
+  { id: "27", label: "Education" },
+  { id: "28", label: "Science & Technology" },
+  { id: "29", label: "Nonprofits & Activism" },
+];
+
+const YOUTUBE_VISIBILITY: { id: YouTubeVisibility; label: string }[] = [
+  { id: "public", label: "Public" },
+  { id: "unlisted", label: "Unlisted" },
+  { id: "private", label: "Private" },
+];
+
+const YOUTUBE_LICENSES: { id: YouTubeLicense; label: string }[] = [
+  { id: "youtube", label: "Standard YouTube License" },
+  { id: "creativeCommon", label: "Creative Commons - Attribution" },
+];
+
+const YOUTUBE_SETTINGS_MODES: {
+  id: YouTubeSettingsMode;
+  label: string;
+  description: string;
+}[] = [
+  {
+    id: "automatic",
+    label: "Automatic",
+    description: "Empty title falls back to your post title or first line.",
+  },
+  {
+    id: "custom",
+    label: "Custom",
+    description: "You write the YouTube title yourself.",
+  },
+];
+
+const YOUTUBE_DEFAULT_OPTIONS: YouTubeOptions = {
+  title: "",
+  categoryId: YOUTUBE_CATEGORIES[0].id,
+  visibility: "public",
+  license: "youtube",
+  notifySubscribers: true,
+  allowEmbedding: true,
+  madeForKids: false,
+};
+
 /* ──────────────────────────────────────────────────────────────
    Brouillon
    ────────────────────────────────────────────────────────────── */
@@ -189,6 +269,8 @@ type DraftData = {
   scheduleAction: ScheduleAction;
   scheduledAt: number;
   files: File[];
+  youtubeOptions?: YouTubeOptions;
+  youtubeMode?: YouTubeSettingsMode;
 };
 
 // Survit à la fermeture (et même au démontage) du composant.
@@ -399,6 +481,101 @@ function ChannelTile({
 }
 
 /* ──────────────────────────────────────────────────────────────
+   Menu déroulant (select natif stylé) utilisé par le panneau YouTube
+   ────────────────────────────────────────────────────────────── */
+
+function YouTubeSelect<T extends string>({
+  value,
+  options,
+  onChange,
+  isDark,
+  ariaLabel,
+  className = "",
+}: {
+  value: T;
+  options: { id: T; label: string }[];
+  onChange: (value: T) => void;
+  isDark: boolean;
+  ariaLabel: string;
+  className?: string;
+}) {
+  return (
+    <div className={["relative", className].join(" ")}>
+      <select
+        aria-label={ariaLabel}
+        value={value}
+        onChange={(e) => onChange(e.target.value as T)}
+        className={[
+          "w-full cursor-pointer appearance-none rounded-xl border py-2.5 pl-4 pr-10 text-[14px] font-medium outline-none transition",
+          isDark
+            ? "border-white/10 bg-[#343537] text-white hover:bg-[#3a3b3d] focus:border-white/25"
+            : "border-black/10 bg-white text-neutral-900 hover:bg-neutral-50 focus:border-black/30",
+        ].join(" ")}
+      >
+        {options.map((o) => (
+          <option key={o.id} value={o.id}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+      <ChevronDown
+        className={[
+          "pointer-events-none absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2",
+          isDark ? "text-neutral-300" : "text-neutral-500",
+        ].join(" ")}
+      />
+    </div>
+  );
+}
+
+/* ──────────────────────────────────────────────────────────────
+   Case à cocher du panneau YouTube
+   ────────────────────────────────────────────────────────────── */
+
+function YouTubeCheckbox({
+  checked,
+  onChange,
+  label,
+  isDark,
+}: {
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  label: string;
+  isDark: boolean;
+}) {
+  return (
+    <label
+      className={[
+        "flex cursor-pointer select-none items-center gap-2.5 text-[14px] font-medium",
+        isDark ? "text-white" : "text-neutral-900",
+      ].join(" ")}
+    >
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        className="peer sr-only"
+      />
+      <span
+        aria-hidden="true"
+        className={[
+          "flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-md border transition",
+          "peer-focus-visible:ring-2 peer-focus-visible:ring-[#a8d5a2]/60",
+          checked
+            ? "border-[#a8d5a2] bg-[#a8d5a2] text-[#1f2d1f]"
+            : isDark
+            ? "border-white/30 bg-transparent"
+            : "border-black/30 bg-transparent",
+        ].join(" ")}
+      >
+        {checked && <Check className="h-3.5 w-3.5" strokeWidth={3.5} />}
+      </span>
+      {label}
+    </label>
+  );
+}
+
+/* ──────────────────────────────────────────────────────────────
    Sélecteur d'emoji (frimousse) — noir et blanc
    - Thème clair : emoji en noir sur fond blanc
    - Thème sombre : emoji en blanc sur fond noir
@@ -554,6 +731,14 @@ export default function NewPostModal({
   // relance l'effet qui présélectionne le canal.
   const [requestTick, setRequestTick] = useState(0);
 
+  // ── YouTube ──
+  const [youtubeOptions, setYoutubeOptions] = useState<YouTubeOptions>(
+    YOUTUBE_DEFAULT_OPTIONS
+  );
+  const [youtubeMode, setYoutubeMode] = useState<YouTubeSettingsMode>("automatic");
+  const [showYoutubeModeMenu, setShowYoutubeModeMenu] = useState(false);
+  const youtubeModeRef = useRef<HTMLDivElement>(null);
+
   // ── TikTok ──
   const [tiktokInfo, setTiktokInfo] = useState<TikTokCreatorInfo | null>(null);
   const [tiktokInfoError, setTiktokInfoError] = useState<string | null>(null);
@@ -568,6 +753,7 @@ export default function NewPostModal({
   );
 
   const tiktokSelected = networks.includes("tiktok");
+  const youtubeSelected = networks.includes("youtube");
 
   // Visibilités proposées : celles de TikTok si disponibles ;
   // en cas d'échec du chargement, on propose « Only me » (jamais présélectionné).
@@ -673,6 +859,8 @@ export default function NewPostModal({
       if (event.key === "Escape") {
         if (showEmojiPicker) {
           setShowEmojiPicker(false);
+        } else if (showYoutubeModeMenu) {
+          setShowYoutubeModeMenu(false);
         } else if (showActionMenu || showDateTimePanel) {
           setShowActionMenu(false);
           setShowDateTimePanel(false);
@@ -688,7 +876,7 @@ export default function NewPostModal({
       document.removeEventListener("keydown", handleKeyDown);
       document.body.style.overflow = previousOverflow;
     };
-  }, [isOpen, showActionMenu, showDateTimePanel, showEmojiPicker]);
+  }, [isOpen, showActionMenu, showDateTimePanel, showEmojiPicker, showYoutubeModeMenu]);
 
   useEffect(() => {
     return () => {
@@ -741,6 +929,20 @@ export default function NewPostModal({
       document.removeEventListener("mousedown", onPointerDown);
     };
   }, [showEmojiPicker]);
+
+  // Ferme le menu « Automatic / Custom » du panneau YouTube au clic extérieur.
+  useEffect(() => {
+    if (!showYoutubeModeMenu) return;
+    const onPointerDown = (e: MouseEvent) => {
+      if (!youtubeModeRef.current?.contains(e.target as Node)) {
+        setShowYoutubeModeMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+    };
+  }, [showYoutubeModeMenu]);
 
   // Charge les infos créateur TikTok (pseudo, visibilités autorisées, durée max...)
   // à chaque fois que TikTok est (re)sélectionné : TikTok exige les infos les
@@ -803,6 +1005,9 @@ export default function NewPostModal({
     setTiktokOptions(TIKTOK_DEFAULT_OPTIONS);
     setTiktokAllow(TIKTOK_DEFAULT_ALLOW);
     setTiktokCommercial(TIKTOK_DEFAULT_COMMERCIAL);
+    setYoutubeOptions(YOUTUBE_DEFAULT_OPTIONS);
+    setYoutubeMode("automatic");
+    setShowYoutubeModeMenu(false);
     caretRef.current = null;
     preselectRef.current = null;
   };
@@ -827,6 +1032,8 @@ export default function NewPostModal({
         scheduleAction,
         scheduledAt: scheduledAt.getTime(),
         files: media.map((m) => m.file),
+        youtubeOptions,
+        youtubeMode,
       };
     }
     clearForm();
@@ -845,6 +1052,8 @@ export default function NewPostModal({
     );
     setScheduleAction(pendingDraft.scheduleAction);
     setScheduledAt(new Date(pendingDraft.scheduledAt));
+    setYoutubeOptions(pendingDraft.youtubeOptions ?? YOUTUBE_DEFAULT_OPTIONS);
+    setYoutubeMode(pendingDraft.youtubeMode ?? "automatic");
     setMedia(
       pendingDraft.files.map((file) => ({
         id: makeId(),
@@ -1007,6 +1216,33 @@ export default function NewPostModal({
     ? "You need to indicate if your content promotes yourself, a third party, or both."
     : null;
 
+  // ── Règles YouTube ──
+  // YouTube n'accepte que des vidéos. En mode « Automatic », un titre vide
+  // retombe sur le titre du post, puis sur la première ligne du texte.
+  const youtubeVideo = media.find((m) => m.kind === "video") ?? null;
+
+  const youtubeEffectiveTitle = (
+    youtubeOptions.title.trim() ||
+    (youtubeMode === "automatic"
+      ? title.trim() || content.trim().split("\n")[0] || ""
+      : "")
+  ).slice(0, YOUTUBE_TITLE_MAX);
+
+  const youtubeBlockingReason: string | null = !youtubeSelected
+    ? null
+    : scheduleAction === "save_in_folder"
+    ? null
+    : !youtubeVideo
+    ? "YouTube requires a video. Add one, or deselect YouTube."
+    : !youtubeEffectiveTitle
+    ? "Enter a title for your YouTube video."
+    : null;
+
+  const updateYoutube = <K extends keyof YouTubeOptions>(
+    key: K,
+    value: YouTubeOptions[K]
+  ) => setYoutubeOptions((o) => ({ ...o, [key]: value }));
+
   // Raison affichée à côté du bouton pour les autres conditions bloquantes.
   const otherBlockingReason: string | null =
     networks.length === 0
@@ -1022,9 +1258,12 @@ export default function NewPostModal({
     (content.trim().length > 0 || media.length > 0) &&
     (scheduleAction !== "set_date" || scheduledAt.getTime() > Date.now()) &&
     !tiktokBlockingReason &&
+    !youtubeBlockingReason &&
     !isSubmitting;
 
-  const footerHint = isSubmitting ? null : tiktokBlockingReason ?? otherBlockingReason;
+  const footerHint = isSubmitting
+    ? null
+    : tiktokBlockingReason ?? youtubeBlockingReason ?? otherBlockingReason;
 
   // Libellé légal obligatoire (« Promotional content » / « Paid partnership »).
   const tiktokLabelNotice =
@@ -1058,6 +1297,9 @@ export default function NewPostModal({
       scheduledAt:
         scheduleAction === "set_date" ? scheduledAt.toISOString() : null,
       media: media.map((item) => item.file),
+      ...(remainingNetworks.includes("youtube")
+        ? { youtube: { ...youtubeOptions, title: youtubeEffectiveTitle } }
+        : {}),
     };
 
     try {
@@ -1250,6 +1492,10 @@ export default function NewPostModal({
   ];
 
   const linkClass = "underline underline-offset-2 hover:opacity-80";
+
+  const currentYoutubeMode =
+    YOUTUBE_SETTINGS_MODES.find((m) => m.id === youtubeMode) ??
+    YOUTUBE_SETTINGS_MODES[0];
 
   return (
     <div
@@ -1468,6 +1714,186 @@ export default function NewPostModal({
                 }}
               />
             </div>
+
+            {/* ── Options YouTube ── */}
+            {youtubeSelected && (
+              <div
+                className={[
+                  "mt-3 rounded-xl border p-4",
+                  border,
+                  isDark ? "bg-[#2b2c2d]" : "bg-neutral-50",
+                ].join(" ")}
+              >
+                {/* Mode des réglages (Automatic / Custom) */}
+                <div className="mb-3 flex justify-end">
+                  <div ref={youtubeModeRef} className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setShowYoutubeModeMenu((v) => !v)}
+                      aria-haspopup="menu"
+                      aria-expanded={showYoutubeModeMenu}
+                      className={[
+                        "flex items-center gap-2 rounded-lg px-2 py-1 text-[14px] font-semibold transition",
+                        textPrimary,
+                        isDark ? "hover:bg-white/5" : "hover:bg-black/5",
+                      ].join(" ")}
+                    >
+                      <Zap className={["h-4 w-4", textSecondary].join(" ")} />
+                      {currentYoutubeMode.label}
+                      <ChevronDown
+                        className={[
+                          "h-4 w-4 transition",
+                          showYoutubeModeMenu ? "rotate-180" : "",
+                          textSecondary,
+                        ].join(" ")}
+                      />
+                    </button>
+
+                    {showYoutubeModeMenu && (
+                      <div
+                        role="menu"
+                        className={[
+                          "absolute right-0 top-full z-40 mt-1 w-[280px] overflow-hidden rounded-xl border p-1.5 shadow-2xl",
+                          isDark ? "border-white/10 bg-[#1c1c1e]" : "border-black/10 bg-white",
+                        ].join(" ")}
+                      >
+                        {YOUTUBE_SETTINGS_MODES.map((m) => {
+                          const isSelected = m.id === youtubeMode;
+                          return (
+                            <button
+                              key={m.id}
+                              type="button"
+                              role="menuitem"
+                              onClick={() => {
+                                setYoutubeMode(m.id);
+                                setShowYoutubeModeMenu(false);
+                              }}
+                              className={[
+                                "flex w-full items-start gap-2 rounded-lg px-3 py-2 text-left transition",
+                                isSelected
+                                  ? `${accentBg} ${accentText}`
+                                  : isDark
+                                  ? "text-neutral-200 hover:bg-white/5"
+                                  : "text-neutral-700 hover:bg-black/[0.04]",
+                              ].join(" ")}
+                            >
+                              <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center">
+                                {isSelected && <Check className="h-4 w-4" strokeWidth={3} />}
+                              </span>
+                              <span className="min-w-0 flex-1">
+                                <span className="block text-[13px] font-bold">{m.label}</span>
+                                <span className={["mt-0.5 block text-[12px] leading-snug", textSecondary].join(" ")}>
+                                  {m.description}
+                                </span>
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-3.5">
+                  {/* Title */}
+                  <div className="grid grid-cols-[110px_1fr] items-center gap-3 max-sm:grid-cols-1 max-sm:gap-1.5">
+                    <label
+                      htmlFor="youtube-title"
+                      className={["text-[14px] font-semibold", textPrimary].join(" ")}
+                    >
+                      Title
+                    </label>
+                    <input
+                      id="youtube-title"
+                      type="text"
+                      value={youtubeOptions.title}
+                      maxLength={YOUTUBE_TITLE_MAX}
+                      onChange={(e) => updateYoutube("title", e.target.value)}
+                      placeholder="Enter a title for your video"
+                      className={[
+                        "w-full rounded-xl border px-4 py-2.5 text-[15px] outline-none transition",
+                        isDark
+                          ? "border-white/10 bg-[#343537] text-white placeholder:text-neutral-500 focus:border-white/25"
+                          : "border-black/10 bg-white text-neutral-900 placeholder:text-neutral-400 focus:border-black/30",
+                      ].join(" ")}
+                    />
+                  </div>
+
+                  {/* Category + Visibility */}
+                  <div className="grid grid-cols-[110px_1fr] items-center gap-3 max-sm:grid-cols-1 max-sm:gap-1.5">
+                    <span className={["text-[14px] font-semibold", textPrimary].join(" ")}>
+                      Category
+                    </span>
+                    <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+                      <YouTubeSelect
+                        ariaLabel="YouTube category"
+                        value={youtubeOptions.categoryId}
+                        options={YOUTUBE_CATEGORIES}
+                        onChange={(v) => updateYoutube("categoryId", v)}
+                        isDark={isDark}
+                        className="min-w-[200px] flex-1"
+                      />
+                      <div className="flex min-w-[220px] flex-1 items-center gap-4">
+                        <span className={["text-[14px] font-semibold", textPrimary].join(" ")}>
+                          Visibility
+                        </span>
+                        <YouTubeSelect
+                          ariaLabel="YouTube visibility"
+                          value={youtubeOptions.visibility}
+                          options={YOUTUBE_VISIBILITY}
+                          onChange={(v) => updateYoutube("visibility", v)}
+                          isDark={isDark}
+                          className="flex-1"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* License */}
+                  <div className="grid grid-cols-[110px_1fr] items-center gap-3 max-sm:grid-cols-1 max-sm:gap-1.5">
+                    <span className={["text-[14px] font-semibold", textPrimary].join(" ")}>
+                      License
+                    </span>
+                    <YouTubeSelect
+                      ariaLabel="YouTube license"
+                      value={youtubeOptions.license}
+                      options={YOUTUBE_LICENSES}
+                      onChange={(v) => updateYoutube("license", v)}
+                      isDark={isDark}
+                    />
+                  </div>
+
+                  {/* Cases à cocher */}
+                  <div className="grid grid-cols-[110px_1fr] gap-3 max-sm:grid-cols-1">
+                    <span aria-hidden="true" className="max-sm:hidden" />
+                    <div className="flex flex-wrap items-center gap-x-8 gap-y-2.5">
+                      <YouTubeCheckbox
+                        label="Notify Subscribers"
+                        checked={youtubeOptions.notifySubscribers}
+                        onChange={(v) => updateYoutube("notifySubscribers", v)}
+                        isDark={isDark}
+                      />
+                      <YouTubeCheckbox
+                        label="Allow Embedding"
+                        checked={youtubeOptions.allowEmbedding}
+                        onChange={(v) => updateYoutube("allowEmbedding", v)}
+                        isDark={isDark}
+                      />
+                      <YouTubeCheckbox
+                        label="Made for Kids"
+                        checked={youtubeOptions.madeForKids}
+                        onChange={(v) => updateYoutube("madeForKids", v)}
+                        isDark={isDark}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {youtubeBlockingReason && (
+                  <p className="mt-3 text-[12px] text-amber-500">{youtubeBlockingReason}</p>
+                )}
+              </div>
+            )}
 
             {/* ── Options TikTok ── */}
             {tiktokSelected && scheduleAction !== "save_in_folder" && (
