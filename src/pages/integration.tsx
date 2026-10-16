@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTheme } from "../hooks/useTheme";
+import { navigate } from "../hooks/useHashRoute";
 import DashboardSidebar, {
   useSidebarOffset,
 } from "../components/DashboardSidebar";
@@ -619,6 +620,8 @@ export default function Integrations() {
         offsetLeft={sidebarOffset}
         active={isFolderOpen ? "files" : null}
         onChange={handleBottomBarChange}
+        onCreatePost={() => handleBottomBarChange("add")}
+        onCreateIdea={() => navigate("create")}
         query={bottomQuery}
         onQueryChange={setBottomQuery}
       />

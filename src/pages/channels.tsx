@@ -20,6 +20,7 @@ import {
 } from "../components/OnboardingModals";
 import HelpChatButton from "../components/Helpchatbutton";
 import { useTheme } from "../hooks/useTheme";
+import { navigate } from "../hooks/useHashRoute";
 import { useUser } from "../contexts/UserContext";
 
 import {
@@ -1405,6 +1406,8 @@ export default function Channels() {
         offsetLeft={sidebarOffset}
         active={isFolderOpen ? "files" : null}
         onChange={handleBottomBarChange}
+        onCreatePost={() => handleBottomBarChange("add")}
+        onCreateIdea={() => navigate("create")}
         query={query}
         onQueryChange={setQuery}
       />

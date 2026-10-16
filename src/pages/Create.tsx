@@ -5,12 +5,14 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { DragEvent, PointerEvent as RPointerEvent, ReactNode } from "react";
 import { useTheme } from "../hooks/useTheme";
+import { navigate } from "../hooks/useHashRoute";
 import DashboardSidebar, {
   useSidebarOffset,
 } from "../components/DashboardSidebar";
 import BottomBar, { type BottomBarTab } from "../components/Bottombar";
 import Folder from "../components/Folder";
 import HelpChatButton from "../components/Helpchatbutton";
+import { requestNewPost } from "../services/NewPostBus";
 
 /* ───────── Types ───────── */
 
@@ -1968,6 +1970,10 @@ export default function Create() {
         active={isFolderOpen ? "files" : null}
         addLabel="New Idea"
         onChange={handleBottomBarChange}
+        onCreateIdea={() => handleBottomBarChange("add")}
+        onCreatePost={() => {
+          if (!requestNewPost("")) navigate("schedule");
+        }}
         query={query}
         onQueryChange={setQuery}
       />
