@@ -2602,27 +2602,35 @@ export default function DashboardSidebar({
               : "w-[240px]",
         ].join(" ")}
       >
-        {/* Logo */}
-        <div
-          className={[
-            "flex h-14 shrink-0 items-center",
-            compact ? "justify-center" : "gap-2 px-4",
-            t.title,
-          ].join(" ")}
-        >
-          <img
-            src={isDark ? "/images/icon_nav.png" : "/images/icon.png"}
-            alt="Stone logo"
-            draggable={false}
-            className="h-8 w-7 shrink-0 select-none object-contain"
-          />
+       {/* Logo → Home */}
+<button
+  type="button"
+  aria-label="Stone, go to Home"
+  aria-current={currentRoute === "home" ? "page" : undefined}
+  aria-keyshortcuts={ariaShortcut("h")}
+  onClick={() => handleNavigate("home")}
+  className={[
+    "flex h-14 w-full shrink-0 items-center text-left",
+    compact ? "justify-center" : "gap-2 px-4",
+    "transition-transform duration-200 active:scale-[0.98] motion-reduce:transition-none motion-reduce:active:scale-100",
+    focus,
+    "focus-visible:ring-inset",
+    t.title,
+  ].join(" ")}
+>
+  <img
+    src={isDark ? "/images/icon_nav.png" : "/images/icon.png"}
+    alt=""
+    draggable={false}
+    className="h-8 w-7 shrink-0 select-none object-contain"
+  />
 
-          {!compact && (
-            <span className="sb-fade select-none text-[18px] font-semibold leading-none tracking-tight">
-              Stone
-            </span>
-          )}
-        </div>
+  {!compact && (
+    <span className="sb-fade select-none text-[18px] font-semibold leading-none tracking-tight">
+      Stone
+    </span>
+  )}
+</button>
 
         {/* Navigation */}
         <nav
