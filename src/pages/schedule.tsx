@@ -1,7 +1,7 @@
 // src/pages/Schedule.tsx
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTheme } from "../hooks/useTheme";
-import { useHashRoute } from "../hooks/useHashRoute";
+import { navigate, useHashRoute } from "../hooks/useHashRoute";
 import DashboardSidebar, {
   useSidebarOffset,
 } from "../components/DashboardSidebar";
@@ -1825,6 +1825,12 @@ export default function Schedule() {
         offsetLeft={sidebarOffset}
         active={isFolderOpen ? "files" : null}
         onChange={handleBottomBarChange}
+        onCreatePost={() => {
+          setIsFolderOpen(false);
+          setNewPostDate(null);
+          setIsNewPostOpen(true);
+        }}
+        onCreateIdea={() => navigate("create")}
         query={bottomQuery}
         onQueryChange={setBottomQuery}
       />

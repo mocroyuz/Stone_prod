@@ -87,22 +87,16 @@ const PlusIcon = (
 );
 
 const IdeaIcon = (
-  <svg {...svgProps} width={20} height={20}>
+  <svg {...svgProps} width={32} height={32}>
     <path d="M9 18h6M10 21h4" />
     <path d="M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3Z" />
   </svg>
 );
 
 const PostIcon = (
-  <svg {...svgProps} width={20} height={20}>
-    <path d="M12 20h9" />
-    <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
-  </svg>
-);
-
-const ChevronIcon = (
-  <svg {...svgProps} width={16} height={16} strokeWidth={2}>
-    <path d="m9 6 6 6-6 6" />
+  <svg {...svgProps} width={32} height={32}>
+    <path d="M6 3h9l5 5v13H6z" />
+    <path d="M14 3v6h6M9 13h8M9 17h8" />
   </svg>
 );
 
@@ -380,49 +374,40 @@ export default function BottomBar({
                 onKeyDown={handleMenuKeyDown}
                 className={[
                   "bb-anim pointer-events-auto origin-bottom",
-                  "w-[min(300px,calc(100vw-32px))] rounded-[28px] p-2 backdrop-blur-xl",
+                  "w-[min(526px,calc(100vw-32px))] rounded-[24px] p-4 backdrop-blur-xl",
                   "animate-[addMenuIn_220ms_cubic-bezier(0.22,1,0.36,1)_both]",
                   menuTone,
                 ].join(" ")}
               >
-                <p
-                  className={[
-                    "px-3 pb-1.5 pt-2 text-[11px] font-semibold uppercase tracking-[0.08em]",
-                    mutedText,
-                  ].join(" ")}
-                >
-                  Nouveau
-                </p>
+                {onCreatePost && (
+                  <MenuItem
+                    icon={PostIcon}
+                    title="Post"
+                    description="Publish content to a channel"
+                    chipTone={
+                      isDark
+                        ? "bg-sky-400/15 text-sky-300"
+                        : "bg-sky-100 text-sky-700"
+                    }
+                    isDark={isDark}
+                    delay={40}
+                    onClick={handleCreatePost}
+                  />
+                )}
 
                 {onCreateIdea && (
                   <MenuItem
                     icon={IdeaIcon}
-                    title="Créer une idée"
-                    description="Note rapide à développer plus tard"
+                    title="Idea"
+                    description="Capture a content idea"
                     chipTone={
                       isDark
-                        ? "bg-amber-400/15 text-amber-300"
-                        : "bg-amber-100 text-amber-600"
-                    }
-                    isDark={isDark}
-                    delay={40}
-                    onClick={handleCreateIdea}
-                  />
-                )}
-
-                {onCreatePost && (
-                  <MenuItem
-                    icon={PostIcon}
-                    title="Créer un post"
-                    description="Rédige une publication à partager"
-                    chipTone={
-                      isDark
-                        ? "bg-indigo-400/15 text-indigo-300"
-                        : "bg-indigo-100 text-indigo-600"
+                        ? "bg-green-400/15 text-green-300"
+                        : "bg-green-100 text-green-700"
                     }
                     isDark={isDark}
                     delay={90}
-                    onClick={handleCreatePost}
+                    onClick={handleCreateIdea}
                   />
                 )}
               </div>
@@ -633,7 +618,7 @@ function MenuItem({
       onClick={onClick}
       style={{ animationDelay: `${delay}ms` }}
       className={[
-        "bb-anim group flex w-full items-center gap-3 rounded-2xl p-2.5 text-left",
+        "bb-anim group flex w-full items-center gap-4 rounded-2xl p-3 text-left",
         "outline-none transition duration-150 active:scale-[0.98]",
         "animate-[addItemIn_260ms_cubic-bezier(0.22,1,0.36,1)_both]",
         isDark
@@ -643,7 +628,7 @@ function MenuItem({
     >
       <span
         className={[
-          "flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px]",
+          "flex h-[62px] w-[62px] shrink-0 items-center justify-center rounded-[16px]",
           "transition-transform duration-200 group-hover:scale-105",
           chipTone,
         ].join(" ")}
@@ -652,12 +637,12 @@ function MenuItem({
       </span>
 
       <span className="min-w-0 flex-1">
-        <span className="block text-[14.5px] font-semibold leading-tight">
+        <span className="block text-[clamp(18px,4vw,23px)] font-semibold leading-tight">
           {title}
         </span>
         <span
           className={[
-            "mt-0.5 block truncate text-[12.5px] leading-tight",
+            "mt-1 block truncate text-[clamp(15px,3.3vw,19px)] leading-tight",
             isDark ? "text-neutral-400" : "text-neutral-500",
           ].join(" ")}
         >
@@ -665,14 +650,6 @@ function MenuItem({
         </span>
       </span>
 
-      <span
-        className={[
-          "shrink-0 transition duration-150 group-hover:translate-x-0.5",
-          isDark ? "text-neutral-500" : "text-neutral-400",
-        ].join(" ")}
-      >
-        {ChevronIcon}
-      </span>
     </button>
   );
 }
