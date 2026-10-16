@@ -6,7 +6,7 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
 } from "react";
-import NewIdeaModal, { type NewIdeaValues } from "./NewIdeaModal";
+import NewIdeaModal, { type NewIdeaValues } from "./Newideamodal";
 
 /* ─────────────────────────────────────────────────────────
  * Types publics
