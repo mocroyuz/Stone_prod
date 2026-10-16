@@ -1,4 +1,3 @@
-// src/components/NewPostModal.tsx
 import { useEffect, useMemo, useRef, useState } from "react";
 import { EmojiPicker as FrimousseEmojiPicker } from "frimousse";
 import {
@@ -1998,6 +1997,74 @@ export default function NewPostModal({
               </div>
             )}
 
+            {/* ── Tags : champ arrondi + chips blanches à ombre légère ── */}
+            <div className="mt-4">
+              <label
+                htmlFor="hashtag-input"
+                className={["mb-2 block text-[13px] font-bold uppercase tracking-wide", textPrimary].join(" ")}
+              >
+                Tags
+              </label>
+
+              <div
+                onClick={() => document.getElementById("hashtag-input")?.focus()}
+                className={[
+                  "flex min-h-[56px] cursor-text flex-wrap items-center gap-2 rounded-2xl border px-3 py-2.5 transition-colors",
+                  border,
+                  isDark
+                    ? "bg-white/[0.03] focus-within:border-white/25"
+                    : "bg-white focus-within:border-black/25",
+                ].join(" ")}
+              >
+                {hashtags.map((tag) => (
+                  <span
+                    key={tag}
+                    className={[
+                      "flex items-center gap-2 rounded-xl border px-3.5 py-2 text-[14px] font-medium",
+                      isDark
+                        ? "border-white/10 bg-[#2a2a2d] text-white shadow-[0_2px_8px_rgba(0,0,0,0.35)]"
+                        : "border-black/[0.06] bg-white text-neutral-800 shadow-[0_2px_8px_rgba(0,0,0,0.10)]",
+                    ].join(" ")}
+                  >
+                    {tag}
+                    <button
+                      type="button"
+                      aria-label={`Supprimer ${tag}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        removeHashtag(tag);
+                      }}
+                      className={isDark ? "text-neutral-400 hover:text-white" : "text-neutral-500 hover:text-neutral-900"}
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </span>
+                ))}
+
+                <input
+                  id="hashtag-input"
+                  type="text"
+                  value={hashtagDraft}
+                  onChange={(e) => setHashtagDraft(toSentenceCase(e.target.value))}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === "," || e.key === " ") {
+                      e.preventDefault();
+                      commitHashtagDraft();
+                    } else if (e.key === "Backspace" && !hashtagDraft && hashtags.length > 0) {
+                      removeHashtag(hashtags[hashtags.length - 1]);
+                    }
+                  }}
+                  onBlur={commitHashtagDraft}
+                  placeholder={hashtags.length === 0 ? "Add hashtag..." : ""}
+                  className={[
+                    "min-w-[100px] flex-1 bg-transparent px-1 text-[14px] outline-none",
+                    textPrimary,
+                    isDark ? "placeholder:text-neutral-600" : "placeholder:text-neutral-400",
+                  ].join(" ")}
+                />
+              </div>
+            </div>
+
             {mediaError && <p className="mt-1 text-[11px] text-red-500">{mediaError}</p>}
 
             {submitProgress && (
@@ -2014,6 +2081,7 @@ export default function NewPostModal({
               </p>
             )}
 
+            {/* ── Barre d'outils : emoji + focus hashtag ── */}
             <div className={["mt-4 flex items-center gap-4 border-t pt-3", border].join(" ")}>
               <div ref={emojiWrapRef} className="relative">
                 <button
@@ -2040,39 +2108,16 @@ export default function NewPostModal({
                   <EmojiPickerPanel isDark={isDark} onPick={insertEmoji} />
                 )}
               </div>
+
               <button
+                type="button"
+                title="Add hashtag"
+                aria-label="Ajouter un hashtag"
                 onClick={() => document.getElementById("hashtag-input")?.focus()}
                 className={["flex h-8 w-8 items-center justify-center rounded-full transition", textSecondary, isDark ? "hover:bg-white/10 hover:text-white" : "hover:bg-black/5 hover:text-neutral-900"].join(" ")}
               >
                 <Hash className="h-4 w-4" />
               </button>
-              <div className="flex flex-1 flex-wrap items-center gap-1.5">
-                {hashtags.map((tag) => (
-                  <span key={tag} className={["flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium", isDark ? "bg-white/10 text-white" : "bg-neutral-200 text-neutral-800"].join(" ")}>
-                    #{tag}
-                    <button onClick={() => removeHashtag(tag)} className={isDark ? "text-neutral-400 hover:text-white" : "text-neutral-500 hover:text-neutral-900"}>
-                      <X className="h-2.5 w-2.5" />
-                    </button>
-                  </span>
-                ))}
-                <input
-                  id="hashtag-input"
-                  type="text"
-                  value={hashtagDraft}
-                  onChange={(e) => setHashtagDraft(toSentenceCase(e.target.value))}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === "," || e.key === " ") {
-                      e.preventDefault();
-                      commitHashtagDraft();
-                    } else if (e.key === "Backspace" && !hashtagDraft && hashtags.length > 0) {
-                      removeHashtag(hashtags[hashtags.length - 1]);
-                    }
-                  }}
-                  onBlur={commitHashtagDraft}
-                  placeholder={hashtags.length === 0 ? "Add hashtag..." : ""}
-                  className={["min-w-[100px] flex-1 bg-transparent text-[13px] outline-none", textPrimary, isDark ? "placeholder:text-neutral-600" : "placeholder:text-neutral-400"].join(" ")}
-                />
-              </div>
             </div>
           </div>
 
@@ -2133,26 +2178,24 @@ export default function NewPostModal({
 
         {/* ── Footer ── */}
         <div className={["relative flex shrink-0 items-center justify-end gap-4 border-t px-6 py-4", border].join(" ")}>
-          {/* Raison du blocage + déclaration TikTok (juste avant le bouton) */}
+          {/* Déclaration TikTok (juste avant le bouton) */}
           {showTikTokDeclaration && (
             <div className="mr-auto flex min-w-0 flex-1 flex-col gap-1">
-              {showTikTokDeclaration && (
-                <p className={["text-[11.5px] leading-snug", textSecondary].join(" ")}>
-                  By posting, you agree to TikTok's{" "}
-                  {brandedChosen && (
-                    <>
-                      <a href={TIKTOK_BRANDED_URL} target="_blank" rel="noreferrer" className={linkClass}>
-                        Branded Content Policy
-                      </a>{" "}
-                      and{" "}
-                    </>
-                  )}
-                  <a href={TIKTOK_MUSIC_URL} target="_blank" rel="noreferrer" className={linkClass}>
-                    Music Usage Confirmation
-                  </a>
-                  .
-                </p>
-              )}
+              <p className={["text-[11.5px] leading-snug", textSecondary].join(" ")}>
+                By posting, you agree to TikTok's{" "}
+                {brandedChosen && (
+                  <>
+                    <a href={TIKTOK_BRANDED_URL} target="_blank" rel="noreferrer" className={linkClass}>
+                      Branded Content Policy
+                    </a>{" "}
+                    and{" "}
+                  </>
+                )}
+                <a href={TIKTOK_MUSIC_URL} target="_blank" rel="noreferrer" className={linkClass}>
+                  Music Usage Confirmation
+                </a>
+                .
+              </p>
             </div>
           )}
 
