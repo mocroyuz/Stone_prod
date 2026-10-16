@@ -6,6 +6,7 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
 } from "react";
+import NewIdeaModal, { type NewIdeaValues } from "./NewIdeaModal";
 
 /* ─────────────────────────────────────────────────────────
  * Types publics
@@ -39,7 +40,13 @@ type BottomBarProps = {
   /** Clic sur l'onglet Dossiers. */
   onSelectFiles?: () => void;
 
-  /** Choix « Idea » dans le menu du « + ». */
+  /**
+   * Soumission de la modale « New idea » (gérée par le BottomBar).
+   * Si fourni, l'entrée « Idea » du menu ouvre la modale.
+   */
+  onSubmitIdea?: (values: NewIdeaValues) => void | Promise<void>;
+
+  /** Optionnel : notifié quand l'utilisateur choisit « Idea » (ouverture). */
   onCreateIdea?: () => void;
 
   /** Choix « Post » dans le menu du « + ». */
@@ -166,6 +173,7 @@ export default function BottomBar({
   onQueryChange,
   offsetLeft = 0,
   onSelectFiles,
+  onSubmitIdea,
   onCreateIdea,
   onCreatePost,
   onChange,
@@ -173,13 +181,15 @@ export default function BottomBar({
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
   const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
+  const [isIdeaOpen, setIsIdeaOpen] = useState(false);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const addButtonRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
   /** Le menu n'existe que si au moins un handler est branché. */
-  const hasMenu = Boolean(onCreateIdea || onCreatePost);
+  const hasIdea = Boolean(onSubmitIdea || onCreateIdea);
+  const hasMenu = hasIdea || Boolean(onCreatePost);
 
   /* ── Effets : focus & clavier ──────────────────────────── */
 
@@ -245,10 +255,21 @@ export default function BottomBar({
     setIsAddMenuOpen((open) => !open);
   }, [hasMenu, onChange]);
 
+  /** Choix « Idea » → ferme le menu, ouvre la modale, prévient le parent. */
   const handleCreateIdea = useCallback(() => {
     setIsAddMenuOpen(false);
+    setIsIdeaOpen(true);
     onCreateIdea?.();
   }, [onCreateIdea]);
+
+  const closeIdea = useCallback(() => setIsIdeaOpen(false), []);
+
+  const submitIdea = useCallback(
+    async (values: NewIdeaValues) => {
+      await onSubmitIdea?.(values);
+    },
+    [onSubmitIdea]
+  );
 
   const handleCreatePost = useCallback(() => {
     setIsAddMenuOpen(false);
@@ -372,7 +393,7 @@ export default function BottomBar({
                   />
                 )}
 
-                {onCreateIdea && (
+                {hasIdea && (
                   <MenuItem
                     icon={IdeaIcon}
                     title="Idea"
@@ -556,6 +577,14 @@ export default function BottomBar({
           </ul>
         </div>
       </nav>
+
+      {/* Modale « New idea » */}
+      <NewIdeaModal
+        isOpen={isIdeaOpen}
+        onClose={closeIdea}
+        onSubmit={submitIdea}
+        isDark={isDark}
+      />
     </>
   );
 }
