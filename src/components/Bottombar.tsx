@@ -1,4 +1,5 @@
 import {
+  useCallback,
   useEffect,
   useRef,
   useState,
@@ -6,7 +7,60 @@ import {
   type ReactNode,
 } from "react";
 
+/* ─────────────────────────────────────────────────────────
+ * Types publics
+ * ───────────────────────────────────────────────────────── */
+
 export type BottomBarTab = "files" | "add";
+
+/**
+ * Le BottomBar est un composant « présentationnel + orchestration » :
+ *  - il gère l'état LOCAL de l'UI (menu ouvert, recherche ouverte, focus…)
+ *  - il expose des HANDLERS au parent pour toute action métier
+ *    (ouvrir une modale, naviguer, filtrer…)
+ *
+ * Le parent ne connaît donc jamais les détails d'animation ou de clavier,
+ * et le BottomBar ne connaît jamais le métier (modales, routes, data…).
+ */
+type BottomBarProps = {
+  /** Thème. */
+  isDark?: boolean;
+
+  /** Onglet actif, piloté par le parent. */
+  active?: BottomBarTab | null;
+
+  /** Libellé accessible du bouton « + » et de son menu. */
+  addLabel?: string;
+
+  /** Recherche : valeur contrôlée + setter. */
+  query: string;
+  onQueryChange: (value: string) => void;
+
+  /** Décalage à gauche (ex : largeur d'une sidebar). */
+  offsetLeft?: number;
+
+  /* ── Handlers métier (tous optionnels) ────────────────── */
+
+  /** Clic sur l'onglet Dossiers. */
+  onSelectFiles?: () => void;
+
+  /** Choix « Créer une idée » dans le menu du « + ». */
+  onCreateIdea?: () => void;
+
+  /** Choix « Créer un post » dans le menu du « + ». */
+  onCreatePost?: () => void;
+
+  /**
+   * Fallback : si aucun handler de création n'est fourni,
+   * le « + » remonte cet id via `onChange("add")`.
+   * (Compat avec l'ancienne API.)
+   */
+  onChange?: (id: BottomBarTab) => void;
+};
+
+/* ─────────────────────────────────────────────────────────
+ * Icônes (inchangées)
+ * ───────────────────────────────────────────────────────── */
 
 const svgProps = {
   width: 20,
@@ -75,70 +129,59 @@ function SearchIcon() {
   );
 }
 
+/* ─────────────────────────────────────────────────────────
+ * Keyframes
+ * ───────────────────────────────────────────────────────── */
+
 const ANIMATION_KEYFRAMES = `
 @keyframes searchIconOpen {
   0% { transform: scale(.82) rotate(-12deg); opacity: .65; }
   55% { transform: scale(1.08) rotate(3deg); opacity: 1; }
   100% { transform: scale(1) rotate(0deg); opacity: 1; }
 }
-
 @keyframes searchContentIn {
   0% { opacity: 0; transform: translateX(-8px); }
   100% { opacity: 1; transform: translateX(0); }
 }
-
 @keyframes searchGlow {
   0% { box-shadow: 0 0 0 0 rgba(0, 0, 0, 0); }
   45% { box-shadow: 0 0 0 3px rgba(0, 0, 0, .035); }
   100% { box-shadow: 0 0 0 0 rgba(0, 0, 0, 0); }
 }
-
 @keyframes addMenuIn {
   0% { opacity: 0; transform: translateY(10px) scale(.94); }
   100% { opacity: 1; transform: translateY(0) scale(1); }
 }
-
 @keyframes addItemIn {
   0% { opacity: 0; transform: translateY(6px); }
   100% { opacity: 1; transform: translateY(0); }
 }
-
 @keyframes scrimIn {
   0% { opacity: 0; }
   100% { opacity: 1; }
 }
-
 @media (prefers-reduced-motion: reduce) {
   .bb-anim { animation: none !important; }
 }
 `;
 
-type BottomBarProps = {
-  isDark?: boolean;
-  /** « files » pour Dossiers. « add » uniquement si aucun menu n'est branché (voir onCreateIdea / onCreatePost). */
-  onChange?: (id: BottomBarTab) => void;
-  active?: BottomBarTab | null;
-  addLabel?: string;
-  query: string;
-  onQueryChange: (value: string) => void;
-  offsetLeft?: number;
-  /** « Créer une idée » dans le menu du « + ». */
-  onCreateIdea?: () => void;
-  /** « Créer un post » dans le menu du « + » : c'est ici qu'on ouvre la modale de nouveau post. */
-  onCreatePost?: () => void;
-};
+/* ─────────────────────────────────────────────────────────
+ * Composant
+ * ───────────────────────────────────────────────────────── */
 
 export default function BottomBar({
   isDark = false,
-  onChange,
   active = null,
   addLabel = "Nouvelle publication",
   query,
   onQueryChange,
   offsetLeft = 0,
+  onSelectFiles,
   onCreateIdea,
   onCreatePost,
+  onChange,
 }: BottomBarProps) {
+  /* ── État UI local (le parent n'en sait rien) ─────────── */
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
   const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
@@ -147,21 +190,19 @@ export default function BottomBar({
   const addButtonRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  /* Si le parent ne fournit aucun handler, le « + » garde son ancien comportement. */
+  /** Le menu n'existe que si au moins un handler est branché. */
   const hasMenu = Boolean(onCreateIdea || onCreatePost);
 
-  /* Focus de l'input à l'ouverture de la recherche */
-  useEffect(() => {
-    if (isSearchOpen) {
-      const timer = window.setTimeout(() => {
-        inputRef.current?.focus();
-      }, 180);
+  /* ── Effets : focus & clavier ──────────────────────────── */
 
-      return () => window.clearTimeout(timer);
-    }
+  // Focus auto de l'input quand la recherche s'ouvre
+  useEffect(() => {
+    if (!isSearchOpen) return;
+    const timer = window.setTimeout(() => inputRef.current?.focus(), 180);
+    return () => window.clearTimeout(timer);
   }, [isSearchOpen]);
 
-  /* Menu « + » : focus du premier choix à l'ouverture, Échap pour fermer */
+  // Menu « + » : focus du premier item + Échap global
   useEffect(() => {
     if (!isAddMenuOpen) return;
 
@@ -179,80 +220,104 @@ export default function BottomBar({
     };
 
     document.addEventListener("keydown", handleKeyDown);
-
     return () => {
       window.clearTimeout(focusTimer);
       document.removeEventListener("keydown", handleKeyDown);
     };
   }, [isAddMenuOpen]);
 
-  const openSearch = () => {
+  /* ── Handlers internes : orchestration ─────────────────── */
+
+  const openSearch = useCallback(() => {
     setIsAddMenuOpen(false);
     setIsClosing(false);
     setIsSearchOpen(true);
-  };
+  }, []);
 
-  const closeSearch = () => {
+  const closeSearch = useCallback(() => {
     setIsClosing(true);
-
     window.setTimeout(() => {
       setIsSearchOpen(false);
       setIsClosing(false);
     }, 220);
-  };
+  }, []);
 
-  const handleAddClick = () => {
+  /** Clic sur Dossiers → délègue au parent, ferme le menu. */
+  const handleFilesClick = useCallback(() => {
+    setIsAddMenuOpen(false);
+    if (onSelectFiles) {
+      onSelectFiles();
+    } else {
+      onChange?.("files");
+    }
+  }, [onSelectFiles, onChange]);
+
+  /**
+   * Clic sur « + » :
+   *  - si le parent a branché un menu → ouvre/ferme le menu
+   *  - sinon → retombe sur onChange("add")
+   */
+  const handleAddClick = useCallback(() => {
     if (!hasMenu) {
       onChange?.("add");
       return;
     }
-
     setIsAddMenuOpen((open) => !open);
-  };
+  }, [hasMenu, onChange]);
 
-  const handleCreateIdea = () => {
+  /** Choix « Créer une idée » → ferme le menu PUIS appelle le parent. */
+  const handleCreateIdea = useCallback(() => {
     setIsAddMenuOpen(false);
     onCreateIdea?.();
-  };
+  }, [onCreateIdea]);
 
-  const handleCreatePost = () => {
+  /** Choix « Créer un post » → ferme le menu PUIS appelle le parent. */
+  const handleCreatePost = useCallback(() => {
     setIsAddMenuOpen(false);
     onCreatePost?.();
-  };
+  }, [onCreatePost]);
 
-  /* Navigation clavier dans le menu (↑ ↓ Home End) */
-  const handleMenuKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
-    const items = Array.from(
-      menuRef.current?.querySelectorAll<HTMLButtonElement>(
-        '[role="menuitem"]'
-      ) ?? []
-    );
-    if (items.length === 0) return;
+  /** Navigation clavier dans le menu (↑ ↓ Home End). */
+  const handleMenuKeyDown = useCallback(
+    (event: ReactKeyboardEvent<HTMLDivElement>) => {
+      const items = Array.from(
+        menuRef.current?.querySelectorAll<HTMLButtonElement>(
+          '[role="menuitem"]'
+        ) ?? []
+      );
+      if (items.length === 0) return;
 
-    const index = items.indexOf(document.activeElement as HTMLButtonElement);
+      const index = items.indexOf(
+        document.activeElement as HTMLButtonElement
+      );
 
-    if (event.key === "ArrowDown") {
-      event.preventDefault();
-      items[(index + 1) % items.length].focus();
-    } else if (event.key === "ArrowUp") {
-      event.preventDefault();
-      items[(index - 1 + items.length) % items.length].focus();
-    } else if (event.key === "Home") {
-      event.preventDefault();
-      items[0].focus();
-    } else if (event.key === "End") {
-      event.preventDefault();
-      items[items.length - 1].focus();
-    }
-  };
+      if (event.key === "ArrowDown") {
+        event.preventDefault();
+        items[(index + 1) % items.length].focus();
+      } else if (event.key === "ArrowUp") {
+        event.preventDefault();
+        items[(index - 1 + items.length) % items.length].focus();
+      } else if (event.key === "Home") {
+        event.preventDefault();
+        items[0].focus();
+      } else if (event.key === "End") {
+        event.preventDefault();
+        items[items.length - 1].focus();
+      }
+    },
+    []
+  );
+
+  /* ── Styles dérivés ────────────────────────────────────── */
 
   const focusRing = [
     "focus-visible:outline-none focus-visible:ring-2",
     "focus-visible:ring-neutral-500 focus-visible:ring-offset-2",
-    isDark ? "focus-visible:ring-offset-[#1c1c1e]" : "focus-visible:ring-offset-white",
+    isDark
+      ? "focus-visible:ring-offset-[#1c1c1e]"
+      : "focus-visible:ring-offset-white",
   ].join(" ");
 
-  /* ───────── Styles ───────── */
   const isFilesActive = active === "files";
 
   const filesTone = isDark
@@ -277,11 +342,13 @@ export default function BottomBar({
 
   const mutedText = isDark ? "text-neutral-400" : "text-neutral-500";
 
+  /* ── Rendu ─────────────────────────────────────────────── */
+
   return (
     <>
       <style>{ANIMATION_KEYFRAMES}</style>
 
-      {/* Voile derrière le menu : assombrit la page et ferme au clic */}
+      {/* Voile derrière le menu */}
       {isAddMenuOpen && (
         <div
           aria-hidden
@@ -303,7 +370,7 @@ export default function BottomBar({
         }}
       >
         <div className="relative">
-          {/* Menu « + » : centré au-dessus de la barre */}
+          {/* Menu « + » */}
           {isAddMenuOpen && (
             <div className="pointer-events-none absolute bottom-full left-1/2 mb-3 flex w-0 justify-center">
               <div
@@ -375,10 +442,7 @@ export default function BottomBar({
                 aria-label="Dossiers"
                 title="Dossiers"
                 aria-current={isFilesActive ? "true" : undefined}
-                onClick={() => {
-                  setIsAddMenuOpen(false);
-                  onChange?.("files");
-                }}
+                onClick={handleFilesClick}
                 className={[
                   "flex h-12 w-12 items-center justify-center rounded-full",
                   "transition duration-150 active:scale-90",
@@ -400,26 +464,20 @@ export default function BottomBar({
                   isDark
                     ? "border-white/10 bg-[#141416] text-neutral-300 focus-within:border-white/30"
                     : "border-black/10 bg-white text-black/80 focus-within:border-black/30",
-
                   isSearchOpen ? "w-[200px] sm:w-[290px]" : "w-12",
-
                   isSearchOpen &&
                     !isClosing &&
                     "bb-anim animate-[searchGlow_500ms_ease-out]",
-
                   isClosing && "w-12",
                 ].join(" ")}
               >
-                {/* Loupe */}
                 <button
                   type="button"
                   aria-label="Rechercher"
                   aria-expanded={isSearchOpen}
                   title="Rechercher"
                   onMouseDown={(event) => {
-                    if (isSearchOpen) {
-                      event.preventDefault();
-                    }
+                    if (isSearchOpen) event.preventDefault();
                   }}
                   onClick={() => {
                     if (isSearchOpen) {
@@ -447,7 +505,6 @@ export default function BottomBar({
                   </span>
                 </button>
 
-                {/* Zone de recherche */}
                 <div
                   className={[
                     "flex min-w-0 flex-1 items-center",
@@ -463,9 +520,7 @@ export default function BottomBar({
                     value={query}
                     onChange={(event) => onQueryChange(event.target.value)}
                     onBlur={() => {
-                      if (query.trim() === "") {
-                        closeSearch();
-                      }
+                      if (query.trim() === "") closeSearch();
                     }}
                     onKeyDown={(event) => {
                       if (event.key === "Escape") {
@@ -547,6 +602,10 @@ export default function BottomBar({
     </>
   );
 }
+
+/* ─────────────────────────────────────────────────────────
+ * MenuItem
+ * ───────────────────────────────────────────────────────── */
 
 type MenuItemProps = {
   icon: ReactNode;
