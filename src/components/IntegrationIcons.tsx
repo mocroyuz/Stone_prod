@@ -1,4 +1,5 @@
 import { Icon } from "@iconify/react";
+import { SiYoutubeshorts } from "@icons-pack/react-simple-icons";
 import { useTheme } from "../hooks/useTheme";
 /**
  * Ton des logos monochromes (TikTok, Threads, X, GitHub…).
@@ -41,8 +42,8 @@ function createIcon(
       role: "img" as const,
     };
     return fixedColor
-      ? <*Icon* {...common} *color*={fixedColor} />
-      : <*Icon* {...common} />;
+      ? <Icon {...common} color={fixedColor} />
+      : <Icon {...common} />;
   };
 }
 /**
@@ -307,7 +308,22 @@ export function InstagramIcon({
 }
 export const FacebookIcon = createIcon("logos:facebook", "Facebook");
 export const TikTokIcon = createIcon("logos:tiktok-icon", "TikTok");
-export const YouTubeIcon = createIcon("simple-icons:youtubeshorts", "YouTube Shorts", "#FF0033");
+export function YouTubeIcon({
+  className = "h-5 w-5",
+  size = 20,
+  title = "YouTube Shorts",
+}: BrandIconProps) {
+  return (
+    <SiYoutubeshorts
+      className={className}
+      size={size}
+      color="#FF0033"
+      title={title}
+      aria-label={title}
+      role="img"
+    />
+  );
+}
 export const PinterestIcon = createIcon("logos:pinterest", "Pinterest");
 export const ThreadsIcon = createIcon("simple-icons:threads", "Threads", "#000000");
 export const XIcon = createIcon("simple-icons:x", "X", "#000000");
