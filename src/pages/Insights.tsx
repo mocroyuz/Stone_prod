@@ -1663,7 +1663,6 @@ export default function Insights() {
         active={isFolderOpen ? "files" : null}
         onChange={handleBottomBarChange}
         onCreatePost={() => handleBottomBarChange("add")}
-        onCreateIdea={() => navigate("create")}
         query={query}
         onQueryChange={setQuery}
       />

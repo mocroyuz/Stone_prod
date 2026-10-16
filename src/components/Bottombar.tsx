@@ -183,7 +183,7 @@ export default function BottomBar({
   const menuRef = useRef<HTMLDivElement>(null);
 
   /** Le menu n'existe que si au moins un handler est branché. */
-  const hasIdea = Boolean(onSubmitIdea);
+  const hasIdea = true;
   const hasMenu = hasIdea || Boolean(onCreatePost);
 
   /* ── Effets : focus & clavier ──────────────────────────── */
@@ -390,7 +390,7 @@ export default function BottomBar({
                 {hasIdea && (
                   <MenuItem
                     icon={IdeaIcon}
-                    title="Idea"
+                    title="New idea"
                     description="Capture a content idea"
                     isDark={isDark}
                     delay={70}

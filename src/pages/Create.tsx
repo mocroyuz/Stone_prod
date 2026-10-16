@@ -87,6 +87,9 @@ function useBoard() {
     });
   };
 
+  const addIdea = (idea: Omit<Idea, "id">) =>
+    setIdeas((prev) => [{ ...idea, id: crypto.randomUUID() }, ...prev]);
+
   const moveIdea = (id: string, tagId: string, beforeId?: string) =>
     setIdeas((prev) => {
       const idea = prev.find((i) => i.id === id);
@@ -116,6 +119,7 @@ function useBoard() {
     renameTag,
     deleteTag,
     moveTag,
+    addIdea,
     deleteIdea,
     moveIdea,
     moveAll,
@@ -608,6 +612,7 @@ export default function Create() {
     renameTag,
     deleteTag,
     moveTag,
+    addIdea,
     deleteIdea,
     moveIdea,
     moveAll,
@@ -1382,7 +1387,9 @@ export default function Create() {
         active={isFolderOpen ? "files" : null}
         addLabel="New Idea"
         onChange={handleBottomBarChange}
-        onCreateIdea={() => handleBottomBarChange("add")}
+        onSubmitIdea={({ title, notes }) =>
+          addIdea({ title, description: notes, tagId: UNASSIGNED })
+        }
         onCreatePost={() => {
           if (!requestNewPost("")) navigate("schedule");
         }}

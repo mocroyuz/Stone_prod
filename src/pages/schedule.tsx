@@ -1,7 +1,7 @@
 // src/pages/Schedule.tsx
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTheme } from "../hooks/useTheme";
-import { navigate, useHashRoute } from "../hooks/useHashRoute";
+import { useHashRoute } from "../hooks/useHashRoute";
 import DashboardSidebar, {
   useSidebarOffset,
 } from "../components/DashboardSidebar";
@@ -1830,7 +1830,6 @@ export default function Schedule() {
           setNewPostDate(null);
           setIsNewPostOpen(true);
         }}
-        onCreateIdea={() => navigate("create")}
         query={bottomQuery}
         onQueryChange={setBottomQuery}
       />
