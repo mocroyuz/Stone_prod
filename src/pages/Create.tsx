@@ -12,7 +12,7 @@ import DashboardSidebar, {
 import BottomBar, { type BottomBarTab } from "../components/Bottombar";
 import Folder from "../components/Folder";
 import HelpChatButton from "../components/Helpchatbutton";
-import { requestNewPost } from "../services/NewPostBus";
+import { requestNewPost } from "../services/Newpostbus";
 
 /* ───────── Types ───────── */
 
