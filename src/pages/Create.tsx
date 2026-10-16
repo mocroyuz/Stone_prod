@@ -1,9 +1,9 @@
 // src/pages/Create.tsx
-// Page Create (route "create") : tableau d'idées (Board / Gallery) + modale « Create Idea ».
+// Page Create (route "create") : tableau d'idées (Board / Gallery).
 // Shell visuel aligné sur Home : fond de page + panneau arrondi à la jointure de la sidebar.
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import type { DragEvent, PointerEvent as RPointerEvent, ReactNode } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
+import type { PointerEvent as RPointerEvent, ReactNode } from "react";
 import { useTheme } from "../hooks/useTheme";
 import { navigate } from "../hooks/useHashRoute";
 import DashboardSidebar, {
@@ -87,9 +87,6 @@ function useBoard() {
     });
   };
 
-  const addIdea = (idea: Omit<Idea, "id">) =>
-    setIdeas((prev) => [{ ...idea, id: crypto.randomUUID() }, ...prev]);
-
   const moveIdea = (id: string, tagId: string, beforeId?: string) =>
     setIdeas((prev) => {
       const idea = prev.find((i) => i.id === id);
@@ -106,9 +103,6 @@ function useBoard() {
       return [...rest, moved];
     });
 
-  const updateIdea = (id: string, patch: Omit<Idea, "id">) =>
-    setIdeas((prev) => prev.map((i) => (i.id === id ? { ...i, ...patch } : i)));
-
   const deleteIdea = (id: string) =>
     setIdeas((prev) => prev.filter((i) => i.id !== id));
 
@@ -122,8 +116,6 @@ function useBoard() {
     renameTag,
     deleteTag,
     moveTag,
-    addIdea,
-    updateIdea,
     deleteIdea,
     moveIdea,
     moveAll,
@@ -178,12 +170,6 @@ const ChatHeartIcon = (p: IconProps) => (
     <path d="M12 14.6s-2.8-1.6-2.8-3.4a1.6 1.6 0 0 1 2.8-1 1.6 1.6 0 0 1 2.8 1c0 1.8-2.8 3.4-2.8 3.4Z" />
   </Svg>
 );
-const PencilIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M4 20h4L19 9a2.1 2.1 0 0 0-3-3L5 17v3Z" />
-    <path d="m14 8 3 3" />
-  </Svg>
-);
 const TrashIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="M4 7h16M10 11v6M14 11v6" />
@@ -232,25 +218,6 @@ const GalleryIcon = (p: IconProps) => (
     <rect x="13.5" y="4" width="6.5" height="6.5" rx="1.5" />
     <rect x="4" y="13.5" width="6.5" height="6.5" rx="1.5" />
     <rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.5" />
-  </Svg>
-);
-const CloseIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M6 6l12 12M18 6 6 18" />
-  </Svg>
-);
-const ImagePlusIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M13 4.5H7a2.5 2.5 0 0 0-2.5 2.5v10A2.5 2.5 0 0 0 7 19.5h10a2.5 2.5 0 0 0 2.5-2.5v-5" />
-    <path d="M17 3v6M14 6h6" />
-    <circle cx="9" cy="10" r="1.4" />
-    <path d="m5 17 4.5-4.5L13 16l2-2 4.5 4" />
-  </Svg>
-);
-const SmileIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <circle cx="12" cy="12" r="8.5" />
-    <path d="M8.8 14a4 4 0 0 0 6.4 0M9 9.6h.01M15 9.6h.01" />
   </Svg>
 );
 
@@ -458,107 +425,6 @@ function TagsMenu({
   );
 }
 
-/** Sélecteur de tag (un seul) de la modale, avec création à la volée. */
-function TagSelect({
-  tags,
-  value,
-  onChange,
-  onCreate,
-  isDark,
-  ghost,
-  line,
-}: {
-  tags: Tag[];
-  value: string;
-  onChange: (id: string) => void;
-  onCreate: (label: string) => string | null;
-  isDark: boolean;
-  ghost: string;
-  line: string;
-}) {
-  const [open, setOpen] = useState(false);
-  const current = tags.find((t) => t.id === value);
-  return (
-    <div className="relative">
-      <button
-        type="button"
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
-        className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 ${ghost} ${line} ${
-          isDark ? "focus-visible:ring-white/30" : "focus-visible:ring-black/25"
-        }`}
-      >
-        <TagIcon className="h-4 w-4" />
-        {current?.label ?? "Tag"}
-        <ChevronDownIcon className="h-4 w-4 opacity-60" />
-      </button>
-
-      {open && (
-        <>
-          <button
-            type="button"
-            aria-label="Close menu"
-            tabIndex={-1}
-            className="fixed inset-0 z-[60] cursor-default"
-            onClick={() => setOpen(false)}
-          />
-          <div
-            className={`absolute right-0 z-[70] mt-2 w-[240px] rounded-xl border p-1 shadow-lg ${
-              isDark
-                ? "border-white/[0.08] bg-[#16161a]"
-                : "border-black/[0.06] bg-white"
-            }`}
-          >
-            <ul role="listbox" className="max-h-[220px] overflow-y-auto">
-              {tags.map((t) => (
-                <li key={t.id}>
-                  <button
-                    type="button"
-                    role="option"
-                    aria-selected={t.id === value}
-                    onClick={() => {
-                      onChange(t.id);
-                      setOpen(false);
-                    }}
-                    className={`flex w-full items-center rounded-lg px-3 py-2 text-left text-[13px] font-medium transition-colors ${
-                      t.id === value
-                        ? isDark
-                          ? "bg-white/[0.08]"
-                          : "bg-black/[0.05]"
-                        : isDark
-                          ? "hover:bg-white/[0.06]"
-                          : "hover:bg-black/[0.04]"
-                    }`}
-                  >
-                    <span className="truncate">{t.label}</span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-            <div
-              className={`mt-1 border-t p-1 pt-2 ${
-                isDark ? "border-white/[0.07]" : "border-black/[0.06]"
-              }`}
-            >
-              <CreateTagInput
-                isDark={isDark}
-                onCreate={(label) => {
-                  const id = onCreate(label);
-                  if (id) {
-                    onChange(id);
-                    setOpen(false);
-                  }
-                }}
-              />
-            </div>
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
-
 /** Carte d'idée (board : déplaçable aux pointer events ; galerie : statique). */
 function IdeaCard({
   idea,
@@ -568,7 +434,6 @@ function IdeaCard({
   draggable,
   placeholder,
   onPointerDown,
-  onEdit,
   onDelete,
 }: {
   idea: Idea;
@@ -578,11 +443,10 @@ function IdeaCard({
   draggable?: boolean;
   placeholder?: boolean;
   onPointerDown?: (e: RPointerEvent) => void;
-  onEdit?: () => void;
   onDelete?: () => void;
 }) {
   const [menu, setMenu] = useState(false);
-  const hasMenu = !!(onEdit || onDelete);
+  const hasMenu = !!onDelete;
 
   const item = `flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-[13px] font-medium transition-colors ${
     isDark ? "hover:bg-white/[0.06]" : "hover:bg-black/[0.04]"
@@ -660,20 +524,6 @@ function IdeaCard({
                           : "border-black/[0.06] bg-white"
                       }`}
                     >
-                      {onEdit && (
-                        <button
-                          type="button"
-                          role="menuitem"
-                          onClick={() => {
-                            setMenu(false);
-                            onEdit();
-                          }}
-                          className={item}
-                        >
-                          <PencilIcon className="h-4 w-4" />
-                          Edit
-                        </button>
-                      )}
                       {onDelete && (
                         <button
                           type="button"
@@ -713,350 +563,6 @@ function IdeaCard({
           )}
         </div>
       </article>
-    </div>
-  );
-}
-
-/* ───────── Modale « Create Idea » ───────── */
-
-const MAX_IMAGE_MB = 10;
-
-function IdeaModal({
-  tags,
-  idea,
-  initialTagId,
-  isDark,
-  ghost,
-  line,
-  muted,
-  ring,
-  onClose,
-  onSave,
-  onCreateTag,
-}: {
-  tags: Tag[];
-  idea?: Idea;
-  initialTagId: string;
-  isDark: boolean;
-  ghost: string;
-  line: string;
-  muted: string;
-  ring: string;
-  onClose: () => void;
-  onSave: (idea: Omit<Idea, "id">) => void;
-  onCreateTag: (label: string) => string | null;
-}) {
-  const [title, setTitle] = useState(idea?.title ?? "");
-  const [description, setDescription] = useState(idea?.description ?? "");
-  const [tagId, setTagId] = useState(initialTagId);
-  const [imageUrl, setImageUrl] = useState<string | undefined>(idea?.imageUrl);
-  const [imageError, setImageError] = useState<string | null>(null);
-  const [dragOver, setDragOver] = useState(false);
-  const fileRef = useRef<HTMLInputElement>(null);
-  const imageRef = useRef<string | undefined>(idea?.imageUrl);
-  const savedRef = useRef(false);
-
-  imageRef.current = imageUrl;
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
-
-  useEffect(
-    () => () => {
-      if (!savedRef.current && imageRef.current && imageRef.current !== idea?.imageUrl)
-        URL.revokeObjectURL(imageRef.current);
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    []
-  );
-
-  const canSave = title.trim().length > 0;
-
-  const release = () => {
-    if (imageRef.current && imageRef.current !== idea?.imageUrl)
-      URL.revokeObjectURL(imageRef.current);
-  };
-
-  const setFile = (file?: File | null) => {
-    if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      setImageError("Only image files are supported.");
-      return;
-    }
-    if (file.size > MAX_IMAGE_MB * 1024 * 1024) {
-      setImageError(`This image is larger than ${MAX_IMAGE_MB} MB.`);
-      return;
-    }
-    setImageError(null);
-    release();
-    setImageUrl(URL.createObjectURL(file));
-  };
-
-  const removeImage = () => {
-    release();
-    setImageUrl(undefined);
-    setImageError(null);
-  };
-
-  const setFileRef = useRef(setFile);
-  setFileRef.current = setFile;
-  useEffect(() => {
-    const onPaste = (e: ClipboardEvent) => {
-      const file = Array.from(e.clipboardData?.files ?? []).find((f) =>
-        f.type.startsWith("image/")
-      );
-      if (!file) return;
-      e.preventDefault();
-      setFileRef.current(file);
-    };
-    window.addEventListener("paste", onPaste);
-    return () => window.removeEventListener("paste", onPaste);
-  }, []);
-
-  const hasFiles = (e: DragEvent) =>
-    Array.from(e.dataTransfer.types).includes("Files");
-
-  const save = (asPost: boolean) => {
-    if (!canSave) return;
-    savedRef.current = true;
-    onSave({
-      title: title.trim(),
-      description: description.trim(),
-      imageUrl,
-      tagId: asPost && tagId === UNASSIGNED ? "todo" : tagId,
-    });
-    onClose();
-  };
-
-  const primary = isDark
-    ? "bg-white text-black hover:bg-neutral-200"
-    : "bg-black text-white hover:bg-neutral-800";
-  const disabled = isDark
-    ? "bg-white/[0.08] text-neutral-500"
-    : "bg-black/[0.06] text-neutral-400";
-
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-      <button
-        type="button"
-        aria-label="Close"
-        onClick={onClose}
-        className="absolute inset-0 cursor-default bg-black/60"
-      />
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label={idea ? "Edit Idea" : "Create Post"}
-        className={`relative flex max-h-[92vh] w-full max-w-[900px] flex-col rounded-2xl border shadow-2xl ${
-          isDark
-            ? "border-white/[0.08] bg-[#0f0f11] text-white"
-            : "border-black/[0.06] bg-white text-neutral-900"
-        }`}
-      >
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Close"
-          className={`absolute -right-2 -top-2 flex h-8 w-8 items-center justify-center rounded-full border ${ring} focus-visible:outline-none focus-visible:ring-2 ${
-            isDark
-              ? "border-white/[0.10] bg-[#0f0f11]"
-              : "border-black/[0.08] bg-white"
-          }`}
-        >
-          <CloseIcon className="h-4 w-4" />
-        </button>
-
-        {/* Header */}
-        <div className="flex items-center gap-4 px-6 pt-6">
-          <h2 className="text-[20px] font-semibold tracking-[-0.02em]">
-            {idea ? "Edit Idea" : "Create Post"}
-          </h2>
-          <TagSelect
-            tags={tags}
-            value={tagId}
-            onChange={setTagId}
-            onCreate={onCreateTag}
-            isDark={isDark}
-            ghost={ghost}
-            line={line}
-          />
-        </div>
-
-        {/* Body */}
-        <div
-          onDragEnter={(e) => {
-            if (!hasFiles(e)) return;
-            e.preventDefault();
-            setDragOver(true);
-          }}
-          onDragOver={(e) => {
-            if (!hasFiles(e)) return;
-            e.preventDefault();
-            e.dataTransfer.dropEffect = "copy";
-            setDragOver(true);
-          }}
-          onDragLeave={(e) => {
-            if (!e.currentTarget.contains(e.relatedTarget as Node | null))
-              setDragOver(false);
-          }}
-          onDrop={(e) => {
-            if (!hasFiles(e)) return;
-            e.preventDefault();
-            setDragOver(false);
-            setFile(e.dataTransfer.files?.[0]);
-          }}
-          className="relative flex min-h-[480px] flex-1 flex-col gap-3 overflow-y-auto px-6 pb-4 pt-5"
-        >
-          <input
-            autoFocus
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Give your idea a title"
-            className={`w-full bg-transparent text-[22px] font-semibold tracking-tight outline-none ${
-              isDark
-                ? "placeholder:text-neutral-600"
-                : "placeholder:text-neutral-400"
-            }`}
-          />
-
-          <div className="relative flex-1">
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Everything begins with an idea…"
-              className={`h-full min-h-[240px] w-full resize-none bg-transparent text-[15px] leading-relaxed outline-none ${
-                isDark
-                  ? "placeholder:text-neutral-600"
-                  : "placeholder:text-neutral-400"
-              }`}
-            />
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <input
-              ref={fileRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={(e) => {
-                setFile(e.target.files?.[0]);
-                e.target.value = "";
-              }}
-            />
-            {imageUrl ? (
-              <div className="group relative h-[140px] w-[140px] overflow-hidden rounded-xl">
-                <img
-                  src={imageUrl}
-                  alt=""
-                  className="h-full w-full object-cover"
-                  draggable={false}
-                />
-                <button
-                  type="button"
-                  aria-label="Remove image"
-                  onClick={removeImage}
-                  className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-black/70 text-white opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
-                >
-                  <CloseIcon className="h-3.5 w-3.5" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => fileRef.current?.click()}
-                  className="absolute inset-x-0 bottom-0 bg-black/60 py-1.5 text-[12px] font-medium text-white opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
-                >
-                  Replace
-                </button>
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => fileRef.current?.click()}
-                className={`flex h-[140px] w-[200px] flex-col items-center justify-center gap-2 rounded-xl border border-dashed px-3 text-center text-[13px] transition-colors focus-visible:outline-none focus-visible:ring-2 ${ring} ${muted} ${
-                  dragOver
-                    ? isDark
-                      ? "border-white/60 bg-white/[0.06]"
-                      : "border-black/60 bg-black/[0.04]"
-                    : isDark
-                      ? "border-white/[0.15] hover:bg-white/[0.04]"
-                      : "border-black/[0.15] hover:bg-black/[0.03]"
-                }`}
-              >
-                <ImagePlusIcon className="h-7 w-7" />
-                <span className="leading-snug">
-                  Drop, paste or{" "}
-                  <span
-                    className={`font-medium underline underline-offset-2 ${
-                      isDark ? "text-white" : "text-black"
-                    }`}
-                  >
-                    select an image
-                  </span>
-                </span>
-              </button>
-            )}
-            {imageError && (
-              <p role="alert" className="text-[12px] font-medium text-rose-500">
-                {imageError}
-              </p>
-            )}
-          </div>
-
-          <div className="flex items-center gap-1">
-            <IconButton label="Add" ghost={ghost} isDark={isDark} className="h-9 w-9">
-              <PlusIcon className="h-[18px] w-[18px]" />
-            </IconButton>
-            <span
-              className={`mx-1 h-5 w-px ${
-                isDark ? "bg-white/[0.08]" : "bg-black/[0.08]"
-              }`}
-            />
-            <IconButton label="Emoji" ghost={ghost} isDark={isDark} className="h-9 w-9">
-              <SmileIcon className="h-[18px] w-[18px]" />
-            </IconButton>
-          </div>
-
-          {dragOver && (
-            <div
-              className={`pointer-events-none absolute inset-2 flex items-center justify-center rounded-xl border-2 border-dashed text-[15px] font-medium backdrop-blur-[1px] ${
-                isDark
-                  ? "border-white/50 bg-black/70 text-white"
-                  : "border-black/40 bg-white/80 text-black"
-              }`}
-            >
-              Drop your image here
-            </div>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className={`flex justify-end gap-3 border-t px-6 py-4 ${line}`}>
-          {!idea && (
-            <button
-              type="button"
-              disabled={!canSave}
-              onClick={() => save(true)}
-              className={`rounded-xl px-5 py-2.5 text-[14px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 ${ring} ${
-                canSave ? primary : `cursor-not-allowed ${disabled}`
-              }`}
-            >
-              Create Post
-            </button>
-          )}
-          <button
-            type="button"
-            disabled={!canSave}
-            onClick={() => save(false)}
-            className={`rounded-xl px-5 py-2.5 text-[14px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 ${ring} ${
-              canSave ? primary : `cursor-not-allowed ${disabled}`
-            }`}
-          >
-            {idea ? "Save changes" : "Save Idea"}
-          </button>
-        </div>
-      </div>
     </div>
   );
 }
@@ -1102,8 +608,6 @@ export default function Create() {
     renameTag,
     deleteTag,
     moveTag,
-    addIdea,
-    updateIdea,
     deleteIdea,
     moveIdea,
     moveAll,
@@ -1113,8 +617,6 @@ export default function Create() {
   const [view, setView] = useState<View>("board");
   const [hidden, setHidden] = useState<string[]>([]);
   const [saved, setSaved] = useState(false);
-  const [modalTag, setModalTag] = useState<string | null>(null);
-  const [ideaEdit, setIdeaEdit] = useState<Idea | null>(null);
   const [query, setQuery] = useState("");
   const [isFolderOpen, setIsFolderOpen] = useState(false);
 
@@ -1157,16 +659,6 @@ export default function Create() {
     setHidden((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
     );
-
-  const openEdit = (idea: Idea) => {
-    setIdeaEdit(idea);
-    setModalTag(idea.tagId);
-  };
-
-  const closeModal = () => {
-    setModalTag(null);
-    setIdeaEdit(null);
-  };
 
   const createTag = (label: string) => {
     const id = addTag(label);
@@ -1401,13 +893,7 @@ export default function Create() {
   });
 
   const handleBottomBarChange = (id: BottomBarTab) => {
-    if (id === "add") {
-      setIsFolderOpen(false);
-      setIdeaEdit(null);
-      setModalTag(UNASSIGNED);
-      return;
-    }
-
+    if (id === "add") return;
     setIsFolderOpen((open) => !open);
   };
 
@@ -1483,21 +969,6 @@ export default function Create() {
                 <IconButton label="Auto-replies" ghost={ghost} isDark={isDark}>
                   <ChatHeartIcon className="h-5 w-5" />
                 </IconButton>
-                <button
-                  type="button"
-                  onClick={() => setModalTag(UNASSIGNED)}
-                  className={[
-                    "flex items-center gap-2 rounded-xl px-4 py-2 text-[13px] font-semibold transition-colors motion-reduce:transition-none",
-                    "focus-visible:outline-none focus-visible:ring-2",
-                    ring,
-                    isDark
-                      ? "bg-white text-black hover:bg-neutral-200"
-                      : "bg-neutral-900 text-white hover:bg-neutral-800",
-                  ].join(" ")}
-                >
-                  <PlusIcon className="h-[18px] w-[18px]" />
-                  New Idea
-                </button>
               </div>
             </header>
 
@@ -1720,15 +1191,6 @@ export default function Create() {
                           </div>
 
                           <div className="relative flex items-center">
-                            <IconButton
-                              label="New idea"
-                              onClick={() => setModalTag(tag.id)}
-                              ghost={ghost}
-                              isDark={isDark}
-                              className="h-8 w-8"
-                            >
-                              <PlusIcon className="h-[18px] w-[18px]" />
-                            </IconButton>
                             {!fixed && (
                               <>
                                 <IconButton
@@ -1814,26 +1276,9 @@ export default function Create() {
                               onPointerDown={(e) =>
                                 onCardPointerDown(e, idea.id)
                               }
-                              onEdit={() => openEdit(idea)}
                               onDelete={() => deleteIdea(idea.id)}
                             />
                           ))}
-                          <button
-                            type="button"
-                            onClick={() => setModalTag(tag.id)}
-                            className={[
-                              "mt-1 flex items-center justify-center gap-2 rounded-xl px-3 py-3 text-[14px] font-medium transition-colors motion-reduce:transition-none",
-                              "focus-visible:outline-none focus-visible:ring-2",
-                              ghost,
-                              ring,
-                              isDark
-                                ? "text-neutral-300"
-                                : "text-neutral-600",
-                            ].join(" ")}
-                          >
-                            <PlusIcon className="h-[18px] w-[18px]" />
-                            New Idea
-                          </button>
                         </div>
                       </section>
                     );
@@ -1902,19 +1347,6 @@ export default function Create() {
                       >
                         Capture your next post idea before it gets away.
                       </p>
-                      <button
-                        type="button"
-                        onClick={() => setModalTag(UNASSIGNED)}
-                        className={[
-                          "mt-2 flex items-center gap-2 rounded-xl border px-4 py-2 text-[13px] font-semibold transition-colors",
-                          "focus-visible:outline-none focus-visible:ring-2",
-                          outline,
-                          ring,
-                        ].join(" ")}
-                      >
-                        <PlusIcon className="h-[18px] w-[18px]" />
-                        New Idea
-                      </button>
                     </div>
                   ) : (
                     <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-4 pb-4">
@@ -1925,7 +1357,6 @@ export default function Create() {
                           tagLabel={tagLabel(idea.tagId)}
                           isDark={isDark}
                           muted={muted}
-                          onEdit={() => openEdit(idea)}
                           onDelete={() => deleteIdea(idea.id)}
                         />
                       ))}
@@ -1937,25 +1368,6 @@ export default function Create() {
           </div>
         </div>
       </div>
-
-      {modalTag && (
-        <IdeaModal
-          key={ideaEdit?.id ?? "new"}
-          tags={tags}
-          idea={ideaEdit ?? undefined}
-          initialTagId={modalTag}
-          isDark={isDark}
-          ghost={ghost}
-          line={line}
-          muted={muted}
-          ring={ring}
-          onClose={closeModal}
-          onSave={(data) =>
-            ideaEdit ? updateIdea(ideaEdit.id, data) : addIdea(data)
-          }
-          onCreateTag={createTag}
-        />
-      )}
 
       <Folder
         isOpen={isFolderOpen}
