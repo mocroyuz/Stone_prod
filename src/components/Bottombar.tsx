@@ -1,4 +1,10 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type ReactNode,
+} from "react";
 
 export type BottomBarTab = "files" | "add";
 
@@ -27,16 +33,28 @@ const PlusIcon = (
 );
 
 const IdeaIcon = (
-  <svg {...svgProps} width={18} height={18}>
+  <svg {...svgProps} width={20} height={20}>
     <path d="M9 18h6M10 21h4" />
     <path d="M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3Z" />
   </svg>
 );
 
 const PostIcon = (
-  <svg {...svgProps} width={18} height={18}>
-    <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5Z" />
-    <path d="M14 3v5h5M9 13h6M9 17h6" />
+  <svg {...svgProps} width={20} height={20}>
+    <path d="M12 20h9" />
+    <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+  </svg>
+);
+
+const ChevronIcon = (
+  <svg {...svgProps} width={16} height={16} strokeWidth={2}>
+    <path d="m9 6 6 6-6 6" />
+  </svg>
+);
+
+const ClearIcon = (
+  <svg {...svgProps} width={14} height={14} strokeWidth={2.2}>
+    <path d="M6 6l12 12M18 6 6 18" />
   </svg>
 );
 
@@ -76,23 +94,37 @@ const ANIMATION_KEYFRAMES = `
 }
 
 @keyframes addMenuIn {
-  0% { opacity: 0; transform: translateY(8px) scale(.96); }
+  0% { opacity: 0; transform: translateY(10px) scale(.94); }
   100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes addItemIn {
+  0% { opacity: 0; transform: translateY(6px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scrimIn {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bb-anim { animation: none !important; }
 }
 `;
 
 type BottomBarProps = {
   isDark?: boolean;
-  /** Appelé quand on clique sur « Dossiers ». */
+  /** « files » pour Dossiers. « add » uniquement si aucun menu n'est branché (voir onCreateIdea / onCreatePost). */
   onChange?: (id: BottomBarTab) => void;
   active?: BottomBarTab | null;
   addLabel?: string;
   query: string;
   onQueryChange: (value: string) => void;
   offsetLeft?: number;
-  /** Appelé quand on choisit « Créer une idée » dans le menu du « + ». */
+  /** « Créer une idée » dans le menu du « + ». */
   onCreateIdea?: () => void;
-  /** Appelé quand on choisit « Créer un post » dans le menu du « + ». */
+  /** « Créer un post » dans le menu du « + » : c'est ici qu'on ouvre la modale de nouveau post. */
   onCreatePost?: () => void;
 };
 
@@ -112,7 +144,11 @@ export default function BottomBar({
   const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
 
   const inputRef = useRef<HTMLInputElement>(null);
-  const addWrapperRef = useRef<HTMLLIElement>(null);
+  const addButtonRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  /* Si le parent ne fournit aucun handler, le « + » garde son ancien comportement. */
+  const hasMenu = Boolean(onCreateIdea || onCreatePost);
 
   /* Focus de l'input à l'ouverture de la recherche */
   useEffect(() => {
@@ -125,32 +161,27 @@ export default function BottomBar({
     }
   }, [isSearchOpen]);
 
-  /* Fermeture du menu « + » : clic extérieur ou Échap */
+  /* Menu « + » : focus du premier choix à l'ouverture, Échap pour fermer */
   useEffect(() => {
     if (!isAddMenuOpen) return;
 
-    const handlePointerDown = (event: MouseEvent | TouchEvent) => {
-      if (
-        addWrapperRef.current &&
-        !addWrapperRef.current.contains(event.target as Node)
-      ) {
-        setIsAddMenuOpen(false);
-      }
-    };
+    const focusTimer = window.setTimeout(() => {
+      menuRef.current
+        ?.querySelector<HTMLButtonElement>('[role="menuitem"]')
+        ?.focus();
+    }, 30);
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         setIsAddMenuOpen(false);
+        addButtonRef.current?.focus();
       }
     };
 
-    document.addEventListener("mousedown", handlePointerDown);
-    document.addEventListener("touchstart", handlePointerDown);
     document.addEventListener("keydown", handleKeyDown);
 
     return () => {
-      document.removeEventListener("mousedown", handlePointerDown);
-      document.removeEventListener("touchstart", handlePointerDown);
+      window.clearTimeout(focusTimer);
       document.removeEventListener("keydown", handleKeyDown);
     };
   }, [isAddMenuOpen]);
@@ -170,34 +201,14 @@ export default function BottomBar({
     }, 220);
   };
 
-  const focusRing = [
-    "focus-visible:outline-none focus-visible:ring-2",
-    "focus-visible:ring-neutral-500 focus-visible:ring-offset-2",
-  ].join(" ");
+  const handleAddClick = () => {
+    if (!hasMenu) {
+      onChange?.("add");
+      return;
+    }
 
-  /* ───────── Bouton « Dossiers » ───────── */
-  const isFilesActive = active === "files";
-
-  const filesTone = isDark
-    ? isFilesActive
-      ? "border border-white/60 bg-[#141416] text-white"
-      : "border border-white/10 bg-[#141416] text-neutral-300"
-    : isFilesActive
-      ? "border border-black bg-white text-black"
-      : "border border-black/10 bg-white text-black/80";
-
-  /* ───────── Bouton « + » ───────── */
-  const addTone = isDark
-    ? "bg-white text-neutral-900"
-    : "bg-black text-white";
-
-  const menuTone = isDark
-    ? "border border-white/10 bg-[#1c1c1e] text-neutral-100 shadow-[0_16px_44px_rgba(0,0,0,0.5)]"
-    : "border border-black/5 bg-[#faf9f6] text-neutral-800 shadow-[0_16px_44px_rgba(0,0,0,0.14)]";
-
-  const menuItemTone = isDark
-    ? "hover:bg-white/10 focus-visible:bg-white/10"
-    : "hover:bg-black/5 focus-visible:bg-black/5";
+    setIsAddMenuOpen((open) => !open);
+  };
 
   const handleCreateIdea = () => {
     setIsAddMenuOpen(false);
@@ -209,227 +220,400 @@ export default function BottomBar({
     onCreatePost?.();
   };
 
+  /* Navigation clavier dans le menu (↑ ↓ Home End) */
+  const handleMenuKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    const items = Array.from(
+      menuRef.current?.querySelectorAll<HTMLButtonElement>(
+        '[role="menuitem"]'
+      ) ?? []
+    );
+    if (items.length === 0) return;
+
+    const index = items.indexOf(document.activeElement as HTMLButtonElement);
+
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      items[(index + 1) % items.length].focus();
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      items[(index - 1 + items.length) % items.length].focus();
+    } else if (event.key === "Home") {
+      event.preventDefault();
+      items[0].focus();
+    } else if (event.key === "End") {
+      event.preventDefault();
+      items[items.length - 1].focus();
+    }
+  };
+
+  const focusRing = [
+    "focus-visible:outline-none focus-visible:ring-2",
+    "focus-visible:ring-neutral-500 focus-visible:ring-offset-2",
+    isDark ? "focus-visible:ring-offset-[#1c1c1e]" : "focus-visible:ring-offset-white",
+  ].join(" ");
+
+  /* ───────── Styles ───────── */
+  const isFilesActive = active === "files";
+
+  const filesTone = isDark
+    ? isFilesActive
+      ? "border border-white/60 bg-[#141416] text-white"
+      : "border border-white/10 bg-[#141416] text-neutral-300 hover:border-white/25"
+    : isFilesActive
+      ? "border border-black bg-white text-black"
+      : "border border-black/10 bg-white text-black/80 hover:border-black/25";
+
+  const addTone = isDark
+    ? "bg-white text-neutral-900"
+    : "bg-black text-white";
+
+  const barTone = isDark
+    ? "border border-white/10 bg-[#1c1c1e]/85 shadow-[0_16px_44px_rgba(0,0,0,0.5)]"
+    : "border border-black/[0.04] bg-[#faf9f6]/85 shadow-[0_16px_44px_rgba(0,0,0,0.12)]";
+
+  const menuTone = isDark
+    ? "border border-white/10 bg-[#1c1c1e]/95 text-neutral-100 shadow-[0_24px_64px_rgba(0,0,0,0.6)]"
+    : "border border-black/[0.06] bg-white/95 text-neutral-900 shadow-[0_24px_64px_rgba(0,0,0,0.18)]";
+
+  const mutedText = isDark ? "text-neutral-400" : "text-neutral-500";
+
   return (
-    <nav
-      aria-label="Actions rapides"
-      className="pointer-events-none fixed bottom-0 right-0 z-30 flex justify-center px-4"
-      style={{
-        left: offsetLeft,
-        paddingBottom: "max(16px, env(safe-area-inset-bottom))",
-      }}
-    >
+    <>
       <style>{ANIMATION_KEYFRAMES}</style>
 
-      <ul
-        className={[
-          "pointer-events-auto flex items-center gap-2 rounded-full p-2",
-          isDark
-            ? "border border-white/10 bg-[#1c1c1e] shadow-[0_16px_44px_rgba(0,0,0,0.5)]"
-            : "bg-[#faf9f6] shadow-[0_16px_44px_rgba(0,0,0,0.10)]",
-        ].join(" ")}
+      {/* Voile derrière le menu : assombrit la page et ferme au clic */}
+      {isAddMenuOpen && (
+        <div
+          aria-hidden
+          onClick={() => setIsAddMenuOpen(false)}
+          className={[
+            "bb-anim fixed inset-0 z-20 backdrop-blur-[2px]",
+            "animate-[scrimIn_200ms_ease-out_both]",
+            isDark ? "bg-black/50" : "bg-black/20",
+          ].join(" ")}
+        />
+      )}
+
+      <nav
+        aria-label="Actions rapides"
+        className="pointer-events-none fixed bottom-0 right-0 z-30 flex justify-center px-4"
+        style={{
+          left: offsetLeft,
+          paddingBottom: "max(16px, env(safe-area-inset-bottom))",
+        }}
       >
-        {/* Dossiers */}
-        <li>
-          <button
-            type="button"
-            aria-label="Dossiers"
-            title="Dossiers"
-            aria-current={isFilesActive ? "true" : undefined}
-            onClick={() => {
-              setIsAddMenuOpen(false);
-              onChange?.("files");
-            }}
-            className={[
-              "flex h-12 w-12 items-center justify-center rounded-full",
-              "transition duration-150 active:scale-90",
-              focusRing,
-              filesTone,
-            ].join(" ")}
-          >
-            {FilesIcon}
-          </button>
-        </li>
-
-        {/* Recherche */}
-        <li>
-          <div
-            className={[
-              "relative flex h-12 items-center overflow-hidden rounded-full border",
-              "transition-[width,background-color,border-color,box-shadow]",
-              "duration-[420ms] ease-[cubic-bezier(0.22,1,0.36,1)]",
-              isDark
-                ? "border-white/10 bg-[#141416] text-neutral-300"
-                : "border-black/10 bg-white text-black/80",
-
-              isSearchOpen ? "w-[190px] sm:w-[280px]" : "w-12",
-
-              isSearchOpen &&
-                !isClosing &&
-                "animate-[searchGlow_500ms_ease-out]",
-
-              isClosing && "w-12",
-            ].join(" ")}
-          >
-            {/* Loupe */}
-            <button
-              type="button"
-              aria-label="Rechercher"
-              aria-expanded={isSearchOpen}
-              title="Rechercher"
-              onMouseDown={(event) => {
-                if (isSearchOpen) {
-                  event.preventDefault();
-                }
-              }}
-              onClick={() => {
-                if (isSearchOpen) {
-                  inputRef.current?.focus();
-                } else {
-                  openSearch();
-                }
-              }}
-              className={[
-                "relative z-10 flex h-12 w-12 shrink-0",
-                "items-center justify-center rounded-full",
-                focusRing,
-                !isSearchOpen && "transition duration-150 active:scale-90",
-              ].join(" ")}
-            >
-              <span
+        <div className="relative">
+          {/* Menu « + » : centré au-dessus de la barre */}
+          {isAddMenuOpen && (
+            <div className="pointer-events-none absolute bottom-full left-1/2 mb-3 flex w-0 justify-center">
+              <div
+                ref={menuRef}
+                role="menu"
+                aria-label={addLabel}
+                onKeyDown={handleMenuKeyDown}
                 className={[
-                  "flex items-center justify-center",
-                  isSearchOpen && !isClosing
-                    ? "animate-[searchIconOpen_420ms_cubic-bezier(0.22,1,0.36,1)]"
-                    : "",
+                  "bb-anim pointer-events-auto origin-bottom",
+                  "w-[min(300px,calc(100vw-32px))] rounded-[28px] p-2 backdrop-blur-xl",
+                  "animate-[addMenuIn_220ms_cubic-bezier(0.22,1,0.36,1)_both]",
+                  menuTone,
                 ].join(" ")}
               >
-                <SearchIcon />
-              </span>
-            </button>
+                <p
+                  className={[
+                    "px-3 pb-1.5 pt-2 text-[11px] font-semibold uppercase tracking-[0.08em]",
+                    mutedText,
+                  ].join(" ")}
+                >
+                  Nouveau
+                </p>
 
-            {/* Zone de recherche */}
-            <div
-              className={[
-                "flex min-w-0 flex-1 items-center",
-                "transition-opacity duration-200",
-                isSearchOpen && !isClosing
-                  ? "opacity-100"
-                  : "pointer-events-none opacity-0",
-              ].join(" ")}
-            >
-              <input
-                ref={inputRef}
-                value={query}
-                onChange={(event) => onQueryChange(event.target.value)}
-                onBlur={() => {
-                  if (query.trim() === "") {
-                    closeSearch();
-                  }
-                }}
-                onKeyDown={(event) => {
-                  if (event.key === "Escape") {
-                    onQueryChange("");
-                    closeSearch();
-                    inputRef.current?.blur();
-                  }
-                }}
-                placeholder="Search everything"
-                aria-label="Search everything"
-                aria-hidden={!isSearchOpen}
-                tabIndex={isSearchOpen ? 0 : -1}
-                className={[
-                  "w-full min-w-0 bg-transparent",
-                  "pr-4 text-[13px] outline-none",
-                  "placeholder:text-inherit placeholder:opacity-50",
-                  "animate-[searchContentIn_300ms_150ms_both]",
-                  isDark ? "text-white" : "text-neutral-800",
-                ].join(" ")}
-              />
-            </div>
-          </div>
-        </li>
+                {onCreateIdea && (
+                  <MenuItem
+                    icon={IdeaIcon}
+                    title="Créer une idée"
+                    description="Note rapide à développer plus tard"
+                    chipTone={
+                      isDark
+                        ? "bg-amber-400/15 text-amber-300"
+                        : "bg-amber-100 text-amber-600"
+                    }
+                    isDark={isDark}
+                    delay={40}
+                    onClick={handleCreateIdea}
+                  />
+                )}
 
-        {/* « + » avec menu : idée ou post */}
-        <li ref={addWrapperRef} className="relative">
-          <button
-            type="button"
-            aria-label={addLabel}
-            title={addLabel}
-            aria-haspopup="menu"
-            aria-expanded={isAddMenuOpen}
-            onClick={() => setIsAddMenuOpen((open) => !open)}
-            className={[
-              "flex h-12 w-12 items-center justify-center rounded-full",
-              "transition duration-150 active:scale-90",
-              focusRing,
-              addTone,
-            ].join(" ")}
-          >
-            <span
-              className={[
-                "flex items-center justify-center transition-transform duration-200",
-                isAddMenuOpen ? "rotate-45" : "rotate-0",
-              ].join(" ")}
-            >
-              {PlusIcon}
-            </span>
-          </button>
-
-          {isAddMenuOpen && (
-            <div
-              role="menu"
-              aria-label={addLabel}
-              className={[
-                "absolute bottom-full right-0 mb-3 w-56 origin-bottom-right",
-                "rounded-2xl p-1.5",
-                "animate-[addMenuIn_180ms_cubic-bezier(0.22,1,0.36,1)]",
-                menuTone,
-              ].join(" ")}
-            >
-              <MenuItem
-                icon={IdeaIcon}
-                label="Créer une idée"
-                tone={menuItemTone}
-                onClick={handleCreateIdea}
-              />
-              <MenuItem
-                icon={PostIcon}
-                label="Créer un post"
-                tone={menuItemTone}
-                onClick={handleCreatePost}
-              />
+                {onCreatePost && (
+                  <MenuItem
+                    icon={PostIcon}
+                    title="Créer un post"
+                    description="Rédige une publication à partager"
+                    chipTone={
+                      isDark
+                        ? "bg-indigo-400/15 text-indigo-300"
+                        : "bg-indigo-100 text-indigo-600"
+                    }
+                    isDark={isDark}
+                    delay={90}
+                    onClick={handleCreatePost}
+                  />
+                )}
+              </div>
             </div>
           )}
-        </li>
-      </ul>
-    </nav>
+
+          <ul
+            className={[
+              "pointer-events-auto flex items-center gap-2 rounded-full p-2 backdrop-blur-xl",
+              barTone,
+            ].join(" ")}
+          >
+            {/* Dossiers */}
+            <li>
+              <button
+                type="button"
+                aria-label="Dossiers"
+                title="Dossiers"
+                aria-current={isFilesActive ? "true" : undefined}
+                onClick={() => {
+                  setIsAddMenuOpen(false);
+                  onChange?.("files");
+                }}
+                className={[
+                  "flex h-12 w-12 items-center justify-center rounded-full",
+                  "transition duration-150 active:scale-90",
+                  focusRing,
+                  filesTone,
+                ].join(" ")}
+              >
+                {FilesIcon}
+              </button>
+            </li>
+
+            {/* Recherche */}
+            <li>
+              <div
+                className={[
+                  "relative flex h-12 items-center overflow-hidden rounded-full border",
+                  "transition-[width,background-color,border-color,box-shadow]",
+                  "duration-[420ms] ease-[cubic-bezier(0.22,1,0.36,1)]",
+                  isDark
+                    ? "border-white/10 bg-[#141416] text-neutral-300 focus-within:border-white/30"
+                    : "border-black/10 bg-white text-black/80 focus-within:border-black/30",
+
+                  isSearchOpen ? "w-[200px] sm:w-[290px]" : "w-12",
+
+                  isSearchOpen &&
+                    !isClosing &&
+                    "bb-anim animate-[searchGlow_500ms_ease-out]",
+
+                  isClosing && "w-12",
+                ].join(" ")}
+              >
+                {/* Loupe */}
+                <button
+                  type="button"
+                  aria-label="Rechercher"
+                  aria-expanded={isSearchOpen}
+                  title="Rechercher"
+                  onMouseDown={(event) => {
+                    if (isSearchOpen) {
+                      event.preventDefault();
+                    }
+                  }}
+                  onClick={() => {
+                    if (isSearchOpen) {
+                      inputRef.current?.focus();
+                    } else {
+                      openSearch();
+                    }
+                  }}
+                  className={[
+                    "relative z-10 flex h-12 w-12 shrink-0",
+                    "items-center justify-center rounded-full",
+                    focusRing,
+                    !isSearchOpen && "transition duration-150 active:scale-90",
+                  ].join(" ")}
+                >
+                  <span
+                    className={[
+                      "flex items-center justify-center",
+                      isSearchOpen && !isClosing
+                        ? "bb-anim animate-[searchIconOpen_420ms_cubic-bezier(0.22,1,0.36,1)]"
+                        : "",
+                    ].join(" ")}
+                  >
+                    <SearchIcon />
+                  </span>
+                </button>
+
+                {/* Zone de recherche */}
+                <div
+                  className={[
+                    "flex min-w-0 flex-1 items-center",
+                    "transition-opacity duration-200",
+                    isSearchOpen && !isClosing
+                      ? "opacity-100"
+                      : "pointer-events-none opacity-0",
+                  ].join(" ")}
+                >
+                  <input
+                    ref={inputRef}
+                    type="search"
+                    value={query}
+                    onChange={(event) => onQueryChange(event.target.value)}
+                    onBlur={() => {
+                      if (query.trim() === "") {
+                        closeSearch();
+                      }
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === "Escape") {
+                        onQueryChange("");
+                        closeSearch();
+                        inputRef.current?.blur();
+                      }
+                    }}
+                    placeholder="Rechercher"
+                    aria-label="Rechercher"
+                    aria-hidden={!isSearchOpen}
+                    tabIndex={isSearchOpen ? 0 : -1}
+                    className={[
+                      "bb-anim w-full min-w-0 bg-transparent",
+                      "pr-2 text-[14px] outline-none",
+                      "[&::-webkit-search-cancel-button]:hidden",
+                      "placeholder:text-inherit placeholder:opacity-50",
+                      "animate-[searchContentIn_300ms_150ms_both]",
+                      isDark ? "text-white" : "text-neutral-800",
+                    ].join(" ")}
+                  />
+
+                  {query !== "" && isSearchOpen && (
+                    <button
+                      type="button"
+                      aria-label="Effacer la recherche"
+                      title="Effacer"
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={() => {
+                        onQueryChange("");
+                        inputRef.current?.focus();
+                      }}
+                      className={[
+                        "mr-2 flex h-6 w-6 shrink-0 items-center justify-center rounded-full",
+                        "transition active:scale-90",
+                        isDark
+                          ? "bg-white/10 hover:bg-white/20"
+                          : "bg-black/5 hover:bg-black/10",
+                      ].join(" ")}
+                    >
+                      {ClearIcon}
+                    </button>
+                  )}
+                </div>
+              </div>
+            </li>
+
+            {/* « + » */}
+            <li>
+              <button
+                ref={addButtonRef}
+                type="button"
+                aria-label={addLabel}
+                title={addLabel}
+                aria-haspopup={hasMenu ? "menu" : undefined}
+                aria-expanded={hasMenu ? isAddMenuOpen : undefined}
+                onClick={handleAddClick}
+                className={[
+                  "flex h-12 w-12 items-center justify-center rounded-full",
+                  "transition duration-150 active:scale-90",
+                  focusRing,
+                  addTone,
+                ].join(" ")}
+              >
+                <span
+                  className={[
+                    "flex items-center justify-center",
+                    "transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
+                    isAddMenuOpen ? "rotate-[135deg]" : "rotate-0",
+                  ].join(" ")}
+                >
+                  {PlusIcon}
+                </span>
+              </button>
+            </li>
+          </ul>
+        </div>
+      </nav>
+    </>
   );
 }
 
 type MenuItemProps = {
   icon: ReactNode;
-  label: string;
-  tone: string;
+  title: string;
+  description: string;
+  chipTone: string;
+  isDark: boolean;
+  delay: number;
   onClick: () => void;
 };
 
-function MenuItem({ icon, label, tone, onClick }: MenuItemProps) {
+function MenuItem({
+  icon,
+  title,
+  description,
+  chipTone,
+  isDark,
+  delay,
+  onClick,
+}: MenuItemProps) {
   return (
     <button
       type="button"
       role="menuitem"
       onClick={onClick}
+      style={{ animationDelay: `${delay}ms` }}
       className={[
-        "flex w-full items-center gap-3 rounded-xl px-3 py-2.5",
-        "text-left text-[14px] font-medium outline-none",
-        "transition-colors duration-150",
-        tone,
+        "bb-anim group flex w-full items-center gap-3 rounded-2xl p-2.5 text-left",
+        "outline-none transition duration-150 active:scale-[0.98]",
+        "animate-[addItemIn_260ms_cubic-bezier(0.22,1,0.36,1)_both]",
+        isDark
+          ? "hover:bg-white/[0.07] focus-visible:bg-white/[0.07]"
+          : "hover:bg-black/[0.04] focus-visible:bg-black/[0.04]",
       ].join(" ")}
     >
-      <span className="flex h-5 w-5 shrink-0 items-center justify-center opacity-80">
+      <span
+        className={[
+          "flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px]",
+          "transition-transform duration-200 group-hover:scale-105",
+          chipTone,
+        ].join(" ")}
+      >
         {icon}
       </span>
-      {label}
+
+      <span className="min-w-0 flex-1">
+        <span className="block text-[14.5px] font-semibold leading-tight">
+          {title}
+        </span>
+        <span
+          className={[
+            "mt-0.5 block truncate text-[12.5px] leading-tight",
+            isDark ? "text-neutral-400" : "text-neutral-500",
+          ].join(" ")}
+        >
+          {description}
+        </span>
+      </span>
+
+      <span
+        className={[
+          "shrink-0 transition duration-150 group-hover:translate-x-0.5",
+          isDark ? "text-neutral-500" : "text-neutral-400",
+        ].join(" ")}
+      >
+        {ChevronIcon}
+      </span>
     </button>
   );
 }
