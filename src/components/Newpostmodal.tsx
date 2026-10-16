@@ -443,10 +443,12 @@ function ChannelTile({
       title={label}
       aria-pressed={isSelected}
       className={[
-        "relative h-14 w-14 shrink-0 rounded-2xl transition",
+        "relative h-14 w-14 shrink-0 rounded-2xl transition duration-200",
         isSelected
-          ? "opacity-100"
-          : "opacity-50 hover:opacity-80",
+          ? isDark
+            ? "opacity-100 ring-2 ring-white ring-offset-[3px] ring-offset-[#141416]"
+            : "opacity-100 ring-2 ring-neutral-900 ring-offset-[3px] ring-offset-white"
+          : "opacity-45 grayscale hover:opacity-80 hover:grayscale-0",
       ].join(" ")}
     >
       {showImage ? (
@@ -508,7 +510,7 @@ function YouTubeSelect<T extends string>({
         className={[
           "w-full cursor-pointer appearance-none rounded-xl border py-2.5 pl-4 pr-10 text-[14px] font-medium outline-none transition",
           isDark
-            ? "border-white/10 bg-[#343537] text-white hover:bg-[#3a3b3d] focus:border-white/25"
+            ? "border-white/10 bg-[#242427] text-white hover:bg-[#2b2b2e] focus:border-white/30"
             : "border-black/10 bg-white text-neutral-900 hover:bg-neutral-50 focus:border-black/30",
         ].join(" ")}
       >
@@ -560,12 +562,16 @@ function YouTubeCheckbox({
         aria-hidden="true"
         className={[
           "flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-md border transition",
-          "peer-focus-visible:ring-2 peer-focus-visible:ring-[#a8d5a2]/60",
+          isDark
+            ? "peer-focus-visible:ring-2 peer-focus-visible:ring-white/50"
+            : "peer-focus-visible:ring-2 peer-focus-visible:ring-black/40",
           checked
-            ? "border-[#a8d5a2] bg-[#a8d5a2] text-[#1f2d1f]"
+            ? isDark
+              ? "border-white bg-white text-[#141416]"
+              : "border-neutral-900 bg-neutral-900 text-white"
             : isDark
-            ? "border-white/30 bg-transparent"
-            : "border-black/30 bg-transparent",
+            ? "border-white/30 bg-transparent hover:border-white/60"
+            : "border-black/30 bg-transparent hover:border-black/60",
         ].join(" ")}
       >
         {checked && <Check className="h-3.5 w-3.5" strokeWidth={3.5} />}
@@ -1217,9 +1223,8 @@ export default function NewPostModal({
     : null;
 
   // ── Règles YouTube ──
-  // YouTube n'accepte que des vidéos. En mode « Automatic », un titre vide
-  // retombe sur le titre du post, puis sur la première ligne du texte.
-  const youtubeVideo = media.find((m) => m.kind === "video") ?? null;
+  // En mode « Automatic », un titre vide retombe sur le titre du post,
+  // puis sur la première ligne du texte.
 
   const youtubeEffectiveTitle = (
     youtubeOptions.title.trim() ||
@@ -1232,8 +1237,6 @@ export default function NewPostModal({
     ? null
     : scheduleAction === "save_in_folder"
     ? null
-    : !youtubeVideo
-    ? "YouTube requires a video. Add one, or deselect YouTube."
     : !youtubeEffectiveTitle
     ? "Enter a title for your YouTube video."
     : null;
@@ -1499,7 +1502,7 @@ export default function NewPostModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-3 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-3 backdrop-blur-md"
       onClick={(event) => {
         if (event.target === event.currentTarget) closeWithDraft();
       }}
@@ -1508,17 +1511,17 @@ export default function NewPostModal({
         className={[
           "relative flex flex-col overflow-hidden border",
           isFullscreen
-            ? "h-[96vh] w-[96vw] rounded-[24px]"
-            : "h-[90vh] w-full max-w-[1200px] rounded-[20px]",
+            ? "h-[96vh] w-[96vw] rounded-[28px]"
+            : "h-[90vh] w-full max-w-[1200px] rounded-[28px]",
           bgModal,
           border,
           isDark ? "shadow-[0_32px_80px_rgba(0,0,0,0.6)]" : "shadow-[0_32px_80px_rgba(0,0,0,0.22)]",
         ].join(" ")}
       >
         {/* ── Header ── */}
-        <div className={["flex shrink-0 items-center justify-between border-b px-5 py-3", border].join(" ")}>
+        <div className={["flex shrink-0 items-center justify-between border-b px-6 py-4", border].join(" ")}>
           <div className="flex items-center gap-4">
-            <h2 className={["text-[18px] font-bold", textPrimary].join(" ")}>Create Post</h2>
+            <h2 className={["text-[19px] font-bold tracking-tight", textPrimary].join(" ")}>Create Post</h2>
             <button className={["flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[13px] font-medium transition", border, isDark ? "hover:bg-white/5" : "hover:bg-black/5", textSecondary].join(" ")}>
               <Tag className="h-3.5 w-3.5" />
               Tags
@@ -1550,7 +1553,7 @@ export default function NewPostModal({
         {/* ── Body ── */}
         <div className="flex min-h-0 flex-1 overflow-hidden">
           {/* Colonne gauche */}
-          <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-5">
+          <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-6">
             {/* Canaux connectés (photo de profil + badge du réseau) + bouton « + » */}
             <div className="mb-4 flex flex-wrap items-center gap-4">
               {channelTiles.map(({ channel, network }) => (
@@ -1580,7 +1583,15 @@ export default function NewPostModal({
               </button>
             </div>
 
-            <div className="relative flex min-h-[120px] flex-1 flex-col">
+            <div
+              className={[
+                "relative flex min-h-[160px] flex-1 flex-col rounded-2xl border p-4 transition-colors",
+                border,
+                isDark
+                  ? "bg-white/[0.03] focus-within:border-white/25"
+                  : "bg-neutral-50/60 focus-within:border-black/25",
+              ].join(" ")}
+            >
               <textarea
                 ref={textareaRef}
                 value={content}
@@ -1598,6 +1609,14 @@ export default function NewPostModal({
                   isDark ? "placeholder:text-neutral-500" : "placeholder:text-neutral-400",
                 ].join(" ")}
               />
+              <span
+                className={[
+                  "pointer-events-none self-end pt-2 text-[11px] tabular-nums",
+                  textSecondary,
+                ].join(" ")}
+              >
+                {content.length}
+              </span>
             </div>
 
             {/* ── Miniatures média : croix + crayon visibles au survol de la miniature ── */}
@@ -1719,13 +1738,24 @@ export default function NewPostModal({
             {youtubeSelected && (
               <div
                 className={[
-                  "mt-3 rounded-xl border p-4",
+                  "mt-4 rounded-2xl border p-5",
                   border,
-                  isDark ? "bg-[#2b2c2d]" : "bg-neutral-50",
+                  isDark ? "bg-[#1c1c1e]" : "bg-neutral-50",
                 ].join(" ")}
               >
                 {/* Mode des réglages (Automatic / Custom) */}
-                <div className="mb-3 flex justify-end">
+                <div className="mb-4 flex items-center justify-between">
+                  <div className={["flex items-center gap-2 text-[14px] font-semibold", textPrimary].join(" ")}>
+                    <span
+                      className={[
+                        "flex h-7 w-7 items-center justify-center rounded-lg",
+                        isDark ? "bg-white text-black" : "bg-neutral-900 text-white",
+                      ].join(" ")}
+                    >
+                      <YouTubeIcon className="h-3.5 w-3.5" />
+                    </span>
+                    YouTube settings
+                  </div>
                   <div ref={youtubeModeRef} className="relative">
                     <button
                       type="button"
@@ -1813,7 +1843,7 @@ export default function NewPostModal({
                       className={[
                         "w-full rounded-xl border px-4 py-2.5 text-[15px] outline-none transition",
                         isDark
-                          ? "border-white/10 bg-[#343537] text-white placeholder:text-neutral-500 focus:border-white/25"
+                          ? "border-white/10 bg-[#242427] text-white placeholder:text-neutral-500 focus:border-white/30"
                           : "border-black/10 bg-white text-neutral-900 placeholder:text-neutral-400 focus:border-black/30",
                       ].join(" ")}
                     />
@@ -1897,7 +1927,7 @@ export default function NewPostModal({
 
             {/* ── Options TikTok ── */}
             {tiktokSelected && scheduleAction !== "save_in_folder" && (
-              <div className={["mt-3 rounded-xl border p-3 text-[13px]", border, bgPanel].join(" ")}>
+              <div className={["mt-4 rounded-2xl border p-4 text-[13px]", border, bgPanel].join(" ")}>
                 {/* Compte de destination (obligatoire : le pseudo du créateur) */}
                 <p className={["mb-1 font-semibold", textPrimary].join(" ")}>
                   Posting to TikTok
@@ -2237,7 +2267,7 @@ export default function NewPostModal({
         </div>
 
         {/* ── Footer ── */}
-        <div className={["relative flex shrink-0 items-center justify-end gap-4 border-t px-5 py-3", border].join(" ")}>
+        <div className={["relative flex shrink-0 items-center justify-end gap-4 border-t px-6 py-4", border].join(" ")}>
           {/* Raison du blocage + déclaration TikTok (juste avant le bouton) */}
           {(footerHint || showTikTokDeclaration) && (
             <div className="mr-auto flex min-w-0 flex-1 flex-col gap-1">
