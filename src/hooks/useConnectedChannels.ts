@@ -18,7 +18,7 @@ export type ConnectedChannel = {
 
 const PROVIDER_NAMES: Record<CacheProvider, string> = {
   tiktok: "TikTok",
-  youtube: "YouTube",
+  youtube: "YouTube Shorts",
   pinterest: "Pinterest",
 };
 

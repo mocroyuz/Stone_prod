@@ -26,17 +26,17 @@ export async function getYouTubeStatus(): Promise<{
  * qu'à remonter les erreurs (réseau, 401, URL manquante...).
  */
 export async function startYouTubeLogin(): Promise<void> {
-  console.log("[Stone] YouTube : demande de l'URL d'autorisation");
+  console.log("[Stone] YouTube Shorts : demande de l'URL d'autorisation");
 
   const data = await apiRequest<{ url?: string }>("/api/youtube/auth/url", {
     method: "POST",
   });
 
-  console.log("[Stone] YouTube : réponse du backend", data);
+  console.log("[Stone] YouTube Shorts : réponse du backend", data);
 
   if (!data || typeof data.url !== "string" || !data.url) {
     throw new Error(
-      `Le backend n'a pas renvoyé d'URL YouTube (réponse : ${JSON.stringify(data)})`
+      `Le backend n'a pas renvoyé d'URL YouTube Shorts (réponse : ${JSON.stringify(data)})`
     );
   }
 
@@ -45,14 +45,14 @@ export async function startYouTubeLogin(): Promise<void> {
   try {
     target = new URL(data.url);
   } catch {
-    throw new Error(`URL YouTube invalide : ${data.url}`);
+    throw new Error(`URL YouTube Shorts invalide : ${data.url}`);
   }
 
   if (target.protocol !== "https:" || target.hostname !== "accounts.google.com") {
     throw new Error(`URL inattendue (hôte ${target.hostname}).`);
   }
 
-  console.log("[Stone] YouTube : redirection vers", target.toString());
+  console.log("[Stone] YouTube Shorts : redirection vers", target.toString());
 
   window.location.assign(target.toString());
 }

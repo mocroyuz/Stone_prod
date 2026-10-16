@@ -174,7 +174,7 @@ const OAUTH_PROVIDERS: Record<
     disconnect: disconnectPinterest,
   },
   youtube: {
-    label: "YouTube",
+    label: "YouTube Shorts",
     getStatus: getYouTubeStatus,
     login: startYouTubeLogin,
     disconnect: disconnectYouTube,

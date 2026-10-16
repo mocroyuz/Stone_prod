@@ -187,9 +187,9 @@ export const CHANNELS: Channel[] = [
   },
   {
     key: "youtube",
-    name: "YouTube",
+    name: "YouTube Shorts",
     subtitle: "Channel",
-    accountLabel: "YouTube Channel",
+    accountLabel: "YouTube Shorts Channel",
     icon: YouTubeIcon,
   },
   {
@@ -828,7 +828,7 @@ export default function Channels() {
     if (pinterestError)
       setErrorMessage(`Unable to connect to Pinterest. ${pinterestError}`);
     if (youtubeError)
-      setErrorMessage(`Unable to connect to YouTube. ${youtubeError}`);
+      setErrorMessage(`Unable to connect to YouTube Shorts. ${youtubeError}`);
 
     if (returned.tiktok) clearCache(userId, "tiktok");
     if (returned.pinterest) clearCache(userId, "pinterest");
@@ -1033,7 +1033,7 @@ export default function Channels() {
           ...current,
           youtube: { connected: false },
         }));
-        showNotification("YouTube disconnected successfully!");
+        showNotification("YouTube Shorts disconnected successfully!");
       } else {
         markReturning("youtube");
         await startYouTubeLogin();
@@ -1041,7 +1041,7 @@ export default function Channels() {
       }
     } catch (error) {
       console.error("[Stone] YouTube OAuth error:", error);
-      setErrorMessage(formatOAuthError("YouTube", error));
+      setErrorMessage(formatOAuthError("YouTube Shorts", error));
     } finally {
       if (!redirecting) {
         setPendingKey(null);

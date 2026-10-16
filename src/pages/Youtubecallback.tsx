@@ -59,7 +59,7 @@ export default function YouTubeCallback() {
     if (!params) {
       goToChannels(
         `?youtube_error=${encodeURIComponent(
-          "YouTube authorization data not found. Please try again."
+          "YouTube Shorts authorization data not found. Please try again."
         )}`
       );
       return;
@@ -118,7 +118,7 @@ export default function YouTubeCallback() {
             : "border-black/15 border-t-black",
         ].join(" ")}
       />
-      <p className="text-[14px] font-medium">Connecting your YouTube account...</p>
+      <p className="text-[14px] font-medium">Connecting your YouTube Shorts account...</p>
     </div>
   );
 }

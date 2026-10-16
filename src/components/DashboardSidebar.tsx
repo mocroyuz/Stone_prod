@@ -705,7 +705,10 @@ const CHANNEL_LINKS: {
   badge?: string;
   perChannel?: boolean;
 }[] = [
-  { label: "Publish", route: "schedule", icon: PublishIcon },
+  // ⬇️ FIX : Publish doit conserver le canal courant dans l'URL
+  // (comme Community et Insights), sinon on retombe sur channels[0]
+  // dans Schedule.tsx et l'on affiche un autre réseau (ex. TikTok).
+  { label: "Publish", route: "schedule", icon: PublishIcon, perChannel: true },
   { label: "Community", route: "community", icon: CommunityIcon, perChannel: true },
   {
     label: "Insights",
@@ -1857,7 +1860,7 @@ type OAuthProvider = "tiktok" | "pinterest" | "youtube";
 const OAUTH_LABELS: Record<OAuthProvider, string> = {
   tiktok: "TikTok",
   pinterest: "Pinterest",
-  youtube: "YouTube",
+  youtube: "YouTube Shorts",
 };
 
 const initialConnections: ConnectionState = {

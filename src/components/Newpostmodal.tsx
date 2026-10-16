@@ -89,7 +89,7 @@ export function unavailablePostActionMessage(payload: NewPostPayload): string {
     instagram: "Instagram",
     linkedin: "LinkedIn",
     tiktok: "TikTok",
-    youtube: "YouTube",
+    youtube: "YouTube Shorts",
     pinterest: "Pinterest",
     threads: "Threads",
   };
@@ -130,7 +130,7 @@ const SOCIAL_NETWORKS: {
   { id: "instagram", label: "Instagram", Icon: InstagramIcon },
   { id: "linkedin", label: "LinkedIn", Icon: LinkedInIcon },
   { id: "tiktok", label: "TikTok", Icon: TikTokIcon },
-  { id: "youtube", label: "YouTube", Icon: YouTubeIcon },
+  { id: "youtube", label: "YouTube Shorts", Icon: YouTubeIcon },
   { id: "pinterest", label: "Pinterest", Icon: PinterestIcon },
   {
     id: "threads",
@@ -1196,7 +1196,7 @@ export default function NewPostModal({
     : scheduleAction === "save_in_folder"
     ? null
     : !youtubeEffectiveTitle
-    ? "Enter a title for your YouTube video."
+    ? "Enter a title for your YouTube Shorts video."
     : null;
 
   const updateYoutube = <K extends keyof YouTubeOptions>(
@@ -1692,7 +1692,7 @@ export default function NewPostModal({
                   >
                     <YouTubeIcon className="h-3.5 w-3.5" />
                   </span>
-                  YouTube settings
+                  YouTube Shorts settings
                 </div>
 
                 <div className="flex flex-col gap-3.5">
@@ -1727,7 +1727,7 @@ export default function NewPostModal({
                     </span>
                     <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
                       <YouTubeSelect
-                        ariaLabel="YouTube category"
+                        ariaLabel="YouTube Shorts category"
                         value={youtubeOptions.categoryId}
                         options={YOUTUBE_CATEGORIES}
                         onChange={(v) => updateYoutube("categoryId", v)}
@@ -1739,7 +1739,7 @@ export default function NewPostModal({
                           Visibility
                         </span>
                         <YouTubeSelect
-                          ariaLabel="YouTube visibility"
+                          ariaLabel="YouTube Shorts visibility"
                           value={youtubeOptions.visibility}
                           options={YOUTUBE_VISIBILITY}
                           onChange={(v) => updateYoutube("visibility", v)}
@@ -1756,7 +1756,7 @@ export default function NewPostModal({
                       License
                     </span>
                     <YouTubeSelect
-                      ariaLabel="YouTube license"
+                      ariaLabel="YouTube Shorts license"
                       value={youtubeOptions.license}
                       options={YOUTUBE_LICENSES}
                       onChange={(v) => updateYoutube("license", v)}
