@@ -1,6 +1,7 @@
 // src/pages/Schedule.tsx
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTheme } from "../hooks/useTheme";
+import { useHashRoute } from "../hooks/useHashRoute";
 import DashboardSidebar, {
   useSidebarOffset,
 } from "../components/DashboardSidebar";
@@ -11,6 +12,8 @@ import NewPostModal, {
   unavailablePostActionMessage,
 } from "../components/Newpostmodal";
 import { DateTimePicker } from "../components/DateTimePicker";
+import ChannelMenu from "../components/ChannelMenu";
+import { useConnectedChannels } from "../hooks/useConnectedChannels";
 import HelpChatButton from "../components/Helpchatbutton";
 
 /* ------------------------------------------------------------------ */
@@ -35,6 +38,17 @@ const focusRingClass = (isDark: boolean) =>
   isDark
     ? "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
     : "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/25";
+
+/* ------------------------------------------------------------------ */
+/* Helpers                                                             */
+/* ------------------------------------------------------------------ */
+
+function useHashChannel(): string | null {
+  useHashRoute();
+  const hash = window.location.hash;
+  const i = hash.indexOf("?");
+  return i === -1 ? null : new URLSearchParams(hash.slice(i + 1)).get("channel");
+}
 
 /* ------------------------------------------------------------------ */
 /* Icons                                                               */
@@ -135,17 +149,6 @@ function ChevronRightIcon() {
   );
 }
 
-function ChannelsIcon() {
-  return (
-    <svg viewBox="0 0 24 24" className="h-[15px] w-[15px]" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="7" cy="7" r="2.6" />
-      <circle cx="17" cy="7" r="2.6" />
-      <circle cx="7" cy="17" r="2.6" />
-      <circle cx="17" cy="17" r="2.6" />
-    </svg>
-  );
-}
-
 function PostsIcon() {
   return (
     <svg viewBox="0 0 24 24" className="h-[15px] w-[15px]" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -198,7 +201,7 @@ function MoreVerticalIcon() {
 /* Toolbar building blocks                                             */
 /* ------------------------------------------------------------------ */
 
-type ToolbarPanel = "view" | "channels" | "posts" | "tags" | "timezone" | "more";
+type ToolbarPanel = "view" | "posts" | "tags" | "timezone" | "more";
 
 function ToolbarButton({
   isDark,
@@ -403,6 +406,8 @@ type CalendarEvent = {
   end: number;
   title: string;
   categoryId?: string;
+  /** Channel auquel l'événement appartient (absent = visible sur tous). */
+  channelKey?: string;
   confirmed?: boolean;
   published?: boolean;
 };
@@ -429,11 +434,6 @@ function formatEventTime(start: number, end: number) {
 }
 
 const VIEW_OPTIONS = ["Week"];
-const CHANNELS = [
-  { id: "instagram", name: "Instagram" },
-  { id: "facebook", name: "Facebook" },
-  { id: "linkedin", name: "LinkedIn" },
-];
 const TIMEZONES = ["Paris", "London", "New York", "Tokyo"];
 const SCOPE_OPTIONS = ["All", "Publié", "À publier"];
 
@@ -928,6 +928,23 @@ export default function Schedule() {
   const isDark = theme === "dark";
 
   const sidebarOffset = useSidebarOffset();
+  const channels = useConnectedChannels();
+
+  const hashChannel = useHashChannel();
+  const [selectedKey, setSelectedKey] = useState<string | null>(hashChannel);
+
+  useEffect(() => {
+    if (hashChannel) setSelectedKey(hashChannel);
+  }, [hashChannel]);
+
+  const channel = channels.find((c) => c.key === selectedKey) ?? channels[0];
+  const channelKey = channel?.key;
+
+  const goChannel = (key: string) => {
+    setSelectedKey(key);
+    const base = window.location.hash.split("?")[0] || "#/schedule";
+    window.history.replaceState(null, "", `${base}?channel=${encodeURIComponent(key)}`);
+  };
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
@@ -936,7 +953,6 @@ export default function Schedule() {
   const [weekOffset, setWeekOffset] = useState(0);
   const [openPanel, setOpenPanel] = useState<ToolbarPanel | null>(null);
   const [view, setView] = useState("Week");
-  const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
   const [timezone, setTimezone] = useState("Paris");
   const [showNoDate, setShowNoDate] = useState(false);
   const [scope, setScope] = useState("All");
@@ -1086,14 +1102,15 @@ export default function Schedule() {
   const visibleEvents = useMemo(
     () =>
       events.filter((e) => {
+        const matchChannel = !e.channelKey || !channelKey || e.channelKey === channelKey;
         const matchCategory = activeCategory === "All" || e.categoryId === activeCategory;
         const matchScope =
           scope === "All" ||
           (scope === "Publié" && e.published) ||
           (scope === "À publier" && !e.published);
-        return matchCategory && matchScope;
+        return matchChannel && matchCategory && matchScope;
       }),
-    [events, activeCategory, scope],
+    [events, activeCategory, scope, channelKey],
   );
 
   const layoutByDay = useMemo(() => {
@@ -1192,7 +1209,7 @@ export default function Schedule() {
       );
     } else {
       const id = `ev-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-      setEvents((prev) => [...prev, { id, ...data, published: false }]);
+      setEvents((prev) => [...prev, { id, ...data, channelKey, published: false }]);
     }
     setEventFormOpen(false);
     setEditingEventId(null);
@@ -1271,25 +1288,36 @@ export default function Schedule() {
             ].join(" ")}
           >
             {/* HEADER */}
-            <header className="mb-3 flex shrink-0 items-center gap-2.5">
-              <div
-                className={[
-                  "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border",
-                  isDark
-                    ? "border-white/[0.08] bg-white/[0.04] text-white"
-                    : "border-black/[0.06] bg-white text-neutral-900 shadow-sm",
-                ].join(" ")}
-              >
-                <CalendarIcon />
+            <header className="relative z-40 mb-3 flex shrink-0 flex-wrap items-center justify-between gap-4">
+              <div className="flex items-center gap-2.5">
+                <div
+                  className={[
+                    "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border",
+                    isDark
+                      ? "border-white/[0.08] bg-white/[0.04] text-white"
+                      : "border-black/[0.06] bg-white text-neutral-900 shadow-sm",
+                  ].join(" ")}
+                >
+                  <CalendarIcon />
+                </div>
+                <h1
+                  className={[
+                    "text-[24px] font-semibold tracking-[-0.035em]",
+                    strongClass(isDark),
+                  ].join(" ")}
+                >
+                  Publish
+                </h1>
               </div>
-              <h1
-                className={[
-                  "text-[24px] font-semibold tracking-[-0.035em]",
-                  strongClass(isDark),
-                ].join(" ")}
-              >
-                Publish
-              </h1>
+
+              <div className="flex flex-wrap items-center gap-2.5 print:hidden">
+                <ChannelMenu
+                  channels={channels}
+                  current={channel}
+                  isDark={isDark}
+                  onSelect={goChannel}
+                />
+              </div>
             </header>
 
             {/* TOOLBAR */}
@@ -1350,43 +1378,6 @@ export default function Schedule() {
               </div>
 
               <div className="flex flex-wrap items-center gap-1">
-                {/* Channels */}
-                <div className="relative" data-toolbar-menu>
-                  <ToolbarButton
-                    isDark={isDark}
-                    icon={<ChannelsIcon />}
-                    open={openPanel === "channels"}
-                    onClick={() => togglePanel("channels")}
-                  >
-                    Channels{selectedChannels.length > 0 ? ` (${selectedChannels.length})` : ""}
-                  </ToolbarButton>
-                  {openPanel === "channels" && (
-                    <MenuPanel isDark={isDark} align="right" width="w-52">
-                      <MenuItem
-                        isDark={isDark}
-                        selected={selectedChannels.length === 0}
-                        onClick={() => setSelectedChannels([])}
-                      >
-                        All channels
-                      </MenuItem>
-                      {CHANNELS.map((ch) => (
-                        <MenuItem
-                          key={ch.id}
-                          isDark={isDark}
-                          selected={selectedChannels.includes(ch.id)}
-                          onClick={() =>
-                            setSelectedChannels((cur) =>
-                              cur.includes(ch.id) ? cur.filter((x) => x !== ch.id) : [...cur, ch.id],
-                            )
-                          }
-                        >
-                          {ch.name}
-                        </MenuItem>
-                      ))}
-                    </MenuPanel>
-                  )}
-                </div>
-
                 {/* All Posts */}
                 <div className="relative" data-toolbar-menu>
                   <ToolbarButton

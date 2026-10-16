@@ -12,20 +12,8 @@ import NewPostModal, {
   type NewPostPayload,
   unavailablePostActionMessage,
 } from "../components/Newpostmodal";
-import {
-  useConnectedChannels,
-  type ConnectedChannel,
-} from "../hooks/useConnectedChannels";
-import {
-  XIcon,
-  FacebookIcon,
-  InstagramIcon,
-  LinkedInIcon,
-  TikTokIcon,
-  YouTubeIcon,
-  PinterestIcon,
-  ThreadsIcon,
-} from "../components/IntegrationIcons";
+import ChannelMenu from "../components/ChannelMenu";
+import { useConnectedChannels } from "../hooks/useConnectedChannels";
 import HelpChatButton from "../components/Helpchatbutton";
 
 /* ───────── Types ───────── */
@@ -41,7 +29,6 @@ type Post = {
 };
 
 type IconProps = { className?: string };
-type IconComponent = (props: IconProps) => React.ReactElement;
 
 const TABS: { key: Tab; label: string }[] = [
   { key: "comments", label: "Comments" },
@@ -63,14 +50,6 @@ const mainPanelClass = (isDark: boolean) =>
   isDark
     ? "border-white/[0.07] bg-[#0f0f11]"
     : "border-black/[0.06] bg-white";
-
-const panelSurfaceClass = (isDark: boolean) =>
-  isDark
-    ? "border-white/[0.07] bg-white/[0.03]"
-    : "border-black/[0.06] bg-[#f6f4f0]";
-
-const mutedClass = (isDark: boolean) =>
-  isDark ? "text-neutral-500" : "text-neutral-400";
 
 const strongClass = (isDark: boolean) =>
   isDark ? "text-white" : "text-neutral-900";
@@ -94,34 +73,6 @@ function useHashChannel(): string | null {
   const hash = window.location.hash;
   const i = hash.indexOf("?");
   return i === -1 ? null : new URLSearchParams(hash.slice(i + 1)).get("channel");
-}
-
-const NETWORK_ICONS: Record<string, IconComponent> = {
-  x: XIcon,
-  facebook: FacebookIcon,
-  instagram: InstagramIcon,
-  linkedin: LinkedInIcon,
-  tiktok: TikTokIcon,
-  youtube: YouTubeIcon,
-  pinterest: PinterestIcon,
-  threads: ThreadsIcon as IconComponent,
-};
-
-function getNetworkIcon(channel: ConnectedChannel): IconComponent | undefined {
-  const c = channel as unknown as Record<string, unknown>;
-  const raw = String(c.platform ?? c.network ?? c.provider ?? channel.key)
-    .toLowerCase()
-    .trim();
-
-  if (raw.includes("tiktok")) return NETWORK_ICONS.tiktok;
-  if (raw.includes("insta")) return NETWORK_ICONS.instagram;
-  if (raw.includes("youtube") || raw === "yt") return NETWORK_ICONS.youtube;
-  if (raw.includes("facebook") || raw === "fb") return NETWORK_ICONS.facebook;
-  if (raw.includes("linkedin")) return NETWORK_ICONS.linkedin;
-  if (raw.includes("pinterest")) return NETWORK_ICONS.pinterest;
-  if (raw.includes("threads")) return NETWORK_ICONS.threads;
-  if (raw === "x" || raw.includes("twitter")) return NETWORK_ICONS.x;
-  return undefined;
 }
 
 /* ───────── Icônes ───────── */
@@ -173,14 +124,6 @@ const PanelIcon = (p: IconProps) => (
 const ListIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="M8.5 6.5H20M8.5 12H20M8.5 17.5H20M4 6.5h.01M4 12h.01M4 17.5h.01" />
-  </Svg>
-);
-const GridIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <circle cx="7.5" cy="7.5" r="2.5" />
-    <circle cx="16.5" cy="7.5" r="2.5" />
-    <circle cx="7.5" cy="16.5" r="2.5" />
-    <circle cx="16.5" cy="16.5" r="2.5" />
   </Svg>
 );
 const ChevronDownIcon = (p: IconProps) => (
@@ -236,14 +179,6 @@ const PlusIcon = (p: IconProps) => (
 );
 
 /* ───────── Petits composants ───────── */
-
-function NetworkBadge({ Icon }: { Icon: IconComponent }) {
-  return (
-    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-white text-black ring-1 ring-black/10">
-      <Icon className="h-3 w-3" />
-    </span>
-  );
-}
 
 function Menu<T extends string>({
   value,
@@ -414,21 +349,9 @@ export default function Community() {
   const outline = isDark
     ? "border-white/[0.10] hover:bg-white/[0.06]"
     : "border-black/[0.08] hover:bg-black/[0.03]";
-  const ring = isDark
-    ? "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
-    : "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/25";
   const card = isDark
     ? "border-white/[0.07] bg-[#141416] hover:bg-[#19191c]"
     : "border-black/[0.06] bg-white hover:bg-[#f6f4f0]";
-
-  const channelOptions = channels.map((c) => {
-    const Icon = getNetworkIcon(c);
-    return {
-      key: c.key,
-      label: (c.handle || c.name).replace(/^@/, ""),
-      icon: Icon ? <NetworkBadge Icon={Icon} /> : undefined,
-    };
-  });
 
   const goChannel = (key: string) => {
     setSelectedKey(key);
@@ -495,7 +418,7 @@ export default function Community() {
             ].join(" ")}
           >
             {/* Header */}
-            <header className="flex shrink-0 items-center justify-between gap-4 pb-4">
+            <header className="relative z-40 flex shrink-0 flex-wrap items-center justify-between gap-4 pb-4">
               <div className="flex min-w-0 items-center gap-2.5">
                 <div
                   className={[
@@ -517,47 +440,56 @@ export default function Community() {
                 </h1>
               </div>
 
-              <div className="flex items-center gap-2">
-                <IconButton label="Auto-replies" ghost={ghost} isDark={isDark}>
-                  <ChatHeartIcon className="h-5 w-5" />
-                </IconButton>
-                <IconButton label="Refresh comments" ghost={ghost} isDark={isDark}>
-                  <SyncIcon className="h-5 w-5" />
-                </IconButton>
+              <div className="flex flex-wrap items-center gap-2.5">
+                <ChannelMenu
+                  channels={channels}
+                  current={channel}
+                  isDark={isDark}
+                  onSelect={goChannel}
+                />
 
-                <div
-                  role="tablist"
-                  aria-label="Layout"
-                  className={["ml-2 inline-flex gap-1 rounded-xl border p-1", line].join(" ")}
-                >
-                  {(
-                    [
-                      { key: "post", label: "By post", icon: <PanelIcon className="h-4 w-4" /> },
-                      { key: "list", label: "List", icon: <ListIcon className="h-4 w-4" /> },
-                    ] as { key: Layout; label: string; icon: ReactNode }[]
-                  ).map((o) => (
-                    <button
-                      key={o.key}
-                      type="button"
-                      role="tab"
-                      aria-selected={layout === o.key}
-                      onClick={() => setLayout(o.key)}
-                      className={[
-                        "flex items-center gap-2 rounded-lg px-3 py-1.5 text-[12.5px] font-semibold transition-colors motion-reduce:transition-none",
-                        focusRingClass(isDark),
-                        layout === o.key
-                          ? isDark
-                            ? "bg-white text-black"
-                            : "bg-neutral-900 text-white"
-                          : isDark
-                            ? "text-neutral-400 hover:text-white"
-                            : "text-neutral-500 hover:text-neutral-900",
-                      ].join(" ")}
-                    >
-                      {o.icon}
-                      {o.label}
-                    </button>
-                  ))}
+                <div className="flex items-center gap-2">
+                  <IconButton label="Auto-replies" ghost={ghost} isDark={isDark}>
+                    <ChatHeartIcon className="h-5 w-5" />
+                  </IconButton>
+                  <IconButton label="Refresh comments" ghost={ghost} isDark={isDark}>
+                    <SyncIcon className="h-5 w-5" />
+                  </IconButton>
+
+                  <div
+                    role="tablist"
+                    aria-label="Layout"
+                    className={["ml-2 inline-flex gap-1 rounded-xl border p-1", line].join(" ")}
+                  >
+                    {(
+                      [
+                        { key: "post", label: "By post", icon: <PanelIcon className="h-4 w-4" /> },
+                        { key: "list", label: "List", icon: <ListIcon className="h-4 w-4" /> },
+                      ] as { key: Layout; label: string; icon: ReactNode }[]
+                    ).map((o) => (
+                      <button
+                        key={o.key}
+                        type="button"
+                        role="tab"
+                        aria-selected={layout === o.key}
+                        onClick={() => setLayout(o.key)}
+                        className={[
+                          "flex items-center gap-2 rounded-lg px-3 py-1.5 text-[12.5px] font-semibold transition-colors motion-reduce:transition-none",
+                          focusRingClass(isDark),
+                          layout === o.key
+                            ? isDark
+                              ? "bg-white text-black"
+                              : "bg-neutral-900 text-white"
+                            : isDark
+                              ? "text-neutral-400 hover:text-white"
+                              : "text-neutral-500 hover:text-neutral-900",
+                        ].join(" ")}
+                      >
+                        {o.icon}
+                        {o.label}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
             </header>
@@ -588,18 +520,6 @@ export default function Community() {
               </div>
 
               <div className="flex items-center gap-1 pb-2">
-                <Menu
-                  value={channel?.key ?? ""}
-                  options={
-                    channelOptions.length
-                      ? channelOptions
-                      : [{ key: "", label: "Channels" }]
-                  }
-                  onChange={(k) => k && goChannel(k)}
-                  icon={<GridIcon className="h-4 w-4" />}
-                  isDark={isDark}
-                  ghost={ghost}
-                />
                 <Menu
                   value={filter}
                   options={FILTERS}
