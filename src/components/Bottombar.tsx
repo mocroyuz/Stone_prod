@@ -1,14 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
 export type BottomBarTab = "files" | "add";
-export type AddKind = "post" | "idea";
-
-type Item = {
-  id: BottomBarTab;
-  label: string;
-  icon: ReactNode;
-  primary?: boolean;
-};
 
 const svgProps = {
   width: 20,
@@ -22,17 +14,31 @@ const svgProps = {
   "aria-hidden": true,
 };
 
-const FILES_ITEM: Item = {
-  id: "files",
-  label: "Dossiers",
-  icon: (
-    <svg {...svgProps}>
-      <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z" />
-    </svg>
-  ),
-};
+const FilesIcon = (
+  <svg {...svgProps}>
+    <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z" />
+  </svg>
+);
 
-const ADD_LABEL = "Nouvelle publication";
+const PlusIcon = (
+  <svg {...svgProps} width={24} height={24} strokeWidth={2.2}>
+    <path d="M12 5v14M5 12h14" />
+  </svg>
+);
+
+const IdeaIcon = (
+  <svg {...svgProps} width={18} height={18}>
+    <path d="M9 18h6M10 21h4" />
+    <path d="M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3Z" />
+  </svg>
+);
+
+const PostIcon = (
+  <svg {...svgProps} width={18} height={18}>
+    <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5Z" />
+    <path d="M14 3v5h5M9 13h6M9 17h6" />
+  </svg>
+);
 
 function SearchIcon() {
   return (
@@ -51,52 +57,7 @@ function SearchIcon() {
   );
 }
 
-function PostIcon() {
-  return (
-    <svg {...svgProps} width={22} height={22}>
-      <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5Z" />
-      <path d="M14 3v5h5" />
-      <path d="M9 13h6M9 17h6M9 9h2" />
-    </svg>
-  );
-}
-
-function IdeaIcon() {
-  return (
-    <svg {...svgProps} width={22} height={22}>
-      <path d="M9 18h6M10 21h4" />
-      <path d="M12 3a6 6 0 0 0-3.6 10.8c.6.5 1 1.2 1 2V16h5.2v-.2c0-.8.4-1.5 1-2A6 6 0 0 0 12 3Z" />
-    </svg>
-  );
-}
-
-const ADD_MENU: {
-  kind: AddKind;
-  title: string;
-  description: string;
-  icon: ReactNode;
-  tileDark: string;
-  tileLight: string;
-}[] = [
-  {
-    kind: "post",
-    title: "Post",
-    description: "Publish content to a channel",
-    icon: <PostIcon />,
-    tileDark: "bg-[#17395c] text-[#cfe4ff]",
-    tileLight: "bg-[#dbeafe] text-[#1d4f8f]",
-  },
-  {
-    kind: "idea",
-    title: "Idea",
-    description: "Capture a content idea",
-    icon: <IdeaIcon />,
-    tileDark: "bg-[#3b4a33] text-[#a9d98c]",
-    tileLight: "bg-[#e4f3d9] text-[#3f7a22]",
-  },
-];
-
-const KEYFRAMES = `
+const ANIMATION_KEYFRAMES = `
 @keyframes searchIconOpen {
   0% { transform: scale(.82) rotate(-12deg); opacity: .65; }
   55% { transform: scale(1.08) rotate(3deg); opacity: 1; }
@@ -115,39 +76,45 @@ const KEYFRAMES = `
 }
 
 @keyframes addMenuIn {
-  0% { opacity: 0; transform: translateY(8px) scale(.95); }
+  0% { opacity: 0; transform: translateY(8px) scale(.96); }
   100% { opacity: 1; transform: translateY(0) scale(1); }
 }
 `;
 
 type BottomBarProps = {
   isDark?: boolean;
+  /** Appelé quand on clique sur « Dossiers ». */
   onChange?: (id: BottomBarTab) => void;
-  onAddSelect?: (kind: AddKind) => void;
   active?: BottomBarTab | null;
   addLabel?: string;
   query: string;
   onQueryChange: (value: string) => void;
   offsetLeft?: number;
+  /** Appelé quand on choisit « Créer une idée » dans le menu du « + ». */
+  onCreateIdea?: () => void;
+  /** Appelé quand on choisit « Créer un post » dans le menu du « + ». */
+  onCreatePost?: () => void;
 };
 
 export default function BottomBar({
   isDark = false,
   onChange,
-  onAddSelect,
   active = null,
-  addLabel,
+  addLabel = "Nouvelle publication",
   query,
   onQueryChange,
   offsetLeft = 0,
+  onCreateIdea,
+  onCreatePost,
 }: BottomBarProps) {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
-  const [isAddOpen, setIsAddOpen] = useState(false);
+  const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const addWrapperRef = useRef<HTMLLIElement>(null);
 
+  /* Focus de l'input à l'ouverture de la recherche */
   useEffect(() => {
     if (isSearchOpen) {
       const timer = window.setTimeout(() => {
@@ -158,36 +125,38 @@ export default function BottomBar({
     }
   }, [isSearchOpen]);
 
-  // Fermeture du menu : clic extérieur + Échap
+  /* Fermeture du menu « + » : clic extérieur ou Échap */
   useEffect(() => {
-    if (!isAddOpen) return;
+    if (!isAddMenuOpen) return;
 
-    const onPointerDown = (event: MouseEvent | TouchEvent) => {
+    const handlePointerDown = (event: MouseEvent | TouchEvent) => {
       if (
         addWrapperRef.current &&
         !addWrapperRef.current.contains(event.target as Node)
       ) {
-        setIsAddOpen(false);
+        setIsAddMenuOpen(false);
       }
     };
 
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setIsAddOpen(false);
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsAddMenuOpen(false);
+      }
     };
 
-    document.addEventListener("mousedown", onPointerDown);
-    document.addEventListener("touchstart", onPointerDown);
-    document.addEventListener("keydown", onKey);
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("touchstart", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
 
     return () => {
-      document.removeEventListener("mousedown", onPointerDown);
-      document.removeEventListener("touchstart", onPointerDown);
-      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("touchstart", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [isAddOpen]);
+  }, [isAddMenuOpen]);
 
   const openSearch = () => {
-    setIsAddOpen(false);
+    setIsAddMenuOpen(false);
     setIsClosing(false);
     setIsSearchOpen(true);
   };
@@ -201,55 +170,44 @@ export default function BottomBar({
     }, 220);
   };
 
-  const toggleAdd = () => {
-    setIsAddOpen((open) => {
-      if (!open) onChange?.("add");
-      return !open;
-    });
+  const focusRing = [
+    "focus-visible:outline-none focus-visible:ring-2",
+    "focus-visible:ring-neutral-500 focus-visible:ring-offset-2",
+  ].join(" ");
+
+  /* ───────── Bouton « Dossiers » ───────── */
+  const isFilesActive = active === "files";
+
+  const filesTone = isDark
+    ? isFilesActive
+      ? "border border-white/60 bg-[#141416] text-white"
+      : "border border-white/10 bg-[#141416] text-neutral-300"
+    : isFilesActive
+      ? "border border-black bg-white text-black"
+      : "border border-black/10 bg-white text-black/80";
+
+  /* ───────── Bouton « + » ───────── */
+  const addTone = isDark
+    ? "bg-white text-neutral-900"
+    : "bg-black text-white";
+
+  const menuTone = isDark
+    ? "border border-white/10 bg-[#1c1c1e] text-neutral-100 shadow-[0_16px_44px_rgba(0,0,0,0.5)]"
+    : "border border-black/5 bg-[#faf9f6] text-neutral-800 shadow-[0_16px_44px_rgba(0,0,0,0.14)]";
+
+  const menuItemTone = isDark
+    ? "hover:bg-white/10 focus-visible:bg-white/10"
+    : "hover:bg-black/5 focus-visible:bg-black/5";
+
+  const handleCreateIdea = () => {
+    setIsAddMenuOpen(false);
+    onCreateIdea?.();
   };
 
-  const handleSelect = (kind: AddKind) => {
-    setIsAddOpen(false);
-    onAddSelect?.(kind);
+  const handleCreatePost = () => {
+    setIsAddMenuOpen(false);
+    onCreatePost?.();
   };
-
-  const renderButton = ({ id, label, icon }: Item) => {
-    const isActive = active === id;
-
-    const tone = isDark
-      ? isActive
-        ? "border border-white/60 bg-[#141416] text-white"
-        : "border border-white/10 bg-[#141416] text-neutral-300"
-      : isActive
-        ? "border border-black bg-white text-black"
-        : "border border-black/10 bg-white text-black/80";
-
-    return (
-      <li key={id}>
-        <button
-          type="button"
-          aria-label={label}
-          title={label}
-          aria-current={isActive ? "true" : undefined}
-          onClick={() => {
-            setIsAddOpen(false);
-            onChange?.(id);
-          }}
-          className={[
-            "flex h-12 w-12 items-center justify-center rounded-full",
-            "transition duration-150 active:scale-90",
-            "focus-visible:outline-none focus-visible:ring-2",
-            "focus-visible:ring-neutral-500 focus-visible:ring-offset-2",
-            tone,
-          ].join(" ")}
-        >
-          {icon}
-        </button>
-      </li>
-    );
-  };
-
-  const label = addLabel ?? ADD_LABEL;
 
   return (
     <nav
@@ -260,7 +218,7 @@ export default function BottomBar({
         paddingBottom: "max(16px, env(safe-area-inset-bottom))",
       }}
     >
-      <style>{KEYFRAMES}</style>
+      <style>{ANIMATION_KEYFRAMES}</style>
 
       <ul
         className={[
@@ -270,7 +228,27 @@ export default function BottomBar({
             : "bg-[#faf9f6] shadow-[0_16px_44px_rgba(0,0,0,0.10)]",
         ].join(" ")}
       >
-        {renderButton(FILES_ITEM)}
+        {/* Dossiers */}
+        <li>
+          <button
+            type="button"
+            aria-label="Dossiers"
+            title="Dossiers"
+            aria-current={isFilesActive ? "true" : undefined}
+            onClick={() => {
+              setIsAddMenuOpen(false);
+              onChange?.("files");
+            }}
+            className={[
+              "flex h-12 w-12 items-center justify-center rounded-full",
+              "transition duration-150 active:scale-90",
+              focusRing,
+              filesTone,
+            ].join(" ")}
+          >
+            {FilesIcon}
+          </button>
+        </li>
 
         {/* Recherche */}
         <li>
@@ -292,13 +270,16 @@ export default function BottomBar({
               isClosing && "w-12",
             ].join(" ")}
           >
+            {/* Loupe */}
             <button
               type="button"
               aria-label="Rechercher"
               aria-expanded={isSearchOpen}
               title="Rechercher"
               onMouseDown={(event) => {
-                if (isSearchOpen) event.preventDefault();
+                if (isSearchOpen) {
+                  event.preventDefault();
+                }
               }}
               onClick={() => {
                 if (isSearchOpen) {
@@ -310,8 +291,7 @@ export default function BottomBar({
               className={[
                 "relative z-10 flex h-12 w-12 shrink-0",
                 "items-center justify-center rounded-full",
-                "focus-visible:outline-none focus-visible:ring-2",
-                "focus-visible:ring-neutral-500 focus-visible:ring-offset-2",
+                focusRing,
                 !isSearchOpen && "transition duration-150 active:scale-90",
               ].join(" ")}
             >
@@ -327,6 +307,7 @@ export default function BottomBar({
               </span>
             </button>
 
+            {/* Zone de recherche */}
             <div
               className={[
                 "flex min-w-0 flex-1 items-center",
@@ -341,7 +322,9 @@ export default function BottomBar({
                 value={query}
                 onChange={(event) => onQueryChange(event.target.value)}
                 onBlur={() => {
-                  if (query.trim() === "") closeSearch();
+                  if (query.trim() === "") {
+                    closeSearch();
+                  }
                 }}
                 onKeyDown={(event) => {
                   if (event.key === "Escape") {
@@ -366,97 +349,87 @@ export default function BottomBar({
           </div>
         </li>
 
-        {/* Bouton + et menu collé au-dessus */}
+        {/* « + » avec menu : idée ou post */}
         <li ref={addWrapperRef} className="relative">
-          {isAddOpen && (
-            <div
-              role="menu"
-              aria-label={label}
-              className={[
-                "absolute bottom-full right-0 mb-3 w-[280px] origin-bottom-right",
-                "rounded-2xl p-2",
-                "animate-[addMenuIn_180ms_cubic-bezier(0.22,1,0.36,1)]",
-                isDark
-                  ? "border border-white/10 bg-[#262826] shadow-[0_16px_44px_rgba(0,0,0,0.55)]"
-                  : "border border-black/5 bg-white shadow-[0_16px_44px_rgba(0,0,0,0.14)]",
-              ].join(" ")}
-            >
-              {ADD_MENU.map((entry) => (
-                <button
-                  key={entry.kind}
-                  type="button"
-                  role="menuitem"
-                  onClick={() => handleSelect(entry.kind)}
-                  className={[
-                    "flex w-full items-center gap-4 rounded-xl p-2.5 text-left",
-                    "transition duration-150 active:scale-[0.98]",
-                    "focus-visible:outline-none focus-visible:ring-2",
-                    "focus-visible:ring-neutral-500",
-                    isDark ? "hover:bg-white/5" : "hover:bg-black/5",
-                  ].join(" ")}
-                >
-                  <span
-                    className={[
-                      "flex h-12 w-12 shrink-0 items-center justify-center rounded-xl",
-                      isDark ? entry.tileDark : entry.tileLight,
-                    ].join(" ")}
-                  >
-                    {entry.icon}
-                  </span>
-
-                  <span className="min-w-0">
-                    <span
-                      className={[
-                        "block text-[16px] font-semibold leading-tight",
-                        isDark ? "text-white" : "text-neutral-900",
-                      ].join(" ")}
-                    >
-                      {entry.title}
-                    </span>
-                    <span
-                      className={[
-                        "mt-0.5 block text-[13px] leading-snug",
-                        isDark ? "text-neutral-400" : "text-neutral-500",
-                      ].join(" ")}
-                    >
-                      {entry.description}
-                    </span>
-                  </span>
-                </button>
-              ))}
-            </div>
-          )}
-
           <button
             type="button"
-            aria-label={label}
-            title={label}
+            aria-label={addLabel}
+            title={addLabel}
             aria-haspopup="menu"
-            aria-expanded={isAddOpen}
-            onClick={toggleAdd}
+            aria-expanded={isAddMenuOpen}
+            onClick={() => setIsAddMenuOpen((open) => !open)}
             className={[
               "flex h-12 w-12 items-center justify-center rounded-full",
               "transition duration-150 active:scale-90",
-              "focus-visible:outline-none focus-visible:ring-2",
-              "focus-visible:ring-neutral-500 focus-visible:ring-offset-2",
-              isDark ? "bg-white text-neutral-900" : "bg-black text-white",
+              focusRing,
+              addTone,
             ].join(" ")}
           >
-            <svg
-              {...svgProps}
-              width={24}
-              height={24}
-              strokeWidth={2.2}
+            <span
               className={[
-                "transition-transform duration-200 ease-out",
-                isAddOpen ? "rotate-45" : "rotate-0",
+                "flex items-center justify-center transition-transform duration-200",
+                isAddMenuOpen ? "rotate-45" : "rotate-0",
               ].join(" ")}
             >
-              <path d="M12 5v14M5 12h14" />
-            </svg>
+              {PlusIcon}
+            </span>
           </button>
+
+          {isAddMenuOpen && (
+            <div
+              role="menu"
+              aria-label={addLabel}
+              className={[
+                "absolute bottom-full right-0 mb-3 w-56 origin-bottom-right",
+                "rounded-2xl p-1.5",
+                "animate-[addMenuIn_180ms_cubic-bezier(0.22,1,0.36,1)]",
+                menuTone,
+              ].join(" ")}
+            >
+              <MenuItem
+                icon={IdeaIcon}
+                label="Créer une idée"
+                tone={menuItemTone}
+                onClick={handleCreateIdea}
+              />
+              <MenuItem
+                icon={PostIcon}
+                label="Créer un post"
+                tone={menuItemTone}
+                onClick={handleCreatePost}
+              />
+            </div>
+          )}
         </li>
       </ul>
     </nav>
+  );
+}
+
+type MenuItemProps = {
+  icon: ReactNode;
+  label: string;
+  tone: string;
+  onClick: () => void;
+};
+
+function MenuItem({ icon, label, tone, onClick }: MenuItemProps) {
+  return (
+    <button
+      type="button"
+      role="menuitem"
+      onClick={onClick}
+      className={[
+        "flex w-full items-center gap-3 rounded-xl px-3 py-2.5",
+        "text-left text-[14px] font-medium outline-none",
+        "transition-colors duration-150",
+        tone,
+      ].join(" ")}
+    >
+      <span className="flex h-5 w-5 shrink-0 items-center justify-center opacity-80">
+        {icon}
+      </span>
+      {label}
+    </button>
   );
 }
