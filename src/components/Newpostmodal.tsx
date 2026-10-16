@@ -4,7 +4,7 @@ import { EmojiPicker as FrimousseEmojiPicker } from "frimousse";
 import {
   Maximize2, Minimize2, X, Tag, FileText,
   Eye, Smile, Hash, Image as ImageIcon, ImagePlus, Pencil, ChevronDown,
-  CalendarClock, Check, Sparkles, ArrowLeft, Wand2, Plus, Zap
+  CalendarClock, Check, Sparkles, ArrowLeft, Wand2, Plus
 } from "lucide-react";
 import {
   XIcon, FacebookIcon, InstagramIcon, LinkedInIcon,
@@ -54,7 +54,6 @@ export type ScheduleAction = "save_in_folder" | "now" | "set_date";
 
 export type YouTubeVisibility = "public" | "unlisted" | "private";
 export type YouTubeLicense = "youtube" | "creativeCommon";
-export type YouTubeSettingsMode = "automatic" | "custom";
 
 export type YouTubeOptions = {
   title: string;
@@ -230,23 +229,6 @@ const YOUTUBE_LICENSES: { id: YouTubeLicense; label: string }[] = [
   { id: "creativeCommon", label: "Creative Commons - Attribution" },
 ];
 
-const YOUTUBE_SETTINGS_MODES: {
-  id: YouTubeSettingsMode;
-  label: string;
-  description: string;
-}[] = [
-  {
-    id: "automatic",
-    label: "Automatic",
-    description: "Empty title falls back to your post title or first line.",
-  },
-  {
-    id: "custom",
-    label: "Custom",
-    description: "You write the YouTube title yourself.",
-  },
-];
-
 const YOUTUBE_DEFAULT_OPTIONS: YouTubeOptions = {
   title: "",
   categoryId: YOUTUBE_CATEGORIES[0].id,
@@ -270,7 +252,6 @@ type DraftData = {
   scheduledAt: number;
   files: File[];
   youtubeOptions?: YouTubeOptions;
-  youtubeMode?: YouTubeSettingsMode;
 };
 
 // Survit à la fermeture (et même au démontage) du composant.
@@ -741,9 +722,6 @@ export default function NewPostModal({
   const [youtubeOptions, setYoutubeOptions] = useState<YouTubeOptions>(
     YOUTUBE_DEFAULT_OPTIONS
   );
-  const [youtubeMode, setYoutubeMode] = useState<YouTubeSettingsMode>("automatic");
-  const [showYoutubeModeMenu, setShowYoutubeModeMenu] = useState(false);
-  const youtubeModeRef = useRef<HTMLDivElement>(null);
 
   // ── TikTok ──
   const [tiktokInfo, setTiktokInfo] = useState<TikTokCreatorInfo | null>(null);
@@ -865,8 +843,6 @@ export default function NewPostModal({
       if (event.key === "Escape") {
         if (showEmojiPicker) {
           setShowEmojiPicker(false);
-        } else if (showYoutubeModeMenu) {
-          setShowYoutubeModeMenu(false);
         } else if (showActionMenu || showDateTimePanel) {
           setShowActionMenu(false);
           setShowDateTimePanel(false);
@@ -882,7 +858,7 @@ export default function NewPostModal({
       document.removeEventListener("keydown", handleKeyDown);
       document.body.style.overflow = previousOverflow;
     };
-  }, [isOpen, showActionMenu, showDateTimePanel, showEmojiPicker, showYoutubeModeMenu]);
+  }, [isOpen, showActionMenu, showDateTimePanel, showEmojiPicker]);
 
   useEffect(() => {
     return () => {
@@ -935,20 +911,6 @@ export default function NewPostModal({
       document.removeEventListener("mousedown", onPointerDown);
     };
   }, [showEmojiPicker]);
-
-  // Ferme le menu « Automatic / Custom » du panneau YouTube au clic extérieur.
-  useEffect(() => {
-    if (!showYoutubeModeMenu) return;
-    const onPointerDown = (e: MouseEvent) => {
-      if (!youtubeModeRef.current?.contains(e.target as Node)) {
-        setShowYoutubeModeMenu(false);
-      }
-    };
-    document.addEventListener("mousedown", onPointerDown);
-    return () => {
-      document.removeEventListener("mousedown", onPointerDown);
-    };
-  }, [showYoutubeModeMenu]);
 
   // Charge les infos créateur TikTok (pseudo, visibilités autorisées, durée max...)
   // à chaque fois que TikTok est (re)sélectionné : TikTok exige les infos les
@@ -1012,8 +974,6 @@ export default function NewPostModal({
     setTiktokAllow(TIKTOK_DEFAULT_ALLOW);
     setTiktokCommercial(TIKTOK_DEFAULT_COMMERCIAL);
     setYoutubeOptions(YOUTUBE_DEFAULT_OPTIONS);
-    setYoutubeMode("automatic");
-    setShowYoutubeModeMenu(false);
     caretRef.current = null;
     preselectRef.current = null;
   };
@@ -1039,7 +999,6 @@ export default function NewPostModal({
         scheduledAt: scheduledAt.getTime(),
         files: media.map((m) => m.file),
         youtubeOptions,
-        youtubeMode,
       };
     }
     clearForm();
@@ -1059,7 +1018,6 @@ export default function NewPostModal({
     setScheduleAction(pendingDraft.scheduleAction);
     setScheduledAt(new Date(pendingDraft.scheduledAt));
     setYoutubeOptions(pendingDraft.youtubeOptions ?? YOUTUBE_DEFAULT_OPTIONS);
-    setYoutubeMode(pendingDraft.youtubeMode ?? "automatic");
     setMedia(
       pendingDraft.files.map((file) => ({
         id: makeId(),
@@ -1228,9 +1186,9 @@ export default function NewPostModal({
 
   const youtubeEffectiveTitle = (
     youtubeOptions.title.trim() ||
-    (youtubeMode === "automatic"
-      ? title.trim() || content.trim().split("\n")[0] || ""
-      : "")
+    title.trim() ||
+    content.trim().split("\n")[0] ||
+    ""
   ).slice(0, YOUTUBE_TITLE_MAX);
 
   const youtubeBlockingReason: string | null = !youtubeSelected
@@ -1246,16 +1204,6 @@ export default function NewPostModal({
     value: YouTubeOptions[K]
   ) => setYoutubeOptions((o) => ({ ...o, [key]: value }));
 
-  // Raison affichée à côté du bouton pour les autres conditions bloquantes.
-  const otherBlockingReason: string | null =
-    networks.length === 0
-      ? "Select at least one network."
-      : content.trim().length === 0 && media.length === 0
-      ? "Write something or add media."
-      : scheduleAction === "set_date" && scheduledAt.getTime() <= Date.now()
-      ? "Pick a date and time in the future."
-      : null;
-
   const canSubmit =
     networks.length > 0 &&
     (content.trim().length > 0 || media.length > 0) &&
@@ -1263,10 +1211,6 @@ export default function NewPostModal({
     !tiktokBlockingReason &&
     !youtubeBlockingReason &&
     !isSubmitting;
-
-  const footerHint = isSubmitting
-    ? null
-    : tiktokBlockingReason ?? youtubeBlockingReason ?? otherBlockingReason;
 
   // Libellé légal obligatoire (« Promotional content » / « Paid partnership »).
   const tiktokLabelNotice =
@@ -1495,10 +1439,6 @@ export default function NewPostModal({
   ];
 
   const linkClass = "underline underline-offset-2 hover:opacity-80";
-
-  const currentYoutubeMode =
-    YOUTUBE_SETTINGS_MODES.find((m) => m.id === youtubeMode) ??
-    YOUTUBE_SETTINGS_MODES[0];
 
   return (
     <div
@@ -1743,85 +1683,16 @@ export default function NewPostModal({
                   isDark ? "bg-[#1c1c1e]" : "bg-neutral-50",
                 ].join(" ")}
               >
-                {/* Mode des réglages (Automatic / Custom) */}
-                <div className="mb-4 flex items-center justify-between">
-                  <div className={["flex items-center gap-2 text-[14px] font-semibold", textPrimary].join(" ")}>
-                    <span
-                      className={[
-                        "flex h-7 w-7 items-center justify-center rounded-lg",
-                        isDark ? "bg-white text-black" : "bg-neutral-900 text-white",
-                      ].join(" ")}
-                    >
-                      <YouTubeIcon className="h-3.5 w-3.5" />
-                    </span>
-                    YouTube settings
-                  </div>
-                  <div ref={youtubeModeRef} className="relative">
-                    <button
-                      type="button"
-                      onClick={() => setShowYoutubeModeMenu((v) => !v)}
-                      aria-haspopup="menu"
-                      aria-expanded={showYoutubeModeMenu}
-                      className={[
-                        "flex items-center gap-2 rounded-lg px-2 py-1 text-[14px] font-semibold transition",
-                        textPrimary,
-                        isDark ? "hover:bg-white/5" : "hover:bg-black/5",
-                      ].join(" ")}
-                    >
-                      <Zap className={["h-4 w-4", textSecondary].join(" ")} />
-                      {currentYoutubeMode.label}
-                      <ChevronDown
-                        className={[
-                          "h-4 w-4 transition",
-                          showYoutubeModeMenu ? "rotate-180" : "",
-                          textSecondary,
-                        ].join(" ")}
-                      />
-                    </button>
-
-                    {showYoutubeModeMenu && (
-                      <div
-                        role="menu"
-                        className={[
-                          "absolute right-0 top-full z-40 mt-1 w-[280px] overflow-hidden rounded-xl border p-1.5 shadow-2xl",
-                          isDark ? "border-white/10 bg-[#1c1c1e]" : "border-black/10 bg-white",
-                        ].join(" ")}
-                      >
-                        {YOUTUBE_SETTINGS_MODES.map((m) => {
-                          const isSelected = m.id === youtubeMode;
-                          return (
-                            <button
-                              key={m.id}
-                              type="button"
-                              role="menuitem"
-                              onClick={() => {
-                                setYoutubeMode(m.id);
-                                setShowYoutubeModeMenu(false);
-                              }}
-                              className={[
-                                "flex w-full items-start gap-2 rounded-lg px-3 py-2 text-left transition",
-                                isSelected
-                                  ? `${accentBg} ${accentText}`
-                                  : isDark
-                                  ? "text-neutral-200 hover:bg-white/5"
-                                  : "text-neutral-700 hover:bg-black/[0.04]",
-                              ].join(" ")}
-                            >
-                              <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center">
-                                {isSelected && <Check className="h-4 w-4" strokeWidth={3} />}
-                              </span>
-                              <span className="min-w-0 flex-1">
-                                <span className="block text-[13px] font-bold">{m.label}</span>
-                                <span className={["mt-0.5 block text-[12px] leading-snug", textSecondary].join(" ")}>
-                                  {m.description}
-                                </span>
-                              </span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </div>
+                <div className={["mb-4 flex items-center gap-2 text-[14px] font-semibold", textPrimary].join(" ")}>
+                  <span
+                    className={[
+                      "flex h-7 w-7 items-center justify-center rounded-lg",
+                      isDark ? "bg-white text-black" : "bg-neutral-900 text-white",
+                    ].join(" ")}
+                  >
+                    <YouTubeIcon className="h-3.5 w-3.5" />
+                  </span>
+                  YouTube settings
                 </div>
 
                 <div className="flex flex-col gap-3.5">
@@ -1919,9 +1790,6 @@ export default function NewPostModal({
                   </div>
                 </div>
 
-                {youtubeBlockingReason && (
-                  <p className="mt-3 text-[12px] text-amber-500">{youtubeBlockingReason}</p>
-                )}
               </div>
             )}
 
@@ -2127,9 +1995,6 @@ export default function NewPostModal({
                   After you publish, it may take a few minutes for your content to be processed and visible on your TikTok profile.
                 </p>
 
-                {tiktokBlockingReason && (
-                  <p className="mt-2 text-[12px] text-amber-500">{tiktokBlockingReason}</p>
-                )}
               </div>
             )}
 
@@ -2269,18 +2134,8 @@ export default function NewPostModal({
         {/* ── Footer ── */}
         <div className={["relative flex shrink-0 items-center justify-end gap-4 border-t px-6 py-4", border].join(" ")}>
           {/* Raison du blocage + déclaration TikTok (juste avant le bouton) */}
-          {(footerHint || showTikTokDeclaration) && (
+          {showTikTokDeclaration && (
             <div className="mr-auto flex min-w-0 flex-1 flex-col gap-1">
-              {footerHint && (
-                <p
-                  role="status"
-                  className="text-[12.5px] text-amber-500"
-                  title={footerHint}
-                >
-                  {footerHint}
-                </p>
-              )}
-
               {showTikTokDeclaration && (
                 <p className={["text-[11.5px] leading-snug", textSecondary].join(" ")}>
                   By posting, you agree to TikTok's{" "}
@@ -2344,7 +2199,6 @@ export default function NewPostModal({
                 type="button"
                 onClick={handleSubmit}
                 disabled={!canSubmit}
-                title={footerHint ?? undefined}
                 className={[
                   "px-5 py-2.5 text-[14px] font-semibold transition",
                   canSubmit
