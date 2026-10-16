@@ -444,6 +444,37 @@ export default function BottomBar({
               </button>
             </li>
 
+            {/* « + » */}
+            <li>
+              <button
+                ref={addButtonRef}
+                type="button"
+                aria-label={isAddMenuOpen ? "Fermer le menu" : addLabel}
+                title={addLabel}
+                aria-haspopup={hasMenu ? "menu" : undefined}
+                aria-expanded={hasMenu ? isAddMenuOpen : undefined}
+                aria-controls={hasMenu ? "bottombar-add-menu" : undefined}
+                onClick={handleAddClick}
+                className={[
+                  "bb-motion flex h-12 w-12 items-center justify-center rounded-full",
+                  "transition duration-150 active:scale-90",
+                  focusRing,
+                  addTone,
+                ].join(" ")}
+              >
+                <span
+                  className={[
+                    "bb-motion flex items-center justify-center",
+                    "transition-transform duration-300",
+                    EASE,
+                    isAddMenuOpen ? "rotate-[135deg]" : "rotate-0",
+                  ].join(" ")}
+                >
+                  {PlusIcon}
+                </span>
+              </button>
+            </li>
+
             {/* Recherche */}
             <li>
               <div
@@ -559,37 +590,6 @@ export default function BottomBar({
                   )}
                 </div>
               </div>
-            </li>
-
-            {/* « + » */}
-            <li>
-              <button
-                ref={addButtonRef}
-                type="button"
-                aria-label={isAddMenuOpen ? "Fermer le menu" : addLabel}
-                title={addLabel}
-                aria-haspopup={hasMenu ? "menu" : undefined}
-                aria-expanded={hasMenu ? isAddMenuOpen : undefined}
-                aria-controls={hasMenu ? "bottombar-add-menu" : undefined}
-                onClick={handleAddClick}
-                className={[
-                  "bb-motion flex h-12 w-12 items-center justify-center rounded-full",
-                  "transition duration-150 active:scale-90",
-                  focusRing,
-                  addTone,
-                ].join(" ")}
-              >
-                <span
-                  className={[
-                    "bb-motion flex items-center justify-center",
-                    "transition-transform duration-300",
-                    EASE,
-                    isAddMenuOpen ? "rotate-[135deg]" : "rotate-0",
-                  ].join(" ")}
-                >
-                  {PlusIcon}
-                </span>
-              </button>
             </li>
           </ul>
         </div>
