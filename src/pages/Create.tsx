@@ -847,8 +847,8 @@ function IdeaModal({
       <div
         role="dialog"
         aria-modal="true"
-        aria-label={idea ? "Edit Idea" : "Create Idea"}
-        className={`relative flex max-h-[92vh] w-full max-w-[720px] flex-col rounded-2xl border shadow-2xl ${
+        aria-label={idea ? "Edit Idea" : "Create Post"}
+        className={`relative flex max-h-[92vh] w-full max-w-[900px] flex-col rounded-2xl border shadow-2xl ${
           isDark
             ? "border-white/[0.08] bg-[#0f0f11] text-white"
             : "border-black/[0.06] bg-white text-neutral-900"
@@ -868,9 +868,9 @@ function IdeaModal({
         </button>
 
         {/* Header */}
-        <div className="flex items-center justify-between gap-3 px-6 pt-6">
-          <h2 className="text-[18px] font-semibold tracking-[-0.02em]">
-            {idea ? "Edit Idea" : "Create Idea"}
+        <div className="flex items-center gap-4 px-6 pt-6">
+          <h2 className="text-[20px] font-semibold tracking-[-0.02em]">
+            {idea ? "Edit Idea" : "Create Post"}
           </h2>
           <TagSelect
             tags={tags}
@@ -906,7 +906,7 @@ function IdeaModal({
             setDragOver(false);
             setFile(e.dataTransfer.files?.[0]);
           }}
-          className="relative flex min-h-[360px] flex-1 flex-col gap-3 overflow-y-auto px-6 pb-4 pt-5"
+          className="relative flex min-h-[480px] flex-1 flex-col gap-3 overflow-y-auto px-6 pb-4 pt-5"
         >
           <input
             autoFocus
@@ -925,7 +925,7 @@ function IdeaModal({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Everything begins with an idea…"
-              className={`h-full min-h-[200px] w-full resize-none bg-transparent text-[15px] leading-relaxed outline-none ${
+              className={`h-full min-h-[240px] w-full resize-none bg-transparent text-[15px] leading-relaxed outline-none ${
                 isDark
                   ? "placeholder:text-neutral-600"
                   : "placeholder:text-neutral-400"
