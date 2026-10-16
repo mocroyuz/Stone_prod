@@ -18,9 +18,6 @@ export type BottomBarTab = "files" | "add";
  *  - il gère l'état LOCAL de l'UI (menu ouvert, recherche ouverte, focus…)
  *  - il expose des HANDLERS au parent pour toute action métier
  *    (ouvrir une modale, naviguer, filtrer…)
- *
- * Le parent ne connaît donc jamais les détails d'animation ou de clavier,
- * et le BottomBar ne connaît jamais le métier (modales, routes, data…).
  */
 type BottomBarProps = {
   /** Thème. */
@@ -39,27 +36,24 @@ type BottomBarProps = {
   /** Décalage à gauche (ex : largeur d'une sidebar). */
   offsetLeft?: number;
 
-  /* ── Handlers métier (tous optionnels) ────────────────── */
-
   /** Clic sur l'onglet Dossiers. */
   onSelectFiles?: () => void;
 
-  /** Choix « Créer une idée » dans le menu du « + ». */
+  /** Choix « Idea » dans le menu du « + ». */
   onCreateIdea?: () => void;
 
-  /** Choix « Créer un post » dans le menu du « + ». */
+  /** Choix « Post » dans le menu du « + ». */
   onCreatePost?: () => void;
 
   /**
    * Fallback : si aucun handler de création n'est fourni,
    * le « + » remonte cet id via `onChange("add")`.
-   * (Compat avec l'ancienne API.)
    */
   onChange?: (id: BottomBarTab) => void;
 };
 
 /* ─────────────────────────────────────────────────────────
- * Icônes (inchangées)
+ * Icônes
  * ───────────────────────────────────────────────────────── */
 
 const svgProps = {
@@ -81,20 +75,21 @@ const FilesIcon = (
 );
 
 const PlusIcon = (
-  <svg {...svgProps} width={24} height={24} strokeWidth={2.2}>
+  <svg {...svgProps} width={22} height={22} strokeWidth={2.2}>
     <path d="M12 5v14M5 12h14" />
   </svg>
 );
 
+/* Icônes du menu : 32 → 22 */
 const IdeaIcon = (
-  <svg {...svgProps} width={32} height={32}>
+  <svg {...svgProps} width={22} height={22}>
     <path d="M9 18h6M10 21h4" />
     <path d="M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3Z" />
   </svg>
 );
 
 const PostIcon = (
-  <svg {...svgProps} width={32} height={32}>
+  <svg {...svgProps} width={22} height={22}>
     <path d="M6 3h9l5 5v13H6z" />
     <path d="M14 3v6h6M9 13h8M9 17h8" />
   </svg>
@@ -143,11 +138,11 @@ const ANIMATION_KEYFRAMES = `
   100% { box-shadow: 0 0 0 0 rgba(0, 0, 0, 0); }
 }
 @keyframes addMenuIn {
-  0% { opacity: 0; transform: translateY(10px) scale(.94); }
+  0% { opacity: 0; transform: translateY(8px) scale(.95); }
   100% { opacity: 1; transform: translateY(0) scale(1); }
 }
 @keyframes addItemIn {
-  0% { opacity: 0; transform: translateY(6px); }
+  0% { opacity: 0; transform: translateY(5px); }
   100% { opacity: 1; transform: translateY(0); }
 }
 @keyframes scrimIn {
@@ -175,7 +170,6 @@ export default function BottomBar({
   onCreatePost,
   onChange,
 }: BottomBarProps) {
-  /* ── État UI local (le parent n'en sait rien) ─────────── */
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
   const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
@@ -189,14 +183,12 @@ export default function BottomBar({
 
   /* ── Effets : focus & clavier ──────────────────────────── */
 
-  // Focus auto de l'input quand la recherche s'ouvre
   useEffect(() => {
     if (!isSearchOpen) return;
     const timer = window.setTimeout(() => inputRef.current?.focus(), 180);
     return () => window.clearTimeout(timer);
   }, [isSearchOpen]);
 
-  // Menu « + » : focus du premier item + Échap global
   useEffect(() => {
     if (!isAddMenuOpen) return;
 
@@ -220,7 +212,7 @@ export default function BottomBar({
     };
   }, [isAddMenuOpen]);
 
-  /* ── Handlers internes : orchestration ─────────────────── */
+  /* ── Handlers internes ─────────────────────────────────── */
 
   const openSearch = useCallback(() => {
     setIsAddMenuOpen(false);
@@ -236,7 +228,6 @@ export default function BottomBar({
     }, 220);
   }, []);
 
-  /** Clic sur Dossiers → délègue au parent, ferme le menu. */
   const handleFilesClick = useCallback(() => {
     setIsAddMenuOpen(false);
     if (onSelectFiles) {
@@ -246,11 +237,6 @@ export default function BottomBar({
     }
   }, [onSelectFiles, onChange]);
 
-  /**
-   * Clic sur « + » :
-   *  - si le parent a branché un menu → ouvre/ferme le menu
-   *  - sinon → retombe sur onChange("add")
-   */
   const handleAddClick = useCallback(() => {
     if (!hasMenu) {
       onChange?.("add");
@@ -259,13 +245,11 @@ export default function BottomBar({
     setIsAddMenuOpen((open) => !open);
   }, [hasMenu, onChange]);
 
-  /** Choix « Créer une idée » → ferme le menu PUIS appelle le parent. */
   const handleCreateIdea = useCallback(() => {
     setIsAddMenuOpen(false);
     onCreateIdea?.();
   }, [onCreateIdea]);
 
-  /** Choix « Créer un post » → ferme le menu PUIS appelle le parent. */
   const handleCreatePost = useCallback(() => {
     setIsAddMenuOpen(false);
     onCreatePost?.();
@@ -331,10 +315,8 @@ export default function BottomBar({
     : "border border-black/[0.04] bg-[#faf9f6]/85 shadow-[0_16px_44px_rgba(0,0,0,0.12)]";
 
   const menuTone = isDark
-    ? "border border-white/10 bg-[#1c1c1e]/95 text-neutral-100 shadow-[0_24px_64px_rgba(0,0,0,0.6)]"
-    : "border border-black/[0.06] bg-white/95 text-neutral-900 shadow-[0_24px_64px_rgba(0,0,0,0.18)]";
-
-  const mutedText = isDark ? "text-neutral-400" : "text-neutral-500";
+    ? "border border-white/10 bg-[#1c1c1e]/95 text-neutral-100 shadow-[0_16px_40px_rgba(0,0,0,0.55)]"
+    : "border border-black/[0.06] bg-white/95 text-neutral-900 shadow-[0_16px_40px_rgba(0,0,0,0.14)]";
 
   /* ── Rendu ─────────────────────────────────────────────── */
 
@@ -364,9 +346,9 @@ export default function BottomBar({
         }}
       >
         <div className="relative">
-          {/* Menu « + » */}
+          {/* Menu « + » : plus compact (≈ 280px au lieu de 526px) */}
           {isAddMenuOpen && (
-            <div className="pointer-events-none absolute bottom-full left-1/2 mb-3 flex w-0 justify-center">
+            <div className="pointer-events-none absolute bottom-full left-1/2 mb-2.5 flex w-0 justify-center">
               <div
                 ref={menuRef}
                 role="menu"
@@ -374,8 +356,8 @@ export default function BottomBar({
                 onKeyDown={handleMenuKeyDown}
                 className={[
                   "bb-anim pointer-events-auto origin-bottom",
-                  "w-[min(526px,calc(100vw-32px))] rounded-[24px] p-4 backdrop-blur-xl",
-                  "animate-[addMenuIn_220ms_cubic-bezier(0.22,1,0.36,1)_both]",
+                  "w-[min(280px,calc(100vw-32px))] rounded-[20px] p-1.5 backdrop-blur-xl",
+                  "animate-[addMenuIn_200ms_cubic-bezier(0.22,1,0.36,1)_both]",
                   menuTone,
                 ].join(" ")}
               >
@@ -390,7 +372,7 @@ export default function BottomBar({
                         : "bg-sky-100 text-sky-700"
                     }
                     isDark={isDark}
-                    delay={40}
+                    delay={30}
                     onClick={handleCreatePost}
                   />
                 )}
@@ -406,7 +388,7 @@ export default function BottomBar({
                         : "bg-green-100 text-green-700"
                     }
                     isDark={isDark}
-                    delay={90}
+                    delay={70}
                     onClick={handleCreateIdea}
                   />
                 )}
@@ -589,7 +571,7 @@ export default function BottomBar({
 }
 
 /* ─────────────────────────────────────────────────────────
- * MenuItem
+ * MenuItem — version compacte
  * ───────────────────────────────────────────────────────── */
 
 type MenuItemProps = {
@@ -618,9 +600,9 @@ function MenuItem({
       onClick={onClick}
       style={{ animationDelay: `${delay}ms` }}
       className={[
-        "bb-anim group flex w-full items-center gap-4 rounded-2xl p-3 text-left",
+        "bb-anim group flex w-full items-center gap-3 rounded-[14px] p-2 text-left",
         "outline-none transition duration-150 active:scale-[0.98]",
-        "animate-[addItemIn_260ms_cubic-bezier(0.22,1,0.36,1)_both]",
+        "animate-[addItemIn_220ms_cubic-bezier(0.22,1,0.36,1)_both]",
         isDark
           ? "hover:bg-white/[0.07] focus-visible:bg-white/[0.07]"
           : "hover:bg-black/[0.04] focus-visible:bg-black/[0.04]",
@@ -628,7 +610,7 @@ function MenuItem({
     >
       <span
         className={[
-          "flex h-[62px] w-[62px] shrink-0 items-center justify-center rounded-[16px]",
+          "flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px]",
           "transition-transform duration-200 group-hover:scale-105",
           chipTone,
         ].join(" ")}
@@ -637,19 +619,18 @@ function MenuItem({
       </span>
 
       <span className="min-w-0 flex-1">
-        <span className="block text-[clamp(18px,4vw,23px)] font-semibold leading-tight">
+        <span className="block text-[15px] font-semibold leading-tight">
           {title}
         </span>
         <span
           className={[
-            "mt-1 block truncate text-[clamp(15px,3.3vw,19px)] leading-tight",
+            "mt-0.5 block truncate text-[13px] leading-tight",
             isDark ? "text-neutral-400" : "text-neutral-500",
           ].join(" ")}
         >
           {description}
         </span>
       </span>
-
     </button>
   );
 }
