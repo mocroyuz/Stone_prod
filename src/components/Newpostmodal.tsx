@@ -2003,7 +2003,7 @@ export default function NewPostModal({
                 htmlFor="hashtag-input"
                 className={["mb-2 block text-[13px] font-bold uppercase tracking-wide", textPrimary].join(" ")}
               >
-                Tags
+                Hashtag
               </label>
 
               <div
