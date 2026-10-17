@@ -555,7 +555,7 @@ function ChannelRow({
     <div
       onClick={() => !isConnected && !disabled && onToggle()}
       className={[
-        "group relative flex items-center gap-4 rounded-xl px-3 py-3 transition-colors",
+        "group relative flex items-center gap-4 rounded-xl px-4 py-4 transition-colors",
         !isConnected && !disabled ? "cursor-pointer hover:bg-white/[0.04]" : "",
         disabled ? "opacity-50" : "",
       ].join(" ")}
@@ -563,10 +563,10 @@ function ChannelRow({
       <ChannelIcon channel={channel} connection={connection} t={t} />
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <span className={["text-[13.5px] font-semibold", t.text].join(" ")}>
+        <span className={["text-[14px] font-semibold", t.text].join(" ")}>
           {isConnected ? connection.handle || channel.name : channel.name}
         </span>
-        <span className="truncate text-[12px] text-neutral-400">
+        <span className="truncate text-[12.5px] text-neutral-400">
           {isConnected ? "Connected" : channel.subtitle}
         </span>
       </div>
@@ -1122,45 +1122,30 @@ export default function Channels() {
             mainPanelClass(isDark),
           ].join(" ")}
         >
-          <div className="mx-auto flex w-full max-w-[800px] flex-col px-[clamp(18px,3vw,48px)] pb-[120px] pt-[clamp(18px,3vw,30px)]">
+          {/* LARGEUR AUGMENTÉE ICI: max-w-[1100px] */}
+          <div className="mx-auto flex w-full max-w-[1100px] flex-col px-[clamp(18px,3vw,48px)] pb-[120px] pt-[clamp(18px,3vw,30px)]">
             
             {/* HEADER */}
-            <header className="flex shrink-0 items-center justify-between gap-4 mb-6">
-              <div>
-                <h1
-                  className={[
-                    "text-[24px] font-semibold tracking-[-0.035em]",
-                    strongClass(isDark),
-                  ].join(" ")}
-                >
-                  Channels
-                </h1>
-                <p
-                  className={[
-                    "mt-0.5 text-[13px] font-medium",
-                    mutedClass(isDark),
-                  ].join(" ")}
-                >
-                  Your connected accounts at a glance.
-                </p>
-              </div>
-              
-              <button
-                type="button"
-                onClick={openModal}
+            <header className="flex shrink-0 flex-col mb-6">
+              <h1
                 className={[
-                  "inline-flex shrink-0 items-center gap-2 rounded-xl px-5 py-2.5 text-[13px] font-semibold transition-all duration-150 hover:-translate-y-px active:scale-[0.98]",
-                  focusRingClass(isDark),
-                  isDark
-                    ? "bg-white text-neutral-900 hover:bg-neutral-200"
-                    : "bg-neutral-900 text-white hover:bg-neutral-800",
+                  "text-[24px] font-semibold tracking-[-0.035em]",
+                  strongClass(isDark),
                 ].join(" ")}
               >
-                Connect Channel
-              </button>
+                Channels
+              </h1>
+              <p
+                className={[
+                  "mt-1 text-[13.5px] font-medium",
+                  mutedClass(isDark),
+                ].join(" ")}
+              >
+                Your connected accounts at a glance. Click on a channel to connect it.
+              </p>
             </header>
 
-            {/* BANNIÈRE PLAN (Remplace Creed) */}
+            {/* BANNIÈRE PLAN */}
             <div className={[
               "relative overflow-hidden rounded-2xl border p-6 md:p-8 flex flex-col md:flex-row md:items-center justify-between gap-6",
               panelSurfaceClass(isDark)
@@ -1203,7 +1188,7 @@ export default function Channels() {
               <div
                 role="alert"
                 className={[
-                  "mt-4 flex shrink-0 items-center gap-2.5 rounded-xl border px-4 py-3 text-[12px]",
+                  "mt-6 flex shrink-0 items-center gap-2.5 rounded-xl border px-4 py-3 text-[12px]",
                   isDark
                     ? "border-rose-500/20 bg-rose-500/[0.06] text-rose-400"
                     : "border-rose-500/20 bg-rose-500/[0.06] text-rose-600",
@@ -1222,7 +1207,7 @@ export default function Channels() {
             )}
 
             {/* GRILLE DES CHANNELS */}
-            <div className="mt-6 grid grid-cols-1 gap-1 md:grid-cols-2">
+            <div className="mt-6 grid grid-cols-1 gap-2 md:grid-cols-2 lg:gap-4">
               {visibleChannels.map((channel) => (
                 <ChannelRow
                   key={channel.key}
@@ -1240,7 +1225,7 @@ export default function Channels() {
             {/* FOOTER */}
             <div
               className={[
-                "mt-8 flex shrink-0 items-center justify-between text-[10.5px]",
+                "mt-10 flex shrink-0 items-center justify-between text-[11px]",
                 mutedClass(isDark),
               ].join(" ")}
             >
