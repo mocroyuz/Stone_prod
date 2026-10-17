@@ -1,6 +1,7 @@
 import PricingSection from "../components/PricingSection";
 import { navigate } from "../hooks/useHashRoute";
 import { useUser } from "../contexts/UserContext";
+import { registerGlobalSearchPage } from "../services/globalTextSearch";
 
 const FAQ = [
   {
@@ -29,6 +30,12 @@ const FAQ = [
       "Everything in Pro, plus a dedicated success manager, SSO and role controls, a custom SLA and security reviews. Talk to sales to tailor it to your organization.",
   },
 ];
+
+registerGlobalSearchPage(
+  "pricing",
+  "Pricing",
+  FAQ.flatMap((item) => [item.question, item.answer]).join(" ")
+);
 
 function ChevronIcon() {
   return (

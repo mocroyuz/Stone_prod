@@ -23,6 +23,7 @@ import BottomBar, {
 } from "../components/Bottombar";
 
 import { navigate } from "../hooks/useHashRoute";
+import { registerGlobalSearchPage } from "../services/globalTextSearch";
 
 /* ============================================================================
    Types
@@ -161,6 +162,14 @@ const CASE_STUDIES: FeaturedTemplate[] = [
       "Who did you partner with, how did you find them, and what did both sides actually get out of it?",
   },
 ];
+
+registerGlobalSearchPage(
+  "template",
+  "Templates",
+  [...FEATURED, ...TIPS, ...CASE_STUDIES]
+    .flatMap((item) => [item.name, item.description])
+    .join(" ")
+);
 
 /* ============================================================================
    Icônes

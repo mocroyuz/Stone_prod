@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTheme } from "../hooks/useTheme";
 import { useHashRoute } from "../hooks/useHashRoute";
+import { registerGlobalSearchPage } from "../services/globalTextSearch";
 import DashboardSidebar, {
   useSidebarOffset,
 } from "../components/DashboardSidebar";
@@ -436,6 +437,12 @@ function formatEventTime(start: number, end: number) {
 const VIEW_OPTIONS = ["Week"];
 const TIMEZONES = ["Paris", "London", "New York", "Tokyo"];
 const SCOPE_OPTIONS = ["All", "Publié", "À publier"];
+
+registerGlobalSearchPage(
+  "schedule",
+  "Schedule",
+  [...VIEW_OPTIONS, ...TIMEZONES, ...SCOPE_OPTIONS, "Today", "Week"].join(" ")
+);
 
 /* ------------------------------------------------------------------ */
 /* Tone styling                                                        */

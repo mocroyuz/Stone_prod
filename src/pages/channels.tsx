@@ -21,6 +21,7 @@ import {
 import HelpChatButton from "../components/Helpchatbutton";
 import { useTheme } from "../hooks/useTheme";
 import { useUser } from "../contexts/UserContext";
+import { registerGlobalSearchPage } from "../services/globalTextSearch";
 
 import {
   InstagramIcon,
@@ -207,6 +208,16 @@ export const CHANNELS: Channel[] = [
     icon: PinterestIcon,
   },
 ];
+
+registerGlobalSearchPage(
+  "channels",
+  "Channels",
+  CHANNELS.flatMap((channel) => [
+    channel.name,
+    channel.subtitle,
+    channel.accountLabel,
+  ]).join(" ")
+);
 
 const initialConnections: ConnectionState = {
   instagram: { connected: false },

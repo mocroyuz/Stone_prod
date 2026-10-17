@@ -20,6 +20,7 @@ import {
   updatePassword,
   type UserProfile,
 } from "../services/supabase";
+import { registerGlobalSearchPage } from "../services/globalTextSearch";
 
 /* ── Tokens (classes complètes, compatibles Tailwind v3/v4) ── */
 
@@ -1104,6 +1105,23 @@ function ProfileSection({
 /* ── Security ── */
 
 const STRENGTH_LABELS = ["Too weak", "Weak", "Fair", "Good", "Strong"];
+registerGlobalSearchPage(
+  "settings",
+  "Settings",
+  [
+    "Account",
+    "Profile",
+    "Security",
+    "Appearance",
+    "Preferences",
+    "Email address",
+    "Save changes",
+    "Save preferences",
+    "Security alerts",
+    "Delete account",
+    ...STRENGTH_LABELS,
+  ].join(" ")
+);
 const STRENGTH_COLORS = [
   "bg-red-500",
   "bg-red-500",

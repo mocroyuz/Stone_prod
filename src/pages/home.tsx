@@ -7,6 +7,7 @@
   type ReactNode,
 } from "react";
 import { navigate } from "../hooks/useHashRoute";
+import { registerGlobalSearchPage } from "../services/globalTextSearch";
 import { useTheme } from "../hooks/useTheme";
 import { useUser } from "../contexts/UserContext";
 import {
@@ -293,6 +294,29 @@ const BLOG_POSTS: BlogPost[] = [
     url: BLOG_URL,
   },
 ];
+
+registerGlobalSearchPage(
+  "home",
+  "Home",
+  [
+    "Good morning",
+    "Good afternoon",
+    "Good evening",
+    "Overview",
+    "Example metrics",
+    "not connected to live channels",
+    "Followers",
+    "Likes",
+    "Comments",
+    "Channels",
+    "Your connected accounts",
+    "Ready to publish",
+    "No comments yet",
+    "No posts scheduled yet",
+    "From the Blog",
+    ...BLOG_POSTS.flatMap((post) => [post.title, post.label, post.date]),
+  ].join(" ")
+);
 
 /* Ouvre un nouvel onglet uniquement pour une vraie URL externe */
 const linkProps = (url: string) =>

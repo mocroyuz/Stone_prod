@@ -5,6 +5,7 @@ import { navigate } from "../hooks/useHashRoute";
 import { useTheme } from "../hooks/useTheme";
 // ⚠️ À adapter : `useUser` doit exposer `user` et `loading`
 import { useUser } from "../contexts/UserContext";
+import { registerGlobalSearchPage } from "../services/globalTextSearch";
 
 /* Clé partagée avec HelpChatButton pour transmettre l'item à ouvrir. */
 const PENDING_FAQ_KEY = "faq:pending";
@@ -121,6 +122,15 @@ const CATEGORIES: Category[] = [
     ],
   },
 ];
+
+registerGlobalSearchPage(
+  "faq",
+  "FAQ",
+  CATEGORIES.flatMap((category) => [
+    category.label,
+    ...category.items.flatMap((item) => [item.q, item.a]),
+  ]).join(" ")
+);
 
 /* ──────────────────────────────────────────────────────────────
    Tokens de thème (clair / sombre)

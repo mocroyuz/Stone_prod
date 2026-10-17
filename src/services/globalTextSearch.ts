@@ -10,6 +10,7 @@ export type GlobalTextSearchState = {
   query: string;
   results: GlobalTextResult[];
   selectedIndex: number;
+  selectedResultId: string | null;
   isIndexing: boolean;
   indexedPages: number;
   totalPages: number;
@@ -21,6 +22,7 @@ type IndexedPage = {
   route: string;
   page: string;
   text: string;
+  source: "static" | "rendered";
 };
 
 type TextSegment = {
@@ -33,22 +35,6 @@ type FlattenedText = {
   text: string;
   segments: TextSegment[];
 };
-
-const SEARCH_PAGES = [
-  { route: "home", page: "Home" },
-  { route: "schedule", page: "Schedule" },
-  { route: "insights", page: "Insights" },
-  { route: "community", page: "Community" },
-  { route: "create", page: "Create" },
-  { route: "channels", page: "Channels" },
-  { route: "template", page: "Templates" },
-  { route: "integrations", page: "Integrations" },
-  { route: "settings", page: "Settings" },
-  { route: "pricing", page: "Pricing" },
-  { route: "faq", page: "FAQ" },
-  { route: "tos", page: "Terms of Service" },
-  { route: "privacy", page: "Privacy" },
-] as const;
 
 const BLOCK_TAGS = new Set([
   "ADDRESS",
@@ -88,16 +74,16 @@ const INITIAL_STATE: GlobalTextSearchState = {
   query: "",
   results: [],
   selectedIndex: 0,
+  selectedResultId: null,
   isIndexing: false,
   indexedPages: 0,
-  totalPages: SEARCH_PAGES.length,
+  totalPages: 0,
   failedPages: [],
   isOpen: false,
 };
 
 let state = INITIAL_STATE;
-let pageIndex: IndexedPage[] | null = null;
-let indexPromise: Promise<void> | null = null;
+const pageIndex = new Map<string, IndexedPage>();
 const listeners = new Set<() => void>();
 
 export function subscribeToGlobalTextSearch(listener: () => void) {
@@ -107,6 +93,38 @@ export function subscribeToGlobalTextSearch(listener: () => void) {
 
 export function getGlobalTextSearchState() {
   return state;
+}
+
+function registerPageText(
+  route: string,
+  page: string,
+  text: string,
+  source: IndexedPage["source"]
+) {
+  const previous = pageIndex.get(route);
+  if (previous?.source === "rendered" && source === "static") return;
+  if (previous?.source === source && previous.text === text) return;
+
+  pageIndex.set(route, { route, page, text, source });
+  publish({ indexedPages: pageIndex.size, totalPages: pageIndex.size });
+  refreshResults();
+}
+
+export function registerGlobalSearchPage(
+  route: string,
+  page: string,
+  text: string
+) {
+  registerPageText(route, page, text, "static");
+}
+
+export function registerRenderedGlobalSearchPage(
+  route: string,
+  text: string
+) {
+  const normalizedRoute = route === "calendar" ? "schedule" : route;
+  const page = pageIndex.get(normalizedRoute)?.page ?? normalizedRoute;
+  registerPageText(normalizedRoute, page, text, "rendered");
 }
 
 function publish(patch: Partial<GlobalTextSearchState>) {
@@ -177,91 +195,8 @@ function getSearchRoot(doc: Document): Element {
   return doc.querySelector("main") ?? doc.body;
 }
 
-function getTextForRoute(doc: Document) {
+export function getGlobalSearchTextFromDocument(doc: Document) {
   return flattenText(getSearchRoot(doc)).text;
-}
-
-function wait(milliseconds: number) {
-  return new Promise<void>((resolve) => window.setTimeout(resolve, milliseconds));
-}
-
-async function waitForRouteText(
-  frame: HTMLIFrameElement,
-  route: string
-): Promise<string> {
-  let previousText = "";
-  let stableSamples = 0;
-
-  for (let attempt = 0; attempt < 80; attempt += 1) {
-    const doc = frame.contentDocument;
-    if (doc?.documentElement.dataset.appRoute === route) {
-      const text = getTextForRoute(doc);
-      if (text && text === previousText) stableSamples += 1;
-      else stableSamples = 0;
-
-      if (text && stableSamples >= 2) return text;
-      previousText = text;
-    }
-    await wait(60);
-  }
-
-  return "";
-}
-
-function setFrameRoute(frame: HTMLIFrameElement, route: string) {
-  const frameWindow = frame.contentWindow;
-  if (!frameWindow) return;
-
-  const nextUrl = `${frameWindow.location.pathname}${frameWindow.location.search}#/${route}`;
-  frameWindow.history.replaceState({}, "", nextUrl);
-  frameWindow.dispatchEvent(new frameWindow.Event("popstate"));
-}
-
-async function buildPageIndex(): Promise<IndexedPage[]> {
-  const frame = document.createElement("iframe");
-  frame.title = "Global search text index";
-  frame.setAttribute("aria-hidden", "true");
-  frame.tabIndex = -1;
-  frame.style.cssText =
-    "position:fixed;left:-12000px;top:0;width:1024px;height:768px;border:0;opacity:0;pointer-events:none";
-
-  const startUrl = new URL(window.location.href);
-  startUrl.search = "";
-  startUrl.hash = "#/faq";
-
-  const loaded = new Promise<void>((resolve, reject) => {
-    frame.onload = () => resolve();
-    frame.onerror = () => reject(new Error("Unable to load app search index"));
-  });
-
-  document.body.appendChild(frame);
-  frame.src = startUrl.href;
-
-  try {
-    await loaded;
-    const pages: IndexedPage[] = [];
-    const failedPages: string[] = [];
-
-    for (const page of SEARCH_PAGES) {
-      if (frame.contentDocument?.documentElement.dataset.appRoute !== page.route) {
-        setFrameRoute(frame, page.route);
-      }
-
-      const text = await waitForRouteText(frame, page.route);
-      if (!text) {
-        failedPages.push(page.page);
-        continue;
-      }
-
-      pages.push({ ...page, text });
-      publish({ indexedPages: pages.length, failedPages });
-    }
-
-    if (pages.length === 0) throw new Error("No app pages could be indexed");
-    return pages;
-  } finally {
-    frame.remove();
-  }
 }
 
 function createResults(pages: IndexedPage[], query: string) {
@@ -299,39 +234,30 @@ function createResults(pages: IndexedPage[], query: string) {
 }
 
 function refreshResults() {
-  if (!pageIndex) return;
-  const results = createResults(pageIndex, state.query);
-  publish({ results, selectedIndex: Math.min(state.selectedIndex, Math.max(0, results.length - 1)) });
+  const results = createResults(Array.from(pageIndex.values()), state.query);
+  const matchingSelection = state.selectedResultId
+    ? results.findIndex((result) => result.id === state.selectedResultId)
+    : -1;
+  const selectedIndex =
+    matchingSelection >= 0
+      ? matchingSelection
+      : Math.min(state.selectedIndex, Math.max(0, results.length - 1));
+  publish({
+    results,
+    selectedIndex,
+    selectedResultId: results[selectedIndex]?.id ?? null,
+    failedPages: [],
+  });
 }
 
 export function setGlobalTextSearchQuery(query: string) {
-  publish({ query, selectedIndex: 0 });
+  publish({ query, selectedIndex: 0, selectedResultId: null });
   if (!query.trim()) {
-    publish({ results: [], indexedPages: pageIndex?.length ?? 0, failedPages: [] });
+    publish({ results: [], selectedResultId: null, failedPages: [] });
     clearGlobalTextHighlights(document);
     return;
   }
-
-  if (pageIndex) {
-    refreshResults();
-    return;
-  }
-
-  if (indexPromise) return;
-
-  publish({ isIndexing: true, indexedPages: 0, failedPages: [] });
-  indexPromise = buildPageIndex()
-    .then((pages) => {
-      pageIndex = pages;
-      refreshResults();
-    })
-    .catch(() => {
-      publish({ failedPages: SEARCH_PAGES.map((page) => page.page) });
-    })
-    .finally(() => {
-      indexPromise = null;
-      publish({ isIndexing: false });
-    });
+  refreshResults();
 }
 
 export function setGlobalTextSearchOpen(isOpen: boolean) {
@@ -342,7 +268,10 @@ export function setGlobalTextSearchSelection(selectedIndex: number) {
   if (state.results.length === 0) return;
   const wrappedIndex =
     (selectedIndex + state.results.length) % state.results.length;
-  publish({ selectedIndex: wrappedIndex });
+  publish({
+    selectedIndex: wrappedIndex,
+    selectedResultId: state.results[wrappedIndex].id,
+  });
 }
 
 function getHighlightRegistry(doc: Document) {

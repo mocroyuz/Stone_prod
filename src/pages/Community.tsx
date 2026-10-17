@@ -15,6 +15,7 @@ import NewPostModal, {
 import ChannelMenu from "../components/ChannelMenu";
 import { useConnectedChannels } from "../hooks/useConnectedChannels";
 import HelpChatButton from "../components/Helpchatbutton";
+import { registerGlobalSearchPage } from "../services/globalTextSearch";
 
 /* ───────── Types ───────── */
 
@@ -40,6 +41,12 @@ const FILTERS: { key: Filter; label: string }[] = [
   { key: "unanswered", label: "Unanswered" },
   { key: "answered", label: "Answered" },
 ];
+
+registerGlobalSearchPage(
+  "community",
+  "Community",
+  [...TABS.map((tab) => tab.label), ...FILTERS.map((filter) => filter.label)].join(" ")
+);
 
 /* ───────── Shell (identique à Home) ───────── */
 
