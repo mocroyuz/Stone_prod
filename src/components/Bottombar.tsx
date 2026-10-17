@@ -126,6 +126,7 @@ export default function BottomBar({
 }: BottomBarProps) {
   const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
   const [isIdeaOpen, setIsIdeaOpen] = useState(false);
+  const [menuShift, setMenuShift] = useState(0);
 
   const addButtonRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -237,6 +238,21 @@ export default function BottomBar({
     };
   }, [isAddMenuOpen, closeMenu]);
 
+  // Bord gauche du menu = bord gauche du bouton « + » ;
+  // on ne décale que si le menu dépasserait de l'écran.
+  useEffect(() => {
+    if (!isAddMenuOpen) {
+      setMenuShift(0);
+      return;
+    }
+    const menu = menuRef.current;
+    const button = addButtonRef.current;
+    if (!menu || !button) return;
+    const overflow =
+      button.getBoundingClientRect().left + menu.offsetWidth - (window.innerWidth - 16);
+    setMenuShift(overflow > 0 ? -overflow : 0);
+  }, [isAddMenuOpen]);
+
   /* ── Styles dérivés ────────────────────────────────────── */
 
   const focusRing = [
@@ -297,50 +313,6 @@ export default function BottomBar({
         }}
       >
         <div className="relative">
-          {/* Menu de création */}
-          {isAddMenuOpen && (
-            <div className="pointer-events-none absolute bottom-full left-1/2 mb-3 flex w-0 justify-center">
-              <div
-                ref={menuRef}
-                id="bottombar-add-menu"
-                role="menu"
-                aria-label={addLabel}
-                aria-orientation="vertical"
-                onKeyDown={handleMenuKeyDown}
-                className={[
-                  "bb-anim pointer-events-auto origin-bottom",
-                  "w-[min(300px,calc(100vw-32px))] rounded-[22px] p-1.5 backdrop-blur-xl",
-                  "animate-[addMenuIn_220ms_cubic-bezier(0.22,1,0.36,1)_both]",
-                  menuTone,
-                ].join(" ")}
-              >
-                {onCreatePost && (
-                  <MenuItem
-                    icon={PostIcon}
-                    title="Publication"
-                    description="Publier du contenu sur un canal"
-                    shortcut="P"
-                    isDark={isDark}
-                    delay={30}
-                    onClick={handleCreatePost}
-                  />
-                )}
-
-                {hasIdea && (
-                  <MenuItem
-                    icon={IdeaIcon}
-                    title="Nouvelle idée"
-                    description="Noter une idée de contenu"
-                    shortcut="I"
-                    isDark={isDark}
-                    delay={70}
-                    onClick={handleCreateIdea}
-                  />
-                )}
-              </div>
-            </div>
-          )}
-
           <ul
             className={[
               "pointer-events-auto flex items-center gap-2 rounded-full p-2",
@@ -374,7 +346,48 @@ export default function BottomBar({
             </li>
 
             {/* « + » */}
-            <li>
+            <li className="relative">
+              {isAddMenuOpen && (
+            <div
+              ref={menuRef}
+              id="bottombar-add-menu"
+              role="menu"
+              aria-label={addLabel}
+              aria-orientation="vertical"
+              onKeyDown={handleMenuKeyDown}
+              style={{ marginLeft: menuShift }}
+              className={[
+                "bb-anim pointer-events-auto absolute bottom-full left-0 mb-5 origin-bottom-left",
+                "w-[min(300px,calc(100vw-32px))] rounded-[22px] p-1.5 backdrop-blur-xl",
+                "animate-[addMenuIn_220ms_cubic-bezier(0.22,1,0.36,1)_both]",
+                menuTone,
+              ].join(" ")}
+            >
+              {onCreatePost && (
+                <MenuItem
+                  icon={PostIcon}
+                  title="Publication"
+                  description="Publier du contenu sur un canal"
+                  shortcut="P"
+                  isDark={isDark}
+                  delay={30}
+                  onClick={handleCreatePost}
+                />
+              )}
+
+              {hasIdea && (
+                <MenuItem
+                  icon={IdeaIcon}
+                  title="Nouvelle idée"
+                  description="Noter une idée de contenu"
+                  shortcut="I"
+                  isDark={isDark}
+                  delay={70}
+                  onClick={handleCreateIdea}
+                />
+              )}
+            </div>
+              )}
               <button
                 ref={addButtonRef}
                 type="button"
