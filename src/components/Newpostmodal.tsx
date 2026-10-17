@@ -1168,7 +1168,7 @@ export default function NewPostModal({
   const [collapsedCards, setCollapsedCards] = useState<Record<string, boolean>>({});
   const [previewNetwork, setPreviewNetwork] = useState<SocialNetworkId | null>(null);
   const [showPreview, setShowPreview] = useState(true);
-  const [showSourceMenu, setShowSourceMenu] = useState(false);
+  const [showSourceMenu, setShowSourceMenu] = useState<string | null>(null);
   const [requestTick, setRequestTick] = useState(0);
 
   // ── YouTube ──
@@ -1268,7 +1268,7 @@ export default function NewPostModal({
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         if (showSourceMenu) {
-          setShowSourceMenu(false);
+          setShowSourceMenu(null);
         } else if (activeEmojiNetwork) {
           setActiveEmojiNetwork(null);
         } else if (showActionMenu || showDateTimePanel) {
@@ -1351,7 +1351,7 @@ export default function NewPostModal({
     if (!showSourceMenu) return;
     const onPointerDown = (e: MouseEvent) => {
       if (!(e.target as HTMLElement).closest(".source-wrapper")) {
-        setShowSourceMenu(false);
+        setShowSourceMenu(null);
       }
     };
     document.addEventListener("mousedown", onPointerDown);
@@ -1426,7 +1426,7 @@ export default function NewPostModal({
     setSubmitError(null);
     setSubmitProgress(null);
     setActiveEmojiNetwork(null);
-    setShowSourceMenu(false);
+    setShowSourceMenu(null);
     setCollapsedCards({});
     setPreviewNetwork(null);
     setTiktokInfo(null);
@@ -1619,7 +1619,7 @@ export default function NewPostModal({
 
   const handleSourcePick = (id: MediaSourceId) => {
     const source = MEDIA_SOURCES.find((m) => m.id === id);
-    setShowSourceMenu(false);
+    setShowSourceMenu(null);
     // TODO: brancher l'import réel (OAuth + sélecteur) pour chaque source.
     setMediaError(`${source?.label ?? "This source"} import isn't connected yet.`);
   };
@@ -1966,6 +1966,36 @@ export default function NewPostModal({
 
   const avatarRing = isDark ? "ring-[#1c1c1e]" : "ring-neutral-50";
 
+  // Bouton « + » (sources de médias) : un par zone de texte, un seul menu ouvert à la fois.
+  // Les médias restent partagés par tous les canaux.
+  const renderSourceButton = (target: string) => {
+    const open = showSourceMenu === target;
+    return (
+      <div className="source-wrapper relative">
+        <button
+          type="button"
+          aria-label="Add media from…"
+          title="Add media (shared by all channels)"
+          aria-haspopup="menu"
+          aria-expanded={open}
+          onClick={() => {
+            setActiveEmojiNetwork(null);
+            setShowSourceMenu(open ? null : target);
+          }}
+          className={[
+            "flex h-8 w-8 items-center justify-center rounded-lg transition",
+            open
+              ? isDark ? "bg-white/10 text-white" : "bg-black/5 text-neutral-900"
+              : `${textSecondary} ${hoverSoft}`,
+          ].join(" ")}
+        >
+          <Plus className="h-4 w-4" />
+        </button>
+        {open && <MediaSourceMenu isDark={isDark} onPick={handleSourcePick} />}
+      </div>
+    );
+  };
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-3 backdrop-blur-md"
@@ -2237,7 +2267,7 @@ export default function NewPostModal({
                       <span>
                         Drag &amp; drop or
                         <br />
-                        <span className={["font-medium", isDark ? "text-[#7cc47f]" : "text-emerald-600"].join(" ")}>
+                        <span className={["font-semibold", isDark ? "text-white" : "text-neutral-900"].join(" ")}>
                           select a file
                         </span>
                       </span>
@@ -2285,31 +2315,7 @@ export default function NewPostModal({
                 onHash={() => insertAtCursor("master", "#")}
                 length={masterContent.length}
                 limit={strictestLimit}
-                leading={
-                  <div className="source-wrapper relative">
-                    <button
-                      type="button"
-                      aria-label="Add media from…"
-                      aria-haspopup="menu"
-                      aria-expanded={showSourceMenu}
-                      onClick={() => {
-                        setActiveEmojiNetwork(null);
-                        setShowSourceMenu((v) => !v);
-                      }}
-                      className={[
-                        "flex h-8 w-8 items-center justify-center rounded-lg transition",
-                        showSourceMenu
-                          ? isDark ? "bg-white/10 text-white" : "bg-black/5 text-neutral-900"
-                          : `${textSecondary} ${hoverSoft}`,
-                      ].join(" ")}
-                    >
-                      <Plus className="h-4 w-4" />
-                    </button>
-                    {showSourceMenu && (
-                      <MediaSourceMenu isDark={isDark} onPick={handleSourcePick} />
-                    )}
-                  </div>
-                }
+                leading={renderSourceButton("master")}
               />
             </section>
 
@@ -2409,6 +2415,7 @@ export default function NewPostModal({
                             onToggleEmoji={() => setActiveEmojiNetwork(isEmojiOpen ? null : networkId)}
                             onPickEmoji={(emoji) => insertAtCursor(networkId, emoji)}
                             onHash={() => insertAtCursor(networkId, "#")}
+                            leading={renderSourceButton(networkId)}
                             length={currentContent.length}
                             limit={limit}
                             extra={
