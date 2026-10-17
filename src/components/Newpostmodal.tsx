@@ -3,7 +3,7 @@ import { EmojiPicker as FrimousseEmojiPicker } from "frimousse";
 import {
   Maximize2, Minimize2, X, Tag, FileText,
   Eye, Smile, Hash, Image as ImageIcon, ImagePlus, Pencil, ChevronDown,
-  CalendarClock, Check, Sparkles, ArrowLeft, Wand2, Plus
+  CalendarClock, Check, Sparkles, ArrowLeft, Wand2, Globe
 } from "lucide-react";
 import {
   XIcon, FacebookIcon, InstagramIcon, LinkedInIcon,
@@ -67,6 +67,7 @@ export type YouTubeOptions = {
 export type NewPostPayload = {
   title: string;
   content: string;
+  contents?: Record<string, string>; // Nouveau: texte par réseau
   hashtags: string[];
   networks: SocialNetworkId[];
   scheduleMode: "now" | "save_in_folder" | "later";
@@ -229,8 +230,8 @@ const YOUTUBE_DEFAULT_OPTIONS: YouTubeOptions = {
 
 type DraftData = {
   title: string;
-  content: string;
-  hashtags: string[];
+  masterContent: string;
+  contents: Record<string, string>;
   networks: SocialNetworkId[];
   scheduleAction: ScheduleAction;
   scheduledAt: number;
@@ -361,7 +362,7 @@ type ChannelTileData = {
 };
 
 /* ──────────────────────────────────────────────────────────────
-   Composants secondaires (YouTube / Emoji)
+   Composants secondaires
    ────────────────────────────────────────────────────────────── */
 
 function ChannelTile({
@@ -639,7 +640,8 @@ export default function NewPostModal({
   initialScheduledAt,
   onRequestOpen,
 }: NewPostModalProps) {
-  const [content, setContent] = useState("");
+  const [masterContent, setMasterContent] = useState("");
+  const [contents, setContents] = useState<Record<string, string>>({});
   const [title, setTitle] = useState("");
   const [networks, setNetworks] = useState<SocialNetworkId[]>([]);
   const [scheduleAction, setScheduleAction] = useState<ScheduleAction>("now");
@@ -657,8 +659,8 @@ export default function NewPostModal({
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitProgress, setSubmitProgress] = useState<string | null>(null);
   
-  // Gestion de l'emoji et du collapse par carte
-  const [activeEmojiNetwork, setActiveEmojiNetwork] = useState<string | null>(null);
+  // Gestion de l'emoji, du collapse et du focus par carte
+  const [activeEmojiNetwork, setActiveEmojiNetwork] = useState<string | null>(null); // 'master' ou l'ID du réseau
   const [collapsedCards, setCollapsedCards] = useState<Record<string, boolean>>({});
   const [requestTick, setRequestTick] = useState(0);
 
@@ -698,7 +700,7 @@ export default function NewPostModal({
   mediaRef.current = media;
   const dropdownRef = useRef<HTMLDivElement>(null);
   const closeWithDraftRef = useRef<() => void>(() => {});
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const activeTextareaRef = useRef<HTMLTextAreaElement>(null);
   const caretRef = useRef<{ start: number; end: number } | null>(null);
 
   const isOpenRef = useRef(isOpen);
@@ -850,13 +852,15 @@ export default function NewPostModal({
   if (!isOpen) return null;
 
   const hasDraftContent =
-    content.trim().length > 0 ||
+    Object.values(contents).some((c) => c.trim().length > 0) ||
+    masterContent.trim().length > 0 ||
     title.trim().length > 0 ||
     media.length > 0;
 
   const clearForm = () => {
     media.forEach((item) => URL.revokeObjectURL(item.url));
-    setContent("");
+    setMasterContent("");
+    setContents({});
     setTitle("");
     setNetworks([]);
     setScheduleAction("now");
@@ -895,8 +899,8 @@ export default function NewPostModal({
     if (hasDraftContent) {
       savedDraft = {
         title,
-        content,
-        hashtags: [], // plus de système de hashtags séparé, on garde le format au cas où
+        masterContent,
+        contents,
         networks,
         scheduleAction,
         scheduledAt: scheduledAt.getTime(),
@@ -912,7 +916,8 @@ export default function NewPostModal({
   const resumeDraft = () => {
     if (!pendingDraft) return;
     setTitle(pendingDraft.title);
-    setContent(pendingDraft.content);
+    setMasterContent(pendingDraft.masterContent || "");
+    setContents(pendingDraft.contents || {});
     setNetworks(
       preselectRef.current ? [preselectRef.current] : pendingDraft.networks
     );
@@ -937,31 +942,72 @@ export default function NewPostModal({
     setPendingDraft(null);
   };
 
-  const updateCaret = () => {
-    const el = textareaRef.current;
-    if (el) {
-      caretRef.current = { start: el.selectionStart, end: el.selectionEnd };
-    }
+  const updateCaret = (el: HTMLTextAreaElement) => {
+    activeTextareaRef.current = el;
+    caretRef.current = { start: el.selectionStart, end: el.selectionEnd };
   };
 
   const insertAtCursor = (text: string) => {
-    const caret = caretRef.current ?? { start: content.length, end: content.length };
-    const start = Math.min(caret.start, content.length);
-    const end = Math.min(Math.max(caret.end, start), content.length);
+    const activeTarget = activeEmojiNetwork;
+    
+    if (activeTarget === 'master') {
+      const caret = caretRef.current ?? { start: masterContent.length, end: masterContent.length };
+      const start = Math.min(caret.start, masterContent.length);
+      const end = Math.min(Math.max(caret.end, start), masterContent.length);
+      const next = masterContent.slice(0, start) + text + masterContent.slice(end);
+      const position = start + text.length;
 
-    const next = content.slice(0, start) + text + content.slice(end);
-    const position = start + text.length;
+      setMasterContent(next);
+      setContents(prev => {
+        const updated = { ...prev };
+        networks.forEach(n => {
+          updated[n] = next;
+        });
+        return updated;
+      });
 
-    setContent(next);
-    caretRef.current = { start: position, end: position };
-    setActiveEmojiNetwork(null);
+      caretRef.current = { start: position, end: position };
+      setActiveEmojiNetwork(null);
 
-    requestAnimationFrame(() => {
-      const el = textareaRef.current;
-      if (!el) return;
-      el.focus();
-      el.setSelectionRange(position, position);
+      requestAnimationFrame(() => {
+        if (!activeTextareaRef.current) return;
+        activeTextareaRef.current.focus();
+        activeTextareaRef.current.setSelectionRange(position, position);
+      });
+    } else if (activeTarget) {
+      const currentText = contents[activeTarget] || "";
+      const caret = caretRef.current ?? { start: currentText.length, end: currentText.length };
+      const start = Math.min(caret.start, currentText.length);
+      const end = Math.min(Math.max(caret.end, start), currentText.length);
+      const next = currentText.slice(0, start) + text + currentText.slice(end);
+      const position = start + text.length;
+
+      setContents(prev => ({ ...prev, [activeTarget]: next }));
+      caretRef.current = { start: position, end: position };
+      setActiveEmojiNetwork(null);
+
+      requestAnimationFrame(() => {
+        if (!activeTextareaRef.current) return;
+        activeTextareaRef.current.focus();
+        activeTextareaRef.current.setSelectionRange(position, position);
+      });
+    }
+  };
+
+  const handleMasterChange = (val: string) => {
+    const nextVal = toSentenceCase(val);
+    setMasterContent(nextVal);
+    setContents(prev => {
+      const updated = { ...prev };
+      networks.forEach(n => {
+        updated[n] = nextVal;
+      });
+      return updated;
     });
+  };
+
+  const handleNetworkChange = (networkId: string, val: string) => {
+    setContents(prev => ({ ...prev, [networkId]: toSentenceCase(val) }));
   };
 
   const toggleNetwork = (id: SocialNetworkId) => {
@@ -1060,10 +1106,13 @@ export default function NewPostModal({
     ? "You need to indicate if your content promotes yourself, a third party, or both."
     : null;
 
+  // Utilisation du masterContent ou du premier réseau pour le titre YouTube
+  const primaryContent = masterContent || contents[networks[0]] || "";
+  
   const youtubeEffectiveTitle = (
     youtubeOptions.title.trim() ||
     title.trim() ||
-    content.trim().split("\n")[0] ||
+    primaryContent.trim().split("\n")[0] ||
     ""
   ).slice(0, YOUTUBE_TITLE_MAX);
 
@@ -1080,9 +1129,11 @@ export default function NewPostModal({
     value: YouTubeOptions[K]
   ) => setYoutubeOptions((o) => ({ ...o, [key]: value }));
 
+  const hasContent = Object.values(contents).some((c) => c.trim().length > 0);
+
   const canSubmit =
     networks.length > 0 &&
-    (content.trim().length > 0 || media.length > 0) &&
+    (hasContent || media.length > 0) &&
     (scheduleAction !== "set_date" || scheduledAt.getTime() > Date.now()) &&
     !tiktokBlockingReason &&
     !youtubeBlockingReason &&
@@ -1093,8 +1144,8 @@ export default function NewPostModal({
   const handleSubmit = async () => {
     if (!canSubmit) return;
 
-    // Extraction basique des hashtags du texte (ex: #cool)
-    const extractedHashtags = content.match(/#[\w]+/g)?.map((h) => h.slice(1)) || [];
+    const allTexts = Object.values(contents).join(" ");
+    const extractedHashtags = allTexts.match(/#[\w]+/g)?.map((h) => h.slice(1)) || [];
 
     const tiktokNow = tiktokSelected && scheduleAction === "now";
     const remainingNetworks = tiktokNow
@@ -1103,7 +1154,8 @@ export default function NewPostModal({
 
     const payload: NewPostPayload = {
       title: title.trim(),
-      content: content.trim(),
+      content: contents[remainingNetworks[0]]?.trim() || masterContent.trim() || "",
+      contents: contents,
       hashtags: extractedHashtags,
       networks: remainingNetworks,
       scheduleMode: scheduleAction === "set_date" ? "later" : scheduleAction,
@@ -1121,7 +1173,7 @@ export default function NewPostModal({
       setSubmitProgress(null);
 
       if (tiktokNow && tiktokPostType) {
-        const caption = content.trim();
+        const tiktokCaption = contents["tiktok"]?.trim() || masterContent.trim() || "";
 
         const isPhoto = tiktokPostType === "photo";
 
@@ -1180,7 +1232,7 @@ export default function NewPostModal({
 
           publishId = await publishPhotosToTikTok({
             photos,
-            caption,
+            caption: tiktokCaption,
             mode: tiktokMode,
             options,
           });
@@ -1189,7 +1241,7 @@ export default function NewPostModal({
 
           publishId = await publishToTikTok({
             video: tiktokVideo as File,
-            caption,
+            caption: tiktokCaption,
             mode: tiktokMode,
             options,
           });
@@ -1382,6 +1434,60 @@ export default function NewPostModal({
               </button>
             </div>
 
+            {/* Master Post Area */}
+            {networks.length > 0 && (
+              <div className={["mb-6 flex flex-col rounded-2xl border p-5", border, isDark ? "bg-[#1c1c1e]" : "bg-neutral-50"].join(" ")}>
+                <div className="mb-3 flex items-center gap-2">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-500 text-white">
+                    <Globe className="h-4 w-4" />
+                  </div>
+                  <span className={["font-semibold text-[15px]", textPrimary].join(" ")}>Post to all selected networks</span>
+                </div>
+                
+                <textarea
+                  value={masterContent}
+                  onChange={(e) => {
+                    handleMasterChange(e.target.value);
+                    updateCaret(e.target);
+                  }}
+                  onSelect={(e) => updateCaret(e.target)}
+                  onKeyUp={(e) => updateCaret(e.target)}
+                  onClick={(e) => updateCaret(e.target)}
+                  placeholder="Write once, post everywhere..."
+                  className={[
+                    "w-full min-h-[80px] resize-none bg-transparent text-[15px] leading-relaxed outline-none",
+                    textPrimary,
+                    isDark ? "placeholder:text-neutral-600" : "placeholder:text-neutral-400",
+                  ].join(" ")}
+                />
+
+                <div className="mt-3 flex items-center justify-between border-t pt-3 border-black/[0.04] dark:border-white/5">
+                  <div className="flex items-center gap-3">
+                    <div className="emoji-wrapper relative">
+                      <button
+                        type="button"
+                        onClick={() => setActiveEmojiNetwork(activeEmojiNetwork === 'master' ? null : 'master')}
+                        className={["transition", activeEmojiNetwork === 'master' ? textPrimary : textSecondary, isDark ? "hover:text-white" : "hover:text-neutral-900"].join(" ")}
+                      >
+                        <Smile className="h-4 w-4" />
+                      </button>
+                      {activeEmojiNetwork === 'master' && <EmojiPickerPanel isDark={isDark} onPick={insertAtCursor} />}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => insertAtCursor("#")}
+                      className={["transition", textSecondary, isDark ? "hover:text-white" : "hover:text-neutral-900"].join(" ")}
+                    >
+                      <Hash className="h-4 w-4" />
+                    </button>
+                  </div>
+                  <span className={["text-[12px] tabular-nums", textSecondary].join(" ")}>
+                    {masterContent.length}
+                  </span>
+                </div>
+              </div>
+            )}
+
             {/* Liste des cartes par réseau */}
             <div className="flex flex-col gap-6">
               {networks.length === 0 && (
@@ -1399,6 +1505,7 @@ export default function NewPostModal({
                 const channel = tile?.channel;
                 const label = channel?.handle || channel?.name || network.label;
                 const initial = label.replace(/^@/, "").charAt(0).toUpperCase() || "?";
+                const currentContent = contents[networkId] || "";
 
                 return (
                   <div
@@ -1447,14 +1554,14 @@ export default function NewPostModal({
                     {!isCollapsed && (
                       <div className="mt-4 flex flex-col">
                         <textarea
-                          value={content}
+                          value={currentContent}
                           onChange={(e) => {
-                            setContent(toSentenceCase(e.target.value));
-                            updateCaret();
+                            handleNetworkChange(networkId, e.target.value);
+                            updateCaret(e.target);
                           }}
-                          onSelect={updateCaret}
-                          onKeyUp={updateCaret}
-                          onClick={updateCaret}
+                          onSelect={(e) => updateCaret(e.target)}
+                          onKeyUp={(e) => updateCaret(e.target)}
+                          onClick={(e) => updateCaret(e.target)}
                           placeholder="Write your post..."
                           className={[
                             "w-full min-h-[100px] resize-none bg-transparent text-[15px] leading-relaxed outline-none",
@@ -1536,14 +1643,6 @@ export default function NewPostModal({
                         {/* Toolbar */}
                         <div className="mt-4 flex items-center justify-between border-t pt-3 border-black/[0.04] dark:border-white/5">
                           <div className="flex items-center gap-3">
-                            <button
-                              type="button"
-                              onClick={() => fileInputRef.current?.click()}
-                              className={["text-[13px] font-medium transition", textSecondary, isDark ? "hover:text-white" : "hover:text-neutral-900"].join(" ")}
-                            >
-                              <Plus className="h-4 w-4" />
-                            </button>
-                            
                             <div className="emoji-wrapper relative">
                               <button
                                 type="button"
@@ -1564,7 +1663,7 @@ export default function NewPostModal({
                             </button>
                           </div>
                           <span className={["text-[12px] tabular-nums", textSecondary].join(" ")}>
-                            {content.length}
+                            {currentContent.length}
                           </span>
                         </div>
 
@@ -1727,7 +1826,7 @@ export default function NewPostModal({
               <h3 className={["text-[15px] font-semibold", textPrimary].join(" ")}>Post Previews</h3>
             </div>
             <div className="flex flex-1 items-center justify-center p-6">
-              {(content.trim() || media.length > 0) ? (
+              {primaryContent.trim() || media.length > 0 ? (
                 <div className={["w-full max-w-[300px] rounded-xl border p-4 shadow-sm", border, isDark ? "bg-[#242427]" : "bg-white"].join(" ")}>
                   <div className="mb-3 flex items-center gap-2">
                     <div className={["h-8 w-8 rounded-full", isDark ? "bg-white/10" : "bg-neutral-200"].join(" ")} />
@@ -1736,7 +1835,7 @@ export default function NewPostModal({
                       <div className={["mt-1 h-2 w-12 rounded", isDark ? "bg-white/5" : "bg-neutral-100"].join(" ")} />
                     </div>
                   </div>
-                  {content && <p className={["text-[13px] leading-relaxed whitespace-pre-wrap", textPrimary].join(" ")}>{content}</p>}
+                  {primaryContent && <p className={["text-[13px] leading-relaxed whitespace-pre-wrap", textPrimary].join(" ")}>{primaryContent}</p>}
                   {media.length > 0 && (
                     <div className="relative mt-3 overflow-hidden rounded-lg">
                       {media[0].kind === "image" ? <img src={media[0].url} alt="" className="w-full object-cover" /> : <video src={media[0].url} className="w-full object-cover" muted playsInline />}
@@ -1873,8 +1972,10 @@ export default function NewPostModal({
             <div className={["w-[360px] rounded-2xl border p-6 text-center shadow-2xl", isDark ? "border-white/10 bg-[#1c1c1e]" : "border-black/10 bg-white"].join(" ")}>
               <h3 className={["text-[16px] font-bold", textPrimary].join(" ")}>Reprendre votre brouillon ?</h3>
               <p className={["mt-2 text-[13px]", textSecondary].join(" ")}>Vous aviez un post en cours. Voulez-vous reprendre où vous en étiez ou repartir de zéro ?</p>
-              {pendingDraft.content && (
-                <p className={["mt-3 line-clamp-2 rounded-lg px-3 py-2 text-left text-[12.5px]", isDark ? "bg-white/5 text-neutral-300" : "bg-neutral-100 text-neutral-600"].join(" ")}>{pendingDraft.content}</p>
+              {(pendingDraft.masterContent || Object.values(pendingDraft.contents || {})[0]) && (
+                <p className={["mt-3 line-clamp-2 rounded-lg px-3 py-2 text-left text-[12.5px]", isDark ? "bg-white/5 text-neutral-300" : "bg-neutral-100 text-neutral-600"].join(" ")}>
+                  {pendingDraft.masterContent || Object.values(pendingDraft.contents || {})[0]}
+                </p>
               )}
               <div className="mt-5 flex gap-2">
                 <button type="button" onClick={ignoreDraft} className={["flex-1 rounded-xl border px-4 py-2.5 text-[13.5px] font-semibold transition", border, textPrimary, isDark ? "hover:bg-white/5" : "hover:bg-black/5"].join(" ")}>Ignorer</button>
