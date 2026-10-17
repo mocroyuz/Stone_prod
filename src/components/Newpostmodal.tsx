@@ -4,6 +4,7 @@ import {
   Maximize2, Minimize2, X, Tag, FileText, Smile, Hash,
   Image as ImageIcon, ImagePlus, Pencil, ChevronDown, CalendarClock,
   Check, ArrowLeft, Wand2, Plus, Play, Info, Loader2, RotateCcw,
+  PanelRightClose, PanelRightOpen,
 } from "lucide-react";
 import {
   XIcon, FacebookIcon, InstagramIcon, LinkedInIcon,
@@ -863,6 +864,7 @@ function ComposerToolbar({
   length,
   limit,
   extra,
+  leading,
 }: {
   isDark: boolean;
   emojiOpen: boolean;
@@ -872,6 +874,7 @@ function ComposerToolbar({
   length: number;
   limit?: number;
   extra?: React.ReactNode;
+  leading?: React.ReactNode;
 }) {
   const over = limit !== undefined && length > limit;
   const near = limit !== undefined && !over && length > limit * 0.9;
@@ -907,6 +910,7 @@ function ComposerToolbar({
         >
           <Hash className="h-4 w-4" />
         </button>
+        {leading}
       </div>
       <div className="flex items-center gap-3">
         {extra}
@@ -1038,6 +1042,7 @@ export default function NewPostModal({
   const [activeEmojiNetwork, setActiveEmojiNetwork] = useState<string | null>(null);
   const [collapsedCards, setCollapsedCards] = useState<Record<string, boolean>>({});
   const [previewNetwork, setPreviewNetwork] = useState<SocialNetworkId | null>(null);
+  const [showPreview, setShowPreview] = useState(true);
   const [requestTick, setRequestTick] = useState(0);
 
   // ── YouTube ──
@@ -1869,6 +1874,17 @@ export default function NewPostModal({
             <div className={["mx-1 h-5 w-px", isDark ? "bg-white/10" : "bg-black/10"].join(" ")} />
             <button
               type="button"
+              aria-pressed={showPreview}
+              aria-label={showPreview ? "Hide preview" : "Show preview"}
+              title={showPreview ? "Hide preview" : "Show preview"}
+              onClick={() => setShowPreview((v) => !v)}
+              className={["hidden h-8 items-center gap-1.5 rounded-full px-3 text-[13px] font-medium transition lg:flex", textSecondary, hoverSoft].join(" ")}
+            >
+              {showPreview ? <PanelRightClose className="h-4 w-4" /> : <PanelRightOpen className="h-4 w-4" />}
+              Preview
+            </button>
+            <button
+              type="button"
               aria-label={isFullscreen ? "Exit full screen" : "Enter full screen"}
               onClick={() => setIsFullscreen((v) => !v)}
               className={["flex h-8 w-8 items-center justify-center rounded-full transition", textSecondary, hoverSoft].join(" ")}
@@ -1948,8 +1964,29 @@ export default function NewPostModal({
 
             {/* Zone d'écriture principale */}
             <section
-              aria-label="Post text"
-              className={["flex flex-col rounded-2xl border p-5", border, bgCard].join(" ")}
+              aria-label="Post text and media"
+              onDragOver={(e) => {
+                e.preventDefault();
+                setIsDragging(true);
+              }}
+              onDragLeave={(e) => {
+                if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
+                  setIsDragging(false);
+                }
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                setIsDragging(false);
+                if (e.dataTransfer.files) addFiles(e.dataTransfer.files);
+              }}
+              className={[
+                "relative flex flex-col rounded-2xl border p-5 transition-colors",
+                isDragging
+                  ? isDark
+                    ? "border-white/40 bg-white/5"
+                    : "border-neutral-400 bg-neutral-100"
+                  : [border, bgCard].join(" "),
+              ].join(" ")}
             >
               <div className="mb-3 flex items-center gap-3">
                 {networks.length > 0 && (
@@ -1992,122 +2029,49 @@ export default function NewPostModal({
                 className={[textareaClass, "min-h-[88px]"].join(" ")}
               />
 
-              <ComposerToolbar
-                isDark={isDark}
-                emojiOpen={activeEmojiNetwork === "master"}
-                onToggleEmoji={() =>
-                  setActiveEmojiNetwork(activeEmojiNetwork === "master" ? null : "master")
-                }
-                onPickEmoji={(emoji) => insertAtCursor("master", emoji)}
-                onHash={() => insertAtCursor("master", "#")}
-                length={masterContent.length}
-                limit={strictestLimit}
-              />
-            </section>
-
-            {/* Médias (partagés par tous les réseaux) */}
-            <section
-              aria-label="Media"
-              onDragOver={(e) => {
-                e.preventDefault();
-                setIsDragging(true);
-              }}
-              onDragLeave={(e) => {
-                if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
-                  setIsDragging(false);
-                }
-              }}
-              onDrop={(e) => {
-                e.preventDefault();
-                setIsDragging(false);
-                if (e.dataTransfer.files) addFiles(e.dataTransfer.files);
-              }}
-              className={[
-                "relative rounded-2xl border p-5 transition-colors",
-                isDragging
-                  ? isDark
-                    ? "border-white/40 bg-white/5"
-                    : "border-neutral-400 bg-neutral-100"
-                  : [border, bgCard].join(" "),
-              ].join(" ")}
-            >
-              <div className="mb-3 flex items-center justify-between">
-                <h2 className={["text-[15px] font-semibold", textPrimary].join(" ")}>Media</h2>
-                <span className={["text-[12px] tabular-nums", textSecondary].join(" ")}>
-                  {media.length} / {MAX_MEDIA}
-                </span>
-              </div>
-
-              <div className="flex flex-wrap items-end gap-3">
-                {media.map((item, index) => (
-                  <div
-                    key={item.id}
-                    className="group relative h-[100px] w-[100px] shrink-0 overflow-hidden rounded-xl border border-black/5"
-                  >
-                    {item.kind === "image" ? (
-                      <img src={item.url} alt="" className="h-full w-full object-cover" />
-                    ) : (
-                      <div className="relative h-full w-full">
-                        <video src={item.url} className="h-full w-full object-cover" muted playsInline />
-                        <div className="absolute inset-0 flex items-center justify-center bg-black/30 text-white">
-                          <Play className="h-5 w-5 fill-current" />
-                        </div>
-                      </div>
-                    )}
-                    {index === 0 && media.length > 1 && (
-                      <span className="absolute bottom-1.5 left-1.5 rounded-md bg-black/70 px-1.5 py-0.5 text-[10px] font-semibold text-white">
-                        Cover
-                      </span>
-                    )}
-                    <div className="pointer-events-none absolute inset-0 bg-black/0 transition-colors group-hover:bg-black/20" />
-                    <button
-                      type="button"
-                      aria-label="Remove media"
-                      onClick={() => removeMedia(item.id)}
-                      className="absolute right-1.5 top-1.5 z-30 flex h-6 w-6 items-center justify-center rounded-lg bg-black/70 text-white opacity-0 backdrop-blur-sm transition-opacity hover:bg-black/90 focus-visible:opacity-100 group-hover:opacity-100"
+              {media.length > 0 && (
+                <div className="mt-3 flex flex-wrap items-end gap-3">
+                  {media.map((item, index) => (
+                    <div
+                      key={item.id}
+                      className="group relative h-[88px] w-[88px] shrink-0 overflow-hidden rounded-xl border border-black/5"
                     >
-                      <X className="h-3.5 w-3.5" strokeWidth={2.5} />
-                    </button>
-                    {item.kind === "image" && (
+                      {item.kind === "image" ? (
+                        <img src={item.url} alt="" className="h-full w-full object-cover" />
+                      ) : (
+                        <div className="relative h-full w-full">
+                          <video src={item.url} className="h-full w-full object-cover" muted playsInline />
+                          <div className="absolute inset-0 flex items-center justify-center bg-black/30 text-white">
+                            <Play className="h-5 w-5 fill-current" />
+                          </div>
+                        </div>
+                      )}
+                      {index === 0 && media.length > 1 && (
+                        <span className="absolute bottom-1.5 left-1.5 rounded-md bg-black/70 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                          Cover
+                        </span>
+                      )}
+                      <div className="pointer-events-none absolute inset-0 bg-black/0 transition-colors group-hover:bg-black/20" />
                       <button
                         type="button"
-                        aria-label="Edit image"
-                        onClick={() => setEditingItem(item)}
-                        className="absolute bottom-1.5 right-1.5 z-30 flex h-6 w-6 items-center justify-center rounded-lg bg-black/70 text-white opacity-0 backdrop-blur-sm transition-opacity hover:bg-black/90 focus-visible:opacity-100 group-hover:opacity-100"
+                        aria-label="Remove media"
+                        onClick={() => removeMedia(item.id)}
+                        className="absolute right-1.5 top-1.5 z-30 flex h-6 w-6 items-center justify-center rounded-lg bg-black/70 text-white opacity-0 backdrop-blur-sm transition-opacity hover:bg-black/90 focus-visible:opacity-100 group-hover:opacity-100"
                       >
-                        <Pencil className="h-3.5 w-3.5" strokeWidth={2.5} />
+                        <X className="h-3.5 w-3.5" strokeWidth={2.5} />
                       </button>
-                    )}
-                  </div>
-                ))}
-
-                {media.length < MAX_MEDIA && (
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className={[
-                      "flex h-[100px] w-[100px] shrink-0 cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed text-center transition-colors",
-                      isDark
-                        ? "border-white/15 hover:border-white/30 hover:bg-white/5"
-                        : "border-neutral-300 hover:border-neutral-400 hover:bg-white",
-                    ].join(" ")}
-                  >
-                    <ImagePlus className={["h-6 w-6", isDark ? "text-white/40" : "text-neutral-400"].join(" ")} strokeWidth={1.75} />
-                    <span className={["text-[11px] font-medium leading-tight", isDark ? "text-white/50" : "text-neutral-500"].join(" ")}>
-                      {media.length === 0 ? "Add or drop" : "Add more"}
-                    </span>
-                  </button>
-                )}
-              </div>
-
-              {isDragging && (
-                <div
-                  className={[
-                    "pointer-events-none absolute inset-0 flex items-center justify-center rounded-2xl text-[14px] font-semibold backdrop-blur-[1px]",
-                    isDark ? "bg-black/50 text-white" : "bg-white/70 text-neutral-900",
-                  ].join(" ")}
-                >
-                  Drop to add to your post
+                      {item.kind === "image" && (
+                        <button
+                          type="button"
+                          aria-label="Edit image"
+                          onClick={() => setEditingItem(item)}
+                          className="absolute bottom-1.5 right-1.5 z-30 flex h-6 w-6 items-center justify-center rounded-lg bg-black/70 text-white opacity-0 backdrop-blur-sm transition-opacity hover:bg-black/90 focus-visible:opacity-100 group-hover:opacity-100"
+                        >
+                          <Pencil className="h-3.5 w-3.5" strokeWidth={2.5} />
+                        </button>
+                      )}
+                    </div>
+                  ))}
                 </div>
               )}
 
@@ -2127,6 +2091,46 @@ export default function NewPostModal({
                   if (e.target.files) addFiles(e.target.files);
                   e.target.value = "";
                 }}
+              />
+
+              {isDragging && (
+                <div
+                  className={[
+                    "pointer-events-none absolute inset-0 flex items-center justify-center rounded-2xl text-[14px] font-semibold backdrop-blur-[1px]",
+                    isDark ? "bg-black/50 text-white" : "bg-white/70 text-neutral-900",
+                  ].join(" ")}
+                >
+                  Drop to add to your post
+                </div>
+              )}
+
+              <ComposerToolbar
+                isDark={isDark}
+                emojiOpen={activeEmojiNetwork === "master"}
+                onToggleEmoji={() =>
+                  setActiveEmojiNetwork(activeEmojiNetwork === "master" ? null : "master")
+                }
+                onPickEmoji={(emoji) => insertAtCursor("master", emoji)}
+                onHash={() => insertAtCursor("master", "#")}
+                length={masterContent.length}
+                limit={strictestLimit}
+                leading={
+                  <button
+                    type="button"
+                    aria-label="Add photos or videos"
+                    title={`Add photos or videos (${media.length}/${MAX_MEDIA})`}
+                    disabled={media.length >= MAX_MEDIA}
+                    onClick={() => fileInputRef.current?.click()}
+                    className={[
+                      "flex h-8 items-center gap-1.5 rounded-lg px-2 text-[12.5px] font-semibold transition disabled:cursor-not-allowed disabled:opacity-40",
+                      textSecondary,
+                      hoverSoft,
+                    ].join(" ")}
+                  >
+                    <ImagePlus className="h-4 w-4" />
+                    {media.length > 0 ? `${media.length}/${MAX_MEDIA}` : "Media"}
+                  </button>
+                }
               />
             </section>
 
@@ -2473,7 +2477,7 @@ export default function NewPostModal({
           {/* Colonne droite : aperçu */}
           <aside
             aria-label="Post preview"
-            className={["hidden w-[400px] shrink-0 flex-col border-l lg:flex", border, bgPanel].join(" ")}
+            className={["hidden w-[400px] shrink-0 flex-col border-l", showPreview ? "lg:flex" : "", border, bgPanel].join(" ")}
           >
             <div className={["flex flex-col gap-3 border-b px-5 py-4", border].join(" ")}>
               <h3 className={["text-[15px] font-semibold", textPrimary].join(" ")}>Preview</h3>
