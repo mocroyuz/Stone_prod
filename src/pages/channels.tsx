@@ -261,6 +261,15 @@ function DisconnectIcon(props: IconProps) {
   );
 }
 
+function RefreshIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+      <path d="M21 3v6h-6" />
+    </Svg>
+  );
+}
+
 function CloseIcon(props: IconProps) {
   return (
     <Svg {...props}>
@@ -518,6 +527,7 @@ type ChannelRowProps = {
   t: ThemeTokens;
   isDark: boolean;
   onToggle: () => void;
+  onReconnect: () => void;
 };
 
 function ChannelRow({
@@ -528,6 +538,7 @@ function ChannelRow({
   t,
   isDark,
   onToggle,
+  onReconnect,
 }: ChannelRowProps) {
   const isConnected = connection.connected;
   const [menuOpen, setMenuOpen] = useState(false);
@@ -595,12 +606,38 @@ function ChannelRow({
           {menuOpen && (
             <div
               className={[
-                "absolute right-0 top-10 z-50 w-40 rounded-xl border p-1 shadow-xl",
+                "absolute right-0 top-10 z-50 w-44 rounded-xl border p-1 shadow-xl",
                 isDark
                   ? "border-white/[0.08] bg-[#16161a]"
                   : "border-black/[0.06] bg-white",
               ].join(" ")}
             >
+              <button
+                type="button"
+                disabled={pending}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setMenuOpen(false);
+                  onReconnect();
+                }}
+                className={[
+                  "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-[11px] font-medium disabled:opacity-40",
+                  isDark
+                    ? "text-neutral-200 hover:bg-white/[0.06] hover:text-white"
+                    : "text-neutral-700 hover:bg-black/[0.04] hover:text-neutral-900",
+                ].join(" ")}
+              >
+                <RefreshIcon className="h-3.5 w-3.5" />
+                Reconnect
+              </button>
+
+              <div
+                className={[
+                  "my-1 h-px",
+                  isDark ? "bg-white/[0.06]" : "bg-black/[0.06]",
+                ].join(" ")}
+              />
+
               <button
                 type="button"
                 disabled={pending}
@@ -748,7 +785,7 @@ export default function Channels() {
   const connectedCount = connectedChannels.length;
   const limitReached = connectedCount >= PLAN.maxChannels;
   const slotsLeft = Math.max(0, PLAN.maxChannels - connectedCount);
-  
+
   const visibleChannels = useMemo(() => {
     const needle = query.trim().toLowerCase();
     if (!needle) return CHANNELS;
@@ -939,7 +976,7 @@ export default function Channels() {
      OAUTH
   ------------------------------------------------------------------------ */
 
-  const handleTikTokToggle = async () => {
+  const handleTikTokToggle = async (isReconnect = false) => {
     if (tiktokBusy.current) return;
     tiktokBusy.current = true;
     setPendingKey("tiktok");
@@ -952,12 +989,14 @@ export default function Channels() {
           ...current,
           tiktok: { connected: false },
         }));
-        showNotification("TikTok disconnected successfully!");
-      } else {
-        markReturning("tiktok");
-        await startTikTokLogin();
-        redirecting = true;
+        if (!isReconnect) {
+          showNotification("TikTok disconnected successfully!");
+          return;
+        }
       }
+      markReturning("tiktok");
+      await startTikTokLogin();
+      redirecting = true;
     } catch (error) {
       console.error("[Stone] TikTok OAuth error:", error);
       setErrorMessage(formatOAuthError("TikTok", error));
@@ -969,7 +1008,7 @@ export default function Channels() {
     }
   };
 
-  const handlePinterestToggle = async () => {
+  const handlePinterestToggle = async (isReconnect = false) => {
     if (pinterestBusy.current) return;
     pinterestBusy.current = true;
     setPendingKey("pinterest");
@@ -982,8 +1021,12 @@ export default function Channels() {
           ...current,
           pinterest: { connected: false },
         }));
-        showNotification("Pinterest disconnected successfully!");
-      } else if (import.meta.env.VITE_PINTEREST_MANUAL_TOKEN === "true") {
+        if (!isReconnect) {
+          showNotification("Pinterest disconnected successfully!");
+          return;
+        }
+      }
+      if (import.meta.env.VITE_PINTEREST_MANUAL_TOKEN === "true") {
         const token = window.prompt("Pinterest access token:");
         if (!token?.trim()) {
           setPendingKey(null);
@@ -1014,7 +1057,7 @@ export default function Channels() {
     }
   };
 
-  const handleYouTubeToggle = async () => {
+  const handleYouTubeToggle = async (isReconnect = false) => {
     if (youtubeBusy.current) return;
     youtubeBusy.current = true;
     setPendingKey("youtube");
@@ -1027,12 +1070,14 @@ export default function Channels() {
           ...current,
           youtube: { connected: false },
         }));
-        showNotification("YouTube Shorts disconnected successfully!");
-      } else {
-        markReturning("youtube");
-        await startYouTubeLogin();
-        redirecting = true;
+        if (!isReconnect) {
+          showNotification("YouTube Shorts disconnected successfully!");
+          return;
+        }
       }
+      markReturning("youtube");
+      await startYouTubeLogin();
+      redirecting = true;
     } catch (error) {
       console.error("[Stone] YouTube OAuth error:", error);
       setErrorMessage(formatOAuthError("YouTube Shorts", error));
@@ -1067,6 +1112,19 @@ export default function Channels() {
     }, 450);
   };
 
+  const handlePlaceholderReconnect = (key: ChannelKey) => {
+    setPendingKey(key);
+    window.setTimeout(() => {
+      const connection: Connection = {
+        connected: true,
+        handle: mockHandleFor(key),
+      };
+      setConnections((current) => ({ ...current, [key]: connection }));
+      startOnboarding(key, connection);
+      setPendingKey(null);
+    }, 450);
+  };
+
   function handleToggle(key: ChannelKey) {
     setErrorMessage(null);
     if (!connections[key].connected && limitReached) {
@@ -1081,13 +1139,21 @@ export default function Channels() {
     handlePlaceholderToggle(key);
   }
 
+  function handleReconnect(key: ChannelKey) {
+    setErrorMessage(null);
+    if (key === "tiktok") return void handleTikTokToggle(true);
+    if (key === "pinterest") return void handlePinterestToggle(true);
+    if (key === "youtube") return void handleYouTubeToggle(true);
+    handlePlaceholderReconnect(key);
+  }
+
   const handleUpgrade = () => console.log("[Stone] Upgrade clicked");
-  
+
   const openModal = () => {
     setErrorMessage(null);
     setShowConnectModal(true);
   };
-  
+
   const closeModal = () => setShowConnectModal(false);
 
   /* ==========================================================================
@@ -1124,7 +1190,7 @@ export default function Channels() {
         >
           {/* LARGEUR AUGMENTÉE ICI: max-w-[1100px] */}
           <div className="mx-auto flex w-full max-w-[1100px] flex-col px-[clamp(18px,3vw,48px)] pb-[120px] pt-[clamp(18px,3vw,30px)]">
-            
+
             {/* HEADER */}
             <header className="flex shrink-0 flex-col mb-6">
               <h1
@@ -1146,28 +1212,47 @@ export default function Channels() {
             </header>
 
             {/* BANNIÈRE PLAN */}
-            <div className={[
-              "relative overflow-hidden rounded-2xl border p-6 md:p-8 flex flex-col md:flex-row md:items-center justify-between gap-6",
-              panelSurfaceClass(isDark)
-            ].join(" ")}>
+            <div
+              className={[
+                "relative overflow-hidden rounded-2xl border p-6 md:p-8 flex flex-col md:flex-row md:items-center justify-between gap-6",
+                panelSurfaceClass(isDark),
+              ].join(" ")}
+            >
               <div className="flex items-start gap-4">
-                <div className={[
-                  "flex h-12 w-12 shrink-0 items-center justify-center rounded-xl",
-                  isDark ? "bg-white/[0.06] text-white" : "bg-white text-black shadow-sm ring-1 ring-black/[0.05]"
-                ].join(" ")}>
+                <div
+                  className={[
+                    "flex h-12 w-12 shrink-0 items-center justify-center rounded-xl",
+                    isDark
+                      ? "bg-white/[0.06] text-white"
+                      : "bg-white text-black shadow-sm ring-1 ring-black/[0.05]",
+                  ].join(" ")}
+                >
                   <BoltIcon className="h-6 w-6" />
                 </div>
                 <div>
-                  <h2 className={["text-lg font-bold tracking-tight", strongClass(isDark)].join(" ")}>
+                  <h2
+                    className={[
+                      "text-lg font-bold tracking-tight",
+                      strongClass(isDark),
+                    ].join(" ")}
+                  >
                     {PLAN.name} Plan
                   </h2>
-                  <p className={["mt-1 text-[13px]", mutedClass(isDark)].join(" ")}>
-                    You are currently on the {PLAN.name} plan. You can connect up to {PLAN.maxChannels} channels.
-                    {slotsLeft > 0 ? ` ${slotsLeft} slots remaining.` : " Limit reached."}
+                  <p
+                    className={[
+                      "mt-1 text-[13px]",
+                      mutedClass(isDark),
+                    ].join(" ")}
+                  >
+                    You are currently on the {PLAN.name} plan. You can connect up to{" "}
+                    {PLAN.maxChannels} channels.
+                    {slotsLeft > 0
+                      ? ` ${slotsLeft} slots remaining.`
+                      : " Limit reached."}
                   </p>
                 </div>
               </div>
-              
+
               <button
                 type="button"
                 onClick={handleUpgrade}
@@ -1218,6 +1303,7 @@ export default function Channels() {
                   t={t}
                   isDark={isDark}
                   onToggle={() => handleToggle(channel.key)}
+                  onReconnect={() => handleReconnect(channel.key)}
                 />
               ))}
             </div>
@@ -1263,7 +1349,12 @@ export default function Channels() {
       )}
 
       {toast && (
-        <Toast key={toast.id} toast={toast} isDark={isDark} onClose={dismissToast} />
+        <Toast
+          key={toast.id}
+          toast={toast}
+          isDark={isDark}
+          onClose={dismissToast}
+        />
       )}
 
       <Folder
