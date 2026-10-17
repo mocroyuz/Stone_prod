@@ -7,6 +7,15 @@ import {
   type ReactNode,
 } from "react";
 import NewIdeaModal, { type NewIdeaValues } from "./Newideamodal";
+import { useGlobalTextSearch } from "../hooks/useGlobalTextSearch";
+import { navigate, useHashRoute } from "../hooks/useHashRoute";
+import {
+  clearGlobalTextHighlights,
+  highlightGlobalText,
+  setGlobalTextSearchOpen,
+  setGlobalTextSearchQuery,
+  setGlobalTextSearchSelection,
+} from "../services/globalTextSearch";
 
 /* ─────────────────────────────────────────────────────────
  * Types publics
@@ -157,7 +166,10 @@ export default function BottomBar({
   onCreatePost,
   onChange,
 }: BottomBarProps) {
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const globalSearch = useGlobalTextSearch();
+  const route = useHashRoute();
+  const searchQuery = globalSearch.query || query;
+  const [isSearchOpen, setIsSearchOpen] = useState(globalSearch.isOpen);
   const [isClosing, setIsClosing] = useState(false);
   const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
   const [isIdeaOpen, setIsIdeaOpen] = useState(false);
@@ -169,6 +181,49 @@ export default function BottomBar({
   /** La modale « idée » est toujours disponible via le menu. */
   const hasIdea = true;
   const hasMenu = hasIdea || Boolean(onCreatePost);
+  const activeResult = globalSearch.results[globalSearch.selectedIndex] ?? null;
+  const activeRoute = route === "calendar" ? "schedule" : route;
+  const groupedResults = new Map<
+    string,
+    {
+      page: string;
+      items: { result: (typeof globalSearch.results)[number]; index: number }[];
+    }
+  >();
+  globalSearch.results.forEach((result, index) => {
+    const group = groupedResults.get(result.route) ?? {
+      page: result.page,
+      items: [],
+    };
+    group.items.push({ result, index });
+    groupedResults.set(result.route, group);
+  });
+
+  useEffect(() => {
+    setIsSearchOpen(globalSearch.isOpen);
+    if (globalSearch.isOpen) setIsClosing(false);
+  }, [globalSearch.isOpen]);
+
+  useEffect(() => {
+    if (!globalSearch.query.trim()) {
+      clearGlobalTextHighlights(document);
+      return;
+    }
+
+    const occurrence =
+      activeResult?.route === activeRoute ? activeResult.occurrence : -1;
+    const timer = window.setTimeout(
+      () => highlightGlobalText(document, globalSearch.query, occurrence),
+      80
+    );
+    return () => window.clearTimeout(timer);
+  }, [
+    activeRoute,
+    activeResult,
+    globalSearch.query,
+    globalSearch.results,
+    globalSearch.selectedIndex,
+  ]);
 
   /** Recherche visuellement dépliée (animation d'origine). */
   const isExpanded = isSearchOpen && !isClosing;
@@ -179,17 +234,44 @@ export default function BottomBar({
     setIsAddMenuOpen(false);
     setIsClosing(false);
     setIsSearchOpen(true);
+    setGlobalTextSearchOpen(true);
+    if (query.trim()) setGlobalTextSearchQuery(query);
     // Focus synchrone : indispensable pour ouvrir le clavier sur iOS.
     inputRef.current?.focus({ preventScroll: true });
-  }, []);
+  }, [query]);
 
   const closeSearch = useCallback(() => {
     setIsClosing(true);
     window.setTimeout(() => {
       setIsSearchOpen(false);
       setIsClosing(false);
+      setGlobalTextSearchOpen(false);
     }, 220);
   }, []);
+
+  const handleQueryChange = useCallback(
+    (value: string) => {
+      onQueryChange(value);
+      setGlobalTextSearchQuery(value);
+    },
+    [onQueryChange]
+  );
+
+  const selectResult = useCallback(
+    (index: number) => {
+      const resultCount = globalSearch.results.length;
+      if (resultCount === 0) return;
+      const selectedIndex = (index + resultCount) % resultCount;
+      const result = globalSearch.results[selectedIndex];
+      if (!result) return;
+      setGlobalTextSearchSelection(selectedIndex);
+      setGlobalTextSearchOpen(true);
+      setIsSearchOpen(true);
+      setIsClosing(false);
+      navigate(result.route);
+    },
+    [globalSearch.results]
+  );
 
   const closeMenu = useCallback((restoreFocus = false) => {
     setIsAddMenuOpen(false);
@@ -368,6 +450,154 @@ export default function BottomBar({
         }}
       >
         <div className="relative">
+          {isSearchOpen && searchQuery.trim() !== "" && (
+            <section
+              data-global-search-ignore
+              aria-label="Résultats de recherche globale"
+              className={[
+                "pointer-events-auto absolute bottom-full left-1/2 z-40 mb-3",
+                "w-[min(560px,calc(100vw-24px))] -translate-x-1/2 overflow-hidden",
+                "rounded-[18px] border backdrop-blur-xl",
+                "shadow-[0_20px_50px_-10px_rgba(0,0,0,0.25)]",
+                isDark
+                  ? "border-white/10 bg-[#1c1c1e]/95 text-neutral-100"
+                  : "border-black/[0.06] bg-white/95 text-neutral-900",
+              ].join(" ")}
+            >
+              <header
+                className={[
+                  "flex items-center justify-between gap-3 border-b px-3.5 py-2.5",
+                  isDark ? "border-white/10" : "border-black/[0.06]",
+                ].join(" ")}
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-[13px] font-semibold">
+                    {globalSearch.isIndexing
+                      ? "Indexation des pages…"
+                      : `${globalSearch.results.length} résultat${globalSearch.results.length === 1 ? "" : "s"}`}
+                  </p>
+                  <p
+                    className={[
+                      "text-[11px]",
+                      isDark ? "text-neutral-400" : "text-neutral-500",
+                    ].join(" ")}
+                  >
+                    {globalSearch.isIndexing
+                      ? `${globalSearch.indexedPages}/${globalSearch.totalPages} pages parcourues`
+                      : globalSearch.results.length > 0
+                        ? `${globalSearch.selectedIndex + 1} sur ${globalSearch.results.length}`
+                        : "Toutes les pages accessibles"}
+                  </p>
+                </div>
+                <div className="flex shrink-0 items-center gap-1">
+                  <button
+                    type="button"
+                    aria-label="Résultat précédent"
+                    title="Résultat précédent"
+                    disabled={globalSearch.results.length === 0}
+                    onClick={() => selectResult(globalSearch.selectedIndex - 1)}
+                    className={[
+                      "flex h-8 w-8 items-center justify-center rounded-lg transition",
+                      "disabled:pointer-events-none disabled:opacity-35",
+                      isDark ? "hover:bg-white/10" : "hover:bg-black/[0.05]",
+                    ].join(" ")}
+                  >
+                    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="m6 14 6-6 6 6" />
+                    </svg>
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Résultat suivant"
+                    title="Résultat suivant"
+                    disabled={globalSearch.results.length === 0}
+                    onClick={() => selectResult(globalSearch.selectedIndex + 1)}
+                    className={[
+                      "flex h-8 w-8 items-center justify-center rounded-lg transition",
+                      "disabled:pointer-events-none disabled:opacity-35",
+                      isDark ? "hover:bg-white/10" : "hover:bg-black/[0.05]",
+                    ].join(" ")}
+                  >
+                    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="m6 10 6 6 6-6" />
+                    </svg>
+                  </button>
+                </div>
+              </header>
+
+              {globalSearch.results.length > 0 ? (
+                <ul className="max-h-[min(42vh,340px)] overflow-y-auto p-1.5">
+                  {Array.from(groupedResults, ([routeKey, group]) => (
+                    <li key={routeKey}>
+                      <h3
+                        className={[
+                          "flex items-center justify-between px-3 pb-1 pt-2 text-[11px] font-semibold",
+                          isDark ? "text-pink-300" : "text-pink-700",
+                        ].join(" ")}
+                      >
+                        <span>{group.page}</span>
+                        <span className={isDark ? "text-neutral-500" : "text-neutral-400"}>
+                          {group.items.length}
+                        </span>
+                      </h3>
+                      <ul>
+                        {group.items.map(({ result, index }) => (
+                          <li key={result.id}>
+                            <button
+                              type="button"
+                              aria-current={
+                                index === globalSearch.selectedIndex ? "true" : undefined
+                              }
+                              onClick={() => selectResult(index)}
+                              className={[
+                                "flex w-full rounded-xl px-3 py-2 text-left transition",
+                                index === globalSearch.selectedIndex
+                                  ? isDark
+                                    ? "bg-pink-400/15 ring-1 ring-pink-300/30"
+                                    : "bg-pink-500/10 ring-1 ring-pink-500/25"
+                                  : isDark
+                                    ? "hover:bg-white/[0.06]"
+                                    : "hover:bg-black/[0.035]",
+                              ].join(" ")}
+                            >
+                              <span className="line-clamp-2 text-[12px] leading-relaxed">
+                                {result.excerpt}
+                              </span>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p
+                  className={[
+                    "px-4 py-5 text-center text-[13px]",
+                    isDark ? "text-neutral-400" : "text-neutral-500",
+                  ].join(" ")}
+                >
+                  {globalSearch.isIndexing
+                    ? "Recherche dans le texte des pages…"
+                    : "Aucun résultat trouvé."}
+                </p>
+              )}
+
+              {globalSearch.failedPages.length > 0 && (
+                <p
+                  className={[
+                    "border-t px-3.5 py-2 text-[11px]",
+                    isDark
+                      ? "border-white/10 text-amber-300"
+                      : "border-black/[0.06] text-amber-700",
+                  ].join(" ")}
+                >
+                  Certaines pages n’ont pas pu être indexées : {globalSearch.failedPages.join(", ")}
+                </p>
+              )}
+            </section>
+          )}
+
           {/* Menu de création */}
           {isAddMenuOpen && (
             <div className="pointer-events-none absolute bottom-full left-1/2 mb-3 flex w-0 justify-center">
@@ -539,18 +769,35 @@ export default function BottomBar({
                     enterKeyHint="search"
                     autoComplete="off"
                     spellCheck={false}
-                    value={query}
-                    onChange={(event) => onQueryChange(event.target.value)}
+                    value={searchQuery}
+                    onChange={(event) => handleQueryChange(event.target.value)}
                     onBlur={() => {
-                      if (query.trim() === "") closeSearch();
+                      if (searchQuery.trim() === "") closeSearch();
                     }}
                     onKeyDown={(event) => {
                       if (event.key === "Escape") {
-                        onQueryChange("");
+                        handleQueryChange("");
                         closeSearch();
                         inputRef.current?.blur();
+                      } else if (
+                        event.key === "ArrowDown" &&
+                        globalSearch.results.length > 0
+                      ) {
+                        event.preventDefault();
+                        selectResult(globalSearch.selectedIndex + 1);
+                      } else if (
+                        event.key === "ArrowUp" &&
+                        globalSearch.results.length > 0
+                      ) {
+                        event.preventDefault();
+                        selectResult(globalSearch.selectedIndex - 1);
                       } else if (event.key === "Enter") {
-                        inputRef.current?.blur();
+                        if (globalSearch.results.length > 0) {
+                          event.preventDefault();
+                          selectResult(globalSearch.selectedIndex);
+                        } else {
+                          inputRef.current?.blur();
+                        }
                       }
                     }}
                     placeholder="Rechercher"
@@ -567,14 +814,14 @@ export default function BottomBar({
                     ].join(" ")}
                   />
 
-                  {query !== "" && isSearchOpen && (
+                  {searchQuery !== "" && isSearchOpen && (
                     <button
                       type="button"
                       aria-label="Effacer la recherche"
                       title="Effacer"
                       onMouseDown={(event) => event.preventDefault()}
                       onClick={() => {
-                        onQueryChange("");
+                        handleQueryChange("");
                         inputRef.current?.focus();
                       }}
                       className={[

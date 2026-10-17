@@ -512,6 +512,10 @@ function AppContentInner({
 
   const route = normalizeRoute(rawRoute);
 
+  useEffect(() => {
+    document.documentElement.dataset.appRoute = route;
+  }, [route]);
+
   const isAuth = AUTH_ROUTES.has(route);
   const isProtected = PROTECTED_ROUTES.has(route);
   const isTemplate = route === "template";
