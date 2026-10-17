@@ -297,16 +297,6 @@ function ChevronRightIcon(props: IconProps) {
   );
 }
 
-function DownloadIcon(props: IconProps) {
-  return (
-    <Svg {...props}>
-      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-      <polyline points="7 10 12 15 17 10" />
-      <line x1="12" y1="15" x2="12" y2="3" />
-    </Svg>
-  );
-}
-
 function BoltIcon(props: IconProps) {
   return (
     <Svg {...props}>
@@ -517,7 +507,7 @@ function ChannelIcon({
 }
 
 /* ============================================================================
-   CHANNEL ROW (Design épuré de l'image)
+   CHANNEL ROW
 ============================================================================ */
 
 type ChannelRowProps = {
@@ -674,7 +664,6 @@ export default function Channels() {
   const [query, setQuery] = useState("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [toast, setToast] = useState<ToastState | null>(null);
-  const [isInstalled, setIsInstalled] = useState(false);
 
   const [onboardingAccount, setOnboardingAccount] =
     useState<OnboardingAccount | null>(null);
@@ -1135,7 +1124,7 @@ export default function Channels() {
         >
           <div className="mx-auto flex w-full max-w-[800px] flex-col px-[clamp(18px,3vw,48px)] pb-[120px] pt-[clamp(18px,3vw,30px)]">
             
-            {/* HEADER (Contient maintenant le bouton Upgrade Plan) */}
+            {/* HEADER */}
             <header className="flex shrink-0 items-center justify-between gap-4 mb-6">
               <div>
                 <h1
@@ -1156,84 +1145,57 @@ export default function Channels() {
                 </p>
               </div>
               
-              <div className="flex items-center gap-4">
-                <div className={["flex flex-col items-end hidden sm:flex", mutedClass(isDark)].join(" ")}>
-                  <span className="text-[10px] font-bold uppercase tracking-wider">
-                    {PLAN.name} Plan
-                  </span>
-                  <span className="text-[11px]">
-                    {slotsLeft} {slotsLeft === 1 ? "slot" : "slots"} left
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleUpgrade}
-                  className={[
-                    "rounded-xl px-4 py-2.5 text-[12px] font-semibold transition-colors",
-                    focusRingClass(isDark),
-                    isDark
-                      ? "bg-white/[0.06] text-white hover:bg-white/[0.12]"
-                      : "bg-black/[0.04] text-neutral-900 hover:bg-black/[0.08]",
-                  ].join(" ")}
-                >
-                  Upgrade Plan
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={openModal}
+                className={[
+                  "inline-flex shrink-0 items-center gap-2 rounded-xl px-5 py-2.5 text-[13px] font-semibold transition-all duration-150 hover:-translate-y-px active:scale-[0.98]",
+                  focusRingClass(isDark),
+                  isDark
+                    ? "bg-white text-neutral-900 hover:bg-neutral-200"
+                    : "bg-neutral-900 text-white hover:bg-neutral-800",
+                ].join(" ")}
+              >
+                Connect Channel
+              </button>
             </header>
 
-            {/* BANNIÈRE CREED */}
-            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#1e3a8a] via-[#1e40af] to-[#1d4ed8] px-6 py-8 shadow-xl md:px-8 md:py-10">
-              <div className="pointer-events-none absolute -top-6 -right-6 h-32 w-32 rounded-full bg-blue-500/20 blur-2xl" />
-              <div className="pointer-events-none absolute -bottom-10 right-20 h-40 w-40 rounded-full bg-blue-400/20 blur-3xl" />
-              
-              <div className="pointer-events-none absolute left-0 top-0 opacity-80">
-                 <svg width="150" height="100" viewBox="0 0 150 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M10 10 Q 40 40 60 20 Q 80 0 100 30 Q 120 60 140 40" stroke="#4ade80" strokeWidth="4" fill="none" strokeLinecap="round"/>
-                    <circle cx="30" cy="20" r="6" fill="#4ade80" />
-                    <circle cx="60" cy="15" r="8" fill="#22c55e" />
-                    <circle cx="90" cy="25" r="7" fill="#4ade80" />
-                    <circle cx="120" cy="35" r="9" fill="#22c55e" />
-                 </svg>
-              </div>
-              
-              <div className="pointer-events-none absolute -bottom-4 right-4 opacity-50">
-                 <svg width="100" height="80" viewBox="0 0 100 80" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <circle cx="20" cy="60" r="10" fill="#f472b6" />
-                    <circle cx="40" cy="50" r="8" fill="#f9a8d4" />
-                    <circle cx="60" cy="65" r="12" fill="#ec4899" />
-                    <circle cx="80" cy="55" r="9" fill="#f472b6" />
-                 </svg>
-              </div>
-
-              <div className="relative z-10 flex flex-col justify-between gap-6 md:flex-row md:items-center">
-                <div className="flex items-start gap-4">
-                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-[#3b82f6] shadow-lg">
-                    <div className="h-5 w-5 rounded-[4px] bg-white/95" />
-                  </div>
-                  <div>
-                    <h1 className="text-xl font-bold tracking-tight text-white">Creed</h1>
-                    <p className="mt-1 text-[13.5px] text-blue-100">
-                      Sync your context across every AI tool/agent.
-                    </p>
-                  </div>
+            {/* BANNIÈRE PLAN (Remplace Creed) */}
+            <div className={[
+              "relative overflow-hidden rounded-2xl border p-6 md:p-8 flex flex-col md:flex-row md:items-center justify-between gap-6",
+              panelSurfaceClass(isDark)
+            ].join(" ")}>
+              <div className="flex items-start gap-4">
+                <div className={[
+                  "flex h-12 w-12 shrink-0 items-center justify-center rounded-xl",
+                  isDark ? "bg-white/[0.06] text-white" : "bg-white text-black shadow-sm ring-1 ring-black/[0.05]"
+                ].join(" ")}>
+                  <BoltIcon className="h-6 w-6" />
                 </div>
-                
-                <button
-                  onClick={() => setIsInstalled(!isInstalled)}
-                  className="inline-flex shrink-0 items-center gap-2 rounded-full bg-white px-5 py-2.5 text-[13px] font-semibold text-neutral-900 transition-transform hover:scale-[1.02] active:scale-[0.98]"
-                >
-                  <DownloadIcon className="h-4 w-4" />
-                  {isInstalled ? "Installed" : "Install"}
-                </button>
+                <div>
+                  <h2 className={["text-lg font-bold tracking-tight", strongClass(isDark)].join(" ")}>
+                    {PLAN.name} Plan
+                  </h2>
+                  <p className={["mt-1 text-[13px]", mutedClass(isDark)].join(" ")}>
+                    You are currently on the {PLAN.name} plan. You can connect up to {PLAN.maxChannels} channels.
+                    {slotsLeft > 0 ? ` ${slotsLeft} slots remaining.` : " Limit reached."}
+                  </p>
+                </div>
               </div>
-
-              <div className="relative z-10 mt-8 flex items-center justify-center gap-1.5">
-                <span className="h-1.5 w-4 rounded-full bg-white/90"></span>
-                <span className="h-1.5 w-1.5 rounded-full bg-white/30"></span>
-                <span className="h-1.5 w-1.5 rounded-full bg-white/30"></span>
-                <span className="h-1.5 w-1.5 rounded-full bg-white/30"></span>
-                <span className="h-1.5 w-1.5 rounded-full bg-white/30"></span>
-              </div>
+              
+              <button
+                type="button"
+                onClick={handleUpgrade}
+                className={[
+                  "inline-flex shrink-0 items-center justify-center rounded-xl px-5 py-2.5 text-[13px] font-semibold transition-all hover:scale-[1.02] active:scale-[0.98]",
+                  focusRingClass(isDark),
+                  isDark
+                    ? "bg-white text-neutral-900 hover:bg-neutral-200"
+                    : "bg-neutral-900 text-white hover:bg-neutral-800",
+                ].join(" ")}
+              >
+                Upgrade Plan
+              </button>
             </div>
 
             {/* ERREUR */}
