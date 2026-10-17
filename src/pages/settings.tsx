@@ -194,10 +194,14 @@ const TagIcon = mkIcon(
     <circle cx="7" cy="7" r="1.2" />
   </>
 );
-const ReplyIcon = mkIcon(
+const ClipboardIcon = mkIcon(
   <>
-    <path d="M9 17 4 12l5-5" />
-    <path d="M4 12h11a5 5 0 0 1 5 5v2" />
+    <rect x="8" y="2" width="8" height="4" rx="1" ry="1" />
+    <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+    <path d="M12 11h4" />
+    <path d="M12 16h4" />
+    <path d="M8 11h.01" />
+    <path d="M8 16h.01" />
   </>
 );
 
@@ -462,7 +466,7 @@ type SectionKey =
   | "notifications"
   | "billing"
   | "tags"
-  | "autoReplies"
+  | "savedReplies"
   | "danger";
 
 const SIDEBAR_GROUPS: {
@@ -485,7 +489,7 @@ const SIDEBAR_GROUPS: {
     label: "Utils",
     items: [
       { key: "tags", label: "Tags", icon: <TagIcon /> },
-      { key: "autoReplies", label: "Auto replies", icon: <ReplyIcon /> },
+      { key: "savedReplies", label: "Saved replies", icon: <ClipboardIcon /> },
     ],
   },
   {
@@ -504,7 +508,7 @@ const SECTION_TITLES: Record<SectionKey, string> = {
   notifications: "Notifications",
   billing: "Billing",
   tags: "Tags",
-  autoReplies: "Auto replies",
+  savedReplies: "Saved replies",
   danger: "Danger zone",
 };
 
@@ -723,8 +727,8 @@ export default function Settings(_props: SettingsProps) {
             {active === "tags" && (
               <TagsSection tokens={tokens} notify={notify} />
             )}
-            {active === "autoReplies" && (
-              <AutoRepliesSection tokens={tokens} notify={notify} />
+            {active === "savedReplies" && (
+              <SavedRepliesSection tokens={tokens} notify={notify} />
             )}
             {active === "danger" && (
               <DangerSection tokens={tokens} notify={notify} />
@@ -1891,16 +1895,16 @@ function TagsSection({
   );
 }
 
-/* ── Utils · Auto replies ── */
+/* ── Utils · Saved replies ── */
 
-type AutoReply = {
+type SavedReply = {
   id: string;
   trigger: string;
   reply: string;
   enabled: boolean;
 };
 
-const INITIAL_AUTO_REPLIES: AutoReply[] = [
+const INITIAL_SAVED_REPLIES: SavedReply[] = [
   {
     id: "welcome",
     trigger: "hello",
@@ -1921,15 +1925,15 @@ const INITIAL_AUTO_REPLIES: AutoReply[] = [
   },
 ];
 
-function AutoRepliesSection({
+function SavedRepliesSection({
   tokens,
   notify,
 }: {
   tokens: Tokens;
   notify: Notify;
 }) {
-  const [rules, setRules] = useState<AutoReply[]>(INITIAL_AUTO_REPLIES);
-  const saved = useRef<AutoReply[]>(rules);
+  const [rules, setRules] = useState<SavedReply[]>(INITIAL_SAVED_REPLIES);
+  const saved = useRef<SavedReply[]>(rules);
   const [trigger, setTrigger] = useState("");
   const [reply, setReply] = useState("");
 
@@ -1963,12 +1967,12 @@ function AutoRepliesSection({
   const save = () => {
     saved.current = rules;
     setRules((prev) => [...prev]);
-    notify("Auto replies saved");
+    notify("Saved replies saved");
   };
 
   return (
     <SectionCard
-      title="Auto replies"
+      title="Saved replies"
       description="Send an automatic response when a message contains a keyword."
       tokens={tokens}
       footer={
@@ -1979,19 +1983,19 @@ function AutoRepliesSection({
             </span>
           )}
           <Button tokens={tokens} onClick={save} disabled={!dirty}>
-            Save rules
+            Save replies
           </Button>
         </>
       }
     >
       <div className="pb-5">
         <p className={cx("mb-2.5 text-[13px] font-medium", tokens.label)}>
-          Active rules
+          Active replies
         </p>
 
         {rules.length === 0 ? (
           <p className={cx("py-2 text-[13px]", tokens.body)}>
-            No auto replies yet.
+            No saved replies yet.
           </p>
         ) : (
           rules.map((rule) => (
@@ -2052,7 +2056,7 @@ function AutoRepliesSection({
 
       <div className="pt-5">
         <p className={cx("mb-2 text-[13px] font-medium", tokens.label)}>
-          New auto reply
+          New saved reply
         </p>
 
         <div className="flex flex-col gap-3">
@@ -2077,7 +2081,7 @@ function AutoRepliesSection({
               value={reply}
               onChange={(e) => setReply(e.target.value)}
               rows={3}
-              placeholder="Type the automatic reply…"
+              placeholder="Type the saved reply…"
               className={cx(
                 "w-full resize-y rounded-[10px] border px-3.5 py-2.5 text-[14px] outline-none transition",
                 tokens.inputBg,
@@ -2091,7 +2095,7 @@ function AutoRepliesSection({
 
           <div className="flex justify-end">
             <Button tokens={tokens} onClick={addRule}>
-              Add auto reply
+              Add saved reply
             </Button>
           </div>
         </div>
