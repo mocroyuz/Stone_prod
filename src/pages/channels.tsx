@@ -307,6 +307,14 @@ function DownloadIcon(props: IconProps) {
   );
 }
 
+function BoltIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M13 2.5 5 13.2h5.6L9.5 21.5l8-10.7h-5.6L13 2.5Z" />
+    </Svg>
+  );
+}
+
 /* ============================================================================
    HELPERS
 ============================================================================ */
@@ -509,7 +517,7 @@ function ChannelIcon({
 }
 
 /* ============================================================================
-   CHANNEL ROW (Style de l'image)
+   CHANNEL ROW (Design épuré de l'image)
 ============================================================================ */
 
 type ChannelRowProps = {
@@ -751,9 +759,10 @@ export default function Channels() {
   const connectedCount = connectedChannels.length;
   const limitReached = connectedCount >= PLAN.maxChannels;
   const slotsLeft = Math.max(0, PLAN.maxChannels - connectedCount);
+  
   const visibleChannels = useMemo(() => {
     const needle = query.trim().toLowerCase();
-    if (!needle) return CHANNELS; // On affiche toujours tous les channels
+    if (!needle) return CHANNELS;
     return CHANNELS.filter((channel) =>
       `${channel.name} ${channel.accountLabel} ${connections[channel.key].handle ?? ""}`
         .toLowerCase()
@@ -1126,9 +1135,54 @@ export default function Channels() {
         >
           <div className="mx-auto flex w-full max-w-[800px] flex-col px-[clamp(18px,3vw,48px)] pb-[120px] pt-[clamp(18px,3vw,30px)]">
             
-            {/* BANNIÈRE CREED (Design de l'image) */}
-            <div className="relative mt-2 overflow-hidden rounded-2xl bg-gradient-to-br from-[#1e3a8a] via-[#1e40af] to-[#1d4ed8] px-6 py-8 shadow-xl md:px-8 md:py-10">
-              {/* Éléments décoratifs */}
+            {/* HEADER (Contient maintenant le bouton Upgrade Plan) */}
+            <header className="flex shrink-0 items-center justify-between gap-4 mb-6">
+              <div>
+                <h1
+                  className={[
+                    "text-[24px] font-semibold tracking-[-0.035em]",
+                    strongClass(isDark),
+                  ].join(" ")}
+                >
+                  Channels
+                </h1>
+                <p
+                  className={[
+                    "mt-0.5 text-[13px] font-medium",
+                    mutedClass(isDark),
+                  ].join(" ")}
+                >
+                  Your connected accounts at a glance.
+                </p>
+              </div>
+              
+              <div className="flex items-center gap-4">
+                <div className={["flex flex-col items-end hidden sm:flex", mutedClass(isDark)].join(" ")}>
+                  <span className="text-[10px] font-bold uppercase tracking-wider">
+                    {PLAN.name} Plan
+                  </span>
+                  <span className="text-[11px]">
+                    {slotsLeft} {slotsLeft === 1 ? "slot" : "slots"} left
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleUpgrade}
+                  className={[
+                    "rounded-xl px-4 py-2.5 text-[12px] font-semibold transition-colors",
+                    focusRingClass(isDark),
+                    isDark
+                      ? "bg-white/[0.06] text-white hover:bg-white/[0.12]"
+                      : "bg-black/[0.04] text-neutral-900 hover:bg-black/[0.08]",
+                  ].join(" ")}
+                >
+                  Upgrade Plan
+                </button>
+              </div>
+            </header>
+
+            {/* BANNIÈRE CREED */}
+            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#1e3a8a] via-[#1e40af] to-[#1d4ed8] px-6 py-8 shadow-xl md:px-8 md:py-10">
               <div className="pointer-events-none absolute -top-6 -right-6 h-32 w-32 rounded-full bg-blue-500/20 blur-2xl" />
               <div className="pointer-events-none absolute -bottom-10 right-20 h-40 w-40 rounded-full bg-blue-400/20 blur-3xl" />
               
@@ -1173,7 +1227,6 @@ export default function Channels() {
                 </button>
               </div>
 
-              {/* Pagination dots */}
               <div className="relative z-10 mt-8 flex items-center justify-center gap-1.5">
                 <span className="h-1.5 w-4 rounded-full bg-white/90"></span>
                 <span className="h-1.5 w-1.5 rounded-full bg-white/30"></span>
@@ -1181,20 +1234,6 @@ export default function Channels() {
                 <span className="h-1.5 w-1.5 rounded-full bg-white/30"></span>
                 <span className="h-1.5 w-1.5 rounded-full bg-white/30"></span>
               </div>
-            </div>
-
-            {/* BANNIÈRE PLAN (Conservée mais discrète) */}
-            <div className="mt-6 flex items-center justify-between px-2">
-              <p className={["text-[12px]", mutedClass(isDark)].join(" ")}>
-                You are on the {PLAN.name} plan and can connect up to {PLAN.maxChannels} channels.
-              </p>
-              <button
-                type="button"
-                onClick={handleUpgrade}
-                className={["text-[12px] font-semibold hover:underline", isDark ? "text-white" : "text-neutral-900"].join(" ")}
-              >
-                Upgrade Plan
-              </button>
             </div>
 
             {/* ERREUR */}
@@ -1220,7 +1259,7 @@ export default function Channels() {
               </div>
             )}
 
-            {/* GRILLE DES CHANNELS (Design de l'image) */}
+            {/* GRILLE DES CHANNELS */}
             <div className="mt-6 grid grid-cols-1 gap-1 md:grid-cols-2">
               {visibleChannels.map((channel) => (
                 <ChannelRow
@@ -1243,18 +1282,13 @@ export default function Channels() {
                 mutedClass(isDark),
               ].join(" ")}
             >
-              <span>
-                {slotsLeft > 0
-                  ? `${slotsLeft} ${slotsLeft === 1 ? "slot" : "slots"} remaining`
-                  : "Plan limit reached"}
-              </span>
               <span>Secure OAuth connections</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* MODAL: CONNECT CHANNEL */}
+      {/* MODALS & OVERLAYS */}
       {showConnectModal && (
         <ConnectChannelModal
           channels={CHANNELS}
@@ -1270,7 +1304,6 @@ export default function Channels() {
         />
       )}
 
-      {/* ONBOARDING ÉTAPE 1 */}
       {onboardingAccount && (
         <ConfirmAccountModal
           account={onboardingAccount}
@@ -1282,7 +1315,6 @@ export default function Channels() {
         />
       )}
 
-      {/* TOAST */}
       {toast && (
         <Toast key={toast.id} toast={toast} isDark={isDark} onClose={dismissToast} />
       )}
