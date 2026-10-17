@@ -108,6 +108,8 @@ const LIGHT: Tokens = {
 const cx = (...parts: (string | false | null | undefined)[]) =>
   parts.filter(Boolean).join(" ");
 
+const uid = () => Math.random().toString(36).slice(2, 10);
+
 /* ── Icons ── */
 
 const svgBase = {
@@ -1895,6 +1897,12 @@ function TagsSection({
 
 /* ── Utils · Saved replies ── */
 
+type SavedReply = {
+  id: string;
+  name: string;
+  content: string;
+};
+
 function SavedRepliesSection({
   tokens,
   notify,
@@ -1902,6 +1910,7 @@ function SavedRepliesSection({
   tokens: Tokens;
   notify: Notify;
 }) {
+  const [replies, setReplies] = useState<SavedReply[]>([]);
   const [name, setName] = useState("");
   const [content, setContent] = useState("");
 
@@ -1912,8 +1921,19 @@ function SavedRepliesSection({
 
   const handleSave = () => {
     if (!name.trim() || !content.trim()) return;
+    
+    setReplies((prev) => [
+      ...prev,
+      { id: uid(), name: name.trim(), content: content.trim() },
+    ]);
+    
     notify("Saved reply created");
     handleCancel();
+  };
+
+  const handleDelete = (id: string) => {
+    setReplies((prev) => prev.filter((r) => r.id !== id));
+    notify("Saved reply deleted");
   };
 
   return (
@@ -1922,7 +1942,55 @@ function SavedRepliesSection({
       description="Create a quick reply to use in your messages."
       tokens={tokens}
     >
-      <div className="flex flex-col gap-4 pt-4 pb-4">
+      {/* Liste des réponses enregistrées */}
+      {replies.length > 0 && (
+        <div className="pb-5">
+          <p className={cx("mb-3 text-[13px] font-medium", tokens.label)}>
+            Your saved replies
+          </p>
+          <div className="flex flex-col gap-3">
+            {replies.map((reply) => (
+              <div
+                key={reply.id}
+                className={cx(
+                  "flex items-start justify-between gap-4 rounded-xl border p-3.5",
+                  tokens.cardBorder
+                )}
+              >
+                <div className="min-w-0">
+                  <p className={cx("text-[13.5px] font-medium", tokens.heading)}>
+                    {reply.name}
+                  </p>
+                  <p
+                    className={cx(
+                      "mt-1 text-[12.5px] leading-relaxed whitespace-pre-wrap",
+                      tokens.body
+                    )}
+                  >
+                    {reply.content}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleDelete(reply.id)}
+                  aria-label={`Delete ${reply.name}`}
+                  className={cx(
+                    "flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[16px] leading-none transition",
+                    tokens.subtle,
+                    tokens.ghostHover,
+                    tokens.ring
+                  )}
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Formulaire de création */}
+      <div className="flex flex-col gap-4 py-4">
         <input
           type="text"
           placeholder="Name"
@@ -1961,7 +2029,7 @@ function SavedRepliesSection({
           </div>
         </div>
 
-        <div className="flex justify-end gap-2 mt-1">
+        <div className="mt-1 flex justify-end gap-2">
           <Button
             tokens={tokens}
             variant="secondary"
