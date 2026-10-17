@@ -745,7 +745,6 @@ function ProfileSection({
   const [saving, setSaving] = useState(false);
   const [first, setFirst] = useState("");
   const [last, setLast] = useState("");
-  const [bio, setBio] = useState("");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -761,7 +760,6 @@ function ProfileSection({
         setUser(data);
         setFirst(data.first_name || "");
         setLast(data.last_name || "");
-        setBio(data.bio || "");
         setAvatarUrl(data.avatar_url || null);
         setAvatarLoadFailed(false);
       } catch (error) {
@@ -780,8 +778,7 @@ function ProfileSection({
   const dirty =
     !!user &&
     (first.trim() !== (user.first_name || "") ||
-      last.trim() !== (user.last_name || "") ||
-      bio.trim() !== (user.bio || ""));
+      last.trim() !== (user.last_name || ""));
 
   /* Avertit avant de quitter la page avec des modifications non sauvegardées. */
   useEffect(() => {
@@ -891,7 +888,6 @@ function ProfileSection({
     const next = {
       first_name: first.trim(),
       last_name: last.trim(),
-      bio: bio.trim(),
     };
 
     try {
@@ -935,7 +931,6 @@ function ProfileSection({
             <div className={cx("h-11 rounded-[10px]", tokens.track)} />
             <div className={cx("h-11 rounded-[10px]", tokens.track)} />
           </div>
-          <div className={cx("h-20 rounded-[10px]", tokens.track)} />
         </div>
       </SectionCard>
     );
@@ -1066,36 +1061,6 @@ function ProfileSection({
           autoComplete="family-name"
           tokens={tokens}
         />
-      </div>
-
-      <div className="pt-5">
-        <label className="block">
-          <span
-            className={cx("mb-1.5 block text-[13px] font-medium", tokens.label)}
-          >
-            Bio
-          </span>
-          <textarea
-            value={bio}
-            onChange={(e) => setBio(e.target.value)}
-            rows={3}
-            maxLength={160}
-            placeholder="A short line about you"
-            className={cx(
-              "w-full resize-none rounded-[10px] border px-3.5 py-2.5 text-[14px] outline-none transition",
-              tokens.inputBg,
-              tokens.inputText,
-              tokens.placeholder,
-              tokens.inputFocus,
-              tokens.inputBorder
-            )}
-          />
-          <span
-            className={cx("mt-1 block text-right text-[12px]", tokens.subtle)}
-          >
-            {bio.length}/160
-          </span>
-        </label>
       </div>
     </SectionCard>
   );
