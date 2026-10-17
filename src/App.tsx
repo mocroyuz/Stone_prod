@@ -32,10 +32,6 @@ import { useHashRoute, navigate } from "./hooks/useHashRoute";
 import { useTheme, ThemeProvider, type Theme } from "./hooks/useTheme";
 import { UserProvider, useUser } from "./contexts/UserContext";
 import { saveOAuthSession } from "./services/supabase";
-import {
-  getGlobalSearchTextFromDocument,
-  registerRenderedGlobalSearchPage,
-} from "./services/globalTextSearch";
 
 /* ──────────────────────────────────────────────────────────────
    OAUTH CALLBACK INTERCEPTION
@@ -515,34 +511,6 @@ function AppContentInner({
   const { user, loading } = useUser();
 
   const route = normalizeRoute(rawRoute);
-
-  useEffect(() => {
-    document.documentElement.dataset.appRoute = route;
-    const root = document.getElementById("root");
-    if (!root) return;
-
-    let timer = 0;
-    const updateSearchText = () => {
-      const text = getGlobalSearchTextFromDocument(document);
-      if (text.trim()) registerRenderedGlobalSearchPage(route, text);
-    };
-
-    updateSearchText();
-    const observer = new MutationObserver(() => {
-      window.clearTimeout(timer);
-      timer = window.setTimeout(updateSearchText, 100);
-    });
-    observer.observe(root, {
-      childList: true,
-      characterData: true,
-      subtree: true,
-    });
-
-    return () => {
-      observer.disconnect();
-      window.clearTimeout(timer);
-    };
-  }, [loading, route]);
 
   const isAuth = AUTH_ROUTES.has(route);
   const isProtected = PROTECTED_ROUTES.has(route);

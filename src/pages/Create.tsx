@@ -13,7 +13,6 @@ import BottomBar, { type BottomBarTab } from "../components/Bottombar";
 import Folder from "../components/Folder";
 import HelpChatButton from "../components/Helpchatbutton";
 import { requestNewPost } from "../services/Newpostbus";
-import { registerGlobalSearchPage } from "../services/globalTextSearch";
 
 /* ───────── Types ───────── */
 
@@ -45,12 +44,6 @@ const TABS: { key: Tab; label: string }[] = [
   { key: "templates", label: "Templates" },
   { key: "feeds", label: "Feeds" },
 ];
-
-registerGlobalSearchPage(
-  "create",
-  "Create",
-  [...DEFAULT_TAGS.map((tag) => tag.label), ...TABS.map((tab) => tab.label)].join(" ")
-);
 
 /* ───────── Données (à remplacer par ton API) ───────── */
 

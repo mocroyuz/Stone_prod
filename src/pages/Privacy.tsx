@@ -2,7 +2,6 @@
 import DashboardSidebar from "../components/Navbar";
 import { useUser } from "../contexts/UserContext";
 import { navigate } from "../hooks/useHashRoute";
-import { registerGlobalSearchPage } from "../services/globalTextSearch";
 
 type Section = {
   id: string;
@@ -154,16 +153,6 @@ const SECTIONS: Section[] = [
     ],
   },
 ];
-
-registerGlobalSearchPage(
-  "privacy",
-  "Privacy",
-  [LAST_UPDATED, ...SECTIONS.flatMap((section) => [
-    section.title,
-    ...section.paragraphs,
-    ...(section.list ?? []),
-  ])].join(" ")
-);
 
 export default function Privacy() {
   const { user, loading } = useUser();

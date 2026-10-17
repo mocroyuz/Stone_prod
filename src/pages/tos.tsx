@@ -2,7 +2,6 @@
 import DashboardSidebar from "../components/Navbar";
 import { useUser } from "../contexts/UserContext";
 import { navigate } from "../hooks/useHashRoute";
-import { registerGlobalSearchPage } from "../services/globalTextSearch";
 
 type Section = {
   id: string;
@@ -148,16 +147,6 @@ const SECTIONS: Section[] = [
     ],
   },
 ];
-
-registerGlobalSearchPage(
-  "tos",
-  "Terms of Service",
-  [LAST_UPDATED, ...SECTIONS.flatMap((section) => [
-    section.title,
-    ...section.paragraphs,
-    ...(section.list ?? []),
-  ])].join(" ")
-);
 
 export default function Tos() {
   const { user, loading } = useUser();

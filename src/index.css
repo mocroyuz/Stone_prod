@@ -42,28 +42,6 @@ html.dark body {
   background: #09090a;
 }
 
-:root {
-  --global-search-hit: rgba(255, 45, 145, 0.42);
-  --global-search-active: #f0187b;
-  --global-search-active-text: #ffffff;
-}
-
-html.dark {
-  --global-search-hit: rgba(255, 45, 145, 0.55);
-  --global-search-active: #ff2f92;
-  --global-search-active-text: #ffffff;
-}
-
-::highlight(global-search-hit) {
-  background: var(--global-search-hit);
-  color: inherit;
-}
-
-::highlight(global-search-active) {
-  background: var(--global-search-active);
-  color: var(--global-search-active-text);
-}
-
 /*
  * Keep document text selectable, while preventing browser selection/drag
  * artifacts on visual-only elements. This does not affect their hit testing,

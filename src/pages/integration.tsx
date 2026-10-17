@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTheme } from "../hooks/useTheme";
-import { registerGlobalSearchPage } from "../services/globalTextSearch";
 import DashboardSidebar, {
   useSidebarOffset,
 } from "../components/DashboardSidebar";
@@ -211,19 +210,6 @@ const ICONS: Record<string, (props: { className?: string }) => JSX.Element | nul
 
 const FILTERS = ["Toutes", "Connectées", "Disponibles"] as const;
 type Filter = (typeof FILTERS)[number];
-
-registerGlobalSearchPage(
-  "integrations",
-  "Integrations",
-  [
-    ...FILTERS,
-    ...INTEGRATIONS.flatMap((integration) => [
-      integration.title,
-      integration.meta ?? "",
-      integration.body,
-    ]),
-  ].join(" ")
-);
 
 const CONNECTED_THRESHOLD = 60;
 

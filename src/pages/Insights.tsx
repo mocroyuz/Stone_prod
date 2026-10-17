@@ -14,7 +14,6 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from "react";
-import { registerGlobalSearchPage } from "../services/globalTextSearch";
 import {
   Activity,
   Bookmark,
@@ -116,22 +115,6 @@ const RANGES: { key: Range; label: string }[] = [
   { key: "mtd", label: "Month to Date" },
   { key: "custom", label: "Custom" },
 ];
-
-registerGlobalSearchPage(
-  "insights",
-  "Insights",
-  [
-    ...RANGES.map((range) => range.label),
-    "Followers",
-    "Posts",
-    "Reactions",
-    "Comments",
-    "Engagement rate",
-    "Video views",
-    "Media only",
-    "Export CSV",
-  ].join(" ")
-);
 
 /* ============================================================
    STYLE — tokens alignés sur le shell Home
