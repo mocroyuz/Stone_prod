@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { EmojiPicker as FrimousseEmojiPicker } from "frimousse";
 import {
   Maximize2, Minimize2, X, Tag, FileText,
-  Eye, Smile, Image as ImageIcon, ImagePlus, Pencil, ChevronDown,
+  Eye, Smile, Hash, Image as ImageIcon, ImagePlus, Pencil, ChevronDown,
   CalendarClock, Check, Sparkles, ArrowLeft, Wand2, Plus
 } from "lucide-react";
 import {
@@ -56,7 +56,6 @@ export type YouTubeLicense = "youtube" | "creativeCommon";
 
 export type YouTubeOptions = {
   title: string;
-  /** ID de catégorie YouTube (ex. "2" = Autos & Vehicles). */
   categoryId: string;
   visibility: YouTubeVisibility;
   license: YouTubeLicense;
@@ -73,7 +72,6 @@ export type NewPostPayload = {
   scheduleMode: "now" | "save_in_folder" | "later";
   scheduledAt: string | null;
   media: File[];
-  /** Présent uniquement si YouTube fait partie des réseaux envoyés au parent. */
   youtube?: YouTubeOptions;
 };
 
@@ -106,14 +104,7 @@ interface NewPostModalProps {
   onClose: () => void;
   isDark: boolean;
   onSubmit: (payload: NewPostPayload) => void | Promise<void>;
-  /** Date/heure préremplies (ex. clic sur une case du calendrier). */
   initialScheduledAt?: Date | null;
-  /**
-   * Appelé quand l'utilisateur presse N + P, OU clique sur le « + » d'un canal
-   * dans la sidebar, alors que la modale est fermée.
-   * Le parent doit y passer `isOpen` à true. Sans cette prop, ces deux
-   * déclencheurs sont désactivés.
-   */
   onRequestOpen?: () => void;
 }
 
@@ -161,9 +152,6 @@ const TIKTOK_PRIVACY_LABELS: Record<string, string> = {
   SELF_ONLY: "Only me",
 };
 
-// Repli si les infos créateur TikTok ne sont pas disponibles :
-// le serveur force de toute façon SELF_ONLY par défaut.
-// (Proposé comme option, jamais présélectionné : règle TikTok.)
 const TIKTOK_FALLBACK_PRIVACY: string[] = ["SELF_ONLY"];
 
 const TIKTOK_MUSIC_URL =
@@ -178,7 +166,6 @@ const TIKTOK_DEFAULT_OPTIONS: TikTokPostOptions = {
   disable_stitch: false,
 };
 
-// TikTok : aucune interaction cochée par défaut.
 type TikTokAllow = { comment: boolean; duet: boolean; stitch: boolean };
 const TIKTOK_DEFAULT_ALLOW: TikTokAllow = {
   comment: false,
@@ -186,7 +173,6 @@ const TIKTOK_DEFAULT_ALLOW: TikTokAllow = {
   stitch: false,
 };
 
-// TikTok : divulgation de contenu commercial désactivée par défaut.
 type TikTokCommercial = { on: boolean; yourBrand: boolean; branded: boolean };
 const TIKTOK_DEFAULT_COMMERCIAL: TikTokCommercial = {
   on: false,
@@ -194,11 +180,10 @@ const TIKTOK_DEFAULT_COMMERCIAL: TikTokCommercial = {
   branded: false,
 };
 
-/* ── YouTube : valeurs proposées ── */
+/* ── YouTube ── */
 
 const YOUTUBE_TITLE_MAX = 100;
 
-// Catégories officielles de l'API YouTube (videoCategories).
 const YOUTUBE_CATEGORIES: { id: string; label: string }[] = [
   { id: "2", label: "Autos & Vehicles" },
   { id: "1", label: "Film & Animation" },
@@ -253,8 +238,6 @@ type DraftData = {
   youtubeOptions?: YouTubeOptions;
 };
 
-// Survit à la fermeture (et même au démontage) du composant.
-// Les File ne peuvent pas être mis dans localStorage, d'où la variable de module.
 let savedDraft: DraftData | null = null;
 
 /* ──────────────────────────────────────────────────────────────
@@ -310,7 +293,6 @@ function getLocalTimezone(): string {
   }
 }
 
-/** Durée d'une vidéo en secondes (lecture des métadonnées uniquement). */
 function getVideoDuration(file: File): Promise<number> {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file);
@@ -328,10 +310,6 @@ function getVideoDuration(file: File): Promise<number> {
   });
 }
 
-/**
- * TikTok n'accepte que JPEG et WebP pour les photos :
- * les autres formats (PNG, GIF...) sont convertis en JPEG.
- */
 async function toTikTokImage(file: File): Promise<File> {
   if (file.type === "image/jpeg" || file.type === "image/webp") return file;
 
@@ -343,7 +321,6 @@ async function toTikTokImage(file: File): Promise<File> {
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Could not convert an image for TikTok.");
 
-  // Fond blanc : le JPEG n'a pas de transparence.
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   ctx.drawImage(bitmap, 0, 0);
@@ -360,11 +337,6 @@ async function toTikTokImage(file: File): Promise<File> {
   });
 }
 
-/**
- * Déduit le réseau (SocialNetworkId) d'un canal connecté.
- * On regarde d'abord un champ `platform` / `network` / `provider`
- * s'il existe, puis la clé du canal.
- */
 function getNetworkId(channel: ConnectedChannel): SocialNetworkId | null {
   const c = channel as unknown as Record<string, unknown>;
   const raw = String(c.platform ?? c.network ?? c.provider ?? channel.key)
@@ -389,7 +361,7 @@ type ChannelTileData = {
 };
 
 /* ──────────────────────────────────────────────────────────────
-   Pastille d'un canal connecté : photo de profil + badge du réseau
+   Composants secondaires (YouTube / Emoji)
    ────────────────────────────────────────────────────────────── */
 
 function ChannelTile({
@@ -406,11 +378,7 @@ function ChannelTile({
   onToggle: () => void;
 }) {
   const [failed, setFailed] = useState(false);
-
-  // Si l'URL change (reconnexion), on retente le chargement.
-  useEffect(() => {
-    setFailed(false);
-  }, [channel.avatarUrl]);
+  useEffect(() => setFailed(false), [channel.avatarUrl]);
 
   const label = channel.handle || channel.name;
   const initial = label.replace(/^@/, "").charAt(0).toUpperCase() || "?";
@@ -449,7 +417,6 @@ function ChannelTile({
           {initial}
         </span>
       )}
-
       <span
         className={[
           "absolute -bottom-1.5 -right-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-white text-black ring-[3px]",
@@ -461,10 +428,6 @@ function ChannelTile({
     </button>
   );
 }
-
-/* ──────────────────────────────────────────────────────────────
-   Menu déroulant (select natif stylé) utilisé par le panneau YouTube
-   ────────────────────────────────────────────────────────────── */
 
 function YouTubeSelect<T extends string>({
   value,
@@ -509,10 +472,6 @@ function YouTubeSelect<T extends string>({
     </div>
   );
 }
-
-/* ──────────────────────────────────────────────────────────────
-   Case à cocher du panneau YouTube
-   ────────────────────────────────────────────────────────────── */
 
 function YouTubeCheckbox({
   checked,
@@ -561,14 +520,6 @@ function YouTubeCheckbox({
   );
 }
 
-/* ──────────────────────────────────────────────────────────────
-   Sélecteur d'emoji (frimousse) — noir et blanc
-   - Thème clair : emoji en noir sur fond blanc
-   - Thème sombre : emoji en blanc sur fond noir
-   La police « Noto Emoji » est monochrome : elle prend la couleur du texte.
-   Si elle n'est pas chargée, les emoji système sont passés en niveaux de gris.
-   ────────────────────────────────────────────────────────────── */
-
 const EMOJI_FONT =
   '"Noto Emoji", "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif';
 
@@ -579,7 +530,6 @@ function EmojiPickerPanel({
   isDark: boolean;
   onPick: (emoji: string) => void;
 }) {
-  // Les composants internes sont recréés seulement si le thème change.
   const components = useMemo(
     () => ({
       CategoryHeader: ({
@@ -650,7 +600,6 @@ function EmojiPickerPanel({
               : "bg-neutral-100 text-neutral-900 placeholder:text-neutral-400",
           ].join(" ")}
         />
-
         <FrimousseEmojiPicker.Viewport className="relative flex-1 outline-none">
           <FrimousseEmojiPicker.Loading
             className={[
@@ -660,7 +609,6 @@ function EmojiPickerPanel({
           >
             Chargement…
           </FrimousseEmojiPicker.Loading>
-
           <FrimousseEmojiPicker.Empty
             className={[
               "absolute inset-0 flex items-center justify-center text-[13px]",
@@ -669,7 +617,6 @@ function EmojiPickerPanel({
           >
             Aucun emoji trouvé.
           </FrimousseEmojiPicker.Empty>
-
           <FrimousseEmojiPicker.List
             className="select-none pb-1.5"
             components={components}
@@ -711,10 +658,9 @@ export default function NewPostModal({
   const [pendingDraft, setPendingDraft] = useState<DraftData | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitProgress, setSubmitProgress] = useState<string | null>(null);
-  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-
-  // Incrémenté à chaque demande « New post » reçue depuis la sidebar :
-  // relance l'effet qui présélectionne le canal.
+  
+  // Gestion de l'emoji par carte
+  const [activeEmojiNetwork, setActiveEmojiNetwork] = useState<string | null>(null);
   const [requestTick, setRequestTick] = useState(0);
 
   // ── YouTube ──
@@ -738,8 +684,6 @@ export default function NewPostModal({
   const tiktokSelected = networks.includes("tiktok");
   const youtubeSelected = networks.includes("youtube");
 
-  // Visibilités proposées : celles de TikTok si disponibles ;
-  // en cas d'échec du chargement, on propose « Only me » (jamais présélectionné).
   const tiktokPrivacyOptions = useMemo<string[]>(() => {
     const fromInfo = tiktokInfo?.privacy_level_options;
     if (fromInfo && fromInfo.length > 0) return fromInfo as string[];
@@ -747,31 +691,23 @@ export default function NewPostModal({
     return [];
   }, [tiktokInfo, tiktokInfoError]);
 
-  // Réseaux connectés (cache partagé avec la page Channels) :
-  // TikTok, YouTube, Pinterest... tous sont affichés.
   const connectedChannels = useConnectedChannels();
-
-  // Raccourci N + P : ouvre la modale quand elle est fermée.
-  // (Hook placé avant le `if (!isOpen) return null;` pour respecter l'ordre des hooks.)
   useNewPostShortcut(() => onRequestOpen?.(), !isOpen && Boolean(onRequestOpen));
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const hashtagInputRef = useRef<HTMLInputElement>(null);
   const mediaRef = useRef<MediaItem[]>(media);
   mediaRef.current = media;
   const dropdownRef = useRef<HTMLDivElement>(null);
   const closeWithDraftRef = useRef<() => void>(() => {});
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const emojiWrapRef = useRef<HTMLDivElement>(null);
-  // Dernière position du curseur dans le texte (null = jamais placé : on ajoute à la fin).
   const caretRef = useRef<{ start: number; end: number } | null>(null);
 
-  // Refs pour lire les dernières valeurs depuis l'abonnement au bus (créé une seule fois).
   const isOpenRef = useRef(isOpen);
   isOpenRef.current = isOpen;
   const onRequestOpenRef = useRef(onRequestOpen);
   onRequestOpenRef.current = onRequestOpen;
 
-  // Réseau présélectionné via le « + » de la sidebar (prioritaire sur un brouillon repris).
   const preselectRef = useRef<SocialNetworkId | null>(null);
 
   const timeMin = useMemo(() => {
@@ -781,31 +717,20 @@ export default function NewPostModal({
 
   const timezone = useMemo(() => getLocalTimezone(), []);
 
-  // ── FIX React #310 ──
-  // Ce useMemo DOIT être avant le `if (!isOpen) return null;`
-  // sinon React voit plus de hooks au 2e rendu → erreur #310.
-  // Trié selon SOCIAL_NETWORKS : YouTube se place juste après TikTok.
   const channelTiles = useMemo<ChannelTileData[]>(() => {
     const tiles: ChannelTileData[] = [];
 
     for (const channel of connectedChannels) {
       const networkId = getNetworkId(channel);
       if (!networkId) continue;
-
       const order = SOCIAL_NETWORKS.findIndex((n) => n.id === networkId);
       if (order === -1) continue;
-
       tiles.push({ channel, network: SOCIAL_NETWORKS[order], order });
     }
 
     return tiles.sort((a, b) => a.order - b.order);
   }, [connectedChannels]);
 
-  // ── « New post » depuis la sidebar ──
-  // On s'abonne dès le montage (même modale fermée) : si la demande arrive
-  // alors que la modale est fermée, on demande au parent de l'ouvrir.
-  // On lit aussi une demande déjà en attente (arrivée avant le montage,
-  // quand la sidebar a dû naviguer vers la page qui contient ce modal).
   useEffect(() => {
     const handle = () => {
       if (!peekNewPostRequest()) return;
@@ -815,19 +740,13 @@ export default function NewPostModal({
 
     const unsubscribe = subscribeNewPostRequests(handle);
     handle();
-
     return unsubscribe;
   }, []);
 
-  // Une fois la modale ouverte, on sélectionne le canal demandé.
-  // Si les canaux ne sont pas encore chargés, la demande reste en attente
-  // et l'effet se relance quand `channelTiles` change.
   useEffect(() => {
     if (!isOpen) return;
-
     const request = peekNewPostRequest();
     if (!request) return;
-
     const tile = channelTiles.find((item) => item.channel.key === request.channelKey);
     if (!tile) return;
 
@@ -840,8 +759,8 @@ export default function NewPostModal({
     if (!isOpen) return;
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        if (showEmojiPicker) {
-          setShowEmojiPicker(false);
+        if (activeEmojiNetwork) {
+          setActiveEmojiNetwork(null);
         } else if (showActionMenu || showDateTimePanel) {
           setShowActionMenu(false);
           setShowDateTimePanel(false);
@@ -857,7 +776,7 @@ export default function NewPostModal({
       document.removeEventListener("keydown", handleKeyDown);
       document.body.style.overflow = previousOverflow;
     };
-  }, [isOpen, showActionMenu, showDateTimePanel, showEmojiPicker]);
+  }, [isOpen, showActionMenu, showDateTimePanel, activeEmojiNetwork]);
 
   useEffect(() => {
     return () => {
@@ -865,14 +784,10 @@ export default function NewPostModal({
     };
   }, []);
 
-  // À l'ouverture : s'il existe un brouillon, on propose de le reprendre
   useEffect(() => {
     setPendingDraft(isOpen ? savedDraft : null);
   }, [isOpen]);
 
-  // Ouverture depuis une case du calendrier : date/heure préremplies.
-  // On dépend de la VALEUR (getTime) et non de l'objet Date, pour ne pas
-  // repasser l'action sur « set_date » si le parent recrée la Date à chaque rendu.
   const initialScheduledTime = initialScheduledAt
     ? initialScheduledAt.getTime()
     : null;
@@ -899,22 +814,19 @@ export default function NewPostModal({
   }, [showActionMenu, showDateTimePanel]);
 
   useEffect(() => {
-    if (!showEmojiPicker) return;
+    if (!activeEmojiNetwork) return;
     const onPointerDown = (e: MouseEvent) => {
-      if (!emojiWrapRef.current?.contains(e.target as Node)) {
-        setShowEmojiPicker(false);
+      const target = e.target as HTMLElement;
+      if (!target.closest(".emoji-wrapper")) {
+        setActiveEmojiNetwork(null);
       }
     };
     document.addEventListener("mousedown", onPointerDown);
     return () => {
       document.removeEventListener("mousedown", onPointerDown);
     };
-  }, [showEmojiPicker]);
+  }, [activeEmojiNetwork]);
 
-  // Charge les infos créateur TikTok (pseudo, visibilités autorisées, durée max...)
-  // à chaque fois que TikTok est (re)sélectionné : TikTok exige les infos les
-  // plus récentes. `tiktokInfo` est remis à null à la désélection / fermeture.
-  // `tiktokInfoAttempt` permet de relancer le chargement via « Retry ».
   useEffect(() => {
     if (!isOpen || !tiktokSelected || tiktokInfo) return;
     let cancelled = false;
@@ -939,8 +851,6 @@ export default function NewPostModal({
 
   if (!isOpen) return null;
 
-  // Le simple choix d'un réseau (ex. via le « + » de la sidebar) ne compte pas
-  // comme du contenu : sinon fermer la modale sans rien écrire créerait un brouillon.
   const hasDraftContent =
     content.trim().length > 0 ||
     title.trim().length > 0 ||
@@ -965,7 +875,7 @@ export default function NewPostModal({
     setEditingItem(null);
     setSubmitError(null);
     setSubmitProgress(null);
-    setShowEmojiPicker(false);
+    setActiveEmojiNetwork(null);
     setTiktokInfo(null);
     setTiktokInfoError(null);
     setTiktokMode("direct");
@@ -977,14 +887,12 @@ export default function NewPostModal({
     preselectRef.current = null;
   };
 
-  // Fermeture après publication : on jette tout
   const discardAndClose = () => {
     savedDraft = null;
     clearForm();
     onClose();
   };
 
-  // Fermeture manuelle (X, fond, Escape) : on garde un brouillon
   const closeWithDraft = () => {
     if (isSubmitting) return;
 
@@ -1010,7 +918,6 @@ export default function NewPostModal({
     setTitle(pendingDraft.title);
     setContent(pendingDraft.content);
     setHashtags(pendingDraft.hashtags);
-    // Si on est arrivé via le « + » d'un canal, ce canal reste celui sélectionné.
     setNetworks(
       preselectRef.current ? [preselectRef.current] : pendingDraft.networks
     );
@@ -1052,8 +959,8 @@ export default function NewPostModal({
 
     setContent(next);
     caretRef.current = { start: position, end: position };
+    setActiveEmojiNetwork(null);
 
-    // On remet le curseur juste après l'emoji une fois le texte mis à jour.
     requestAnimationFrame(() => {
       const el = textareaRef.current;
       if (!el) return;
@@ -1063,8 +970,6 @@ export default function NewPostModal({
   };
 
   const toggleNetwork = (id: SocialNetworkId) => {
-    // Désélection de TikTok : on oublie les infos créateur pour les
-    // recharger à la prochaine sélection.
     if (id === "tiktok" && networks.includes("tiktok")) {
       setTiktokInfo(null);
       setTiktokInfoError(null);
@@ -1075,7 +980,6 @@ export default function NewPostModal({
     );
   };
 
-  // Le brouillon est sauvegardé, puis on va connecter un réseau.
   const handleConnectChannel = () => {
     closeWithDraft();
     navigate("channels");
@@ -1141,14 +1045,6 @@ export default function NewPostModal({
     setEditingItem(null);
   };
 
-  // ── Règles TikTok ──
-  // TikTok n'a pas d'API de programmation : seule la publication immédiate
-  // (ou le brouillon dans l'app TikTok) est possible.
-  // "save_in_folder" reste géré par le parent (rien n'est envoyé à TikTok).
-  //
-  // Type de post :
-  //   - une vidéo présente → post vidéo (les images sont ignorées pour TikTok)
-  //   - sinon, 1 à N images → post photo (2+ images = carrousel)
   const tiktokVideo = media.find((m) => m.kind === "video")?.file ?? null;
   const tiktokImages = media.filter((m) => m.kind === "image");
   const tiktokPostType: "video" | "photo" | null = tiktokVideo
@@ -1179,10 +1075,6 @@ export default function NewPostModal({
     ? "You need to indicate if your content promotes yourself, a third party, or both."
     : null;
 
-  // ── Règles YouTube ──
-  // En mode « Automatic », un titre vide retombe sur le titre du post,
-  // puis sur la première ligne du texte.
-
   const youtubeEffectiveTitle = (
     youtubeOptions.title.trim() ||
     title.trim() ||
@@ -1211,7 +1103,6 @@ export default function NewPostModal({
     !youtubeBlockingReason &&
     !isSubmitting;
 
-  // Libellé légal obligatoire (« Promotional content » / « Paid partnership »).
   const tiktokLabelNotice =
     tiktokMode === "direct" && tiktokCommercial.on
       ? tiktokCommercial.branded
@@ -1227,9 +1118,6 @@ export default function NewPostModal({
     if (!canSubmit) return;
 
     const tiktokNow = tiktokSelected && scheduleAction === "now";
-
-    // TikTok est publié directement depuis ici ; les autres réseaux
-    // passent par `onSubmit` comme avant.
     const remainingNetworks = tiktokNow
       ? networks.filter((n) => n !== "tiktok")
       : networks;
@@ -1263,7 +1151,6 @@ export default function NewPostModal({
 
         const isPhoto = tiktokPostType === "photo";
 
-        // Vidéo : la durée doit respecter la limite du compte TikTok.
         if (tiktokVideo) {
           const maxDuration = (
             tiktokInfo as unknown as { max_video_post_duration_sec?: number } | null
@@ -1284,8 +1171,6 @@ export default function NewPostModal({
           }
         }
 
-        // Interactions : rien n'est autorisé par défaut, et TikTok peut
-        // en désactiver certaines au niveau du compte.
         const options: TikTokPostOptions = {
           ...tiktokOptions,
           disable_comment:
@@ -1344,8 +1229,6 @@ export default function NewPostModal({
           );
         });
 
-        // Évite de republier sur TikTok si un autre réseau échoue ensuite
-        // et que l'utilisateur réessaie.
         setNetworks((prev) => prev.filter((n) => n !== "tiktok"));
       }
 
@@ -1422,7 +1305,6 @@ export default function NewPostModal({
   const accentSolid = isDark ? "bg-white/5" : "bg-neutral-100";
   const accentBorder = isDark ? "border-white/15" : "border-black/10";
 
-  // Interactions affichées (Duet / Stitch n'existent pas pour les photos).
   const allowRows: {
     key: keyof TikTokAllow;
     label: string;
@@ -1460,7 +1342,13 @@ export default function NewPostModal({
         {/* ── Header ── */}
         <div className={["flex shrink-0 items-center justify-between border-b px-6 py-4", border].join(" ")}>
           <div className="flex items-center gap-4">
-            <h2 className={["text-[19px] font-bold tracking-tight", textPrimary].join(" ")}>Create Post</h2>
+            <button 
+              onClick={closeWithDraft}
+              className={["flex items-center gap-2 text-[17px] font-bold tracking-tight transition", textPrimary, isDark ? "hover:opacity-80" : "hover:opacity-70"].join(" ")}
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Create Post
+            </button>
             <button className={["flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[13px] font-medium transition", border, isDark ? "hover:bg-white/5" : "hover:bg-black/5", textSecondary].join(" ")}>
               <Tag className="h-3.5 w-3.5" />
               Tags
@@ -1493,8 +1381,9 @@ export default function NewPostModal({
         <div className="flex min-h-0 flex-1 overflow-hidden">
           {/* Colonne gauche */}
           <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-6">
-            {/* Canaux connectés (photo de profil + badge du réseau) + bouton « + » */}
-            <div className="mb-4 flex flex-wrap items-center gap-4">
+            
+            {/* Canaux connectés */}
+            <div className="mb-6 flex flex-wrap items-center gap-4">
               {channelTiles.map(({ channel, network }) => (
                 <ChannelTile
                   key={channel.key}
@@ -1505,12 +1394,9 @@ export default function NewPostModal({
                   onToggle={() => toggleNetwork(network.id)}
                 />
               ))}
-
               <button
                 type="button"
                 onClick={handleConnectChannel}
-                title="Connect a network"
-                aria-label="Connect a network"
                 className={[
                   "flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border transition",
                   isDark
@@ -1522,522 +1408,314 @@ export default function NewPostModal({
               </button>
             </div>
 
-            <div
-              className={[
-                "relative flex min-h-[160px] flex-1 flex-col rounded-2xl border p-4 pb-12 transition-colors",
-                border,
-                isDark
-                  ? "bg-white/[0.03] focus-within:border-white/25"
-                  : "bg-neutral-50/60 focus-within:border-black/25",
-              ].join(" ")}
-            >
-              <textarea
-                ref={textareaRef}
-                value={content}
-                onChange={(event) => {
-                  setContent(toSentenceCase(event.target.value));
-                  updateCaret();
-                }}
-                onSelect={updateCaret}
-                onKeyUp={updateCaret}
-                onClick={updateCaret}
-                placeholder="Start writing or get inspired with Templates"
-                className={[
-                  "w-full flex-1 resize-none bg-transparent text-[15px] leading-relaxed outline-none",
-                  textPrimary,
-                  isDark ? "placeholder:text-neutral-500" : "placeholder:text-neutral-400",
-                ].join(" ")}
-              />
-
-              {/* Barre d'outils interne (bas de la zone de texte) */}
-              <div className="absolute bottom-3 left-4 right-4 flex items-center justify-between">
-                <div ref={emojiWrapRef} className="relative">
-                  <button
-                    type="button"
-                    title="Emoji"
-                    aria-label="Ajouter un emoji"
-                    aria-haspopup="dialog"
-                    aria-expanded={showEmojiPicker}
-                    onClick={() => setShowEmojiPicker((open) => !open)}
-                    className={[
-                      "flex h-8 w-8 items-center justify-center rounded-full transition",
-                      showEmojiPicker
-                        ? isDark
-                          ? "bg-white/10 text-white"
-                          : "bg-black/5 text-neutral-900"
-                        : textSecondary,
-                      isDark ? "hover:bg-white/10 hover:text-white" : "hover:bg-black/5 hover:text-neutral-900",
-                    ].join(" ")}
-                  >
-                    <Smile className="h-4 w-4" />
-                  </button>
-
-                  {showEmojiPicker && (
-                    <EmojiPickerPanel isDark={isDark} onPick={insertEmoji} />
-                  )}
+            {/* Liste des cartes par réseau */}
+            <div className="flex flex-col gap-6">
+              {networks.length === 0 && (
+                <div className="flex flex-1 items-center justify-center text-[14px] text-neutral-500 py-10">
+                  Select a network above to start composing your post.
                 </div>
+              )}
 
-                <span
-                  className={[
-                    "pointer-events-none text-[11px] tabular-nums",
-                    textSecondary,
-                  ].join(" ")}
-                >
-                  {content.length}
-                </span>
-              </div>
-            </div>
+              {networks.map((networkId) => {
+                const network = SOCIAL_NETWORKS.find((n) => n.id === networkId)!;
+                const isEmojiOpen = activeEmojiNetwork === networkId;
 
-            {/* ── Miniatures média : croix + crayon visibles au survol de la miniature ── */}
-            <div className="mt-3 flex flex-wrap items-end gap-3">
-              {media.map((item) => {
-                const isHovered = hoveredMediaId === item.id;
                 return (
                   <div
-                    key={item.id}
-                    onMouseEnter={() => setHoveredMediaId(item.id)}
-                    onMouseLeave={() => setHoveredMediaId(null)}
-                    className="relative h-[100px] w-[100px] shrink-0 overflow-hidden rounded-2xl"
+                    key={networkId}
+                    className={[
+                      "relative flex flex-col rounded-2xl border p-5",
+                      border,
+                      isDark ? "bg-[#1c1c1e]" : "bg-neutral-50",
+                    ].join(" ")}
                   >
-                    <div className="h-full w-full overflow-hidden rounded-2xl">
-                      {item.kind === "image" ? (
-                        <img src={item.url} alt="" className="h-full w-full object-cover" />
-                      ) : (
-                        <div className="relative h-full w-full">
-                          <video src={item.url} className="h-full w-full object-cover" muted playsInline />
-                          <div className="absolute inset-0 flex items-center justify-center bg-black/40 text-white">
-                            <Eye className="h-5 w-5" />
-                          </div>
-                        </div>
-                      )}
+                    {/* Header de la carte */}
+                    <div className="mb-3 flex items-center gap-2">
+                      <div className={["flex h-8 w-8 items-center justify-center rounded-full", isDark ? "bg-white text-black" : "bg-neutral-900 text-white"].join(" ")}>
+                        <network.Icon className="h-4 w-4" />
+                      </div>
+                      <span className={["font-semibold text-[15px]", textPrimary].join(" ")}>
+                        {network.label}
+                      </span>
                     </div>
 
-                    {/* Léger assombrissement au survol pour mieux détacher les icônes */}
-                    <div
+                    {/* Text Area */}
+                    <textarea
+                      value={content}
+                      onChange={(e) => {
+                        setContent(toSentenceCase(e.target.value));
+                        updateCaret();
+                      }}
+                      onSelect={updateCaret}
+                      onKeyUp={updateCaret}
+                      onClick={updateCaret}
+                      placeholder="Write your post..."
                       className={[
-                        "pointer-events-none absolute inset-0 transition-colors duration-150",
-                        isHovered ? "bg-black/20" : "bg-black/0",
+                        "w-full min-h-[100px] resize-none bg-transparent text-[15px] leading-relaxed outline-none",
+                        textPrimary,
+                        isDark ? "placeholder:text-neutral-600" : "placeholder:text-neutral-400",
                       ].join(" ")}
                     />
 
-                    {/* Bouton supprimer — visible uniquement au survol de la miniature */}
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        removeMedia(item.id);
-                      }}
-                      title="Supprimer"
-                      aria-label="Supprimer le média"
-                      className={[
-                        "absolute right-1.5 top-1.5 z-30 flex h-6 w-6 cursor-pointer items-center justify-center rounded-lg bg-black/70 text-white backdrop-blur-sm transition-opacity duration-150 hover:bg-black/90",
-                        isHovered ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none",
-                      ].join(" ")}
-                    >
-                      <X className="h-3.5 w-3.5" strokeWidth={2.5} />
-                    </button>
+                    {/* Media Previews */}
+                    <div className="mt-3 flex flex-wrap items-end gap-3">
+                      {media.map((item) => {
+                        const isHovered = hoveredMediaId === item.id;
+                        return (
+                          <div
+                            key={item.id}
+                            onMouseEnter={() => setHoveredMediaId(item.id)}
+                            onMouseLeave={() => setHoveredMediaId(null)}
+                            className="relative h-[100px] w-[100px] shrink-0 overflow-hidden rounded-xl border border-black/5"
+                          >
+                            <div className="h-full w-full overflow-hidden rounded-xl">
+                              {item.kind === "image" ? (
+                                <img src={item.url} alt="" className="h-full w-full object-cover" />
+                              ) : (
+                                <div className="relative h-full w-full">
+                                  <video src={item.url} className="h-full w-full object-cover" muted playsInline />
+                                  <div className="absolute inset-0 flex items-center justify-center bg-black/40 text-white">
+                                    <Eye className="h-5 w-5" />
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                            <div className={["pointer-events-none absolute inset-0 transition-colors duration-150", isHovered ? "bg-black/20" : "bg-black/0"].join(" ")} />
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); removeMedia(item.id); }}
+                              className={["absolute right-1.5 top-1.5 z-30 flex h-6 w-6 cursor-pointer items-center justify-center rounded-lg bg-black/70 text-white backdrop-blur-sm transition-opacity duration-150 hover:bg-black/90", isHovered ? "opacity-100" : "opacity-0"].join(" ")}
+                            >
+                              <X className="h-3.5 w-3.5" strokeWidth={2.5} />
+                            </button>
+                            {item.kind === "image" && (
+                              <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); setEditingItem(item); }}
+                                className={["absolute bottom-1.5 right-1.5 z-30 flex h-6 w-6 cursor-pointer items-center justify-center rounded-lg bg-black/70 text-white backdrop-blur-sm transition-opacity duration-150 hover:bg-black/90", isHovered ? "opacity-100" : "opacity-0"].join(" ")}
+                              >
+                                <Pencil className="h-3.5 w-3.5" strokeWidth={2.5} />
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
 
-                    {/* Bouton éditer — visible uniquement au survol de la miniature (images uniquement) */}
-                    {item.kind === "image" && (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setEditingItem(item);
-                        }}
-                        title="Éditer"
-                        aria-label="Éditer le média"
-                        className={[
-                          "absolute bottom-1.5 right-1.5 z-30 flex h-6 w-6 cursor-pointer items-center justify-center rounded-lg bg-black/70 text-white backdrop-blur-sm transition-opacity duration-150 hover:bg-black/90",
-                          isHovered ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none",
-                        ].join(" ")}
-                      >
-                        <Pencil className="h-3.5 w-3.5" strokeWidth={2.5} />
-                      </button>
+                      {media.length < MAX_MEDIA && (
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                          onDragLeave={() => setIsDragging(false)}
+                          onDrop={(e) => {
+                            e.preventDefault();
+                            setIsDragging(false);
+                            if (e.dataTransfer.files) addFiles(e.dataTransfer.files);
+                          }}
+                          className={[
+                            "flex h-[100px] w-[100px] shrink-0 cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed text-center transition-all duration-200",
+                            isDragging
+                              ? isDark ? "scale-105 border-white/50 bg-white/5" : "scale-105 border-neutral-400 bg-neutral-100"
+                              : isDark ? "border-white/15 hover:border-white/30 hover:bg-white/5" : "border-neutral-300 hover:border-neutral-400 hover:bg-neutral-50",
+                          ].join(" ")}
+                        >
+                          <ImagePlus className={["h-6 w-6", isDark ? "text-white/40" : "text-neutral-400"].join(" ")} strokeWidth={1.75} />
+                          <span className={["mt-1 text-[10px] font-medium leading-tight", isDark ? "text-white/50" : "text-neutral-400"].join(" ")}>
+                            Drag & drop
+                          </span>
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Toolbar */}
+                    <div className="mt-4 flex items-center justify-between border-t pt-3 border-black/[0.04] dark:border-white/5">
+                      <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          className={["text-[13px] font-medium transition", textSecondary, isDark ? "hover:text-white" : "hover:text-neutral-900"].join(" ")}
+                        >
+                          <Plus className="h-4 w-4" />
+                        </button>
+                        
+                        <div className="emoji-wrapper relative">
+                          <button
+                            type="button"
+                            onClick={() => setActiveEmojiNetwork(isEmojiOpen ? null : networkId)}
+                            className={["transition", isEmojiOpen ? textPrimary : textSecondary, isDark ? "hover:text-white" : "hover:text-neutral-900"].join(" ")}
+                          >
+                            <Smile className="h-4 w-4" />
+                          </button>
+                          {isEmojiOpen && <EmojiPickerPanel isDark={isDark} onPick={insertEmoji} />}
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => hashtagInputRef.current?.focus()}
+                          className={["transition", textSecondary, isDark ? "hover:text-white" : "hover:text-neutral-900"].join(" ")}
+                        >
+                          <Hash className="h-4 w-4" />
+                        </button>
+                      </div>
+                      <span className={["text-[12px] tabular-nums", textSecondary].join(" ")}>
+                        {content.length}
+                      </span>
+                    </div>
+
+                    {/* YouTube Settings Inner Card */}
+                    {networkId === "youtube" && (
+                      <div className="mt-4 border-t pt-4">
+                        <div className="mb-4 flex items-center justify-end">
+                          <button className={["flex items-center gap-1.5 text-[13px] font-semibold transition", textPrimary].join(" ")}>
+                            <Sparkles className="h-4 w-4" />
+                            Automatic
+                            <ChevronDown className="h-4 w-4" />
+                          </button>
+                        </div>
+                        <div className="flex flex-col gap-3.5">
+                          <div className="grid grid-cols-[110px_1fr] items-center gap-3">
+                            <label htmlFor="youtube-title" className={["text-[14px] font-semibold", textPrimary].join(" ")}>Title</label>
+                            <input
+                              id="youtube-title"
+                              type="text"
+                              value={youtubeOptions.title}
+                              maxLength={YOUTUBE_TITLE_MAX}
+                              onChange={(e) => updateYoutube("title", e.target.value)}
+                              placeholder="Enter a title for your video"
+                              className={[
+                                "w-full rounded-xl border px-4 py-2.5 text-[14px] outline-none transition",
+                                isDark ? "border-white/10 bg-[#242427] text-white placeholder:text-neutral-500 focus:border-white/30" : "border-black/10 bg-white text-neutral-900 placeholder:text-neutral-400 focus:border-black/30",
+                              ].join(" ")}
+                            />
+                          </div>
+                          <div className="grid grid-cols-[110px_1fr] items-center gap-3">
+                            <span className={["text-[14px] font-semibold", textPrimary].join(" ")}>Category</span>
+                            <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+                              <YouTubeSelect ariaLabel="YouTube category" value={youtubeOptions.categoryId} options={YOUTUBE_CATEGORIES} onChange={(v) => updateYoutube("categoryId", v)} isDark={isDark} className="min-w-[180px] flex-1" />
+                              <div className="flex min-w-[180px] flex-1 items-center gap-4">
+                                <span className={["text-[14px] font-semibold whitespace-nowrap", textPrimary].join(" ")}>Visibility</span>
+                                <YouTubeSelect ariaLabel="YouTube visibility" value={youtubeOptions.visibility} options={YOUTUBE_VISIBILITY} onChange={(v) => updateYoutube("visibility", v)} isDark={isDark} className="flex-1" />
+                              </div>
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-[110px_1fr] items-center gap-3">
+                            <span className={["text-[14px] font-semibold", textPrimary].join(" ")}>License</span>
+                            <YouTubeSelect ariaLabel="YouTube license" value={youtubeOptions.license} options={YOUTUBE_LICENSES} onChange={(v) => updateYoutube("license", v)} isDark={isDark} />
+                          </div>
+                          <div className="grid grid-cols-[110px_1fr] gap-3 mt-1">
+                            <span aria-hidden="true" />
+                            <div className="flex flex-wrap items-center gap-x-6 gap-y-2.5">
+                              <YouTubeCheckbox label="Notify Subscribers" checked={youtubeOptions.notifySubscribers} onChange={(v) => updateYoutube("notifySubscribers", v)} isDark={isDark} />
+                              <YouTubeCheckbox label="Allow Embedding" checked={youtubeOptions.allowEmbedding} onChange={(v) => updateYoutube("allowEmbedding", v)} isDark={isDark} />
+                              <YouTubeCheckbox label="Made for Kids" checked={youtubeOptions.madeForKids} onChange={(v) => updateYoutube("madeForKids", v)} isDark={isDark} />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* TikTok Settings Inner Card */}
+                    {networkId === "tiktok" && scheduleAction !== "save_in_folder" && (
+                      <div className="mt-4 border-t pt-4">
+                        <p className={["mb-1 font-semibold text-[13px]", textPrimary].join(" ")}>
+                          Posting to TikTok {tiktokInfo?.creator_nickname ? `· ${tiktokInfo.creator_nickname}` : ""}
+                        </p>
+                        <p className={["mb-2 text-[12px]", textSecondary].join(" ")}>
+                          {tiktokPostType === "photo" ? tiktokImages.length > 1 ? `Carousel of ${tiktokImages.length} photos` : "Photo post" : tiktokPostType === "video" ? tiktokImages.length > 0 ? "Video post (images ignored)" : "Video post" : "Add a video, or one or more photos."}
+                        </p>
+                        
+                        {tiktokInfoError && (
+                          <p className="mb-2 flex flex-wrap items-center gap-2 text-[12px] text-red-500">
+                            <span>{tiktokInfoError}</span>
+                            <button type="button" onClick={() => { setTiktokInfoError(null); setTiktokInfoAttempt((n) => n + 1); }} className="font-semibold underline">Retry</button>
+                          </p>
+                        )}
+
+                        <div className="mb-2 flex gap-2">
+                          {(["direct", "draft"] as const).map((m) => (
+                            <button key={m} type="button" onClick={() => setTiktokMode(m)} className={["rounded-lg border px-3 py-1.5 text-[12.5px] font-semibold transition", tiktokMode === m ? `${accentBg} ${accentText} ${accentBorder}` : `${border} ${textSecondary}`].join(" ")}>
+                              {m === "direct" ? "Publish directly" : "Save as draft"}
+                            </button>
+                          ))}
+                        </div>
+
+                        {tiktokMode === "direct" && (
+                          <>
+                            <select
+                              value={tiktokOptions.privacy_level}
+                              onChange={(e) => setTiktokOptions((o) => ({ ...o, privacy_level: e.target.value as any }))}
+                              className={["mb-1 w-full rounded-lg border px-2 py-1.5 text-[12.5px] outline-none", border, isDark ? "bg-[#242427] text-white" : "bg-white text-neutral-900"].join(" ")}
+                            >
+                              <option value="">Who can view this…</option>
+                              {tiktokPrivacyOptions.map((p) => (
+                                <option key={p} value={p} disabled={p === "SELF_ONLY" && brandedChosen}>{TIKTOK_PRIVACY_LABELS[p] ?? p}</option>
+                              ))}
+                            </select>
+
+                            {brandedChosen && <p className={["mb-2 text-[11.5px]", textSecondary].join(" ")}>Branded content visibility cannot be private.</p>}
+
+                            <div className="mt-2 flex flex-wrap gap-4">
+                              {allowRows.map(({ key, label, forced }) => (
+                                <label key={key} title={forced ? "Disabled in your TikTok settings" : undefined} className={["flex items-center gap-1.5 text-[12.5px]", forced ? "cursor-not-allowed opacity-50" : "", textSecondary].join(" ")}>
+                                  <input type="checkbox" checked={!forced && tiktokAllow[key]} disabled={forced} onChange={(e) => setTiktokAllow((a) => ({ ...a, [key]: e.target.checked }))} />
+                                  {label}
+                                </label>
+                              ))}
+                            </div>
+
+                            <div className={["mt-3 border-t pt-3", border].join(" ")}>
+                              <label className={["flex items-center justify-between gap-3", textPrimary].join(" ")}>
+                                <span>
+                                  <span className="block text-[12.5px] font-semibold">Content disclosure</span>
+                                  <span className={["block text-[11.5px]", textSecondary].join(" ")}>Turn on to disclose promotional content.</span>
+                                </span>
+                                <input type="checkbox" checked={tiktokCommercial.on} onChange={(e) => setTiktokCommercial(e.target.checked ? { ...tiktokCommercial, on: true } : TIKTOK_DEFAULT_COMMERCIAL)} />
+                              </label>
+
+                              {tiktokCommercial.on && (
+                                <div className="mt-2 flex flex-col gap-1.5 pl-1">
+                                  <label className={["flex items-center gap-1.5 text-[12.5px]", textSecondary].join(" ")}>
+                                    <input type="checkbox" checked={tiktokCommercial.yourBrand} onChange={(e) => setTiktokCommercial((c) => ({ ...c, yourBrand: e.target.checked }))} /> Your brand
+                                  </label>
+                                  <label className={["flex items-center gap-1.5 text-[12.5px]", tiktokOptions.privacy_level === "SELF_ONLY" ? "cursor-not-allowed opacity-50" : "", textSecondary].join(" ")}>
+                                    <input type="checkbox" checked={tiktokCommercial.branded} disabled={tiktokOptions.privacy_level === "SELF_ONLY"} onChange={(e) => setTiktokCommercial((c) => ({ ...c, branded: e.target.checked }))} /> Branded content
+                                  </label>
+                                </div>
+                              )}
+                            </div>
+                          </>
+                        )}
+                        <p className={["mt-3 text-[11.5px]", textSecondary].join(" ")}>
+                          After publishing, it may take a few minutes for your content to process.
+                        </p>
+                      </div>
                     )}
                   </div>
                 );
               })}
-
-              {media.length < MAX_MEDIA && (
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
-                  onDragLeave={() => setIsDragging(false)}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    setIsDragging(false);
-                    if (e.dataTransfer.files) addFiles(e.dataTransfer.files);
-                  }}
-                  className={[
-                    "flex h-[100px] w-[100px] shrink-0 cursor-pointer flex-col items-center justify-center gap-1 rounded-2xl border-2 border-dashed text-center transition-all duration-200",
-                    isDragging
-                      ? isDark
-                        ? "scale-105 border-white/50 bg-white/5"
-                        : "scale-105 border-neutral-400 bg-neutral-100"
-                      : isDark
-                      ? "border-white/15 hover:border-white/30 hover:bg-white/5"
-                      : "border-neutral-300 hover:border-neutral-400 hover:bg-neutral-50",
-                  ].join(" ")}
-                >
-                  <ImagePlus className={["h-6 w-6", isDark ? "text-white/40" : "text-neutral-400"].join(" ")} strokeWidth={1.75} />
-                  <span className={["mt-1 text-[10px] font-medium leading-tight", isDark ? "text-white/50" : "text-neutral-400"].join(" ")}>
-                    Drag & drop or
-                  </span>
-                  <span className={["text-[10px] font-semibold leading-tight", textPrimary].join(" ")}>
-                    select a file
-                  </span>
-                </button>
-              )}
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*,video/*"
-                multiple
-                className="hidden"
-                onChange={(e) => {
-                  if (e.target.files) addFiles(e.target.files);
-                  e.target.value = "";
-                }}
-              />
             </div>
 
-            {/* ── Options YouTube ── */}
-            {youtubeSelected && (
-              <div
-                className={[
-                  "mt-4 rounded-2xl border p-5",
-                  border,
-                  isDark ? "bg-[#1c1c1e]" : "bg-neutral-50",
-                ].join(" ")}
-              >
-                <div className={["mb-4 flex items-center gap-2 text-[14px] font-semibold", textPrimary].join(" ")}>
-                  <span
-                    className={[
-                      "flex h-7 w-7 items-center justify-center rounded-lg",
-                      isDark ? "bg-white text-black" : "bg-neutral-900 text-white",
-                    ].join(" ")}
-                  >
-                    <YouTubeIcon className="h-3.5 w-3.5" />
-                  </span>
-                  YouTube Shorts settings
-                </div>
+            {/* Input file caché partagé */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*,video/*"
+              multiple
+              className="hidden"
+              onChange={(e) => {
+                if (e.target.files) addFiles(e.target.files);
+                e.target.value = "";
+              }}
+            />
 
-                <div className="flex flex-col gap-3.5">
-                  {/* Title */}
-                  <div className="grid grid-cols-[110px_1fr] items-center gap-3 max-sm:grid-cols-1 max-sm:gap-1.5">
-                    <label
-                      htmlFor="youtube-title"
-                      className={["text-[14px] font-semibold", textPrimary].join(" ")}
-                    >
-                      Title
-                    </label>
-                    <input
-                      id="youtube-title"
-                      type="text"
-                      value={youtubeOptions.title}
-                      maxLength={YOUTUBE_TITLE_MAX}
-                      onChange={(e) => updateYoutube("title", e.target.value)}
-                      placeholder="Enter a title for your video"
-                      className={[
-                        "w-full rounded-xl border px-4 py-2.5 text-[15px] outline-none transition",
-                        isDark
-                          ? "border-white/10 bg-[#242427] text-white placeholder:text-neutral-500 focus:border-white/30"
-                          : "border-black/10 bg-white text-neutral-900 placeholder:text-neutral-400 focus:border-black/30",
-                      ].join(" ")}
-                    />
-                  </div>
-
-                  {/* Category + Visibility */}
-                  <div className="grid grid-cols-[110px_1fr] items-center gap-3 max-sm:grid-cols-1 max-sm:gap-1.5">
-                    <span className={["text-[14px] font-semibold", textPrimary].join(" ")}>
-                      Category
-                    </span>
-                    <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
-                      <YouTubeSelect
-                        ariaLabel="YouTube Shorts category"
-                        value={youtubeOptions.categoryId}
-                        options={YOUTUBE_CATEGORIES}
-                        onChange={(v) => updateYoutube("categoryId", v)}
-                        isDark={isDark}
-                        className="min-w-[200px] flex-1"
-                      />
-                      <div className="flex min-w-[220px] flex-1 items-center gap-4">
-                        <span className={["text-[14px] font-semibold", textPrimary].join(" ")}>
-                          Visibility
-                        </span>
-                        <YouTubeSelect
-                          ariaLabel="YouTube Shorts visibility"
-                          value={youtubeOptions.visibility}
-                          options={YOUTUBE_VISIBILITY}
-                          onChange={(v) => updateYoutube("visibility", v)}
-                          isDark={isDark}
-                          className="flex-1"
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* License */}
-                  <div className="grid grid-cols-[110px_1fr] items-center gap-3 max-sm:grid-cols-1 max-sm:gap-1.5">
-                    <span className={["text-[14px] font-semibold", textPrimary].join(" ")}>
-                      License
-                    </span>
-                    <YouTubeSelect
-                      ariaLabel="YouTube Shorts license"
-                      value={youtubeOptions.license}
-                      options={YOUTUBE_LICENSES}
-                      onChange={(v) => updateYoutube("license", v)}
-                      isDark={isDark}
-                    />
-                  </div>
-
-                  {/* Cases à cocher */}
-                  <div className="grid grid-cols-[110px_1fr] gap-3 max-sm:grid-cols-1">
-                    <span aria-hidden="true" className="max-sm:hidden" />
-                    <div className="flex flex-wrap items-center gap-x-8 gap-y-2.5">
-                      <YouTubeCheckbox
-                        label="Notify Subscribers"
-                        checked={youtubeOptions.notifySubscribers}
-                        onChange={(v) => updateYoutube("notifySubscribers", v)}
-                        isDark={isDark}
-                      />
-                      <YouTubeCheckbox
-                        label="Allow Embedding"
-                        checked={youtubeOptions.allowEmbedding}
-                        onChange={(v) => updateYoutube("allowEmbedding", v)}
-                        isDark={isDark}
-                      />
-                      <YouTubeCheckbox
-                        label="Made for Kids"
-                        checked={youtubeOptions.madeForKids}
-                        onChange={(v) => updateYoutube("madeForKids", v)}
-                        isDark={isDark}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-              </div>
-            )}
-
-            {/* ── Options TikTok ── */}
-            {tiktokSelected && scheduleAction !== "save_in_folder" && (
-              <div className={["mt-4 rounded-2xl border p-4 text-[13px]", border, bgPanel].join(" ")}>
-                {/* Compte de destination (obligatoire : le pseudo du créateur) */}
-                <p className={["mb-1 font-semibold", textPrimary].join(" ")}>
-                  Posting to TikTok
-                  {tiktokInfo?.creator_nickname ? ` · ${tiktokInfo.creator_nickname}` : ""}
-                </p>
-
-                <p className={["mb-2 text-[12px]", textSecondary].join(" ")}>
-                  {tiktokPostType === "photo"
-                    ? tiktokImages.length > 1
-                      ? `Carousel of ${tiktokImages.length} photos`
-                      : "Photo post"
-                    : tiktokPostType === "video"
-                    ? tiktokImages.length > 0
-                      ? "Video post (your images won't be sent to TikTok)"
-                      : "Video post"
-                    : "Add a video, or one or more photos (several photos make a carousel)."}
-                </p>
-
-                {tiktokInfoError && (
-                  <p className="mb-2 flex flex-wrap items-center gap-2 text-[12px] text-red-500">
-                    <span>{tiktokInfoError}</span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setTiktokInfoError(null);
-                        setTiktokInfoAttempt((n) => n + 1);
-                      }}
-                      className="font-semibold underline"
-                    >
-                      Retry
-                    </button>
-                  </p>
-                )}
-
-                <div className="mb-2 flex gap-2">
-                  {(["direct", "draft"] as const).map((m) => (
-                    <button
-                      key={m}
-                      type="button"
-                      onClick={() => setTiktokMode(m)}
-                      className={[
-                        "rounded-lg border px-3 py-1.5 text-[12.5px] font-semibold transition",
-                        tiktokMode === m
-                          ? `${accentBg} ${accentText} ${accentBorder}`
-                          : `${border} ${textSecondary}`,
-                      ].join(" ")}
-                    >
-                      {m === "direct" ? "Publish directly" : "Save as TikTok draft"}
-                    </button>
-                  ))}
-                </div>
-
-                {tiktokMode === "direct" && (
-                  <>
-                    {/* Visibilité : choix manuel obligatoire, aucune valeur par défaut */}
-                    <select
-                      value={tiktokOptions.privacy_level}
-                      onChange={(e) =>
-                        setTiktokOptions((o) => ({
-                          ...o,
-                          privacy_level: e.target.value as TikTokPostOptions["privacy_level"],
-                        }))
-                      }
-                      className={[
-                        "mb-1 w-full rounded-lg border px-2 py-1.5 text-[12.5px] outline-none",
-                        border,
-                        isDark ? "bg-[#242427] text-white" : "bg-white text-neutral-900",
-                      ].join(" ")}
-                    >
-                      <option value="">Who can view this {tiktokPostType === "photo" ? "post" : "video"}…</option>
-                      {tiktokPrivacyOptions.map((p) => (
-                        <option
-                          key={p}
-                          value={p}
-                          disabled={p === "SELF_ONLY" && brandedChosen}
-                        >
-                          {TIKTOK_PRIVACY_LABELS[p] ?? p}
-                        </option>
-                      ))}
-                    </select>
-
-                    {brandedChosen && (
-                      <p className={["mb-2 text-[11.5px]", textSecondary].join(" ")}>
-                        Branded content visibility cannot be set to private.
-                      </p>
-                    )}
-
-                    {/* Interactions : décochées par défaut, grisées si désactivées par TikTok */}
-                    <div className="mt-2 flex flex-wrap gap-4">
-                      {allowRows.map(({ key, label, forced }) => (
-                        <label
-                          key={key}
-                          title={forced ? "Disabled in your TikTok settings" : undefined}
-                          className={[
-                            "flex items-center gap-1.5 text-[12.5px]",
-                            forced ? "cursor-not-allowed opacity-50" : "",
-                            textSecondary,
-                          ].join(" ")}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={!forced && tiktokAllow[key]}
-                            disabled={forced}
-                            onChange={(e) =>
-                              setTiktokAllow((a) => ({ ...a, [key]: e.target.checked }))
-                            }
-                          />
-                          {label}
-                        </label>
-                      ))}
-                    </div>
-
-                    {/* Divulgation de contenu commercial : désactivée par défaut */}
-                    <div className={["mt-3 border-t pt-3", border].join(" ")}>
-                      <label className={["flex items-center justify-between gap-3", textPrimary].join(" ")}>
-                        <span>
-                          <span className="block text-[12.5px] font-semibold">
-                            Content disclosure
-                          </span>
-                          <span className={["block text-[11.5px]", textSecondary].join(" ")}>
-                            Turn on to disclose that this content promotes yourself, a brand, product or service.
-                          </span>
-                        </span>
-                        <input
-                          type="checkbox"
-                          checked={tiktokCommercial.on}
-                          onChange={(e) =>
-                            setTiktokCommercial(
-                              e.target.checked
-                                ? { ...tiktokCommercial, on: true }
-                                : TIKTOK_DEFAULT_COMMERCIAL
-                            )
-                          }
-                        />
-                      </label>
-
-                      {tiktokCommercial.on && (
-                        <div className="mt-2 flex flex-col gap-1.5 pl-1">
-                          <label className={["flex items-center gap-1.5 text-[12.5px]", textSecondary].join(" ")}>
-                            <input
-                              type="checkbox"
-                              checked={tiktokCommercial.yourBrand}
-                              onChange={(e) =>
-                                setTiktokCommercial((c) => ({ ...c, yourBrand: e.target.checked }))
-                              }
-                            />
-                            Your brand
-                            <span className="text-[11.5px] opacity-80">
-                              — you are promoting yourself or your own business
-                            </span>
-                          </label>
-
-                          <label
-                            title={
-                              tiktokOptions.privacy_level === "SELF_ONLY"
-                                ? "Visibility for branded content can't be private."
-                                : undefined
-                            }
-                            className={[
-                              "flex items-center gap-1.5 text-[12.5px]",
-                              tiktokOptions.privacy_level === "SELF_ONLY" ? "cursor-not-allowed opacity-50" : "",
-                              textSecondary,
-                            ].join(" ")}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={tiktokCommercial.branded}
-                              disabled={tiktokOptions.privacy_level === "SELF_ONLY"}
-                              onChange={(e) =>
-                                setTiktokCommercial((c) => ({ ...c, branded: e.target.checked }))
-                              }
-                            />
-                            Branded content
-                            <span className="text-[11.5px] opacity-80">
-                              — you are promoting another brand or a third party
-                            </span>
-                          </label>
-
-                          {tiktokOptions.privacy_level === "SELF_ONLY" && (
-                            <p className={["text-[11.5px]", textSecondary].join(" ")}>
-                              Visibility for branded content can't be private. Pick another visibility to enable it.
-                            </p>
-                          )}
-
-                          {tiktokLabelNotice && (
-                            <p className={["text-[12px] font-medium", textPrimary].join(" ")}>
-                              {tiktokLabelNotice}
-                            </p>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </>
-                )}
-
-                <p className={["mt-3 text-[11.5px]", textSecondary].join(" ")}>
-                  After you publish, it may take a few minutes for your content to be processed and visible on your TikTok profile.
-                </p>
-
-              </div>
-            )}
-
-            {/* ── Hashtags : champ de recherche séparé + pills en dessous ── */}
-            <div className="mt-4">
-              <label
-                htmlFor="hashtag-input"
-                className={["mb-2 block text-[13px] font-bold uppercase tracking-wide", textPrimary].join(" ")}
-              >
+            {/* Global Hashtag section */}
+            <div className="mt-6">
+              <label htmlFor="hashtag-input" className={["mb-2 block text-[13px] font-bold uppercase tracking-wide", textPrimary].join(" ")}>
                 Hashtag
               </label>
-
               <input
                 id="hashtag-input"
+                ref={hashtagInputRef}
                 type="text"
                 value={hashtagDraft}
                 onChange={(e) => setHashtagDraft(toSentenceCase(e.target.value))}
@@ -2052,9 +1730,7 @@ export default function NewPostModal({
                 className={[
                   "w-full rounded-2xl border px-4 py-3 text-[14px] outline-none transition-colors",
                   border,
-                  isDark
-                    ? "bg-white/[0.03] placeholder:text-neutral-600 focus:border-white/25"
-                    : "bg-neutral-100/50 placeholder:text-neutral-400 focus:border-black/25",
+                  isDark ? "bg-white/[0.03] placeholder:text-neutral-600 focus:border-white/25" : "bg-neutral-100/50 placeholder:text-neutral-400 focus:border-black/25",
                 ].join(" ")}
               />
 
@@ -2065,18 +1741,11 @@ export default function NewPostModal({
                       key={tag}
                       className={[
                         "flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-[13px] font-medium transition-colors",
-                        isDark
-                          ? "border-white/10 bg-[#2a2a2d] text-white hover:bg-[#323236]"
-                          : "border-black/[0.08] bg-white text-neutral-800 shadow-[0_1px_2px_rgba(0,0,0,0.04)] hover:bg-neutral-50",
+                        isDark ? "border-white/10 bg-[#2a2a2d] text-white" : "border-black/[0.08] bg-white text-neutral-800 shadow-sm",
                       ].join(" ")}
                     >
                       {tag}
-                      <button
-                        type="button"
-                        aria-label={`Supprimer ${tag}`}
-                        onClick={() => removeHashtag(tag)}
-                        className={isDark ? "text-neutral-400 hover:text-white" : "text-neutral-400 hover:text-neutral-900"}
-                      >
+                      <button type="button" aria-label={`Supprimer ${tag}`} onClick={() => removeHashtag(tag)} className={isDark ? "text-neutral-400 hover:text-white" : "text-neutral-400 hover:text-neutral-900"}>
                         <X className="h-3.5 w-3.5" strokeWidth={2} />
                       </button>
                     </span>
@@ -2086,29 +1755,14 @@ export default function NewPostModal({
             </div>
 
             {mediaError && <p className="mt-1 text-[11px] text-red-500">{mediaError}</p>}
-
-            {submitProgress && (
-              <p
-                role="status"
-                className={["mt-2 text-[12px]", textSecondary].join(" ")}
-              >
-                {submitProgress}
-              </p>
-            )}
-            {submitError && (
-              <p role="alert" className="mt-2 text-[12px] text-red-500">
-                {submitError}
-              </p>
-            )}
+            {submitProgress && <p role="status" className={["mt-2 text-[12px]", textSecondary].join(" ")}>{submitProgress}</p>}
+            {submitError && <p role="alert" className="mt-2 text-[12px] text-red-500">{submitError}</p>}
           </div>
 
           {/* Colonne droite : Previews */}
           <div className={["flex w-[400px] shrink-0 flex-col border-l", border, bgPanel].join(" ")}>
             <div className={["flex items-center gap-2 border-b px-5 py-4", border].join(" ")}>
               <h3 className={["text-[15px] font-semibold", textPrimary].join(" ")}>Post Previews</h3>
-              <div className={["flex h-4 w-4 items-center justify-center rounded-full border text-[10px] font-bold", textSecondary, border].join(" ")}>
-                i
-              </div>
             </div>
             <div className="flex flex-1 items-center justify-center p-6">
               {(content.trim() || media.length > 0) ? (
@@ -2120,7 +1774,7 @@ export default function NewPostModal({
                       <div className={["mt-1 h-2 w-12 rounded", isDark ? "bg-white/5" : "bg-neutral-100"].join(" ")} />
                     </div>
                   </div>
-                  {content && <p className={["text-[13px] leading-relaxed", textPrimary].join(" ")}>{content}</p>}
+                  {content && <p className={["text-[13px] leading-relaxed whitespace-pre-wrap", textPrimary].join(" ")}>{content}</p>}
                   {hashtags.length > 0 && (
                     <p className={["mt-2 text-[12px]", isDark ? "text-white/60" : "text-neutral-500"].join(" ")}>
                       {hashtags.map((t) => `#${t}`).join(" ")}
@@ -2128,27 +1782,15 @@ export default function NewPostModal({
                   )}
                   {media.length > 0 && (
                     <div className="relative mt-3 overflow-hidden rounded-lg">
-                      {media[0].kind === "image" ? (
-                        <img src={media[0].url} alt="" className="w-full object-cover" />
-                      ) : (
-                        <video src={media[0].url} className="w-full object-cover" muted playsInline />
-                      )}
-                      {media.length > 1 && (
-                        <span className="absolute right-2 top-2 rounded-full bg-black/70 px-2 py-0.5 text-[11px] font-semibold text-white">
-                          1/{media.length}
-                        </span>
-                      )}
+                      {media[0].kind === "image" ? <img src={media[0].url} alt="" className="w-full object-cover" /> : <video src={media[0].url} className="w-full object-cover" muted playsInline />}
+                      {media.length > 1 && <span className="absolute right-2 top-2 rounded-full bg-black/70 px-2 py-0.5 text-[11px] font-semibold text-white">1/{media.length}</span>}
                     </div>
                   )}
                 </div>
               ) : (
                 <div className="flex flex-col items-center text-center">
                   <div className={["relative mb-4 flex h-32 w-32 items-center justify-center rounded-2xl border-2 border-dashed", isDark ? "border-neutral-600/30" : "border-neutral-300"].join(" ")}>
-                    <div className={["flex h-16 w-16 items-center justify-center rounded-xl", isDark ? "bg-white/5" : "bg-neutral-200/50"].join(" ")}>
-                      <ImageIcon className={["h-6 w-6", textSecondary].join(" ")} />
-                    </div>
-                    <Sparkles className={["absolute -right-2 -top-2 h-5 w-5", isDark ? "text-white/30" : "text-neutral-300"].join(" ")} />
-                    <Sparkles className={["absolute -bottom-1 -left-1 h-3 w-3", isDark ? "text-white/30" : "text-neutral-300"].join(" ")} />
+                    <ImageIcon className={["h-6 w-6", textSecondary].join(" ")} />
                   </div>
                   <p className={["text-[13px]", textSecondary].join(" ")}>See your post's preview here</p>
                 </div>
@@ -2159,35 +1801,18 @@ export default function NewPostModal({
 
         {/* ── Footer ── */}
         <div className={["relative flex shrink-0 items-center justify-end gap-4 border-t px-6 py-4", border].join(" ")}>
-          {/* Déclaration TikTok (juste avant le bouton) */}
           {showTikTokDeclaration && (
             <div className="mr-auto flex min-w-0 flex-1 flex-col gap-1">
               <p className={["text-[11.5px] leading-snug", textSecondary].join(" ")}>
                 By posting, you agree to TikTok's{" "}
-                {brandedChosen && (
-                  <>
-                    <a href={TIKTOK_BRANDED_URL} target="_blank" rel="noreferrer" className={linkClass}>
-                      Branded Content Policy
-                    </a>{" "}
-                    and{" "}
-                  </>
-                )}
-                <a href={TIKTOK_MUSIC_URL} target="_blank" rel="noreferrer" className={linkClass}>
-                  Music Usage Confirmation
-                </a>
-                .
+                {brandedChosen && <><a href={TIKTOK_BRANDED_URL} target="_blank" rel="noreferrer" className={linkClass}>Branded Content Policy</a> and </>}
+                <a href={TIKTOK_MUSIC_URL} target="_blank" rel="noreferrer" className={linkClass}>Music Usage Confirmation</a>.
               </p>
             </div>
           )}
 
           <div className="relative shrink-0" ref={dropdownRef}>
-            <div
-              className={[
-                "flex items-stretch overflow-hidden rounded-xl border",
-                border,
-                isDark ? "bg-white/5" : "bg-neutral-100",
-              ].join(" ")}
-            >
+            <div className={["flex items-stretch overflow-hidden rounded-xl border", border, isDark ? "bg-white/5" : "bg-neutral-100"].join(" ")}>
               <button
                 type="button"
                 onClick={() => {
@@ -2198,23 +1823,11 @@ export default function NewPostModal({
                     setShowActionMenu((v) => !v);
                   }
                 }}
-                aria-expanded={showActionMenu || showDateTimePanel}
-                aria-haspopup="menu"
-                className={[
-                  "flex items-center gap-2 px-4 py-2.5 text-[13.5px] font-semibold transition",
-                  textPrimary,
-                  isDark ? "hover:bg-white/5" : "hover:bg-black/5",
-                ].join(" ")}
+                className={["flex items-center gap-2 px-4 py-2.5 text-[13.5px] font-semibold transition", textPrimary, isDark ? "hover:bg-white/5" : "hover:bg-black/5"].join(" ")}
               >
                 <CalendarClock className={["h-4 w-4", textSecondary].join(" ")} />
                 <span>{footerLabel}</span>
-                <ChevronDown
-                  className={[
-                    "h-3.5 w-3.5 transition",
-                    (showActionMenu || showDateTimePanel) ? "rotate-180" : "",
-                    textSecondary,
-                  ].join(" ")}
-                />
+                <ChevronDown className={["h-3.5 w-3.5 transition", (showActionMenu || showDateTimePanel) ? "rotate-180" : "", textSecondary].join(" ")} />
               </button>
 
               <div className={["w-px", isDark ? "bg-white/10" : "bg-black/10"].join(" ")} />
@@ -2226,12 +1839,8 @@ export default function NewPostModal({
                 className={[
                   "px-5 py-2.5 text-[14px] font-semibold transition",
                   canSubmit
-                    ? isDark
-                      ? "bg-white text-[#141416] hover:bg-neutral-200"
-                      : "bg-neutral-900 text-white hover:bg-neutral-800"
-                    : isDark
-                    ? "cursor-not-allowed text-neutral-600"
-                    : "cursor-not-allowed text-neutral-400",
+                    ? isDark ? "bg-white text-[#141416] hover:bg-neutral-200" : "bg-neutral-900 text-white hover:bg-neutral-800"
+                    : isDark ? "cursor-not-allowed text-neutral-600" : "cursor-not-allowed text-neutral-400",
                 ].join(" ")}
               >
                 {submitLabel}
@@ -2239,13 +1848,7 @@ export default function NewPostModal({
             </div>
 
             {showActionMenu && (
-              <div
-                role="menu"
-                className={[
-                  "absolute bottom-full right-0 z-50 mb-2 w-[340px] overflow-hidden rounded-xl border p-2 shadow-2xl",
-                  isDark ? "border-white/10 bg-[#1c1c1e]" : "border-black/10 bg-white",
-                ].join(" ")}
-              >
+              <div role="menu" className={["absolute bottom-full right-0 z-50 mb-2 w-[340px] overflow-hidden rounded-xl border p-2 shadow-2xl", isDark ? "border-white/10 bg-[#1c1c1e]" : "border-black/10 bg-white"].join(" ")}>
                 {SCHEDULE_ACTIONS.map((action) => {
                   const isSelected = scheduleAction === action.id;
                   return (
@@ -2254,25 +1857,14 @@ export default function NewPostModal({
                       type="button"
                       role="menuitem"
                       onClick={() => selectAction(action.id)}
-                      className={[
-                        "flex w-full items-start gap-2 rounded-lg px-3 py-2.5 text-left transition",
-                        isSelected
-                          ? `${accentBg} ${accentText}`
-                          : isDark
-                          ? "text-neutral-200 hover:bg-white/5"
-                          : "text-neutral-700 hover:bg-black/[0.04]",
-                      ].join(" ")}
+                      className={["flex w-full items-start gap-2 rounded-lg px-3 py-2.5 text-left transition", isSelected ? `${accentBg} ${accentText}` : isDark ? "text-neutral-200 hover:bg-white/5" : "text-neutral-700 hover:bg-black/[0.04]"].join(" ")}
                     >
                       <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center">
                         {isSelected && <Check className={["h-4 w-4", accentCheck].join(" ")} strokeWidth={3} />}
                       </span>
                       <span className="min-w-0 flex-1">
-                        <span className={["block text-[13.5px] font-bold", isSelected ? accentText : ""].join(" ")}>
-                          {action.label}
-                        </span>
-                        <span className={["mt-0.5 block text-[12.5px] leading-snug", isSelected ? (isDark ? "text-white/80" : "text-neutral-700") : textSecondary].join(" ")}>
-                          {action.description}
-                        </span>
+                        <span className={["block text-[13.5px] font-bold", isSelected ? accentText : ""].join(" ")}>{action.label}</span>
+                        <span className={["mt-0.5 block text-[12.5px] leading-snug", isSelected ? (isDark ? "text-white/80" : "text-neutral-700") : textSecondary].join(" ")}>{action.description}</span>
                       </span>
                     </button>
                   );
@@ -2281,94 +1873,36 @@ export default function NewPostModal({
             )}
 
             {showDateTimePanel && (
-              <div
-                className={[
-                  "absolute bottom-full right-0 z-50 mb-2 w-[280px] overflow-hidden rounded-xl border shadow-2xl",
-                  isDark ? "border-white/10 bg-[#1c1c1e]" : "border-black/10 bg-white",
-                ].join(" ")}
-              >
+              <div className={["absolute bottom-full right-0 z-50 mb-2 w-[280px] overflow-hidden rounded-xl border shadow-2xl", isDark ? "border-white/10 bg-[#1c1c1e]" : "border-black/10 bg-white"].join(" ")}>
                 <div className="w-full p-3">
-                  <CalendarPicker
-                    value={scheduledAt}
-                    onChange={(date) => {
-                      setScheduledAt((prev) => mergeDateTime(date, prev));
-                    }}
-                    isDark={isDark}
-                  />
+                  <CalendarPicker value={scheduledAt} onChange={(date) => setScheduledAt((prev) => mergeDateTime(date, prev))} isDark={isDark} />
                 </div>
-
                 <div className={["border-t p-3", isDark ? "border-white/10" : "border-black/10"].join(" ")}>
-                  <p className={["mb-2 text-[13px] font-semibold", textPrimary].join(" ")}>
-                    Posting Slots
-                  </p>
+                  <p className={["mb-2 text-[13px] font-semibold", textPrimary].join(" ")}>Posting Slots</p>
                   <div className="flex flex-col gap-2">
                     {POSTING_SLOTS.map((slot) => {
-                      const isActive =
-                        scheduledAt.getHours() === slot.hour &&
-                        scheduledAt.getMinutes() === slot.minute;
+                      const isActive = scheduledAt.getHours() === slot.hour && scheduledAt.getMinutes() === slot.minute;
                       return (
-                        <button
-                          key={slot.label}
-                          type="button"
-                          onClick={() => applyPostingSlot(slot.hour, slot.minute)}
-                          className={[
-                            "flex w-full items-center gap-1.5 rounded-lg border px-3 py-2 text-[13px] font-semibold transition",
-                            isActive
-                              ? `${accentBg} ${accentText} ${accentBorder}`
-                              : isDark
-                              ? "border-white/10 text-neutral-200 hover:bg-white/5"
-                              : "border-black/10 text-neutral-700 hover:bg-black/[0.04]",
-                          ].join(" ")}
-                        >
-                          <Wand2 className="h-3.5 w-3.5" />
-                          {slot.label}
+                        <button key={slot.label} type="button" onClick={() => applyPostingSlot(slot.hour, slot.minute)} className={["flex w-full items-center gap-1.5 rounded-lg border px-3 py-2 text-[13px] font-semibold transition", isActive ? `${accentBg} ${accentText} ${accentBorder}` : isDark ? "border-white/10 text-neutral-200 hover:bg-white/5" : "border-black/10 text-neutral-700 hover:bg-black/[0.04]"].join(" ")}>
+                          <Wand2 className="h-3.5 w-3.5" /> {slot.label}
                         </button>
                       );
                     })}
                   </div>
                 </div>
-
                 <div className="px-3 pb-3">
-                  <p className={["mb-2 text-[13px] font-semibold", textPrimary].join(" ")}>
-                    Select Time
-                  </p>
+                  <p className={["mb-2 text-[13px] font-semibold", textPrimary].join(" ")}>Select Time</p>
                   <div className={["rounded-lg border px-3 py-2", accentSolid, accentBorder].join(" ")}>
-                    <TimePicker
-                      value={scheduledAt}
-                      onChange={(date) => setScheduledAt(date)}
-                      isDark={isDark}
-                      min={timeMin}
-                      className={
-                        isDark
-                          ? "border-transparent bg-transparent text-white hover:border-transparent"
-                          : "border-transparent bg-transparent text-neutral-900 hover:border-transparent"
-                      }
-                    />
+                    <TimePicker value={scheduledAt} onChange={(date) => setScheduledAt(date)} isDark={isDark} min={timeMin} className={isDark ? "border-transparent bg-transparent text-white" : "border-transparent bg-transparent text-neutral-900"} />
                   </div>
-                  <p className={["mt-1.5 text-[11.5px]", textSecondary].join(" ")}>
-                    {timezone}
-                  </p>
+                  <p className={["mt-1.5 text-[11.5px]", textSecondary].join(" ")}>{timezone}</p>
                 </div>
-
                 <div className={["flex items-center justify-between border-t px-3 py-2.5", isDark ? "border-white/10" : "border-black/10"].join(" ")}>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowDateTimePanel(false);
-                      setShowActionMenu(true);
-                    }}
-                    className={["flex items-center gap-1.5 text-[12.5px] font-semibold transition", textPrimary].join(" ")}
-                  >
-                    <ArrowLeft className="h-3.5 w-3.5" />
-                    More
+                  <button type="button" onClick={() => { setShowDateTimePanel(false); setShowActionMenu(true); }} className={["flex items-center gap-1.5 text-[12.5px] font-semibold transition", textPrimary].join(" ")}>
+                    <ArrowLeft className="h-3.5 w-3.5" /> More
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => setShowDateTimePanel(false)}
-                    className={["flex items-center gap-1.5 text-[12.5px] font-semibold transition", textPrimary].join(" ")}
-                  >
-                    <Check className="h-3.5 w-3.5" strokeWidth={3} />
-                    Done
+                  <button type="button" onClick={() => setShowDateTimePanel(false)} className={["flex items-center gap-1.5 text-[12.5px] font-semibold transition", textPrimary].join(" ")}>
+                    <Check className="h-3.5 w-3.5" strokeWidth={3} /> Done
                   </button>
                 </div>
               </div>
@@ -2379,67 +1913,22 @@ export default function NewPostModal({
         {/* ── Dialogue : reprendre le brouillon ou l'ignorer ── */}
         {pendingDraft && (
           <div className="absolute inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-[2px]">
-            <div
-              className={[
-                "w-[360px] rounded-2xl border p-6 text-center shadow-2xl",
-                isDark ? "border-white/10 bg-[#1c1c1e]" : "border-black/10 bg-white",
-              ].join(" ")}
-            >
-              <h3 className={["text-[16px] font-bold", textPrimary].join(" ")}>
-                Reprendre votre brouillon ?
-              </h3>
-              <p className={["mt-2 text-[13px]", textSecondary].join(" ")}>
-                Vous aviez un post en cours. Voulez-vous reprendre où vous en étiez ou repartir de zéro ?
-              </p>
+            <div className={["w-[360px] rounded-2xl border p-6 text-center shadow-2xl", isDark ? "border-white/10 bg-[#1c1c1e]" : "border-black/10 bg-white"].join(" ")}>
+              <h3 className={["text-[16px] font-bold", textPrimary].join(" ")}>Reprendre votre brouillon ?</h3>
+              <p className={["mt-2 text-[13px]", textSecondary].join(" ")}>Vous aviez un post en cours. Voulez-vous reprendre où vous en étiez ou repartir de zéro ?</p>
               {pendingDraft.content && (
-                <p
-                  className={[
-                    "mt-3 line-clamp-2 rounded-lg px-3 py-2 text-left text-[12.5px]",
-                    isDark ? "bg-white/5 text-neutral-300" : "bg-neutral-100 text-neutral-600",
-                  ].join(" ")}
-                >
-                  {pendingDraft.content}
-                </p>
+                <p className={["mt-3 line-clamp-2 rounded-lg px-3 py-2 text-left text-[12.5px]", isDark ? "bg-white/5 text-neutral-300" : "bg-neutral-100 text-neutral-600"].join(" ")}>{pendingDraft.content}</p>
               )}
               <div className="mt-5 flex gap-2">
-                <button
-                  type="button"
-                  onClick={ignoreDraft}
-                  className={[
-                    "flex-1 rounded-xl border px-4 py-2.5 text-[13.5px] font-semibold transition",
-                    border,
-                    textPrimary,
-                    isDark ? "hover:bg-white/5" : "hover:bg-black/5",
-                  ].join(" ")}
-                >
-                  Ignorer
-                </button>
-                <button
-                  type="button"
-                  onClick={resumeDraft}
-                  className={[
-                    "flex-1 rounded-xl px-4 py-2.5 text-[13.5px] font-semibold transition",
-                    isDark
-                      ? "bg-white text-[#141416] hover:bg-neutral-200"
-                      : "bg-neutral-900 text-white hover:bg-neutral-800",
-                  ].join(" ")}
-                >
-                  Reprendre
-                </button>
+                <button type="button" onClick={ignoreDraft} className={["flex-1 rounded-xl border px-4 py-2.5 text-[13.5px] font-semibold transition", border, textPrimary, isDark ? "hover:bg-white/5" : "hover:bg-black/5"].join(" ")}>Ignorer</button>
+                <button type="button" onClick={resumeDraft} className={["flex-1 rounded-xl px-4 py-2.5 text-[13.5px] font-semibold transition", isDark ? "bg-white text-[#141416] hover:bg-neutral-200" : "bg-neutral-900 text-white hover:bg-neutral-800"].join(" ")}>Reprendre</button>
               </div>
             </div>
           </div>
         )}
       </div>
 
-      {/* ── Éditeur de média ── */}
-      <EditMediaModal
-        isOpen={editingItem !== null}
-        mediaItem={editingItem}
-        isDark={isDark}
-        onClose={() => setEditingItem(null)}
-        onApply={handleApplyMediaEdit}
-      />
+      <EditMediaModal isOpen={editingItem !== null} mediaItem={editingItem} isDark={isDark} onClose={() => setEditingItem(null)} onApply={handleApplyMediaEdit} />
     </div>
   );
 }
