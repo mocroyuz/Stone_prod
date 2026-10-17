@@ -108,6 +108,8 @@ const LIGHT: Tokens = {
 const cx = (...parts: (string | false | null | undefined)[]) =>
   parts.filter(Boolean).join(" ");
 
+const uid = () => Math.random().toString(36).slice(2, 10);
+
 /* ── Icons ── */
 
 const svgBase = {
@@ -186,6 +188,18 @@ const EyeOffIcon = mkIcon(
   "h-4 w-4"
 );
 const CheckIcon = mkIcon(<path d="m5 12.5 4.2 4.2L19 7" />, "h-4 w-4");
+const TagIcon = mkIcon(
+  <>
+    <path d="M20.59 13.41 13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82Z" />
+    <circle cx="7" cy="7" r="1.2" />
+  </>
+);
+const ReplyIcon = mkIcon(
+  <>
+    <path d="M9 17 4 12l5-5" />
+    <path d="M4 12h11a5 5 0 0 1 5 5v2" />
+  </>
+);
 
 /* ── Hooks ── */
 
@@ -447,6 +461,8 @@ type SectionKey =
   | "appearance"
   | "notifications"
   | "billing"
+  | "tags"
+  | "autoReplies"
   | "danger";
 
 const SIDEBAR_GROUPS: {
@@ -466,6 +482,13 @@ const SIDEBAR_GROUPS: {
     items: [{ key: "billing", label: "Billing", icon: <CardIcon /> }],
   },
   {
+    label: "Utils",
+    items: [
+      { key: "tags", label: "Tags", icon: <TagIcon /> },
+      { key: "autoReplies", label: "Auto replies", icon: <ReplyIcon /> },
+    ],
+  },
+  {
     label: "Other",
     items: [
       { key: "appearance", label: "Appearance", icon: <SunIcon />, badge: "New" },
@@ -480,6 +503,8 @@ const SECTION_TITLES: Record<SectionKey, string> = {
   appearance: "Appearance",
   notifications: "Notifications",
   billing: "Billing",
+  tags: "Tags",
+  autoReplies: "Auto replies",
   danger: "Danger zone",
 };
 
@@ -611,7 +636,10 @@ export default function Settings(_props: SettingsProps) {
   /* Identité stable : utilisée en dépendance des useEffect de chargement. */
   const notify = useCallback<Notify>((message, kind) => {
     const resolved =
-      kind ?? (/fail|error|must|enter|do not|different/i.test(message) ? "error" : "success");
+      kind ??
+      (/fail|error|must|enter|do not|different/i.test(message)
+        ? "error"
+        : "success");
 
     setToast({ message, kind: resolved });
 
@@ -691,6 +719,12 @@ export default function Settings(_props: SettingsProps) {
             )}
             {active === "billing" && (
               <BillingSection tokens={tokens} notify={notify} />
+            )}
+            {active === "tags" && (
+              <TagsSection tokens={tokens} notify={notify} />
+            )}
+            {active === "autoReplies" && (
+              <AutoRepliesSection tokens={tokens} notify={notify} />
             )}
             {active === "danger" && (
               <DangerSection tokens={tokens} notify={notify} />
@@ -1160,8 +1194,10 @@ function AccountSection({
     if (updatingPassword || loadingAccount) return;
 
     if (hasPassword && !current) return notify("Enter your current password");
-    if (!next) return notify(hasPassword ? "Enter a new password" : "Enter a password");
-    if (next.length < 8) return notify("Password must be at least 8 characters");
+    if (!next)
+      return notify(hasPassword ? "Enter a new password" : "Enter a password");
+    if (next.length < 8)
+      return notify("Password must be at least 8 characters");
     if (hasPassword && next === current)
       return notify("New password must be different from the current one");
     if (next !== confirmNext) return notify("Passwords do not match");
@@ -1359,7 +1395,10 @@ function AccountSection({
               }
               target="_blank"
               rel="noreferrer noopener"
-              className={cx("font-medium underline underline-offset-2", tokens.link)}
+              className={cx(
+                "font-medium underline underline-offset-2",
+                tokens.link
+              )}
             >
               {providerLabel} security settings
             </a>
@@ -1383,7 +1422,12 @@ function ThemePreview({ dark }: { dark: boolean }) {
   const accent = dark ? "bg-white" : "bg-neutral-900";
 
   return (
-    <div className={cx("flex h-24 w-full overflow-hidden rounded-[8px] border", frame)}>
+    <div
+      className={cx(
+        "flex h-24 w-full overflow-hidden rounded-[8px] border",
+        frame
+      )}
+    >
       <div className={cx("h-full w-1/4 space-y-1.5 p-2", side)}>
         <div className={cx("h-1.5 w-full rounded-full", line)} />
         <div className={cx("h-1.5 w-2/3 rounded-full", faint)} />
@@ -1433,7 +1477,11 @@ function AppearanceSection({
           Theme
         </p>
 
-        <div role="radiogroup" aria-label="Theme" className="grid gap-3 sm:grid-cols-2">
+        <div
+          role="radiogroup"
+          aria-label="Theme"
+          className="grid gap-3 sm:grid-cols-2"
+        >
           {options.map((option) => {
             const isActive = selected === option.key;
 
@@ -1521,7 +1569,8 @@ const NOTIFICATION_ITEMS: {
   {
     key: "securityAlerts",
     title: "Security alerts",
-    description: "Sign-ins from new devices and password changes. Recommended.",
+    description:
+      "Sign-ins from new devices and password changes. Recommended.",
   },
   {
     key: "mentions",
@@ -1675,6 +1724,379 @@ function BillingSection({
         <p className={cx("text-[13px]", tokens.body)}>No invoices yet.</p>
       </SectionCard>
     </>
+  );
+}
+
+/* ── Utils · Tags ── */
+
+const TAG_COLORS = [
+  "bg-fuchsia-500",
+  "bg-red-500",
+  "bg-amber-500",
+  "bg-emerald-500",
+  "bg-sky-500",
+  "bg-violet-500",
+  "bg-rose-500",
+  "bg-teal-500",
+];
+
+type Tag = { id: string; label: string; color: string };
+
+const INITIAL_TAGS: Tag[] = [
+  { id: "vip", label: "VIP", color: TAG_COLORS[0] },
+  { id: "urgent", label: "Urgent", color: TAG_COLORS[1] },
+  { id: "bug", label: "Bug", color: TAG_COLORS[2] },
+  { id: "feature", label: "Feature", color: TAG_COLORS[3] },
+];
+
+function TagsSection({
+  tokens,
+  notify,
+}: {
+  tokens: Tokens;
+  notify: Notify;
+}) {
+  const [tags, setTags] = useState<Tag[]>(INITIAL_TAGS);
+  const saved = useRef<Tag[]>(tags);
+  const [draft, setDraft] = useState("");
+  const [color, setColor] = useState(TAG_COLORS[0]);
+
+  const dirty = JSON.stringify(tags) !== JSON.stringify(saved.current);
+
+  const addTag = () => {
+    const label = draft.trim();
+    if (!label) return notify("Enter a tag name", "error");
+    if (tags.some((t) => t.label.toLowerCase() === label.toLowerCase()))
+      return notify("Tag already exists", "error");
+
+    setTags((prev) => [...prev, { id: uid(), label, color }]);
+    setDraft("");
+  };
+
+  const removeTag = (id: string) =>
+    setTags((prev) => prev.filter((t) => t.id !== id));
+
+  const save = () => {
+    saved.current = tags;
+    setTags((prev) => [...prev]);
+    notify("Tags saved");
+  };
+
+  return (
+    <SectionCard
+      title="Tags"
+      description="Labels to organize and filter your items."
+      tokens={tokens}
+      footer={
+        <>
+          {dirty && (
+            <span className={cx("text-[12.5px]", tokens.subtle)}>
+              Unsaved changes
+            </span>
+          )}
+          <Button tokens={tokens} onClick={save} disabled={!dirty}>
+            Save tags
+          </Button>
+        </>
+      }
+    >
+      <div className="pb-5">
+        <p className={cx("mb-2.5 text-[13px] font-medium", tokens.label)}>
+          Your tags
+        </p>
+
+        {tags.length === 0 ? (
+          <p className={cx("py-2 text-[13px]", tokens.body)}>No tags yet.</p>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {tags.map((tag) => (
+              <span
+                key={tag.id}
+                className={cx(
+                  "inline-flex items-center gap-2 rounded-full border py-1 pr-1 pl-2.5 text-[12.5px] font-medium",
+                  tokens.cardBorder,
+                  tokens.heading
+                )}
+              >
+                <span className={cx("h-2 w-2 rounded-full", tag.color)} />
+                {tag.label}
+                <button
+                  type="button"
+                  onClick={() => removeTag(tag.id)}
+                  aria-label={`Remove ${tag.label}`}
+                  className={cx(
+                    "flex h-5 w-5 items-center justify-center rounded-full text-[14px] leading-none transition",
+                    tokens.subtle,
+                    tokens.ghostHover,
+                    tokens.ring
+                  )}
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="pt-5">
+        <p className={cx("mb-2 text-[13px] font-medium", tokens.label)}>
+          Create a tag
+        </p>
+
+        <div className="flex flex-col gap-3">
+          <Field
+            label="Tag name"
+            value={draft}
+            onChange={setDraft}
+            placeholder="e.g. Design"
+            onEnter={addTag}
+            tokens={tokens}
+          />
+
+          <div>
+            <p className={cx("mb-1.5 text-[13px] font-medium", tokens.label)}>
+              Color
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {TAG_COLORS.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  aria-label={`Use color ${c}`}
+                  aria-pressed={color === c}
+                  onClick={() => setColor(c)}
+                  className={cx(
+                    "flex h-7 w-7 items-center justify-center rounded-full transition",
+                    c,
+                    color === c
+                      ? "scale-110 ring-2 ring-white/70 ring-offset-2 ring-offset-transparent"
+                      : "opacity-70 hover:opacity-100"
+                  )}
+                >
+                  {color === c && <CheckIcon className="h-3 w-3 text-white" />}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="flex justify-end">
+            <Button tokens={tokens} onClick={addTag}>
+              Add tag
+            </Button>
+          </div>
+        </div>
+      </div>
+    </SectionCard>
+  );
+}
+
+/* ── Utils · Auto replies ── */
+
+type AutoReply = {
+  id: string;
+  trigger: string;
+  reply: string;
+  enabled: boolean;
+};
+
+const INITIAL_AUTO_REPLIES: AutoReply[] = [
+  {
+    id: "welcome",
+    trigger: "hello",
+    reply: "Hi! Thanks for reaching out — we'll be with you shortly.",
+    enabled: true,
+  },
+  {
+    id: "hours",
+    trigger: "hours",
+    reply: "Our support hours are Mon–Fri, 9am–6pm.",
+    enabled: true,
+  },
+  {
+    id: "pricing",
+    trigger: "pricing",
+    reply: "You can find our plans on the billing page.",
+    enabled: false,
+  },
+];
+
+function AutoRepliesSection({
+  tokens,
+  notify,
+}: {
+  tokens: Tokens;
+  notify: Notify;
+}) {
+  const [rules, setRules] = useState<AutoReply[]>(INITIAL_AUTO_REPLIES);
+  const saved = useRef<AutoReply[]>(rules);
+  const [trigger, setTrigger] = useState("");
+  const [reply, setReply] = useState("");
+
+  const dirty = JSON.stringify(rules) !== JSON.stringify(saved.current);
+
+  const addRule = () => {
+    const t = trigger.trim().toLowerCase();
+    const r = reply.trim();
+
+    if (!t) return notify("Enter a trigger keyword", "error");
+    if (!r) return notify("Enter a reply", "error");
+    if (rules.some((x) => x.trigger === t))
+      return notify("Trigger already used", "error");
+
+    setRules((prev) => [
+      ...prev,
+      { id: uid(), trigger: t, reply: r, enabled: true },
+    ]);
+    setTrigger("");
+    setReply("");
+  };
+
+  const toggleRule = (id: string) =>
+    setRules((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, enabled: !r.enabled } : r))
+    );
+
+  const removeRule = (id: string) =>
+    setRules((prev) => prev.filter((r) => r.id !== id));
+
+  const save = () => {
+    saved.current = rules;
+    setRules((prev) => [...prev]);
+    notify("Auto replies saved");
+  };
+
+  return (
+    <SectionCard
+      title="Auto replies"
+      description="Send an automatic response when a message contains a keyword."
+      tokens={tokens}
+      footer={
+        <>
+          {dirty && (
+            <span className={cx("text-[12.5px]", tokens.subtle)}>
+              Unsaved changes
+            </span>
+          )}
+          <Button tokens={tokens} onClick={save} disabled={!dirty}>
+            Save rules
+          </Button>
+        </>
+      }
+    >
+      <div className="pb-5">
+        <p className={cx("mb-2.5 text-[13px] font-medium", tokens.label)}>
+          Active rules
+        </p>
+
+        {rules.length === 0 ? (
+          <p className={cx("py-2 text-[13px]", tokens.body)}>
+            No auto replies yet.
+          </p>
+        ) : (
+          rules.map((rule) => (
+            <div
+              key={rule.id}
+              className={cx(
+                "flex items-start justify-between gap-4 border-b py-3 last:border-b-0",
+                tokens.divide
+              )}
+            >
+              <div className="min-w-0">
+                <p className={cx("text-[13.5px] font-medium", tokens.heading)}>
+                  When message contains{" "}
+                  <code
+                    className={cx(
+                      "rounded px-1.5 py-0.5 font-mono text-[12px]",
+                      tokens.muted
+                    )}
+                  >
+                    "{rule.trigger}"
+                  </code>
+                </p>
+                <p
+                  className={cx(
+                    "mt-1 text-[12.5px] leading-relaxed",
+                    tokens.body
+                  )}
+                >
+                  {rule.reply}
+                </p>
+              </div>
+
+              <div className="flex shrink-0 items-center gap-2">
+                <Toggle
+                  checked={rule.enabled}
+                  onChange={() => toggleRule(rule.id)}
+                  label={`Enable ${rule.trigger}`}
+                  tokens={tokens}
+                />
+                <button
+                  type="button"
+                  onClick={() => removeRule(rule.id)}
+                  aria-label={`Delete ${rule.trigger}`}
+                  className={cx(
+                    "flex h-8 w-8 items-center justify-center rounded-md text-[15px] leading-none transition",
+                    tokens.subtle,
+                    tokens.ghostHover,
+                    tokens.ring
+                  )}
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      <div className="pt-5">
+        <p className={cx("mb-2 text-[13px] font-medium", tokens.label)}>
+          New auto reply
+        </p>
+
+        <div className="flex flex-col gap-3">
+          <Field
+            label="Trigger keyword"
+            value={trigger}
+            onChange={setTrigger}
+            placeholder="e.g. hello"
+            tokens={tokens}
+          />
+
+          <label className="block">
+            <span
+              className={cx(
+                "mb-1.5 block text-[13px] font-medium",
+                tokens.label
+              )}
+            >
+              Reply
+            </span>
+            <textarea
+              value={reply}
+              onChange={(e) => setReply(e.target.value)}
+              rows={3}
+              placeholder="Type the automatic reply…"
+              className={cx(
+                "w-full resize-y rounded-[10px] border px-3.5 py-2.5 text-[14px] outline-none transition",
+                tokens.inputBg,
+                tokens.inputText,
+                tokens.placeholder,
+                tokens.inputFocus,
+                tokens.inputBorder
+              )}
+            />
+          </label>
+
+          <div className="flex justify-end">
+            <Button tokens={tokens} onClick={addRule}>
+              Add auto reply
+            </Button>
+          </div>
+        </div>
+      </div>
+    </SectionCard>
   );
 }
 
