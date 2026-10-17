@@ -1524,7 +1524,7 @@ export default function NewPostModal({
 
             <div
               className={[
-                "relative flex min-h-[160px] flex-1 flex-col rounded-2xl border p-4 transition-colors",
+                "relative flex min-h-[160px] flex-1 flex-col rounded-2xl border p-4 pb-12 transition-colors",
                 border,
                 isDark
                   ? "bg-white/[0.03] focus-within:border-white/25"
@@ -1548,14 +1548,44 @@ export default function NewPostModal({
                   isDark ? "placeholder:text-neutral-500" : "placeholder:text-neutral-400",
                 ].join(" ")}
               />
-              <span
-                className={[
-                  "pointer-events-none self-end pt-2 text-[11px] tabular-nums",
-                  textSecondary,
-                ].join(" ")}
-              >
-                {content.length}
-              </span>
+
+              {/* Barre d'outils interne (bas de la zone de texte) */}
+              <div className="absolute bottom-3 left-4 right-4 flex items-center justify-between">
+                <div ref={emojiWrapRef} className="relative">
+                  <button
+                    type="button"
+                    title="Emoji"
+                    aria-label="Ajouter un emoji"
+                    aria-haspopup="dialog"
+                    aria-expanded={showEmojiPicker}
+                    onClick={() => setShowEmojiPicker((open) => !open)}
+                    className={[
+                      "flex h-8 w-8 items-center justify-center rounded-full transition",
+                      showEmojiPicker
+                        ? isDark
+                          ? "bg-white/10 text-white"
+                          : "bg-black/5 text-neutral-900"
+                        : textSecondary,
+                      isDark ? "hover:bg-white/10 hover:text-white" : "hover:bg-black/5 hover:text-neutral-900",
+                    ].join(" ")}
+                  >
+                    <Smile className="h-4 w-4" />
+                  </button>
+
+                  {showEmojiPicker && (
+                    <EmojiPickerPanel isDark={isDark} onPick={insertEmoji} />
+                  )}
+                </div>
+
+                <span
+                  className={[
+                    "pointer-events-none text-[11px] tabular-nums",
+                    textSecondary,
+                  ].join(" ")}
+                >
+                  {content.length}
+                </span>
+              </div>
             </div>
 
             {/* ── Miniatures média : croix + crayon visibles au survol de la miniature ── */}
@@ -2070,35 +2100,6 @@ export default function NewPostModal({
                 {submitError}
               </p>
             )}
-
-            {/* ── Barre d'outils : emoji ── */}
-            <div className={["mt-4 flex items-center gap-4 border-t pt-3", border].join(" ")}>
-              <div ref={emojiWrapRef} className="relative">
-                <button
-                  type="button"
-                  title="Emoji"
-                  aria-label="Ajouter un emoji"
-                  aria-haspopup="dialog"
-                  aria-expanded={showEmojiPicker}
-                  onClick={() => setShowEmojiPicker((open) => !open)}
-                  className={[
-                    "flex h-8 w-8 items-center justify-center rounded-full transition",
-                    showEmojiPicker
-                      ? isDark
-                        ? "bg-white/10 text-white"
-                        : "bg-black/5 text-neutral-900"
-                      : textSecondary,
-                    isDark ? "hover:bg-white/10 hover:text-white" : "hover:bg-black/5 hover:text-neutral-900",
-                  ].join(" ")}
-                >
-                  <Smile className="h-4 w-4" />
-                </button>
-
-                {showEmojiPicker && (
-                  <EmojiPickerPanel isDark={isDark} onPick={insertEmoji} />
-                )}
-              </div>
-            </div>
           </div>
 
           {/* Colonne droite : Previews */}
