@@ -259,6 +259,218 @@ type DraftData = {
 let savedDraft: DraftData | null = null;
 
 /* ──────────────────────────────────────────────────────────────
+   Persistance du brouillon (localStorage + IndexedDB)
+   Les métadonnées/textes vont dans localStorage. Les File
+   (non sérialisables) vont dans IndexedDB, ce qui permet de
+   retrouver un brouillon complet après un rafraîchissement ou
+   après avoir quitté puis rouvert le site.
+   ────────────────────────────────────────────────────────────── */
+
+const DRAFT_META_KEY = "newpost:draft:v1";
+const DRAFT_DB_NAME = "newpost-drafts";
+const DRAFT_DB_STORE = "files";
+
+type SerializedDraft = {
+  title: string;
+  masterContent: string;
+  contents: Record<string, string>;
+  networks: SocialNetworkId[];
+  scheduleAction: ScheduleAction;
+  scheduledAt: number;
+  youtubeOptions?: YouTubeOptions;
+  fileIds: string[];
+  channelFileIds?: Record<string, string[]>;
+};
+
+function openDraftDB(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    if (typeof indexedDB === "undefined") {
+      reject(new Error("IndexedDB unavailable"));
+      return;
+    }
+    const req = indexedDB.open(DRAFT_DB_NAME, 1);
+    req.onupgradeneeded = () => {
+      if (!req.result.objectStoreNames.contains(DRAFT_DB_STORE)) {
+        req.result.createObjectStore(DRAFT_DB_STORE);
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function putDraftFiles(files: Record<string, File>): Promise<void> {
+  const db = await openDraftDB();
+  try {
+    const tx = db.transaction(DRAFT_DB_STORE, "readwrite");
+    const store = tx.objectStore(DRAFT_DB_STORE);
+    store.clear();
+    for (const [id, file] of Object.entries(files)) {
+      store.put(file, id);
+    }
+    await new Promise<void>((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  } finally {
+    db.close();
+  }
+}
+
+async function readDraftFiles(ids: string[]): Promise<Record<string, File>> {
+  if (ids.length === 0) return {};
+  const db = await openDraftDB();
+  try {
+    const tx = db.transaction(DRAFT_DB_STORE, "readonly");
+    const store = tx.objectStore(DRAFT_DB_STORE);
+    const result: Record<string, File> = {};
+    await Promise.all(
+      ids.map(
+        (id) =>
+          new Promise<void>((resolve) => {
+            const req = store.get(id);
+            req.onsuccess = () => {
+              if (req.result instanceof File) result[id] = req.result;
+              resolve();
+            };
+            req.onerror = () => resolve();
+          })
+      )
+    );
+    return result;
+  } finally {
+    db.close();
+  }
+}
+
+async function clearDraftFiles(): Promise<void> {
+  try {
+    const db = await openDraftDB();
+    try {
+      const tx = db.transaction(DRAFT_DB_STORE, "readwrite");
+      tx.objectStore(DRAFT_DB_STORE).clear();
+      await new Promise<void>((resolve) => {
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => resolve();
+      });
+    } finally {
+      db.close();
+    }
+  } catch {
+    /* IndexedDB indisponible : rien à nettoyer. */
+  }
+}
+
+async function persistDraftToStorage(draft: DraftData): Promise<void> {
+  try {
+    const filesById: Record<string, File> = {};
+    const fileIds: string[] = [];
+    for (const file of draft.files) {
+      const id = makeId();
+      fileIds.push(id);
+      filesById[id] = file;
+    }
+
+    const channelFileIds: Record<string, string[]> = {};
+    for (const [key, files] of Object.entries(draft.channelFiles ?? {})) {
+      channelFileIds[key] = [];
+      for (const file of files) {
+        const id = makeId();
+        channelFileIds[key].push(id);
+        filesById[id] = file;
+      }
+    }
+
+    await putDraftFiles(filesById);
+
+    const serialized: SerializedDraft = {
+      title: draft.title,
+      masterContent: draft.masterContent,
+      contents: draft.contents,
+      networks: draft.networks,
+      scheduleAction: draft.scheduleAction,
+      scheduledAt: draft.scheduledAt,
+      youtubeOptions: draft.youtubeOptions,
+      fileIds,
+      channelFileIds:
+        Object.keys(channelFileIds).length > 0 ? channelFileIds : undefined,
+    };
+    localStorage.setItem(DRAFT_META_KEY, JSON.stringify(serialized));
+  } catch {
+    /* Échec de persistance : le brouillon reste en mémoire pour la session. */
+  }
+}
+
+async function loadDraftFromStorage(): Promise<DraftData | null> {
+  let serialized: SerializedDraft | null = null;
+  try {
+    const raw = localStorage.getItem(DRAFT_META_KEY);
+    if (!raw) return null;
+    serialized = JSON.parse(raw) as SerializedDraft;
+  } catch {
+    return null;
+  }
+
+  try {
+    const allIds = [
+      ...(serialized.fileIds ?? []),
+      ...Object.values(serialized.channelFileIds ?? {}).flat(),
+    ];
+    const filesById = await readDraftFiles(allIds);
+
+    const files = (serialized.fileIds ?? [])
+      .map((id) => filesById[id])
+      .filter(Boolean) as File[];
+
+    const channelFiles = serialized.channelFileIds
+      ? Object.fromEntries(
+          Object.entries(serialized.channelFileIds)
+            .map(([key, ids]) => [
+              key,
+              ids.map((id) => filesById[id]).filter(Boolean) as File[],
+            ])
+            .filter(([, list]) => list.length > 0)
+        )
+      : undefined;
+
+    return {
+      title: serialized.title,
+      masterContent: serialized.masterContent,
+      contents: serialized.contents,
+      networks: serialized.networks,
+      scheduleAction: serialized.scheduleAction,
+      scheduledAt: serialized.scheduledAt,
+      files,
+      channelFiles,
+      youtubeOptions: serialized.youtubeOptions,
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function clearDraftFromStorage(): Promise<void> {
+  try {
+    localStorage.removeItem(DRAFT_META_KEY);
+  } catch {
+    /* ignore */
+  }
+  await clearDraftFiles();
+}
+
+/** Un brouillon n'est proposé que s'il contient du vrai contenu
+ *  (texte, titre ou média) — pas juste des réseaux connectés. */
+function draftHasContent(draft: DraftData): boolean {
+  return (
+    draft.masterContent.trim().length > 0 ||
+    Object.values(draft.contents).some((c) => c.trim().length > 0) ||
+    draft.title.trim().length > 0 ||
+    draft.files.length > 0 ||
+    Object.keys(draft.channelFiles ?? {}).length > 0
+  );
+}
+
+/* ──────────────────────────────────────────────────────────────
    Helpers
    ────────────────────────────────────────────────────────────── */
 
@@ -1223,6 +1435,9 @@ export default function NewPostModal({
   isOpenRef.current = isOpen;
   const onRequestOpenRef = useRef(onRequestOpen);
   onRequestOpenRef.current = onRequestOpen;
+  // Suivi de l'état du formulaire, pour éviter d'écraser une saisie en cours
+  // quand un brouillon persisté est chargé de façon asynchrone.
+  const hasFormContentRef = useRef(false);
 
   const preselectRef = useRef<SocialNetworkId | null>(null);
 
@@ -1310,6 +1525,25 @@ export default function NewPostModal({
     return () => {
       mediaRef.current.forEach((item) => URL.revokeObjectURL(item.url));
       Object.values(channelMediaRef.current).flat().forEach((item) => URL.revokeObjectURL(item.url));
+    };
+  }, []);
+
+  // Restaure un éventuel brouillon persisté (refresh, retour sur le site…)
+  useEffect(() => {
+    if (savedDraft) return; // déjà en mémoire (même session)
+    let cancelled = false;
+    (async () => {
+      const persisted = await loadDraftFromStorage();
+      if (cancelled || !persisted || !draftHasContent(persisted)) return;
+      savedDraft = persisted;
+      // Si le modal est déjà ouvert et que l'utilisateur n'a rien saisi,
+      // on lui propose tout de suite de reprendre.
+      if (isOpenRef.current && !hasFormContentRef.current) {
+        setPendingDraft(persisted);
+      }
+    })();
+    return () => {
+      cancelled = true;
     };
   }, []);
 
@@ -1421,6 +1655,8 @@ export default function NewPostModal({
     media.length > 0 ||
     Object.keys(channelMedia).length > 0;
 
+  hasFormContentRef.current = hasDraftContent;
+
   const clearForm = () => {
     media.forEach((item) => URL.revokeObjectURL(item.url));
     Object.values(channelMedia).flat().forEach((item) => URL.revokeObjectURL(item.url));
@@ -1458,6 +1694,7 @@ export default function NewPostModal({
 
   const discardAndClose = () => {
     savedDraft = null;
+    void clearDraftFromStorage();
     clearForm();
     onClose();
   };
@@ -1465,8 +1702,17 @@ export default function NewPostModal({
   const closeWithDraft = () => {
     if (isSubmitting) return;
 
+    // Si le dialogue « Resume / Start fresh » est encore affiché et que
+    // l'utilisateur ferme sans choisir : on conserve le brouillon tel quel.
+    if (pendingDraft && !hasDraftContent) {
+      savedDraft = pendingDraft;
+      clearForm();
+      onClose();
+      return;
+    }
+
     if (hasDraftContent) {
-      savedDraft = {
+      const draft: DraftData = {
         title,
         masterContent,
         contents,
@@ -1479,7 +1725,14 @@ export default function NewPostModal({
         ),
         youtubeOptions,
       };
+      savedDraft = draft;
+      void persistDraftToStorage(draft); // fire-and-forget
+    } else {
+      // Plus de contenu → on efface le brouillon persisté.
+      savedDraft = null;
+      void clearDraftFromStorage();
     }
+
     clearForm();
     onClose();
   };
@@ -1525,6 +1778,7 @@ export default function NewPostModal({
   const ignoreDraft = () => {
     savedDraft = null;
     setPendingDraft(null);
+    void clearDraftFromStorage(); // l'utilisateur refuse le brouillon
   };
 
   const updateCaret = (target: string, el: HTMLTextAreaElement) => {
