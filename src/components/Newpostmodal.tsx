@@ -3,7 +3,7 @@ import { EmojiPicker as FrimousseEmojiPicker } from "frimousse";
 import {
   Maximize2, Minimize2, X, Tag, FileText,
   Eye, Smile, Hash, Image as ImageIcon, ImagePlus, Pencil, ChevronDown,
-  CalendarClock, Check, Sparkles, ArrowLeft, Wand2, Globe, Plus
+  CalendarClock, Check, Sparkles, ArrowLeft, Wand2, Plus
 } from "lucide-react";
 import {
   XIcon, FacebookIcon, InstagramIcon, LinkedInIcon,
@@ -660,7 +660,7 @@ export default function NewPostModal({
   const [submitProgress, setSubmitProgress] = useState<string | null>(null);
   
   // Gestion de l'emoji, du collapse et du focus par carte
-  const [activeEmojiNetwork, setActiveEmojiNetwork] = useState<string | null>(null); // 'master' ou l'ID du réseau
+  const [activeEmojiNetwork, setActiveEmojiNetwork] = useState<string | null>(null);
   const [collapsedCards, setCollapsedCards] = useState<Record<string, boolean>>({});
   const [requestTick, setRequestTick] = useState(0);
 
@@ -1436,9 +1436,41 @@ export default function NewPostModal({
             {/* Master Post Area */}
             {networks.length > 0 && (
               <div className={["mb-6 flex flex-col rounded-2xl border p-5", border, isDark ? "bg-[#1c1c1e]" : "bg-neutral-50"].join(" ")}>
-                <div className="mb-3 flex items-center gap-2">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-500 text-white">
-                    <Globe className="h-4 w-4" />
+                <div className="mb-3 flex items-center gap-3">
+                  <div className="flex items-center -space-x-2">
+                    {networks.map((networkId) => {
+                      const network = SOCIAL_NETWORKS.find((n) => n.id === networkId)!;
+                      const tile = channelTiles.find((t) => t.network.id === networkId);
+                      const channel = tile?.channel;
+                      const label = channel?.handle || channel?.name || network.label;
+                      const initial = label.replace(/^@/, "").charAt(0).toUpperCase() || "?";
+
+                      return (
+                        <div
+                          key={networkId}
+                          className={[
+                            "relative flex h-8 w-8 shrink-0 items-center justify-center rounded-full ring-2",
+                            isDark ? "bg-[#2a2a2d] ring-[#1c1c1e]" : "bg-neutral-200 ring-neutral-50"
+                          ].join(" ")}
+                        >
+                          {channel?.avatarUrl ? (
+                            <img
+                              src={channel.avatarUrl}
+                              alt={label}
+                              referrerPolicy="no-referrer"
+                              className="h-full w-full rounded-full object-cover"
+                            />
+                          ) : (
+                            <span className={["text-[11px] font-semibold", isDark ? "text-white" : "text-neutral-900"].join(" ")}>
+                              {initial}
+                            </span>
+                          )}
+                          <span className="absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-white text-black ring-[2px] ring-[#1c1c1e] dark:ring-[#1c1c1e]">
+                            <network.Icon className="h-2.5 w-2.5" />
+                          </span>
+                        </div>
+                      );
+                    })}
                   </div>
                   <span className={["font-semibold text-[15px]", textPrimary].join(" ")}>Post to all selected networks</span>
                 </div>
