@@ -1997,7 +1997,7 @@ export default function NewPostModal({
               </div>
             )}
 
-            {/* ── Tags : champ arrondi + chips blanches à ombre légère ── */}
+            {/* ── Hashtags : champ de recherche séparé + pills en dessous ── */}
             <div className="mt-4">
               <label
                 htmlFor="hashtag-input"
@@ -2006,63 +2006,55 @@ export default function NewPostModal({
                 Hashtag
               </label>
 
-              <div
-                onClick={() => document.getElementById("hashtag-input")?.focus()}
+              <input
+                id="hashtag-input"
+                type="text"
+                value={hashtagDraft}
+                onChange={(e) => setHashtagDraft(toSentenceCase(e.target.value))}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === "," || e.key === " ") {
+                    e.preventDefault();
+                    commitHashtagDraft();
+                  } else if (e.key === "Backspace" && !hashtagDraft && hashtags.length > 0) {
+                    removeHashtag(hashtags[hashtags.length - 1]);
+                  }
+                }}
+                onBlur={commitHashtagDraft}
+                placeholder="Search or add hashtags..."
                 className={[
-                  "flex min-h-[56px] cursor-text flex-wrap items-center gap-2 rounded-2xl border px-3 py-2.5 transition-colors",
+                  "w-full rounded-2xl border px-4 py-3 text-[14px] outline-none transition-colors",
                   border,
                   isDark
-                    ? "bg-white/[0.03] focus-within:border-white/25"
-                    : "bg-white focus-within:border-black/25",
+                    ? "bg-white/[0.03] placeholder:text-neutral-600 focus:border-white/25"
+                    : "bg-neutral-100/50 placeholder:text-neutral-400 focus:border-black/25",
                 ].join(" ")}
-              >
-                {hashtags.map((tag) => (
-                  <span
-                    key={tag}
-                    className={[
-                      "flex items-center gap-2 rounded-xl border px-3.5 py-2 text-[14px] font-medium",
-                      isDark
-                        ? "border-white/10 bg-[#2a2a2d] text-white shadow-[0_2px_8px_rgba(0,0,0,0.35)]"
-                        : "border-black/[0.06] bg-white text-neutral-800 shadow-[0_2px_8px_rgba(0,0,0,0.10)]",
-                    ].join(" ")}
-                  >
-                    {tag}
-                    <button
-                      type="button"
-                      aria-label={`Supprimer ${tag}`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        removeHashtag(tag);
-                      }}
-                      className={isDark ? "text-neutral-400 hover:text-white" : "text-neutral-500 hover:text-neutral-900"}
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                  </span>
-                ))}
+              />
 
-                <input
-                  id="hashtag-input"
-                  type="text"
-                  value={hashtagDraft}
-                  onChange={(e) => setHashtagDraft(toSentenceCase(e.target.value))}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === "," || e.key === " ") {
-                      e.preventDefault();
-                      commitHashtagDraft();
-                    } else if (e.key === "Backspace" && !hashtagDraft && hashtags.length > 0) {
-                      removeHashtag(hashtags[hashtags.length - 1]);
-                    }
-                  }}
-                  onBlur={commitHashtagDraft}
-                  placeholder={hashtags.length === 0 ? "Add hashtag..." : ""}
-                  className={[
-                    "min-w-[100px] flex-1 bg-transparent px-1 text-[14px] outline-none",
-                    textPrimary,
-                    isDark ? "placeholder:text-neutral-600" : "placeholder:text-neutral-400",
-                  ].join(" ")}
-                />
-              </div>
+              {hashtags.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {hashtags.map((tag) => (
+                    <span
+                      key={tag}
+                      className={[
+                        "flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-[13px] font-medium transition-colors",
+                        isDark
+                          ? "border-white/10 bg-[#2a2a2d] text-white hover:bg-[#323236]"
+                          : "border-black/[0.08] bg-white text-neutral-800 shadow-[0_1px_2px_rgba(0,0,0,0.04)] hover:bg-neutral-50",
+                      ].join(" ")}
+                    >
+                      {tag}
+                      <button
+                        type="button"
+                        aria-label={`Supprimer ${tag}`}
+                        onClick={() => removeHashtag(tag)}
+                        className={isDark ? "text-neutral-400 hover:text-white" : "text-neutral-400 hover:text-neutral-900"}
+                      >
+                        <X className="h-3.5 w-3.5" strokeWidth={2} />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
 
             {mediaError && <p className="mt-1 text-[11px] text-red-500">{mediaError}</p>}
