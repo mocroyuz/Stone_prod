@@ -1899,31 +1899,11 @@ function TagsSection({
 
 type SavedReply = {
   id: string;
-  trigger: string;
-  reply: string;
-  enabled: boolean;
+  name: string;
+  content: string;
 };
 
-const INITIAL_SAVED_REPLIES: SavedReply[] = [
-  {
-    id: "welcome",
-    trigger: "hello",
-    reply: "Hi! Thanks for reaching out — we'll be with you shortly.",
-    enabled: true,
-  },
-  {
-    id: "hours",
-    trigger: "hours",
-    reply: "Our support hours are Mon–Fri, 9am–6pm.",
-    enabled: true,
-  },
-  {
-    id: "pricing",
-    trigger: "pricing",
-    reply: "You can find our plans on the billing page.",
-    enabled: false,
-  },
-];
+const INITIAL_SAVED_REPLIES: SavedReply[] = [];
 
 function SavedRepliesSection({
   tokens,
@@ -1934,32 +1914,22 @@ function SavedRepliesSection({
 }) {
   const [rules, setRules] = useState<SavedReply[]>(INITIAL_SAVED_REPLIES);
   const saved = useRef<SavedReply[]>(rules);
-  const [trigger, setTrigger] = useState("");
-  const [reply, setReply] = useState("");
+  const [name, setName] = useState("");
+  const [content, setContent] = useState("");
 
   const dirty = JSON.stringify(rules) !== JSON.stringify(saved.current);
 
   const addRule = () => {
-    const t = trigger.trim().toLowerCase();
-    const r = reply.trim();
+    const n = name.trim();
+    const c = content.trim();
 
-    if (!t) return notify("Enter a trigger keyword", "error");
-    if (!r) return notify("Enter a reply", "error");
-    if (rules.some((x) => x.trigger === t))
-      return notify("Trigger already used", "error");
+    if (!n) return notify("Enter a name", "error");
+    if (!c) return notify("Enter content", "error");
 
-    setRules((prev) => [
-      ...prev,
-      { id: uid(), trigger: t, reply: r, enabled: true },
-    ]);
-    setTrigger("");
-    setReply("");
+    setRules((prev) => [...prev, { id: uid(), name: n, content: c }]);
+    setName("");
+    setContent("");
   };
-
-  const toggleRule = (id: string) =>
-    setRules((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, enabled: !r.enabled } : r))
-    );
 
   const removeRule = (id: string) =>
     setRules((prev) => prev.filter((r) => r.id !== id));
@@ -1973,7 +1943,7 @@ function SavedRepliesSection({
   return (
     <SectionCard
       title="Saved replies"
-      description="Send an automatic response when a message contains a keyword."
+      description="Create quick replies to use in your messages."
       tokens={tokens}
       footer={
         <>
@@ -1990,7 +1960,7 @@ function SavedRepliesSection({
     >
       <div className="pb-5">
         <p className={cx("mb-2.5 text-[13px] font-medium", tokens.label)}>
-          Active replies
+          Your saved replies
         </p>
 
         {rules.length === 0 ? (
@@ -2008,37 +1978,23 @@ function SavedRepliesSection({
             >
               <div className="min-w-0">
                 <p className={cx("text-[13.5px] font-medium", tokens.heading)}>
-                  When message contains{" "}
-                  <code
-                    className={cx(
-                      "rounded px-1.5 py-0.5 font-mono text-[12px]",
-                      tokens.muted
-                    )}
-                  >
-                    "{rule.trigger}"
-                  </code>
+                  {rule.name}
                 </p>
                 <p
                   className={cx(
-                    "mt-1 text-[12.5px] leading-relaxed",
+                    "mt-1 text-[12.5px] leading-relaxed whitespace-pre-wrap",
                     tokens.body
                   )}
                 >
-                  {rule.reply}
+                  {rule.content}
                 </p>
               </div>
 
               <div className="flex shrink-0 items-center gap-2">
-                <Toggle
-                  checked={rule.enabled}
-                  onChange={() => toggleRule(rule.id)}
-                  label={`Enable ${rule.trigger}`}
-                  tokens={tokens}
-                />
                 <button
                   type="button"
                   onClick={() => removeRule(rule.id)}
-                  aria-label={`Delete ${rule.trigger}`}
+                  aria-label={`Delete ${rule.name}`}
                   className={cx(
                     "flex h-8 w-8 items-center justify-center rounded-md text-[15px] leading-none transition",
                     tokens.subtle,
@@ -2056,15 +2012,15 @@ function SavedRepliesSection({
 
       <div className="pt-5">
         <p className={cx("mb-2 text-[13px] font-medium", tokens.label)}>
-          New saved reply
+          Create a saved reply
         </p>
 
         <div className="flex flex-col gap-3">
           <Field
-            label="Trigger keyword"
-            value={trigger}
-            onChange={setTrigger}
-            placeholder="e.g. hello"
+            label="Name"
+            value={name}
+            onChange={setName}
+            placeholder="e.g. Welcome message"
             tokens={tokens}
           />
 
@@ -2075,13 +2031,13 @@ function SavedRepliesSection({
                 tokens.label
               )}
             >
-              Reply
+              Content
             </span>
             <textarea
-              value={reply}
-              onChange={(e) => setReply(e.target.value)}
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
               rows={3}
-              placeholder="Type the saved reply…"
+              placeholder="Type the content…"
               className={cx(
                 "w-full resize-y rounded-[10px] border px-3.5 py-2.5 text-[14px] outline-none transition",
                 tokens.inputBg,
@@ -2095,7 +2051,7 @@ function SavedRepliesSection({
 
           <div className="flex justify-end">
             <Button tokens={tokens} onClick={addRule}>
-              Add saved reply
+              Create reply
             </Button>
           </div>
         </div>
