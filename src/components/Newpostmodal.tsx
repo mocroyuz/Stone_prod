@@ -74,6 +74,8 @@ export type NewPostPayload = {
   scheduleMode: "now" | "save_in_folder" | "later";
   scheduledAt: string | null;
   media: File[];
+  /** Médias propres à un réseau (remplacent `media` pour ce réseau). */
+  mediaByNetwork?: Partial<Record<SocialNetworkId, File[]>>;
   youtube?: YouTubeOptions;
 };
 
@@ -250,6 +252,7 @@ type DraftData = {
   scheduleAction: ScheduleAction;
   scheduledAt: number;
   files: File[];
+  channelFiles?: Record<string, File[]>;
   youtubeOptions?: YouTubeOptions;
 };
 
@@ -1153,8 +1156,10 @@ export default function NewPostModal({
   const [scheduleAction, setScheduleAction] = useState<ScheduleAction>("now");
   const [scheduledAt, setScheduledAt] = useState<Date>(() => defaultScheduledDate());
   const [media, setMedia] = useState<MediaItem[]>([]);
-  const [mediaError, setMediaError] = useState<string | null>(null);
-  const [isDragging, setIsDragging] = useState(false);
+  /** Médias propres à un réseau. Absent = le réseau utilise les médias partagés. */
+  const [channelMedia, setChannelMedia] = useState<Record<string, MediaItem[]>>({});
+  const [mediaError, setMediaError] = useState<{ target: string; message: string } | null>(null);
+  const [draggingTarget, setDraggingTarget] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showActionMenu, setShowActionMenu] = useState(false);
@@ -1205,6 +1210,9 @@ export default function NewPostModal({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const mediaRef = useRef<MediaItem[]>(media);
   mediaRef.current = media;
+  const channelMediaRef = useRef(channelMedia);
+  channelMediaRef.current = channelMedia;
+  const uploadTargetRef = useRef<string>("master");
   const dropdownRef = useRef<HTMLDivElement>(null);
   const closeWithDraftRef = useRef<() => void>(() => {});
   const submitRef = useRef<() => void>(() => {});
@@ -1301,6 +1309,7 @@ export default function NewPostModal({
   useEffect(() => {
     return () => {
       mediaRef.current.forEach((item) => URL.revokeObjectURL(item.url));
+      Object.values(channelMediaRef.current).flat().forEach((item) => URL.revokeObjectURL(item.url));
     };
   }, []);
 
@@ -1386,6 +1395,9 @@ export default function NewPostModal({
 
   /* ── Contenu : le texte principal est la source, chaque réseau peut le surcharger ── */
 
+  const isDragging = draggingTarget === "master";
+  const mediaFor = (id: string): MediaItem[] => channelMedia[id] ?? media;
+
   const contentFor = (id: string): string => contents[id] ?? masterContent;
   const isCustomized = (id: string): boolean =>
     contents[id] !== undefined && contents[id] !== masterContent;
@@ -1406,10 +1418,14 @@ export default function NewPostModal({
     hasContent ||
     Object.values(contents).some((c) => c.trim().length > 0) ||
     title.trim().length > 0 ||
-    media.length > 0;
+    media.length > 0 ||
+    Object.keys(channelMedia).length > 0;
 
   const clearForm = () => {
     media.forEach((item) => URL.revokeObjectURL(item.url));
+    Object.values(channelMedia).flat().forEach((item) => URL.revokeObjectURL(item.url));
+    setChannelMedia({});
+    setDraggingTarget(null);
     setMasterContent("");
     setContents({});
     setTitle("");
@@ -1458,6 +1474,9 @@ export default function NewPostModal({
         scheduleAction,
         scheduledAt: scheduledAt.getTime(),
         files: media.map((m) => m.file),
+        channelFiles: Object.fromEntries(
+          Object.entries(channelMedia).map(([k, v]) => [k, v.map((m) => m.file)])
+        ),
         youtubeOptions,
       };
     }
@@ -1484,6 +1503,19 @@ export default function NewPostModal({
         url: URL.createObjectURL(file),
         kind: file.type.startsWith("video/") ? "video" : "image",
       }))
+    );
+    setChannelMedia(
+      Object.fromEntries(
+        Object.entries(pendingDraft.channelFiles ?? {}).map(([k, files]) => [
+          k,
+          files.map((file) => ({
+            id: makeId(),
+            file,
+            url: URL.createObjectURL(file),
+            kind: (file.type.startsWith("video/") ? "video" : "image") as MediaKind,
+          })),
+        ])
+      )
     );
     caretRefs.current = {};
     savedDraft = null;
@@ -1589,18 +1621,20 @@ export default function NewPostModal({
     setCollapsedCards((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
-  const addFiles = (fileList: FileList | File[]) => {
+  const addFiles = (fileList: FileList | File[], target: string = "master") => {
     const all = Array.from(fileList);
     const incoming = all.filter(
       (file) => file.type.startsWith("image/") || file.type.startsWith("video/")
     );
-    const room = Math.max(MAX_MEDIA - mediaRef.current.length, 0);
+    const current =
+      target === "master" ? mediaRef.current : channelMediaRef.current[target] ?? [];
+    const room = Math.max(MAX_MEDIA - current.length, 0);
     const accepted = incoming.slice(0, room);
 
     if (incoming.length > accepted.length) {
-      setMediaError(`You can add up to ${MAX_MEDIA} files per post.`);
+      setMediaError({ target, message: `You can add up to ${MAX_MEDIA} files per post.` });
     } else if (incoming.length < all.length) {
-      setMediaError("Only images and videos are supported.");
+      setMediaError({ target, message: "Only images and videos are supported." });
     } else {
       setMediaError(null);
     }
@@ -1614,40 +1648,74 @@ export default function NewPostModal({
       kind: file.type.startsWith("video/") ? "video" : "image",
     }));
 
-    setMedia((prev) => [...prev, ...newItems]);
+    if (target === "master") {
+      setMedia((prev) => [...prev, ...newItems]);
+    } else {
+      setChannelMedia((prev) => ({
+        ...prev,
+        [target]: [...(prev[target] ?? []), ...newItems],
+      }));
+    }
   };
 
   const handleSourcePick = (id: MediaSourceId) => {
     const source = MEDIA_SOURCES.find((m) => m.id === id);
+    const target = showSourceMenu ?? "master";
     setShowSourceMenu(null);
     // TODO: brancher l'import réel (OAuth + sélecteur) pour chaque source.
-    setMediaError(`${source?.label ?? "This source"} import isn't connected yet.`);
+    setMediaError({
+      target,
+      message: `${source?.label ?? "This source"} import isn't connected yet.`,
+    });
   };
 
   const removeMedia = (id: string) => {
-    setMedia((prev) => {
-      const target = prev.find((item) => item.id === id);
-      if (target) URL.revokeObjectURL(target.url);
-      return prev.filter((item) => item.id !== id);
+    const all = [...mediaRef.current, ...Object.values(channelMediaRef.current).flat()];
+    const found = all.find((item) => item.id === id);
+    if (found) URL.revokeObjectURL(found.url);
+
+    setMedia((prev) => prev.filter((item) => item.id !== id));
+    setChannelMedia((prev) => {
+      const next: Record<string, MediaItem[]> = {};
+      for (const [key, list] of Object.entries(prev)) {
+        const kept = list.filter((item) => item.id !== id);
+        // Un réseau sans média propre retombe sur les médias partagés.
+        if (kept.length > 0) next[key] = kept;
+      }
+      return next;
+    });
+    setMediaError(null);
+  };
+
+  const resetChannelMedia = (target: string) => {
+    (channelMediaRef.current[target] ?? []).forEach((item) => URL.revokeObjectURL(item.url));
+    setChannelMedia((prev) => {
+      const next = { ...prev };
+      delete next[target];
+      return next;
     });
     setMediaError(null);
   };
 
   const handleApplyMediaEdit = (id: string, newFile: File, newUrl: string) => {
-    setMedia((prev) =>
-      prev.map((item) => {
+    const apply = (list: MediaItem[]) =>
+      list.map((item) => {
         if (item.id !== id) return item;
         URL.revokeObjectURL(item.url);
         return { ...item, file: newFile, url: newUrl };
-      })
+      });
+    setMedia(apply);
+    setChannelMedia((prev) =>
+      Object.fromEntries(Object.entries(prev).map(([k, list]) => [k, apply(list)]))
     );
     setEditingItem(null);
   };
 
   /* ── TikTok ── */
 
-  const tiktokVideo = media.find((m) => m.kind === "video")?.file ?? null;
-  const tiktokImages = media.filter((m) => m.kind === "image");
+  const tiktokMedia = mediaFor("tiktok");
+  const tiktokVideo = tiktokMedia.find((m) => m.kind === "video")?.file ?? null;
+  const tiktokImages = tiktokMedia.filter((m) => m.kind === "image");
   const tiktokPostType: "video" | "photo" | null = tiktokVideo
     ? "video"
     : tiktokImages.length > 0
@@ -1722,7 +1790,7 @@ export default function NewPostModal({
   const blockingReason: string | null =
     networks.length === 0
       ? "Select at least one channel."
-      : !hasContent && media.length === 0
+      : !hasContent && !networks.some((n) => mediaFor(n).length > 0)
       ? "Write something or add media."
       : scheduleAction === "set_date" && scheduledAt.getTime() <= Date.now()
       ? "Pick a date and time in the future."
@@ -1754,6 +1822,12 @@ export default function NewPostModal({
       ? networks.filter((n) => n !== "tiktok")
       : networks;
 
+    const mediaByNetwork: Partial<Record<SocialNetworkId, File[]>> = {};
+    remainingNetworks.forEach((n) => {
+      const own = channelMedia[n];
+      if (own) mediaByNetwork[n] = own.map((item) => item.file);
+    });
+
     const payload: NewPostPayload = {
       title: title.trim(),
       content: resolved[remainingNetworks[0]]?.trim() || masterContent.trim() || "",
@@ -1764,6 +1838,7 @@ export default function NewPostModal({
       scheduledAt:
         scheduleAction === "set_date" ? scheduledAt.toISOString() : null,
       media: media.map((item) => item.file),
+      ...(Object.keys(mediaByNetwork).length > 0 ? { mediaByNetwork } : {}),
       ...(remainingNetworks.includes("youtube")
         ? { youtube: { ...youtubeOptions, title: youtubeEffectiveTitle } }
         : {}),
@@ -1962,9 +2037,115 @@ export default function NewPostModal({
     ? channelTiles.find((t) => t.network.id === activePreviewId)?.channel
     : undefined;
   const previewText = activePreviewId ? contentFor(activePreviewId) : masterContent;
-  const previewHasSomething = previewText.trim().length > 0 || media.length > 0;
+  const previewMedia = activePreviewId ? mediaFor(activePreviewId) : media;
+  const previewHasSomething = previewText.trim().length > 0 || previewMedia.length > 0;
 
   const avatarRing = isDark ? "ring-[#1c1c1e]" : "ring-neutral-50";
+
+  // Zone média (miniatures + tuile « Drag & drop ») : une pour le texte principal,
+  // une par canal. Un canal sans média propre utilise les médias partagés.
+  const renderMediaArea = (target: string) => {
+    const isMaster = target === "master";
+    const items = isMaster ? media : channelMedia[target] ?? [];
+    const hasOwn = !isMaster && channelMedia[target] !== undefined;
+    const error = mediaError?.target === target ? mediaError.message : null;
+
+    return (
+      <>
+        {!isMaster && !hasOwn && media.length > 0 && (
+          <p className={["mt-3 text-[12.5px]", textSecondary].join(" ")}>
+            Using the shared media ({media.length}). Add files here to use different media for this channel.
+          </p>
+        )}
+
+        <div className="mt-4 flex flex-wrap items-end gap-3">
+          {items.map((item, index) => (
+            <div
+              key={item.id}
+              className="group relative h-[104px] w-[104px] shrink-0 overflow-hidden rounded-xl border border-black/5"
+            >
+              {item.kind === "image" ? (
+                <img src={item.url} alt="" className="h-full w-full object-cover" />
+              ) : (
+                <div className="relative h-full w-full">
+                  <video src={item.url} className="h-full w-full object-cover" muted playsInline />
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/30 text-white">
+                    <Play className="h-5 w-5 fill-current" />
+                  </div>
+                </div>
+              )}
+              {index === 0 && items.length > 1 && (
+                <span className="absolute bottom-1.5 left-1.5 rounded-md bg-black/70 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                  Cover
+                </span>
+              )}
+              <div className="pointer-events-none absolute inset-0 bg-black/0 transition-colors group-hover:bg-black/20" />
+              <button
+                type="button"
+                aria-label="Remove media"
+                onClick={() => removeMedia(item.id)}
+                className="absolute right-1.5 top-1.5 z-30 flex h-6 w-6 cursor-pointer items-center justify-center rounded-lg bg-black/70 text-white opacity-0 backdrop-blur-sm transition-opacity hover:bg-black/90 focus-visible:opacity-100 group-hover:opacity-100"
+              >
+                <X className="h-3.5 w-3.5" strokeWidth={2.5} />
+              </button>
+              {item.kind === "image" && (
+                <button
+                  type="button"
+                  aria-label="Edit image"
+                  onClick={() => setEditingItem(item)}
+                  className="absolute bottom-1.5 right-1.5 z-30 flex h-6 w-6 cursor-pointer items-center justify-center rounded-lg bg-black/70 text-white opacity-0 backdrop-blur-sm transition-opacity hover:bg-black/90 focus-visible:opacity-100 group-hover:opacity-100"
+                >
+                  <Pencil className="h-3.5 w-3.5" strokeWidth={2.5} />
+                </button>
+              )}
+            </div>
+          ))}
+
+          {items.length < MAX_MEDIA && (
+            <button
+              type="button"
+              onClick={() => {
+                uploadTargetRef.current = target;
+                fileInputRef.current?.click();
+              }}
+              className={[
+                "flex h-[104px] w-[104px] shrink-0 cursor-pointer flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed px-2 text-center text-[12px] leading-tight transition-colors",
+                isDark
+                  ? "border-white/20 text-neutral-400 hover:border-white/40 hover:bg-white/5"
+                  : "border-black/20 text-neutral-500 hover:border-black/40 hover:bg-white",
+              ].join(" ")}
+            >
+              <ImagePlus className="h-6 w-6" strokeWidth={1.75} />
+              <span>
+                Drag &amp; drop or
+                <br />
+                <span className={["font-semibold", isDark ? "text-white" : "text-neutral-900"].join(" ")}>
+                  select a file
+                </span>
+              </span>
+            </button>
+          )}
+        </div>
+
+        {hasOwn && (
+          <button
+            type="button"
+            onClick={() => resetChannelMedia(target)}
+            className={["mt-3 flex cursor-pointer items-center gap-1.5 self-start rounded-md px-2 py-1 text-[12px] font-semibold transition", textSecondary, hoverSoft].join(" ")}
+          >
+            <RotateCcw className="h-3 w-3" />
+            Use shared media
+          </button>
+        )}
+
+        {error && (
+          <p role="alert" className="mt-3 text-[12.5px] text-red-500">
+            {error}
+          </p>
+        )}
+      </>
+    );
+  };
 
   // Bouton « + » (sources de médias) : un par zone de texte, un seul menu ouvert à la fois.
   // Les médias restent partagés par tous les canaux.
@@ -2146,16 +2327,16 @@ export default function NewPostModal({
               aria-label="Post text and media"
               onDragOver={(e) => {
                 e.preventDefault();
-                setIsDragging(true);
+                setDraggingTarget("master");
               }}
               onDragLeave={(e) => {
                 if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
-                  setIsDragging(false);
+                  setDraggingTarget(null);
                 }
               }}
               onDrop={(e) => {
                 e.preventDefault();
-                setIsDragging(false);
+                setDraggingTarget(null);
                 if (e.dataTransfer.files) addFiles(e.dataTransfer.files);
               }}
               className={[
@@ -2208,79 +2389,7 @@ export default function NewPostModal({
                 className={[textareaClass, "min-h-[150px]"].join(" ")}
               />
 
-              {(
-                <div className="mt-4 flex flex-wrap items-end gap-3">
-                  {media.map((item, index) => (
-                    <div
-                      key={item.id}
-                      className="group relative h-[104px] w-[104px] shrink-0 overflow-hidden rounded-xl border border-black/5"
-                    >
-                      {item.kind === "image" ? (
-                        <img src={item.url} alt="" className="h-full w-full object-cover" />
-                      ) : (
-                        <div className="relative h-full w-full">
-                          <video src={item.url} className="h-full w-full object-cover" muted playsInline />
-                          <div className="absolute inset-0 flex items-center justify-center bg-black/30 text-white">
-                            <Play className="h-5 w-5 fill-current" />
-                          </div>
-                        </div>
-                      )}
-                      {index === 0 && media.length > 1 && (
-                        <span className="absolute bottom-1.5 left-1.5 rounded-md bg-black/70 px-1.5 py-0.5 text-[10px] font-semibold text-white">
-                          Cover
-                        </span>
-                      )}
-                      <div className="pointer-events-none absolute inset-0 bg-black/0 transition-colors group-hover:bg-black/20" />
-                      <button
-                        type="button"
-                        aria-label="Remove media"
-                        onClick={() => removeMedia(item.id)}
-                        className="absolute right-1.5 top-1.5 z-30 flex h-6 w-6 items-center justify-center rounded-lg bg-black/70 text-white opacity-0 backdrop-blur-sm transition-opacity hover:bg-black/90 focus-visible:opacity-100 group-hover:opacity-100"
-                      >
-                        <X className="h-3.5 w-3.5" strokeWidth={2.5} />
-                      </button>
-                      {item.kind === "image" && (
-                        <button
-                          type="button"
-                          aria-label="Edit image"
-                          onClick={() => setEditingItem(item)}
-                          className="absolute bottom-1.5 right-1.5 z-30 flex h-6 w-6 items-center justify-center rounded-lg bg-black/70 text-white opacity-0 backdrop-blur-sm transition-opacity hover:bg-black/90 focus-visible:opacity-100 group-hover:opacity-100"
-                        >
-                          <Pencil className="h-3.5 w-3.5" strokeWidth={2.5} />
-                        </button>
-                      )}
-                    </div>
-                  ))}
-
-                  {media.length < MAX_MEDIA && (
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      className={[
-                        "flex h-[104px] w-[104px] shrink-0 flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed px-2 text-center text-[12px] leading-tight transition-colors",
-                        isDark
-                          ? "border-white/20 text-neutral-400 hover:border-white/40 hover:bg-white/5"
-                          : "border-black/20 text-neutral-500 hover:border-black/40 hover:bg-white",
-                      ].join(" ")}
-                    >
-                      <ImagePlus className="h-6 w-6" strokeWidth={1.75} />
-                      <span>
-                        Drag &amp; drop or
-                        <br />
-                        <span className={["font-semibold", isDark ? "text-white" : "text-neutral-900"].join(" ")}>
-                          select a file
-                        </span>
-                      </span>
-                    </button>
-                  )}
-                </div>
-              )}
-
-              {mediaError && (
-                <p role="alert" className="mt-3 text-[12.5px] text-red-500">
-                  {mediaError}
-                </p>
-              )}
+              {renderMediaArea("master")}
 
               <input
                 ref={fileInputRef}
@@ -2289,7 +2398,7 @@ export default function NewPostModal({
                 multiple
                 className="hidden"
                 onChange={(e) => {
-                  if (e.target.files) addFiles(e.target.files);
+                  if (e.target.files) addFiles(e.target.files, uploadTargetRef.current);
                   e.target.value = "";
                 }}
               />
@@ -2345,12 +2454,38 @@ export default function NewPostModal({
                   return (
                     <div
                       key={networkId}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        setDraggingTarget(networkId);
+                      }}
+                      onDragLeave={(e) => {
+                        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
+                          setDraggingTarget(null);
+                        }
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        setDraggingTarget(null);
+                        if (e.dataTransfer.files) addFiles(e.dataTransfer.files, networkId);
+                      }}
                       className={[
                         "relative flex flex-col rounded-2xl border p-5 transition-colors",
-                        over ? "border-red-500/60" : border,
+                        draggingTarget === networkId
+                          ? isDark ? "border-white/40" : "border-neutral-400"
+                          : over ? "border-red-500/60" : border,
                         bgCard,
                       ].join(" ")}
                     >
+                      {draggingTarget === networkId && (
+                        <div
+                          className={[
+                            "pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-2xl text-[14px] font-semibold backdrop-blur-[1px]",
+                            isDark ? "bg-black/50 text-white" : "bg-white/70 text-neutral-900",
+                          ].join(" ")}
+                        >
+                          Drop to add media for {network.label}
+                        </div>
+                      )}
                       {/* Header de la carte */}
                       <button
                         type="button"
@@ -2408,6 +2543,8 @@ export default function NewPostModal({
                             placeholder={`Write your ${network.label} post…`}
                             className={[textareaClass, "min-h-[72px]"].join(" ")}
                           />
+
+                          {renderMediaArea(networkId)}
 
                           <ComposerToolbar
                             isDark={isDark}
@@ -2703,7 +2840,7 @@ export default function NewPostModal({
                   channel={previewChannel}
                   text={previewText}
                   limit={previewNetworkData ? CHAR_LIMITS[previewNetworkData.id] : undefined}
-                  media={media}
+                  media={previewMedia}
                 />
               ) : (
                 <div className="flex flex-col items-center text-center">
