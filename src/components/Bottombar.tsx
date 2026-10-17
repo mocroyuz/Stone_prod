@@ -48,6 +48,8 @@ type BottomBarProps = {
  * ───────────────────────────────────────────────────────── */
 
 const svgProps = {
+  width: 20,
+  height: 20,
   viewBox: "0 0 24 24",
   fill: "none",
   stroke: "currentColor",
@@ -58,42 +60,42 @@ const svgProps = {
 };
 
 const FilesIcon = (
-  <svg {...svgProps} width={19} height={19}>
+  <svg {...svgProps}>
     <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z" />
   </svg>
 );
 
 const PlusIcon = (
-  <svg {...svgProps} width={18} height={18} strokeWidth={2.4}>
+  <svg {...svgProps} width={20} height={20} strokeWidth={2.4}>
     <path d="M12 5v14M5 12h14" />
   </svg>
 );
 
 const IdeaIcon = (
-  <svg {...svgProps} width={20} height={20}>
+  <svg {...svgProps} width={22} height={22}>
     <path d="M9 18h6M10 21h4" />
     <path d="M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3Z" />
   </svg>
 );
 
 const PostIcon = (
-  <svg {...svgProps} width={20} height={20}>
+  <svg {...svgProps} width={22} height={22}>
     <path d="M6 3h9l5 5v13H6z" />
     <path d="M14 3v6h6M9 13h8M9 17h8" />
   </svg>
 );
 
 /* ─────────────────────────────────────────────────────────
- * Keyframes — un seul moment animé : l'ouverture du menu
+ * Keyframes
  * ───────────────────────────────────────────────────────── */
 
 const ANIMATION_KEYFRAMES = `
 @keyframes addMenuIn {
-  0%   { opacity: 0; transform: translateY(8px) scale(.96); }
+  0%   { opacity: 0; transform: translateY(10px) scale(.94); }
   100% { opacity: 1; transform: translateY(0) scale(1); }
 }
 @keyframes addItemIn {
-  0%   { opacity: 0; transform: translateY(4px); }
+  0%   { opacity: 0; transform: translateY(6px); }
   100% { opacity: 1; transform: translateY(0); }
 }
 @keyframes scrimIn {
@@ -129,7 +131,8 @@ export default function BottomBar({
   const menuRef = useRef<HTMLDivElement>(null);
 
   /** La modale « idée » est toujours disponible via le menu. */
-  const hasMenu = true;
+  const hasIdea = true;
+  const hasMenu = hasIdea || Boolean(onCreatePost);
 
   /* ── Handlers internes ─────────────────────────────────── */
 
@@ -238,30 +241,33 @@ export default function BottomBar({
 
   const focusRing = [
     "focus-visible:outline-none focus-visible:ring-2",
-    isDark ? "focus-visible:ring-white/60" : "focus-visible:ring-black/50",
+    "focus-visible:ring-neutral-500 focus-visible:ring-offset-2",
+    isDark
+      ? "focus-visible:ring-offset-[#1c1c1e]"
+      : "focus-visible:ring-offset-[#faf9f6]",
   ].join(" ");
 
   const isFilesActive = active === "files";
 
   const filesTone = isDark
     ? isFilesActive
-      ? "bg-white/[0.12] text-white"
-      : "text-neutral-300 hover:bg-white/[0.08] hover:text-white"
+      ? "border border-white/50 bg-white/10 text-white"
+      : "border border-white/10 bg-[#141416] text-neutral-300 hover:border-white/25 hover:text-white"
     : isFilesActive
-      ? "bg-black/[0.07] text-black"
-      : "text-black/65 hover:bg-black/[0.05] hover:text-black";
+      ? "border border-black/70 bg-black/[0.04] text-black"
+      : "border border-black/10 bg-white text-black/70 hover:border-black/25 hover:text-black";
 
   const addTone = isDark
     ? "bg-white text-neutral-900 hover:bg-neutral-200"
     : "bg-black text-white hover:bg-neutral-800";
 
   const barTone = isDark
-    ? "border border-white/10 bg-[#1c1c1e]/85 shadow-[0_12px_32px_-12px_rgba(0,0,0,0.7)]"
-    : "border border-black/[0.07] bg-[#faf9f6]/85 shadow-[0_12px_32px_-12px_rgba(0,0,0,0.28)]";
+    ? "border border-white/10 bg-[#1c1c1e]/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_18px_48px_-12px_rgba(0,0,0,0.7)]"
+    : "border border-black/[0.06] bg-[#faf9f6]/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.9),0_18px_48px_-12px_rgba(0,0,0,0.25)]";
 
   const menuTone = isDark
-    ? "border border-white/10 bg-[#1c1c1e]/95 text-neutral-100 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.75)]"
-    : "border border-black/[0.07] bg-white/95 text-neutral-900 shadow-[0_20px_50px_-12px_rgba(0,0,0,0.28)]";
+    ? "border border-white/10 bg-[#1c1c1e]/95 text-neutral-100 shadow-[0_20px_50px_-10px_rgba(0,0,0,0.7)]"
+    : "border border-black/[0.06] bg-white/95 text-neutral-900 shadow-[0_20px_50px_-10px_rgba(0,0,0,0.25)]";
 
   /* ── Rendu ─────────────────────────────────────────────── */
 
@@ -269,15 +275,15 @@ export default function BottomBar({
     <>
       <style>{ANIMATION_KEYFRAMES}</style>
 
-      {/* Voile léger derrière le menu */}
+      {/* Voile derrière le menu */}
       {isAddMenuOpen && (
         <div
           aria-hidden
           onClick={() => closeMenu()}
           className={[
-            "bb-anim fixed inset-0 z-20 backdrop-blur-[2px]",
-            "animate-[scrimIn_180ms_ease-out_both]",
-            isDark ? "bg-black/45" : "bg-black/15",
+            "bb-anim fixed inset-0 z-20 backdrop-blur-[3px]",
+            "animate-[scrimIn_200ms_ease-out_both]",
+            isDark ? "bg-black/55" : "bg-black/25",
           ].join(" ")}
         />
       )}
@@ -291,49 +297,53 @@ export default function BottomBar({
         }}
       >
         <div className="relative">
-          {/* Menu de création, ancré sur le bouton « Créer » */}
+          {/* Menu de création */}
           {isAddMenuOpen && (
-            <div
-              ref={menuRef}
-              id="bottombar-add-menu"
-              role="menu"
-              aria-label={addLabel}
-              aria-orientation="vertical"
-              onKeyDown={handleMenuKeyDown}
-              className={[
-                "bb-anim pointer-events-auto absolute bottom-full right-0 mb-3 origin-bottom-right",
-                "w-[min(290px,calc(100vw-32px))] rounded-2xl p-1.5 backdrop-blur-xl",
-                "animate-[addMenuIn_200ms_cubic-bezier(0.22,1,0.36,1)_both]",
-                menuTone,
-              ].join(" ")}
-            >
-              {onCreatePost && (
-                <MenuItem
-                  icon={PostIcon}
-                  title="Publication"
-                  description="Publier du contenu sur un canal"
-                  shortcut="P"
-                  isDark={isDark}
-                  delay={20}
-                  onClick={handleCreatePost}
-                />
-              )}
+            <div className="pointer-events-none absolute bottom-full left-1/2 mb-3 flex w-0 justify-center">
+              <div
+                ref={menuRef}
+                id="bottombar-add-menu"
+                role="menu"
+                aria-label={addLabel}
+                aria-orientation="vertical"
+                onKeyDown={handleMenuKeyDown}
+                className={[
+                  "bb-anim pointer-events-auto origin-bottom",
+                  "w-[min(300px,calc(100vw-32px))] rounded-[22px] p-1.5 backdrop-blur-xl",
+                  "animate-[addMenuIn_220ms_cubic-bezier(0.22,1,0.36,1)_both]",
+                  menuTone,
+                ].join(" ")}
+              >
+                {onCreatePost && (
+                  <MenuItem
+                    icon={PostIcon}
+                    title="Publication"
+                    description="Publier du contenu sur un canal"
+                    shortcut="P"
+                    isDark={isDark}
+                    delay={30}
+                    onClick={handleCreatePost}
+                  />
+                )}
 
-              <MenuItem
-                icon={IdeaIcon}
-                title="Nouvelle idée"
-                description="Noter une idée de contenu"
-                shortcut="I"
-                isDark={isDark}
-                delay={60}
-                onClick={handleCreateIdea}
-              />
+                {hasIdea && (
+                  <MenuItem
+                    icon={IdeaIcon}
+                    title="Nouvelle idée"
+                    description="Noter une idée de contenu"
+                    shortcut="I"
+                    isDark={isDark}
+                    delay={70}
+                    onClick={handleCreateIdea}
+                  />
+                )}
+              </div>
             </div>
           )}
 
           <ul
             className={[
-              "pointer-events-auto flex items-center gap-1 rounded-full p-1.5",
+              "pointer-events-auto flex items-center gap-2 rounded-full p-2",
               "backdrop-blur-xl backdrop-saturate-150",
               barTone,
             ].join(" ")}
@@ -342,39 +352,46 @@ export default function BottomBar({
             <li>
               <button
                 type="button"
+                aria-label="Dossiers"
+                title="Dossiers"
                 aria-current={isFilesActive ? "page" : undefined}
                 onClick={handleFilesClick}
                 className={[
-                  "bb-motion flex h-11 items-center gap-2 rounded-full pl-3.5 pr-4",
-                  "text-[14px] font-semibold transition duration-150 active:scale-[0.97]",
+                  "bb-motion relative flex h-12 w-12 items-center justify-center rounded-full",
+                  "transition duration-150 active:scale-90",
                   focusRing,
                   filesTone,
                 ].join(" ")}
               >
                 {FilesIcon}
-                Dossiers
+                {isFilesActive && (
+                  <span
+                    aria-hidden
+                    className="absolute bottom-1.5 h-1 w-1 rounded-full bg-current"
+                  />
+                )}
               </button>
             </li>
 
-            {/* Créer */}
+            {/* « + » */}
             <li>
               <button
                 ref={addButtonRef}
                 type="button"
                 aria-label={isAddMenuOpen ? "Fermer le menu" : addLabel}
+                title={addLabel}
                 aria-haspopup={hasMenu ? "menu" : undefined}
                 aria-expanded={hasMenu ? isAddMenuOpen : undefined}
                 aria-controls={hasMenu ? "bottombar-add-menu" : undefined}
                 onClick={handleAddClick}
                 className={[
-                  "bb-motion flex h-11 items-center gap-2 rounded-full pl-3.5 pr-4",
-                  "text-[14px] font-semibold transition duration-150 active:scale-[0.97]",
+                  "bb-motion flex h-12 w-12 items-center justify-center rounded-full",
+                  "transition duration-150 active:scale-90",
                   focusRing,
                   addTone,
                 ].join(" ")}
               >
                 <span
-                  aria-hidden
                   className={[
                     "bb-motion flex items-center justify-center",
                     "transition-transform duration-300",
@@ -384,7 +401,6 @@ export default function BottomBar({
                 >
                   {PlusIcon}
                 </span>
-                Créer
               </button>
             </li>
           </ul>
@@ -432,17 +448,18 @@ function MenuItem({
       onClick={onClick}
       style={{ animationDelay: `${delay}ms` }}
       className={[
-        "bb-anim flex w-full items-center gap-3 rounded-xl p-2 text-left",
-        "outline-none transition-colors duration-150",
-        "animate-[addItemIn_220ms_cubic-bezier(0.22,1,0.36,1)_both]",
+        "bb-anim group flex w-full items-center gap-3 rounded-[16px] p-2 text-left",
+        "outline-none transition duration-150 active:scale-[0.98]",
+        "animate-[addItemIn_240ms_cubic-bezier(0.22,1,0.36,1)_both]",
         isDark
-          ? "hover:bg-white/[0.07] focus-visible:bg-white/[0.09]"
-          : "hover:bg-black/[0.04] focus-visible:bg-black/[0.05]",
+          ? "hover:bg-white/[0.07] focus-visible:bg-white/[0.09] focus-visible:ring-1 focus-visible:ring-white/25"
+          : "hover:bg-black/[0.04] focus-visible:bg-black/[0.05] focus-visible:ring-1 focus-visible:ring-black/20",
       ].join(" ")}
     >
       <span
         className={[
-          "flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px]",
+          "flex h-11 w-11 shrink-0 items-center justify-center rounded-[13px]",
+          "transition-transform duration-200 group-hover:scale-105",
           isDark ? "bg-white/10 text-white" : "bg-black/[0.05] text-black",
         ].join(" ")}
       >
@@ -450,12 +467,12 @@ function MenuItem({
       </span>
 
       <span className="min-w-0 flex-1">
-        <span className="block text-[14.5px] font-semibold leading-tight">
+        <span className="block text-[15px] font-semibold leading-tight">
           {title}
         </span>
         <span
           className={[
-            "mt-0.5 block truncate text-[12.5px] leading-tight",
+            "mt-0.5 block truncate text-[13px] leading-tight",
             isDark ? "text-neutral-400" : "text-neutral-500",
           ].join(" ")}
         >
