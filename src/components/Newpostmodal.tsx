@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { EmojiPicker as FrimousseEmojiPicker } from "frimousse";
 import {
-  Maximize2, Minimize2, X, Tag, FileText,
-  Eye, Smile, Hash, Image as ImageIcon, ImagePlus, Pencil, ChevronDown,
-  CalendarClock, Check, Sparkles, ArrowLeft, Wand2, Plus
+  Maximize2, Minimize2, X, Tag, FileText, Smile, Hash,
+  Image as ImageIcon, ImagePlus, Pencil, ChevronDown, CalendarClock,
+  Check, ArrowLeft, Wand2, Plus, Play, Info, Loader2, RotateCcw,
 } from "lucide-react";
 import {
   XIcon, FacebookIcon, InstagramIcon, LinkedInIcon,
@@ -130,6 +130,17 @@ const SOCIAL_NETWORKS: {
   },
 ];
 
+const CHAR_LIMITS: Record<SocialNetworkId, number> = {
+  x: 280,
+  facebook: 63206,
+  instagram: 2200,
+  linkedin: 3000,
+  tiktok: 2200,
+  youtube: 5000,
+  pinterest: 500,
+  threads: 500,
+};
+
 const SCHEDULE_ACTIONS: {
   id: ScheduleAction;
   label: string;
@@ -137,7 +148,7 @@ const SCHEDULE_ACTIONS: {
 }[] = [
   { id: "save_in_folder", label: "Save in folder", description: "Save your post in a folder to publish it later." },
   { id: "now", label: "Now", description: "Publish your post right away." },
-  { id: "set_date", label: "Set Date and Time", description: "Choose a specific time to post, or use our recommendation." },
+  { id: "set_date", label: "Set date and time", description: "Choose a specific time to post, or use our recommendation." },
 ];
 
 const POSTING_SLOTS: { label: string; hour: number; minute: number }[] = [
@@ -226,6 +237,8 @@ const YOUTUBE_DEFAULT_OPTIONS: YouTubeOptions = {
 
 /* ──────────────────────────────────────────────────────────────
    Brouillon
+   `contents` ne contient que les textes personnalisés par réseau
+   (ceux qui diffèrent du texte principal).
    ────────────────────────────────────────────────────────────── */
 
 type DraftData = {
@@ -271,11 +284,6 @@ function defaultScheduledDate(): Date {
   return d;
 }
 
-function toSentenceCase(value: string): string {
-  if (!value) return value;
-  return value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
-}
-
 function formatShortDateTime(date: Date): string {
   return date.toLocaleString("en-US", {
     month: "short",
@@ -284,6 +292,23 @@ function formatShortDateTime(date: Date): string {
     minute: "2-digit",
     hour12: true,
   });
+}
+
+function formatLongDateTime(date: Date): string {
+  return date.toLocaleString("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
+}
+
+function formatDuration(totalSeconds: number): string {
+  const m = Math.floor(totalSeconds / 60);
+  const s = totalSeconds % 60;
+  return s ? `${m} min ${s} s` : `${m} min`;
 }
 
 function getLocalTimezone(): string {
@@ -355,6 +380,10 @@ function getNetworkId(channel: ConnectedChannel): SocialNetworkId | null {
   return null;
 }
 
+function channelLabel(channel: ConnectedChannel | undefined, fallback: string) {
+  return channel?.handle || channel?.name || fallback;
+}
+
 type ChannelTileData = {
   channel: ConnectedChannel;
   network: (typeof SOCIAL_NETWORKS)[number];
@@ -365,54 +394,71 @@ type ChannelTileData = {
    Composants secondaires
    ────────────────────────────────────────────────────────────── */
 
-function ChannelTile({
+type AvatarSize = "sm" | "md" | "lg";
+
+const AVATAR_SIZES: Record<
+  AvatarSize,
+  { box: string; badge: string; icon: string; text: string }
+> = {
+  sm: {
+    box: "h-8 w-8 rounded-full",
+    badge: "h-4 w-4 -bottom-1 -right-1 ring-2",
+    icon: "h-2.5 w-2.5",
+    text: "text-[11px]",
+  },
+  md: {
+    box: "h-10 w-10 rounded-xl",
+    badge: "h-5 w-5 -bottom-1.5 -right-1.5 ring-2",
+    icon: "h-3 w-3",
+    text: "text-[14px]",
+  },
+  lg: {
+    box: "h-14 w-14 rounded-2xl",
+    badge: "h-6 w-6 -bottom-1.5 -right-1.5 ring-[3px]",
+    icon: "h-3 w-3",
+    text: "text-[18px]",
+  },
+};
+
+function Avatar({
   channel,
-  NetworkIcon,
+  label,
+  Icon,
+  size,
   isDark,
-  isSelected,
-  onToggle,
+  ringClass,
 }: {
-  channel: ConnectedChannel;
-  NetworkIcon: NetworkIconComponent;
+  channel?: ConnectedChannel;
+  label: string;
+  Icon: NetworkIconComponent;
+  size: AvatarSize;
   isDark: boolean;
-  isSelected: boolean;
-  onToggle: () => void;
+  ringClass: string;
 }) {
   const [failed, setFailed] = useState(false);
-  useEffect(() => setFailed(false), [channel.avatarUrl]);
+  useEffect(() => setFailed(false), [channel?.avatarUrl]);
 
-  const label = channel.handle || channel.name;
+  const s = AVATAR_SIZES[size];
   const initial = label.replace(/^@/, "").charAt(0).toUpperCase() || "?";
-  const showImage = Boolean(channel.avatarUrl) && !failed;
+  const showImage = Boolean(channel?.avatarUrl) && !failed;
 
   return (
-    <button
-      type="button"
-      onClick={onToggle}
-      title={label}
-      aria-pressed={isSelected}
-      className={[
-        "relative h-14 w-14 shrink-0 rounded-2xl transition duration-200",
-        isSelected
-          ? isDark
-            ? "opacity-100 ring-2 ring-white ring-offset-[3px] ring-offset-[#141416]"
-            : "opacity-100 ring-2 ring-neutral-900 ring-offset-[3px] ring-offset-white"
-          : "opacity-45 grayscale hover:opacity-80 hover:grayscale-0",
-      ].join(" ")}
-    >
+    <span className={["relative inline-block shrink-0", s.box].join(" ")}>
       {showImage ? (
         <img
-          src={channel.avatarUrl}
-          alt={label}
+          src={channel!.avatarUrl}
+          alt=""
           referrerPolicy="no-referrer"
           onError={() => setFailed(true)}
-          className="h-full w-full rounded-2xl object-cover"
+          className={["h-full w-full object-cover", s.box].join(" ")}
         />
       ) : (
         <span
           className={[
-            "flex h-full w-full items-center justify-center rounded-2xl text-[18px] font-semibold",
-            isDark ? "bg-[#2a2a2d] text-white" : "bg-neutral-900 text-white",
+            "flex h-full w-full items-center justify-center font-semibold text-white",
+            s.box,
+            s.text,
+            isDark ? "bg-[#2a2a2d]" : "bg-neutral-900",
           ].join(" ")}
         >
           {initial}
@@ -420,29 +466,79 @@ function ChannelTile({
       )}
       <span
         className={[
-          "absolute -bottom-1.5 -right-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-white text-black ring-[3px]",
-          isDark ? "ring-[#141416]" : "ring-white",
+          "absolute flex items-center justify-center rounded-full bg-white text-black",
+          s.badge,
+          ringClass,
         ].join(" ")}
       >
-        <NetworkIcon className="h-3 w-3" />
+        <Icon className={s.icon} />
       </span>
+    </span>
+  );
+}
+
+function ChannelTile({
+  channel,
+  network,
+  isDark,
+  isSelected,
+  onToggle,
+}: {
+  channel: ConnectedChannel;
+  network: (typeof SOCIAL_NETWORKS)[number];
+  isDark: boolean;
+  isSelected: boolean;
+  onToggle: () => void;
+}) {
+  const label = channelLabel(channel, network.label);
+
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      title={`${label} · ${network.label}`}
+      aria-label={`${network.label}: ${label}`}
+      aria-pressed={isSelected}
+      className={[
+        "relative h-14 w-14 shrink-0 rounded-2xl outline-none transition duration-200",
+        "focus-visible:ring-2 focus-visible:ring-offset-[3px]",
+        isDark
+          ? "focus-visible:ring-white/60 focus-visible:ring-offset-[#141416]"
+          : "focus-visible:ring-neutral-900/60 focus-visible:ring-offset-white",
+        isSelected
+          ? isDark
+            ? "opacity-100 ring-2 ring-white ring-offset-[3px] ring-offset-[#141416]"
+            : "opacity-100 ring-2 ring-neutral-900 ring-offset-[3px] ring-offset-white"
+          : "opacity-45 grayscale hover:opacity-80 hover:grayscale-0",
+      ].join(" ")}
+    >
+      <Avatar
+        channel={channel}
+        label={label}
+        Icon={network.Icon}
+        size="lg"
+        isDark={isDark}
+        ringClass={isDark ? "ring-[#141416]" : "ring-white"}
+      />
     </button>
   );
 }
 
-function YouTubeSelect<T extends string>({
+function Select<T extends string>({
   value,
   options,
   onChange,
   isDark,
   ariaLabel,
+  placeholder,
   className = "",
 }: {
   value: T;
-  options: { id: T; label: string }[];
+  options: { id: T; label: string; disabled?: boolean }[];
   onChange: (value: T) => void;
   isDark: boolean;
   ariaLabel: string;
+  placeholder?: string;
   className?: string;
 }) {
   return (
@@ -458,8 +554,13 @@ function YouTubeSelect<T extends string>({
             : "border-black/10 bg-white text-neutral-900 hover:bg-neutral-50 focus:border-black/30",
         ].join(" ")}
       >
+        {placeholder && (
+          <option value="" disabled>
+            {placeholder}
+          </option>
+        )}
         {options.map((o) => (
-          <option key={o.id} value={o.id}>
+          <option key={o.id} value={o.id} disabled={o.disabled}>
             {o.label}
           </option>
         ))}
@@ -474,34 +575,43 @@ function YouTubeSelect<T extends string>({
   );
 }
 
-function YouTubeCheckbox({
+function Checkbox({
   checked,
   onChange,
   label,
+  description,
+  disabled = false,
+  title,
   isDark,
 }: {
   checked: boolean;
   onChange: (checked: boolean) => void;
   label: string;
+  description?: string;
+  disabled?: boolean;
+  title?: string;
   isDark: boolean;
 }) {
   return (
     <label
+      title={title}
       className={[
-        "flex cursor-pointer select-none items-center gap-2.5 text-[14px] font-medium",
+        "flex select-none items-start gap-2.5 text-[14px] font-medium",
+        disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer",
         isDark ? "text-white" : "text-neutral-900",
       ].join(" ")}
     >
       <input
         type="checkbox"
         checked={checked}
+        disabled={disabled}
         onChange={(e) => onChange(e.target.checked)}
         className="peer sr-only"
       />
       <span
         aria-hidden="true"
         className={[
-          "flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-md border transition",
+          "mt-px flex h-[20px] w-[20px] shrink-0 items-center justify-center rounded-md border transition",
           isDark
             ? "peer-focus-visible:ring-2 peer-focus-visible:ring-white/50"
             : "peer-focus-visible:ring-2 peer-focus-visible:ring-black/40",
@@ -516,8 +626,75 @@ function YouTubeCheckbox({
       >
         {checked && <Check className="h-3.5 w-3.5" strokeWidth={3.5} />}
       </span>
-      {label}
+      <span className="min-w-0">
+        <span className="block">{label}</span>
+        {description && (
+          <span
+            className={[
+              "mt-0.5 block text-[12px] font-normal leading-snug",
+              isDark ? "text-neutral-400" : "text-neutral-500",
+            ].join(" ")}
+          >
+            {description}
+          </span>
+        )}
+      </span>
     </label>
+  );
+}
+
+function SettingsBlock({
+  title,
+  subtitle,
+  isDark,
+  children,
+}: {
+  title: string;
+  subtitle?: string;
+  isDark: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      className={[
+        "mt-4 rounded-xl border p-4",
+        isDark ? "border-white/10 bg-black/20" : "border-black/[0.06] bg-white",
+      ].join(" ")}
+    >
+      <p className={["text-[13.5px] font-semibold", isDark ? "text-white" : "text-neutral-900"].join(" ")}>
+        {title}
+      </p>
+      {subtitle && (
+        <p className={["mt-0.5 text-[12px]", isDark ? "text-neutral-400" : "text-neutral-500"].join(" ")}>
+          {subtitle}
+        </p>
+      )}
+      <div className="mt-3.5 flex flex-col gap-3.5">{children}</div>
+    </div>
+  );
+}
+
+function FieldRow({
+  label,
+  htmlFor,
+  isDark,
+  children,
+}: {
+  label: string;
+  htmlFor?: string;
+  isDark: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="grid grid-cols-1 items-center gap-1.5 sm:grid-cols-[110px_1fr] sm:gap-3">
+      <label
+        htmlFor={htmlFor}
+        className={["text-[13.5px] font-semibold", isDark ? "text-white" : "text-neutral-900"].join(" ")}
+      >
+        {label}
+      </label>
+      <div className="min-w-0">{children}</div>
+    </div>
   );
 }
 
@@ -580,20 +757,21 @@ function EmojiPickerPanel({
   return (
     <div
       role="dialog"
-      aria-label="Choisir un emoji"
+      aria-label="Choose an emoji"
       className={[
         "absolute bottom-full left-0 z-50 mb-2 overflow-hidden rounded-xl border shadow-2xl",
         isDark ? "border-white/10 bg-[#1c1c1e]" : "border-black/10 bg-white",
       ].join(" ")}
     >
       <FrimousseEmojiPicker.Root
-        locale="fr"
+        locale="en"
         columns={8}
         onEmojiSelect={({ emoji }) => onPick(emoji)}
         className="isolate flex h-[340px] w-[300px] flex-col"
       >
         <FrimousseEmojiPicker.Search
-          placeholder="Rechercher un emoji"
+          autoFocus
+          placeholder="Search emoji"
           className={[
             "z-10 mx-2 mt-2 appearance-none rounded-lg px-3 py-2 text-[13px] outline-none",
             isDark
@@ -608,7 +786,7 @@ function EmojiPickerPanel({
               isDark ? "text-neutral-500" : "text-neutral-400",
             ].join(" ")}
           >
-            Chargement…
+            Loading…
           </FrimousseEmojiPicker.Loading>
           <FrimousseEmojiPicker.Empty
             className={[
@@ -616,7 +794,7 @@ function EmojiPickerPanel({
               isDark ? "text-neutral-500" : "text-neutral-400",
             ].join(" ")}
           >
-            Aucun emoji trouvé.
+            No emoji found.
           </FrimousseEmojiPicker.Empty>
           <FrimousseEmojiPicker.List
             className="select-none pb-1.5"
@@ -624,6 +802,204 @@ function EmojiPickerPanel({
           />
         </FrimousseEmojiPicker.Viewport>
       </FrimousseEmojiPicker.Root>
+    </div>
+  );
+}
+
+/** Textarea qui s'agrandit avec son contenu. */
+function AutoTextarea({
+  value,
+  onChange,
+  onCaret,
+  textareaRef,
+  className,
+  placeholder,
+  ariaLabel,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  onCaret: (el: HTMLTextAreaElement) => void;
+  textareaRef?: (el: HTMLTextAreaElement | null) => void;
+  className: string;
+  placeholder: string;
+  ariaLabel: string;
+}) {
+  const innerRef = useRef<HTMLTextAreaElement | null>(null);
+
+  useEffect(() => {
+    const el = innerRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 420)}px`;
+  }, [value]);
+
+  return (
+    <textarea
+      ref={(el) => {
+        innerRef.current = el;
+        textareaRef?.(el);
+      }}
+      value={value}
+      aria-label={ariaLabel}
+      placeholder={placeholder}
+      onChange={(e) => {
+        onChange(e.target.value);
+        onCaret(e.target);
+      }}
+      onSelect={(e) => onCaret(e.currentTarget)}
+      onKeyUp={(e) => onCaret(e.currentTarget)}
+      onClick={(e) => onCaret(e.currentTarget)}
+      className={className}
+    />
+  );
+}
+
+function ComposerToolbar({
+  isDark,
+  emojiOpen,
+  onToggleEmoji,
+  onPickEmoji,
+  onHash,
+  length,
+  limit,
+  extra,
+}: {
+  isDark: boolean;
+  emojiOpen: boolean;
+  onToggleEmoji: () => void;
+  onPickEmoji: (emoji: string) => void;
+  onHash: () => void;
+  length: number;
+  limit?: number;
+  extra?: React.ReactNode;
+}) {
+  const over = limit !== undefined && length > limit;
+  const near = limit !== undefined && !over && length > limit * 0.9;
+  const textSecondary = isDark ? "text-neutral-400" : "text-neutral-500";
+  const hover = isDark ? "hover:bg-white/10 hover:text-white" : "hover:bg-black/5 hover:text-neutral-900";
+  const active = isDark ? "bg-white/10 text-white" : "bg-black/5 text-neutral-900";
+
+  return (
+    <div
+      className={[
+        "mt-3 flex items-center justify-between border-t pt-3",
+        isDark ? "border-white/5" : "border-black/[0.04]",
+      ].join(" ")}
+    >
+      <div className="flex items-center gap-1">
+        <div className="emoji-wrapper relative">
+          <button
+            type="button"
+            aria-label="Insert emoji"
+            aria-expanded={emojiOpen}
+            onClick={onToggleEmoji}
+            className={["flex h-8 w-8 items-center justify-center rounded-lg transition", emojiOpen ? active : `${textSecondary} ${hover}`].join(" ")}
+          >
+            <Smile className="h-4 w-4" />
+          </button>
+          {emojiOpen && <EmojiPickerPanel isDark={isDark} onPick={onPickEmoji} />}
+        </div>
+        <button
+          type="button"
+          aria-label="Insert hashtag"
+          onClick={onHash}
+          className={["flex h-8 w-8 items-center justify-center rounded-lg transition", textSecondary, hover].join(" ")}
+        >
+          <Hash className="h-4 w-4" />
+        </button>
+      </div>
+      <div className="flex items-center gap-3">
+        {extra}
+        <span
+          aria-live="polite"
+          className={[
+            "text-[12px] tabular-nums",
+            over ? "font-semibold text-red-500" : near ? "font-semibold text-amber-500" : textSecondary,
+          ].join(" ")}
+        >
+          {length.toLocaleString("en-US")}
+          {limit !== undefined && limit <= 5000 ? ` / ${limit.toLocaleString("en-US")}` : ""}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function PostPreview({
+  isDark,
+  network,
+  channel,
+  text,
+  limit,
+  media,
+}: {
+  isDark: boolean;
+  network: (typeof SOCIAL_NETWORKS)[number] | null;
+  channel?: ConnectedChannel;
+  text: string;
+  limit?: number;
+  media: MediaItem[];
+}) {
+  const textPrimary = isDark ? "text-white" : "text-neutral-900";
+  const textSecondary = isDark ? "text-neutral-400" : "text-neutral-500";
+  const label = channelLabel(channel, network?.label ?? "Your account");
+  const within = limit !== undefined ? text.slice(0, limit) : text;
+  const overflow = limit !== undefined ? text.slice(limit) : "";
+  const cover = media[0];
+
+  return (
+    <div
+      className={[
+        "w-full max-w-[320px] rounded-2xl border p-4 shadow-sm",
+        isDark ? "border-white/10 bg-[#242427]" : "border-black/[0.06] bg-white",
+      ].join(" ")}
+    >
+      <div className="mb-3 flex items-center gap-2.5">
+        {network ? (
+          <Avatar
+            channel={channel}
+            label={label}
+            Icon={network.Icon}
+            size="sm"
+            isDark={isDark}
+            ringClass={isDark ? "ring-[#242427]" : "ring-white"}
+          />
+        ) : (
+          <div className={["h-8 w-8 rounded-full", isDark ? "bg-white/10" : "bg-neutral-200"].join(" ")} />
+        )}
+        <div className="min-w-0">
+          <p className={["truncate text-[13px] font-semibold", textPrimary].join(" ")}>{label}</p>
+          <p className={["text-[11.5px]", textSecondary].join(" ")}>Just now</p>
+        </div>
+      </div>
+
+      {text.trim() ? (
+        <p className={["whitespace-pre-wrap break-words text-[13.5px] leading-relaxed", textPrimary].join(" ")}>
+          {within}
+          {overflow && (
+            <mark className="rounded bg-red-500/25 px-0.5 text-inherit" title="Over the character limit">
+              {overflow}
+            </mark>
+          )}
+        </p>
+      ) : (
+        <p className={["text-[13px] italic", textSecondary].join(" ")}>Your text will appear here.</p>
+      )}
+
+      {cover && (
+        <div className="relative mt-3 overflow-hidden rounded-xl">
+          {cover.kind === "image" ? (
+            <img src={cover.url} alt="" className="max-h-[280px] w-full object-cover" />
+          ) : (
+            <video src={cover.url} className="max-h-[280px] w-full object-cover" muted playsInline />
+          )}
+          {media.length > 1 && (
+            <span className="absolute right-2 top-2 rounded-full bg-black/70 px-2 py-0.5 text-[11px] font-semibold text-white">
+              1/{media.length}
+            </span>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -641,6 +1017,7 @@ export default function NewPostModal({
   onRequestOpen,
 }: NewPostModalProps) {
   const [masterContent, setMasterContent] = useState("");
+  /** Textes personnalisés par réseau. Absent = suit le texte principal. */
   const [contents, setContents] = useState<Record<string, string>>({});
   const [title, setTitle] = useState("");
   const [networks, setNetworks] = useState<SocialNetworkId[]>([]);
@@ -654,14 +1031,13 @@ export default function NewPostModal({
   const [showActionMenu, setShowActionMenu] = useState(false);
   const [showDateTimePanel, setShowDateTimePanel] = useState(false);
   const [editingItem, setEditingItem] = useState<MediaItem | null>(null);
-  const [hoveredMediaId, setHoveredMediaId] = useState<string | null>(null);
   const [pendingDraft, setPendingDraft] = useState<DraftData | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitProgress, setSubmitProgress] = useState<string | null>(null);
-  
-  // Gestion de l'emoji, du collapse et du focus par carte
+
   const [activeEmojiNetwork, setActiveEmojiNetwork] = useState<string | null>(null);
   const [collapsedCards, setCollapsedCards] = useState<Record<string, boolean>>({});
+  const [previewNetwork, setPreviewNetwork] = useState<SocialNetworkId | null>(null);
   const [requestTick, setRequestTick] = useState(0);
 
   // ── YouTube ──
@@ -700,8 +1076,9 @@ export default function NewPostModal({
   mediaRef.current = media;
   const dropdownRef = useRef<HTMLDivElement>(null);
   const closeWithDraftRef = useRef<() => void>(() => {});
-  const activeTextareaRef = useRef<HTMLTextAreaElement>(null);
-  const caretRef = useRef<{ start: number; end: number } | null>(null);
+  const submitRef = useRef<() => void>(() => {});
+  const textareaRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
+  const caretRefs = useRef<Record<string, { start: number; end: number }>>({});
 
   const isOpenRef = useRef(isOpen);
   isOpenRef.current = isOpen;
@@ -767,6 +1144,9 @@ export default function NewPostModal({
         } else {
           closeWithDraftRef.current();
         }
+      } else if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+        event.preventDefault();
+        submitRef.current();
       }
     };
     document.addEventListener("keydown", handleKeyDown);
@@ -777,6 +1157,13 @@ export default function NewPostModal({
       document.body.style.overflow = previousOverflow;
     };
   }, [isOpen, showActionMenu, showDateTimePanel, activeEmojiNetwork]);
+
+  // Focus le champ principal à l'ouverture (sauf si un brouillon est proposé)
+  useEffect(() => {
+    if (!isOpen || savedDraft) return;
+    const id = requestAnimationFrame(() => textareaRefs.current.master?.focus());
+    return () => cancelAnimationFrame(id);
+  }, [isOpen]);
 
   useEffect(() => {
     return () => {
@@ -851,9 +1238,27 @@ export default function NewPostModal({
 
   if (!isOpen) return null;
 
-  const hasDraftContent =
-    Object.values(contents).some((c) => c.trim().length > 0) ||
+  /* ── Contenu : le texte principal est la source, chaque réseau peut le surcharger ── */
+
+  const contentFor = (id: string): string => contents[id] ?? masterContent;
+  const isCustomized = (id: string): boolean =>
+    contents[id] !== undefined && contents[id] !== masterContent;
+
+  const strictestLimit = networks.length
+    ? Math.min(...networks.map((n) => CHAR_LIMITS[n]))
+    : undefined;
+
+  const overLimitNetworks = networks.filter(
+    (n) => contentFor(n).length > CHAR_LIMITS[n]
+  );
+
+  const hasContent =
     masterContent.trim().length > 0 ||
+    networks.some((n) => contentFor(n).trim().length > 0);
+
+  const hasDraftContent =
+    hasContent ||
+    Object.values(contents).some((c) => c.trim().length > 0) ||
     title.trim().length > 0 ||
     media.length > 0;
 
@@ -876,6 +1281,7 @@ export default function NewPostModal({
     setSubmitProgress(null);
     setActiveEmojiNetwork(null);
     setCollapsedCards({});
+    setPreviewNetwork(null);
     setTiktokInfo(null);
     setTiktokInfoError(null);
     setTiktokMode("direct");
@@ -883,7 +1289,7 @@ export default function NewPostModal({
     setTiktokAllow(TIKTOK_DEFAULT_ALLOW);
     setTiktokCommercial(TIKTOK_DEFAULT_COMMERCIAL);
     setYoutubeOptions(YOUTUBE_DEFAULT_OPTIONS);
-    caretRef.current = null;
+    caretRefs.current = {};
     preselectRef.current = null;
   };
 
@@ -932,7 +1338,7 @@ export default function NewPostModal({
         kind: file.type.startsWith("video/") ? "video" : "image",
       }))
     );
-    caretRef.current = null;
+    caretRefs.current = {};
     savedDraft = null;
     setPendingDraft(null);
   };
@@ -942,72 +1348,64 @@ export default function NewPostModal({
     setPendingDraft(null);
   };
 
-  const updateCaret = (el: HTMLTextAreaElement) => {
-    activeTextareaRef.current = el;
-    caretRef.current = { start: el.selectionStart, end: el.selectionEnd };
-  };
-
-  const insertAtCursor = (text: string) => {
-    const activeTarget = activeEmojiNetwork;
-    
-    if (activeTarget === 'master') {
-      const caret = caretRef.current ?? { start: masterContent.length, end: masterContent.length };
-      const start = Math.min(caret.start, masterContent.length);
-      const end = Math.min(Math.max(caret.end, start), masterContent.length);
-      const next = masterContent.slice(0, start) + text + masterContent.slice(end);
-      const position = start + text.length;
-
-      setMasterContent(next);
-      setContents(prev => {
-        const updated = { ...prev };
-        networks.forEach(n => {
-          updated[n] = next;
-        });
-        return updated;
-      });
-
-      caretRef.current = { start: position, end: position };
-      setActiveEmojiNetwork(null);
-
-      requestAnimationFrame(() => {
-        if (!activeTextareaRef.current) return;
-        activeTextareaRef.current.focus();
-        activeTextareaRef.current.setSelectionRange(position, position);
-      });
-    } else if (activeTarget) {
-      const currentText = contents[activeTarget] || "";
-      const caret = caretRef.current ?? { start: currentText.length, end: currentText.length };
-      const start = Math.min(caret.start, currentText.length);
-      const end = Math.min(Math.max(caret.end, start), currentText.length);
-      const next = currentText.slice(0, start) + text + currentText.slice(end);
-      const position = start + text.length;
-
-      setContents(prev => ({ ...prev, [activeTarget]: next }));
-      caretRef.current = { start: position, end: position };
-      setActiveEmojiNetwork(null);
-
-      requestAnimationFrame(() => {
-        if (!activeTextareaRef.current) return;
-        activeTextareaRef.current.focus();
-        activeTextareaRef.current.setSelectionRange(position, position);
-      });
-    }
+  const updateCaret = (target: string, el: HTMLTextAreaElement) => {
+    caretRefs.current[target] = { start: el.selectionStart, end: el.selectionEnd };
   };
 
   const handleMasterChange = (val: string) => {
-    const nextVal = toSentenceCase(val);
-    setMasterContent(nextVal);
-    setContents(prev => {
-      const updated = { ...prev };
-      networks.forEach(n => {
-        updated[n] = nextVal;
-      });
-      return updated;
+    const previous = masterContent;
+    setMasterContent(val);
+    // Les réseaux qui suivaient encore le texte principal continuent de le suivre ;
+    // ceux qui ont été personnalisés gardent leur version.
+    setContents((prev) => {
+      const next = { ...prev };
+      for (const key of Object.keys(next)) {
+        if (next[key] === previous) delete next[key];
+      }
+      return next;
     });
   };
 
   const handleNetworkChange = (networkId: string, val: string) => {
-    setContents(prev => ({ ...prev, [networkId]: toSentenceCase(val) }));
+    setContents((prev) => {
+      const next = { ...prev };
+      if (val === masterContent) delete next[networkId];
+      else next[networkId] = val;
+      return next;
+    });
+  };
+
+  const resetToMaster = (networkId: string) => {
+    setContents((prev) => {
+      const next = { ...prev };
+      delete next[networkId];
+      return next;
+    });
+  };
+
+  const insertAtCursor = (target: string, text: string) => {
+    const current = target === "master" ? masterContent : contentFor(target);
+    const caret = caretRefs.current[target] ?? {
+      start: current.length,
+      end: current.length,
+    };
+    const start = Math.min(caret.start, current.length);
+    const end = Math.min(Math.max(caret.end, start), current.length);
+    const next = current.slice(0, start) + text + current.slice(end);
+    const position = start + text.length;
+
+    if (target === "master") handleMasterChange(next);
+    else handleNetworkChange(target, next);
+
+    caretRefs.current[target] = { start: position, end: position };
+    setActiveEmojiNetwork(null);
+
+    requestAnimationFrame(() => {
+      const el = textareaRefs.current[target];
+      if (!el) return;
+      el.focus();
+      el.setSelectionRange(position, position);
+    });
   };
 
   const toggleNetwork = (id: SocialNetworkId) => {
@@ -1021,39 +1419,55 @@ export default function NewPostModal({
     );
   };
 
+  const allSelected =
+    channelTiles.length > 0 &&
+    channelTiles.every((t) => networks.includes(t.network.id));
+
+  const toggleAllNetworks = () => {
+    if (allSelected) {
+      setNetworks([]);
+      setTiktokInfo(null);
+      setTiktokInfoError(null);
+    } else {
+      setNetworks(Array.from(new Set(channelTiles.map((t) => t.network.id))));
+    }
+  };
+
   const handleConnectChannel = () => {
     closeWithDraft();
     navigate("channels");
   };
 
   const toggleCollapse = (id: string) => {
-    setCollapsedCards(prev => ({ ...prev, [id]: !prev[id] }));
+    setCollapsedCards((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
   const addFiles = (fileList: FileList | File[]) => {
-    const incoming = Array.from(fileList).filter(
+    const all = Array.from(fileList);
+    const incoming = all.filter(
       (file) => file.type.startsWith("image/") || file.type.startsWith("video/")
     );
+    const room = Math.max(MAX_MEDIA - mediaRef.current.length, 0);
+    const accepted = incoming.slice(0, room);
 
-    setMedia((prev) => {
-      const room = MAX_MEDIA - prev.length;
-      const accepted = incoming.slice(0, Math.max(room, 0));
+    if (incoming.length > accepted.length) {
+      setMediaError(`You can add up to ${MAX_MEDIA} files per post.`);
+    } else if (incoming.length < all.length) {
+      setMediaError("Only images and videos are supported.");
+    } else {
+      setMediaError(null);
+    }
 
-      if (incoming.length > accepted.length) {
-        setMediaError(`Maximum ${MAX_MEDIA} fichiers.`);
-      } else {
-        setMediaError(null);
-      }
+    if (accepted.length === 0) return;
 
-      const newItems: MediaItem[] = accepted.map((file) => ({
-        id: makeId(),
-        file,
-        url: URL.createObjectURL(file),
-        kind: file.type.startsWith("video/") ? "video" : "image",
-      }));
+    const newItems: MediaItem[] = accepted.map((file) => ({
+      id: makeId(),
+      file,
+      url: URL.createObjectURL(file),
+      kind: file.type.startsWith("video/") ? "video" : "image",
+    }));
 
-      return [...prev, ...newItems];
-    });
+    setMedia((prev) => [...prev, ...newItems]);
   };
 
   const removeMedia = (id: string) => {
@@ -1076,6 +1490,8 @@ export default function NewPostModal({
     setEditingItem(null);
   };
 
+  /* ── TikTok ── */
+
   const tiktokVideo = media.find((m) => m.kind === "video")?.file ?? null;
   const tiktokImages = media.filter((m) => m.kind === "image");
   const tiktokPostType: "video" | "photo" | null = tiktokVideo
@@ -1083,6 +1499,17 @@ export default function NewPostModal({
     : tiktokImages.length > 0
     ? "photo"
     : null;
+
+  const tiktokTypeLabel =
+    tiktokPostType === "photo"
+      ? tiktokImages.length > 1
+        ? `Carousel of ${tiktokImages.length} photos`
+        : "Photo post"
+      : tiktokPostType === "video"
+      ? tiktokImages.length > 0
+        ? "Video post (photos are ignored)"
+        : "Video post"
+      : "Add a video, or one or more photos.";
 
   const brandedChosen =
     tiktokMode === "direct" && tiktokCommercial.on && tiktokCommercial.branded;
@@ -1094,7 +1521,7 @@ export default function NewPostModal({
     : scheduleAction === "save_in_folder"
     ? null
     : !tiktokPostType
-    ? "TikTok requires a video or at least one photo. Add media, or deselect TikTok."
+    ? "TikTok needs a video or at least one photo."
     : tiktokMode === "direct" && !tiktokOptions.privacy_level
     ? tiktokPrivacyOptions.length === 0 && !tiktokInfoError
       ? "Loading TikTok settings…"
@@ -1103,16 +1530,21 @@ export default function NewPostModal({
       tiktokCommercial.on &&
       !tiktokCommercial.yourBrand &&
       !tiktokCommercial.branded
-    ? "You need to indicate if your content promotes yourself, a third party, or both."
+    ? "Say whether your TikTok promotes yourself, a third party, or both."
     : null;
 
-  const primaryContent = masterContent || contents[networks[0]] || "";
-  
-  const youtubeEffectiveTitle = (
-    youtubeOptions.title.trim() ||
+  /* ── YouTube ── */
+
+  const primaryContent = masterContent || (networks[0] ? contentFor(networks[0]) : "");
+
+  const youtubeFallbackTitle = (
     title.trim() ||
     primaryContent.trim().split("\n")[0] ||
     ""
+  ).slice(0, YOUTUBE_TITLE_MAX);
+
+  const youtubeEffectiveTitle = (
+    youtubeOptions.title.trim() || youtubeFallbackTitle
   ).slice(0, YOUTUBE_TITLE_MAX);
 
   const youtubeBlockingReason: string | null = !youtubeSelected
@@ -1120,7 +1552,7 @@ export default function NewPostModal({
     : scheduleAction === "save_in_folder"
     ? null
     : !youtubeEffectiveTitle
-    ? "Enter a title for your YouTube Shorts video."
+    ? "Add a title for your YouTube Shorts video."
     : null;
 
   const updateYoutube = <K extends keyof YouTubeOptions>(
@@ -1128,23 +1560,40 @@ export default function NewPostModal({
     value: YouTubeOptions[K]
   ) => setYoutubeOptions((o) => ({ ...o, [key]: value }));
 
-  const hasContent = Object.values(contents).some((c) => c.trim().length > 0);
+  /* ── Validation : une seule raison lisible, affichée dans le footer ── */
 
-  const canSubmit =
-    networks.length > 0 &&
-    (hasContent || media.length > 0) &&
-    (scheduleAction !== "set_date" || scheduledAt.getTime() > Date.now()) &&
-    !tiktokBlockingReason &&
-    !youtubeBlockingReason &&
-    !isSubmitting;
+  const labelOf = (id: SocialNetworkId) =>
+    SOCIAL_NETWORKS.find((n) => n.id === id)?.label ?? id;
+
+  const blockingReason: string | null =
+    networks.length === 0
+      ? "Select at least one channel."
+      : !hasContent && media.length === 0
+      ? "Write something or add media."
+      : scheduleAction === "set_date" && scheduledAt.getTime() <= Date.now()
+      ? "Pick a date and time in the future."
+      : overLimitNetworks.length > 0
+      ? `Too long for ${overLimitNetworks.map(labelOf).join(", ")}.`
+      : tiktokBlockingReason || youtubeBlockingReason || null;
+
+  const canSubmit = !blockingReason && !isSubmitting;
 
   const showTikTokDeclaration = tiktokSelected && scheduleAction === "now";
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
 
-    const allTexts = Object.values(contents).join(" ");
-    const extractedHashtags = allTexts.match(/#[\w]+/g)?.map((h) => h.slice(1)) || [];
+    const resolved: Record<string, string> = {};
+    networks.forEach((n) => {
+      resolved[n] = contentFor(n);
+    });
+
+    const allTexts = Object.values(resolved).join(" ");
+    const extractedHashtags = Array.from(
+      new Set(
+        (allTexts.match(/#[\p{L}\p{N}_]+/gu) ?? []).map((h) => h.slice(1))
+      )
+    );
 
     const tiktokNow = tiktokSelected && scheduleAction === "now";
     const remainingNetworks = tiktokNow
@@ -1153,8 +1602,8 @@ export default function NewPostModal({
 
     const payload: NewPostPayload = {
       title: title.trim(),
-      content: contents[remainingNetworks[0]]?.trim() || masterContent.trim() || "",
-      contents: contents,
+      content: resolved[remainingNetworks[0]]?.trim() || masterContent.trim() || "",
+      contents: resolved,
       hashtags: extractedHashtags,
       networks: remainingNetworks,
       scheduleMode: scheduleAction === "set_date" ? "later" : scheduleAction,
@@ -1172,8 +1621,7 @@ export default function NewPostModal({
       setSubmitProgress(null);
 
       if (tiktokNow && tiktokPostType) {
-        const tiktokCaption = contents["tiktok"]?.trim() || masterContent.trim() || "";
-
+        const tiktokCaption = resolved["tiktok"]?.trim() || "";
         const isPhoto = tiktokPostType === "photo";
 
         if (tiktokVideo) {
@@ -1185,12 +1633,7 @@ export default function NewPostModal({
             const duration = await getVideoDuration(tiktokVideo);
             if (duration > maxDuration) {
               throw new Error(
-                `This video is too long for your TikTok account (max ${Math.floor(
-                  maxDuration / 60
-                )} min ${maxDuration % 60 ? `${maxDuration % 60} s` : ""}).`.replace(
-                  /\s+\)/,
-                  ")"
-                )
+                `This video is too long for your TikTok account (max ${formatDuration(maxDuration)}).`
               );
             }
           }
@@ -1254,6 +1697,7 @@ export default function NewPostModal({
           );
         });
 
+        // TikTok est déjà parti : on le retire pour ne pas le renvoyer en cas de nouvel essai.
         setNetworks((prev) => prev.filter((n) => n !== "tiktok"));
       }
 
@@ -1266,7 +1710,7 @@ export default function NewPostModal({
 
       discardAndClose();
     } catch (error) {
-      console.error("Erreur lors de la création du post:", error);
+      console.error("Error while creating the post:", error);
 
       const raw = error instanceof Error ? error.message : "";
       const message = /too_many_posts|spam_risk/i.test(raw)
@@ -1278,16 +1722,12 @@ export default function NewPostModal({
       setIsSubmitting(false);
     }
   };
+  submitRef.current = handleSubmit;
 
   const selectAction = (action: ScheduleAction) => {
     setScheduleAction(action);
-    if (action === "set_date") {
-      setShowActionMenu(false);
-      setShowDateTimePanel(true);
-    } else {
-      setShowDateTimePanel(false);
-      setShowActionMenu(false);
-    }
+    setShowActionMenu(false);
+    setShowDateTimePanel(action === "set_date");
   };
 
   const applyPostingSlot = (hour: number, minute: number) => {
@@ -1308,21 +1748,25 @@ export default function NewPostModal({
   const submitLabel = isSubmitting
     ? scheduleAction === "save_in_folder"
       ? "Saving…"
+      : scheduleAction === "set_date"
+      ? "Scheduling…"
       : "Publishing…"
     : scheduleAction === "now"
     ? tiktokSelected && tiktokMode === "draft"
       ? "Send to TikTok"
-      : "Post Now"
+      : "Post now"
     : scheduleAction === "save_in_folder"
-    ? "Save Post"
-    : "Schedule Post";
+    ? "Save post"
+    : "Schedule post";
 
   // ── Thèmes ──
   const bgModal = isDark ? "bg-[#141416]" : "bg-white";
   const bgPanel = isDark ? "bg-[#1c1c1e]" : "bg-neutral-50";
+  const bgCard = isDark ? "bg-[#1c1c1e]" : "bg-neutral-50";
   const border = isDark ? "border-white/10" : "border-black/[0.06]";
   const textPrimary = isDark ? "text-white" : "text-neutral-900";
   const textSecondary = isDark ? "text-neutral-400" : "text-neutral-500";
+  const hoverSoft = isDark ? "hover:bg-white/10 hover:text-white" : "hover:bg-black/5 hover:text-neutral-900";
 
   const accentBg = isDark ? "bg-white/10" : "bg-neutral-200";
   const accentText = isDark ? "text-white" : "text-neutral-900";
@@ -1346,6 +1790,28 @@ export default function NewPostModal({
 
   const linkClass = "underline underline-offset-2 hover:opacity-80";
 
+  const textareaClass = [
+    "w-full resize-none bg-transparent text-[15px] leading-relaxed outline-none",
+    textPrimary,
+    isDark ? "placeholder:text-neutral-600" : "placeholder:text-neutral-400",
+  ].join(" ");
+
+  // Aperçu : réseau actif (onglet), sinon le premier sélectionné
+  const activePreviewId =
+    previewNetwork && networks.includes(previewNetwork)
+      ? previewNetwork
+      : networks[0] ?? null;
+  const previewNetworkData = activePreviewId
+    ? SOCIAL_NETWORKS.find((n) => n.id === activePreviewId) ?? null
+    : null;
+  const previewChannel = activePreviewId
+    ? channelTiles.find((t) => t.network.id === activePreviewId)?.channel
+    : undefined;
+  const previewText = activePreviewId ? contentFor(activePreviewId) : masterContent;
+  const previewHasSomething = previewText.trim().length > 0 || media.length > 0;
+
+  const avatarRing = isDark ? "ring-[#1c1c1e]" : "ring-neutral-50";
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-3 backdrop-blur-md"
@@ -1354,6 +1820,9 @@ export default function NewPostModal({
       }}
     >
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Create post"
         className={[
           "relative flex flex-col overflow-hidden border",
           isFullscreen
@@ -1367,14 +1836,20 @@ export default function NewPostModal({
         {/* ── Header ── */}
         <div className={["flex shrink-0 items-center justify-between border-b px-6 py-4", border].join(" ")}>
           <div className="flex items-center gap-4">
-            <button 
+            <button
+              type="button"
               onClick={closeWithDraft}
-              className={["flex items-center gap-2 text-[17px] font-bold tracking-tight transition", textPrimary, isDark ? "hover:opacity-80" : "hover:opacity-70"].join(" ")}
+              className={["flex items-center gap-2 rounded-lg text-[17px] font-bold tracking-tight transition hover:opacity-70", textPrimary].join(" ")}
             >
               <ArrowLeft className="h-4 w-4" />
-              Create Post
+              Create post
             </button>
-            <button className={["flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[13px] font-medium transition", border, isDark ? "hover:bg-white/5" : "hover:bg-black/5", textSecondary].join(" ")}>
+            <button
+              type="button"
+              disabled
+              title="Coming soon"
+              className={["flex cursor-not-allowed items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[13px] font-medium opacity-50", border, textSecondary].join(" ")}
+            >
               <Tag className="h-3.5 w-3.5" />
               Tags
               <ChevronDown className="h-3.5 w-3.5" />
@@ -1382,20 +1857,30 @@ export default function NewPostModal({
           </div>
 
           <div className="flex items-center gap-2">
-            <button className={["flex items-center gap-1.5 px-3 py-1.5 text-[13px] font-medium transition", textSecondary, isDark ? "hover:text-white" : "hover:text-neutral-900"].join(" ")}>
+            <button
+              type="button"
+              disabled
+              title="Coming soon"
+              className={["flex cursor-not-allowed items-center gap-1.5 px-3 py-1.5 text-[13px] font-medium opacity-50", textSecondary].join(" ")}
+            >
               <FileText className="h-4 w-4" />
               Templates
             </button>
             <div className={["mx-1 h-5 w-px", isDark ? "bg-white/10" : "bg-black/10"].join(" ")} />
             <button
+              type="button"
+              aria-label={isFullscreen ? "Exit full screen" : "Enter full screen"}
               onClick={() => setIsFullscreen((v) => !v)}
-              className={["flex h-8 w-8 items-center justify-center rounded-full transition", textSecondary, isDark ? "hover:bg-white/10 hover:text-white" : "hover:bg-black/5 hover:text-neutral-900"].join(" ")}
+              className={["flex h-8 w-8 items-center justify-center rounded-full transition", textSecondary, hoverSoft].join(" ")}
             >
               {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
             </button>
             <button
+              type="button"
+              aria-label="Close"
+              title={hasDraftContent ? "Close (your draft is kept)" : "Close"}
               onClick={closeWithDraft}
-              className={["flex h-8 w-8 items-center justify-center rounded-full transition", textSecondary, isDark ? "hover:bg-white/10 hover:text-white" : "hover:bg-black/5 hover:text-neutral-900"].join(" ")}
+              className={["flex h-8 w-8 items-center justify-center rounded-full transition", textSecondary, hoverSoft].join(" ")}
             >
               <X className="h-4 w-4" />
             </button>
@@ -1405,312 +1890,366 @@ export default function NewPostModal({
         {/* ── Body ── */}
         <div className="flex min-h-0 flex-1 overflow-hidden">
           {/* Colonne gauche */}
-          <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-6">
-            
-            {/* Canaux connectés */}
-            <div className="mb-6 flex flex-wrap items-center gap-4">
-              {channelTiles.map(({ channel, network }) => (
-                <ChannelTile
-                  key={channel.key}
-                  channel={channel}
-                  NetworkIcon={network.Icon}
-                  isDark={isDark}
-                  isSelected={networks.includes(network.id)}
-                  onToggle={() => toggleNetwork(network.id)}
-                />
-              ))}
-              <button
-                type="button"
-                onClick={handleConnectChannel}
-                className={[
-                  "flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border transition",
-                  isDark
-                    ? "border-white/10 bg-[#242427] text-neutral-400 hover:bg-[#2e2e31] hover:text-white"
-                    : "border-black/10 bg-neutral-100 text-neutral-500 hover:bg-neutral-200 hover:text-neutral-900",
-                ].join(" ")}
-              >
-                <Plus className="h-5 w-5" />
-              </button>
-            </div>
+          <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto p-6">
 
-            {/* Master Post Area */}
-            {networks.length > 0 && (
-              <div className={["mb-6 flex flex-col rounded-2xl border p-5", border, isDark ? "bg-[#1c1c1e]" : "bg-neutral-50"].join(" ")}>
-                <div className="mb-3 flex items-center gap-3">
+            {/* Canaux connectés */}
+            <section aria-label="Channels">
+              <div className="mb-3 flex items-center justify-between">
+                <h2 className={["text-[13px] font-semibold", textPrimary].join(" ")}>
+                  Post to
+                  {networks.length > 0 && (
+                    <span className={["ml-2 font-normal", textSecondary].join(" ")}>
+                      {networks.length} selected
+                    </span>
+                  )}
+                </h2>
+                {channelTiles.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={toggleAllNetworks}
+                    className={["rounded-md px-2 py-1 text-[12.5px] font-semibold transition", textSecondary, hoverSoft].join(" ")}
+                  >
+                    {allSelected ? "Clear all" : "Select all"}
+                  </button>
+                )}
+              </div>
+              <div className="flex flex-wrap items-center gap-4">
+                {channelTiles.map(({ channel, network }) => (
+                  <ChannelTile
+                    key={channel.key}
+                    channel={channel}
+                    network={network}
+                    isDark={isDark}
+                    isSelected={networks.includes(network.id)}
+                    onToggle={() => toggleNetwork(network.id)}
+                  />
+                ))}
+                <button
+                  type="button"
+                  onClick={handleConnectChannel}
+                  title="Connect a channel"
+                  aria-label="Connect a channel"
+                  className={[
+                    "flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-dashed transition",
+                    isDark
+                      ? "border-white/20 text-neutral-400 hover:bg-white/5 hover:text-white"
+                      : "border-black/20 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900",
+                  ].join(" ")}
+                >
+                  <Plus className="h-5 w-5" />
+                </button>
+              </div>
+              {channelTiles.length === 0 && (
+                <p className={["mt-3 text-[13px]", textSecondary].join(" ")}>
+                  No channel connected yet. Connect one to start publishing.
+                </p>
+              )}
+            </section>
+
+            {/* Zone d'écriture principale */}
+            <section
+              aria-label="Post text"
+              className={["flex flex-col rounded-2xl border p-5", border, bgCard].join(" ")}
+            >
+              <div className="mb-3 flex items-center gap-3">
+                {networks.length > 0 && (
                   <div className="flex items-center -space-x-2">
                     {networks.map((networkId) => {
                       const network = SOCIAL_NETWORKS.find((n) => n.id === networkId)!;
-                      const tile = channelTiles.find((t) => t.network.id === networkId);
-                      const channel = tile?.channel;
-                      const label = channel?.handle || channel?.name || network.label;
-                      const initial = label.replace(/^@/, "").charAt(0).toUpperCase() || "?";
-
+                      const channel = channelTiles.find((t) => t.network.id === networkId)?.channel;
                       return (
-                        <div
+                        <Avatar
                           key={networkId}
-                          className={[
-                            "relative flex h-8 w-8 shrink-0 items-center justify-center rounded-full ring-2",
-                            isDark ? "bg-[#2a2a2d] ring-[#1c1c1e]" : "bg-neutral-200 ring-neutral-50"
-                          ].join(" ")}
-                        >
-                          {channel?.avatarUrl ? (
-                            <img
-                              src={channel.avatarUrl}
-                              alt={label}
-                              referrerPolicy="no-referrer"
-                              className="h-full w-full rounded-full object-cover"
-                            />
-                          ) : (
-                            <span className={["text-[11px] font-semibold", isDark ? "text-white" : "text-neutral-900"].join(" ")}>
-                              {initial}
-                            </span>
-                          )}
-                          <span className="absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-white text-black ring-[2px] ring-[#1c1c1e] dark:ring-[#1c1c1e]">
-                            <network.Icon className="h-2.5 w-2.5" />
-                          </span>
-                        </div>
+                          channel={channel}
+                          label={channelLabel(channel, network.label)}
+                          Icon={network.Icon}
+                          size="sm"
+                          isDark={isDark}
+                          ringClass={avatarRing}
+                        />
                       );
                     })}
                   </div>
-                  <span className={["font-semibold text-[15px]", textPrimary].join(" ")}>Post to all selected networks</span>
-                </div>
-                
-                <textarea
-                  value={masterContent}
-                  onChange={(e) => {
-                    handleMasterChange(e.target.value);
-                    updateCaret(e.target);
-                  }}
-                  onSelect={(e) => updateCaret(e.target)}
-                  onKeyUp={(e) => updateCaret(e.target)}
-                  onClick={(e) => updateCaret(e.target)}
-                  placeholder="Write once, post everywhere..."
-                  className={[
-                    "w-full min-h-[80px] resize-none bg-transparent text-[15px] leading-relaxed outline-none",
-                    textPrimary,
-                    isDark ? "placeholder:text-neutral-600" : "placeholder:text-neutral-400",
-                  ].join(" ")}
-                />
+                )}
+                <span className={["text-[15px] font-semibold", textPrimary].join(" ")}>
+                  {networks.length > 1
+                    ? "Write once, post everywhere"
+                    : networks.length === 1
+                    ? "Your post"
+                    : "Write your post"}
+                </span>
+              </div>
 
-                <div className="mt-3 flex items-center justify-between border-t pt-3 border-black/[0.04] dark:border-white/5">
-                  <div className="flex items-center gap-3">
-                    <div className="emoji-wrapper relative">
-                      <button
-                        type="button"
-                        onClick={() => setActiveEmojiNetwork(activeEmojiNetwork === 'master' ? null : 'master')}
-                        className={["transition", activeEmojiNetwork === 'master' ? textPrimary : textSecondary, isDark ? "hover:text-white" : "hover:text-neutral-900"].join(" ")}
-                      >
-                        <Smile className="h-4 w-4" />
-                      </button>
-                      {activeEmojiNetwork === 'master' && <EmojiPickerPanel isDark={isDark} onPick={insertAtCursor} />}
-                    </div>
+              <AutoTextarea
+                value={masterContent}
+                onChange={handleMasterChange}
+                onCaret={(el) => updateCaret("master", el)}
+                textareaRef={(el) => {
+                  textareaRefs.current.master = el;
+                }}
+                ariaLabel="Post text for all selected channels"
+                placeholder="What do you want to share?"
+                className={[textareaClass, "min-h-[88px]"].join(" ")}
+              />
+
+              <ComposerToolbar
+                isDark={isDark}
+                emojiOpen={activeEmojiNetwork === "master"}
+                onToggleEmoji={() =>
+                  setActiveEmojiNetwork(activeEmojiNetwork === "master" ? null : "master")
+                }
+                onPickEmoji={(emoji) => insertAtCursor("master", emoji)}
+                onHash={() => insertAtCursor("master", "#")}
+                length={masterContent.length}
+                limit={strictestLimit}
+              />
+            </section>
+
+            {/* Médias (partagés par tous les réseaux) */}
+            <section
+              aria-label="Media"
+              onDragOver={(e) => {
+                e.preventDefault();
+                setIsDragging(true);
+              }}
+              onDragLeave={(e) => {
+                if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
+                  setIsDragging(false);
+                }
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                setIsDragging(false);
+                if (e.dataTransfer.files) addFiles(e.dataTransfer.files);
+              }}
+              className={[
+                "relative rounded-2xl border p-5 transition-colors",
+                isDragging
+                  ? isDark
+                    ? "border-white/40 bg-white/5"
+                    : "border-neutral-400 bg-neutral-100"
+                  : [border, bgCard].join(" "),
+              ].join(" ")}
+            >
+              <div className="mb-3 flex items-center justify-between">
+                <h2 className={["text-[15px] font-semibold", textPrimary].join(" ")}>Media</h2>
+                <span className={["text-[12px] tabular-nums", textSecondary].join(" ")}>
+                  {media.length} / {MAX_MEDIA}
+                </span>
+              </div>
+
+              <div className="flex flex-wrap items-end gap-3">
+                {media.map((item, index) => (
+                  <div
+                    key={item.id}
+                    className="group relative h-[100px] w-[100px] shrink-0 overflow-hidden rounded-xl border border-black/5"
+                  >
+                    {item.kind === "image" ? (
+                      <img src={item.url} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="relative h-full w-full">
+                        <video src={item.url} className="h-full w-full object-cover" muted playsInline />
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/30 text-white">
+                          <Play className="h-5 w-5 fill-current" />
+                        </div>
+                      </div>
+                    )}
+                    {index === 0 && media.length > 1 && (
+                      <span className="absolute bottom-1.5 left-1.5 rounded-md bg-black/70 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                        Cover
+                      </span>
+                    )}
+                    <div className="pointer-events-none absolute inset-0 bg-black/0 transition-colors group-hover:bg-black/20" />
                     <button
                       type="button"
-                      onClick={() => insertAtCursor("#")}
-                      className={["transition", textSecondary, isDark ? "hover:text-white" : "hover:text-neutral-900"].join(" ")}
+                      aria-label="Remove media"
+                      onClick={() => removeMedia(item.id)}
+                      className="absolute right-1.5 top-1.5 z-30 flex h-6 w-6 items-center justify-center rounded-lg bg-black/70 text-white opacity-0 backdrop-blur-sm transition-opacity hover:bg-black/90 focus-visible:opacity-100 group-hover:opacity-100"
                     >
-                      <Hash className="h-4 w-4" />
+                      <X className="h-3.5 w-3.5" strokeWidth={2.5} />
                     </button>
+                    {item.kind === "image" && (
+                      <button
+                        type="button"
+                        aria-label="Edit image"
+                        onClick={() => setEditingItem(item)}
+                        className="absolute bottom-1.5 right-1.5 z-30 flex h-6 w-6 items-center justify-center rounded-lg bg-black/70 text-white opacity-0 backdrop-blur-sm transition-opacity hover:bg-black/90 focus-visible:opacity-100 group-hover:opacity-100"
+                      >
+                        <Pencil className="h-3.5 w-3.5" strokeWidth={2.5} />
+                      </button>
+                    )}
                   </div>
-                  <span className={["text-[12px] tabular-nums", textSecondary].join(" ")}>
-                    {masterContent.length}
-                  </span>
-                </div>
-              </div>
-            )}
+                ))}
 
-            {/* Liste des cartes par réseau */}
-            <div className="flex flex-col gap-6">
-              {networks.length === 0 && (
-                <div className="flex flex-1 items-center justify-center text-[14px] text-neutral-500 py-10">
-                  Select a network above to start composing your post.
+                {media.length < MAX_MEDIA && (
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className={[
+                      "flex h-[100px] w-[100px] shrink-0 cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed text-center transition-colors",
+                      isDark
+                        ? "border-white/15 hover:border-white/30 hover:bg-white/5"
+                        : "border-neutral-300 hover:border-neutral-400 hover:bg-white",
+                    ].join(" ")}
+                  >
+                    <ImagePlus className={["h-6 w-6", isDark ? "text-white/40" : "text-neutral-400"].join(" ")} strokeWidth={1.75} />
+                    <span className={["text-[11px] font-medium leading-tight", isDark ? "text-white/50" : "text-neutral-500"].join(" ")}>
+                      {media.length === 0 ? "Add or drop" : "Add more"}
+                    </span>
+                  </button>
+                )}
+              </div>
+
+              {isDragging && (
+                <div
+                  className={[
+                    "pointer-events-none absolute inset-0 flex items-center justify-center rounded-2xl text-[14px] font-semibold backdrop-blur-[1px]",
+                    isDark ? "bg-black/50 text-white" : "bg-white/70 text-neutral-900",
+                  ].join(" ")}
+                >
+                  Drop to add to your post
                 </div>
               )}
 
-              {networks.map((networkId) => {
-                const network = SOCIAL_NETWORKS.find((n) => n.id === networkId)!;
-                const tile = channelTiles.find((t) => t.network.id === networkId);
-                const isEmojiOpen = activeEmojiNetwork === networkId;
-                const isCollapsed = collapsedCards[networkId];
-                
-                const channel = tile?.channel;
-                const label = channel?.handle || channel?.name || network.label;
-                const initial = label.replace(/^@/, "").charAt(0).toUpperCase() || "?";
-                const currentContent = contents[networkId] || "";
+              {mediaError && (
+                <p role="alert" className="mt-3 text-[12.5px] text-red-500">
+                  {mediaError}
+                </p>
+              )}
 
-                return (
-                  <div
-                    key={networkId}
-                    className={[
-                      "relative flex flex-col rounded-2xl border p-5 transition-all duration-200",
-                      border,
-                      isDark ? "bg-[#1c1c1e]" : "bg-neutral-50",
-                    ].join(" ")}
-                  >
-                    {/* Header de la carte */}
-                    <button
-                      type="button"
-                      onClick={() => toggleCollapse(networkId)}
-                      className="flex w-full items-center justify-between text-left outline-none"
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*,video/*"
+                multiple
+                className="hidden"
+                onChange={(e) => {
+                  if (e.target.files) addFiles(e.target.files);
+                  e.target.value = "";
+                }}
+              />
+            </section>
+
+            {/* Cartes par réseau */}
+            {networks.length > 0 ? (
+              <section aria-label="Customize per channel" className="flex flex-col gap-4">
+                <div>
+                  <h2 className={["text-[15px] font-semibold", textPrimary].join(" ")}>
+                    Customize per channel
+                  </h2>
+                  <p className={["mt-0.5 text-[12.5px]", textSecondary].join(" ")}>
+                    Each channel follows your text above until you edit it here.
+                  </p>
+                </div>
+
+                {networks.map((networkId) => {
+                  const network = SOCIAL_NETWORKS.find((n) => n.id === networkId)!;
+                  const channel = channelTiles.find((t) => t.network.id === networkId)?.channel;
+                  const label = channelLabel(channel, network.label);
+                  const isEmojiOpen = activeEmojiNetwork === networkId;
+                  const isCollapsed = Boolean(collapsedCards[networkId]);
+                  const currentContent = contentFor(networkId);
+                  const customized = isCustomized(networkId);
+                  const limit = CHAR_LIMITS[networkId];
+                  const over = currentContent.length > limit;
+
+                  return (
+                    <div
+                      key={networkId}
+                      className={[
+                        "relative flex flex-col rounded-2xl border p-5 transition-colors",
+                        over ? "border-red-500/60" : border,
+                        bgCard,
+                      ].join(" ")}
                     >
-                      <div className="flex items-center gap-3">
-                        <div className="relative h-10 w-10 shrink-0">
-                          {channel?.avatarUrl ? (
-                            <img
-                              src={channel.avatarUrl}
-                              alt={label}
-                              referrerPolicy="no-referrer"
-                              className="h-full w-full rounded-xl object-cover"
-                            />
-                          ) : (
-                            <span className="flex h-full w-full items-center justify-center rounded-xl bg-neutral-900 text-white text-[14px] font-semibold">
-                              {initial}
-                            </span>
-                          )}
-                          <span className={[
-                            "absolute -bottom-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-white text-black ring-2",
-                            isDark ? "ring-[#1c1c1e]" : "ring-neutral-50"
-                          ].join(" ")}>
-                            <network.Icon className="h-3 w-3" />
-                          </span>
+                      {/* Header de la carte */}
+                      <button
+                        type="button"
+                        onClick={() => toggleCollapse(networkId)}
+                        aria-expanded={!isCollapsed}
+                        className="flex w-full items-center justify-between gap-3 text-left outline-none"
+                      >
+                        <div className="flex min-w-0 items-center gap-3">
+                          <Avatar
+                            channel={channel}
+                            label={label}
+                            Icon={network.Icon}
+                            size="md"
+                            isDark={isDark}
+                            ringClass={avatarRing}
+                          />
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className={["truncate text-[15px] font-semibold", textPrimary].join(" ")}>
+                                {label}
+                              </span>
+                              {customized && (
+                                <span className={["shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold", accentBg, accentText].join(" ")}>
+                                  Customized
+                                </span>
+                              )}
+                              {over && (
+                                <span className="shrink-0 rounded-full bg-red-500/15 px-2 py-0.5 text-[11px] font-semibold text-red-500">
+                                  Too long
+                                </span>
+                              )}
+                            </div>
+                            {isCollapsed && (
+                              <p className={["mt-0.5 truncate text-[12.5px]", textSecondary].join(" ")}>
+                                {currentContent.trim() || "No text"}
+                              </p>
+                            )}
+                          </div>
                         </div>
-                        <span className={["font-semibold text-[15px]", textPrimary].join(" ")}>
-                          {label}
-                        </span>
-                      </div>
-                      <ChevronDown className={["h-4 w-4 text-neutral-500 transition-transform", isCollapsed ? "" : "rotate-180"].join(" ")} />
-                    </button>
-
-                    {/* Contenu de la carte */}
-                    {!isCollapsed && (
-                      <div className="mt-4 flex flex-col">
-                        <textarea
-                          value={currentContent}
-                          onChange={(e) => {
-                            handleNetworkChange(networkId, e.target.value);
-                            updateCaret(e.target);
-                          }}
-                          onSelect={(e) => updateCaret(e.target)}
-                          onKeyUp={(e) => updateCaret(e.target)}
-                          onClick={(e) => updateCaret(e.target)}
-                          placeholder="Write your post..."
-                          className={[
-                            "w-full min-h-[100px] resize-none bg-transparent text-[15px] leading-relaxed outline-none",
-                            textPrimary,
-                            isDark ? "placeholder:text-neutral-600" : "placeholder:text-neutral-400",
-                          ].join(" ")}
+                        <ChevronDown
+                          className={["h-4 w-4 shrink-0 transition-transform", textSecondary, isCollapsed ? "" : "rotate-180"].join(" ")}
                         />
+                      </button>
 
-                        {/* Media Previews */}
-                        <div className="mt-3 flex flex-wrap items-end gap-3">
-                          {media.map((item) => {
-                            const isHovered = hoveredMediaId === item.id;
-                            return (
-                              <div
-                                key={item.id}
-                                onMouseEnter={() => setHoveredMediaId(item.id)}
-                                onMouseLeave={() => setHoveredMediaId(null)}
-                                className="relative h-[100px] w-[100px] shrink-0 overflow-hidden rounded-xl border border-black/5"
-                              >
-                                <div className="h-full w-full overflow-hidden rounded-xl">
-                                  {item.kind === "image" ? (
-                                    <img src={item.url} alt="" className="h-full w-full object-cover" />
-                                  ) : (
-                                    <div className="relative h-full w-full">
-                                      <video src={item.url} className="h-full w-full object-cover" muted playsInline />
-                                      <div className="absolute inset-0 flex items-center justify-center bg-black/40 text-white">
-                                        <Eye className="h-5 w-5" />
-                                      </div>
-                                    </div>
-                                  )}
-                                </div>
-                                <div className={["pointer-events-none absolute inset-0 transition-colors duration-150", isHovered ? "bg-black/20" : "bg-black/0"].join(" ")} />
+                      {!isCollapsed && (
+                        <div className="mt-4 flex flex-col">
+                          <AutoTextarea
+                            value={currentContent}
+                            onChange={(val) => handleNetworkChange(networkId, val)}
+                            onCaret={(el) => updateCaret(networkId, el)}
+                            textareaRef={(el) => {
+                              textareaRefs.current[networkId] = el;
+                            }}
+                            ariaLabel={`Post text for ${network.label}`}
+                            placeholder={`Write your ${network.label} post…`}
+                            className={[textareaClass, "min-h-[72px]"].join(" ")}
+                          />
+
+                          <ComposerToolbar
+                            isDark={isDark}
+                            emojiOpen={isEmojiOpen}
+                            onToggleEmoji={() => setActiveEmojiNetwork(isEmojiOpen ? null : networkId)}
+                            onPickEmoji={(emoji) => insertAtCursor(networkId, emoji)}
+                            onHash={() => insertAtCursor(networkId, "#")}
+                            length={currentContent.length}
+                            limit={limit}
+                            extra={
+                              customized ? (
                                 <button
                                   type="button"
-                                  onClick={(e) => { e.stopPropagation(); removeMedia(item.id); }}
-                                  className={["absolute right-1.5 top-1.5 z-30 flex h-6 w-6 cursor-pointer items-center justify-center rounded-lg bg-black/70 text-white backdrop-blur-sm transition-opacity duration-150 hover:bg-black/90", isHovered ? "opacity-100" : "opacity-0"].join(" ")}
+                                  onClick={() => resetToMaster(networkId)}
+                                  className={["flex items-center gap-1.5 rounded-md px-2 py-1 text-[12px] font-semibold transition", textSecondary, hoverSoft].join(" ")}
                                 >
-                                  <X className="h-3.5 w-3.5" strokeWidth={2.5} />
+                                  <RotateCcw className="h-3 w-3" />
+                                  Reset to main text
                                 </button>
-                                {item.kind === "image" && (
-                                  <button
-                                    type="button"
-                                    onClick={(e) => { e.stopPropagation(); setEditingItem(item); }}
-                                    className={["absolute bottom-1.5 right-1.5 z-30 flex h-6 w-6 cursor-pointer items-center justify-center rounded-lg bg-black/70 text-white backdrop-blur-sm transition-opacity duration-150 hover:bg-black/90", isHovered ? "opacity-100" : "opacity-0"].join(" ")}
-                                  >
-                                    <Pencil className="h-3.5 w-3.5" strokeWidth={2.5} />
-                                  </button>
-                                )}
-                              </div>
-                            );
-                          })}
+                              ) : null
+                            }
+                          />
 
-                          {media.length < MAX_MEDIA && (
-                            <button
-                              type="button"
-                              onClick={() => fileInputRef.current?.click()}
-                              onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
-                              onDragLeave={() => setIsDragging(false)}
-                              onDrop={(e) => {
-                                e.preventDefault();
-                                setIsDragging(false);
-                                if (e.dataTransfer.files) addFiles(e.dataTransfer.files);
-                              }}
-                              className={[
-                                "flex h-[100px] w-[100px] shrink-0 cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed text-center transition-all duration-200",
-                                isDragging
-                                  ? isDark ? "scale-105 border-white/50 bg-white/5" : "scale-105 border-neutral-400 bg-neutral-100"
-                                  : isDark ? "border-white/15 hover:border-white/30 hover:bg-white/5" : "border-neutral-300 hover:border-neutral-400 hover:bg-neutral-50",
-                              ].join(" ")}
+                          {/* YouTube */}
+                          {networkId === "youtube" && (
+                            <SettingsBlock
+                              title="YouTube Shorts settings"
+                              subtitle="Title, audience and visibility for your video."
+                              isDark={isDark}
                             >
-                              <ImagePlus className={["h-6 w-6", isDark ? "text-white/40" : "text-neutral-400"].join(" ")} strokeWidth={1.75} />
-                              <span className={["mt-1 text-[10px] font-medium leading-tight", isDark ? "text-white/50" : "text-neutral-400"].join(" ")}>
-                                Drag & drop
-                              </span>
-                            </button>
-                          )}
-                        </div>
-
-                        {/* Toolbar */}
-                        <div className="mt-4 flex items-center justify-between border-t pt-3 border-black/[0.04] dark:border-white/5">
-                          <div className="flex items-center gap-3">
-                            <div className="emoji-wrapper relative">
-                              <button
-                                type="button"
-                                onClick={() => setActiveEmojiNetwork(isEmojiOpen ? null : networkId)}
-                                className={["transition", isEmojiOpen ? textPrimary : textSecondary, isDark ? "hover:text-white" : "hover:text-neutral-900"].join(" ")}
-                              >
-                                <Smile className="h-4 w-4" />
-                              </button>
-                              {isEmojiOpen && <EmojiPickerPanel isDark={isDark} onPick={insertAtCursor} />}
-                            </div>
-
-                            <button
-                              type="button"
-                              onClick={() => insertAtCursor("#")}
-                              className={["transition", textSecondary, isDark ? "hover:text-white" : "hover:text-neutral-900"].join(" ")}
-                            >
-                              <Hash className="h-4 w-4" />
-                            </button>
-                          </div>
-                          <span className={["text-[12px] tabular-nums", textSecondary].join(" ")}>
-                            {currentContent.length}
-                          </span>
-                        </div>
-
-                        {/* YouTube Settings Inner Card */}
-                        {networkId === "youtube" && (
-                          <div className="mt-4 border-t pt-4">
-                            <div className="mb-4 flex items-center justify-end">
-                              <button className={["flex items-center gap-1.5 text-[13px] font-semibold transition", textPrimary].join(" ")}>
-                                <Sparkles className="h-4 w-4" />
-                                Automatic
-                                <ChevronDown className="h-4 w-4" />
-                              </button>
-                            </div>
-                            <div className="flex flex-col gap-3.5">
-                              <div className="grid grid-cols-[110px_1fr] items-center gap-3">
-                                <label htmlFor="youtube-title" className={["text-[14px] font-semibold", textPrimary].join(" ")}>Title</label>
+                              <FieldRow label="Title" htmlFor="youtube-title" isDark={isDark}>
                                 <input
                                   id="youtube-title"
                                   type="text"
@@ -1720,188 +2259,326 @@ export default function NewPostModal({
                                   placeholder="Enter a title for your video"
                                   className={[
                                     "w-full rounded-xl border px-4 py-2.5 text-[14px] outline-none transition",
-                                    isDark ? "border-white/10 bg-[#242427] text-white placeholder:text-neutral-500 focus:border-white/30" : "border-black/10 bg-white text-neutral-900 placeholder:text-neutral-400 focus:border-black/30",
+                                    isDark
+                                      ? "border-white/10 bg-[#242427] text-white placeholder:text-neutral-500 focus:border-white/30"
+                                      : "border-black/10 bg-white text-neutral-900 placeholder:text-neutral-400 focus:border-black/30",
                                   ].join(" ")}
                                 />
-                              </div>
-                              <div className="grid grid-cols-[110px_1fr] items-center gap-3">
-                                <span className={["text-[14px] font-semibold", textPrimary].join(" ")}>Category</span>
-                                <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
-                                  <YouTubeSelect ariaLabel="YouTube category" value={youtubeOptions.categoryId} options={YOUTUBE_CATEGORIES} onChange={(v) => updateYoutube("categoryId", v)} isDark={isDark} className="min-w-[180px] flex-1" />
-                                  <div className="flex min-w-[180px] flex-1 items-center gap-4">
-                                    <span className={["text-[14px] font-semibold whitespace-nowrap", textPrimary].join(" ")}>Visibility</span>
-                                    <YouTubeSelect ariaLabel="YouTube visibility" value={youtubeOptions.visibility} options={YOUTUBE_VISIBILITY} onChange={(v) => updateYoutube("visibility", v)} isDark={isDark} className="flex-1" />
-                                  </div>
-                                </div>
-                              </div>
-                              <div className="grid grid-cols-[110px_1fr] items-center gap-3">
-                                <span className={["text-[14px] font-semibold", textPrimary].join(" ")}>License</span>
-                                <YouTubeSelect ariaLabel="YouTube license" value={youtubeOptions.license} options={YOUTUBE_LICENSES} onChange={(v) => updateYoutube("license", v)} isDark={isDark} />
-                              </div>
-                              <div className="grid grid-cols-[110px_1fr] gap-3 mt-1">
-                                <span aria-hidden="true" />
+                                <p className={["mt-1.5 flex justify-between gap-3 text-[12px]", textSecondary].join(" ")}>
+                                  <span className="min-w-0 truncate">
+                                    {!youtubeOptions.title.trim() && youtubeFallbackTitle
+                                      ? `Will use: “${youtubeFallbackTitle}”`
+                                      : ""}
+                                  </span>
+                                  <span className="shrink-0 tabular-nums">
+                                    {youtubeOptions.title.length} / {YOUTUBE_TITLE_MAX}
+                                  </span>
+                                </p>
+                              </FieldRow>
+
+                              <FieldRow label="Category" isDark={isDark}>
+                                <Select
+                                  ariaLabel="YouTube category"
+                                  value={youtubeOptions.categoryId}
+                                  options={YOUTUBE_CATEGORIES}
+                                  onChange={(v) => updateYoutube("categoryId", v)}
+                                  isDark={isDark}
+                                />
+                              </FieldRow>
+
+                              <FieldRow label="Visibility" isDark={isDark}>
+                                <Select
+                                  ariaLabel="YouTube visibility"
+                                  value={youtubeOptions.visibility}
+                                  options={YOUTUBE_VISIBILITY}
+                                  onChange={(v) => updateYoutube("visibility", v)}
+                                  isDark={isDark}
+                                />
+                              </FieldRow>
+
+                              <FieldRow label="License" isDark={isDark}>
+                                <Select
+                                  ariaLabel="YouTube license"
+                                  value={youtubeOptions.license}
+                                  options={YOUTUBE_LICENSES}
+                                  onChange={(v) => updateYoutube("license", v)}
+                                  isDark={isDark}
+                                />
+                              </FieldRow>
+
+                              <FieldRow label="Options" isDark={isDark}>
                                 <div className="flex flex-wrap items-center gap-x-6 gap-y-2.5">
-                                  <YouTubeCheckbox label="Notify Subscribers" checked={youtubeOptions.notifySubscribers} onChange={(v) => updateYoutube("notifySubscribers", v)} isDark={isDark} />
-                                  <YouTubeCheckbox label="Allow Embedding" checked={youtubeOptions.allowEmbedding} onChange={(v) => updateYoutube("allowEmbedding", v)} isDark={isDark} />
-                                  <YouTubeCheckbox label="Made for Kids" checked={youtubeOptions.madeForKids} onChange={(v) => updateYoutube("madeForKids", v)} isDark={isDark} />
+                                  <Checkbox label="Notify subscribers" checked={youtubeOptions.notifySubscribers} onChange={(v) => updateYoutube("notifySubscribers", v)} isDark={isDark} />
+                                  <Checkbox label="Allow embedding" checked={youtubeOptions.allowEmbedding} onChange={(v) => updateYoutube("allowEmbedding", v)} isDark={isDark} />
+                                  <Checkbox label="Made for kids" checked={youtubeOptions.madeForKids} onChange={(v) => updateYoutube("madeForKids", v)} isDark={isDark} />
                                 </div>
-                              </div>
-                            </div>
-                          </div>
-                        )}
+                              </FieldRow>
+                            </SettingsBlock>
+                          )}
 
-                        {/* TikTok Settings Inner Card */}
-                        {networkId === "tiktok" && scheduleAction !== "save_in_folder" && (
-                          <div className="mt-4 border-t pt-4">
-                            <p className={["mb-1 font-semibold text-[13px]", textPrimary].join(" ")}>
-                              Posting to TikTok {tiktokInfo?.creator_nickname ? `· ${tiktokInfo.creator_nickname}` : ""}
-                            </p>
-                            <p className={["mb-2 text-[12px]", textSecondary].join(" ")}>
-                              {tiktokPostType === "photo" ? tiktokImages.length > 1 ? `Carousel of ${tiktokImages.length} photos` : "Photo post" : tiktokPostType === "video" ? tiktokImages.length > 0 ? "Video post (images ignored)" : "Video post" : "Add a video, or one or more photos."}
-                            </p>
-                            
-                            {tiktokInfoError && (
-                              <p className="mb-2 flex flex-wrap items-center gap-2 text-[12px] text-red-500">
-                                <span>{tiktokInfoError}</span>
-                                <button type="button" onClick={() => { setTiktokInfoError(null); setTiktokInfoAttempt((n) => n + 1); }} className="font-semibold underline">Retry</button>
-                              </p>
-                            )}
+                          {/* TikTok */}
+                          {networkId === "tiktok" && scheduleAction !== "save_in_folder" && (
+                            <SettingsBlock
+                              title={`TikTok settings${tiktokInfo?.creator_nickname ? ` · ${tiktokInfo.creator_nickname}` : ""}`}
+                              subtitle={tiktokTypeLabel}
+                              isDark={isDark}
+                            >
+                              {tiktokInfoError && (
+                                <p role="alert" className="flex flex-wrap items-center gap-2 text-[12.5px] text-red-500">
+                                  <span>{tiktokInfoError}</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setTiktokInfoError(null);
+                                      setTiktokInfoAttempt((n) => n + 1);
+                                    }}
+                                    className="font-semibold underline"
+                                  >
+                                    Retry
+                                  </button>
+                                </p>
+                              )}
 
-                            <div className="mb-2 flex gap-2">
-                              {(["direct", "draft"] as const).map((m) => (
-                                <button key={m} type="button" onClick={() => setTiktokMode(m)} className={["rounded-lg border px-3 py-1.5 text-[12.5px] font-semibold transition", tiktokMode === m ? `${accentBg} ${accentText} ${accentBorder}` : `${border} ${textSecondary}`].join(" ")}>
-                                  {m === "direct" ? "Publish directly" : "Save as draft"}
-                                </button>
-                              ))}
-                            </div>
-
-                            {tiktokMode === "direct" && (
-                              <>
-                                <select
-                                  value={tiktokOptions.privacy_level}
-                                  onChange={(e) => setTiktokOptions((o) => ({ ...o, privacy_level: e.target.value as any }))}
-                                  className={["mb-1 w-full rounded-lg border px-2 py-1.5 text-[12.5px] outline-none", border, isDark ? "bg-[#242427] text-white" : "bg-white text-neutral-900"].join(" ")}
+                              <div>
+                                <div
+                                  role="radiogroup"
+                                  aria-label="TikTok publishing mode"
+                                  className={["inline-flex rounded-xl border p-1", border].join(" ")}
                                 >
-                                  <option value="">Who can view this…</option>
-                                  {tiktokPrivacyOptions.map((p) => (
-                                    <option key={p} value={p} disabled={p === "SELF_ONLY" && brandedChosen}>{TIKTOK_PRIVACY_LABELS[p] ?? p}</option>
-                                  ))}
-                                </select>
-
-                                {brandedChosen && <p className={["mb-2 text-[11.5px]", textSecondary].join(" ")}>Branded content visibility cannot be private.</p>}
-
-                                <div className="mt-2 flex flex-wrap gap-4">
-                                  {allowRows.map(({ key, label, forced }) => (
-                                    <label key={key} title={forced ? "Disabled in your TikTok settings" : undefined} className={["flex items-center gap-1.5 text-[12.5px]", forced ? "cursor-not-allowed opacity-50" : "", textSecondary].join(" ")}>
-                                      <input type="checkbox" checked={!forced && tiktokAllow[key]} disabled={forced} onChange={(e) => setTiktokAllow((a) => ({ ...a, [key]: e.target.checked }))} />
-                                      {label}
-                                    </label>
+                                  {(["direct", "draft"] as const).map((m) => (
+                                    <button
+                                      key={m}
+                                      type="button"
+                                      role="radio"
+                                      aria-checked={tiktokMode === m}
+                                      onClick={() => setTiktokMode(m)}
+                                      className={[
+                                        "rounded-lg px-3.5 py-1.5 text-[13px] font-semibold transition",
+                                        tiktokMode === m
+                                          ? isDark
+                                            ? "bg-white text-[#141416]"
+                                            : "bg-neutral-900 text-white"
+                                          : `${textSecondary} ${hoverSoft}`,
+                                      ].join(" ")}
+                                    >
+                                      {m === "direct" ? "Publish directly" : "Save as draft"}
+                                    </button>
                                   ))}
                                 </div>
+                                <p className={["mt-1.5 text-[12px]", textSecondary].join(" ")}>
+                                  {tiktokMode === "direct"
+                                    ? "Goes live on your profile as soon as TikTok has processed it."
+                                    : "Lands in your TikTok inbox so you can finish it in the app."}
+                                </p>
+                              </div>
 
-                                <div className={["mt-3 border-t pt-3", border].join(" ")}>
-                                  <label className={["flex items-center justify-between gap-3", textPrimary].join(" ")}>
-                                    <span>
-                                      <span className="block text-[12.5px] font-semibold">Content disclosure</span>
-                                      <span className={["block text-[11.5px]", textSecondary].join(" ")}>Turn on to disclose promotional content.</span>
-                                    </span>
-                                    <input type="checkbox" checked={tiktokCommercial.on} onChange={(e) => setTiktokCommercial(e.target.checked ? { ...tiktokCommercial, on: true } : TIKTOK_DEFAULT_COMMERCIAL)} />
-                                  </label>
+                              {tiktokMode === "direct" && (
+                                <>
+                                  <FieldRow label="Who can view" isDark={isDark}>
+                                    <Select
+                                      ariaLabel="Who can view this TikTok"
+                                      value={tiktokOptions.privacy_level as string}
+                                      placeholder="Choose an audience"
+                                      options={tiktokPrivacyOptions.map((p) => ({
+                                        id: p,
+                                        label: TIKTOK_PRIVACY_LABELS[p] ?? p,
+                                        disabled: p === "SELF_ONLY" && brandedChosen,
+                                      }))}
+                                      onChange={(v) =>
+                                        setTiktokOptions((o) => ({
+                                          ...o,
+                                          privacy_level: v as TikTokPostOptions["privacy_level"],
+                                        }))
+                                      }
+                                      isDark={isDark}
+                                    />
+                                    {brandedChosen && (
+                                      <p className={["mt-1.5 text-[12px]", textSecondary].join(" ")}>
+                                        Branded content can't be private.
+                                      </p>
+                                    )}
+                                  </FieldRow>
 
-                                  {tiktokCommercial.on && (
-                                    <div className="mt-2 flex flex-col gap-1.5 pl-1">
-                                      <label className={["flex items-center gap-1.5 text-[12.5px]", textSecondary].join(" ")}>
-                                        <input type="checkbox" checked={tiktokCommercial.yourBrand} onChange={(e) => setTiktokCommercial((c) => ({ ...c, yourBrand: e.target.checked }))} /> Your brand
-                                      </label>
-                                      <label className={["flex items-center gap-1.5 text-[12.5px]", tiktokOptions.privacy_level === "SELF_ONLY" ? "cursor-not-allowed opacity-50" : "", textSecondary].join(" ")}>
-                                        <input type="checkbox" checked={tiktokCommercial.branded} disabled={tiktokOptions.privacy_level === "SELF_ONLY"} onChange={(e) => setTiktokCommercial((c) => ({ ...c, branded: e.target.checked }))} /> Branded content
-                                      </label>
+                                  <FieldRow label="Interactions" isDark={isDark}>
+                                    <div className="flex flex-wrap gap-x-6 gap-y-2.5">
+                                      {allowRows.map(({ key, label: rowLabel, forced }) => (
+                                        <Checkbox
+                                          key={key}
+                                          label={rowLabel}
+                                          title={forced ? "Disabled in your TikTok settings" : undefined}
+                                          disabled={forced}
+                                          checked={!forced && tiktokAllow[key]}
+                                          onChange={(v) => setTiktokAllow((a) => ({ ...a, [key]: v }))}
+                                          isDark={isDark}
+                                        />
+                                      ))}
                                     </div>
-                                  )}
-                                </div>
-                              </>
-                            )}
-                            <p className={["mt-3 text-[11.5px]", textSecondary].join(" ")}>
-                              After publishing, it may take a few minutes for your content to process.
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+                                  </FieldRow>
 
-            {/* Input file caché partagé */}
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*,video/*"
-              multiple
-              className="hidden"
-              onChange={(e) => {
-                if (e.target.files) addFiles(e.target.files);
-                e.target.value = "";
-              }}
-            />
+                                  <div className={["border-t pt-3.5", border].join(" ")}>
+                                    <Checkbox
+                                      label="Content disclosure"
+                                      description="Turn on if this post promotes you, a brand or a third party."
+                                      checked={tiktokCommercial.on}
+                                      onChange={(v) =>
+                                        setTiktokCommercial(
+                                          v ? { ...tiktokCommercial, on: true } : TIKTOK_DEFAULT_COMMERCIAL
+                                        )
+                                      }
+                                      isDark={isDark}
+                                    />
+                                    {tiktokCommercial.on && (
+                                      <div className="ml-[30px] mt-3 flex flex-col gap-2.5">
+                                        <Checkbox
+                                          label="Your brand"
+                                          checked={tiktokCommercial.yourBrand}
+                                          onChange={(v) => setTiktokCommercial((c) => ({ ...c, yourBrand: v }))}
+                                          isDark={isDark}
+                                        />
+                                        <Checkbox
+                                          label="Branded content"
+                                          disabled={tiktokOptions.privacy_level === "SELF_ONLY"}
+                                          title={tiktokOptions.privacy_level === "SELF_ONLY" ? "Not available when only you can view" : undefined}
+                                          checked={tiktokCommercial.branded}
+                                          onChange={(v) => setTiktokCommercial((c) => ({ ...c, branded: v }))}
+                                          isDark={isDark}
+                                        />
+                                      </div>
+                                    )}
+                                  </div>
+                                </>
+                              )}
 
-            {mediaError && <p className="mt-1 text-[11px] text-red-500">{mediaError}</p>}
-            {submitProgress && <p role="status" className={["mt-2 text-[12px]", textSecondary].join(" ")}>{submitProgress}</p>}
-            {submitError && <p role="alert" className="mt-2 text-[12px] text-red-500">{submitError}</p>}
+                              <p className={["flex items-start gap-1.5 text-[12px]", textSecondary].join(" ")}>
+                                <Info className="mt-px h-3.5 w-3.5 shrink-0" />
+                                After publishing, it can take a few minutes for TikTok to process your content.
+                              </p>
+                            </SettingsBlock>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </section>
+            ) : (
+              channelTiles.length > 0 && (
+                <p className={["text-center text-[13px]", textSecondary].join(" ")}>
+                  Select a channel above to customize your post for each network.
+                </p>
+              )
+            )}
           </div>
 
-          {/* Colonne droite : Previews */}
-          <div className={["flex w-[400px] shrink-0 flex-col border-l", border, bgPanel].join(" ")}>
-            <div className={["flex items-center gap-2 border-b px-5 py-4", border].join(" ")}>
-              <h3 className={["text-[15px] font-semibold", textPrimary].join(" ")}>Post Previews</h3>
-            </div>
-            <div className="flex flex-1 items-center justify-center p-6">
-              {primaryContent.trim() || media.length > 0 ? (
-                <div className={["w-full max-w-[300px] rounded-xl border p-4 shadow-sm", border, isDark ? "bg-[#242427]" : "bg-white"].join(" ")}>
-                  <div className="mb-3 flex items-center gap-2">
-                    <div className={["h-8 w-8 rounded-full", isDark ? "bg-white/10" : "bg-neutral-200"].join(" ")} />
-                    <div>
-                      <div className={["h-2 w-20 rounded", isDark ? "bg-white/10" : "bg-neutral-200"].join(" ")} />
-                      <div className={["mt-1 h-2 w-12 rounded", isDark ? "bg-white/5" : "bg-neutral-100"].join(" ")} />
-                    </div>
-                  </div>
-                  {primaryContent && <p className={["text-[13px] leading-relaxed whitespace-pre-wrap", textPrimary].join(" ")}>{primaryContent}</p>}
-                  {media.length > 0 && (
-                    <div className="relative mt-3 overflow-hidden rounded-lg">
-                      {media[0].kind === "image" ? <img src={media[0].url} alt="" className="w-full object-cover" /> : <video src={media[0].url} className="w-full object-cover" muted playsInline />}
-                      {media.length > 1 && <span className="absolute right-2 top-2 rounded-full bg-black/70 px-2 py-0.5 text-[11px] font-semibold text-white">1/{media.length}</span>}
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="flex flex-col items-center text-center">
-                  <div className={["relative mb-4 flex h-32 w-32 items-center justify-center rounded-2xl border-2 border-dashed", isDark ? "border-neutral-600/30" : "border-neutral-300"].join(" ")}>
-                    <ImageIcon className={["h-6 w-6", textSecondary].join(" ")} />
-                  </div>
-                  <p className={["text-[13px]", textSecondary].join(" ")}>See your post's preview here</p>
+          {/* Colonne droite : aperçu */}
+          <aside
+            aria-label="Post preview"
+            className={["hidden w-[400px] shrink-0 flex-col border-l lg:flex", border, bgPanel].join(" ")}
+          >
+            <div className={["flex flex-col gap-3 border-b px-5 py-4", border].join(" ")}>
+              <h3 className={["text-[15px] font-semibold", textPrimary].join(" ")}>Preview</h3>
+              {networks.length > 1 && (
+                <div role="tablist" aria-label="Preview channel" className="flex flex-wrap gap-1.5">
+                  {networks.map((id) => {
+                    const n = SOCIAL_NETWORKS.find((s) => s.id === id)!;
+                    const active = id === activePreviewId;
+                    return (
+                      <button
+                        key={id}
+                        type="button"
+                        role="tab"
+                        aria-selected={active}
+                        onClick={() => setPreviewNetwork(id)}
+                        className={[
+                          "flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[12.5px] font-semibold transition",
+                          active
+                            ? `${accentBg} ${accentText} ${accentBorder}`
+                            : `border-transparent ${textSecondary} ${hoverSoft}`,
+                        ].join(" ")}
+                      >
+                        <n.Icon className="h-3.5 w-3.5" />
+                        {n.label}
+                      </button>
+                    );
+                  })}
                 </div>
               )}
             </div>
-          </div>
+
+            <div className="flex flex-1 items-center justify-center overflow-y-auto p-6">
+              {previewHasSomething ? (
+                <PostPreview
+                  isDark={isDark}
+                  network={previewNetworkData}
+                  channel={previewChannel}
+                  text={previewText}
+                  limit={previewNetworkData ? CHAR_LIMITS[previewNetworkData.id] : undefined}
+                  media={media}
+                />
+              ) : (
+                <div className="flex flex-col items-center text-center">
+                  <div className={["mb-4 flex h-28 w-28 items-center justify-center rounded-2xl border-2 border-dashed", isDark ? "border-neutral-600/30" : "border-neutral-300"].join(" ")}>
+                    <ImageIcon className={["h-6 w-6", textSecondary].join(" ")} />
+                  </div>
+                  <p className={["max-w-[220px] text-[13px]", textSecondary].join(" ")}>
+                    Start writing or add media to see how your post will look.
+                  </p>
+                </div>
+              )}
+            </div>
+          </aside>
         </div>
+
+        {/* ── Statut de publication ── */}
+        {(submitProgress || submitError) && (
+          <div
+            role={submitError ? "alert" : "status"}
+            className={[
+              "flex shrink-0 items-center gap-2 border-t px-6 py-2.5 text-[13px]",
+              border,
+              submitError
+                ? isDark ? "bg-red-500/10 text-red-400" : "bg-red-50 text-red-600"
+                : `${bgPanel} ${textSecondary}`,
+            ].join(" ")}
+          >
+            {submitError ? (
+              <Info className="h-4 w-4 shrink-0" />
+            ) : (
+              <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
+            )}
+            <span className="min-w-0">{submitError ?? submitProgress}</span>
+          </div>
+        )}
 
         {/* ── Footer ── */}
         <div className={["relative flex shrink-0 items-center justify-end gap-4 border-t px-6 py-4", border].join(" ")}>
-          {showTikTokDeclaration && (
-            <div className="mr-auto flex min-w-0 flex-1 flex-col gap-1">
+          <div className="mr-auto flex min-w-0 flex-1 flex-col gap-1">
+            {blockingReason && !isSubmitting && (
+              <p className={["flex items-center gap-1.5 text-[12.5px]", textSecondary].join(" ")}>
+                <Info className="h-3.5 w-3.5 shrink-0" />
+                <span className="min-w-0">{blockingReason}</span>
+              </p>
+            )}
+            {showTikTokDeclaration && (
               <p className={["text-[11.5px] leading-snug", textSecondary].join(" ")}>
                 By posting, you agree to TikTok's{" "}
-                {brandedChosen && <><a href={TIKTOK_BRANDED_URL} target="_blank" rel="noreferrer" className={linkClass}>Branded Content Policy</a> and </>}
+                {brandedChosen && (
+                  <>
+                    <a href={TIKTOK_BRANDED_URL} target="_blank" rel="noreferrer" className={linkClass}>Branded Content Policy</a>
+                    {" and "}
+                  </>
+                )}
                 <a href={TIKTOK_MUSIC_URL} target="_blank" rel="noreferrer" className={linkClass}>Music Usage Confirmation</a>.
               </p>
-            </div>
-          )}
+            )}
+          </div>
 
           <div className="relative shrink-0" ref={dropdownRef}>
             <div className={["flex items-stretch overflow-hidden rounded-xl border", border, isDark ? "bg-white/5" : "bg-neutral-100"].join(" ")}>
               <button
                 type="button"
+                aria-haspopup="menu"
+                aria-expanded={showActionMenu || showDateTimePanel}
                 onClick={() => {
                   if (showDateTimePanel) {
                     setShowDateTimePanel(false);
@@ -1923,13 +2600,15 @@ export default function NewPostModal({
                 type="button"
                 onClick={handleSubmit}
                 disabled={!canSubmit}
+                title={canSubmit ? "Ctrl/⌘ + Enter" : blockingReason ?? undefined}
                 className={[
-                  "px-5 py-2.5 text-[14px] font-semibold transition",
+                  "flex items-center gap-2 px-5 py-2.5 text-[14px] font-semibold transition",
                   canSubmit
                     ? isDark ? "bg-white text-[#141416] hover:bg-neutral-200" : "bg-neutral-900 text-white hover:bg-neutral-800"
                     : isDark ? "cursor-not-allowed text-neutral-600" : "cursor-not-allowed text-neutral-400",
                 ].join(" ")}
               >
+                {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
                 {submitLabel}
               </button>
             </div>
@@ -1942,7 +2621,8 @@ export default function NewPostModal({
                     <button
                       key={action.id}
                       type="button"
-                      role="menuitem"
+                      role="menuitemradio"
+                      aria-checked={isSelected}
                       onClick={() => selectAction(action.id)}
                       className={["flex w-full items-start gap-2 rounded-lg px-3 py-2.5 text-left transition", isSelected ? `${accentBg} ${accentText}` : isDark ? "text-neutral-200 hover:bg-white/5" : "text-neutral-700 hover:bg-black/[0.04]"].join(" ")}
                     >
@@ -1965,12 +2645,18 @@ export default function NewPostModal({
                   <CalendarPicker value={scheduledAt} onChange={(date) => setScheduledAt((prev) => mergeDateTime(date, prev))} isDark={isDark} />
                 </div>
                 <div className={["border-t p-3", isDark ? "border-white/10" : "border-black/10"].join(" ")}>
-                  <p className={["mb-2 text-[13px] font-semibold", textPrimary].join(" ")}>Posting Slots</p>
+                  <p className={["mb-2 text-[13px] font-semibold", textPrimary].join(" ")}>Suggested times</p>
                   <div className="flex flex-col gap-2">
                     {POSTING_SLOTS.map((slot) => {
                       const isActive = scheduledAt.getHours() === slot.hour && scheduledAt.getMinutes() === slot.minute;
                       return (
-                        <button key={slot.label} type="button" onClick={() => applyPostingSlot(slot.hour, slot.minute)} className={["flex w-full items-center gap-1.5 rounded-lg border px-3 py-2 text-[13px] font-semibold transition", isActive ? `${accentBg} ${accentText} ${accentBorder}` : isDark ? "border-white/10 text-neutral-200 hover:bg-white/5" : "border-black/10 text-neutral-700 hover:bg-black/[0.04]"].join(" ")}>
+                        <button
+                          key={slot.label}
+                          type="button"
+                          aria-pressed={isActive}
+                          onClick={() => applyPostingSlot(slot.hour, slot.minute)}
+                          className={["flex w-full items-center gap-1.5 rounded-lg border px-3 py-2 text-[13px] font-semibold transition", isActive ? `${accentBg} ${accentText} ${accentBorder}` : isDark ? "border-white/10 text-neutral-200 hover:bg-white/5" : "border-black/10 text-neutral-700 hover:bg-black/[0.04]"].join(" ")}
+                        >
                           <Wand2 className="h-3.5 w-3.5" /> {slot.label}
                         </button>
                       );
@@ -1978,15 +2664,25 @@ export default function NewPostModal({
                   </div>
                 </div>
                 <div className="px-3 pb-3">
-                  <p className={["mb-2 text-[13px] font-semibold", textPrimary].join(" ")}>Select Time</p>
+                  <p className={["mb-2 text-[13px] font-semibold", textPrimary].join(" ")}>Time</p>
                   <div className={["rounded-lg border px-3 py-2", accentSolid, accentBorder].join(" ")}>
                     <TimePicker value={scheduledAt} onChange={(date) => setScheduledAt(date)} isDark={isDark} min={timeMin} className={isDark ? "border-transparent bg-transparent text-white" : "border-transparent bg-transparent text-neutral-900"} />
                   </div>
                   <p className={["mt-1.5 text-[11.5px]", textSecondary].join(" ")}>{timezone}</p>
+                  <p
+                    className={[
+                      "mt-2 text-[12px] font-medium",
+                      scheduledAt.getTime() <= Date.now() ? "text-red-500" : textPrimary,
+                    ].join(" ")}
+                  >
+                    {scheduledAt.getTime() <= Date.now()
+                      ? "Pick a time in the future."
+                      : formatLongDateTime(scheduledAt)}
+                  </p>
                 </div>
                 <div className={["flex items-center justify-between border-t px-3 py-2.5", isDark ? "border-white/10" : "border-black/10"].join(" ")}>
                   <button type="button" onClick={() => { setShowDateTimePanel(false); setShowActionMenu(true); }} className={["flex items-center gap-1.5 text-[12.5px] font-semibold transition", textPrimary].join(" ")}>
-                    <ArrowLeft className="h-3.5 w-3.5" /> More
+                    <ArrowLeft className="h-3.5 w-3.5" /> Back
                   </button>
                   <button type="button" onClick={() => setShowDateTimePanel(false)} className={["flex items-center gap-1.5 text-[12.5px] font-semibold transition", textPrimary].join(" ")}>
                     <Check className="h-3.5 w-3.5" strokeWidth={3} /> Done
@@ -2000,17 +2696,23 @@ export default function NewPostModal({
         {/* ── Dialogue : reprendre le brouillon ou l'ignorer ── */}
         {pendingDraft && (
           <div className="absolute inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-[2px]">
-            <div className={["w-[360px] rounded-2xl border p-6 text-center shadow-2xl", isDark ? "border-white/10 bg-[#1c1c1e]" : "border-black/10 bg-white"].join(" ")}>
-              <h3 className={["text-[16px] font-bold", textPrimary].join(" ")}>Reprendre votre brouillon ?</h3>
-              <p className={["mt-2 text-[13px]", textSecondary].join(" ")}>Vous aviez un post en cours. Voulez-vous reprendre où vous en étiez ou repartir de zéro ?</p>
+            <div
+              role="alertdialog"
+              aria-labelledby="draft-title"
+              className={["w-[360px] max-w-[90%] rounded-2xl border p-6 text-center shadow-2xl", isDark ? "border-white/10 bg-[#1c1c1e]" : "border-black/10 bg-white"].join(" ")}
+            >
+              <h3 id="draft-title" className={["text-[16px] font-bold", textPrimary].join(" ")}>Resume your draft?</h3>
+              <p className={["mt-2 text-[13px]", textSecondary].join(" ")}>
+                You have a post in progress. Pick up where you left off, or start fresh.
+              </p>
               {(pendingDraft.masterContent || Object.values(pendingDraft.contents || {})[0]) && (
                 <p className={["mt-3 line-clamp-2 rounded-lg px-3 py-2 text-left text-[12.5px]", isDark ? "bg-white/5 text-neutral-300" : "bg-neutral-100 text-neutral-600"].join(" ")}>
                   {pendingDraft.masterContent || Object.values(pendingDraft.contents || {})[0]}
                 </p>
               )}
               <div className="mt-5 flex gap-2">
-                <button type="button" onClick={ignoreDraft} className={["flex-1 rounded-xl border px-4 py-2.5 text-[13.5px] font-semibold transition", border, textPrimary, isDark ? "hover:bg-white/5" : "hover:bg-black/5"].join(" ")}>Ignorer</button>
-                <button type="button" onClick={resumeDraft} className={["flex-1 rounded-xl px-4 py-2.5 text-[13.5px] font-semibold transition", isDark ? "bg-white text-[#141416] hover:bg-neutral-200" : "bg-neutral-900 text-white hover:bg-neutral-800"].join(" ")}>Reprendre</button>
+                <button type="button" onClick={ignoreDraft} className={["flex-1 rounded-xl border px-4 py-2.5 text-[13.5px] font-semibold transition", border, textPrimary, isDark ? "hover:bg-white/5" : "hover:bg-black/5"].join(" ")}>Start fresh</button>
+                <button type="button" autoFocus onClick={resumeDraft} className={["flex-1 rounded-xl px-4 py-2.5 text-[13.5px] font-semibold transition", isDark ? "bg-white text-[#141416] hover:bg-neutral-200" : "bg-neutral-900 text-white hover:bg-neutral-800"].join(" ")}>Resume</button>
               </div>
             </div>
           </div>
