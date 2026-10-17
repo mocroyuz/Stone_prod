@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { EmojiPicker as FrimousseEmojiPicker } from "frimousse";
 import {
   Maximize2, Minimize2, X, Tag, FileText,
-  Eye, Smile, Hash, Image as ImageIcon, ImagePlus, Pencil, ChevronDown,
+  Eye, Smile, Image as ImageIcon, ImagePlus, Pencil, ChevronDown,
   CalendarClock, Check, Sparkles, ArrowLeft, Wand2, Plus
 } from "lucide-react";
 import {
@@ -2015,8 +2015,6 @@ export default function NewPostModal({
                   if (e.key === "Enter" || e.key === "," || e.key === " ") {
                     e.preventDefault();
                     commitHashtagDraft();
-                  } else if (e.key === "Backspace" && !hashtagDraft && hashtags.length > 0) {
-                    removeHashtag(hashtags[hashtags.length - 1]);
                   }
                 }}
                 onBlur={commitHashtagDraft}
@@ -2073,7 +2071,7 @@ export default function NewPostModal({
               </p>
             )}
 
-            {/* ── Barre d'outils : emoji + focus hashtag ── */}
+            {/* ── Barre d'outils : emoji ── */}
             <div className={["mt-4 flex items-center gap-4 border-t pt-3", border].join(" ")}>
               <div ref={emojiWrapRef} className="relative">
                 <button
@@ -2100,16 +2098,6 @@ export default function NewPostModal({
                   <EmojiPickerPanel isDark={isDark} onPick={insertEmoji} />
                 )}
               </div>
-
-              <button
-                type="button"
-                title="Add hashtag"
-                aria-label="Ajouter un hashtag"
-                onClick={() => document.getElementById("hashtag-input")?.focus()}
-                className={["flex h-8 w-8 items-center justify-center rounded-full transition", textSecondary, isDark ? "hover:bg-white/10 hover:text-white" : "hover:bg-black/5 hover:text-neutral-900"].join(" ")}
-              >
-                <Hash className="h-4 w-4" />
-              </button>
             </div>
           </div>
 
