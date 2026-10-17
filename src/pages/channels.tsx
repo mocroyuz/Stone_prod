@@ -132,7 +132,7 @@ const focusRingClass = (isDark: boolean) =>
     : "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/25";
 
 /* ============================================================================
-   THEME TOKENS (alignés sur le panneau Home)
+   THEME TOKENS
 ============================================================================ */
 
 type ThemeTokens = {
@@ -241,15 +241,6 @@ function Svg({
   );
 }
 
-function PlusIcon(props: IconProps) {
-  return (
-    <Svg {...props}>
-      <path d="M12 5v14" />
-      <path d="M5 12h14" />
-    </Svg>
-  );
-}
-
 function MoreIcon(props: IconProps) {
   return (
     <Svg {...props}>
@@ -279,14 +270,6 @@ function CloseIcon(props: IconProps) {
   );
 }
 
-function BoltIcon(props: IconProps) {
-  return (
-    <Svg {...props}>
-      <path d="M13 2.5 5 13.2h5.6L9.5 21.5l8-10.7h-5.6L13 2.5Z" />
-    </Svg>
-  );
-}
-
 function CheckCircleIcon(props: IconProps) {
   return (
     <Svg {...props}>
@@ -302,6 +285,24 @@ function AlertCircleIcon(props: IconProps) {
       <circle cx="12" cy="12" r="10" />
       <path d="M12 8v5" />
       <path d="M12 16h.01" />
+    </Svg>
+  );
+}
+
+function ChevronRightIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="m9 18 6-6-6-6" />
+    </Svg>
+  );
+}
+
+function DownloadIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <polyline points="7 10 12 15 17 10" />
+      <line x1="12" y1="15" x2="12" y2="3" />
     </Svg>
   );
 }
@@ -508,10 +509,10 @@ function ChannelIcon({
 }
 
 /* ============================================================================
-   CHANNEL CARD
+   CHANNEL ROW (Style de l'image)
 ============================================================================ */
 
-type ChannelCardProps = {
+type ChannelRowProps = {
   channel: Channel;
   connection: Connection;
   pending: boolean;
@@ -521,7 +522,7 @@ type ChannelCardProps = {
   onToggle: () => void;
 };
 
-function ChannelCard({
+function ChannelRow({
   channel,
   connection,
   pending,
@@ -529,7 +530,7 @@ function ChannelCard({
   t,
   isDark,
   onToggle,
-}: ChannelCardProps) {
+}: ChannelRowProps) {
   const isConnected = connection.connected;
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -553,86 +554,80 @@ function ChannelCard({
   }, [menuOpen]);
 
   return (
-    <article
+    <div
+      onClick={() => !isConnected && !disabled && onToggle()}
       className={[
-        "group relative rounded-2xl border px-4 py-4 transition-all duration-200",
-        t.card,
-        t.border,
-        
-        !disabled && t.cardHover,
-        !disabled && t.borderHover,
-        !disabled && "hover:shadow-[0_12px_35px_rgba(0,0,0,0.18)]",
+        "group relative flex items-center gap-4 rounded-xl px-3 py-3 transition-colors",
+        !isConnected && !disabled ? "cursor-pointer hover:bg-white/[0.04]" : "",
+        disabled ? "opacity-50" : "",
       ].join(" ")}
     >
-      <div className="flex items-center gap-3.5">
-        <ChannelIcon channel={channel} connection={connection} t={t} />
+      <ChannelIcon channel={channel} connection={connection} t={t} />
 
-        <div className="min-w-0 flex-1">
-          <p
+      <div className="flex min-w-0 flex-1 flex-col">
+        <span className={["text-[13.5px] font-semibold", t.text].join(" ")}>
+          {isConnected ? connection.handle || channel.name : channel.name}
+        </span>
+        <span className="truncate text-[12px] text-neutral-400">
+          {isConnected ? "Connected" : channel.subtitle}
+        </span>
+      </div>
+
+      {isConnected ? (
+        <div ref={menuRef} className="relative shrink-0">
+          <button
+            type="button"
+            aria-label={`Options for ${channel.name}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              setMenuOpen((value) => !value);
+            }}
             className={[
-              "truncate text-[13px] font-semibold tracking-[-0.01em]",
-              t.text,
+              "flex h-8 w-8 items-center justify-center rounded-lg transition-colors",
+              t.muted,
+              isDark
+                ? "hover:bg-white/[0.06] hover:text-white"
+                : "hover:bg-black/[0.05] hover:text-neutral-900",
+              t.ring,
             ].join(" ")}
           >
-            {isConnected ? connection.handle || channel.name : channel.name}
-          </p>
-          {!isConnected && (
-            <p className={["mt-0.5 truncate text-[10.5px]", t.muted].join(" ")}>
-              {channel.subtitle}
-            </p>
-          )}
-        </div>
+            <MoreIcon className="h-4 w-4" />
+          </button>
 
-        {isConnected && (
-          <div ref={menuRef} className="relative shrink-0">
-            <button
-              type="button"
-              aria-label={`Options for ${channel.name}`}
-              onClick={() => setMenuOpen((value) => !value)}
+          {menuOpen && (
+            <div
               className={[
-                "flex h-8 w-8 items-center justify-center rounded-lg transition-colors",
-                t.muted,
+                "absolute right-0 top-10 z-50 w-40 rounded-xl border p-1 shadow-xl",
                 isDark
-                  ? "hover:bg-white/[0.06] hover:text-white"
-                  : "hover:bg-black/[0.05] hover:text-neutral-900",
-                t.ring,
+                  ? "border-white/[0.08] bg-[#16161a]"
+                  : "border-black/[0.06] bg-white",
               ].join(" ")}
             >
-              <MoreIcon className="h-4 w-4" />
-            </button>
-
-            {menuOpen && (
-              <div
+              <button
+                type="button"
+                disabled={pending}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setMenuOpen(false);
+                  onToggle();
+                }}
                 className={[
-                  "absolute right-0 top-10 z-50 w-40 rounded-xl border p-1 shadow-xl",
+                  "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-[11px] font-medium disabled:opacity-40",
                   isDark
-                    ? "border-white/[0.08] bg-[#16161a]"
-                    : "border-black/[0.06] bg-white",
+                    ? "text-rose-400 hover:bg-rose-500/[0.07]"
+                    : "text-rose-600 hover:bg-rose-500/[0.07]",
                 ].join(" ")}
               >
-                <button
-                  type="button"
-                  disabled={pending}
-                  onClick={() => {
-                    setMenuOpen(false);
-                    onToggle();
-                  }}
-                  className={[
-                    "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-[11px] font-medium disabled:opacity-40",
-                    isDark
-                      ? "text-rose-400 hover:bg-rose-500/[0.07]"
-                      : "text-rose-600 hover:bg-rose-500/[0.07]",
-                  ].join(" ")}
-                >
-                  <DisconnectIcon className="h-3.5 w-3.5" />
-                  Disconnect
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-    </article>
+                <DisconnectIcon className="h-3.5 w-3.5" />
+                Disconnect
+              </button>
+            </div>
+          )}
+        </div>
+      ) : (
+        <ChevronRightIcon className="h-4 w-4 shrink-0 text-neutral-500 transition-transform group-hover:translate-x-0.5" />
+      )}
+    </div>
   );
 }
 
@@ -671,6 +666,7 @@ export default function Channels() {
   const [query, setQuery] = useState("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [toast, setToast] = useState<ToastState | null>(null);
+  const [isInstalled, setIsInstalled] = useState(false);
 
   const [onboardingAccount, setOnboardingAccount] =
     useState<OnboardingAccount | null>(null);
@@ -757,13 +753,13 @@ export default function Channels() {
   const slotsLeft = Math.max(0, PLAN.maxChannels - connectedCount);
   const visibleChannels = useMemo(() => {
     const needle = query.trim().toLowerCase();
-    if (!needle) return connectedChannels;
-    return connectedChannels.filter((channel) =>
+    if (!needle) return CHANNELS; // On affiche toujours tous les channels
+    return CHANNELS.filter((channel) =>
       `${channel.name} ${channel.accountLabel} ${connections[channel.key].handle ?? ""}`
         .toLowerCase()
         .includes(needle)
     );
-  }, [connectedChannels, connections, query]);
+  }, [connections, query]);
 
   const handleBottomBarChange = (id: BottomBarTab) => {
     switch (id) {
@@ -1088,10 +1084,12 @@ export default function Channels() {
   }
 
   const handleUpgrade = () => console.log("[Stone] Upgrade clicked");
+  
   const openModal = () => {
     setErrorMessage(null);
     setShowConnectModal(true);
   };
+  
   const closeModal = () => setShowConnectModal(false);
 
   /* ==========================================================================
@@ -1108,7 +1106,6 @@ export default function Channels() {
     >
       <DashboardSidebar theme={theme} />
 
-      {/* Zone à droite de la sidebar : marge autour du panneau arrondi */}
       <div
         className={[
           "h-full py-3 pr-3",
@@ -1118,7 +1115,6 @@ export default function Channels() {
         ].join(" ")}
         style={{ paddingLeft: sidebarOffset }}
       >
-        {/* PANNEAU ARRONDI : c'est lui qui scrolle */}
         <div
           className={[
             "h-full overflow-y-auto overflow-x-hidden",
@@ -1128,95 +1124,80 @@ export default function Channels() {
             mainPanelClass(isDark),
           ].join(" ")}
         >
-          <div
-            className={[
-              "mx-auto flex w-full max-w-[1100px]",
-              "flex-col px-[clamp(18px,3vw,48px)]",
-              "pb-[120px] pt-[clamp(18px,3vw,30px)]",
-            ].join(" ")}
-          >
-            {/* HEADER */}
-            <header className="flex shrink-0 items-center justify-between gap-4">
-              <div>
-                <h1
-                  className={[
-                    "text-[24px] font-semibold tracking-[-0.035em]",
-                    strongClass(isDark),
-                  ].join(" ")}
-                >
-                  Channels
-                </h1>
-                <p
-                  className={[
-                    "mt-0.5 text-[13px] font-medium",
-                    mutedClass(isDark),
-                  ].join(" ")}
-                >
-                  Your connected accounts at a glance.
-                </p>
+          <div className="mx-auto flex w-full max-w-[800px] flex-col px-[clamp(18px,3vw,48px)] pb-[120px] pt-[clamp(18px,3vw,30px)]">
+            
+            {/* BANNIÈRE CREED (Design de l'image) */}
+            <div className="relative mt-2 overflow-hidden rounded-2xl bg-gradient-to-br from-[#1e3a8a] via-[#1e40af] to-[#1d4ed8] px-6 py-8 shadow-xl md:px-8 md:py-10">
+              {/* Éléments décoratifs */}
+              <div className="pointer-events-none absolute -top-6 -right-6 h-32 w-32 rounded-full bg-blue-500/20 blur-2xl" />
+              <div className="pointer-events-none absolute -bottom-10 right-20 h-40 w-40 rounded-full bg-blue-400/20 blur-3xl" />
+              
+              <div className="pointer-events-none absolute left-0 top-0 opacity-80">
+                 <svg width="150" height="100" viewBox="0 0 150 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M10 10 Q 40 40 60 20 Q 80 0 100 30 Q 120 60 140 40" stroke="#4ade80" strokeWidth="4" fill="none" strokeLinecap="round"/>
+                    <circle cx="30" cy="20" r="6" fill="#4ade80" />
+                    <circle cx="60" cy="15" r="8" fill="#22c55e" />
+                    <circle cx="90" cy="25" r="7" fill="#4ade80" />
+                    <circle cx="120" cy="35" r="9" fill="#22c55e" />
+                 </svg>
               </div>
-              <button
-                type="button"
-                onClick={openModal}
-                className={[
-                  "inline-flex shrink-0 items-center gap-2 rounded-xl px-5 py-2.5 text-[13px] font-semibold transition-all duration-150 hover:-translate-y-px active:scale-[0.98]",
-                  focusRingClass(isDark),
-                  isDark
-                    ? "bg-white text-neutral-900 hover:bg-neutral-200"
-                    : "bg-neutral-900 text-white hover:bg-neutral-800",
-                ].join(" ")}
-              >
-                Connect Channel
-              </button>
-            </header>
+              
+              <div className="pointer-events-none absolute -bottom-4 right-4 opacity-50">
+                 <svg width="100" height="80" viewBox="0 0 100 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="20" cy="60" r="10" fill="#f472b6" />
+                    <circle cx="40" cy="50" r="8" fill="#f9a8d4" />
+                    <circle cx="60" cy="65" r="12" fill="#ec4899" />
+                    <circle cx="80" cy="55" r="9" fill="#f472b6" />
+                 </svg>
+              </div>
 
-            {/* PLAN BANNER */}
-            <div
-              className={[
-                "mt-6 flex items-start gap-4 rounded-2xl border p-5",
-                panelSurfaceClass(isDark),
-              ].join(" ")}
-            >
-              <div
-                className={[
-                  "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl",
-                  isDark
-                    ? "bg-white/[0.06] text-neutral-300"
-                    : "bg-white text-neutral-600 shadow-sm ring-1 ring-black/[0.05]",
-                ].join(" ")}
-              >
-                <BoltIcon className="h-5 w-5" />
-              </div>
-              <div className="flex-1">
-                <h3
-                  className={[
-                    "text-[13px] font-semibold",
-                    strongClass(isDark),
-                  ].join(" ")}
-                >
-                  Get to know your plan
-                </h3>
-                <p className={["mt-1 text-[12px]", mutedClass(isDark)].join(" ")}>
-                  You are on the {PLAN.name} plan and can connect up to{" "}
-                  {PLAN.maxChannels} channels.
-                </p>
+              <div className="relative z-10 flex flex-col justify-between gap-6 md:flex-row md:items-center">
+                <div className="flex items-start gap-4">
+                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-[#3b82f6] shadow-lg">
+                    <div className="h-5 w-5 rounded-[4px] bg-white/95" />
+                  </div>
+                  <div>
+                    <h1 className="text-xl font-bold tracking-tight text-white">Creed</h1>
+                    <p className="mt-1 text-[13.5px] text-blue-100">
+                      Sync your context across every AI tool/agent.
+                    </p>
+                  </div>
+                </div>
+                
                 <button
-                  type="button"
-                  onClick={handleUpgrade}
-                  className={[
-                    "mt-3 rounded-lg px-3.5 py-1.5 text-[11px] font-semibold transition-colors",
-                    focusRingClass(isDark),
-                    isDark
-                      ? "bg-white/[0.06] text-white hover:bg-white/[0.12]"
-                      : "bg-white text-neutral-900 shadow-sm ring-1 ring-black/[0.05] hover:bg-neutral-50",
-                  ].join(" ")}
+                  onClick={() => setIsInstalled(!isInstalled)}
+                  className="inline-flex shrink-0 items-center gap-2 rounded-full bg-white px-5 py-2.5 text-[13px] font-semibold text-neutral-900 transition-transform hover:scale-[1.02] active:scale-[0.98]"
                 >
-                  Upgrade Plan
+                  <DownloadIcon className="h-4 w-4" />
+                  {isInstalled ? "Installed" : "Install"}
                 </button>
+              </div>
+
+              {/* Pagination dots */}
+              <div className="relative z-10 mt-8 flex items-center justify-center gap-1.5">
+                <span className="h-1.5 w-4 rounded-full bg-white/90"></span>
+                <span className="h-1.5 w-1.5 rounded-full bg-white/30"></span>
+                <span className="h-1.5 w-1.5 rounded-full bg-white/30"></span>
+                <span className="h-1.5 w-1.5 rounded-full bg-white/30"></span>
+                <span className="h-1.5 w-1.5 rounded-full bg-white/30"></span>
               </div>
             </div>
 
-            {/* ERROR */}
+            {/* BANNIÈRE PLAN (Conservée mais discrète) */}
+            <div className="mt-6 flex items-center justify-between px-2">
+              <p className={["text-[12px]", mutedClass(isDark)].join(" ")}>
+                You are on the {PLAN.name} plan and can connect up to {PLAN.maxChannels} channels.
+              </p>
+              <button
+                type="button"
+                onClick={handleUpgrade}
+                className={["text-[12px] font-semibold hover:underline", isDark ? "text-white" : "text-neutral-900"].join(" ")}
+              >
+                Upgrade Plan
+              </button>
+            </div>
+
+            {/* ERREUR */}
             {errorMessage && (
               <div
                 role="alert"
@@ -1232,121 +1213,33 @@ export default function Channels() {
                   type="button"
                   aria-label="Dismiss"
                   onClick={() => setErrorMessage(null)}
-                  className={[
-                    "rounded-md p-1",
-                    isDark ? "hover:bg-rose-500/10" : "hover:bg-rose-500/10",
-                  ].join(" ")}
+                  className="rounded-md p-1 hover:bg-rose-500/10"
                 >
                   <CloseIcon className="h-3.5 w-3.5" />
                 </button>
               </div>
             )}
 
-            {/* CONTENT */}
-            {connectedChannels.length === 0 ? (
-              <div
-                className={[
-                  "mt-5 flex min-h-[380px] flex-col items-center justify-center",
-                  "rounded-2xl border px-6 py-12 text-center",
-                  panelSurfaceClass(isDark),
-                ].join(" ")}
-              >
-                <button
-                  type="button"
-                  onClick={openModal}
-                  className={[
-                    "group flex h-16 w-16 items-center justify-center rounded-full transition-colors",
-                    focusRingClass(isDark),
-                    isDark
-                      ? "border border-white/[0.08] bg-white/[0.04] hover:bg-white/[0.08]"
-                      : "border border-black/[0.06] bg-white shadow-sm hover:bg-neutral-50",
-                  ].join(" ")}
-                >
-                  <PlusIcon
-                    className={[
-                      "h-7 w-7 transition-colors",
-                      isDark
-                        ? "text-neutral-400 group-hover:text-white"
-                        : "text-neutral-500 group-hover:text-neutral-900",
-                    ].join(" ")}
-                  />
-                </button>
-                <h2
-                  className={[
-                    "mt-5 text-[16px] font-semibold tracking-[-0.01em]",
-                    strongClass(isDark),
-                  ].join(" ")}
-                >
-                  Connect a channel to get started
-                </h2>
-                <p
-                  className={[
-                    "mt-2 max-w-sm text-[12.5px]",
-                    mutedClass(isDark),
-                  ].join(" ")}
-                >
-                  Once connected, you'll see your channels listed here.
-                </p>
-                <button
-                  type="button"
-                  onClick={openModal}
-                  className={[
-                    "mt-6 rounded-xl px-5 py-2.5 text-[13px] font-semibold transition-colors",
-                    focusRingClass(isDark),
-                    isDark
-                      ? "bg-white text-neutral-900 hover:bg-neutral-200"
-                      : "bg-neutral-900 text-white hover:bg-neutral-800",
-                  ].join(" ")}
-                >
-                  Connect Channel
-                </button>
-              </div>
-            ) : visibleChannels.length === 0 ? (
-              <div
-                className={[
-                  "mt-5 flex min-h-[280px] flex-col items-center justify-center gap-3",
-                  "rounded-2xl border px-4 py-10 text-center",
-                  panelSurfaceClass(isDark),
-                ].join(" ")}
-              >
-                <p className={["text-[13px]", mutedClass(isDark)].join(" ")}>
-                  No channels match your search.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => setQuery("")}
-                  className={[
-                    "rounded-full border px-4 py-1.5 text-[12px] font-semibold transition",
-                    focusRingClass(isDark),
-                    isDark
-                      ? "border-white/10 text-white hover:bg-white/[0.07]"
-                      : "border-black/10 text-neutral-900 hover:bg-neutral-100",
-                  ].join(" ")}
-                >
-                  Clear search
-                </button>
-              </div>
-            ) : (
-              <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {visibleChannels.map((channel) => (
-                  <ChannelCard
-                    key={channel.key}
-                    channel={channel}
-                    connection={connections[channel.key]}
-                    pending={pendingKey === channel.key}
-                    disabled={false}
-                    t={t}
-                    isDark={isDark}
-                    onToggle={() => handleToggle(channel.key)}
-                  />
-                ))}
-              </div>
-            )}
+            {/* GRILLE DES CHANNELS (Design de l'image) */}
+            <div className="mt-6 grid grid-cols-1 gap-1 md:grid-cols-2">
+              {visibleChannels.map((channel) => (
+                <ChannelRow
+                  key={channel.key}
+                  channel={channel}
+                  connection={connections[channel.key]}
+                  pending={pendingKey === channel.key}
+                  disabled={false}
+                  t={t}
+                  isDark={isDark}
+                  onToggle={() => handleToggle(channel.key)}
+                />
+              ))}
+            </div>
 
             {/* FOOTER */}
             <div
               className={[
-                "mt-5 flex shrink-0 items-center justify-between text-[10.5px]",
+                "mt-8 flex shrink-0 items-center justify-between text-[10.5px]",
                 mutedClass(isDark),
               ].join(" ")}
             >
@@ -1417,7 +1310,6 @@ export default function Channels() {
         onRequestOpen={() => setIsNewPostOpen(true)}
       />
 
-      {/* HELP — même bouton que sur Home */}
       <HelpChatButton isDark={isDark} />
     </main>
   );
