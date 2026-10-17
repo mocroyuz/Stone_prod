@@ -108,8 +108,6 @@ const LIGHT: Tokens = {
 const cx = (...parts: (string | false | null | undefined)[]) =>
   parts.filter(Boolean).join(" ");
 
-const uid = () => Math.random().toString(36).slice(2, 10);
-
 /* ── Icons ── */
 
 const svgBase = {
@@ -1897,14 +1895,6 @@ function TagsSection({
 
 /* ── Utils · Saved replies ── */
 
-type SavedReply = {
-  id: string;
-  name: string;
-  content: string;
-};
-
-const INITIAL_SAVED_REPLIES: SavedReply[] = [];
-
 function SavedRepliesSection({
   tokens,
   notify,
@@ -1912,148 +1902,82 @@ function SavedRepliesSection({
   tokens: Tokens;
   notify: Notify;
 }) {
-  const [rules, setRules] = useState<SavedReply[]>(INITIAL_SAVED_REPLIES);
-  const saved = useRef<SavedReply[]>(rules);
   const [name, setName] = useState("");
   const [content, setContent] = useState("");
 
-  const dirty = JSON.stringify(rules) !== JSON.stringify(saved.current);
-
-  const addRule = () => {
-    const n = name.trim();
-    const c = content.trim();
-
-    if (!n) return notify("Enter a name", "error");
-    if (!c) return notify("Enter content", "error");
-
-    setRules((prev) => [...prev, { id: uid(), name: n, content: c }]);
+  const handleCancel = () => {
     setName("");
     setContent("");
   };
 
-  const removeRule = (id: string) =>
-    setRules((prev) => prev.filter((r) => r.id !== id));
-
-  const save = () => {
-    saved.current = rules;
-    setRules((prev) => [...prev]);
-    notify("Saved replies saved");
+  const handleSave = () => {
+    if (!name.trim() || !content.trim()) return;
+    notify("Saved reply created");
+    handleCancel();
   };
 
   return (
     <SectionCard
       title="Saved replies"
-      description="Create quick replies to use in your messages."
+      description="Create a quick reply to use in your messages."
       tokens={tokens}
-      footer={
-        <>
-          {dirty && (
-            <span className={cx("text-[12.5px]", tokens.subtle)}>
-              Unsaved changes
-            </span>
-          )}
-          <Button tokens={tokens} onClick={save} disabled={!dirty}>
-            Save replies
-          </Button>
-        </>
-      }
     >
-      <div className="pb-5">
-        <p className={cx("mb-2.5 text-[13px] font-medium", tokens.label)}>
-          Your saved replies
-        </p>
+      <div className="flex flex-col gap-4 pt-4 pb-4">
+        <input
+          type="text"
+          placeholder="Name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          className={cx(
+            "w-full rounded-[8px] border px-3 py-3 text-[14px] outline-none transition",
+            tokens.inputBg,
+            tokens.inputText,
+            tokens.placeholder,
+            tokens.inputBorder,
+            "focus:border-neutral-500 focus:ring-1 focus:ring-neutral-500"
+          )}
+        />
 
-        {rules.length === 0 ? (
-          <p className={cx("py-2 text-[13px]", tokens.body)}>
-            No saved replies yet.
-          </p>
-        ) : (
-          rules.map((rule) => (
-            <div
-              key={rule.id}
-              className={cx(
-                "flex items-start justify-between gap-4 border-b py-3 last:border-b-0",
-                tokens.divide
-              )}
-            >
-              <div className="min-w-0">
-                <p className={cx("text-[13.5px] font-medium", tokens.heading)}>
-                  {rule.name}
-                </p>
-                <p
-                  className={cx(
-                    "mt-1 text-[12.5px] leading-relaxed whitespace-pre-wrap",
-                    tokens.body
-                  )}
-                >
-                  {rule.content}
-                </p>
-              </div>
-
-              <div className="flex shrink-0 items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => removeRule(rule.id)}
-                  aria-label={`Delete ${rule.name}`}
-                  className={cx(
-                    "flex h-8 w-8 items-center justify-center rounded-md text-[15px] leading-none transition",
-                    tokens.subtle,
-                    tokens.ghostHover,
-                    tokens.ring
-                  )}
-                >
-                  ×
-                </button>
-              </div>
-            </div>
-          ))
-        )}
-      </div>
-
-      <div className="pt-5">
-        <p className={cx("mb-2 text-[13px] font-medium", tokens.label)}>
-          Create a saved reply
-        </p>
-
-        <div className="flex flex-col gap-3">
-          <Field
-            label="Name"
-            value={name}
-            onChange={setName}
-            placeholder="e.g. Welcome message"
-            tokens={tokens}
+        <div className="flex flex-col gap-1.5">
+          <textarea
+            placeholder="Write your saved reply"
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            rows={4}
+            maxLength={1000}
+            className={cx(
+              "w-full resize-y rounded-[8px] border px-3 py-3 text-[14px] outline-none transition",
+              tokens.inputBg,
+              tokens.inputText,
+              tokens.placeholder,
+              tokens.inputBorder,
+              "focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50"
+            )}
           />
-
-          <label className="block">
-            <span
-              className={cx(
-                "mb-1.5 block text-[13px] font-medium",
-                tokens.label
-              )}
-            >
-              Content
-            </span>
-            <textarea
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              rows={3}
-              placeholder="Type the content…"
-              className={cx(
-                "w-full resize-y rounded-[10px] border px-3.5 py-2.5 text-[14px] outline-none transition",
-                tokens.inputBg,
-                tokens.inputText,
-                tokens.placeholder,
-                tokens.inputFocus,
-                tokens.inputBorder
-              )}
-            />
-          </label>
-
           <div className="flex justify-end">
-            <Button tokens={tokens} onClick={addRule}>
-              Create reply
-            </Button>
+            <span className={cx("text-[12px] tabular-nums", tokens.subtle)}>
+              {content.length}/1000
+            </span>
           </div>
+        </div>
+
+        <div className="flex justify-end gap-2 mt-1">
+          <Button
+            tokens={tokens}
+            variant="secondary"
+            onClick={handleCancel}
+            className="!px-5 !py-2"
+          >
+            Cancel
+          </Button>
+          <Button
+            tokens={tokens}
+            onClick={handleSave}
+            disabled={!name.trim() || !content.trim()}
+            className="!px-5 !py-2"
+          >
+            Save
+          </Button>
         </div>
       </div>
     </SectionCard>
