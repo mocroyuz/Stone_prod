@@ -4,7 +4,7 @@ import {
   Maximize2, Minimize2, X, Tag, FileText, Smile, Hash,
   Image as ImageIcon, ImagePlus, Pencil, ChevronDown, CalendarClock,
   Check, ArrowLeft, Wand2, Plus, Play, Info, Loader2, RotateCcw,
-  PanelRightClose, PanelRightOpen,
+  PanelRightClose, PanelRightOpen, Cloud, ChevronRight,
 } from "lucide-react";
 import {
   XIcon, FacebookIcon, InstagramIcon, LinkedInIcon,
@@ -699,6 +699,131 @@ function FieldRow({
   );
 }
 
+/* ── Sources de médias (icônes simplifiées, monochromes) ── */
+
+type SourceIconProps = { className?: string; inner?: string };
+
+function CanvaIcon({ className, inner = "#1c1c1e" }: SourceIconProps) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} aria-hidden="true">
+      <circle cx="12" cy="12" r="11" fill="currentColor" />
+      <path
+        d="M15.2 9.2a4.2 4.2 0 1 0 0 5.6"
+        fill="none"
+        stroke={inner}
+        strokeWidth="2.2"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function DropboxIcon({ className }: SourceIconProps) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="currentColor" aria-hidden="true">
+      <polygon points="6,2 12,5.5 6,9 0,5.5" />
+      <polygon points="18,2 24,5.5 18,9 12,5.5" />
+      <polygon points="6,9 12,12.5 6,16 0,12.5" />
+      <polygon points="18,9 24,12.5 18,16 12,12.5" />
+      <polygon points="6,17.4 12,13.9 18,17.4 12,20.9" />
+    </svg>
+  );
+}
+
+function GoogleDriveIcon({ className }: SourceIconProps) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="currentColor" aria-hidden="true">
+      <path d="M8 3 2 13.5l3.5 6L11.5 9z" />
+      <path d="M8.5 3h7L22 13.5h-7z" />
+      <path d="M9 14.5h13l-3.5 6h-13z" />
+    </svg>
+  );
+}
+
+function GooglePhotosIcon({ className }: SourceIconProps) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="currentColor" aria-hidden="true">
+      {[0, 90, 180, 270].map((deg) => (
+        <path
+          key={deg}
+          d="M12 2a5 5 0 0 1 5 5v5h-5z"
+          transform={`rotate(${deg} 12 12)`}
+        />
+      ))}
+    </svg>
+  );
+}
+
+function OneDriveIcon({ className }: SourceIconProps) {
+  return <Cloud className={className} fill="currentColor" strokeWidth={1.5} />;
+}
+
+function UnsplashIcon({ className }: SourceIconProps) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="currentColor" aria-hidden="true">
+      <path d="M7.5 6.75V0h9v6.75h-9zm9 3.75H24V24H0V10.5h7.5v6.75h9V10.5z" />
+    </svg>
+  );
+}
+
+type MediaSourceId =
+  | "canva" | "dropbox" | "google_drive"
+  | "google_photos" | "onedrive" | "unsplash";
+
+const MEDIA_SOURCES: {
+  id: MediaSourceId;
+  label: string;
+  Icon: (props: SourceIconProps) => JSX.Element;
+  submenu?: boolean;
+}[] = [
+  { id: "canva", label: "Canva", Icon: CanvaIcon, submenu: true },
+  { id: "dropbox", label: "Dropbox", Icon: DropboxIcon },
+  { id: "google_drive", label: "Google Drive", Icon: GoogleDriveIcon },
+  { id: "google_photos", label: "Google Photos", Icon: GooglePhotosIcon },
+  { id: "onedrive", label: "OneDrive", Icon: OneDriveIcon },
+  { id: "unsplash", label: "Unsplash", Icon: UnsplashIcon },
+];
+
+function MediaSourceMenu({
+  isDark,
+  onPick,
+}: {
+  isDark: boolean;
+  onPick: (id: MediaSourceId) => void;
+}) {
+  return (
+    <div
+      role="menu"
+      aria-label="Add media from"
+      className={[
+        "absolute bottom-full left-0 z-50 mb-2 w-[230px] overflow-hidden rounded-2xl border p-2 shadow-2xl",
+        isDark ? "border-white/10 bg-[#1c1c1e]" : "border-black/10 bg-white",
+      ].join(" ")}
+    >
+      {MEDIA_SOURCES.map(({ id, label, Icon, submenu }) => (
+        <button
+          key={id}
+          type="button"
+          role="menuitem"
+          onClick={() => onPick(id)}
+          className={[
+            "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-[14px] font-semibold transition",
+            isDark
+              ? "text-neutral-100 hover:bg-white/5"
+              : "text-neutral-800 hover:bg-black/[0.04]",
+          ].join(" ")}
+        >
+          <Icon className="h-[18px] w-[18px] shrink-0" inner={isDark ? "#1c1c1e" : "#ffffff"} />
+          <span className="flex-1">{label}</span>
+          {submenu && (
+            <ChevronRight className={["h-4 w-4", isDark ? "text-neutral-400" : "text-neutral-500"].join(" ")} />
+          )}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 const EMOJI_FONT =
   '"Noto Emoji", "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif';
 
@@ -890,6 +1015,7 @@ function ComposerToolbar({
       ].join(" ")}
     >
       <div className="flex items-center gap-1">
+        {leading}
         <div className="emoji-wrapper relative">
           <button
             type="button"
@@ -910,7 +1036,6 @@ function ComposerToolbar({
         >
           <Hash className="h-4 w-4" />
         </button>
-        {leading}
       </div>
       <div className="flex items-center gap-3">
         {extra}
@@ -1043,6 +1168,7 @@ export default function NewPostModal({
   const [collapsedCards, setCollapsedCards] = useState<Record<string, boolean>>({});
   const [previewNetwork, setPreviewNetwork] = useState<SocialNetworkId | null>(null);
   const [showPreview, setShowPreview] = useState(true);
+  const [showSourceMenu, setShowSourceMenu] = useState(false);
   const [requestTick, setRequestTick] = useState(0);
 
   // ── YouTube ──
@@ -1141,7 +1267,9 @@ export default function NewPostModal({
     if (!isOpen) return;
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        if (activeEmojiNetwork) {
+        if (showSourceMenu) {
+          setShowSourceMenu(false);
+        } else if (activeEmojiNetwork) {
           setActiveEmojiNetwork(null);
         } else if (showActionMenu || showDateTimePanel) {
           setShowActionMenu(false);
@@ -1161,7 +1289,7 @@ export default function NewPostModal({
       document.removeEventListener("keydown", handleKeyDown);
       document.body.style.overflow = previousOverflow;
     };
-  }, [isOpen, showActionMenu, showDateTimePanel, activeEmojiNetwork]);
+  }, [isOpen, showActionMenu, showDateTimePanel, activeEmojiNetwork, showSourceMenu]);
 
   // Focus le champ principal à l'ouverture (sauf si un brouillon est proposé)
   useEffect(() => {
@@ -1218,6 +1346,19 @@ export default function NewPostModal({
       document.removeEventListener("mousedown", onPointerDown);
     };
   }, [activeEmojiNetwork]);
+
+  useEffect(() => {
+    if (!showSourceMenu) return;
+    const onPointerDown = (e: MouseEvent) => {
+      if (!(e.target as HTMLElement).closest(".source-wrapper")) {
+        setShowSourceMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+    };
+  }, [showSourceMenu]);
 
   useEffect(() => {
     if (!isOpen || !tiktokSelected || tiktokInfo) return;
@@ -1285,6 +1426,7 @@ export default function NewPostModal({
     setSubmitError(null);
     setSubmitProgress(null);
     setActiveEmojiNetwork(null);
+    setShowSourceMenu(false);
     setCollapsedCards({});
     setPreviewNetwork(null);
     setTiktokInfo(null);
@@ -1473,6 +1615,13 @@ export default function NewPostModal({
     }));
 
     setMedia((prev) => [...prev, ...newItems]);
+  };
+
+  const handleSourcePick = (id: MediaSourceId) => {
+    const source = MEDIA_SOURCES.find((m) => m.id === id);
+    setShowSourceMenu(false);
+    // TODO: brancher l'import réel (OAuth + sélecteur) pour chaque source.
+    setMediaError(`${source?.label ?? "This source"} import isn't connected yet.`);
   };
 
   const removeMedia = (id: string) => {
@@ -2026,15 +2175,15 @@ export default function NewPostModal({
                 }}
                 ariaLabel="Post text for all selected channels"
                 placeholder="What do you want to share?"
-                className={[textareaClass, "min-h-[88px]"].join(" ")}
+                className={[textareaClass, "min-h-[150px]"].join(" ")}
               />
 
-              {media.length > 0 && (
-                <div className="mt-3 flex flex-wrap items-end gap-3">
+              {(
+                <div className="mt-4 flex flex-wrap items-end gap-3">
                   {media.map((item, index) => (
                     <div
                       key={item.id}
-                      className="group relative h-[88px] w-[88px] shrink-0 overflow-hidden rounded-xl border border-black/5"
+                      className="group relative h-[104px] w-[104px] shrink-0 overflow-hidden rounded-xl border border-black/5"
                     >
                       {item.kind === "image" ? (
                         <img src={item.url} alt="" className="h-full w-full object-cover" />
@@ -2072,6 +2221,28 @@ export default function NewPostModal({
                       )}
                     </div>
                   ))}
+
+                  {media.length < MAX_MEDIA && (
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className={[
+                        "flex h-[104px] w-[104px] shrink-0 flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed px-2 text-center text-[12px] leading-tight transition-colors",
+                        isDark
+                          ? "border-white/20 text-neutral-400 hover:border-white/40 hover:bg-white/5"
+                          : "border-black/20 text-neutral-500 hover:border-black/40 hover:bg-white",
+                      ].join(" ")}
+                    >
+                      <ImagePlus className="h-6 w-6" strokeWidth={1.75} />
+                      <span>
+                        Drag &amp; drop or
+                        <br />
+                        <span className={["font-medium", isDark ? "text-[#7cc47f]" : "text-emerald-600"].join(" ")}>
+                          select a file
+                        </span>
+                      </span>
+                    </button>
+                  )}
                 </div>
               )}
 
@@ -2115,21 +2286,29 @@ export default function NewPostModal({
                 length={masterContent.length}
                 limit={strictestLimit}
                 leading={
-                  <button
-                    type="button"
-                    aria-label="Add photos or videos"
-                    title={`Add photos or videos (${media.length}/${MAX_MEDIA})`}
-                    disabled={media.length >= MAX_MEDIA}
-                    onClick={() => fileInputRef.current?.click()}
-                    className={[
-                      "flex h-8 items-center gap-1.5 rounded-lg px-2 text-[12.5px] font-semibold transition disabled:cursor-not-allowed disabled:opacity-40",
-                      textSecondary,
-                      hoverSoft,
-                    ].join(" ")}
-                  >
-                    <ImagePlus className="h-4 w-4" />
-                    {media.length > 0 ? `${media.length}/${MAX_MEDIA}` : "Media"}
-                  </button>
+                  <div className="source-wrapper relative">
+                    <button
+                      type="button"
+                      aria-label="Add media from…"
+                      aria-haspopup="menu"
+                      aria-expanded={showSourceMenu}
+                      onClick={() => {
+                        setActiveEmojiNetwork(null);
+                        setShowSourceMenu((v) => !v);
+                      }}
+                      className={[
+                        "flex h-8 w-8 items-center justify-center rounded-lg transition",
+                        showSourceMenu
+                          ? isDark ? "bg-white/10 text-white" : "bg-black/5 text-neutral-900"
+                          : `${textSecondary} ${hoverSoft}`,
+                      ].join(" ")}
+                    >
+                      <Plus className="h-4 w-4" />
+                    </button>
+                    {showSourceMenu && (
+                      <MediaSourceMenu isDark={isDark} onPick={handleSourcePick} />
+                    )}
+                  </div>
                 }
               />
             </section>
