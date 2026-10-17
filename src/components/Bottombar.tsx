@@ -24,10 +24,6 @@ type BottomBarProps = {
   /** Libellé accessible du bouton de création et de son menu. */
   addLabel?: string;
 
-  /** Recherche : valeur contrôlée + setter. */
-  query: string;
-  onQueryChange: (value: string) => void;
-
   /** Décalage à gauche (ex : largeur d'une sidebar). */
   offsetLeft?: number;
 
@@ -69,13 +65,6 @@ const FilesIcon = (
   </svg>
 );
 
-const SearchIcon = (
-  <svg {...svgProps} width={18} height={18}>
-    <circle cx="11" cy="11" r="7" />
-    <path d="m21 21-4.3-4.3" />
-  </svg>
-);
-
 const PlusIcon = (
   <svg {...svgProps} width={20} height={20} strokeWidth={2.4}>
     <path d="M12 5v14M5 12h14" />
@@ -96,31 +85,11 @@ const PostIcon = (
   </svg>
 );
 
-const ClearIcon = (
-  <svg {...svgProps} width={12} height={12} strokeWidth={2.6}>
-    <path d="M6 6l12 12M18 6 6 18" />
-  </svg>
-);
-
 /* ─────────────────────────────────────────────────────────
  * Keyframes
  * ───────────────────────────────────────────────────────── */
 
 const ANIMATION_KEYFRAMES = `
-@keyframes searchIconOpen {
-  0%   { transform: scale(.8) rotate(-14deg); opacity: .6; }
-  55%  { transform: scale(1.1) rotate(4deg);  opacity: 1; }
-  100% { transform: scale(1) rotate(0deg);    opacity: 1; }
-}
-@keyframes searchContentIn {
-  0%   { opacity: 0; transform: translateX(-8px); }
-  100% { opacity: 1; transform: translateX(0); }
-}
-@keyframes searchGlow {
-  0%   { box-shadow: 0 0 0 0 rgba(128,128,128,0); }
-  45%  { box-shadow: 0 0 0 3px rgba(128,128,128,.12); }
-  100% { box-shadow: 0 0 0 0 rgba(128,128,128,0); }
-}
 @keyframes addMenuIn {
   0%   { opacity: 0; transform: translateY(10px) scale(.94); }
   100% { opacity: 1; transform: translateY(0) scale(1); }
@@ -149,20 +118,15 @@ export default function BottomBar({
   isDark = false,
   active = null,
   addLabel = "Nouvelle publication",
-  query,
-  onQueryChange,
   offsetLeft = 0,
   onSelectFiles,
   onSubmitIdea,
   onCreatePost,
   onChange,
 }: BottomBarProps) {
-  const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [isClosing, setIsClosing] = useState(false);
   const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
   const [isIdeaOpen, setIsIdeaOpen] = useState(false);
 
-  const inputRef = useRef<HTMLInputElement>(null);
   const addButtonRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -170,26 +134,7 @@ export default function BottomBar({
   const hasIdea = true;
   const hasMenu = hasIdea || Boolean(onCreatePost);
 
-  /** Recherche visuellement dépliée (animation d'origine). */
-  const isExpanded = isSearchOpen && !isClosing;
-
   /* ── Handlers internes ─────────────────────────────────── */
-
-  const openSearch = useCallback(() => {
-    setIsAddMenuOpen(false);
-    setIsClosing(false);
-    setIsSearchOpen(true);
-    // Focus synchrone : indispensable pour ouvrir le clavier sur iOS.
-    inputRef.current?.focus({ preventScroll: true });
-  }, []);
-
-  const closeSearch = useCallback(() => {
-    setIsClosing(true);
-    window.setTimeout(() => {
-      setIsSearchOpen(false);
-      setIsClosing(false);
-    }, 220);
-  }, []);
 
   const closeMenu = useCallback((restoreFocus = false) => {
     setIsAddMenuOpen(false);
@@ -271,18 +216,6 @@ export default function BottomBar({
 
   /* ── Effets ────────────────────────────────────────────── */
 
-  // Raccourci global : ⌘K / Ctrl+K ouvre la recherche.
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
-        event.preventDefault();
-        openSearch();
-      }
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [openSearch]);
-
   // Menu : focus du premier item + Échap.
   useEffect(() => {
     if (!isAddMenuOpen) return;
@@ -335,10 +268,6 @@ export default function BottomBar({
   const menuTone = isDark
     ? "border border-white/10 bg-[#1c1c1e]/95 text-neutral-100 shadow-[0_20px_50px_-10px_rgba(0,0,0,0.7)]"
     : "border border-black/[0.06] bg-white/95 text-neutral-900 shadow-[0_20px_50px_-10px_rgba(0,0,0,0.25)]";
-
-  const searchTone = isDark
-    ? "border-white/10 bg-[#141416] text-neutral-300 focus-within:border-white/35"
-    : "border-black/10 bg-white text-black/70 focus-within:border-black/35";
 
   /* ── Rendu ─────────────────────────────────────────────── */
 
@@ -473,123 +402,6 @@ export default function BottomBar({
                   {PlusIcon}
                 </span>
               </button>
-            </li>
-
-            {/* Recherche */}
-            <li>
-              <div
-                className={[
-                  "relative flex h-12 items-center overflow-hidden rounded-full border",
-                  "transition-[width,background-color,border-color,box-shadow]",
-                  "duration-[420ms] ease-[cubic-bezier(0.22,1,0.36,1)]",
-                  searchTone,
-                  isSearchOpen ? "w-[200px] sm:w-[290px]" : "w-12",
-                  isSearchOpen &&
-                    !isClosing &&
-                    "bb-anim animate-[searchGlow_500ms_ease-out]",
-                  isClosing && "w-12",
-                ].join(" ")}
-              >
-                <button
-                  type="button"
-                  aria-label="Rechercher"
-                  aria-expanded={isSearchOpen}
-                  title="Rechercher"
-                  onMouseDown={(event) => {
-                    if (isSearchOpen) event.preventDefault();
-                  }}
-                  onClick={() => {
-                    if (isSearchOpen) {
-                      inputRef.current?.focus();
-                    } else {
-                      openSearch();
-                    }
-                  }}
-                  className={[
-                    "relative z-10 flex h-12 w-12 shrink-0",
-                    "items-center justify-center rounded-full",
-                    focusRing,
-                    !isSearchOpen && "transition duration-150 active:scale-90",
-                  ].join(" ")}
-                >
-                  <span
-                    className={[
-                      "flex items-center justify-center",
-                      isExpanded
-                        ? "bb-anim animate-[searchIconOpen_420ms_cubic-bezier(0.22,1,0.36,1)]"
-                        : "",
-                    ].join(" ")}
-                  >
-                    {SearchIcon}
-                  </span>
-                </button>
-
-                <div
-                  className={[
-                    "flex min-w-0 flex-1 items-center",
-                    "transition-opacity duration-200",
-                    isExpanded
-                      ? "opacity-100"
-                      : "pointer-events-none opacity-0",
-                  ].join(" ")}
-                >
-                  <input
-                    ref={inputRef}
-                    type="search"
-                    enterKeyHint="search"
-                    autoComplete="off"
-                    spellCheck={false}
-                    value={query}
-                    onChange={(event) => onQueryChange(event.target.value)}
-                    onBlur={() => {
-                      if (query.trim() === "") closeSearch();
-                    }}
-                    onKeyDown={(event) => {
-                      if (event.key === "Escape") {
-                        onQueryChange("");
-                        closeSearch();
-                        inputRef.current?.blur();
-                      } else if (event.key === "Enter") {
-                        inputRef.current?.blur();
-                      }
-                    }}
-                    placeholder="Rechercher"
-                    aria-label="Rechercher"
-                    aria-hidden={!isSearchOpen}
-                    tabIndex={isSearchOpen ? 0 : -1}
-                    className={[
-                      "bb-anim w-full min-w-0 bg-transparent",
-                      "pr-2 text-[14px] outline-none",
-                      "[&::-webkit-search-cancel-button]:hidden",
-                      "placeholder:text-inherit placeholder:opacity-50",
-                      "animate-[searchContentIn_300ms_150ms_both]",
-                      isDark ? "text-white" : "text-neutral-800",
-                    ].join(" ")}
-                  />
-
-                  {query !== "" && isSearchOpen && (
-                    <button
-                      type="button"
-                      aria-label="Effacer la recherche"
-                      title="Effacer"
-                      onMouseDown={(event) => event.preventDefault()}
-                      onClick={() => {
-                        onQueryChange("");
-                        inputRef.current?.focus();
-                      }}
-                      className={[
-                        "mr-2 flex h-6 w-6 shrink-0 items-center justify-center rounded-full",
-                        "transition active:scale-90",
-                        isDark
-                          ? "bg-white/10 hover:bg-white/20"
-                          : "bg-black/5 hover:bg-black/10",
-                      ].join(" ")}
-                    >
-                      {ClearIcon}
-                    </button>
-                  )}
-                </div>
-              </div>
             </li>
           </ul>
         </div>
