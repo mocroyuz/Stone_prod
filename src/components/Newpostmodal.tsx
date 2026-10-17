@@ -3,7 +3,7 @@ import { EmojiPicker as FrimousseEmojiPicker } from "frimousse";
 import {
   Maximize2, Minimize2, X, Tag, FileText,
   Eye, Smile, Hash, Image as ImageIcon, ImagePlus, Pencil, ChevronDown,
-  CalendarClock, Check, Sparkles, ArrowLeft, Wand2, Globe
+  CalendarClock, Check, Sparkles, ArrowLeft, Wand2, Globe, Plus
 } from "lucide-react";
 import {
   XIcon, FacebookIcon, InstagramIcon, LinkedInIcon,
@@ -67,7 +67,7 @@ export type YouTubeOptions = {
 export type NewPostPayload = {
   title: string;
   content: string;
-  contents?: Record<string, string>; // Nouveau: texte par réseau
+  contents?: Record<string, string>; // Texte par réseau
   hashtags: string[];
   networks: SocialNetworkId[];
   scheduleMode: "now" | "save_in_folder" | "later";
@@ -1106,7 +1106,6 @@ export default function NewPostModal({
     ? "You need to indicate if your content promotes yourself, a third party, or both."
     : null;
 
-  // Utilisation du masterContent ou du premier réseau pour le titre YouTube
   const primaryContent = masterContent || contents[networks[0]] || "";
   
   const youtubeEffectiveTitle = (
