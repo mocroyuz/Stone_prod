@@ -195,6 +195,10 @@ img,
   color: #171716 !important;
 }
 
+.auth-light button.text-white:not(.back-button) {
+  color: #ffffff !important;
+}
+
 .auth-light button:not(.theme-toggle):not(.back-button) {
   border-color: rgba(23, 23, 22, 0.12);
 }
