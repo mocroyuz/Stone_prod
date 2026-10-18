@@ -4,7 +4,7 @@ import {
   Maximize2, Minimize2, X, Tag, FileText, Smile, Hash,
   Image as ImageIcon, ImagePlus, Pencil, ChevronDown, CalendarClock,
   Check, ArrowLeft, Wand2, Plus, Play, Info, Loader2, RotateCcw,
-  PanelRightClose, PanelRightOpen, Cloud, ChevronRight,
+  PanelRightClose, PanelRightOpen, Cloud, ChevronRight, ExternalLink,
 } from "lucide-react";
 import {
   XIcon, FacebookIcon, InstagramIcon, LinkedInIcon,
@@ -32,6 +32,15 @@ import {
   type TikTokCreatorInfo,
   type TikTokPostOptions,
 } from "../services/tiktok";
+import {
+  CANVA_SIZES,
+  CanvaError,
+  createCanvaDesign,
+  getCanvaAuthUrl,
+  importCanvaDesign,
+  waitForCanvaConnection,
+  type CanvaSize,
+} from "../services/canva";
 
 export type SocialNetworkId =
   | "x" | "facebook" | "instagram" | "linkedin"
@@ -46,6 +55,15 @@ type MediaItem = {
   file: File;
   url: string;
   kind: MediaKind;
+};
+
+/** Design Canva en cours d'édition, en attente d'être importé dans le post. */
+type CanvaPendingDesign = {
+  designId: string;
+  target: string;
+  label: string;
+  editUrl: string;
+  importing: boolean;
 };
 
 export type ScheduleAction = "save_in_folder" | "now" | "set_date";
@@ -999,42 +1017,98 @@ const MEDIA_SOURCES: {
   { id: "unsplash", label: "Unsplash", Icon: UnsplashIcon },
 ];
 
+/**
+ * Menu « + » des sources de médias. Canva ouvre un sous-menu de tailles de
+ * design (au survol sur desktop, au clic sur mobile). Le sous-menu est un
+ * frère du menu principal (et non un enfant) pour ne pas être rogné par son
+ * `overflow-hidden`.
+ */
 function MediaSourceMenu({
   isDark,
   onPick,
+  onPickCanva,
 }: {
   isDark: boolean;
   onPick: (id: MediaSourceId) => void;
+  onPickCanva: (size: CanvaSize) => void;
 }) {
+  const [canvaOpen, setCanvaOpen] = useState(false);
+
+  const panel = isDark ? "border-white/10 bg-[#1c1c1e]" : "border-black/10 bg-white";
+  const muted = isDark ? "text-neutral-400" : "text-neutral-500";
+  const hover = isDark ? "hover:bg-white/5" : "hover:bg-black/[0.04]";
+  const active = isDark ? "bg-white/10" : "bg-black/[0.06]";
+
   return (
-    <div
-      role="menu"
-      aria-label="Add media from"
-      className={[
-        "absolute bottom-full left-0 z-50 mb-2 w-[230px] overflow-hidden rounded-2xl border p-2 shadow-2xl",
-        isDark ? "border-white/10 bg-[#1c1c1e]" : "border-black/10 bg-white",
-      ].join(" ")}
-    >
-      {MEDIA_SOURCES.map(({ id, label, Icon, submenu }) => (
-        <button
-          key={id}
-          type="button"
-          role="menuitem"
-          onClick={() => onPick(id)}
+    <div className="absolute bottom-full left-0 z-50 mb-2">
+      <div
+        role="menu"
+        aria-label="Add media from"
+        className={[
+          "w-[230px] overflow-hidden rounded-2xl border p-2 shadow-2xl",
+          panel,
+        ].join(" ")}
+      >
+        {MEDIA_SOURCES.map(({ id, label, Icon, submenu }) => {
+          const isCanvaRow = id === "canva";
+          return (
+            <button
+              key={id}
+              type="button"
+              role="menuitem"
+              aria-haspopup={submenu ? "menu" : undefined}
+              aria-expanded={submenu ? canvaOpen : undefined}
+              onMouseEnter={() => setCanvaOpen(isCanvaRow)}
+              onClick={() => {
+                if (isCanvaRow) setCanvaOpen((v) => !v);
+                else onPick(id);
+              }}
+              className={[
+                "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-[14px] font-semibold transition",
+                isDark ? "text-neutral-100" : "text-neutral-800",
+                isCanvaRow && canvaOpen ? active : hover,
+              ].join(" ")}
+            >
+              <Icon className="h-[18px] w-[18px] shrink-0" inner={isDark ? "#1c1c1e" : "#ffffff"} />
+              <span className="flex-1">{label}</span>
+              {submenu && <ChevronRight className={["h-4 w-4", muted].join(" ")} />}
+            </button>
+          );
+        })}
+      </div>
+
+      {canvaOpen && (
+        <div
+          role="menu"
+          aria-label="Canva design size"
           className={[
-            "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-[14px] font-semibold transition",
-            isDark
-              ? "text-neutral-100 hover:bg-white/5"
-              : "text-neutral-800 hover:bg-black/[0.04]",
+            "absolute bottom-0 left-full ml-1.5 w-[340px] max-w-[calc(100vw-2rem)] rounded-2xl border p-2 shadow-2xl",
+            panel,
           ].join(" ")}
         >
-          <Icon className="h-[18px] w-[18px] shrink-0" inner={isDark ? "#1c1c1e" : "#ffffff"} />
-          <span className="flex-1">{label}</span>
-          {submenu && (
-            <ChevronRight className={["h-4 w-4", isDark ? "text-neutral-400" : "text-neutral-500"].join(" ")} />
-          )}
-        </button>
-      ))}
+          {CANVA_SIZES.map((size) => (
+            <button
+              key={size.id}
+              type="button"
+              role="menuitem"
+              onClick={() => onPickCanva(size)}
+              className={[
+                "flex w-full items-baseline gap-2 rounded-lg px-4 py-3.5 text-left transition",
+                isDark ? "text-neutral-100" : "text-neutral-800",
+                hover,
+              ].join(" ")}
+            >
+              <span className="text-[15px] font-semibold">
+                {size.label} {size.ratio}
+              </span>
+              <span className={["text-[13px] font-normal", muted].join(" ")}>
+                ({size.width}×{size.height})
+                {size.isDefault ? " · Default" : ""}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -1388,6 +1462,11 @@ export default function NewPostModal({
   const [showSourceMenu, setShowSourceMenu] = useState<string | null>(null);
   const [requestTick, setRequestTick] = useState(0);
 
+  // ── Canva ──
+  /** Zone de texte (target) pour laquelle un design Canva est en cours de création. */
+  const [canvaBusy, setCanvaBusy] = useState<string | null>(null);
+  const [canvaDesigns, setCanvaDesigns] = useState<CanvaPendingDesign[]>([]);
+
   // ── YouTube ──
   const [youtubeOptions, setYoutubeOptions] = useState<YouTubeOptions>(
     YOUTUBE_DEFAULT_OPTIONS
@@ -1679,6 +1758,8 @@ export default function NewPostModal({
     setSubmitProgress(null);
     setActiveEmojiNetwork(null);
     setShowSourceMenu(null);
+    setCanvaBusy(null);
+    setCanvaDesigns([]);
     setCollapsedCards({});
     setPreviewNetwork(null);
     setTiktokInfo(null);
@@ -1921,6 +2002,109 @@ export default function NewPostModal({
       target,
       message: `${source?.label ?? "This source"} import isn't connected yet.`,
     });
+  };
+
+  /* ── Canva ──
+     1. L'utilisateur choisit une taille dans le sous-menu.
+     2. Une fenêtre est ouverte tout de suite (dans le clic, sinon le navigateur
+        la bloque), puis le serveur crée un design vide chez Canva.
+     3. Si le compte Canva n'est pas relié, la même fenêtre sert à l'autorisation
+        OAuth ; on attend la connexion puis on crée le design.
+     4. La fenêtre est redirigée vers l'éditeur Canva. Le design apparaît dans
+        la zone média avec un bouton « Import design » : il est exporté en PNG
+        et ajouté aux médias. */
+
+  const handleCanvaPick = async (size: CanvaSize) => {
+    const target = showSourceMenu ?? "master";
+    setShowSourceMenu(null);
+    setMediaError(null);
+
+    if (canvaBusy) return;
+
+    const win = window.open("", "_blank");
+    try {
+      if (win) win.document.body.innerText = "Opening Canva…";
+    } catch {
+      /* ignore */
+    }
+
+    setCanvaBusy(target);
+
+    try {
+      let design;
+
+      try {
+        design = await createCanvaDesign(size);
+      } catch (error) {
+        if (!(error instanceof CanvaError && error.needsConnection)) throw error;
+
+        if (!win) {
+          throw new Error(
+            "Your browser blocked the Canva window. Allow pop-ups for this site, then try again."
+          );
+        }
+
+        win.location.href = await getCanvaAuthUrl();
+
+        const connected = await waitForCanvaConnection(win);
+        if (!connected) throw new Error("The Canva connection wasn't completed.");
+
+        design = await createCanvaDesign(size);
+      }
+
+      if (win && !win.closed) win.location.href = design.editUrl;
+
+      setCanvaDesigns((prev) => [
+        ...prev,
+        {
+          designId: design.designId,
+          target,
+          label: `${size.label} ${size.ratio}`,
+          editUrl: design.editUrl,
+          importing: false,
+        },
+      ]);
+    } catch (error) {
+      win?.close();
+      setMediaError({
+        target,
+        message:
+          error instanceof Error ? error.message : "Could not open Canva. Please try again.",
+      });
+    } finally {
+      setCanvaBusy(null);
+    }
+  };
+
+  const handleCanvaImport = async (designId: string) => {
+    const item = canvaDesigns.find((d) => d.designId === designId);
+    if (!item || item.importing) return;
+
+    setMediaError(null);
+    setCanvaDesigns((prev) =>
+      prev.map((d) => (d.designId === designId ? { ...d, importing: true } : d))
+    );
+
+    try {
+      const files = await importCanvaDesign(designId, item.label);
+      addFiles(files, item.target);
+      setCanvaDesigns((prev) => prev.filter((d) => d.designId !== designId));
+    } catch (error) {
+      setMediaError({
+        target: item.target,
+        message:
+          error instanceof Error
+            ? error.message
+            : "Could not import the design from Canva.",
+      });
+      setCanvaDesigns((prev) =>
+        prev.map((d) => (d.designId === designId ? { ...d, importing: false } : d))
+      );
+    }
+  };
+
+  const dismissCanvaDesign = (designId: string) => {
+    setCanvaDesigns((prev) => prev.filter((d) => d.designId !== designId));
   };
 
   const removeMedia = (id: string) => {
@@ -2303,6 +2487,7 @@ export default function NewPostModal({
     const items = isMaster ? media : channelMedia[target] ?? [];
     const hasOwn = !isMaster && channelMedia[target] !== undefined;
     const error = mediaError?.target === target ? mediaError.message : null;
+    const pendingCanva = canvaDesigns.filter((d) => d.target === target);
 
     return (
       <>
@@ -2311,6 +2496,72 @@ export default function NewPostModal({
             Using the shared media ({media.length}). Add files here to use different media for this channel.
           </p>
         )}
+
+        {canvaBusy === target && (
+          <p
+            role="status"
+            className={["mt-3 flex items-center gap-2 text-[12.5px]", textSecondary].join(" ")}
+          >
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            Opening Canva…
+          </p>
+        )}
+
+        {pendingCanva.map((design) => (
+          <div
+            key={design.designId}
+            className={[
+              "mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border px-3.5 py-3",
+              border,
+              accentSolid,
+            ].join(" ")}
+          >
+            <CanvaIcon
+              className={["h-[18px] w-[18px] shrink-0", textPrimary].join(" ")}
+              inner={isDark ? "#1c1c1e" : "#ffffff"}
+            />
+            <div className="min-w-0 flex-1">
+              <p className={["truncate text-[13px] font-semibold", textPrimary].join(" ")}>
+                Canva design · {design.label}
+              </p>
+              <p className={["text-[12px]", textSecondary].join(" ")}>
+                Finish it in Canva, then import it into your post.
+              </p>
+            </div>
+            <a
+              href={design.editUrl}
+              target="_blank"
+              rel="noreferrer"
+              className={["flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-semibold transition", textSecondary, hoverSoft].join(" ")}
+            >
+              <ExternalLink className="h-3.5 w-3.5" />
+              Open in Canva
+            </a>
+            <button
+              type="button"
+              onClick={() => handleCanvaImport(design.designId)}
+              disabled={design.importing}
+              className={[
+                "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-semibold transition disabled:cursor-not-allowed disabled:opacity-60",
+                isDark
+                  ? "bg-white text-[#141416] hover:bg-neutral-200"
+                  : "bg-neutral-900 text-white hover:bg-neutral-800",
+              ].join(" ")}
+            >
+              {design.importing && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+              {design.importing ? "Importing…" : "Import design"}
+            </button>
+            <button
+              type="button"
+              aria-label="Dismiss Canva design"
+              onClick={() => dismissCanvaDesign(design.designId)}
+              disabled={design.importing}
+              className={["flex h-7 w-7 items-center justify-center rounded-lg transition disabled:opacity-50", textSecondary, hoverSoft].join(" ")}
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        ))}
 
         <div className="mt-4 flex flex-wrap items-end gap-3">
           {items.map((item, index) => (
@@ -2426,7 +2677,13 @@ export default function NewPostModal({
         >
           <Plus className="h-4 w-4" />
         </button>
-        {open && <MediaSourceMenu isDark={isDark} onPick={handleSourcePick} />}
+        {open && (
+          <MediaSourceMenu
+            isDark={isDark}
+            onPick={handleSourcePick}
+            onPickCanva={handleCanvaPick}
+          />
+        )}
       </div>
     );
   };
