@@ -1500,6 +1500,7 @@ export default function NewPostModal({
   useNewPostShortcut(() => onRequestOpen?.(), !isOpen && Boolean(onRequestOpen));
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const canvaPopupMonitorRef = useRef<number | null>(null);
   const mediaRef = useRef<MediaItem[]>(media);
   mediaRef.current = media;
   const channelMediaRef = useRef(channelMedia);
@@ -1520,6 +1521,15 @@ export default function NewPostModal({
   const hasFormContentRef = useRef(false);
 
   const preselectRef = useRef<SocialNetworkId | null>(null);
+
+  useEffect(
+    () => () => {
+      if (canvaPopupMonitorRef.current !== null) {
+        window.clearInterval(canvaPopupMonitorRef.current);
+      }
+    },
+    []
+  );
 
   const timeMin = useMemo(() => {
     const now = new Date();
@@ -2051,7 +2061,42 @@ export default function NewPostModal({
         design = await createCanvaDesign(size);
       }
 
-      if (!win.closed) win.location.href = design.editUrl;
+      if (!win.closed) {
+        win.location.href = design.editUrl;
+
+        if (canvaPopupMonitorRef.current !== null) {
+          window.clearInterval(canvaPopupMonitorRef.current);
+        }
+
+        let hasLeftStone = false;
+        canvaPopupMonitorRef.current = window.setInterval(() => {
+          if (win.closed) {
+            if (canvaPopupMonitorRef.current !== null) {
+              window.clearInterval(canvaPopupMonitorRef.current);
+              canvaPopupMonitorRef.current = null;
+            }
+            return;
+          }
+
+          try {
+            const returnedToStone = win.location.origin === window.location.origin;
+            if (!returnedToStone) {
+              hasLeftStone = true;
+              return;
+            }
+
+            if (hasLeftStone) {
+              win.close();
+              if (canvaPopupMonitorRef.current !== null) {
+                window.clearInterval(canvaPopupMonitorRef.current);
+                canvaPopupMonitorRef.current = null;
+              }
+            }
+          } catch {
+            hasLeftStone = true;
+          }
+        }, 500);
+      }
 
       setCanvaDesigns((prev) => [
         ...prev,
