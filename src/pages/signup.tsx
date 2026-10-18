@@ -22,7 +22,7 @@ import {
    CONFIG
    ============================================================ */
 
-const DASHBOARD_ROUTE = "dashboard";
+const DASHBOARD_ROUTE = "home";
 const POLL_INTERVAL = 4000;
 
 /* ============================================================
@@ -751,6 +751,7 @@ export default function Signup() {
                 <div
                   className={[
                     "mx-auto flex h-14 w-14 items-center justify-center rounded-full transition-colors",
+                    verified && !isDark ? "email-verified-icon" : "",
                     verified
                       ? isDark
                         ? "bg-white text-neutral-900"
