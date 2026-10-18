@@ -5,6 +5,10 @@
 // l'éditeur Canva dans un nouvel onglet → l'utilisateur termine → on exporte le
 // design en PNG et on l'ajoute aux médias du post.
 
+// ⚠️ Adapte ce chemin pour qu'il soit identique à celui de services/tiktok.ts
+// (ex. "../lib/supabase", "../supabaseClient", "../config/supabase"…).
+import { supabase } from "../lib/supabase";
+
 export type CanvaSize = {
   id: string;
   label: string;
@@ -28,14 +32,6 @@ export const CANVA_SIZES: CanvaSize[] = [
 const rawBase = ((import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "").trim();
 const API_ROOT = rawBase.replace(/\/+$/, "").replace(/\/api$/i, "");
 
-// TODO : branche ici la MÊME logique que dans services/tiktok.ts pour récupérer
-// le jeton de session Stone (Supabase). Ex. :
-//   const { data } = await supabase.auth.getSession();
-//   return data.session?.access_token ?? "";
-async function getAccessToken(): Promise<string> {
-  throw new Error("getAccessToken() n'est pas branché : copie celui de services/tiktok.ts");
-}
-
 export class CanvaError extends Error {
   code?: string;
   status: number;
@@ -51,6 +47,17 @@ export class CanvaError extends Error {
   get needsConnection(): boolean {
     return this.code === "CANVA_NOT_CONNECTED" || this.code === "CANVA_REFRESH_EXPIRED";
   }
+}
+
+/**
+ * Jeton de session Stone (Supabase), identique à services/tiktok.ts.
+ * Si la session a expiré, le serveur répondra 401 NO_TOKEN et `request()`
+ * transformera ça en CanvaError — on ne lève donc rien ici pour rester
+ * aligné sur le comportement de tiktok.ts.
+ */
+async function getAccessToken(): Promise<string> {
+  const { data } = await supabase.auth.getSession();
+  return data.session?.access_token ?? "";
 }
 
 async function request<T>(
