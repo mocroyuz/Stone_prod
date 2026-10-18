@@ -1211,7 +1211,10 @@ export default function Signin() {
 
                     onClick={() => navigate("signup")}
 
-                    className="cursor-pointer font-semibold text-white"
+                    className={[
+                      "cursor-pointer font-semibold",
+                      isDark ? "text-white" : "text-neutral-900",
+                    ].join(" ")}
 
                   >
 
