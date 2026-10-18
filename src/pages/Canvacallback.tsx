@@ -16,6 +16,66 @@ type StoredCanvaParams = {
   error_description: string | null;
 };
 
+export function CanvaReturnConfirmation() {
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).has("correlation_jwt")) {
+      window.history.replaceState(null, "", "/#/canva-return");
+    }
+  }, []);
+
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-[#09090a] p-6 font-sans text-center text-white">
+      <section
+        aria-labelledby="canva-return-title"
+        className="w-full max-w-lg rounded-3xl border border-white/10 bg-white/[0.035] px-7 py-10 shadow-[0_24px_80px_-40px_rgba(0,0,0,0.9)] sm:px-12 sm:py-12"
+        role="status"
+      >
+        <div
+          aria-label="Stone"
+          className="mx-auto mb-8 flex w-fit items-center gap-2 text-neutral-300"
+        >
+          <img
+            src="/images/icon.png"
+            alt=""
+            className="size-5 object-contain invert opacity-80"
+          />
+          <span className="font-display text-sm font-semibold tracking-[-0.02em]">
+            Stone
+          </span>
+        </div>
+        <div
+          aria-hidden="true"
+          className="mx-auto mb-7 flex size-[68px] items-center justify-center rounded-full border border-emerald-300/20 bg-emerald-300/10 text-emerald-300"
+        >
+          <svg
+            className="size-8"
+            fill="none"
+            viewBox="0 0 24 24"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="m6.5 12.5 3.7 3.7 7.3-8"
+              stroke="currentColor"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="1.8"
+            />
+          </svg>
+        </div>
+        <h1
+          className="text-3xl font-semibold leading-tight tracking-[-0.03em] sm:text-[2.15rem]"
+          id="canva-return-title"
+        >
+          Vous pouvez fermer cette page
+        </h1>
+        <p className="mx-auto mt-4 max-w-sm text-sm leading-6 text-neutral-400 sm:text-base">
+          Le retour depuis Canva a bien été pris en compte.
+        </p>
+      </section>
+    </main>
+  );
+}
+
 function readCallbackParams(): StoredCanvaParams {
   try {
     const raw = sessionStorage.getItem(CANVA_OAUTH_STORAGE_KEY);

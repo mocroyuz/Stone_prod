@@ -27,7 +27,9 @@ import TemplatesPage from "./pages/template";
 import TikTokCallback from "./pages/TikTokCallback";
 import PinterestCallback from "./pages/PinterestCallback";
 import YouTubeCallback from "./pages/Youtubecallback";
-import CanvaCallback from "./pages/Canvacallback";
+import CanvaCallback, {
+  CanvaReturnConfirmation,
+} from "./pages/Canvacallback";
 
 import { useHashRoute, navigate } from "./hooks/useHashRoute";
 import { useTheme, ThemeProvider, type Theme } from "./hooks/useTheme";
@@ -44,6 +46,21 @@ const YOUTUBE_OAUTH_STORAGE_KEY = "youtube_oauth_params";
 const CANVA_OAUTH_STORAGE_KEY = "canva_oauth_params";
 
 const POST_LOGIN_ROUTE_KEY = "post_login_route";
+
+function hasCanvaReturnParameter(): boolean {
+  return (
+    typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).has("correlation_jwt")
+  );
+}
+
+function isCanvaReturnPage(): boolean {
+  return (
+    hasCanvaReturnParameter() ||
+    (typeof window !== "undefined" &&
+      /^#\/canva-return(?:[/?]|$)/i.test(window.location.hash))
+  );
+}
 
 const OAUTH_CALLBACK_ROUTES = new Set([
   "tiktok-callback",
@@ -102,6 +119,7 @@ function interceptCanvaOAuthCallback() {
   if (typeof window === "undefined") return;
 
   const { pathname, search } = window.location;
+  if (new URLSearchParams(search).has("correlation_jwt")) return;
   if (pathname.replace(/\/+$/, "") !== "/canva/callback") return;
 
   const params = new URLSearchParams(search);
@@ -133,6 +151,7 @@ interceptCanvaOAuthCallback();
 
   const rawHash = window.location.hash || "";
   const rawSearch = window.location.search || "";
+  if (new URLSearchParams(rawSearch).has("correlation_jwt")) return;
 
   const hashParams =
     rawHash.length > 1
@@ -459,6 +478,10 @@ function AppBoot() {
    ────────────────────────────────────────────────────────────── */
 
 export default function App() {
+  if (isCanvaReturnPage()) {
+    return <CanvaReturnConfirmation />;
+  }
+
   return (
     <ThemeProvider>
       <UserProvider>
