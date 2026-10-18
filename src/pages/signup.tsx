@@ -1,3 +1,4 @@
+
 import {
   useEffect,
   useRef,
@@ -25,7 +26,7 @@ const DASHBOARD_ROUTE = "dashboard";
 const POLL_INTERVAL = 4000;
 
 /* ============================================================
-   LECTURE DES PARAMS D'URL
+   URL PARAMS
    ============================================================ */
 
 function readUrlParams(): URLSearchParams {
@@ -50,7 +51,7 @@ function readUrlParams(): URLSearchParams {
 }
 
 /* ============================================================
-   NAVIGATION POST-VÉRIFICATION
+   NAVIGATION AFTER VERIFICATION
    ============================================================ */
 
 function navigateAfterVerification(): void {
@@ -61,16 +62,20 @@ function navigateAfterVerification(): void {
 
   if (next) {
     if (next === "/pricing" || next === "pricing") {
-      const q = new URLSearchParams();
-      if (plan) q.set("plan", plan);
-      if (period) q.set("period", period);
+      const query = new URLSearchParams();
 
-      const qs = q.toString();
-      window.location.hash = `#/pricing${qs ? `?${qs}` : ""}`;
+      if (plan) query.set("plan", plan);
+      if (period) query.set("period", period);
+
+      const qs = query.toString();
+
+      window.location.hash =
+        `#/pricing${qs ? `?${qs}` : ""}`;
+
       return;
     }
 
-    if (next.startsWith("/")) {
+    if (next.startsWith("/") && !next.startsWith("//")) {
       window.location.hash = `#${next}`;
       return;
     }
@@ -95,18 +100,39 @@ const STEPS = [
 
 function GoogleIcon() {
   return (
-    <svg viewBox="0 0 24 24" className="h-[15px] w-[15px]" aria-hidden="true">
-      <path fill="#4285F4" d="M21.35 12.27c0-.79-.07-1.55-.2-2.27H12v4.3h5.24a4.48 4.48 0 0 1-1.94 2.94v2.45h3.15c1.85-1.7 2.9-4.2 2.9-7.42Z" />
-      <path fill="#34A853" d="M12 21.75c2.64 0 4.85-.87 6.46-2.36l-3.15-2.45c-.87.58-1.98.93-3.31.93-2.55 0-4.7-1.72-5.47-4.04H3.28v2.53A9.75 9.75 0 0 0 12 21.75Z" />
-      <path fill="#FBBC05" d="M6.53 13.83A5.86 5.86 0 0 1 6.22 12c0-.64.11-1.26.31-1.83V7.64H3.28A9.75 9.75 0 0 0 2.25 12c0 1.57.38 3.06 1.03 4.36l3.25-2.53Z" />
-      <path fill="#EA4335" d="M12 6.13c1.44 0 2.73.5 3.75 1.48l2.81-2.81C16.84 3.23 14.63 2.25 12 2.25a9.75 9.75 0 0 0-8.72 5.39l3.25 2.53C7.3 7.85 9.45 6.13 12 6.13Z" />
+    <svg
+      viewBox="0 0 24 24"
+      className="h-[15px] w-[15px]"
+      aria-hidden="true"
+    >
+      <path
+        fill="#4285F4"
+        d="M21.35 12.27c0-.79-.07-1.55-.2-2.27H12v4.3h5.24a4.48 4.48 0 0 1-1.94 2.94v2.45h3.15c1.85-1.7 2.9-4.2 2.9-7.42Z"
+      />
+      <path
+        fill="#34A853"
+        d="M12 21.75c2.64 0 4.85-.87 6.46-2.36l-3.15-2.45c-.87.58-1.98.93-3.31.93-2.55 0-4.7-1.72-5.47-4.04H3.28v2.53A9.75 9.75 0 0 0 12 21.75Z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M6.53 13.83A5.86 5.86 0 0 1 6.22 12c0-.64.11-1.26.31-1.83V7.64H3.28A9.75 9.75 0 0 0 2.25 12c0 1.57.38 3.06 1.03 4.36l3.25-2.53Z"
+      />
+      <path
+        fill="#EA4335"
+        d="M12 6.13c1.44 0 2.73.5 3.75 1.48l2.81-2.81C16.84 3.23 14.63 2.25 12 2.25a9.75 9.75 0 0 0-8.72 5.39l3.25 2.53C7.3 7.85 9.45 6.13 12 6.13Z"
+      />
     </svg>
   );
 }
 
 function GithubIcon() {
   return (
-    <svg viewBox="0 0 24 24" className="h-[15px] w-[15px]" fill="currentColor" aria-hidden="true">
+    <svg
+      viewBox="0 0 24 24"
+      className="h-[15px] w-[15px]"
+      fill="currentColor"
+      aria-hidden="true"
+    >
       <path d="M12 2a10 10 0 0 0-3.16 19.49c.5.09.68-.22.68-.48l-.01-1.7c-2.78.6-3.37-1.34-3.37-1.34-.45-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.61.07-.61 1 .07 1.53 1.03 1.53 1.03.9 1.53 2.34 1.09 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.56-1.11-4.56-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.65 0 0 .84-.27 2.75 1.02a9.5 9.5 0 0 1 5 0c1.91-1.29 2.75-1.02 2.75-1.02.55 1.38.2 2.4.1 2.65.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.68-4.57 4.93.36.31.68.92.68 1.85l-.01 2.75c0 .27.18.58.69.48A10 10 0 0 0 12 2Z" />
     </svg>
   );
@@ -114,7 +140,16 @@ function GithubIcon() {
 
 function EyeIcon() {
   return (
-    <svg viewBox="0 0 24 24" className="h-[15px] w-[15px]" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg
+      viewBox="0 0 24 24"
+      className="h-[15px] w-[15px]"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
       <path d="M2.5 12S6 5.8 12 5.8 21.5 12 21.5 12 18 18.2 12 18.2 2.5 12 2.5 12Z" />
       <circle cx="12" cy="12" r="3" />
     </svg>
@@ -123,7 +158,16 @@ function EyeIcon() {
 
 function EyeOffIcon() {
   return (
-    <svg viewBox="0 0 24 24" className="h-[15px] w-[15px]" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg
+      viewBox="0 0 24 24"
+      className="h-[15px] w-[15px]"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
       <path d="M2.5 12S6 5.8 12 5.8 21.5 12 21.5 12 18 18.2 12 18.2 2.5 12 2.5 12Z" />
       <circle cx="12" cy="12" r="3" />
       <path d="m4 20 16-16" />
@@ -132,12 +176,16 @@ function EyeOffIcon() {
 }
 
 /* ============================================================
-   LOADING DOTS
+   LOADING
    ============================================================ */
 
 function LoadingDots() {
   return (
-    <span className="inline-flex items-center gap-1" role="status" aria-label="Waiting for verification">
+    <span
+      className="inline-flex items-center gap-1"
+      role="status"
+      aria-label="Waiting for verification"
+    >
       {[0, 1, 2].map((i) => (
         <span
           key={i}
@@ -214,7 +262,10 @@ function Field({
       </div>
 
       {error && (
-        <span id={`${id}-error`} className="mt-1 block text-[11px] text-red-400">
+        <span
+          id={`${id}-error`}
+          className="mt-1 block text-[11px] text-red-400"
+        >
           {error}
         </span>
       )}
@@ -223,18 +274,46 @@ function Field({
 }
 
 /* ============================================================
-   LECTURE DE L'ERREUR OAUTH
+   OAUTH ERROR
    ============================================================ */
 
 function readOAuthErrorFromHash(): string | null {
+  if (typeof window === "undefined") return null;
+
   const raw = window.location.hash;
   const idx = raw.indexOf("?");
+
   if (idx === -1) return null;
 
   const params = new URLSearchParams(raw.slice(idx + 1));
-  const value = params.get("oauth_error");
+  return params.get("oauth_error");
+}
 
-  return value ? decodeURIComponent(value) : null;
+/* ============================================================
+   ERROR HELPERS
+   ============================================================ */
+
+function isExistingAccountError(error: unknown): boolean {
+  const e = error as {
+    message?: string;
+    code?: string;
+    status?: number;
+  };
+
+  const message = (e?.message ?? "").toLowerCase();
+  const code = e?.code ?? "";
+
+  return (
+    code === "user_already_exists" ||
+    code === "email_exists" ||
+    code === "23505" ||
+    message.includes("already registered") ||
+    message.includes("already exists") ||
+    message.includes("user already") ||
+    message.includes("email address is already") ||
+    message.includes("duplicate key") ||
+    message.includes("unique constraint")
+  );
 }
 
 /* ============================================================
@@ -248,18 +327,18 @@ export default function Signup() {
   const [first, setFirst] = useState("");
   const [last, setLast] = useState("");
 
-  const [email, setEmail] = useState(() => {
-    return readUrlParams().get("email") ?? "";
-  });
+  const [email, setEmail] = useState(
+    () => readUrlParams().get("email") ?? "",
+  );
 
   const [password, setPassword] = useState("");
   const [show, setShow] = useState(false);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const [serverError, setServerError] = useState<string | null>(() => {
-    return readOAuthErrorFromHash();
-  });
+  const [serverError, setServerError] = useState<string | null>(
+    () => readOAuthErrorFromHash(),
+  );
 
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
@@ -272,11 +351,15 @@ export default function Signup() {
 
   const proceed = () => {
     if (proceededRef.current) return;
+
     proceededRef.current = true;
     navigateAfterVerification();
   };
 
-  /* EN ATTENTE DE VÉRIFICATION */
+  /* ============================================================
+     CHECK EMAIL VERIFICATION
+     ============================================================ */
+
   useEffect(() => {
     if (!pendingVerification || verified) return;
 
@@ -285,10 +368,12 @@ export default function Signup() {
 
     const check = async () => {
       if (stopped || running) return;
+
       running = true;
 
       try {
         const result = await signIn(email.trim(), password);
+
         if (stopped) return;
 
         const confirmedAt =
@@ -301,20 +386,27 @@ export default function Signup() {
           stopped = true;
           setVerified(true);
         } else {
-          clearSession();
+          await Promise.resolve(clearSession());
         }
       } catch {
-        /* retry */
+        // The email may not have been verified yet.
+        // Retry on the next interval.
       } finally {
         running = false;
       }
     };
 
+    // Check immediately instead of waiting four seconds.
+    void check();
+
     const intervalId = window.setInterval(check, POLL_INTERVAL);
 
     const onVisible = () => {
-      if (document.visibilityState === "visible") check();
+      if (document.visibilityState === "visible") {
+        void check();
+      }
     };
+
     document.addEventListener("visibilitychange", onVisible);
 
     return () => {
@@ -322,20 +414,27 @@ export default function Signup() {
       window.clearInterval(intervalId);
       document.removeEventListener("visibilitychange", onVisible);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pendingVerification, verified]);
+  }, [pendingVerification, verified, email, password]);
 
-  /* SUBMIT */
+  /* ============================================================
+     SUBMIT
+     ============================================================ */
+
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+
+    if (loading || googleLoading || githubLoading) return;
 
     setServerError(null);
 
     const next: Record<string, string> = {};
+    const normalizedEmail = email.trim();
 
-    if (first.trim().length < 2) next.first = "Required";
+    if (first.trim().length < 2) {
+      next.first = "Enter at least 2 characters.";
+    }
 
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(normalizedEmail)) {
       next.email = "Enter a valid email address.";
     }
 
@@ -351,33 +450,80 @@ export default function Signup() {
 
     try {
       const result = await signUp(
-        email.trim(),
+        normalizedEmail,
         password,
         first.trim(),
         last.trim(),
       );
 
+      /*
+       * Some Supabase configurations return a user with
+       * an empty identities array for an existing email.
+       */
+      const existingAccount =
+        result.user?.identities != null &&
+        result.user.identities.length === 0;
+
+      if (existingAccount) {
+        setServerError(
+          "An account may already exist with this email. Please log in instead.",
+        );
+        return;
+      }
+
+      /*
+       * The account is already confirmed and has a session.
+       */
       if (result.session && result.user?.email_confirmed_at) {
         proceed();
         return;
       }
 
-      clearSession();
-      setPendingVerification(true);
+      /*
+       * A new signup normally returns a user even when
+       * email confirmation is required.
+       */
+      if (result.user) {
+        await Promise.resolve(clearSession());
+        setPendingVerification(true);
+        return;
+      }
+
+      /*
+       * Do not send the user to the verification screen
+       * when Supabase returns no user.
+       */
+      setServerError(
+        "We couldn't complete signup. Please try logging in or try again.",
+      );
     } catch (error) {
       console.error("Signup error:", error);
-      setServerError(
-        error instanceof Error
-          ? error.message
-          : "Impossible de créer le compte. Vérifie ta connexion.",
-      );
+
+      if (isExistingAccountError(error)) {
+        setServerError(
+          "An account already exists with this email. Please log in instead.",
+        );
+      } else {
+        const message =
+          error instanceof Error ? error.message : "";
+
+        setServerError(
+          message ||
+            "Unable to create your account. Please check your connection and try again.",
+        );
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  /* GOOGLE */
+  /* ============================================================
+     GOOGLE
+     ============================================================ */
+
   const handleGoogle = async () => {
+    if (loading || googleLoading || githubLoading) return;
+
     setServerError(null);
     setGoogleLoading(true);
 
@@ -385,6 +531,7 @@ export default function Signup() {
       await signInWithGoogle();
     } catch (error) {
       setGoogleLoading(false);
+
       setServerError(
         error instanceof Error
           ? error.message
@@ -393,8 +540,13 @@ export default function Signup() {
     }
   };
 
-  /* GITHUB */
+  /* ============================================================
+     GITHUB
+     ============================================================ */
+
   const handleGithub = async () => {
+    if (loading || googleLoading || githubLoading) return;
+
     setServerError(null);
     setGithubLoading(true);
 
@@ -402,6 +554,7 @@ export default function Signup() {
       await signInWithGithub();
     } catch (error) {
       setGithubLoading(false);
+
       setServerError(
         error instanceof Error
           ? error.message
@@ -410,7 +563,10 @@ export default function Signup() {
     }
   };
 
-  /* RENDER */
+  /* ============================================================
+     RENDER
+     ============================================================ */
+
   return (
     <main
       className={[
@@ -424,25 +580,38 @@ export default function Signup() {
           60% { transform: scale(1.06); }
           100% { transform: scale(1); opacity: 1; }
         }
-        .cta-pop { animation: cta-pop 0.45s ease-out; }
+
+        .cta-pop {
+          animation: cta-pop 0.45s ease-out;
+        }
 
         @keyframes dot-wave {
-          0%, 80%, 100% { transform: translateY(0); opacity: 0.35; }
-          40% { transform: translateY(-4px); opacity: 1; }
+          0%, 80%, 100% {
+            transform: translateY(0);
+            opacity: 0.35;
+          }
+          40% {
+            transform: translateY(-4px);
+            opacity: 1;
+          }
         }
-        .dot-wave { animation: dot-wave 1.2s ease-in-out infinite; }
 
-        @keyframes dot-fade {
-          0%, 80%, 100% { opacity: 0.35; }
-          40% { opacity: 1; }
+        .dot-wave {
+          animation: dot-wave 1.2s ease-in-out infinite;
         }
 
         @media (prefers-reduced-motion: reduce) {
-          .cta-pop { animation: none; }
-          .dot-wave { animation: dot-fade 1.2s ease-in-out infinite; }
+          .cta-pop {
+            animation: none;
+          }
+          .dot-wave {
+            animation: none;
+            opacity: 0.7;
+          }
         }
       `}</style>
 
+      {/* BACK BUTTON */}
       <div className="absolute top-[clamp(16px,2vw,30px)] right-[clamp(16px,2vw,30px)] z-20 flex gap-2">
         <button
           type="button"
@@ -451,7 +620,16 @@ export default function Signup() {
           title="Back to home"
           className="back-button flex h-[clamp(36px,3.4vw,44px)] w-[clamp(36px,3.4vw,44px)] cursor-pointer items-center justify-center rounded-full border border-white/10 bg-white/5 text-white backdrop-blur-md transition-colors duration-200 hover:bg-white/10"
         >
-          <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round">
+          <svg
+            viewBox="0 0 24 24"
+            className="h-4 w-4"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.1"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
             <path d="M19 12H5" />
             <path d="m11 6-6 6 6 6" />
           </svg>
@@ -492,18 +670,16 @@ export default function Signup() {
             />
 
             <div className="relative">
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <h1
-                  className={[
-                    "font-display text-[clamp(28px,3vw,44px)] leading-[1.15] font-medium tracking-[-0.02em]",
-                    isDark ? "text-white" : "text-neutral-900",
-                  ].join(" ")}
-                >
-                  Get Started
-                  <br />
-                  with Us
-                </h1>
-              </div>
+              <h1
+                className={[
+                  "font-display text-[clamp(28px,3vw,44px)] leading-[1.15] font-medium tracking-[-0.02em]",
+                  isDark ? "text-white" : "text-neutral-900",
+                ].join(" ")}
+              >
+                Get Started
+                <br />
+                with Us
+              </h1>
 
               <div className="mt-[clamp(24px,3.2vw,44px)] grid grid-cols-3 gap-[clamp(10px,1vw,14px)]">
                 {STEPS.map((step, index) => {
@@ -525,11 +701,9 @@ export default function Signup() {
                     >
                       <span
                         className={[
-                          "flex h-[clamp(22px,2vw,28px)]",
-                          "w-[clamp(22px,2vw,28px)]",
+                          "flex h-[clamp(22px,2vw,28px)] w-[clamp(22px,2vw,28px)]",
                           "items-center justify-center rounded-full",
-                          "text-[clamp(11px,0.95vw,13px)]",
-                          "font-semibold",
+                          "text-[clamp(11px,0.95vw,13px)] font-semibold",
                           active
                             ? "bg-neutral-900 text-white"
                             : isDark
@@ -542,10 +716,8 @@ export default function Signup() {
 
                       <p
                         className={[
-                          "mt-[clamp(24px,2.6vw,38px)]",
-                          "whitespace-pre-line",
-                          "text-[clamp(11.5px,1vw,14px)]",
-                          "leading-[1.35] font-medium",
+                          "mt-[clamp(24px,2.6vw,38px)] whitespace-pre-line",
+                          "text-[clamp(11.5px,1vw,14px)] leading-[1.35] font-medium",
                           active
                             ? "text-neutral-900"
                             : isDark
@@ -574,6 +746,7 @@ export default function Signup() {
         >
           <div className="w-full max-w-[380px]">
             {pendingVerification ? (
+              /* EMAIL VERIFICATION */
               <div className="text-center">
                 <div
                   className={[
@@ -581,7 +754,7 @@ export default function Signup() {
                     verified
                       ? isDark
                         ? "bg-white text-neutral-900"
-                        : "bg-black !text-white"
+                        : "bg-black text-white"
                       : isDark
                         ? "bg-white/10 text-neutral-300"
                         : "bg-black/10 text-neutral-700",
@@ -590,10 +763,7 @@ export default function Signup() {
                   {verified ? (
                     <svg
                       viewBox="0 0 24 24"
-                      className={[
-                        "h-6 w-6",
-                        isDark ? "!text-neutral-900" : "!text-white",
-                      ].join(" ")}
+                      className="h-6 w-6"
                       fill="none"
                       stroke="currentColor"
                       strokeWidth="2.4"
@@ -628,7 +798,11 @@ export default function Signup() {
                   ) : (
                     <>
                       We sent a verification link to{" "}
-                      <span className={isDark ? "text-white" : "text-neutral-900"}>
+                      <span
+                        className={
+                          isDark ? "text-white" : "text-neutral-900"
+                        }
+                      >
                         {email}
                       </span>
                       . Click it to activate your account.
@@ -636,7 +810,6 @@ export default function Signup() {
                   )}
                 </p>
 
-                {/* ============ BOUTON CONTINUE ============ */}
                 <button
                   key={verified ? "on" : "off"}
                   type="button"
@@ -649,17 +822,17 @@ export default function Signup() {
                       ? [
                           "cta-pop cursor-pointer active:scale-95 hover:-translate-y-0.5",
                           isDark
-                            ? "bg-white !text-neutral-900 hover:bg-neutral-200"
-                            : "bg-black !text-white hover:bg-neutral-800",
+                            ? "bg-white text-neutral-900 hover:bg-neutral-200"
+                            : "bg-black text-white hover:bg-neutral-800",
                         ].join(" ")
-                      : "cursor-not-allowed bg-neutral-700 !text-neutral-400",
+                      : "cursor-not-allowed bg-neutral-700 text-neutral-400",
                   ].join(" ")}
                 >
                   Continue
                 </button>
-                {/* ========================================= */}
               </div>
             ) : (
+              /* SIGNUP FORM */
               <>
                 <h2
                   className={[
@@ -679,16 +852,16 @@ export default function Signup() {
                   Enter your personal data to create your account.
                 </p>
 
+                {/* OAUTH */}
                 <div className="mt-5 grid grid-cols-2 gap-3">
                   <button
                     type="button"
                     onClick={handleGoogle}
                     disabled={googleLoading || githubLoading || loading}
-                    style={{ color: "#ffffff" }}
-                    className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-white/10 bg-neutral-800 py-2 text-[13px] font-medium transition-all duration-200 hover:-translate-y-0.5 hover:bg-neutral-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0"
+                    className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-white/10 bg-neutral-800 py-2 text-[13px] font-medium text-white transition-all duration-200 hover:-translate-y-0.5 hover:bg-neutral-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <GoogleIcon />
-                    <span style={{ color: "#ffffff" }}>
+                    <span>
                       {googleLoading ? "Redirecting…" : "Google"}
                     </span>
                   </button>
@@ -697,20 +870,23 @@ export default function Signup() {
                     type="button"
                     onClick={handleGithub}
                     disabled={githubLoading || googleLoading || loading}
-                    style={{ color: "#ffffff" }}
-                    className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-white/10 bg-neutral-800 py-2 text-[13px] font-medium transition-all duration-200 hover:-translate-y-0.5 hover:bg-neutral-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0"
+                    className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-white/10 bg-neutral-800 py-2 text-[13px] font-medium text-white transition-all duration-200 hover:-translate-y-0.5 hover:bg-neutral-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <GithubIcon />
-                    <span style={{ color: "#ffffff" }}>
+                    <span>
                       {githubLoading ? "Redirecting…" : "Github"}
                     </span>
                   </button>
                 </div>
 
                 <div className="my-4 flex items-center gap-3">
-                  <span className={`h-px flex-1 ${isDark ? "bg-white/10" : "bg-black/10"}`} />
+                  <span
+                    className={`h-px flex-1 ${isDark ? "bg-white/10" : "bg-black/10"}`}
+                  />
                   <span className="text-[11px] text-neutral-500">Or</span>
-                  <span className={`h-px flex-1 ${isDark ? "bg-white/10" : "bg-black/10"}`} />
+                  <span
+                    className={`h-px flex-1 ${isDark ? "bg-white/10" : "bg-black/10"}`}
+                  />
                 </div>
 
                 {serverError && (
@@ -719,10 +895,22 @@ export default function Signup() {
                     className="mb-3.5 rounded-[9px] border border-red-500/30 bg-red-500/10 px-3.5 py-2.5 text-[12.5px] text-red-300"
                   >
                     {serverError}
+
+                    <button
+                      type="button"
+                      onClick={() => navigate("signin")}
+                      className="ml-1 font-semibold underline underline-offset-2 hover:text-white"
+                    >
+                      Log in
+                    </button>
                   </div>
                 )}
 
-                <form onSubmit={submit} noValidate className="space-y-3.5">
+                <form
+                  onSubmit={submit}
+                  noValidate
+                  className="space-y-3.5"
+                >
                   <div className="grid grid-cols-2 gap-3">
                     <Field
                       id="signup-first-name"
@@ -733,6 +921,7 @@ export default function Signup() {
                       autoComplete="given-name"
                       error={errors.first}
                     />
+
                     <Field
                       id="signup-last-name"
                       label="Last Name"
@@ -769,8 +958,12 @@ export default function Signup() {
                         type="button"
                         onMouseDown={(event) => event.preventDefault()}
                         onClick={() => setShow((value) => !value)}
-                        aria-label={show ? "Hide password" : "Show password"}
-                        title={show ? "Hide password" : "Show password"}
+                        aria-label={
+                          show ? "Hide password" : "Show password"
+                        }
+                        title={
+                          show ? "Hide password" : "Show password"
+                        }
                         className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-md transition hover:bg-white/10 hover:text-neutral-200"
                       >
                         {show ? <EyeOffIcon /> : <EyeIcon />}
@@ -784,22 +977,20 @@ export default function Signup() {
                     </p>
                   )}
 
-                  {/* ============ BOUTON SIGN UP ============ */}
                   <button
                     type="submit"
                     disabled={loading || googleLoading || githubLoading}
                     className={[
                       "mt-1 w-full cursor-pointer rounded-lg py-2.5 text-[13px] font-semibold",
                       "transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.98]",
-                      "disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:translate-y-0",
+                      "disabled:cursor-not-allowed disabled:opacity-50",
                       isDark
-                        ? "bg-white !text-neutral-900 hover:bg-neutral-200"
-                        : "bg-black !text-white hover:bg-neutral-800",
+                        ? "bg-white text-neutral-900 hover:bg-neutral-200"
+                        : "bg-black text-white hover:bg-neutral-800",
                     ].join(" ")}
                   >
                     {loading ? "Creating your account..." : "Sign Up"}
                   </button>
-                  {/* ====================================== */}
                 </form>
 
                 <p
