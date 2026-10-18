@@ -9,10 +9,10 @@ import {
 
 import { navigate } from "../hooks/useHashRoute";
 import { useTheme } from "../hooks/useTheme";
+import { useUser } from "../contexts/UserContext";
 import {
   signUp,
   signIn,
-  getCurrentUser,
   clearSession,
   signInWithGoogle,
   signInWithGithub,
@@ -322,6 +322,7 @@ function isExistingAccountError(error: unknown): boolean {
 
 export default function Signup() {
   const { theme } = useTheme();
+  const { refreshUser } = useUser();
   const isDark = theme === "dark";
 
   const [first, setFirst] = useState("");
@@ -376,13 +377,13 @@ export default function Signup() {
 
         if (stopped) return;
 
+        const user = await refreshUser();
         const confirmedAt =
-          result.user?.email_confirmed_at ??
-          (await getCurrentUser())?.email_confirmed_at;
+          result.user?.email_confirmed_at ?? user?.email_confirmed_at;
 
         if (stopped) return;
 
-        if (result.session && confirmedAt) {
+        if (result.session && confirmedAt && user) {
           stopped = true;
           setVerified(true);
         } else {
