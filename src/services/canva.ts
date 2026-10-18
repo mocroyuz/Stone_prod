@@ -154,6 +154,19 @@ export function getCanvaStatus(): Promise<CanvaStatus> {
   return request<CanvaStatus>("GET", "/api/canva/status");
 }
 
+export function openCanvaPopup(): Window | null {
+  const width = 1000;
+  const height = 760;
+  const left = Math.max(0, Math.round((window.screen.width - width) / 2));
+  const top = Math.max(0, Math.round((window.screen.height - height) / 2));
+
+  return window.open(
+    "about:blank",
+    "_blank",
+    `popup=yes,width=${width},height=${height},left=${left},top=${top}`
+  );
+}
+
 /**
  * Récupère l'URL d'autorisation Canva.
  */

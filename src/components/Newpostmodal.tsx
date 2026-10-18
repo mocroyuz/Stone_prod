@@ -38,6 +38,7 @@ import {
   createCanvaDesign,
   getCanvaAuthUrl,
   importCanvaDesign,
+  openCanvaPopup,
   waitForCanvaConnection,
   type CanvaSize,
 } from "../services/canva";
@@ -2021,12 +2022,16 @@ export default function NewPostModal({
 
     if (canvaBusy) return;
 
-    const win = window.open("", "_blank");
-    try {
-      if (win) win.document.body.innerText = "Opening Canva…";
-    } catch {
-      /* ignore */
+    const win = openCanvaPopup();
+    if (!win) {
+      setMediaError({
+        target,
+        message:
+          "Your browser blocked the Canva window. Allow pop-ups for this site, then try again.",
+      });
+      return;
     }
+    win.document.body.innerText = "Opening Canva…";
 
     setCanvaBusy(target);
 
@@ -2038,12 +2043,6 @@ export default function NewPostModal({
       } catch (error) {
         if (!(error instanceof CanvaError && error.needsConnection)) throw error;
 
-        if (!win) {
-          throw new Error(
-            "Your browser blocked the Canva window. Allow pop-ups for this site, then try again."
-          );
-        }
-
         win.location.href = await getCanvaAuthUrl();
 
         const connected = await waitForCanvaConnection(win);
@@ -2052,7 +2051,7 @@ export default function NewPostModal({
         design = await createCanvaDesign(size);
       }
 
-      if (win && !win.closed) win.location.href = design.editUrl;
+      if (!win.closed) win.location.href = design.editUrl;
 
       setCanvaDesigns((prev) => [
         ...prev,

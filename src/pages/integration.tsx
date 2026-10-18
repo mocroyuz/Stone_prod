@@ -27,6 +27,7 @@ import {
 import {
   getCanvaAuthUrl,
   getCanvaStatus,
+  openCanvaPopup,
   waitForCanvaConnection,
 } from "../services/canva";
 
@@ -449,7 +450,7 @@ export default function Integrations() {
   const handleCanvaConnect = async () => {
     if (canvaBusy || canvaConnected) return;
 
-    const popup = window.open("", "_blank");
+    const popup = openCanvaPopup();
     if (!popup) {
       setCanvaError(
         "Autorisez les fenêtres pop-up pour ce site, puis réessayez."
@@ -470,6 +471,7 @@ export default function Integrations() {
       }
 
       setCanvaConnected(true);
+      popup.close();
     } catch (error) {
       popup.close();
       setCanvaError(
