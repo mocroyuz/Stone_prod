@@ -758,7 +758,7 @@ export default function Signin() {
 
       >
 
-        {/ LEFT PANEL /}
+
 
 
 
@@ -868,7 +868,7 @@ export default function Signin() {
 
 
 
-        {/ RIGHT PANEL /}
+       
 
 
 
