@@ -8,26 +8,58 @@
 import { useEffect, useRef, useState } from "react";
 import { completeCanvaAuth } from "../services/canva";
 
+const CANVA_OAUTH_STORAGE_KEY = "canva_oauth_params";
+
+type StoredCanvaParams = {
+  code: string | null;
+  state: string | null;
+  error: string | null;
+  error_description: string | null;
+};
+
+function readCallbackParams(): StoredCanvaParams {
+  try {
+    const raw = sessionStorage.getItem(CANVA_OAUTH_STORAGE_KEY);
+    if (raw) {
+      sessionStorage.removeItem(CANVA_OAUTH_STORAGE_KEY);
+      return JSON.parse(raw) as StoredCanvaParams;
+    }
+  } catch {
+    // Fall back to the callback URL when session storage is unavailable.
+  }
+
+  const params = new URLSearchParams(window.location.search);
+  return {
+    code: params.get("code"),
+    state: params.get("state"),
+    error: params.get("error"),
+    error_description: params.get("error_description"),
+  };
+}
+
 export default function CanvaCallback() {
   const [state, setState] = useState<"loading" | "done" | "error">("loading");
   const [message, setMessage] = useState("Connecting your Canva account…");
   const started = useRef(false);
 
   useEffect(() => {
-    if (started.current) return; // StrictMode : un seul appel
+    if (started.current) return;
     started.current = true;
 
-    const params = new URLSearchParams(window.location.search);
-    const code = params.get("code");
-    const oauthState = params.get("state");
-    const error = params.get("error");
+    const {
+      code,
+      state: oauthState,
+      error,
+      error_description: errorDescription,
+    } = readCallbackParams();
 
     if (error || !code || !oauthState) {
       setState("error");
       setMessage(
         error === "access_denied"
           ? "Canva access was refused. You can close this window."
-          : "Canva did not return the expected parameters. You can close this window."
+          : errorDescription ||
+              "Canva did not return the expected parameters. You can close this window."
       );
       return;
     }

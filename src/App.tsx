@@ -27,6 +27,7 @@ import TemplatesPage from "./pages/template";
 import TikTokCallback from "./pages/TikTokCallback";
 import PinterestCallback from "./pages/PinterestCallback";
 import YouTubeCallback from "./pages/Youtubecallback";
+import CanvaCallback from "./pages/Canvacallback";
 
 import { useHashRoute, navigate } from "./hooks/useHashRoute";
 import { useTheme, ThemeProvider, type Theme } from "./hooks/useTheme";
@@ -40,6 +41,7 @@ import { saveOAuthSession } from "./services/supabase";
 const TIKTOK_OAUTH_STORAGE_KEY = "tiktok_oauth_params";
 const PINTEREST_OAUTH_STORAGE_KEY = "pinterest_oauth_params";
 const YOUTUBE_OAUTH_STORAGE_KEY = "youtube_oauth_params";
+const CANVA_OAUTH_STORAGE_KEY = "canva_oauth_params";
 
 const POST_LOGIN_ROUTE_KEY = "post_login_route";
 
@@ -47,6 +49,7 @@ const OAUTH_CALLBACK_ROUTES = new Set([
   "tiktok-callback",
   "pinterest-callback",
   "youtube-callback",
+  "canva-callback",
 ]);
 
 function interceptOAuthCallback(
@@ -94,6 +97,32 @@ function interceptOAuthCallback(
 interceptOAuthCallback("tiktok", TIKTOK_OAUTH_STORAGE_KEY);
 interceptOAuthCallback("pinterest", PINTEREST_OAUTH_STORAGE_KEY);
 interceptOAuthCallback("youtube", YOUTUBE_OAUTH_STORAGE_KEY);
+
+function interceptCanvaOAuthCallback() {
+  if (typeof window === "undefined") return;
+
+  const { pathname, search } = window.location;
+  if (pathname.replace(/\/+$/, "") !== "/canva/callback") return;
+
+  const params = new URLSearchParams(search);
+  try {
+    sessionStorage.setItem(
+      CANVA_OAUTH_STORAGE_KEY,
+      JSON.stringify({
+        code: params.get("code"),
+        state: params.get("state"),
+        error: params.get("error"),
+        error_description: params.get("error_description"),
+      })
+    );
+  } catch {
+    // The callback component will show a missing-parameters error.
+  }
+
+  window.history.replaceState(null, "", "/#/canva-callback");
+}
+
+interceptCanvaOAuthCallback();
 
 /* ──────────────────────────────────────────────────────────────
    GOOGLE / SUPABASE OAUTH REDIRECT
@@ -383,6 +412,7 @@ const PROTECTED_ROUTES = new Set([
   "tiktok-callback",
   "pinterest-callback",
   "youtube-callback",
+  "canva-callback",
 ]);
 
 // "create" a sa propre page (pages/Create.tsx) : il n'est plus rendu par DashboardHome.
@@ -705,6 +735,18 @@ function AppContentInner({
     return (
       <div className="relative h-screen w-screen overflow-hidden font-sans">
         <YouTubeCallback />
+      </div>
+    );
+  }
+
+  /* ─────────────────────────────────────────────
+     CANVA CALLBACK
+     ───────────────────────────────────────────── */
+
+  if (route === "canva-callback") {
+    return (
+      <div className="relative h-screen w-screen overflow-hidden font-sans">
+        <CanvaCallback />
       </div>
     );
   }

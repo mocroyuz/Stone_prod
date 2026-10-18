@@ -24,6 +24,11 @@ import {
   GoogleCalendarIcon,
   CanvaIcon,
 } from "../components/IntegrationIcons";
+import {
+  getCanvaAuthUrl,
+  getCanvaStatus,
+  waitForCanvaConnection,
+} from "../services/canva";
 
 /* ============================================================
    SHELL (identique à Home)
@@ -220,9 +225,17 @@ const CONNECTED_THRESHOLD = 60;
 function IntegrationCard({
   data,
   isDark,
+  canvaConnected,
+  canvaBusy,
+  canvaError,
+  onCanvaConnect,
 }: {
   data: IntegrationCardData;
   isDark: boolean;
+  canvaConnected?: boolean;
+  canvaBusy?: boolean;
+  canvaError?: string | null;
+  onCanvaConnect?: () => void;
 }) {
   const Icon = ICONS[data.title];
 
@@ -257,19 +270,45 @@ function IntegrationCard({
           </h3>
         </div>
 
-        <button
-          type="button"
-          aria-label={`Configurer ${data.title}`}
-          className={[
-            "flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition",
-            focusRingClass(isDark),
-            isDark
-              ? "text-neutral-400 hover:bg-white/10 hover:text-white"
-              : "text-neutral-400 hover:bg-black/5 hover:text-neutral-900",
-          ].join(" ")}
-        >
-          <ArrowRightIcon />
-        </button>
+        {data.title === "Canva" ? (
+          <button
+            type="button"
+            onClick={onCanvaConnect}
+            disabled={canvaConnected || canvaBusy}
+            aria-label={canvaConnected ? "Canva connected" : "Connect Canva"}
+            className={[
+              "shrink-0 rounded-full px-3 py-1.5 text-[11px] font-semibold transition disabled:cursor-default",
+              focusRingClass(isDark),
+              canvaConnected
+                ? isDark
+                  ? "bg-emerald-400/10 text-emerald-300"
+                  : "bg-emerald-50 text-emerald-700"
+                : isDark
+                  ? "bg-white text-neutral-900 hover:bg-neutral-200 disabled:opacity-60"
+                  : "bg-neutral-900 text-white hover:bg-neutral-700 disabled:opacity-60",
+            ].join(" ")}
+          >
+            {canvaBusy
+              ? "Connecting…"
+              : canvaConnected
+                ? "Connected"
+                : "Connect"}
+          </button>
+        ) : (
+          <button
+            type="button"
+            aria-label={`Configurer ${data.title}`}
+            className={[
+              "flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition",
+              focusRingClass(isDark),
+              isDark
+                ? "text-neutral-400 hover:bg-white/10 hover:text-white"
+                : "text-neutral-400 hover:bg-black/5 hover:text-neutral-900",
+            ].join(" ")}
+          >
+            <ArrowRightIcon />
+          </button>
+        )}
       </div>
 
       <div className="mt-3 flex items-start gap-2">
@@ -292,6 +331,11 @@ function IntegrationCard({
           {data.body}
         </p>
       </div>
+      {data.title === "Canva" && canvaError && (
+        <p role="alert" className="mt-3 text-[11px] leading-relaxed text-red-400">
+          {canvaError}
+        </p>
+      )}
     </div>
   );
 }
@@ -313,6 +357,31 @@ export default function Integrations() {
   const [bottomQuery, setBottomQuery] = useState("");
   const [isFolderOpen, setIsFolderOpen] = useState(false);
   const [isNewPostOpen, setIsNewPostOpen] = useState(false);
+  const [canvaConnected, setCanvaConnected] = useState(false);
+  const [canvaBusy, setCanvaBusy] = useState(false);
+  const [canvaError, setCanvaError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+
+    getCanvaStatus()
+      .then((status) => {
+        if (active) setCanvaConnected(status.connected);
+      })
+      .catch((error: unknown) => {
+        if (active) {
+          setCanvaError(
+            error instanceof Error
+              ? error.message
+              : "Impossible de vérifier la connexion Canva."
+          );
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!filterOpen) return;
@@ -341,14 +410,17 @@ export default function Integrations() {
           needle.length === 0 ||
           `${item.title} ${item.meta ?? ""}`.toLowerCase().includes(needle);
 
-        const isConnected = item.progress >= CONNECTED_THRESHOLD;
+        const isConnected =
+          item.title === "Canva"
+            ? canvaConnected
+            : item.progress >= CONNECTED_THRESHOLD;
         const matchesFilter =
           filter === "Toutes" ||
           (filter === "Connectées" ? isConnected : !isConnected);
 
         return matchesQuery && matchesFilter;
       }),
-    [needle, filter]
+    [needle, filter, canvaConnected]
   );
 
   const hasActiveFilters = needle.length > 0 || filter !== "Toutes";
@@ -372,6 +444,42 @@ export default function Integrations() {
 
   const handleCreatePost = async (payload: NewPostPayload) => {
     throw new Error(unavailablePostActionMessage(payload));
+  };
+
+  const handleCanvaConnect = async () => {
+    if (canvaBusy || canvaConnected) return;
+
+    const popup = window.open("", "_blank");
+    if (!popup) {
+      setCanvaError(
+        "Autorisez les fenêtres pop-up pour ce site, puis réessayez."
+      );
+      return;
+    }
+
+    setCanvaError(null);
+    setCanvaBusy(true);
+
+    try {
+      popup.document.body.innerText = "Opening Canva…";
+      popup.location.href = await getCanvaAuthUrl();
+
+      const connected = await waitForCanvaConnection(popup);
+      if (!connected) {
+        throw new Error("La connexion Canva n’a pas été terminée.");
+      }
+
+      setCanvaConnected(true);
+    } catch (error) {
+      popup.close();
+      setCanvaError(
+        error instanceof Error
+          ? error.message
+          : "Impossible de connecter Canva. Réessayez."
+      );
+    } finally {
+      setCanvaBusy(false);
+    }
   };
 
   return (
@@ -569,7 +677,17 @@ export default function Integrations() {
             {/* GRID */}
             <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
               {visible.map((card) => (
-                <IntegrationCard key={card.title} data={card} isDark={isDark} />
+                <IntegrationCard
+                  key={card.title}
+                  data={card}
+                  isDark={isDark}
+                  canvaConnected={card.title === "Canva" && canvaConnected}
+                  canvaBusy={card.title === "Canva" && canvaBusy}
+                  canvaError={card.title === "Canva" ? canvaError : null}
+                  onCanvaConnect={
+                    card.title === "Canva" ? handleCanvaConnect : undefined
+                  }
+                />
               ))}
             </div>
 

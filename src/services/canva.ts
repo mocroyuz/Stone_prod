@@ -170,7 +170,24 @@ export async function getCanvaAuthUrl(): Promise<string> {
     );
   }
 
-  return data.url;
+  let authUrl: URL;
+  try {
+    authUrl = new URL(data.url);
+  } catch {
+    throw new CanvaError("Le backend a renvoyé une URL Canva invalide.", 502);
+  }
+
+  if (
+    authUrl.protocol !== "https:" ||
+    !(
+      authUrl.hostname.toLowerCase() === "canva.com" ||
+      authUrl.hostname.toLowerCase().endsWith(".canva.com")
+    )
+  ) {
+    throw new CanvaError("Le backend a renvoyé une URL Canva inattendue.", 502);
+  }
+
+  return authUrl.toString();
 }
 
 /**
@@ -220,14 +237,10 @@ export async function waitForCanvaConnection(
 
     const closed = !popup || popup.closed;
 
-    try {
-      const status = await getCanvaStatus();
+    const status = await getCanvaStatus();
 
-      if (status.connected) {
-        return true;
-      }
-    } catch {
-      // Erreur réseau passagère : on réessaie.
+    if (status.connected) {
+      return true;
     }
 
     if (closed) {
@@ -344,4 +357,3 @@ export async function importCanvaDesign(
     );
   });
 }
-
