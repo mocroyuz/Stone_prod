@@ -2,8 +2,7 @@
 //
 // Page ouverte dans la fenêtre d'autorisation Canva : https://<frontend>/canva/callback
 // (même principe que TikTokCallback : l'URL de retour ne peut PAS contenir de "#").
-// Elle envoie code + state au serveur, puis la fenêtre est réutilisée par le modal
-// pour ouvrir l'éditeur Canva (ne la ferme pas toi-même).
+// Elle finalise OAuth, ou ferme la popup quand Canva renvoie l'utilisateur vers Stone.
 
 import { useEffect, useRef, useState } from "react";
 import { completeCanvaAuth } from "../services/canva";
@@ -53,6 +52,14 @@ export default function CanvaCallback() {
       error_description: errorDescription,
     } = readCallbackParams();
 
+    if (!error && !code && !oauthState && window.opener) {
+      setState("done");
+      setMessage("Returning to your post…");
+      window.opener.focus();
+      window.setTimeout(() => window.close(), 300);
+      return;
+    }
+
     if (error || !code || !oauthState) {
       setState("error");
       setMessage(
@@ -67,7 +74,8 @@ export default function CanvaCallback() {
     completeCanvaAuth(code, oauthState)
       .then(() => {
         setState("done");
-        setMessage("Canva connected. Opening your design…");
+        setMessage("Canva connected. Returning to your design…");
+        window.opener?.focus();
       })
       .catch((e) => {
         setState("error");
