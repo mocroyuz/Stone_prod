@@ -3,6 +3,7 @@ import { useState } from "react";
 import { navigate } from "../hooks/useHashRoute";
 
 import { useTheme } from "../hooks/useTheme";
+import { useUser } from "../contexts/UserContext";
 
 import {
 
@@ -471,6 +472,7 @@ function readOAuthErrorFromHash(): string | null {
 export default function Signin() {
 
   const { theme } = useTheme();
+  const { refreshUser } = useUser();
 
   const isDark = theme === "dark";
 
@@ -563,9 +565,16 @@ export default function Signin() {
 
 
       if (result.session) {
+        const user = await refreshUser();
+
+        if (!user) {
+          setServerError(
+            "You are signed in, but your account could not be loaded. Please try again.",
+          );
+          return;
+        }
 
         const navigated = navigateAfterSignin();
-
         if (!navigated) setDone(true);
 
       } else {

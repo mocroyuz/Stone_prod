@@ -12,7 +12,7 @@ import { getCurrentUser, type UserProfile } from "../services/supabase";
 interface UserContextType {
   user: UserProfile | null;
   loading: boolean;
-  refreshUser: () => Promise<void>;
+  refreshUser: () => Promise<UserProfile | null>;
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
@@ -29,13 +29,15 @@ export function UserProvider({ children }: { children: ReactNode }) {
    * getCurrentUser() renvoie null si aucune session n'est stockée
    * ou si elle est invalide (le refresh du token est géré automatiquement).
    */
-  const refreshUser = useCallback(async () => {
+  const refreshUser = useCallback(async (): Promise<UserProfile | null> => {
     try {
       const userData = await getCurrentUser();
       setUser(userData);
+      return userData;
     } catch (error) {
       console.error("Error refreshing user:", error);
       setUser(null);
+      return null;
     } finally {
       setLoading(false);
     }
