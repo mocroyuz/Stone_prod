@@ -10,6 +10,15 @@ export type Connection = {
   connected: boolean;
   handle?: string;
   avatarUrl?: string;
+  /**
+   * Transitoire — le fournisseur a indiqué que la session est morte
+   * (refresh token révoqué / expiré). Le composant doit afficher la
+   * bannière « reconnecter » au lieu de retenter automatiquement.
+   *
+   * Ce champ n'est PAS persisté dans le cache : on le propage
+   * uniquement via la valeur de retour de refreshTikTokCache().
+   */
+  needsReconnect?: boolean;
 };
 
 export type CacheProvider = "tiktok" | "pinterest" | "youtube";
@@ -82,7 +91,17 @@ export function writeCache(
   connection: Connection,
   provider: CacheProvider = "tiktok"
 ): void {
-  const entry: CachedProfile = { connection, savedAt: Date.now() };
+  // On ne persiste PAS needsReconnect : c'est un état transitoire,
+  // pas une information de cache. On le retire pour éviter de le
+  // retrouver à la prochaine session.
+  const persistable: Connection = {
+    connected: connection.connected,
+    handle: connection.handle,
+    avatarUrl: connection.avatarUrl,
+  };
+
+  const entry: CachedProfile = { connection: persistable, savedAt: Date.now() };
+
   memoryCache.set(memoryKey(provider, userId), entry);
 
   try {

@@ -8,6 +8,8 @@ import {
   type Connection,
 } from "./channelsCache";
 
+// ── Types ────────────────────────────────────────────────────
+
 export interface TikTokAccount {
   display_name: string | null;
   avatar_url: string | null;
@@ -49,13 +51,45 @@ export type TikTokPublishStatus =
   | "PUBLISH_COMPLETE"
   | "FAILED";
 
-// ── Connexion ────────────────────────────────────────────────
+export interface TikTokCapabilities {
+  audited: boolean;
+  sandbox: boolean;
+  force_draft: boolean;
+  can_direct_post: boolean;
+  forced_privacy_level: string | null;
+  photos_mode: string;
+  testers_only_auth: boolean;
+}
 
-export async function getTikTokStatus(): Promise<{
+export interface TikTokStatusResponse {
+  success?: boolean;
+  /** true uniquement si la connexion est UTILISABLE (jeton frais). */
   connected: boolean;
   account: TikTokAccount | null;
-}> {
-  return apiRequest("/api/tiktok/status", { method: "GET" });
+  /**
+   * Présent et true si le serveur a détecté un refresh token mort
+   * (session TikTok expirée côté provider, ou compte déconnecté
+   * depuis TikTok). L'utilisateur doit reconnecter.
+   */
+  needs_reconnect?: boolean;
+  capabilities?: TikTokCapabilities;
+}
+
+// ── Connexion ────────────────────────────────────────────────
+
+/**
+ * Récupère l'état TikTok courant.
+ *
+ * @param options.force  Envoie ?refresh=1 pour demander au serveur
+ *                       d'ignorer son throttle de 30 min (utilisé
+ *                       quand une image vient d'échouer). Le serveur
+ *                       applique quand même son anti-martèlement court.
+ */
+export async function getTikTokStatus(
+  options: { force?: boolean } = {}
+): Promise<TikTokStatusResponse> {
+  const qs = options.force ? "?refresh=1" : "";
+  return apiRequest(`/api/tiktok/status${qs}`, { method: "GET" });
 }
 
 /**
@@ -101,6 +135,10 @@ export async function startTikTokLogin(): Promise<void> {
  * Appelé par la page /tiktok/callback avec les paramètres de l'URL.
  * Envoie le `code` et le `state` au backend (Railway), qui échange le code
  * contre un access_token auprès de TikTok.
+ *
+ * ⚠️  Côté page callback, après un login réussi, appeler :
+ *     resetTikTokAvatarFailures(userId)             ← repart à zéro
+ *     refreshTikTokCache(userId, { force: true })   ← récupère l'avatar frais
  */
 export async function completeTikTokLogin(
   code: string,
@@ -121,10 +159,77 @@ export async function disconnectTikTok(): Promise<void> {
   await apiRequest("/api/tiktok/disconnect", { method: "DELETE" });
 }
 
+// ── Anti-martèlement des avatars (onError) ──────────────────
+//
+// Quand l'<img> d'avatar échoue (URL expirée, CDN lent, réseau),
+// le composant appelle markTikTokAvatarFailed(userId) puis
+// refreshTikTokCache(userId, { force: true }).
+//
+// Les tentatives sont espacées de façon exponentielle :
+//   1er échec  → 10 s
+//   2e         → 20 s
+//   3e         → 40 s
+//   4e         → 80 s
+//   5e et +    → 5 min (plafond)
+//
+// Après 5 échecs, le composant devrait afficher l'avatar de secours
+// (initiale) et attendre une action manuelle (clic « réessayer » →
+// resetTikTokAvatarFailures + refresh forcé).
+
+const INITIAL_FAILURE_COOLDOWN_MS = 10_000;
+const MAX_FAILURE_COOLDOWN_MS = 5 * 60_000;
+const MAX_AUTO_RETRIES = 5;
+
+const avatarFailureCount = new Map<string, number>();
+const avatarFailureAt = new Map<string, number>();
+
+function failureCooldown(count: number): number {
+  if (count <= 0) return 0;
+  const exp = Math.pow(2, count - 1);
+  const raw = INITIAL_FAILURE_COOLDOWN_MS * exp;
+  // Si exp déborde (Infinity), Math.min renvoie le plafond.
+  return Math.min(raw, MAX_FAILURE_COOLDOWN_MS);
+}
+
+/**
+ * À appeler depuis onError de l'<img> AVANT refreshTikTokCache.
+ * Renvoie le nombre d'échecs consécutifs pour cet utilisateur (1 = premier).
+ * Le composant peut afficher l'avatar de secours dès que count >= 5.
+ */
+export function markTikTokAvatarFailed(userId: string): number {
+  if (!userId) return 0;
+  const count = (avatarFailureCount.get(userId) || 0) + 1;
+  avatarFailureCount.set(userId, count);
+  avatarFailureAt.set(userId, Date.now());
+  return count;
+}
+
+/** Remet le compteur à zéro (login, reconnexion, clic « réessayer »). */
+export function resetTikTokAvatarFailures(userId: string): void {
+  if (!userId) return;
+  avatarFailureCount.delete(userId);
+  avatarFailureAt.delete(userId);
+}
+
+/**
+ * Vrai si on peut retenter un refresh forcé pour cet utilisateur.
+ * Faux pendant le cooldown exponentiel après des échecs successifs,
+ * et faux définitivement une fois MAX_AUTO_RETRIES atteint (il faut
+ * alors un resetTikTokAvatarFailures explicite).
+ */
+export function canRetryTikTokAvatar(userId: string): boolean {
+  const count = avatarFailureCount.get(userId) || 0;
+  if (count === 0) return true;
+  if (count >= MAX_AUTO_RETRIES) return false;
+  const at = avatarFailureAt.get(userId) || 0;
+  return Date.now() - at >= failureCooldown(count);
+}
+
 // ── Cache du profil ──────────────────────────────────────────
 
-// Évite plusieurs rafraîchissements simultanés pour un même utilisateur
-// (plusieurs avatars cassés qui déclenchent onError en même temps).
+// Déduplication des requêtes en cours. Deux clés par utilisateur
+// (force / normal) : un force ne se fait plus écraser par un normal
+// en cours, et vice-versa.
 const inflightRefresh = new Map<string, Promise<Connection | null>>();
 
 /**
@@ -132,8 +237,16 @@ const inflightRefresh = new Map<string, Promise<Connection | null>>();
  * Utile quand l'URL de l'avatar a expiré (les URLs signées TikTok durent
  * quelques heures).
  *
- * - sans option : ne fait rien tant que le cache est récent
- * - { force: true } : recharge dans tous les cas
+ * - sans option     : ne fait rien tant que le cache a moins d'1 h
+ * - { force: true } : appelle le serveur avec ?refresh=1 (ignore son
+ *                     throttle 30 min), mais respecte le cooldown
+ *                     exponentiel côté client.
+ *
+ * Renvoie :
+ *   - Connection (connected: true)                       → avatar frais
+ *   - Connection { connected: false }                    → pas connecté
+ *   - Connection { connected: false, needsReconnect: true } → reconnexion requise
+ *   - null                                               → erreur transitoire
  */
 export async function refreshTikTokCache(
   userId: string,
@@ -141,21 +254,51 @@ export async function refreshTikTokCache(
 ): Promise<Connection | null> {
   if (!userId) return null;
 
+  // Anti-martèlement côté client : même un force respecte le cooldown
+  // exponentiel. Le serveur a son propre throttle, mais on évite les
+  // requêtes inutiles quand l'URL renvoyée reste cassée.
+  if (options.force && !canRetryTikTokAvatar(userId)) {
+    const cached = readCache(userId, "tiktok");
+    return cached?.connection ?? null;
+  }
+
+  // Refresh de fond : ne touche au serveur que si le cache a > 1 h.
   if (!options.force) {
     const cached = readCache(userId, "tiktok");
     if (cached && !isAvatarStale(cached)) return cached.connection;
   }
 
-  const pending = inflightRefresh.get(userId);
+  const key = `${userId}:${options.force ? "force" : "normal"}`;
+  const pending = inflightRefresh.get(key);
   if (pending) return pending;
 
-  const task = (async () => {
+  const task = (async (): Promise<Connection | null> => {
     try {
-      const status = await getTikTokStatus();
+      const status = await getTikTokStatus({ force: options.force });
 
       if (!status.connected) {
+        // Session morte OU jamais connecté : on vide le cache.
         clearCache(userId, "tiktok");
-        return { connected: false } as Connection;
+
+        if (status.needs_reconnect) {
+          // Le serveur a explicitement signalé un refresh token mort.
+          // On arme un cooldown long côté client pour ne pas marteler
+          // un serveur qui répondra toujours connected: false tant
+          // que l'utilisateur n'a pas reconnecté.
+          avatarFailureCount.set(userId, MAX_AUTO_RETRIES);
+          avatarFailureAt.set(userId, Date.now());
+
+          return { connected: false, needsReconnect: true };
+        }
+
+        // Simple absence de connexion : cooldown court pour éviter
+        // une boucle si le composant insiste.
+        if (!avatarFailureCount.has(userId)) {
+          avatarFailureCount.set(userId, 1);
+          avatarFailureAt.set(userId, Date.now());
+        }
+
+        return { connected: false };
       }
 
       const connection: Connection = {
@@ -165,16 +308,23 @@ export async function refreshTikTokCache(
       };
 
       writeCache(userId, connection, "tiktok");
+
+      // Succès : on repart à zéro pour la prochaine fois.
+      resetTikTokAvatarFailures(userId);
+
       return connection;
     } catch (error) {
+      // Erreur réseau / 5xx / timeout : panne transitoire.
+      // On NE vide PAS le cache (l'avatar précédent reste affiché),
+      // on arme juste le cooldown via le compteur existant.
       console.warn("[Stone] Could not refresh TikTok cache:", error);
       return null;
     } finally {
-      inflightRefresh.delete(userId);
+      inflightRefresh.delete(key);
     }
   })();
 
-  inflightRefresh.set(userId, task);
+  inflightRefresh.set(key, task);
   return task;
 }
 
