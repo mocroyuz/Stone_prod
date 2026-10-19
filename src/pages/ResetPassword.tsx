@@ -51,6 +51,7 @@ export default function ResetPassword() {
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [show, setShow] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [serverError, setServerError] = useState<string | null>(null);
@@ -132,7 +133,7 @@ export default function ResetPassword() {
     isDark ? "text-neutral-400" : "text-neutral-600",
   ].join(" ");
 
-  const eyeIcon = (
+  const eyeIcon = (visible: boolean) => (
     <svg
       viewBox="0 0 24 24"
       className="h-[15px] w-[15px]"
@@ -144,7 +145,7 @@ export default function ResetPassword() {
     >
       <path d="M2.5 12S6 5.8 12 5.8 21.5 12 21.5 12 18 18.2 12 18.2 2.5 12 2.5 12Z" />
       <circle cx="12" cy="12" r="3" />
-      {!show && <path d="m4 20 16-16" />}
+      {!visible && <path d="m4 20 16-16" />}
     </svg>
   );
 
@@ -402,7 +403,7 @@ export default function ResetPassword() {
                           aria-label={show ? "Hide password" : "Show password"}
                           className="absolute top-1/2 right-3 -translate-y-1/2 cursor-pointer text-neutral-500 hover:text-neutral-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-white"
                         >
-                          {eyeIcon}
+                          {eyeIcon(show)}
                         </button>
                       </div>
 
@@ -418,20 +419,31 @@ export default function ResetPassword() {
                         Confirm password
                       </label>
 
-                      <input
-                        id="reset-confirm"
-                        type={show ? "text" : "password"}
-                        value={confirm}
-                        onChange={(event) => {
-                          setConfirm(event.target.value);
-                          setErrors((prev) => ({ ...prev, confirm: "" }));
-                        }}
-                        placeholder="Repeat your password"
-                        autoComplete="new-password"
-                        aria-invalid={Boolean(errors.confirm)}
-                        aria-describedby={errors.confirm ? "reset-confirm-error" : undefined}
-                        className={inputClass(Boolean(errors.confirm))}
-                      />
+                      <div className="relative">
+                        <input
+                          id="reset-confirm"
+                          type={showConfirm ? "text" : "password"}
+                          value={confirm}
+                          onChange={(event) => {
+                            setConfirm(event.target.value);
+                            setErrors((prev) => ({ ...prev, confirm: "" }));
+                          }}
+                          placeholder="Repeat your password"
+                          autoComplete="new-password"
+                          aria-invalid={Boolean(errors.confirm)}
+                          aria-describedby={errors.confirm ? "reset-confirm-error" : undefined}
+                          className={inputClass(Boolean(errors.confirm)) + " pr-9"}
+                        />
+
+                        <button
+                          type="button"
+                          onClick={() => setShowConfirm((value) => !value)}
+                          aria-label={showConfirm ? "Hide password" : "Show password"}
+                          className="absolute top-1/2 right-3 -translate-y-1/2 cursor-pointer text-neutral-500 hover:text-neutral-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-white"
+                        >
+                          {eyeIcon(showConfirm)}
+                        </button>
+                      </div>
 
                       {errors.confirm && (
                         <span id="reset-confirm-error" className="mt-1 block text-[11px] text-red-400">
