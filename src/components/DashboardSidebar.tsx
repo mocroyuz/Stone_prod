@@ -542,15 +542,19 @@ const defaultAccount = {
   avatarUrl: undefined as string | undefined,
 };
 
+/**
+ * ✨ MODIFICATION ICI : On aligne les labels sur la page de tarification.
+ * "pro" et "professional" deviennent "Professional".
+ */
 function formatPlanLabel(name: string | null | undefined): string | null {
   const normalized = name?.trim().toLowerCase();
   if (!normalized) return null;
 
   const labels: Record<string, string> = {
-    starter: "Starter plan",
-    pro: "Pro plan",
-    professional: "Pro plan",
-    enterprise: "Enterprise plan",
+    starter: "Starter",
+    pro: "Professional",
+    professional: "Professional",
+    enterprise: "Enterprise",
     free: "Free plan",
   };
 
@@ -721,9 +725,6 @@ const CHANNEL_LINKS: {
   badge?: string;
   perChannel?: boolean;
 }[] = [
-  // ⬇️ FIX : Publish doit conserver le canal courant dans l'URL
-  // (comme Community et Insights), sinon on retombe sur channels[0]
-  // dans Schedule.tsx et l'on affiche un autre réseau (ex. TikTok).
   { label: "Publish", route: "schedule", icon: PublishIcon, perChannel: true },
   { label: "Community", route: "community", icon: CommunityIcon, perChannel: true },
   {
@@ -2526,6 +2527,7 @@ export default function DashboardSidebar({
 
   let menuItemIndex = 0;
 
+  // ✨ Logique mise à jour pour afficher le bon plan
   const accountPlan =
     formatPlanLabel(
       subscription?.plan_name ?? subscription?.plan ?? subscription?.plan_key,
