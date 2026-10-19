@@ -1,4 +1,13 @@
 import { useEffect, useState, type ReactNode } from "react";
+import {
+  ArrowUpRight,
+  CalendarDays,
+  Check,
+  MessageCircle,
+  Send,
+  TrendingUp,
+  Users,
+} from "lucide-react";
 
 import { useUser } from "../contexts/UserContext";
 import { navigate } from "../hooks/useHashRoute";
@@ -39,144 +48,185 @@ const focusRingClass = (isDark: boolean) =>
     : "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/25";
 
 /* ============================================================
-   STEPS
+   FONCTIONNALITÉS DÉBLOQUÉES PAR LE PAIEMENT
+   → modifie cette liste pour refléter ton vrai plan
 ============================================================ */
 
-type StepState = "done" | "active" | "blocked" | "stalled" | "pending";
+type Feature = {
+  key: string;
+  title: string;
+  description: string;
+  cta: string;
+  route: string;
+  icon: ReactNode;
+};
 
-function StepIcon({ state, isDark }: { state: StepState; isDark: boolean }) {
-  const base = "flex h-6 w-6 shrink-0 items-center justify-center rounded-full";
+const FEATURES: Feature[] = [
+  {
+    key: "publish",
+    title: "Publish everywhere",
+    description:
+      "Write once and send your post to all your connected channels at the same time.",
+    cta: "Create a post",
+    route: "home",
+    icon: <Send className="h-[18px] w-[18px]" />,
+  },
+  {
+    key: "schedule",
+    title: "Schedule ahead",
+    description:
+      "Plan your content on the calendar and let Stone publish it for you.",
+    cta: "Open calendar",
+    route: "calendar",
+    icon: <CalendarDays className="h-[18px] w-[18px]" />,
+  },
+  {
+    key: "community",
+    title: "One inbox for comments",
+    description:
+      "Read and answer comments from every channel without switching apps.",
+    cta: "Open community",
+    route: "community",
+    icon: <MessageCircle className="h-[18px] w-[18px]" />,
+  },
+  {
+    key: "channels",
+    title: "More connected channels",
+    description:
+      "Link more accounts, from TikTok and YouTube to Pinterest, and manage them together.",
+    cta: "Manage channels",
+    route: "channels",
+    icon: <Users className="h-[18px] w-[18px]" />,
+  },
+  {
+    key: "analytics",
+    title: "Performance at a glance",
+    description:
+      "Follow followers, likes and comments with trends against the previous period.",
+    cta: "See overview",
+    route: "home",
+    icon: <TrendingUp className="h-[18px] w-[18px]" />,
+  },
+];
 
-  if (state === "done") {
-    return (
-      <span
-        className={[
-          base,
-          "bg-emerald-500 text-white",
-        ].join(" ")}
-      >
-        <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" aria-hidden="true">
-          <path
-            d="m5.5 12.5 4 4 9-9.5"
-            stroke="currentColor"
-            strokeWidth="2.4"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
-      </span>
-    );
-  }
+/* ============================================================
+   FEATURE CARD
+============================================================ */
 
-  if (state === "active") {
-    return (
-      <span
-        className={[
-          base,
-          isDark ? "bg-white/[0.07]" : "bg-black/[0.05]",
-        ].join(" ")}
-      >
-        <span
-          className={[
-            "h-3.5 w-3.5 animate-spin rounded-full border-2 motion-reduce:animate-none",
-            isDark
-              ? "border-white/20 border-t-white"
-              : "border-black/15 border-t-neutral-900",
-          ].join(" ")}
-        />
-      </span>
-    );
-  }
-
-  if (state === "stalled") {
-    return (
-      <span
-        className={[
-          base,
-          isDark ? "bg-amber-500/15 text-amber-400" : "bg-amber-500/15 text-amber-600",
-        ].join(" ")}
-      >
-        <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" aria-hidden="true">
-          <path
-            d="M12 7v6m0 4h.01"
-            stroke="currentColor"
-            strokeWidth="2.4"
-            strokeLinecap="round"
-          />
-        </svg>
-      </span>
-    );
-  }
-
-  /* blocked / pending : point vide */
+function LockIcon({ className }: { className?: string }) {
   return (
-    <span
-      className={[
-        base,
-        "border",
-        isDark ? "border-white/[0.12]" : "border-black/[0.12]",
-      ].join(" ")}
+    <svg
+      viewBox="0 0 24 24"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.9"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
     >
-      <span
-        className={[
-          "h-1.5 w-1.5 rounded-full",
-          isDark ? "bg-white/25" : "bg-black/20",
-        ].join(" ")}
-      />
-    </span>
+      <rect x="5" y="11" width="14" height="9" rx="2.2" />
+      <path d="M8 11V8a4 4 0 0 1 8 0v3" />
+    </svg>
   );
 }
 
-function Step({
+function FeatureCard({
   isDark,
-  state,
-  title,
-  detail,
-  last,
+  feature,
+  unlocked,
+  onOpen,
 }: {
   isDark: boolean;
-  state: StepState;
-  title: string;
-  detail?: string;
-  last?: boolean;
+  feature: Feature;
+  unlocked: boolean;
+  onOpen: () => void;
 }) {
-  const dim = state === "pending" || state === "blocked";
-
   return (
-    <li className="relative flex gap-3">
-      {/* Trait de liaison entre les étapes */}
-      {!last && (
-        <span
-          aria-hidden="true"
+    <button
+      type="button"
+      disabled={!unlocked}
+      onClick={onOpen}
+      className={[
+        "group relative flex flex-col rounded-2xl border p-4 text-left",
+        "transition-all duration-500 motion-reduce:transition-none",
+        "disabled:cursor-default",
+        focusRingClass(isDark),
+        unlocked
+          ? isDark
+            ? "border-emerald-500/25 bg-emerald-500/[0.05] hover:bg-emerald-500/[0.09]"
+            : "border-emerald-600/20 bg-white shadow-sm hover:bg-[#f6f4f0]"
+          : surfaceClass(isDark),
+      ].join(" ")}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div
           className={[
-            "absolute left-3 top-6 h-[calc(100%-12px)] w-px -translate-x-1/2",
-            state === "done"
-              ? "bg-emerald-500/50"
+            "flex h-10 w-10 items-center justify-center rounded-xl transition-colors duration-500",
+            unlocked
+              ? "bg-emerald-500/15 text-emerald-500"
               : isDark
-                ? "bg-white/[0.09]"
-                : "bg-black/[0.09]",
-          ].join(" ")}
-        />
-      )}
-
-      <StepIcon state={state} isDark={isDark} />
-
-      <div className={["min-w-0 pb-5", last ? "pb-0" : ""].join(" ")}>
-        <p
-          className={[
-            "text-[13px] font-semibold leading-6",
-            dim ? mutedClass(isDark) : strongClass(isDark),
+                ? "bg-white/[0.06] text-neutral-500"
+                : "bg-white text-neutral-400 shadow-sm ring-1 ring-black/[0.05]",
           ].join(" ")}
         >
-          {title}
-        </p>
-        {detail && (
-          <p className={["-mt-0.5 text-[11px] leading-5", bodyClass(isDark)].join(" ")}>
-            {detail}
-          </p>
-        )}
+          {feature.icon}
+        </div>
+
+        <span
+          className={[
+            "flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold",
+            "transition-colors duration-500",
+            unlocked
+              ? "bg-emerald-500/10 text-emerald-500"
+              : isDark
+                ? "bg-white/[0.06] text-neutral-500"
+                : "bg-black/[0.05] text-neutral-500",
+          ].join(" ")}
+        >
+          {unlocked ? (
+            <Check className="h-2.5 w-2.5" strokeWidth={3} aria-hidden="true" />
+          ) : (
+            <LockIcon className="h-2.5 w-2.5" />
+          )}
+          {unlocked ? "Unlocked" : "Locked"}
+        </span>
       </div>
-    </li>
+
+      <h3
+        className={[
+          "mt-4 text-[14px] font-semibold tracking-[-0.01em]",
+          unlocked ? strongClass(isDark) : mutedClass(isDark),
+          "transition-colors duration-500",
+        ].join(" ")}
+      >
+        {feature.title}
+      </h3>
+      <p
+        className={[
+          "mt-1 text-[12px] leading-5",
+          unlocked ? bodyClass(isDark) : mutedClass(isDark),
+          "transition-colors duration-500",
+        ].join(" ")}
+      >
+        {feature.description}
+      </p>
+
+      <span
+        className={[
+          "mt-4 flex items-center gap-1 text-[11px] font-semibold transition-opacity duration-500",
+          unlocked
+            ? isDark
+              ? "text-white opacity-100"
+              : "text-neutral-900 opacity-100"
+            : "opacity-0",
+        ].join(" ")}
+        aria-hidden={!unlocked}
+      >
+        {feature.cta}
+        <ArrowUpRight className="h-3 w-3 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+      </span>
+    </button>
   );
 }
 
@@ -202,7 +252,7 @@ function PrimaryButton({
       disabled={disabled}
       onClick={onClick}
       className={[
-        "flex min-h-11 w-full items-center justify-center rounded-xl px-5",
+        "flex min-h-11 items-center justify-center rounded-xl px-6",
         "text-[13px] font-semibold transition",
         "disabled:cursor-not-allowed disabled:opacity-50",
         focusRingClass(isDark),
@@ -230,7 +280,7 @@ function TextButton({
       type="button"
       onClick={onClick}
       className={[
-        "rounded-md px-1 text-[12px] font-semibold transition",
+        "rounded-md px-2 py-1 text-[12px] font-semibold transition",
         focusRingClass(isDark),
         isDark
           ? "text-neutral-400 hover:text-white"
@@ -258,6 +308,10 @@ export default function CheckoutReturnModal() {
   const [open, setOpen] = useState(checkoutStatus !== null);
   const [verify, setVerify] = useState<VerifyState>("idle");
   const [retryKey, setRetryKey] = useState(0);
+  const [unlockedCount, setUnlockedCount] = useState(0);
+
+  const isSuccess = checkoutStatus === "success";
+  const total = FEATURES.length;
 
   const close = () => {
     clearCheckoutParams();
@@ -296,6 +350,30 @@ export default function CheckoutReturnModal() {
     };
   }, [checkoutStatus, refresh, user, retryKey]);
 
+  /* Déblocage progressif des fonctionnalités dès que l'abonnement est actif */
+  useEffect(() => {
+    if (!isSuccess || !hasActive) return;
+
+    const reduceMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)"
+    ).matches;
+
+    if (reduceMotion) {
+      setUnlockedCount(total);
+      return;
+    }
+
+    setUnlockedCount(0);
+    let count = 0;
+    const interval = window.setInterval(() => {
+      count += 1;
+      setUnlockedCount(count);
+      if (count >= total) window.clearInterval(interval);
+    }, 220);
+
+    return () => window.clearInterval(interval);
+  }, [isSuccess, hasActive, total]);
+
   useEffect(() => {
     if (!open) return;
 
@@ -333,41 +411,43 @@ export default function CheckoutReturnModal() {
     navigate("pricing");
   };
 
+  const openFeature = (route: string) => {
+    close();
+    navigate(route);
+  };
+
   if (!open || !checkoutStatus) return null;
 
-  const isSuccess = checkoutStatus === "success";
+  const allUnlocked = isSuccess && hasActive && unlockedCount >= total;
+  const checking = isSuccess && !!user && !hasActive && verify !== "timeout";
 
-  /* État de chaque étape du parcours « succès » */
-  const activationState: StepState = hasActive
-    ? "done"
-    : !user
-      ? "blocked"
-      : verify === "timeout"
-        ? "stalled"
-        : "active";
+  /* ---------------- Textes d'en-tête ---------------- */
 
-  const readyState: StepState = hasActive ? "done" : "pending";
-
-  /* Texte d'en-tête selon la situation */
-  const title = !isSuccess
+  const eyebrow = !isSuccess
     ? "Checkout canceled"
     : hasActive
-      ? "Welcome to Stone"
+      ? "Payment received"
+      : "Payment received";
+
+  const title = !isSuccess
+    ? "Unlock everything Stone has to offer"
+    : hasActive
+      ? "Your plan is live. Here's what you unlocked."
       : !user
-        ? "One last step"
+        ? "Sign in to unlock your features"
         : verify === "timeout"
-          ? "Still confirming…"
-          : "Confirming your plan";
+          ? "Your features are almost ready"
+          : "Unlocking your features…";
 
   const description = !isSuccess
-    ? "You weren't charged and nothing changed on your account. Come back to the plans whenever you're ready."
+    ? "You weren't charged and nothing changed on your account. This is what's included when you subscribe."
     : hasActive
-      ? "Your subscription is active and your workspace is ready."
+      ? "Tap any feature to try it right away."
       : !user
-        ? "Your payment went through. Sign in to link it to your account."
+        ? "Your payment went through. Sign in to attach it to your account and activate everything below."
         : verify === "timeout"
-          ? "Your payment went through, but syncing is taking longer than usual."
-          : "Your payment went through. We're activating your subscription.";
+          ? "Your payment went through, but syncing is taking longer than usual. You can check again."
+          : "Your payment went through. This only takes a few seconds.";
 
   return (
     <div
@@ -386,203 +466,227 @@ export default function CheckoutReturnModal() {
         aria-labelledby="checkout-return-title"
         aria-describedby="checkout-return-desc"
         className={[
-          "relative w-full max-w-[440px] overflow-y-auto",
+          "relative flex w-full max-w-[820px] flex-col overflow-hidden",
           "max-h-[calc(100dvh-1rem)] sm:max-h-[calc(100dvh-2rem)]",
           "rounded-t-[28px] border sm:rounded-[28px]",
-          "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
           "shadow-[0_30px_100px_-25px_rgba(0,0,0,0.55)]",
           panelClass(isDark),
         ].join(" ")}
       >
-        <div className="px-6 pb-6 pt-7 sm:px-8 sm:pb-7 sm:pt-8">
-          {/* EN-TÊTE */}
-          <div className="flex items-start justify-between gap-4">
-            <div
-              className={[
-                "flex h-11 w-11 items-center justify-center rounded-xl ring-1",
-                isSuccess
-                  ? "bg-emerald-500/10 text-emerald-500 ring-emerald-500/20"
-                  : isDark
-                    ? "bg-white/[0.06] text-neutral-300 ring-white/[0.07]"
-                    : "bg-[#f6f4f0] text-neutral-600 ring-black/[0.06]",
-              ].join(" ")}
-            >
-              {isSuccess ? (
-                <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" aria-hidden="true">
-                  <path
-                    d="M3 10h18M6 15h3M5 5h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z"
-                    stroke="currentColor"
-                    strokeWidth="1.7"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              ) : (
-                <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" aria-hidden="true">
-                  <path
-                    d="M9 14 4 9l5-5M4 9h10a6 6 0 0 1 0 12h-3"
-                    stroke="currentColor"
-                    strokeWidth="1.7"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              )}
+        {/* Lueur d'ambiance qui passe au vert quand tout est débloqué */}
+        <div
+          aria-hidden="true"
+          className={[
+            "pointer-events-none absolute inset-x-0 top-0 h-56",
+            "transition-opacity duration-700",
+            allUnlocked ? "opacity-100" : "opacity-0",
+            isDark
+              ? "bg-[radial-gradient(60%_100%_at_50%_0%,rgba(16,185,129,0.16),transparent)]"
+              : "bg-[radial-gradient(60%_100%_at_50%_0%,rgba(16,185,129,0.14),transparent)]",
+          ].join(" ")}
+        />
+
+        {/* Fermer */}
+        <button
+          type="button"
+          onClick={close}
+          aria-label="Close"
+          className={[
+            "absolute right-4 top-4 z-10 flex h-8 w-8 items-center justify-center",
+            "rounded-full transition",
+            focusRingClass(isDark),
+            isDark
+              ? "text-neutral-500 hover:bg-white/[0.07] hover:text-white"
+              : "text-neutral-400 hover:bg-black/[0.05] hover:text-neutral-900",
+          ].join(" ")}
+        >
+          <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" aria-hidden="true">
+            <path
+              d="m6 6 12 12M18 6 6 18"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+            />
+          </svg>
+        </button>
+
+        {/* CONTENU QUI SCROLLE */}
+        <div className="relative flex-1 overflow-y-auto px-6 pb-4 pt-8 [scrollbar-width:none] sm:px-9 sm:pt-10 [&::-webkit-scrollbar]:hidden">
+          {/* HERO */}
+          <header className="flex flex-col items-start gap-5 sm:flex-row sm:items-end sm:justify-between">
+            <div className="max-w-[500px]">
+              <span
+                className={[
+                  "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1",
+                  "text-[10px] font-semibold",
+                  isSuccess
+                    ? "bg-emerald-500/10 text-emerald-500"
+                    : isDark
+                      ? "bg-white/[0.07] text-neutral-300"
+                      : "bg-black/[0.05] text-neutral-600",
+                ].join(" ")}
+              >
+                {isSuccess && (
+                  <Check className="h-3 w-3" strokeWidth={3} aria-hidden="true" />
+                )}
+                {eyebrow}
+              </span>
+
+              <h2
+                id="checkout-return-title"
+                className={[
+                  "mt-4 text-[clamp(24px,3.6vw,32px)] font-semibold leading-[1.1]",
+                  "tracking-[-0.035em]",
+                  strongClass(isDark),
+                ].join(" ")}
+              >
+                {title}
+              </h2>
+              <p
+                id="checkout-return-desc"
+                role="status"
+                className={["mt-2 text-[13px] leading-6", bodyClass(isDark)].join(" ")}
+              >
+                {description}
+              </p>
             </div>
 
-            <button
-              type="button"
-              onClick={close}
-              aria-label="Close"
-              className={[
-                "flex h-8 w-8 items-center justify-center rounded-full transition",
-                focusRingClass(isDark),
-                isDark
-                  ? "text-neutral-500 hover:bg-white/[0.07] hover:text-white"
-                  : "text-neutral-400 hover:bg-black/[0.05] hover:text-neutral-900",
-              ].join(" ")}
-            >
-              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" aria-hidden="true">
-                <path
-                  d="m6 6 12 12M18 6 6 18"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
-                  strokeLinecap="round"
-                />
-              </svg>
-            </button>
-          </div>
-
-          <h2
-            id="checkout-return-title"
-            className={[
-              "mt-5 text-[24px] font-semibold tracking-[-0.035em]",
-              strongClass(isDark),
-            ].join(" ")}
-          >
-            {title}
-          </h2>
-          <p
-            id="checkout-return-desc"
-            role="status"
-            className={["mt-1.5 text-[13px] leading-6", bodyClass(isDark)].join(" ")}
-          >
-            {description}
-          </p>
-
-          {/* PROGRESSION (succès uniquement) */}
-          {isSuccess && (
+            {/* Compteur de déblocage */}
             <div
               className={[
-                "mt-6 rounded-2xl border p-4",
+                "w-full shrink-0 rounded-2xl border p-3.5 sm:w-[180px]",
                 surfaceClass(isDark),
               ].join(" ")}
             >
-              <ol>
-                <Step
-                  isDark={isDark}
-                  state="done"
-                  title="Payment received"
-                  detail={user?.email ? `Receipt sent to ${user.email}` : undefined}
+              <div className="flex items-baseline justify-between">
+                <p className={["text-[10px] font-medium", mutedClass(isDark)].join(" ")}>
+                  Features unlocked
+                </p>
+                <p
+                  className={[
+                    "text-[15px] font-bold tabular-nums tracking-tight",
+                    strongClass(isDark),
+                  ].join(" ")}
+                >
+                  {unlockedCount}
+                  <span className={["font-medium", mutedClass(isDark)].join(" ")}>
+                    /{total}
+                  </span>
+                </p>
+              </div>
+              <div
+                className={[
+                  "mt-2.5 h-1.5 overflow-hidden rounded-full",
+                  isDark ? "bg-white/[0.08]" : "bg-black/[0.07]",
+                ].join(" ")}
+                role="progressbar"
+                aria-valuemin={0}
+                aria-valuemax={total}
+                aria-valuenow={unlockedCount}
+                aria-label="Features unlocked"
+              >
+                <div
+                  className={[
+                    "h-full rounded-full bg-emerald-500",
+                    "transition-[width] duration-500 ease-out motion-reduce:transition-none",
+                  ].join(" ")}
+                  style={{ width: `${(unlockedCount / total) * 100}%` }}
                 />
-                <Step
-                  isDark={isDark}
-                  state={activationState}
-                  title="Subscription activated"
-                  detail={
-                    activationState === "blocked"
-                      ? "Sign in to confirm"
-                      : activationState === "stalled"
-                        ? "Taking longer than expected"
-                        : activationState === "active"
-                          ? "Usually takes a few seconds"
-                          : undefined
-                  }
-                />
-                <Step
-                  isDark={isDark}
-                  state={readyState}
-                  title="Workspace ready"
-                  last
-                />
-              </ol>
+              </div>
+              {checking && (
+                <p className={["mt-2 flex items-center gap-1.5 text-[10px]", bodyClass(isDark)].join(" ")}>
+                  <span
+                    className={[
+                      "h-2.5 w-2.5 animate-spin rounded-full border-[1.5px] motion-reduce:animate-none",
+                      isDark
+                        ? "border-white/20 border-t-white"
+                        : "border-black/15 border-t-neutral-900",
+                    ].join(" ")}
+                  />
+                  Activating…
+                </p>
+              )}
             </div>
-          )}
+          </header>
 
-          {/* ACTIONS : un seul bouton principal, le reste en liens discrets */}
-          <div className="mt-6 flex flex-col items-center gap-3">
-            {!isSuccess ? (
-              <>
-                <PrimaryButton
+          {/* GRILLE DES FONCTIONNALITÉS */}
+          <div className="mt-7 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {FEATURES.map((feature, index) => (
+              <div
+                key={feature.key}
+                className={index === FEATURES.length - 1 && total % 2 === 1 ? "sm:col-span-2" : ""}
+              >
+                <FeatureCard
                   isDark={isDark}
-                  onClick={() => {
-                    close();
-                    navigate("pricing");
-                  }}
-                >
-                  Back to plans
-                </PrimaryButton>
-                <TextButton isDark={isDark} onClick={close}>
-                  Not now
-                </TextButton>
-              </>
-            ) : hasActive ? (
-              <>
-                <PrimaryButton
-                  isDark={isDark}
-                  onClick={() => {
-                    close();
-                    navigate("home");
-                  }}
-                >
-                  Go to dashboard
-                </PrimaryButton>
-                <TextButton
-                  isDark={isDark}
-                  onClick={() => void handleManageBilling()}
-                >
-                  Manage billing
-                </TextButton>
-              </>
-            ) : !user ? (
-              <>
-                <PrimaryButton
-                  isDark={isDark}
-                  onClick={() => {
-                    close();
-                    navigate("signin");
-                  }}
-                >
-                  Sign in to finish
-                </PrimaryButton>
-                <TextButton isDark={isDark} onClick={close}>
-                  I'll do it later
-                </TextButton>
-              </>
-            ) : verify === "timeout" ? (
-              <>
-                <PrimaryButton
-                  isDark={isDark}
-                  onClick={() => setRetryKey((key) => key + 1)}
-                >
-                  Check again
-                </PrimaryButton>
-                <TextButton isDark={isDark} onClick={close}>
-                  Close, I'll check later
-                </TextButton>
-              </>
-            ) : (
-              <>
-                <PrimaryButton isDark={isDark} onClick={() => undefined} disabled>
-                  Confirming…
-                </PrimaryButton>
-                <TextButton isDark={isDark} onClick={close}>
-                  Close
-                </TextButton>
-              </>
-            )}
+                  feature={feature}
+                  unlocked={isSuccess && hasActive && index < unlockedCount}
+                  onOpen={() => openFeature(feature.route)}
+                />
+              </div>
+            ))}
           </div>
         </div>
+
+        {/* PIED : actions */}
+        <footer
+          className={[
+            "relative flex flex-col-reverse items-stretch gap-3 border-t px-6 py-4",
+            "sm:flex-row sm:items-center sm:justify-between sm:px-9",
+            isDark ? "border-white/[0.07]" : "border-black/[0.06]",
+          ].join(" ")}
+        >
+          <div className="flex items-center justify-center gap-1 sm:justify-start">
+            {isSuccess && hasActive ? (
+              <TextButton isDark={isDark} onClick={() => void handleManageBilling()}>
+                Manage billing
+              </TextButton>
+            ) : (
+              <TextButton isDark={isDark} onClick={close}>
+                {isSuccess ? "Close" : "Not now"}
+              </TextButton>
+            )}
+          </div>
+
+          {!isSuccess ? (
+            <PrimaryButton
+              isDark={isDark}
+              onClick={() => {
+                close();
+                navigate("pricing");
+              }}
+            >
+              Back to plans
+            </PrimaryButton>
+          ) : hasActive ? (
+            <PrimaryButton
+              isDark={isDark}
+              onClick={() => {
+                close();
+                navigate("home");
+              }}
+            >
+              Start using Stone
+            </PrimaryButton>
+          ) : !user ? (
+            <PrimaryButton
+              isDark={isDark}
+              onClick={() => {
+                close();
+                navigate("signin");
+              }}
+            >
+              Sign in to unlock
+            </PrimaryButton>
+          ) : verify === "timeout" ? (
+            <PrimaryButton isDark={isDark} onClick={() => setRetryKey((key) => key + 1)}>
+              Check again
+            </PrimaryButton>
+          ) : (
+            <PrimaryButton isDark={isDark} onClick={() => undefined} disabled>
+              Unlocking…
+            </PrimaryButton>
+          )}
+        </footer>
       </section>
     </div>
   );
