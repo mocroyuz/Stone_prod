@@ -17,6 +17,33 @@ const API_BASE =
   "http://localhost:3002";
 
 /* ============================================================
+   TOKENS — clés de stockage de l'app (Crossflow)
+   ------------------------------------------------------------
+   ⚠️ Le nom de ces clés doit rester synchronisé avec l'auth de
+   l'app. Si tu renommes les clés dans UserContext, mets-les à
+   jour ici aussi.
+   ============================================================ */
+
+const ACCESS_TOKEN_KEY = "crossflow_access_token";
+const REFRESH_TOKEN_KEY = "crossflow_refresh_token";
+
+function getStoredToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem(ACCESS_TOKEN_KEY);
+}
+
+function clearStoredTokens() {
+  if (typeof window === "undefined") return;
+
+  localStorage.removeItem(ACCESS_TOKEN_KEY);
+  localStorage.removeItem(REFRESH_TOKEN_KEY);
+
+  // Notifie UserContext qu'il doit repasser `isLoggedIn = false`.
+  // UserContext peut écouter `stone:auth-expired` pour vider son state.
+  window.dispatchEvent(new CustomEvent("stone:auth-expired"));
+}
+
+/* ============================================================
    TYPES
    ============================================================ */
 
@@ -75,21 +102,6 @@ export class StripeServiceError extends Error {
 }
 
 /* ============================================================
-   TOKENS
-   ============================================================ */
-
-function getStoredToken(): string | null {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem("access_token");
-}
-
-function clearStoredTokens() {
-  if (typeof window === "undefined") return;
-  localStorage.removeItem("access_token");
-  localStorage.removeItem("refresh_token");
-}
-
-/* ============================================================
    REQUÊTE AUTHENTIFIÉE
    ============================================================ */
 
@@ -101,7 +113,7 @@ async function stripeRequest<T>(
 
   if (!token) {
     throw new StripeServiceError(
-      "Session expirée. Reconnecte-toi.",
+      "Ta session a expiré. Reconnecte-toi.",
       401,
       "NO_TOKEN",
     );
@@ -129,7 +141,7 @@ async function stripeRequest<T>(
   if (response.status === 401) {
     clearStoredTokens();
     throw new StripeServiceError(
-      "Session expirée. Reconnecte-toi.",
+      "Ta session a expiré. Reconnecte-toi.",
       401,
       "SESSION_EXPIRED",
     );
