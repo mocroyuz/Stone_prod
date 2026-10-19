@@ -20,6 +20,10 @@ const UserContext = createContext<UserContextType | undefined>(undefined);
 /** Préfixe des clés de session stockées dans localStorage. */
 const STORAGE_PREFIX = "crossflow_";
 
+/** Clés de tokens utilisées par l'app (doivent matcher services/stripe.ts). */
+const ACCESS_TOKEN_KEY = "crossflow_access_token";
+const REFRESH_TOKEN_KEY = "crossflow_refresh_token";
+
 export function UserProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -95,6 +99,31 @@ export function UserProvider({ children }: { children: ReactNode }) {
       window.removeEventListener("storage", handleStorage);
     };
   }, [refreshUser]);
+
+  /**
+   * Session expirée signalée par les services API (ex. stripe.ts reçoit
+   * un 401 du backend). On vide l'utilisateur et les tokens obsolètes
+   * pour que l'UI reflète immédiatement l'état réel (isLoggedIn = false)
+   * au lieu de garder un `user` fantôme qui provoque des erreurs en
+   * cascade au clic suivant.
+   *
+   * Événement émis par `clearStoredTokens()` dans services/stripe.ts :
+   *   window.dispatchEvent(new CustomEvent("stone:auth-expired"))
+   */
+  useEffect(() => {
+    const handleAuthExpired = () => {
+      localStorage.removeItem(ACCESS_TOKEN_KEY);
+      localStorage.removeItem(REFRESH_TOKEN_KEY);
+      setUser(null);
+      setLoading(false);
+    };
+
+    window.addEventListener("stone:auth-expired", handleAuthExpired);
+
+    return () => {
+      window.removeEventListener("stone:auth-expired", handleAuthExpired);
+    };
+  }, []);
 
   return (
     <UserContext.Provider
