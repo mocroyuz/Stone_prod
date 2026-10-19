@@ -2527,11 +2527,16 @@ export default function DashboardSidebar({
 
   let menuItemIndex = 0;
 
-  // ✨ Logique mise à jour pour afficher le bon plan
-  const accountPlan =
-    formatPlanLabel(
-      subscription?.plan_name ?? subscription?.plan ?? subscription?.plan_key,
-    ) ?? (hasActiveSubscription ? "Paid plan" : "Free plan");
+  // Le plan n'est affiché que si l'abonnement est vivant (active, trialing
+  // ou past_due). Un abonnement annulé / impayé / expiré retombe sur "Free plan".
+  const hasLivePlan =
+    hasActiveSubscription || subscription?.status === "past_due";
+
+  const accountPlan = hasLivePlan
+    ? (formatPlanLabel(
+        subscription?.plan_name ?? subscription?.plan ?? subscription?.plan_key,
+      ) ?? "Paid plan")
+    : "Free plan";
 
   const account = userProfile
     ? {

@@ -3,12 +3,17 @@
    ------------------------------------------------------------
    État React de l'abonnement Stripe de l'utilisateur connecté.
 
-   - fetch initial au montage (et quand `user` change)
+   L'état est PARTAGÉ entre tous les composants (sidebar, pricing...)
+   via un store de module : quand la page Pricing rafraîchit
+   l'abonnement après un checkout, la sidebar se met à jour aussi.
+
+   - fetch au montage (et quand l'utilisateur change)
+   - appels concurrents dédupliqués (un seul GET en vol)
    - `refresh()` exposé pour le polling post-checkout
-   - `hasActive` recalcule automatiquement (active | trialing)
+   - `hasActive` = active | trialing
    ============================================================ */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useSyncExternalStore } from "react";
 
 import { useUser } from "../contexts/UserContext";
 import {
@@ -25,63 +30,128 @@ export type SubscriptionState = {
   refresh: () => Promise<Subscription | null>;
 };
 
-export function useSubscription(): SubscriptionState {
-  const { user, loading: userLoading } = useUser();
-  const [subscription, setSubscription] = useState<Subscription | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+/* ------------------------------------------------------------
+   Store de module
+   ------------------------------------------------------------ */
 
-  // Empêche une race : le résultat d'un appel obsolète (user changé)
-  // est ignoré.
-  const userIdRef = useRef<string | null>(null);
+type StoreState = {
+  userId: string | null;
+  subscription: Subscription | null;
+  loading: boolean;
+  error: string | null;
+};
 
-  const refresh = useCallback(async (): Promise<Subscription | null> => {
-    if (!user) {
-      setSubscription(null);
-      setError(null);
-      return null;
-    }
+let state: StoreState = {
+  userId: null,
+  subscription: null,
+  loading: false,
+  error: null,
+};
 
-    const currentUserId = user.id;
-    setLoading(true);
-    setError(null);
+const listeners = new Set<() => void>();
 
+function setState(patch: Partial<StoreState>) {
+  state = { ...state, ...patch };
+  listeners.forEach((listener) => listener());
+}
+
+function subscribe(listener: () => void) {
+  listeners.add(listener);
+
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
+function getSnapshot(): StoreState {
+  return state;
+}
+
+/** Un seul chargement à la fois par utilisateur. */
+let inflight: { userId: string; promise: Promise<Subscription | null> } | null =
+  null;
+
+/** Associe le store à l'utilisateur courant (réinitialise s'il change). */
+function bindUser(userId: string | null) {
+  if (state.userId === userId) return;
+
+  inflight = null;
+
+  setState({
+    userId,
+    subscription: null,
+    loading: false,
+    error: null,
+  });
+}
+
+function loadSubscription(userId: string): Promise<Subscription | null> {
+  if (inflight && inflight.userId === userId) return inflight.promise;
+
+  setState({ loading: true, error: null });
+
+  const promise: Promise<Subscription | null> = (async () => {
     try {
       const sub = await fetchSubscription();
 
-      if (userIdRef.current !== currentUserId) return null;
+      // L'utilisateur a changé pendant l'appel : résultat ignoré.
+      if (state.userId !== userId) return null;
 
-      setSubscription(sub);
+      setState({ subscription: sub });
       return sub;
     } catch (err) {
-      if (userIdRef.current !== currentUserId) return null;
+      if (state.userId !== userId) return null;
 
-      setError(err instanceof Error ? err.message : "Erreur inconnue");
+      setState({
+        error: err instanceof Error ? err.message : "Erreur inconnue",
+      });
       return null;
     } finally {
-      setLoading(false);
+      if (inflight && inflight.promise === promise) inflight = null;
+      if (state.userId === userId) setState({ loading: false });
     }
-  }, [user]);
+  })();
+
+  inflight = { userId, promise };
+
+  return promise;
+}
+
+/* ------------------------------------------------------------
+   Hook
+   ------------------------------------------------------------ */
+
+export function useSubscription(): SubscriptionState {
+  const { user, loading: userLoading } = useUser();
+  const snapshot = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+
+  const userId = user?.id ?? null;
+
+  const refresh = useCallback(async (): Promise<Subscription | null> => {
+    bindUser(userId);
+
+    if (!userId) return null;
+
+    return loadSubscription(userId);
+  }, [userId]);
 
   useEffect(() => {
-    userIdRef.current = user?.id ?? null;
-
     if (userLoading) return;
 
-    if (!user) {
-      setSubscription(null);
-      setError(null);
-      setLoading(false);
-      return;
-    }
+    bindUser(userId);
 
-    void refresh();
-  }, [user, userLoading, refresh]);
+    if (userId) void loadSubscription(userId);
+  }, [userId, userLoading]);
+
+  // Pendant un changement d'utilisateur, on n'expose jamais l'abonnement
+  // du précédent.
+  const matches = snapshot.userId === userId;
+  const subscription = matches ? snapshot.subscription : null;
 
   return {
     subscription,
-    loading: loading || userLoading,
-    error,
+    loading: (matches && snapshot.loading) || userLoading,
+    error: matches ? snapshot.error : null,
     hasActive: hasActiveSubscription(subscription),
     refresh,
   };
