@@ -15,7 +15,7 @@ import ResetPassword from "./pages/ResetPassword";
 import DashboardHome from "./pages/home";
 import IntegrationsPage from "./pages/integration";
 import Settings from "./pages/settings";
-import { CheckoutReturnModal } from "./pages/account";
+import CheckoutReturnModal from "./components/CheckoutReturnModal";
 import Schedule from "./pages/schedule";
 import Pricing from "./pages/pricing";
 import Insights from "./pages/Insights";
