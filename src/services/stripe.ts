@@ -1,22 +1,17 @@
 
-/* ============================================================
-   services/stripe.ts
-   ------------------------------------------------------------
-   Client API Stripe côté frontend.
+// src/services/stripe.ts
 
-   Seul point d'entrée pour :
-     - lire l'abonnement courant (GET /api/stripe/subscription)
-     - démarrer un checkout (POST /api/stripe/checkout)
-     - ouvrir le billing portal (POST /api/stripe/portal)
-     - lire / nettoyer les params de retour Stripe
+/* ============================================================
+   CONFIGURATION API
+   ------------------------------------------------------------
+   Même backend Railway que services/supabase.ts.
+   Aucune variable d'environnement frontend n'est utilisée.
    ============================================================ */
 
-const API_BASE =
-  (import.meta.env.PUBLIC_API_URL as string | undefined) ??
-  "http://localhost:3002";
+const API_BASE_URL = "https://stoneserv-production.up.railway.app";
 
 /* ============================================================
-   TOKENS — clés de stockage de l'app (Crossflow)
+   TOKENS — mêmes clés que supabase.ts
    ============================================================ */
 
 const ACCESS_TOKEN_KEY = "crossflow_access_token";
@@ -27,13 +22,12 @@ function getStoredToken(): string | null {
   return localStorage.getItem(ACCESS_TOKEN_KEY);
 }
 
-function clearStoredTokens() {
+function clearStoredTokens(): void {
   if (typeof window === "undefined") return;
 
   localStorage.removeItem(ACCESS_TOKEN_KEY);
   localStorage.removeItem(REFRESH_TOKEN_KEY);
 
-  // Notifie UserContext que la session a expiré.
   window.dispatchEvent(new CustomEvent("stone:auth-expired"));
 }
 
@@ -96,7 +90,7 @@ export class StripeServiceError extends Error {
 }
 
 /* ============================================================
-   REQUÊTE AUTHENTIFIÉE
+   REQUÊTE API AUTHENTIFIÉE
    ============================================================ */
 
 async function stripeRequest<T>(
@@ -113,21 +107,24 @@ async function stripeRequest<T>(
     );
   }
 
+  const headers = new Headers(options.headers || {});
+
+  if (!(options.body instanceof FormData)) {
+    headers.set("Content-Type", "application/json");
+  }
+
+  headers.set("Authorization", `Bearer ${token}`);
+
   let response: Response;
 
   try {
-    response = await fetch(`${API_BASE}${path}`, {
+    response = await fetch(`${API_BASE_URL}${path}`, {
       ...options,
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-        ...(options.headers || {}),
-      },
+      headers,
     });
   } catch (error) {
     console.error("[StripeService] Erreur réseau :", {
-      apiBase: API_BASE,
-      path,
+      url: `${API_BASE_URL}${path}`,
       error,
     });
 
@@ -148,14 +145,15 @@ async function stripeRequest<T>(
     );
   }
 
-  const data = (await response.json().catch(() => ({}))) as {
+  const data = (await response.json().catch(() => null)) as {
     error?: string;
     code?: string;
-  };
+  } | null;
 
   if (!response.ok) {
     throw new StripeServiceError(
-      data?.error || `Échec de la requête (HTTP ${response.status})`,
+      data?.error ||
+        `Échec de la requête (HTTP ${response.status})`,
       response.status,
       data?.code,
     );
@@ -188,30 +186,24 @@ export function isPastDue(
 }
 
 /* ============================================================
-   APPELS API
+   LECTURE DE L'ABONNEMENT
    ============================================================ */
 
-/**
- * Récupère l'abonnement Stripe courant.
- *
- * Le backend interroge Stripe et resynchronise
- * app_metadata.subscription.
- */
 export async function fetchSubscription(): Promise<Subscription | null> {
   const data = await stripeRequest<SubscriptionResponse>(
     "/api/stripe/subscription",
-    { method: "GET" },
+    {
+      method: "GET",
+    },
   );
 
   return data.subscription;
 }
 
-/**
- * Crée une session Stripe Checkout.
- *
- * Le backend valide le plan et la période
- * par rapport à ses price IDs.
- */
+/* ============================================================
+   STRIPE CHECKOUT
+   ============================================================ */
+
 export async function createCheckoutSession(
   plan: PlanKey,
   period: BillingPeriod,
@@ -225,9 +217,10 @@ export async function createCheckoutSession(
   );
 }
 
-/**
- * Crée une session Billing Portal.
- */
+/* ============================================================
+   STRIPE BILLING PORTAL
+   ============================================================ */
+
 export async function createPortalSession(): Promise<PortalSessionResponse> {
   return stripeRequest<PortalSessionResponse>(
     "/api/stripe/portal",
@@ -238,12 +231,9 @@ export async function createPortalSession(): Promise<PortalSessionResponse> {
 }
 
 /* ============================================================
-   REDIRECTIONS
+   REDIRECTION CHECKOUT
    ============================================================ */
 
-/**
- * Démarre le checkout et redirige vers Stripe.
- */
 export async function startCheckout(
   plan: PlanKey,
   period: BillingPeriod,
@@ -252,22 +242,23 @@ export async function startCheckout(
 
   if (!session.url) {
     throw new StripeServiceError(
-      "Stripe n'a pas renvoyé d'URL de checkout",
+      "Stripe n'a pas renvoyé d'URL de checkout.",
     );
   }
 
   window.location.href = session.url;
 }
 
-/**
- * Ouvre le portail de facturation Stripe.
- */
+/* ============================================================
+   REDIRECTION BILLING PORTAL
+   ============================================================ */
+
 export async function openBillingPortal(): Promise<void> {
   const session = await createPortalSession();
 
   if (!session.url) {
     throw new StripeServiceError(
-      "Stripe n'a pas renvoyé d'URL de portail",
+      "Stripe n'a pas renvoyé d'URL de portail.",
     );
   }
 
@@ -283,14 +274,12 @@ export type CheckoutReturn = {
   sessionId: string | null;
 };
 
-/**
- * Lit le retour Stripe depuis l'URL :
- * - ?checkout=success
- * - #/account?checkout=success
- */
 export function readCheckoutReturn(): CheckoutReturn {
   if (typeof window === "undefined") {
-    return { status: null, sessionId: null };
+    return {
+      status: null,
+      sessionId: null,
+    };
   }
 
   const sources: URLSearchParams[] = [
@@ -298,11 +287,11 @@ export function readCheckoutReturn(): CheckoutReturn {
   ];
 
   const hash = window.location.hash || "";
-  const qIdx = hash.indexOf("?");
+  const queryIndex = hash.indexOf("?");
 
-  if (qIdx !== -1) {
+  if (queryIndex !== -1) {
     sources.push(
-      new URLSearchParams(hash.slice(qIdx + 1)),
+      new URLSearchParams(hash.slice(queryIndex + 1)),
     );
   }
 
@@ -317,13 +306,16 @@ export function readCheckoutReturn(): CheckoutReturn {
     }
   }
 
-  return { status: null, sessionId: null };
+  return {
+    status: null,
+    sessionId: null,
+  };
 }
 
-/**
- * Nettoie les paramètres checkout / session_id
- * sans recharger la page.
- */
+/* ============================================================
+   NETTOYAGE DES PARAMÈTRES DE RETOUR
+   ============================================================ */
+
 export function clearCheckoutParams(): void {
   if (typeof window === "undefined") return;
 
@@ -333,12 +325,12 @@ export function clearCheckoutParams(): void {
   url.searchParams.delete("session_id");
 
   const hash = url.hash || "";
-  const qIdx = hash.indexOf("?");
+  const queryIndex = hash.indexOf("?");
 
-  if (qIdx !== -1) {
-    const hashPath = hash.slice(0, qIdx);
+  if (queryIndex !== -1) {
+    const hashPath = hash.slice(0, queryIndex);
     const hashParams = new URLSearchParams(
-      hash.slice(qIdx + 1),
+      hash.slice(queryIndex + 1),
     );
 
     hashParams.delete("checkout");
