@@ -15,6 +15,7 @@ import { createPortal } from "react-dom";
 
 import { useTheme, type Theme } from "../hooks/useTheme";
 import { navigate, useHashRoute } from "../hooks/useHashRoute";
+import { useSubscription } from "../hooks/useSubscription";
 import {
   useConnectedChannels,
   type ConnectedChannel,
@@ -540,6 +541,21 @@ const defaultAccount = {
   channels: 0,
   avatarUrl: undefined as string | undefined,
 };
+
+function formatPlanLabel(name: string | null | undefined): string | null {
+  const normalized = name?.trim().toLowerCase();
+  if (!normalized) return null;
+
+  const labels: Record<string, string> = {
+    starter: "Starter plan",
+    pro: "Pro plan",
+    professional: "Pro plan",
+    enterprise: "Enterprise plan",
+    free: "Free plan",
+  };
+
+  return labels[normalized] ?? name?.trim() ?? null;
+}
 
 const menuGroups: MenuItem[][] = [
   [
@@ -1940,6 +1956,7 @@ export default function DashboardSidebar({
   );
 
   const { user } = useUser();
+  const { subscription, hasActive: hasActiveSubscription } = useSubscription();
   const userId = user?.id ?? null;
 
   const [isCollapsed, setIsCollapsed] = useState(sidebarMemory.collapsed);
@@ -2509,6 +2526,11 @@ export default function DashboardSidebar({
 
   let menuItemIndex = 0;
 
+  const accountPlan =
+    formatPlanLabel(
+      subscription?.plan_name ?? subscription?.plan ?? subscription?.plan_key,
+    ) ?? (hasActiveSubscription ? "Paid plan" : "Free plan");
+
   const account = userProfile
     ? {
         name:
@@ -2520,11 +2542,15 @@ export default function DashboardSidebar({
           }`.toUpperCase() || "U",
         email: userProfile.email,
         organization: "My Organization",
-        plan: "Free plan",
+        plan: accountPlan,
         channels: connectedChannels.length,
         avatarUrl: userProfile.avatar_url || undefined,
       }
-    : { ...defaultAccount, channels: connectedChannels.length };
+    : {
+        ...defaultAccount,
+        plan: accountPlan,
+        channels: connectedChannels.length,
+      };
 
   const showAvatarImage = Boolean(account.avatarUrl) && !avatarLoadFailed;
 
