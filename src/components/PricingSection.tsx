@@ -8,6 +8,16 @@ import {
 
 import { navigate } from "../hooks/useHashRoute";
 import { useUser } from "../contexts/UserContext";
+import { useSubscription } from "../hooks/useSubscription";
+import {
+  clearCheckoutParams,
+  openBillingPortal,
+  readCheckoutReturn,
+  startCheckout,
+  StripeServiceError,
+  type BillingPeriod,
+  type PlanKey,
+} from "../services/stripe";
 
 /* ============================================================
    REVEAL
@@ -112,204 +122,139 @@ const plans = [
 ] as const;
 
 type Plan = (typeof plans)[number];
-type PlanKey = Plan["key"];
-
-/* ============================================================
-   API BASE
-   ============================================================ */
-
-const API_BASE =
-  (import.meta.env.VITE_API_URL as string | undefined) ??
-  "http://localhost:3002";
-
-/* ============================================================
-   LECTURE DES PARAMS D'URL
-   ============================================================ */
-
-function readUrlParams(): URLSearchParams {
-  const params = new URLSearchParams();
-
-  if (typeof window === "undefined") return params;
-
-  new URLSearchParams(window.location.search).forEach((value, key) => {
-    params.set(key, value);
-  });
-
-  const rawHash = window.location.hash || "";
-  const qIdx = rawHash.indexOf("?");
-
-  if (qIdx !== -1) {
-    new URLSearchParams(rawHash.slice(qIdx + 1)).forEach((value, key) => {
-      params.set(key, value);
-    });
-  }
-
-  return params;
-}
-
-/* ============================================================
-   TOKEN HELPERS
-   ============================================================ */
-
-function getStoredToken(): string | null {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem("access_token");
-}
-
-function clearStoredTokens() {
-  if (typeof window === "undefined") return;
-  localStorage.removeItem("access_token");
-  localStorage.removeItem("refresh_token");
-}
 
 /* ============================================================
    HELPERS
    ============================================================ */
 
-function goToSignup() {
-  navigate("signup");
+function readPeriodFromUrl(): BillingPeriod | null {
+  if (typeof window === "undefined") return null;
+
+  const sources: URLSearchParams[] = [
+    new URLSearchParams(window.location.search),
+  ];
+
+  const hash = window.location.hash || "";
+  const qIdx = hash.indexOf("?");
+
+  if (qIdx !== -1) {
+    sources.push(new URLSearchParams(hash.slice(qIdx + 1)));
+  }
+
+  for (const params of sources) {
+    const value = params.get("period");
+    if (value === "annual" || value === "monthly") return value;
+  }
+
+  return null;
 }
 
-/* ============================================================
-   TYPES
-   ============================================================ */
-
-type SubscriptionInfo = {
-  id: string;
-  status: string;
-};
-
-const ACTIVE_STATUSES = ["active", "trialing"];
+const ENTERPRISE_MAILTO =
+  "mailto:sales@stone.app?subject=Enterprise%20plan";
 
 /* ============================================================
    PRICING SECTION
-
-   Comportement du bouton "Start" :
-   - utilisateur connecté      → Stripe (Checkout, ou portail si déjà abonné)
-   - utilisateur non connecté  → /signup (plan + période conservés)
-   - Enterprise                → mailto dans tous les cas
    ============================================================ */
 
 export default function PricingSection() {
   const { user, loading: userLoading } = useUser();
+  const {
+    hasActive: hasActiveSubscription,
+    refresh: refreshSubscription,
+  } = useSubscription();
+
   const isLoggedIn = Boolean(user);
 
-  const [period, setPeriod] = useState<"monthly" | "annual">("monthly");
-  const [hasActiveSubscription, setHasActiveSubscription] = useState(false);
+  const [period, setPeriod] = useState<BillingPeriod>("monthly");
   const [loadingPlan, setLoadingPlan] = useState<PlanKey | null>(null);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  const [returnBanner, setReturnBanner] = useState<
+    "success" | "cancel" | null
+  >(null);
 
-  // La période reste pilotable via ?period=annual
+  /* -------- Période pilotable via l'URL -------- */
   useEffect(() => {
-    const urlPeriod = readUrlParams().get("period");
-    if (urlPeriod === "annual" || urlPeriod === "monthly") {
-      setPeriod(urlPeriod);
-    }
+    const urlPeriod = readPeriodFromUrl();
+    if (urlPeriod) setPeriod(urlPeriod);
   }, []);
 
-  // Vérification de l'abonnement (uniquement si connecté)
+  /* -------- Retour de Stripe -------- */
   useEffect(() => {
-    if (!isLoggedIn) {
-      setHasActiveSubscription(false);
-      return;
+    const ret = readCheckoutReturn();
+    if (!ret.status) return;
+
+    setReturnBanner(ret.status);
+    clearCheckoutParams();
+
+    if (ret.status === "success" && isLoggedIn) {
+      // Le webhook Stripe peut être en retard : on poll brièvement
+      // la vraie source de vérité (GET /api/stripe/subscription).
+      let cancelled = false;
+
+      const poll = async () => {
+        for (let i = 0; i < 8; i++) {
+          if (cancelled) return;
+
+          const sub = await refreshSubscription();
+
+          if (
+            sub &&
+            (sub.status === "active" || sub.status === "trialing")
+          ) {
+            return;
+          }
+
+          await new Promise((r) => setTimeout(r, 1200));
+        }
+      };
+
+      void poll();
+
+      return () => {
+        cancelled = true;
+      };
     }
+  }, [isLoggedIn, refreshSubscription]);
 
-    const token = getStoredToken();
-    if (!token) return;
-
-    let cancelled = false;
-
-    fetch(`${API_BASE}/api/user`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then(async (response) => {
-        if (!response.ok) return null;
-        return response.json();
-      })
-      .then((data) => {
-        if (cancelled) return;
-        const sub: SubscriptionInfo | null =
-          data?.success && data.user?.subscription
-            ? data.user.subscription
-            : null;
-
-        setHasActiveSubscription(
-          Boolean(sub && ACTIVE_STATUSES.includes(sub.status)),
-        );
-      })
-      .catch(() => {
-        /* silencieux */
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [isLoggedIn]);
-
+  /* -------- Clic sur un plan -------- */
   const handlePlanClick = useCallback(
     async (plan: Plan) => {
       setCheckoutError(null);
+      setReturnBanner(null);
 
-      // Enterprise → mailto
+      // Enterprise → mailto (pas de Stripe)
       if ("salesOnly" in plan && plan.salesOnly) {
-        window.location.href =
-          "mailto:sales@stone.app?subject=Enterprise%20plan";
+        window.location.href = ENTERPRISE_MAILTO;
         return;
       }
 
-      // Non connecté → /signup (on garde plan + période)
+      // Non connecté → signup (on garde plan + période)
       if (!isLoggedIn) {
-        goToSignup();
-        return;
-      }
-
-      // Connecté → Stripe
-      const token = getStoredToken();
-      if (!token) {
-        setCheckoutError("Session expirée. Reconnecte-toi.");
+        navigate("signup");
         return;
       }
 
       setLoadingPlan(plan.key);
 
       try {
-        // Déjà abonné → portail Stripe, sinon Checkout
-        const res = hasActiveSubscription
-          ? await fetch(`${API_BASE}/api/stripe/portal`, {
-              method: "POST",
-              headers: { Authorization: `Bearer ${token}` },
-            })
-          : await fetch(`${API_BASE}/api/stripe/checkout`, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${token}`,
-              },
-              body: JSON.stringify({ plan: plan.key, period }),
-            });
-
-        if (res.status === 401) {
-          clearStoredTokens();
-          throw new Error("Session expirée. Reconnecte-toi.");
+        if (hasActiveSubscription) {
+          // Déjà abonné → portail Stripe (gérer / changer / annuler)
+          await openBillingPortal();
+        } else {
+          // Sinon → checkout
+          await startCheckout(plan.key, period);
         }
-
-        const data = await res.json();
-
-        if (!res.ok || !data?.url) {
-          throw new Error(
-            data?.error ||
-              (hasActiveSubscription
-                ? "Could not open the billing portal"
-                : "Could not start checkout"),
-          );
-        }
-
-        window.location.href = data.url;
       } catch (err) {
-        console.error("[pricing] erreur:", err);
-        setCheckoutError(
-          err instanceof Error ? err.message : "Unknown error",
-        );
+        console.error("[pricing] erreur Stripe :", err);
+
+        const message =
+          err instanceof StripeServiceError
+            ? err.message
+            : err instanceof Error
+              ? err.message
+              : "Erreur inconnue";
+
+        setCheckoutError(message);
         setLoadingPlan(null);
       }
     },
@@ -359,8 +304,6 @@ export default function PricingSection() {
           outline: 2px solid #6d7bd6;
           outline-offset: 3px;
         }
-
-        /* Dark mode : bouton blanc uni, sans effet 3D */
         .dark .pricing-cta {
           background: #ffffff;
           color: #0a0a0a;
@@ -369,7 +312,6 @@ export default function PricingSection() {
         .dark .pricing-cta:hover:not(:disabled) {
           background: #e5e5e5;
         }
-
         .price-change {
           animation: price-change 280ms cubic-bezier(0.22, 1, 0.36, 1);
         }
@@ -398,6 +340,7 @@ export default function PricingSection() {
             </p>
           </div>
 
+          {/* Période */}
           <div className="mt-7 flex justify-center">
             <div className="inline-flex rounded-full bg-white p-1 shadow-[0_6px_16px_-10px_rgba(0,0,0,0.25)] dark:bg-white/[0.06]">
               {(["monthly", "annual"] as const).map((value) => {
@@ -427,6 +370,26 @@ export default function PricingSection() {
             </div>
           </div>
 
+          {/* Bannière retour Stripe */}
+          {returnBanner === "success" ? (
+            <p
+              role="status"
+              className="mt-6 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-center text-sm text-emerald-800 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300"
+            >
+              Paiement confirmé — ton abonnement est en cours d'activation.
+            </p>
+          ) : null}
+
+          {returnBanner === "cancel" ? (
+            <p
+              role="status"
+              className="mt-6 rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-center text-sm text-neutral-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-neutral-300"
+            >
+              Paiement annulé.
+            </p>
+          ) : null}
+
+          {/* Cartes */}
           <div className="mt-8 grid items-start gap-4 md:grid-cols-3">
             {plans.map((plan) => {
               const isFeatured = "featured" in plan && plan.featured;
@@ -444,7 +407,6 @@ export default function PricingSection() {
                       : "shadow-[0_20px_40px_-28px_rgba(0,0,0,0.16),0_2px_10px_rgba(0,0,0,0.03)]",
                   ].join(" ")}
                 >
-                  {/* Bloc supérieur surélevé */}
                   <div className="rounded-[28px] bg-white p-2.5 shadow-[0_14px_28px_-16px_rgba(0,0,0,0.18)] dark:bg-[#111114] dark:shadow-none">
                     <div
                       className={[
@@ -487,7 +449,6 @@ export default function PricingSection() {
                     </button>
                   </div>
 
-                  {/* Fonctionnalités */}
                   <ul className="space-y-3 px-5 pb-6 pt-5">
                     {plan.features.map((feature) => (
                       <li
