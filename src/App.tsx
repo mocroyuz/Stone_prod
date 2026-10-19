@@ -15,6 +15,7 @@ import ResetPassword from "./pages/ResetPassword";
 import DashboardHome from "./pages/home";
 import IntegrationsPage from "./pages/integration";
 import Settings from "./pages/settings";
+import Account from "./pages/account";
 import Schedule from "./pages/schedule";
 import Pricing from "./pages/pricing";
 import Insights from "./pages/Insights";
@@ -37,6 +38,7 @@ import { useHashRoute, navigate } from "./hooks/useHashRoute";
 import { useTheme, ThemeProvider, type Theme } from "./hooks/useTheme";
 import { UserProvider, useUser } from "./contexts/UserContext";
 import { isRecoveryUrl, saveOAuthSession } from "./services/supabase";
+import { readCheckoutReturn } from "./services/stripe";
 
 /* ──────────────────────────────────────────────────────────────
    OAUTH CALLBACK INTERCEPTION
@@ -428,6 +430,7 @@ const PROTECTED_ROUTES = new Set([
   "community",
   "integrations",
   "settings",
+  "account",
   "schedule",
   "calendar",
   "channels",
@@ -576,7 +579,9 @@ function AppContentInner({
   const route = normalizeRoute(rawRoute);
 
   const isAuth = AUTH_ROUTES.has(route);
-  const isProtected = PROTECTED_ROUTES.has(route);
+  const isCheckoutReturn =
+    route === "account" && readCheckoutReturn().status !== null;
+  const isProtected = PROTECTED_ROUTES.has(route) && !isCheckoutReturn;
   const isTemplate = route === "template";
   const isPublic = PUBLIC_ROUTES.has(route);
   const isPricing = route === "pricing";
@@ -818,6 +823,14 @@ function AppContentInner({
     return (
       <div className="relative h-screen w-screen overflow-hidden font-sans">
         <Settings />
+      </div>
+    );
+  }
+
+  if (route === "account") {
+    return (
+      <div className="relative min-h-screen w-screen overflow-y-auto overflow-x-hidden font-sans">
+        <Account />
       </div>
     );
   }
