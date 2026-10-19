@@ -242,27 +242,14 @@ function PasswordField({
   onToggle,
 
   error,
-
   onForgot,
-
-  recoveryHelpOpen,
-
 }: {
-
   value: string;
-
   onChange: (value: string) => void;
-
   show: boolean;
-
   onToggle: () => void;
-
   error?: string;
-
   onForgot: () => void;
-
-  recoveryHelpOpen: boolean;
-
 }) {
 
   return (
@@ -286,19 +273,10 @@ function PasswordField({
 
 
         <button
-
           type="button"
-
           onClick={onForgot}
-
-          aria-expanded={recoveryHelpOpen}
-
-          aria-controls="signin-recovery-help"
-
           className="cursor-pointer text-[11px] text-neutral-400 transition hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-
         >
-
           Forgot password?
 
         </button>
@@ -391,42 +369,8 @@ function PasswordField({
 
 
 
-      <p
-
-        id="signin-recovery-help"
-
-        role="status"
-
-        hidden={!recoveryHelpOpen}
-
-        className="mt-2 text-[11px] leading-relaxed text-neutral-400"
-
-      >
-
-        Password reset isn&apos;t available yet. For help signing in, visit the{" "}
-
-        <button
-
-          type="button"
-
-          onClick={() => navigate("faq")}
-
-          className="font-medium text-white underline underline-offset-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-
-        >
-
-          support FAQs
-
-        </button>
-
-        .
-
-      </p>
-
     </div>
-
   );
-
 }
 
 
@@ -483,8 +427,6 @@ export default function Signin() {
   const [password, setPassword] = useState("");
 
   const [show, setShow] = useState(false);
-
-  const [recoveryHelpOpen, setRecoveryHelpOpen] = useState(false);
 
 
 
@@ -1172,13 +1114,8 @@ export default function Signin() {
                     show={show}
 
                     onToggle={() => setShow((value) => !value)}
-
                     error={errors.password}
-
-                    onForgot={() => setRecoveryHelpOpen((open) => !open)}
-
-                    recoveryHelpOpen={recoveryHelpOpen}
-
+                    onForgot={() => navigate("forgot-password")}
                   />
 
 
