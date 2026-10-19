@@ -54,6 +54,14 @@ export interface AuthResponse {
   session: AuthSession | null;
 }
 
+/** Jetons de récupération lus dans l'URL du lien « mot de passe oublié ». */
+export interface RecoveryParams {
+  /** Flux « implicit » : #access_token=... (défaut de Supabase). */
+  accessToken?: string;
+  /** Flux « token_hash » : ?token_hash=... (si le template d'email l'utilise). */
+  tokenHash?: string;
+}
+
 // ============================================================
 // TOKEN HELPERS
 // ============================================================
@@ -181,11 +189,17 @@ async function refreshAccessToken(): Promise<boolean> {
 // API REQUEST
 // ============================================================
 
-/** Endpoints pour lesquels un 401 ne doit pas déclencher de refresh. */
+/**
+ * Endpoints publics : pas de refresh proactif, et un 401 ne déclenche pas
+ * de refresh. (forgot / reset-password n'utilisent pas la session stockée :
+ * un 401 « lien invalide » ne doit surtout pas toucher à la session.)
+ */
 const NO_REFRESH_ENDPOINTS = [
   "/api/auth/login",
   "/api/auth/signup",
   "/api/auth/refresh",
+  "/api/auth/forgot-password",
+  "/api/auth/reset-password",
 ];
 
 export async function apiRequest<T>(
@@ -299,6 +313,159 @@ export async function signUp(
   saveSession(result.session);
 
   return result;
+}
+
+// ============================================================
+// FORGOT PASSWORD (étape 1 : demande du lien par email)
+// ============================================================
+//
+// POST /api/auth/forgot-password
+// Le serveur répond toujours « succès » (que le compte existe ou non) :
+// l'interface doit afficher un message neutre du type « Si un compte existe
+// pour cette adresse, un lien a été envoyé ».
+//
+// Lève une Error (message lisible) pour : email invalide, trop de demandes.
+
+export async function requestPasswordReset(email: string): Promise<string> {
+  const result = await apiRequest<{ success: boolean; message?: string }>(
+    "/api/auth/forgot-password",
+    {
+      method: "POST",
+      body: JSON.stringify({ email: email.trim() }),
+    }
+  );
+
+  return (
+    result?.message ||
+    "If an account exists for this email, a password reset link has been sent."
+  );
+}
+
+// ============================================================
+// RESET PASSWORD (étape 2 : nouveau mot de passe)
+// ============================================================
+//
+// Le lien de l'email renvoie vers  <APP_URL>/#/reset-password  et Supabase
+// ajoute les jetons de récupération à l'URL (dans le hash).
+//
+//   readRecoveryParams()            → lit les jetons dans l'URL
+//   readRecoveryError()             → lit l'erreur Supabase (lien expiré...)
+//   resetPassword(pwd, params)      → POST /api/auth/reset-password
+//   clearRecoveryParamsFromUrl()    → retire les jetons de la barre d'adresse
+//
+// ⚠️ App.tsx : le code qui intercepte « #access_token=... » au démarrage pour
+// les connexions Google / GitHub doit IGNORER les liens de récupération
+// (voir isRecoveryUrl), sinon le lien connecterait l'utilisateur au lieu de
+// lui laisser choisir un nouveau mot de passe.
+
+function readUrlParam(key: string): string | null {
+  if (typeof window === "undefined") return null;
+
+  // Hash ET query : selon la config Supabase / le routeur, les paramètres
+  // arrivent après « #/reset-password# », « #/reset-password? » ou « ? ».
+  const raw = `${window.location.hash}&${window.location.search}`;
+  const match = new RegExp(`[#?&]${key}=([^&#]*)`).exec(raw);
+
+  if (!match) return null;
+
+  try {
+    return decodeURIComponent(match[1].replace(/\+/g, " "));
+  } catch {
+    return match[1];
+  }
+}
+
+/**
+ * true si l'URL courante est un lien de récupération de mot de passe.
+ * À utiliser dans App.tsx avant de traiter un « #access_token=... ».
+ */
+export function isRecoveryUrl(): boolean {
+  if (typeof window === "undefined") return false;
+
+  if (window.location.hash.includes("reset-password")) return true;
+
+  return (
+    readUrlParam("type") === "recovery" &&
+    Boolean(readUrlParam("access_token") || readUrlParam("token_hash"))
+  );
+}
+
+/** Jetons de récupération présents dans l'URL, ou null s'il n'y en a pas. */
+export function readRecoveryParams(): RecoveryParams | null {
+  const type = readUrlParam("type");
+
+  // Un access_token sans type=recovery vient d'une autre connexion (OAuth) :
+  // on ne le traite pas comme un lien de récupération.
+  if (type && type !== "recovery") return null;
+
+  const accessToken = readUrlParam("access_token");
+  const tokenHash = readUrlParam("token_hash");
+
+  if (!accessToken && !tokenHash) return null;
+
+  return {
+    ...(accessToken ? { accessToken } : {}),
+    ...(tokenHash ? { tokenHash } : {}),
+  };
+}
+
+/**
+ * Erreur renvoyée par Supabase dans l'URL (lien expiré ou déjà utilisé),
+ * ou null.
+ */
+export function readRecoveryError(): string | null {
+  const description = readUrlParam("error_description");
+  const code = readUrlParam("error_code");
+
+  if (!description && !code) return null;
+
+  if (code === "otp_expired") {
+    return "This reset link has expired or was already used. Request a new one.";
+  }
+
+  return description || "This reset link is invalid. Request a new one.";
+}
+
+/** Retire les jetons de la barre d'adresse (historique, captures d'écran...). */
+export function clearRecoveryParamsFromUrl(): void {
+  if (typeof window === "undefined") return;
+
+  window.history.replaceState(
+    null,
+    "",
+    `${window.location.pathname}#/reset-password`
+  );
+}
+
+/**
+ * Définit le nouveau mot de passe. Le serveur révoque ensuite TOUTES les
+ * sessions de l'utilisateur : la session locale est donc supprimée, et
+ * l'utilisateur doit se reconnecter avec son nouveau mot de passe.
+ */
+export async function resetPassword(
+  newPassword: string,
+  params: RecoveryParams
+): Promise<string> {
+  if (!params.accessToken && !params.tokenHash) {
+    throw new Error("This reset link is invalid. Request a new one.");
+  }
+
+  const result = await apiRequest<{ success: boolean; message?: string }>(
+    "/api/auth/reset-password",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        password: newPassword,
+        ...(params.tokenHash
+          ? { token_hash: params.tokenHash }
+          : { access_token: params.accessToken }),
+      }),
+    }
+  );
+
+  clearSession();
+
+  return result?.message || "Password updated successfully. You can now sign in.";
 }
 
 // ============================================================

@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 
 import { navigate } from "../hooks/useHashRoute";
 import { useTheme } from "../hooks/useTheme";
+import { requestPasswordReset } from "../services/supabase";
 
 /* ============================================================
    FORGOT PASSWORD
@@ -14,14 +15,17 @@ export default function ForgotPassword() {
   const [email, setEmail] = useState("");
   const [emailError, setEmailError] = useState("");
   const [serverError, setServerError] = useState<string | null>(null);
+  const [sentMessage, setSentMessage] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
   /* ----------------------------------------------------------
      SUBMIT
      ---------------------------------------------------------- */
 
-  const submit = (event: FormEvent<HTMLFormElement>) => {
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setServerError(null);
+    setSentMessage(null);
 
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.trim())) {
       setEmailError("Enter a valid email address.");
@@ -29,9 +33,20 @@ export default function ForgotPassword() {
     }
 
     setEmailError("");
-    setServerError(
-      "No reset email was sent. Password recovery is not configured on the authentication server yet. Please contact support for help signing in.",
-    );
+    setLoading(true);
+
+    try {
+      const message = await requestPasswordReset(email);
+      setSentMessage(message);
+    } catch (error) {
+      setServerError(
+        error instanceof Error
+          ? error.message
+          : "Could not send the reset link. Please try again.",
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   /* ----------------------------------------------------------
@@ -174,6 +189,15 @@ export default function ForgotPassword() {
                 </div>
               )}
 
+              {sentMessage && (
+                <div
+                  role="status"
+                  className="mb-3.5 rounded-[9px] border border-emerald-500/30 bg-emerald-500/10 px-3.5 py-2.5 text-[12.5px] leading-relaxed text-emerald-300"
+                >
+                  {sentMessage} Check your inbox (and your spam folder).
+                </div>
+              )}
+
               <form onSubmit={submit} noValidate className="space-y-3.5">
                 <label className="block">
                   <span
@@ -193,6 +217,7 @@ export default function ForgotPassword() {
                       setEmail(event.target.value);
                       setEmailError("");
                       setServerError(null);
+                      setSentMessage(null);
                     }}
                     placeholder="eg. johnfrans@gmail.com"
                     autoComplete="email"
@@ -215,9 +240,10 @@ export default function ForgotPassword() {
 
                 <button
                   type="submit"
-                  className="mt-1 w-full cursor-pointer rounded-[10px] bg-white py-[clamp(10px,0.95vw,13px)] text-[clamp(12.5px,1vw,14.5px)] font-semibold text-neutral-900 transition hover:bg-neutral-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+                  disabled={loading}
+                  className="mt-1 w-full cursor-pointer rounded-[10px] bg-white py-[clamp(10px,0.95vw,13px)] text-[clamp(12.5px,1vw,14.5px)] font-semibold text-neutral-900 transition hover:bg-neutral-200 disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
                 >
-                  Send reset link
+                  {loading ? "Sending..." : sentMessage ? "Resend reset link" : "Send reset link"}
                 </button>
               </form>
             </div>
