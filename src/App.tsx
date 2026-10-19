@@ -11,6 +11,7 @@ import StoneBoot from "./components/StoneBoot";
 import Signup from "./pages/signup";
 import Signin from "./pages/signin";
 import ForgotPassword from "./pages/forgotpassword";
+import ResetPassword from "./pages/ResetPassword";
 import DashboardHome from "./pages/home";
 import IntegrationsPage from "./pages/integration";
 import Settings from "./pages/settings";
@@ -35,7 +36,7 @@ import CanvaCallback, {
 import { useHashRoute, navigate } from "./hooks/useHashRoute";
 import { useTheme, ThemeProvider, type Theme } from "./hooks/useTheme";
 import { UserProvider, useUser } from "./contexts/UserContext";
-import { saveOAuthSession } from "./services/supabase";
+import { isRecoveryUrl, saveOAuthSession } from "./services/supabase";
 
 /* ──────────────────────────────────────────────────────────────
    OAUTH CALLBACK INTERCEPTION
@@ -149,6 +150,7 @@ interceptCanvaOAuthCallback();
 
 (function handleOAuthRedirect() {
   if (typeof window === "undefined") return;
+  if (isRecoveryUrl()) return;
 
   const rawHash = window.location.hash || "";
   const rawSearch = window.location.search || "";
@@ -448,7 +450,14 @@ const DASHBOARD_HOME_ROUTES = new Set([
 
 const AUTH_ROUTES = new Set(["signin", "signup", "forgot-password"]);
 
-const PUBLIC_ROUTES = new Set(["", "pricing", "faq", "tos", "privacy"]);
+const PUBLIC_ROUTES = new Set([
+  "",
+  "pricing",
+  "faq",
+  "tos",
+  "privacy",
+  "reset-password",
+]);
 
 function normalizeRoute(route: string | null | undefined): string {
   return (route ?? "").replace(/^\/+|\/+$/g, "").toLowerCase();
@@ -681,6 +690,14 @@ function AppContentInner({
         ) : (
           <Signup />
         )}
+      </div>
+    );
+  }
+
+  if (route === "reset-password") {
+    return (
+      <div className="relative min-h-screen w-full overflow-x-hidden font-sans">
+        <ResetPassword />
       </div>
     );
   }

@@ -10,7 +10,7 @@ import { useLayoutEffect, useState } from "react";
 function readRoute(): string {
   return window.location.hash
     .replace(/^#\/?/, "")
-    .split(/[?/]/)[0]
+    .split(/[?#/]/)[0]
     .toLowerCase();
 }
 
