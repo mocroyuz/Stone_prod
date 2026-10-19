@@ -1,27 +1,22 @@
+
 /* ============================================================
    services/stripe.ts
    ------------------------------------------------------------
    Client API Stripe côté frontend.
 
    Seul point d'entrée pour :
-     - lire l'abonnement courant (GET  /api/stripe/subscription)
-     - démarrer un checkout       (POST /api/stripe/checkout)
-     - ouvrir le billing portal   (POST /api/stripe/portal)
+     - lire l'abonnement courant (GET /api/stripe/subscription)
+     - démarrer un checkout (POST /api/stripe/checkout)
+     - ouvrir le billing portal (POST /api/stripe/portal)
      - lire / nettoyer les params de retour Stripe
-
-   Les composants n'appellent JAMAIS `fetch` directement.
    ============================================================ */
 
 const API_BASE =
-  (import.meta.env.VITE_API_URL as string | undefined) ??
+  (import.meta.env.PUBLIC_API_URL as string | undefined) ??
   "http://localhost:3002";
 
 /* ============================================================
    TOKENS — clés de stockage de l'app (Crossflow)
-   ------------------------------------------------------------
-   ⚠️ Le nom de ces clés doit rester synchronisé avec l'auth de
-   l'app. Si tu renommes les clés dans UserContext, mets-les à
-   jour ici aussi.
    ============================================================ */
 
 const ACCESS_TOKEN_KEY = "crossflow_access_token";
@@ -38,8 +33,7 @@ function clearStoredTokens() {
   localStorage.removeItem(ACCESS_TOKEN_KEY);
   localStorage.removeItem(REFRESH_TOKEN_KEY);
 
-  // Notifie UserContext qu'il doit repasser `isLoggedIn = false`.
-  // UserContext peut écouter `stone:auth-expired` pour vider son state.
+  // Notifie UserContext que la session a expiré.
   window.dispatchEvent(new CustomEvent("stone:auth-expired"));
 }
 
@@ -130,7 +124,13 @@ async function stripeRequest<T>(
         ...(options.headers || {}),
       },
     });
-  } catch {
+  } catch (error) {
+    console.error("[StripeService] Erreur réseau :", {
+      apiBase: API_BASE,
+      path,
+      error,
+    });
+
     throw new StripeServiceError(
       "Impossible de joindre le serveur. Vérifie ta connexion.",
       0,
@@ -140,6 +140,7 @@ async function stripeRequest<T>(
 
   if (response.status === 401) {
     clearStoredTokens();
+
     throw new StripeServiceError(
       "Ta session a expiré. Reconnecte-toi.",
       401,
@@ -167,15 +168,22 @@ async function stripeRequest<T>(
    HELPERS D'ÉTAT
    ============================================================ */
 
-const ACTIVE_STATUSES: ReadonlySet<string> = new Set(["active", "trialing"]);
+const ACTIVE_STATUSES: ReadonlySet<string> = new Set([
+  "active",
+  "trialing",
+]);
 
 export function hasActiveSubscription(
   subscription: Subscription | null,
 ): boolean {
-  return Boolean(subscription && ACTIVE_STATUSES.has(subscription.status));
+  return Boolean(
+    subscription && ACTIVE_STATUSES.has(subscription.status),
+  );
 }
 
-export function isPastDue(subscription: Subscription | null): boolean {
+export function isPastDue(
+  subscription: Subscription | null,
+): boolean {
   return subscription?.status === "past_due";
 }
 
@@ -186,39 +194,47 @@ export function isPastDue(subscription: Subscription | null): boolean {
 /**
  * Récupère l'abonnement Stripe courant.
  *
- * Le backend interroge Stripe en direct et resynchronise
- * `app_metadata.subscription` : la valeur renvoyée est donc
- * toujours fraîche, même si le webhook est en retard.
+ * Le backend interroge Stripe et resynchronise
+ * app_metadata.subscription.
  */
 export async function fetchSubscription(): Promise<Subscription | null> {
   const data = await stripeRequest<SubscriptionResponse>(
     "/api/stripe/subscription",
     { method: "GET" },
   );
+
   return data.subscription;
 }
 
 /**
  * Crée une session Stripe Checkout.
- * Le backend valide `plan` + `period` contre ses price IDs.
+ *
+ * Le backend valide le plan et la période
+ * par rapport à ses price IDs.
  */
 export async function createCheckoutSession(
   plan: PlanKey,
   period: BillingPeriod,
 ): Promise<CheckoutSessionResponse> {
-  return stripeRequest<CheckoutSessionResponse>("/api/stripe/checkout", {
-    method: "POST",
-    body: JSON.stringify({ plan, period }),
-  });
+  return stripeRequest<CheckoutSessionResponse>(
+    "/api/stripe/checkout",
+    {
+      method: "POST",
+      body: JSON.stringify({ plan, period }),
+    },
+  );
 }
 
 /**
- * Crée une session Billing Portal pour gérer l'abonnement.
+ * Crée une session Billing Portal.
  */
 export async function createPortalSession(): Promise<PortalSessionResponse> {
-  return stripeRequest<PortalSessionResponse>("/api/stripe/portal", {
-    method: "POST",
-  });
+  return stripeRequest<PortalSessionResponse>(
+    "/api/stripe/portal",
+    {
+      method: "POST",
+    },
+  );
 }
 
 /* ============================================================
@@ -227,7 +243,6 @@ export async function createPortalSession(): Promise<PortalSessionResponse> {
 
 /**
  * Démarre le checkout et redirige vers Stripe.
- * Ne rend la main qu'en cas d'erreur.
  */
 export async function startCheckout(
   plan: PlanKey,
@@ -236,7 +251,9 @@ export async function startCheckout(
   const session = await createCheckoutSession(plan, period);
 
   if (!session.url) {
-    throw new StripeServiceError("Stripe n'a pas renvoyé d'URL de checkout");
+    throw new StripeServiceError(
+      "Stripe n'a pas renvoyé d'URL de checkout",
+    );
   }
 
   window.location.href = session.url;
@@ -244,13 +261,14 @@ export async function startCheckout(
 
 /**
  * Ouvre le portail de facturation Stripe.
- * Ne rend la main qu'en cas d'erreur.
  */
 export async function openBillingPortal(): Promise<void> {
   const session = await createPortalSession();
 
   if (!session.url) {
-    throw new StripeServiceError("Stripe n'a pas renvoyé d'URL de portail");
+    throw new StripeServiceError(
+      "Stripe n'a pas renvoyé d'URL de portail",
+    );
   }
 
   window.location.href = session.url;
@@ -266,9 +284,9 @@ export type CheckoutReturn = {
 };
 
 /**
- * Lit le retour Stripe depuis l'URL, qu'il soit dans la query
- * string (`?checkout=success`) ou dans le hash
- * (`#/account?checkout=success`).
+ * Lit le retour Stripe depuis l'URL :
+ * - ?checkout=success
+ * - #/account?checkout=success
  */
 export function readCheckoutReturn(): CheckoutReturn {
   if (typeof window === "undefined") {
@@ -283,14 +301,19 @@ export function readCheckoutReturn(): CheckoutReturn {
   const qIdx = hash.indexOf("?");
 
   if (qIdx !== -1) {
-    sources.push(new URLSearchParams(hash.slice(qIdx + 1)));
+    sources.push(
+      new URLSearchParams(hash.slice(qIdx + 1)),
+    );
   }
 
   for (const params of sources) {
     const status = params.get("checkout");
 
     if (status === "success" || status === "cancel") {
-      return { status, sessionId: params.get("session_id") };
+      return {
+        status,
+        sessionId: params.get("session_id"),
+      };
     }
   }
 
@@ -298,9 +321,8 @@ export function readCheckoutReturn(): CheckoutReturn {
 }
 
 /**
- * Nettoie les paramètres `checkout` / `session_id` de l'URL sans
- * recharger la page (évite qu'un rafraîchissement rejoue la
- * redirection ou re-déclenche le polling).
+ * Nettoie les paramètres checkout / session_id
+ * sans recharger la page.
  */
 export function clearCheckoutParams(): void {
   if (typeof window === "undefined") return;
@@ -315,13 +337,18 @@ export function clearCheckoutParams(): void {
 
   if (qIdx !== -1) {
     const hashPath = hash.slice(0, qIdx);
-    const hashParams = new URLSearchParams(hash.slice(qIdx + 1));
+    const hashParams = new URLSearchParams(
+      hash.slice(qIdx + 1),
+    );
 
     hashParams.delete("checkout");
     hashParams.delete("session_id");
 
     const remaining = hashParams.toString();
-    url.hash = remaining ? `${hashPath}?${remaining}` : hashPath;
+
+    url.hash = remaining
+      ? `${hashPath}?${remaining}`
+      : hashPath;
   }
 
   window.history.replaceState({}, "", url.toString());
