@@ -1,3 +1,4 @@
+
 import path from "path";
 import { fileURLToPath } from "url";
 import tailwindcss from "@tailwindcss/vite";
@@ -10,7 +11,16 @@ const __dirname = path.dirname(__filename);
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react(), tailwindcss(), viteSingleFile()],
+  // Autorise l'accès aux variables VITE_* et PUBLIC_*
+  // depuis le frontend via import.meta.env.
+  envPrefix: ["VITE_", "PUBLIC_"],
+
+  plugins: [
+    react(),
+    tailwindcss(),
+    viteSingleFile(),
+  ],
+
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "src"),
