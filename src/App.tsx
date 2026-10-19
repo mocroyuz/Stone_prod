@@ -15,7 +15,7 @@ import ResetPassword from "./pages/ResetPassword";
 import DashboardHome from "./pages/home";
 import IntegrationsPage from "./pages/integration";
 import Settings from "./pages/settings";
-import Account from "./pages/account";
+import { CheckoutReturnModal } from "./pages/account";
 import Schedule from "./pages/schedule";
 import Pricing from "./pages/pricing";
 import Insights from "./pages/Insights";
@@ -579,9 +579,11 @@ function AppContentInner({
   const route = normalizeRoute(rawRoute);
 
   const isAuth = AUTH_ROUTES.has(route);
-  const isCheckoutReturn =
-    route === "account" && readCheckoutReturn().status !== null;
-  const isProtected = PROTECTED_ROUTES.has(route) && !isCheckoutReturn;
+  const checkoutReturn = readCheckoutReturn();
+  const isAccountRoute = route === "account";
+  const isCheckoutHome = route === "home" && checkoutReturn.status !== null;
+  const isProtected =
+    PROTECTED_ROUTES.has(route) && !isCheckoutHome && !isAccountRoute;
   const isTemplate = route === "template";
   const isPublic = PUBLIC_ROUTES.has(route);
   const isPricing = route === "pricing";
@@ -590,7 +592,7 @@ function AppContentInner({
   const isPrivacy = route === "privacy";
   const isLanding = route === "";
 
-  const isUnknown = !isAuth && !isProtected && !isPublic;
+  const isUnknown = !isAuth && !PROTECTED_ROUTES.has(route) && !isPublic;
 
   useGentleWheelScroll(isLanding || isPricing);
 
@@ -600,6 +602,14 @@ function AppContentInner({
 
   useEffect(() => {
     if (loading) return;
+
+    if (isAccountRoute) {
+      const query = new URLSearchParams();
+      if (checkoutReturn.status) query.set("checkout", checkoutReturn.status);
+      if (checkoutReturn.sessionId) query.set("session_id", checkoutReturn.sessionId);
+      navigate(query.size ? `home?${query.toString()}` : "home", { replace: true });
+      return;
+    }
 
     /*
      * Utilisateur déconnecté + route privée → signin
@@ -655,7 +665,7 @@ function AppContentInner({
         navigate("home", { replace: true });
       }
     }
-  }, [user, loading, isProtected, isAuth, isLanding, route]);
+  }, [user, loading, isProtected, isAuth, isLanding, isAccountRoute, route]);
 
   /*
    * Sécurité : AppBoot empêche normalement déjà ce rendu
@@ -664,6 +674,8 @@ function AppContentInner({
   if (loading) {
     return <div className="fixed inset-0 z-[999999] bg-[#050505]" />;
   }
+
+  if (isAccountRoute) return null;
 
   /*
    * Empêche une frame d'une page privée avant la redirection
@@ -827,14 +839,6 @@ function AppContentInner({
     );
   }
 
-  if (route === "account") {
-    return (
-      <div className="relative min-h-screen w-screen overflow-y-auto overflow-x-hidden font-sans">
-        <Account />
-      </div>
-    );
-  }
-
   /* ─────────────────────────────────────────────
      SCHEDULE / CALENDAR
      ───────────────────────────────────────────── */
@@ -915,6 +919,7 @@ function AppContentInner({
     return (
       <div className="relative h-screen w-screen overflow-hidden font-sans">
         <DashboardHome />
+        {route === "home" && <CheckoutReturnModal />}
       </div>
     );
   }
