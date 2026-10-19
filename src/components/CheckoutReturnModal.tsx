@@ -1,13 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
-import {
-  ArrowUpRight,
-  CalendarDays,
-  Check,
-  MessageCircle,
-  Send,
-  TrendingUp,
-  Users,
-} from "lucide-react";
+import { useEffect, useState } from "react";
 
 import { useUser } from "../contexts/UserContext";
 import { navigate } from "../hooks/useHashRoute";
@@ -23,12 +14,14 @@ import {
    THEME TOKENS (identiques à la page Home)
 ============================================================ */
 
-const panelClass = (isDark: boolean) =>
+/* Grand panneau arrondi du modal */
+const mainPanelClass = (isDark: boolean) =>
   isDark
     ? "border-white/[0.07] bg-[#0f0f11]"
     : "border-black/[0.06] bg-white";
 
-const surfaceClass = (isDark: boolean) =>
+/* Surface secondaire (colonne « Subscription ») */
+const panelSurfaceClass = (isDark: boolean) =>
   isDark
     ? "border-white/[0.07] bg-white/[0.03]"
     : "border-black/[0.06] bg-[#f6f4f0]";
@@ -36,11 +29,11 @@ const surfaceClass = (isDark: boolean) =>
 const mutedClass = (isDark: boolean) =>
   isDark ? "text-neutral-600" : "text-neutral-400";
 
-const bodyClass = (isDark: boolean) =>
-  isDark ? "text-neutral-400" : "text-neutral-500";
-
 const strongClass = (isDark: boolean) =>
   isDark ? "text-white" : "text-neutral-900";
+
+const bodyClass = (isDark: boolean) =>
+  isDark ? "text-neutral-400" : "text-neutral-500";
 
 const focusRingClass = (isDark: boolean) =>
   isDark
@@ -48,291 +41,33 @@ const focusRingClass = (isDark: boolean) =>
     : "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/25";
 
 /* ============================================================
-   FONCTIONNALITÉS DÉBLOQUÉES PAR LE PAIEMENT
-   → modifie cette liste pour refléter ton vrai plan
-============================================================ */
-
-type Feature = {
-  key: string;
-  title: string;
-  description: string;
-  cta: string;
-  route: string;
-  icon: ReactNode;
-};
-
-const FEATURES: Feature[] = [
-  {
-    key: "publish",
-    title: "Publish everywhere",
-    description:
-      "Write once and send your post to all your connected channels at the same time.",
-    cta: "Create a post",
-    route: "home",
-    icon: <Send className="h-[18px] w-[18px]" />,
-  },
-  {
-    key: "schedule",
-    title: "Schedule ahead",
-    description:
-      "Plan your content on the calendar and let Stone publish it for you.",
-    cta: "Open calendar",
-    route: "calendar",
-    icon: <CalendarDays className="h-[18px] w-[18px]" />,
-  },
-  {
-    key: "community",
-    title: "One inbox for comments",
-    description:
-      "Read and answer comments from every channel without switching apps.",
-    cta: "Open community",
-    route: "community",
-    icon: <MessageCircle className="h-[18px] w-[18px]" />,
-  },
-  {
-    key: "channels",
-    title: "More connected channels",
-    description:
-      "Link more accounts, from TikTok and YouTube to Pinterest, and manage them together.",
-    cta: "Manage channels",
-    route: "channels",
-    icon: <Users className="h-[18px] w-[18px]" />,
-  },
-  {
-    key: "analytics",
-    title: "Performance at a glance",
-    description:
-      "Follow followers, likes and comments with trends against the previous period.",
-    cta: "See overview",
-    route: "home",
-    icon: <TrendingUp className="h-[18px] w-[18px]" />,
-  },
-];
-
-/* ============================================================
-   FEATURE CARD
-============================================================ */
-
-function LockIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className={className}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.9"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <rect x="5" y="11" width="14" height="9" rx="2.2" />
-      <path d="M8 11V8a4 4 0 0 1 8 0v3" />
-    </svg>
-  );
-}
-
-function FeatureCard({
-  isDark,
-  feature,
-  unlocked,
-  onOpen,
-}: {
-  isDark: boolean;
-  feature: Feature;
-  unlocked: boolean;
-  onOpen: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      disabled={!unlocked}
-      onClick={onOpen}
-      className={[
-        "group relative flex flex-col rounded-2xl border p-4 text-left",
-        "transition-all duration-500 motion-reduce:transition-none",
-        "disabled:cursor-default",
-        focusRingClass(isDark),
-        unlocked
-          ? isDark
-            ? "border-emerald-500/25 bg-emerald-500/[0.05] hover:bg-emerald-500/[0.09]"
-            : "border-emerald-600/20 bg-white shadow-sm hover:bg-[#f6f4f0]"
-          : surfaceClass(isDark),
-      ].join(" ")}
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div
-          className={[
-            "flex h-10 w-10 items-center justify-center rounded-xl transition-colors duration-500",
-            unlocked
-              ? "bg-emerald-500/15 text-emerald-500"
-              : isDark
-                ? "bg-white/[0.06] text-neutral-500"
-                : "bg-white text-neutral-400 shadow-sm ring-1 ring-black/[0.05]",
-          ].join(" ")}
-        >
-          {feature.icon}
-        </div>
-
-        <span
-          className={[
-            "flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold",
-            "transition-colors duration-500",
-            unlocked
-              ? "bg-emerald-500/10 text-emerald-500"
-              : isDark
-                ? "bg-white/[0.06] text-neutral-500"
-                : "bg-black/[0.05] text-neutral-500",
-          ].join(" ")}
-        >
-          {unlocked ? (
-            <Check className="h-2.5 w-2.5" strokeWidth={3} aria-hidden="true" />
-          ) : (
-            <LockIcon className="h-2.5 w-2.5" />
-          )}
-          {unlocked ? "Unlocked" : "Locked"}
-        </span>
-      </div>
-
-      <h3
-        className={[
-          "mt-4 text-[14px] font-semibold tracking-[-0.01em]",
-          unlocked ? strongClass(isDark) : mutedClass(isDark),
-          "transition-colors duration-500",
-        ].join(" ")}
-      >
-        {feature.title}
-      </h3>
-      <p
-        className={[
-          "mt-1 text-[12px] leading-5",
-          unlocked ? bodyClass(isDark) : mutedClass(isDark),
-          "transition-colors duration-500",
-        ].join(" ")}
-      >
-        {feature.description}
-      </p>
-
-      <span
-        className={[
-          "mt-4 flex items-center gap-1 text-[11px] font-semibold transition-opacity duration-500",
-          unlocked
-            ? isDark
-              ? "text-white opacity-100"
-              : "text-neutral-900 opacity-100"
-            : "opacity-0",
-        ].join(" ")}
-        aria-hidden={!unlocked}
-      >
-        {feature.cta}
-        <ArrowUpRight className="h-3 w-3 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
-      </span>
-    </button>
-  );
-}
-
-/* ============================================================
-   BUTTONS
-============================================================ */
-
-function PrimaryButton({
-  isDark,
-  onClick,
-  disabled,
-  children,
-}: {
-  isDark: boolean;
-  onClick: () => void;
-  disabled?: boolean;
-  children: ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      autoFocus
-      disabled={disabled}
-      onClick={onClick}
-      className={[
-        "flex min-h-11 items-center justify-center rounded-xl px-6",
-        "text-[13px] font-semibold transition",
-        "disabled:cursor-not-allowed disabled:opacity-50",
-        focusRingClass(isDark),
-        isDark
-          ? "bg-white text-black enabled:hover:bg-neutral-200"
-          : "bg-neutral-900 text-white enabled:hover:bg-neutral-700",
-      ].join(" ")}
-    >
-      {children}
-    </button>
-  );
-}
-
-function TextButton({
-  isDark,
-  onClick,
-  children,
-}: {
-  isDark: boolean;
-  onClick: () => void;
-  children: ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={[
-        "rounded-md px-2 py-1 text-[12px] font-semibold transition",
-        focusRingClass(isDark),
-        isDark
-          ? "text-neutral-400 hover:text-white"
-          : "text-neutral-500 hover:text-neutral-900",
-      ].join(" ")}
-    >
-      {children}
-    </button>
-  );
-}
-
-/* ============================================================
    CHECKOUT RETURN MODAL
 ============================================================ */
-
-type VerifyState = "idle" | "checking" | "timeout";
 
 export default function CheckoutReturnModal() {
   const { theme } = useTheme();
   const isDark = theme === "dark";
 
   const { user } = useUser();
-  const { hasActive, refresh } = useSubscription();
+  const { subscription, loading, hasActive, refresh } = useSubscription();
   const [checkoutStatus] = useState(() => readCheckoutReturn().status);
   const [open, setOpen] = useState(checkoutStatus !== null);
-  const [verify, setVerify] = useState<VerifyState>("idle");
-  const [retryKey, setRetryKey] = useState(0);
-  const [unlockedCount, setUnlockedCount] = useState(0);
-
-  const isSuccess = checkoutStatus === "success";
-  const total = FEATURES.length;
 
   const close = () => {
     clearCheckoutParams();
     setOpen(false);
   };
 
-  /* Vérifie l'abonnement (8 essais). Relançable via « Check again ». */
   useEffect(() => {
     if (checkoutStatus !== "success" || !user) return;
 
     let cancelled = false;
-
     const verifySubscription = async () => {
-      setVerify("checking");
-
       for (let attempt = 0; attempt < 8; attempt += 1) {
         if (cancelled) return;
         const current = await refresh();
 
         if (current?.status === "active" || current?.status === "trialing") {
-          if (!cancelled) setVerify("idle");
           return;
         }
 
@@ -340,39 +75,13 @@ export default function CheckoutReturnModal() {
           await new Promise((resolve) => window.setTimeout(resolve, 1200));
         }
       }
-
-      if (!cancelled) setVerify("timeout");
     };
 
     void verifySubscription();
     return () => {
       cancelled = true;
     };
-  }, [checkoutStatus, refresh, user, retryKey]);
-
-  /* Déblocage progressif des fonctionnalités dès que l'abonnement est actif */
-  useEffect(() => {
-    if (!isSuccess || !hasActive) return;
-
-    const reduceMotion = window.matchMedia(
-      "(prefers-reduced-motion: reduce)"
-    ).matches;
-
-    if (reduceMotion) {
-      setUnlockedCount(total);
-      return;
-    }
-
-    setUnlockedCount(0);
-    let count = 0;
-    const interval = window.setInterval(() => {
-      count += 1;
-      setUnlockedCount(count);
-      if (count >= total) window.clearInterval(interval);
-    }, 220);
-
-    return () => window.clearInterval(interval);
-  }, [isSuccess, hasActive, total]);
+  }, [checkoutStatus, refresh, user]);
 
   useEffect(() => {
     if (!open) return;
@@ -392,7 +101,6 @@ export default function CheckoutReturnModal() {
 
   const handleManageBilling = async () => {
     if (!user) {
-      close();
       navigate("signin");
       return;
     }
@@ -401,58 +109,24 @@ export default function CheckoutReturnModal() {
       try {
         await openBillingPortal();
       } catch {
-        close();
         navigate("settings");
       }
       return;
     }
 
-    close();
     navigate("pricing");
-  };
-
-  const openFeature = (route: string) => {
-    close();
-    navigate(route);
   };
 
   if (!open || !checkoutStatus) return null;
 
-  const allUnlocked = isSuccess && hasActive && unlockedCount >= total;
-  const checking = isSuccess && !!user && !hasActive && verify !== "timeout";
+  const isSuccess = checkoutStatus === "success";
 
-  /* ---------------- Textes d'en-tête ---------------- */
-
-  const eyebrow = !isSuccess
-    ? "Checkout canceled"
-    : hasActive
-      ? "Payment received"
-      : "Payment received";
-
-  const title = !isSuccess
-    ? "Unlock everything Stone has to offer"
-    : hasActive
-      ? "Your plan is live. Here's what you unlocked."
-      : !user
-        ? "Sign in to unlock your features"
-        : verify === "timeout"
-          ? "Your features are almost ready"
-          : "Unlocking your features…";
-
-  const description = !isSuccess
-    ? "You weren't charged and nothing changed on your account. This is what's included when you subscribe."
-    : hasActive
-      ? "Tap any feature to try it right away."
-      : !user
-        ? "Your payment went through. Sign in to attach it to your account and activate everything below."
-        : verify === "timeout"
-          ? "Your payment went through, but syncing is taking longer than usual. You can check again."
-          : "Your payment went through. This only takes a few seconds.";
+  const statusLabel = loading ? "Checking" : hasActive ? "Active" : "Pending";
 
   return (
     <div
       className={[
-        "fixed inset-0 z-[1000] flex items-end justify-center sm:items-center sm:p-4",
+        "fixed inset-0 z-[1000] flex items-center justify-center p-4",
         "backdrop-blur-sm",
         isDark ? "bg-black/70" : "bg-black/40",
       ].join(" ")}
@@ -464,43 +138,35 @@ export default function CheckoutReturnModal() {
         role="dialog"
         aria-modal="true"
         aria-labelledby="checkout-return-title"
-        aria-describedby="checkout-return-desc"
         className={[
-          "relative flex w-full max-w-[820px] flex-col overflow-hidden",
-          "max-h-[calc(100dvh-1rem)] sm:max-h-[calc(100dvh-2rem)]",
-          "rounded-t-[28px] border sm:rounded-[28px]",
+          "relative max-h-[calc(100dvh-2rem)] w-full max-w-[720px]",
+          "overflow-y-auto overflow-x-hidden rounded-[28px] border",
+          "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
           "shadow-[0_30px_100px_-25px_rgba(0,0,0,0.55)]",
-          panelClass(isDark),
+          mainPanelClass(isDark),
+          strongClass(isDark),
         ].join(" ")}
       >
-        {/* Lueur d'ambiance qui passe au vert quand tout est débloqué */}
-        <div
-          aria-hidden="true"
-          className={[
-            "pointer-events-none absolute inset-x-0 top-0 h-56",
-            "transition-opacity duration-700",
-            allUnlocked ? "opacity-100" : "opacity-0",
-            isDark
-              ? "bg-[radial-gradient(60%_100%_at_50%_0%,rgba(16,185,129,0.16),transparent)]"
-              : "bg-[radial-gradient(60%_100%_at_50%_0%,rgba(16,185,129,0.14),transparent)]",
-          ].join(" ")}
-        />
-
-        {/* Fermer */}
+        {/* CLOSE */}
         <button
           type="button"
           onClick={close}
-          aria-label="Close"
+          aria-label="Close confirmation"
           className={[
-            "absolute right-4 top-4 z-10 flex h-8 w-8 items-center justify-center",
-            "rounded-full transition",
+            "absolute right-4 top-4 z-10 flex h-9 w-9 items-center justify-center",
+            "rounded-full border transition",
             focusRingClass(isDark),
             isDark
-              ? "text-neutral-500 hover:bg-white/[0.07] hover:text-white"
-              : "text-neutral-400 hover:bg-black/[0.05] hover:text-neutral-900",
+              ? "border-white/[0.09] text-neutral-400 hover:bg-white/[0.06] hover:text-white"
+              : "border-black/[0.08] text-neutral-500 hover:bg-black/[0.04] hover:text-neutral-900",
           ].join(" ")}
         >
-          <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" aria-hidden="true">
+          <svg
+            viewBox="0 0 24 24"
+            className="h-4 w-4"
+            fill="none"
+            aria-hidden="true"
+          >
             <path
               d="m6 6 12 12M18 6 6 18"
               stroke="currentColor"
@@ -510,183 +176,226 @@ export default function CheckoutReturnModal() {
           </svg>
         </button>
 
-        {/* CONTENU QUI SCROLLE */}
-        <div className="relative flex-1 overflow-y-auto px-6 pb-4 pt-8 [scrollbar-width:none] sm:px-9 sm:pt-10 [&::-webkit-scrollbar]:hidden">
-          {/* HERO */}
-          <header className="flex flex-col items-start gap-5 sm:flex-row sm:items-end sm:justify-between">
-            <div className="max-w-[500px]">
+        <div className="grid md:grid-cols-[1fr_0.8fr]">
+          {/* ---------------- MAIN COLUMN ---------------- */}
+          <div className="px-6 py-9 sm:px-9 sm:py-11">
+            {/* Tuile d'icône (même style que les Stat de Home) */}
+            <div
+              className={[
+                "mb-7 flex h-11 w-11 items-center justify-center rounded-xl",
+                isSuccess
+                  ? isDark
+                    ? "bg-emerald-500/10 text-emerald-400 ring-1 ring-emerald-500/20"
+                    : "bg-emerald-500/10 text-emerald-600 ring-1 ring-emerald-500/20"
+                  : isDark
+                    ? "bg-white/[0.06] text-neutral-300 ring-1 ring-white/[0.07]"
+                    : "bg-[#f6f4f0] text-neutral-600 ring-1 ring-black/[0.06]",
+              ].join(" ")}
+            >
+              {isSuccess ? (
+                <svg
+                  viewBox="0 0 24 24"
+                  className="h-5 w-5"
+                  fill="none"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="m5 12.5 4.5 4L19 7"
+                    stroke="currentColor"
+                    strokeWidth="1.9"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              ) : (
+                <svg
+                  viewBox="0 0 24 24"
+                  className="h-5 w-5"
+                  fill="none"
+                  aria-hidden="true"
+                >
+                  <path
+                    d="m6 6 12 12M18 6 6 18"
+                    stroke="currentColor"
+                    strokeWidth="1.9"
+                    strokeLinecap="round"
+                  />
+                </svg>
+              )}
+            </div>
+
+            <p
+              className={[
+                "text-[11px] font-semibold",
+                isDark ? "text-neutral-500" : "text-neutral-400",
+              ].join(" ")}
+            >
+              {isSuccess ? "Payment received" : "Checkout"}
+            </p>
+
+            <h2
+              id="checkout-return-title"
+              className={[
+                "mt-2 max-w-[440px] text-[clamp(28px,4.4vw,40px)]",
+                "font-semibold leading-[1.05] tracking-[-0.035em]",
+                strongClass(isDark),
+              ].join(" ")}
+            >
+              {isSuccess
+                ? hasActive
+                  ? "You're all set."
+                  : "Thanks for choosing Stone."
+                : "Checkout canceled."}
+            </h2>
+
+            <p
+              className={[
+                "mt-4 max-w-[420px] text-[13px] leading-6",
+                bodyClass(isDark),
+              ].join(" ")}
+            >
+              {isSuccess
+                ? hasActive
+                  ? "Your Stone subscription is active. Your workspace is ready to go."
+                  : "Your checkout is complete. Sign in to confirm your subscription and get started."
+                : "No changes were made to your subscription. You can return to plans whenever you're ready."}
+            </p>
+
+            <div className="mt-8 flex flex-wrap gap-2.5">
+              <button
+                type="button"
+                onClick={() => {
+                  close();
+                  if (!user) navigate("signin");
+                }}
+                className={[
+                  "inline-flex min-h-10 items-center justify-center rounded-xl px-5",
+                  "text-[12px] font-semibold transition",
+                  focusRingClass(isDark),
+                  isDark
+                    ? "bg-white text-black hover:bg-neutral-200"
+                    : "bg-neutral-900 text-white hover:bg-neutral-700",
+                ].join(" ")}
+              >
+                {user ? "Continue to dashboard" : "Sign in to continue"}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => void handleManageBilling()}
+                className={[
+                  "inline-flex min-h-10 items-center justify-center rounded-xl border px-5",
+                  "text-[12px] font-semibold transition",
+                  focusRingClass(isDark),
+                  isDark
+                    ? "border-white/10 text-white hover:bg-white/[0.07]"
+                    : "border-black/10 text-neutral-900 hover:bg-black/[0.04]",
+                ].join(" ")}
+              >
+                {hasActive ? "Manage billing" : user ? "View plans" : "Sign in"}
+              </button>
+            </div>
+          </div>
+
+          {/* ---------------- SUBSCRIPTION COLUMN ---------------- */}
+          <aside
+            className={[
+              "border-t px-6 py-7 sm:px-9 md:border-l md:border-t-0 md:py-11",
+              panelSurfaceClass(isDark),
+            ].join(" ")}
+          >
+            <p
+              className={[
+                "text-[11px] font-semibold",
+                isDark ? "text-neutral-500" : "text-neutral-400",
+              ].join(" ")}
+            >
+              Subscription
+            </p>
+
+            <div className="mt-3 flex items-center justify-between gap-3">
+              <h3
+                className={[
+                  "text-[18px] font-semibold tracking-[-0.02em]",
+                  strongClass(isDark),
+                ].join(" ")}
+              >
+                Stone plan
+              </h3>
+
               <span
                 className={[
                   "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1",
                   "text-[10px] font-semibold",
-                  isSuccess
-                    ? "bg-emerald-500/10 text-emerald-500"
+                  hasActive
+                    ? isDark
+                      ? "bg-emerald-500/10 text-emerald-400"
+                      : "bg-emerald-500/10 text-emerald-600"
                     : isDark
                       ? "bg-white/[0.07] text-neutral-300"
                       : "bg-black/[0.05] text-neutral-600",
                 ].join(" ")}
               >
-                {isSuccess && (
-                  <Check className="h-3 w-3" strokeWidth={3} aria-hidden="true" />
-                )}
-                {eyebrow}
+                <span
+                  className={[
+                    "h-1.5 w-1.5 rounded-full",
+                    hasActive
+                      ? "bg-emerald-500"
+                      : loading
+                        ? "animate-pulse bg-neutral-400"
+                        : "bg-neutral-400",
+                  ].join(" ")}
+                />
+                {statusLabel}
               </span>
-
-              <h2
-                id="checkout-return-title"
-                className={[
-                  "mt-4 text-[clamp(24px,3.6vw,32px)] font-semibold leading-[1.1]",
-                  "tracking-[-0.035em]",
-                  strongClass(isDark),
-                ].join(" ")}
-              >
-                {title}
-              </h2>
-              <p
-                id="checkout-return-desc"
-                role="status"
-                className={["mt-2 text-[13px] leading-6", bodyClass(isDark)].join(" ")}
-              >
-                {description}
-              </p>
             </div>
 
-            {/* Compteur de déblocage */}
-            <div
+            <dl
               className={[
-                "w-full shrink-0 rounded-2xl border p-3.5 sm:w-[180px]",
-                surfaceClass(isDark),
+                "mt-6 divide-y border-y",
+                isDark
+                  ? "divide-white/[0.07] border-white/[0.07]"
+                  : "divide-black/[0.07] border-black/[0.07]",
               ].join(" ")}
             >
-              <div className="flex items-baseline justify-between">
-                <p className={["text-[10px] font-medium", mutedClass(isDark)].join(" ")}>
-                  Features unlocked
-                </p>
-                <p
+              <div className="flex items-center justify-between gap-4 py-3.5 text-[12px]">
+                <dt className={mutedClass(isDark)}>Email</dt>
+                <dd
                   className={[
-                    "text-[15px] font-bold tabular-nums tracking-tight",
+                    "max-w-[65%] truncate text-right font-semibold",
                     strongClass(isDark),
                   ].join(" ")}
                 >
-                  {unlockedCount}
-                  <span className={["font-medium", mutedClass(isDark)].join(" ")}>
-                    /{total}
-                  </span>
-                </p>
+                  {user?.email ?? "Sign in required"}
+                </dd>
               </div>
-              <div
-                className={[
-                  "mt-2.5 h-1.5 overflow-hidden rounded-full",
-                  isDark ? "bg-white/[0.08]" : "bg-black/[0.07]",
-                ].join(" ")}
-                role="progressbar"
-                aria-valuemin={0}
-                aria-valuemax={total}
-                aria-valuenow={unlockedCount}
-                aria-label="Features unlocked"
-              >
-                <div
+              <div className="flex items-center justify-between gap-4 py-3.5 text-[12px]">
+                <dt className={mutedClass(isDark)}>Status</dt>
+                <dd
                   className={[
-                    "h-full rounded-full bg-emerald-500",
-                    "transition-[width] duration-500 ease-out motion-reduce:transition-none",
+                    "text-right font-semibold capitalize",
+                    strongClass(isDark),
                   ].join(" ")}
-                  style={{ width: `${(unlockedCount / total) * 100}%` }}
-                />
+                >
+                  {subscription?.status ?? "Awaiting confirmation"}
+                </dd>
               </div>
-              {checking && (
-                <p className={["mt-2 flex items-center gap-1.5 text-[10px]", bodyClass(isDark)].join(" ")}>
-                  <span
-                    className={[
-                      "h-2.5 w-2.5 animate-spin rounded-full border-[1.5px] motion-reduce:animate-none",
-                      isDark
-                        ? "border-white/20 border-t-white"
-                        : "border-black/15 border-t-neutral-900",
-                    ].join(" ")}
-                  />
-                  Activating…
-                </p>
-              )}
-            </div>
-          </header>
+            </dl>
 
-          {/* GRILLE DES FONCTIONNALITÉS */}
-          <div className="mt-7 grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {FEATURES.map((feature, index) => (
-              <div
-                key={feature.key}
-                className={index === FEATURES.length - 1 && total % 2 === 1 ? "sm:col-span-2" : ""}
+            {isSuccess && !hasActive && (
+              <p
+                className={[
+                  "mt-5 text-[11px] leading-5",
+                  isDark ? "text-neutral-500" : "text-neutral-500",
+                ].join(" ")}
+                role="status"
               >
-                <FeatureCard
-                  isDark={isDark}
-                  feature={feature}
-                  unlocked={isSuccess && hasActive && index < unlockedCount}
-                  onOpen={() => openFeature(feature.route)}
-                />
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* PIED : actions */}
-        <footer
-          className={[
-            "relative flex flex-col-reverse items-stretch gap-3 border-t px-6 py-4",
-            "sm:flex-row sm:items-center sm:justify-between sm:px-9",
-            isDark ? "border-white/[0.07]" : "border-black/[0.06]",
-          ].join(" ")}
-        >
-          <div className="flex items-center justify-center gap-1 sm:justify-start">
-            {isSuccess && hasActive ? (
-              <TextButton isDark={isDark} onClick={() => void handleManageBilling()}>
-                Manage billing
-              </TextButton>
-            ) : (
-              <TextButton isDark={isDark} onClick={close}>
-                {isSuccess ? "Close" : "Not now"}
-              </TextButton>
+                Subscription details may take a moment to sync. This page
+                checks for updates automatically.
+              </p>
             )}
-          </div>
-
-          {!isSuccess ? (
-            <PrimaryButton
-              isDark={isDark}
-              onClick={() => {
-                close();
-                navigate("pricing");
-              }}
-            >
-              Back to plans
-            </PrimaryButton>
-          ) : hasActive ? (
-            <PrimaryButton
-              isDark={isDark}
-              onClick={() => {
-                close();
-                navigate("home");
-              }}
-            >
-              Start using Stone
-            </PrimaryButton>
-          ) : !user ? (
-            <PrimaryButton
-              isDark={isDark}
-              onClick={() => {
-                close();
-                navigate("signin");
-              }}
-            >
-              Sign in to unlock
-            </PrimaryButton>
-          ) : verify === "timeout" ? (
-            <PrimaryButton isDark={isDark} onClick={() => setRetryKey((key) => key + 1)}>
-              Check again
-            </PrimaryButton>
-          ) : (
-            <PrimaryButton isDark={isDark} onClick={() => undefined} disabled>
-              Unlocking…
-            </PrimaryButton>
-          )}
-        </footer>
+          </aside>
+        </div>
       </section>
     </div>
   );
