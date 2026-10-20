@@ -1,10 +1,12 @@
 // src/services/supabase.ts
 
-import { createClient } from "@supabase/supabase-js";
-
 // ============================================================
 // API CONFIGURATION
 // ============================================================
+//
+// Le frontend ne parle QU'AU backend Railway. Aucune clé Supabase,
+// aucun client supabase-js, aucune variable VITE_*. Toute la logique
+// MFA / passkey est côté backend (proxy /api/mfa/*).
 
 const API_BASE_URL = "https://stoneserv-production.up.railway.app";
 
@@ -253,8 +255,7 @@ export async function apiRequest<T>(
       (data as { code?: unknown }).code === "MFA_REQUIRED"
     ) {
       const msg =
-        "error" in data &&
-        typeof (data as { error?: unknown }).error === "string"
+        "error" in data && typeof (data as { error?: unknown }).error === "string"
           ? (data as { error: string }).error
           : undefined;
 
@@ -263,9 +264,7 @@ export async function apiRequest<T>(
 
     if (response.status === 401 && canRefresh && !isRetry) {
       const refreshed = await refreshAccessToken();
-      if (refreshed) {
-        return apiRequest<T>(endpoint, options, true);
-      }
+      if (refreshed) return apiRequest<T>(endpoint, options, true);
     }
 
     const errorMessage =
@@ -286,10 +285,7 @@ export async function apiRequest<T>(
 // SIGN IN / SIGN UP
 // ============================================================
 
-export async function signIn(
-  email: string,
-  password: string
-): Promise<AuthResponse> {
+export async function signIn(email: string, password: string): Promise<AuthResponse> {
   const result = await apiRequest<AuthResponse>("/api/auth/login", {
     method: "POST",
     body: JSON.stringify({ email, password }),
@@ -313,7 +309,7 @@ export async function signUp(
 }
 
 // ============================================================
-// MFA STATUS (backend)
+// MFA STATUS (lecture AAL + facteurs vérifiés)
 // ============================================================
 
 export async function getMfaStatus(): Promise<MfaStatus | null> {
@@ -339,7 +335,7 @@ export async function getMfaStatus(): Promise<MfaStatus | null> {
 }
 
 // ============================================================
-// FORGOT PASSWORD
+// FORGOT / RESET PASSWORD
 // ============================================================
 
 export async function requestPasswordReset(email: string): Promise<string> {
@@ -356,10 +352,6 @@ export async function requestPasswordReset(email: string): Promise<string> {
     "If an account exists for this email, a password reset link has been sent."
   );
 }
-
-// ============================================================
-// RESET PASSWORD
-// ============================================================
 
 function readUrlParam(key: string): string | null {
   if (typeof window === "undefined") return null;
@@ -439,13 +431,11 @@ export async function resetPassword(
 
   clearSession();
 
-  return (
-    result?.message || "Password updated successfully. You can now sign in."
-  );
+  return result?.message || "Password updated successfully. You can now sign in.";
 }
 
 // ============================================================
-// GOOGLE / GITHUB OAUTH
+// OAUTH (Google / GitHub)
 // ============================================================
 
 export async function getGoogleAuthUrl(redirectTo?: string): Promise<string> {
@@ -495,7 +485,7 @@ export function saveOAuthSession(accessToken: string, refreshToken: string): voi
 }
 
 // ============================================================
-// RESEND VERIFICATION EMAIL
+// EMAIL VERIFICATION
 // ============================================================
 
 export async function resendVerificationEmail(): Promise<boolean> {
@@ -509,7 +499,7 @@ export async function resendVerificationEmail(): Promise<boolean> {
 }
 
 // ============================================================
-// UPDATE / SET PASSWORD
+// UPDATE / SET PASSWORD (protégé par MFA_REQUIRED)
 // ============================================================
 
 export async function updatePassword(
@@ -528,7 +518,7 @@ export async function updatePassword(
 }
 
 // ============================================================
-// GET CURRENT USER
+// USER
 // ============================================================
 
 export async function getCurrentUser(): Promise<UserProfile | null> {
@@ -547,10 +537,6 @@ export async function getCurrentUser(): Promise<UserProfile | null> {
     return null;
   }
 }
-
-// ============================================================
-// UPDATE USER PROFILE
-// ============================================================
 
 export async function updateUserProfile(
   profile: Partial<UserProfile>
@@ -576,7 +562,7 @@ export async function updateUserProfile(
 }
 
 // ============================================================
-// UPLOAD / DELETE AVATAR
+// AVATAR
 // ============================================================
 
 export async function uploadAvatar(
@@ -584,7 +570,11 @@ export async function uploadAvatar(
   _userId?: string
 ): Promise<string | null> {
   try {
-    if (!file) { console.error("No avatar file provided."); return null; }
+    if (!file) {
+      console.error("No avatar file provided.");
+      return null;
+    }
+
     if (!file.type.startsWith("image/")) {
       console.error("The selected file is not an image.");
       return null;
@@ -664,303 +654,132 @@ export async function checkApiHealth(): Promise<boolean> {
 }
 
 // ============================================================
-// SUPABASE AUTH CLIENT (MFA + passkeys uniquement)
+// MFA (tout passe par le backend, aucune clé Supabase côté front)
 // ============================================================
 //
-// URL + clé publishable : publiques par conception (Supabase Dashboard →
-// Settings → API). ⚠️ Ne JAMAIS mettre la clé service_role ici.
-//
-// Lu depuis les variables d'environnement Vite (inlinées au build) :
-//   VITE_SUPABASE_URL           (obligatoire)
-//   VITE_SUPABASE_ANON_KEY      (obligatoire — nom historique)
-//   VITE_SUPABASE_PUBLISHABLE_KEY (alternative, nouveau nom Supabase)
-//
-// Sur Vercel : Settings → Environment Variables, puis REDÉPLOYER.
-// Les valeurs doivent être les mêmes que côté backend (SUPABASE_URL /
-// SUPABASE_ANON_KEY sur Railway).
-
-const SUPABASE_URL =
-  (import.meta.env.VITE_SUPABASE_URL as string | undefined)?.trim() || "";
-
-const SUPABASE_PUBLISHABLE_KEY =
-  (import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined)?.trim() ||
-  (import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined)?.trim() ||
-  "";
-
-const SUPABASE_CONFIGURED = Boolean(
-  SUPABASE_URL && SUPABASE_PUBLISHABLE_KEY
-);
-
-if (!SUPABASE_CONFIGURED) {
-  // Message visible dans la console du navigateur ET dans les logs de build.
-  console.warn(
-    "[supabase] VITE_SUPABASE_URL et VITE_SUPABASE_ANON_KEY ne sont pas définis — " +
-      "la MFA (TOTP) et les passkeys sont désactivés sur ce déploiement. " +
-      "Configure ces variables sur Vercel (Settings → Environment Variables) puis redéploie."
-  );
-}
-
-const authClient = SUPABASE_CONFIGURED
-  ? createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
-      auth: {
-        persistSession: false,
-        autoRefreshToken: false,
-        detectSessionInUrl: false,
-        experimental: { passkey: true },
-      },
-    })
-  : null;
-
-/** true si VITE_SUPABASE_URL et la clé publishable sont définis au build. */
-export function isSupabaseConfigured(): boolean {
-  return SUPABASE_CONFIGURED;
-}
-
-/**
- * Retourne le client Supabase ou throw une erreur lisible.
- * Évite les `fetch` vers un domaine placeholder (ERR_NAME_NOT_RESOLVED).
- */
-function requireAuthClient() {
-  if (!authClient) {
-    throw new Error(
-      "Supabase n'est pas configuré sur ce déploiement " +
-        "(VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY manquants). " +
-        "Contacte l'administrateur ou configure ces variables d'environnement."
-    );
-  }
-  return authClient;
-}
-
-async function syncAuthClient(): Promise<void> {
-  const client = requireAuthClient();
-
-  let access = getAccessToken();
-
-  if (!access || isTokenExpiring(access)) {
-    await refreshAccessToken();
-    access = getAccessToken();
-  }
-
-  const refresh = getRefreshToken();
-
-  if (!access || !refresh) {
-    throw new Error("You are signed out. Sign in again.");
-  }
-
-  const { error } = await client.auth.setSession({
-    access_token: access,
-    refresh_token: refresh,
-  });
-
-  if (error) throw error;
-}
-
-async function persistAuthClientSession(): Promise<void> {
-  const client = requireAuthClient();
-  const { data } = await client.auth.getSession();
-
-  if (data.session) {
-    saveSession({
-      access_token: data.session.access_token,
-      refresh_token: data.session.refresh_token,
-    });
-  }
-}
-
-// ============================================================
-// MFA : APPLICATION D'AUTHENTIFICATION (TOTP)
-// ============================================================
+// Chaque opération renvoie la nouvelle session AAL2 quand Supabase en
+// émet une (verify / enroll/verify). Le frontend la stocke, ce qui met
+// automatiquement à jour le claim `aal` du JWT pour requireAal2() côté
+// serveur.
 
 export type MfaFactor = {
   id: string;
   friendlyName?: string;
-  createdAt: string;
+  status?: "verified" | "unverified";
+  createdAt?: string | null;
 };
 
+/** Liste les facteurs TOTP vérifiés. */
 export async function listMfaFactors(): Promise<MfaFactor[]> {
-  await syncAuthClient();
-  const client = requireAuthClient();
+  const data = await apiRequest<{
+    success: boolean;
+    factors: Array<{
+      id: string;
+      friendlyName?: string | null;
+      createdAt?: string | null;
+    }>;
+  }>("/api/mfa/factors", { method: "GET" });
 
-  const { data, error } = await client.auth.mfa.listFactors();
-  if (error) throw error;
-
-  return (data.totp ?? []).map((f) => ({
+  return (data.factors || []).map((f) => ({
     id: f.id,
-    friendlyName: f.friendly_name ?? undefined,
-    createdAt: f.created_at,
+    friendlyName: f.friendlyName ?? undefined,
+    createdAt: f.createdAt || "",
   }));
 }
 
+/** Étape 1 : démarre un enrôlement TOTP (QR + secret). */
 export async function startMfaEnrollment(): Promise<{
   factorId: string;
   qrCode: string;
   secret: string;
 }> {
-  await syncAuthClient();
-  const client = requireAuthClient();
-
-  // Purge les inscriptions abandonnées (non vérifiées).
-  const { data: list } = await client.auth.mfa.listFactors();
-  const stale = (list?.all ?? []).filter(
-    (f) => f.factor_type === "totp" && f.status === "unverified"
+  return apiRequest<{ factorId: string; qrCode: string; secret: string }>(
+    "/api/mfa/enroll",
+    { method: "POST" }
   );
-  for (const f of stale) {
-    await client.auth.mfa.unenroll({ factorId: f.id });
-  }
-
-  const { data, error } = await client.auth.mfa.enroll({
-    factorType: "totp",
-    friendlyName: `Authenticator ${Date.now()}`,
-  });
-  if (error) throw error;
-
-  return {
-    factorId: data.id,
-    qrCode: data.totp.qr_code,
-    secret: data.totp.secret,
-  };
 }
 
-export async function confirmMfaEnrollment(factorId: string, code: string) {
-  await syncAuthClient();
-  const client = requireAuthClient();
-
-  const { error } = await client.auth.mfa.challengeAndVerify({
-    factorId,
-    code,
-  });
-  if (error) throw error;
-
-  await persistAuthClientSession();
+/**
+ * Étape 2 : vérifie le premier code. La session renvoyée (AAL2) est
+ * stockée localement.
+ */
+export async function confirmMfaEnrollment(
+  factorId: string,
+  code: string
+): Promise<void> {
+  const data = await apiRequest<{ success: boolean; session: AuthSession }>(
+    "/api/mfa/enroll/verify",
+    {
+      method: "POST",
+      body: JSON.stringify({ factorId, code }),
+    }
+  );
+  saveSession(data.session);
 }
 
-export async function cancelMfaEnrollment(factorId: string) {
-  await syncAuthClient();
-  const client = requireAuthClient();
-  await client.auth.mfa.unenroll({ factorId });
+/**
+ * Annule un enrôlement non vérifié. Aucune AAL2 requise (côté Supabase,
+ * un facteur unverified peut être supprimé sans challenge).
+ */
+export async function cancelMfaEnrollment(factorId: string): Promise<void> {
+  await apiRequest(
+    `/api/mfa/factors?factorId=${encodeURIComponent(factorId)}`,
+    { method: "DELETE" }
+  );
 }
 
-export async function disableMfa(factorId: string) {
-  await syncAuthClient();
-  const client = requireAuthClient();
-
-  const { error } = await client.auth.mfa.unenroll({ factorId });
-  if (error) throw error;
+/**
+ * Désactive un facteur vérifié. **Le frontend doit d'abord appeler
+ * verifyMfaFactorCode(factorId, code)** pour élever la session en AAL2,
+ * sinon le backend renvoie 403 MFA_REQUIRED.
+ */
+export async function disableMfa(factorId: string): Promise<void> {
+  await apiRequest(
+    `/api/mfa/factors?factorId=${encodeURIComponent(factorId)}`,
+    { method: "DELETE" }
+  );
 }
 
+/**
+ * Vérifie un code TOTP pour un facteur précis et élève la session en
+ * AAL2 (stockage local de la nouvelle session). Utilisé par :
+ *   - MfaSection (désactivation d'un facteur)
+ *   - AccountSection (challenge avant changement de mot de passe)
+ */
 export async function verifyMfaFactorCode(
   factorId: string,
   code: string
 ): Promise<void> {
-  await syncAuthClient();
-  const client = requireAuthClient();
-
-  const { error } = await client.auth.mfa.challengeAndVerify({
-    factorId,
-    code,
-  });
-  if (error) throw error;
-
-  await persistAuthClientSession();
-}
-
-export async function needsMfaChallenge(): Promise<boolean> {
-  await syncAuthClient();
-  const client = requireAuthClient();
-
-  const { data, error } =
-    await client.auth.mfa.getAuthenticatorAssuranceLevel();
-  if (error) throw error;
-
-  return data.nextLevel === "aal2" && data.currentLevel !== "aal2";
-}
-
-export async function verifyMfaLogin(code: string): Promise<void> {
-  await syncAuthClient();
-  const client = requireAuthClient();
-
-  const { data, error } = await client.auth.mfa.listFactors();
-  if (error) throw error;
-
-  const factor = data.totp[0];
-  if (!factor) throw new Error("No authenticator found");
-
-  const { error: verifyError } = await client.auth.mfa.challengeAndVerify({
-    factorId: factor.id,
-    code,
-  });
-  if (verifyError) throw verifyError;
-
-  await persistAuthClientSession();
-}
-
-// ============================================================
-// PASSKEYS
-// ============================================================
-
-export type Passkey = {
-  id: string;
-  friendlyName?: string;
-  createdAt: string;
-};
-
-export function isPasskeySupported(): boolean {
-  return (
-    typeof window !== "undefined" &&
-    typeof window.PublicKeyCredential !== "undefined"
+  const data = await apiRequest<{ success: boolean; session: AuthSession }>(
+    "/api/mfa/verify",
+    {
+      method: "POST",
+      body: JSON.stringify({ factorId, code }),
+    }
   );
+  if (data.session) saveSession(data.session);
 }
 
-export async function listPasskeys(): Promise<Passkey[]> {
-  await syncAuthClient();
-  const client = requireAuthClient();
-
-  const { data, error } = await client.auth.passkey.list();
-  if (error) throw error;
-
-  return (data ?? []).map((p: any) => ({
-    id: p.id,
-    friendlyName: p.friendly_name ?? p.friendlyName ?? undefined,
-    createdAt: p.created_at ?? p.createdAt,
-  }));
+/** Vérifie un code TOTP après le login (facteur = premier vérifié). */
+export async function verifyMfaLogin(
+  code: string,
+  factorId?: string
+): Promise<void> {
+  const data = await apiRequest<{ success: boolean; session: AuthSession }>(
+    "/api/mfa/verify",
+    {
+      method: "POST",
+      body: JSON.stringify({ code, factorId }),
+    }
+  );
+  if (data.session) saveSession(data.session);
 }
 
-export async function registerPasskey(): Promise<void> {
-  await syncAuthClient();
-  const client = requireAuthClient();
-
-  const { error } = await client.auth.registerPasskey();
-  if (error) throw error;
-}
-
-export async function renamePasskey(passkeyId: string, friendlyName: string) {
-  await syncAuthClient();
-  const client = requireAuthClient();
-
-  const { error } = await client.auth.passkey.update({
-    passkeyId,
-    friendlyName,
-  });
-  if (error) throw error;
-}
-
-export async function deletePasskey(passkeyId: string): Promise<void> {
-  await syncAuthClient();
-  const client = requireAuthClient();
-
-  const { error } = await client.auth.passkey.delete({ passkeyId });
-  if (error) throw error;
-}
-
-export async function signInWithPasskey(): Promise<void> {
-  const client = requireAuthClient();
-  const { data, error } = await client.auth.signInWithPasskey();
-  if (error) throw error;
-
-  if (!data?.session) throw new Error("Passkey sign-in failed");
-
-  saveSession({
-    access_token: data.session.access_token,
-    refresh_token: data.session.refresh_token,
-  });
+/**
+ * true si la MFA est activée mais que la session courante est en AAL1.
+ * Lit /api/auth/mfa/status (le backend lit le claim `aal` du JWT).
+ */
+export async function needsMfaChallenge(): Promise<boolean> {
+  const status = await getMfaStatus();
+  return Boolean(status?.requires_challenge);
 }
