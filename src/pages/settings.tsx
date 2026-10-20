@@ -19,7 +19,15 @@ import {
   deleteAvatar,
   resendVerificationEmail,
   updatePassword,
+  // ── MFA ──
+  listMfaFactors,
+  startMfaEnrollment,
+  confirmMfaEnrollment,
+  cancelMfaEnrollment,
+  disableMfa,
+  verifyMfaFactorCode,
   type UserProfile,
+  type MfaFactor,
 } from "../services/supabase";
 
 /* ── Tokens (classes complètes, compatibles Tailwind v3/v4) ── */
@@ -140,6 +148,12 @@ const UserIcon = mkIcon(
 );
 const ShieldIcon = mkIcon(
   <path d="M12 3 4 6v6c0 4.5 3.2 8 8 9 4.8-1 8-4.5 8-9V6l-8-3Z" />
+);
+const LockIcon = mkIcon(
+  <>
+    <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+  </>
 );
 const SunIcon = mkIcon(
   <>
@@ -496,6 +510,7 @@ function SectionCard({
 type SectionKey =
   | "profile"
   | "account"
+  | "mfa"
   | "appearance"
   | "notifications"
   | "billing"
@@ -512,6 +527,7 @@ const SIDEBAR_GROUPS: {
     items: [
       { key: "profile", label: "Profile", icon: <UserIcon /> },
       { key: "account", label: "Security", icon: <ShieldIcon /> },
+      { key: "mfa", label: "Two-factor auth", icon: <LockIcon /> },
       { key: "notifications", label: "Notifications", icon: <BellIcon /> },
     ],
   },
@@ -538,6 +554,7 @@ const SIDEBAR_GROUPS: {
 const SECTION_TITLES: Record<SectionKey, string> = {
   profile: "Profile",
   account: "Security",
+  mfa: "Two-factor authentication",
   appearance: "Appearance",
   notifications: "Notifications",
   billing: "Billing",
@@ -743,6 +760,9 @@ export default function Settings(_props: SettingsProps) {
             )}
             {active === "account" && (
               <AccountSection tokens={tokens} notify={notify} />
+            )}
+            {active === "mfa" && (
+              <MfaSection tokens={tokens} notify={notify} isDark={isDark} />
             )}
             {active === "appearance" && (
               <AppearanceSection
@@ -1449,6 +1469,409 @@ function AccountSection({
   );
 }
 
+/* ── MFA (2FA / TOTP) ── */
+
+function MfaSection({
+  tokens,
+  notify,
+  isDark,
+}: {
+  tokens: Tokens;
+  notify: Notify;
+  isDark: boolean;
+}) {
+  const [factors, setFactors] = useState<MfaFactor[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [starting, setStarting] = useState(false);
+
+  const [enrollment, setEnrollment] = useState<{
+    factorId: string;
+    qrCode: string;
+    secret: string;
+  } | null>(null);
+  const [code, setCode] = useState("");
+  const [confirming, setConfirming] = useState(false);
+
+  const [disableFactor, setDisableFactor] = useState<string | null>(null);
+  const [disableCode, setDisableCode] = useState("");
+  const [disableError, setDisableError] = useState<string | null>(null);
+  const [disabling, setDisabling] = useState(false);
+
+  const loadFactors = useCallback(async () => {
+    const list = await listMfaFactors();
+    setFactors(list);
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const list = await listMfaFactors();
+        if (mounted) setFactors(list);
+      } catch (e) {
+        console.error("Error loading MFA factors:", e);
+        if (mounted) notify("Failed to load security settings", "error");
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [notify]);
+
+  const isEnabled = factors.length > 0;
+
+  const handleStart = async () => {
+    if (starting) return;
+    setStarting(true);
+    try {
+      const data = await startMfaEnrollment();
+      setEnrollment(data);
+      setCode("");
+    } catch (e) {
+      console.error("Error starting MFA enrollment:", e);
+      notify(
+        e instanceof Error ? e.message : "Failed to start setup",
+        "error"
+      );
+    } finally {
+      setStarting(false);
+    }
+  };
+
+  const handleCancel = async () => {
+    if (!enrollment) return;
+    try {
+      await cancelMfaEnrollment(enrollment.factorId);
+    } catch (e) {
+      console.warn("Error cancelling enrollment:", e);
+    }
+    setEnrollment(null);
+    setCode("");
+  };
+
+  const handleConfirm = async () => {
+    if (!enrollment || confirming) return;
+    if (!/^\d{6}$/.test(code)) {
+      notify("Enter the 6-digit code", "error");
+      return;
+    }
+    setConfirming(true);
+    try {
+      await confirmMfaEnrollment(enrollment.factorId, code);
+      await loadFactors();
+      setEnrollment(null);
+      setCode("");
+      notify("Two-factor authentication enabled");
+    } catch (e) {
+      console.error("Error confirming MFA enrollment:", e);
+      notify(e instanceof Error ? e.message : "Invalid code", "error");
+    } finally {
+      setConfirming(false);
+    }
+  };
+
+  const openDisable = (factorId: string) => {
+    setDisableFactor(factorId);
+    setDisableCode("");
+    setDisableError(null);
+  };
+
+  const closeDisable = () => {
+    setDisableFactor(null);
+    setDisableCode("");
+    setDisableError(null);
+  };
+
+  const handleDisable = async () => {
+    if (!disableFactor || disabling) return;
+    if (!/^\d{6}$/.test(disableCode)) {
+      setDisableError("Enter the 6-digit code");
+      return;
+    }
+    setDisabling(true);
+    setDisableError(null);
+    try {
+      // Élève la session à AAL2 sur ce facteur précis.
+      await verifyMfaFactorCode(disableFactor, disableCode);
+      await disableMfa(disableFactor);
+
+      setFactors((prev) => prev.filter((f) => f.id !== disableFactor));
+      closeDisable();
+      notify("Two-factor authentication disabled");
+    } catch (e) {
+      console.error("Error disabling MFA:", e);
+      const msg = e instanceof Error ? e.message : "Failed to disable 2FA";
+      setDisableError(msg);
+    } finally {
+      setDisabling(false);
+    }
+  };
+
+  const formatDate = (iso: string) => {
+    try {
+      return new Date(iso).toLocaleDateString(undefined, {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      });
+    } catch {
+      return iso;
+    }
+  };
+
+  const factorLabel = (f: MfaFactor) => {
+    const n = f.friendlyName;
+    if (!n || /^Authenticator \d+$/.test(n)) return "Authenticator app";
+    return n;
+  };
+
+  const copySecret = async () => {
+    if (!enrollment) return;
+    try {
+      await navigator.clipboard.writeText(enrollment.secret);
+      notify("Secret copied");
+    } catch {
+      notify("Copy failed", "error");
+    }
+  };
+
+  if (loading) {
+    return (
+      <SectionCard
+        title="Two-factor authentication"
+        description="Add an extra layer of security to your account."
+        tokens={tokens}
+      >
+        <div className="animate-pulse space-y-3 py-2" aria-busy="true">
+          <div className={cx("h-11 rounded-[10px]", tokens.track)} />
+        </div>
+      </SectionCard>
+    );
+  }
+
+  if (enrollment) {
+    return (
+      <SectionCard
+        title="Set up authenticator"
+        description="Scan the QR code with your authenticator app, then enter the 6-digit code it shows."
+        tokens={tokens}
+      >
+        <div className="flex flex-col gap-5 py-1">
+          <div className="flex flex-col items-center gap-3">
+            <img
+              src={enrollment.qrCode}
+              alt="QR code for authenticator app"
+              className="h-48 w-48 rounded-lg bg-white p-2"
+            />
+            <p className={cx("text-center text-[12.5px]", tokens.body)}>
+              Can't scan? Enter this key manually:
+            </p>
+            <div className="flex items-center gap-2">
+              <code
+                className={cx(
+                  "rounded-md px-2.5 py-1.5 font-mono text-[12px] tracking-wider break-all",
+                  tokens.muted,
+                  tokens.heading
+                )}
+              >
+                {enrollment.secret}
+              </code>
+              <Button
+                tokens={tokens}
+                variant="secondary"
+                onClick={copySecret}
+                className="!px-2.5 !py-1.5 !text-[12px]"
+              >
+                Copy
+              </Button>
+            </div>
+          </div>
+
+          <Field
+            label="Verification code"
+            type="text"
+            value={code}
+            onChange={(v) => setCode(v.replace(/\D/g, "").slice(0, 6))}
+            placeholder="000000"
+            autoComplete="one-time-code"
+            onEnter={handleConfirm}
+            tokens={tokens}
+            hint="Enter the 6-digit code from your authenticator app."
+          />
+
+          <div className="flex justify-end gap-2">
+            <Button
+              tokens={tokens}
+              variant="secondary"
+              onClick={handleCancel}
+              disabled={confirming}
+            >
+              Cancel
+            </Button>
+            <Button
+              tokens={tokens}
+              onClick={handleConfirm}
+              disabled={confirming || code.length !== 6}
+            >
+              {confirming ? "Verifying..." : "Verify & enable"}
+            </Button>
+          </div>
+        </div>
+      </SectionCard>
+    );
+  }
+
+  return (
+    <>
+      <SectionCard
+        title="Two-factor authentication"
+        description="Add an extra layer of security. You'll need both your password and a code from your authenticator app to sign in."
+        tokens={tokens}
+      >
+        {isEnabled ? (
+          <div className="flex flex-col gap-3 py-1">
+            {factors.map((f) => (
+              <div
+                key={f.id}
+                className={cx(
+                  "flex items-center justify-between gap-3 rounded-[10px] border px-4 py-3",
+                  tokens.cardBorder
+                )}
+              >
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p
+                      className={cx(
+                        "text-[13.5px] font-medium",
+                        tokens.heading
+                      )}
+                    >
+                      {factorLabel(f)}
+                    </p>
+                    <span
+                      className={cx(
+                        "rounded-full px-2 py-0.5 text-[11px] font-medium",
+                        tokens.ok
+                      )}
+                    >
+                      Active
+                    </span>
+                  </div>
+                  <p className={cx("mt-0.5 text-[12px]", tokens.subtle)}>
+                    Added on {formatDate(f.createdAt)}
+                  </p>
+                </div>
+                <Button
+                  tokens={tokens}
+                  variant="secondary"
+                  onClick={() => openDisable(f.id)}
+                  className="!px-3 !py-1.5 !text-[12.5px]"
+                >
+                  Disable
+                </Button>
+              </div>
+            ))}
+
+            <div className="pt-2">
+              <Button
+                tokens={tokens}
+                variant="secondary"
+                onClick={handleStart}
+                disabled={starting}
+                className="!px-3.5 !py-2 !font-medium"
+              >
+                {starting ? "Starting..." : "Add another authenticator"}
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-3 py-1 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-3">
+              <div
+                className={cx(
+                  "flex h-10 w-10 shrink-0 items-center justify-center rounded-full",
+                  tokens.muted
+                )}
+              >
+                <LockIcon className="h-5 w-5" />
+              </div>
+              <div>
+                <p className={cx("text-[13.5px] font-medium", tokens.heading)}>
+                  Authenticator app
+                </p>
+                <p className={cx("mt-0.5 text-[12.5px]", tokens.body)}>
+                  Use Google Authenticator, 1Password, Authy, or similar.
+                </p>
+              </div>
+            </div>
+
+            <Button
+              tokens={tokens}
+              onClick={handleStart}
+              disabled={starting}
+              className="sm:shrink-0"
+            >
+              {starting ? "Starting..." : "Set up 2FA"}
+            </Button>
+          </div>
+        )}
+      </SectionCard>
+
+      <Modal
+        open={!!disableFactor}
+        onClose={closeDisable}
+        title="Disable two-factor authentication"
+        description="Enter a code from your authenticator app to confirm. You won't be asked for a code when you sign in after this."
+        dark={isDark}
+      >
+        <div className="flex flex-col gap-4">
+          <Field
+            label="Verification code"
+            type="text"
+            value={disableCode}
+            onChange={(v) => {
+              setDisableCode(v.replace(/\D/g, "").slice(0, 6));
+              setDisableError(null);
+            }}
+            placeholder="000000"
+            autoComplete="one-time-code"
+            error={disableError ?? undefined}
+            onEnter={handleDisable}
+            autoFocus
+            tokens={tokens}
+          />
+
+          <div
+            className={cx(
+              "flex justify-end gap-2 border-t pt-4",
+              tokens.cardBorder
+            )}
+          >
+            <Button
+              tokens={tokens}
+              variant="secondary"
+              onClick={closeDisable}
+              disabled={disabling}
+            >
+              Cancel
+            </Button>
+            <Button
+              tokens={tokens}
+              variant="danger"
+              onClick={handleDisable}
+              disabled={disabling || disableCode.length !== 6}
+            >
+              {disabling ? "Disabling..." : "Disable 2FA"}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+    </>
+  );
+}
+
 /* ── Appearance ── */
 
 function ThemePreview({ dark }: { dark: boolean }) {
@@ -1952,11 +2375,10 @@ function TagsSection({
           )}
         >
           {filtered.map((tag) => (
-            <div
-              key={tag.id}
-              className="flex items-center gap-3 px-4 py-3.5"
-            >
-              <span className={cx("h-3.5 w-3.5 shrink-0 rounded-full", tag.color)} />
+            <div key={tag.id} className="flex items-center gap-3 px-4 py-3.5">
+              <span
+                className={cx("h-3.5 w-3.5 shrink-0 rounded-full", tag.color)}
+              />
               <span
                 className={cx(
                   "flex-1 truncate text-[14px] font-medium",
@@ -2072,17 +2494,28 @@ function TagsSection({
                       : "opacity-70 hover:opacity-100"
                   )}
                 >
-                  {color === c && <CheckIcon className="h-3.5 w-3.5 text-white" />}
+                  {color === c && (
+                    <CheckIcon className="h-3.5 w-3.5 text-white" />
+                  )}
                 </button>
               ))}
             </div>
           </div>
 
-          <div className={cx("flex justify-end gap-2 border-t pt-4", tokens.cardBorder)}>
+          <div
+            className={cx(
+              "flex justify-end gap-2 border-t pt-4",
+              tokens.cardBorder
+            )}
+          >
             <Button tokens={tokens} variant="secondary" onClick={closeModal}>
               Cancel
             </Button>
-            <Button tokens={tokens} onClick={handleSave} disabled={!draft.trim()}>
+            <Button
+              tokens={tokens}
+              onClick={handleSave}
+              disabled={!draft.trim()}
+            >
               {editing ? "Save changes" : "Create tag"}
             </Button>
           </div>
@@ -2224,12 +2657,7 @@ function SavedRepliesSection({
                 className="flex items-start justify-between gap-3 px-4 py-4"
               >
                 <div className="min-w-0 flex-1">
-                  <p
-                    className={cx(
-                      "text-[14px] font-medium",
-                      tokens.heading
-                    )}
-                  >
+                  <p className={cx("text-[14px] font-medium", tokens.heading)}>
                     {reply.name}
                   </p>
                   <p
@@ -2289,9 +2717,7 @@ function SavedRepliesSection({
           />
 
           <div className="flex flex-col gap-1.5">
-            <span
-              className={cx("text-[13px] font-medium", tokens.label)}
-            >
+            <span className={cx("text-[13px] font-medium", tokens.label)}>
               Content
             </span>
             <textarea
@@ -2310,15 +2736,18 @@ function SavedRepliesSection({
               )}
             />
             <div className="flex justify-end">
-              <span
-                className={cx("text-[12px] tabular-nums", tokens.subtle)}
-              >
+              <span className={cx("text-[12px] tabular-nums", tokens.subtle)}>
                 {content.length}/1000
               </span>
             </div>
           </div>
 
-          <div className={cx("flex justify-end gap-2 border-t pt-4", tokens.cardBorder)}>
+          <div
+            className={cx(
+              "flex justify-end gap-2 border-t pt-4",
+              tokens.cardBorder
+            )}
+          >
             <Button tokens={tokens} variant="secondary" onClick={closeModal}>
               Cancel
             </Button>

@@ -1,5 +1,7 @@
 // src/services/supabase.ts
 
+import { createClient } from "@supabase/supabase-js";
+
 // ============================================================
 // API CONFIGURATION
 // ============================================================
@@ -433,11 +435,7 @@ export function readRecoveryError(): string | null {
 export function clearRecoveryParamsFromUrl(): void {
   if (typeof window === "undefined") return;
 
-  window.history.replaceState(
-    null,
-    "",
-    "/reset-password"
-  );
+  window.history.replaceState(null, "", "/reset-password");
 }
 
 /**
@@ -468,7 +466,9 @@ export async function resetPassword(
 
   clearSession();
 
-  return result?.message || "Password updated successfully. You can now sign in.";
+  return (
+    result?.message || "Password updated successfully. You can now sign in."
+  );
 }
 
 // ============================================================
@@ -761,4 +761,277 @@ export async function checkApiHealth(): Promise<boolean> {
     console.error("API health check failed:", error);
     return false;
   }
+}
+
+// ============================================================
+// SUPABASE AUTH CLIENT (MFA + passkeys uniquement)
+// ============================================================
+//
+// Pourquoi un client supabase-js ici ? Les cérémonies WebAuthn (passkey)
+// et l'enrôlement TOTP doivent parler directement à Supabase Auth depuis le
+// navigateur. Ce client est utilisé UNIQUEMENT pour ça : le reste de l'app
+// continue de passer par ton backend Railway.
+//
+// URL du projet + clé "publishable" (anon) : ces deux valeurs sont
+// publiques par conception (Supabase Dashboard → Settings → API Keys).
+// ⚠️ N'y mets JAMAIS la clé service_role.
+
+const SUPABASE_URL = "https://VOTRE-PROJET.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_xxxxxxxxxxxxxxxx";
+
+// Ce client ne gère PAS la session lui-même (sinon il roterait le refresh
+// token en parallèle de ton apiRequest et l'un des deux se ferait
+// déconnecter) : on lui injecte les jetons juste avant chaque opération
+// (syncAuthClient) et on récupère les nouveaux jetons juste après
+// (persistAuthClientSession).
+const authClient = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+  auth: {
+    persistSession: false,
+    autoRefreshToken: false,
+    detectSessionInUrl: false,
+    experimental: { passkey: true }, // API passkeys en bêta
+  },
+});
+
+/** Injecte la session stockée dans le client (après un refresh si besoin). */
+async function syncAuthClient(): Promise<void> {
+  let access = getAccessToken();
+
+  if (!access || isTokenExpiring(access)) {
+    await refreshAccessToken();
+    access = getAccessToken();
+  }
+
+  const refresh = getRefreshToken();
+
+  if (!access || !refresh) {
+    throw new Error("You are signed out. Sign in again.");
+  }
+
+  const { error } = await authClient.auth.setSession({
+    access_token: access,
+    refresh_token: refresh,
+  });
+
+  if (error) throw error;
+}
+
+/** Récupère les nouveaux jetons du client (ex. session AAL2) et les stocke. */
+async function persistAuthClientSession(): Promise<void> {
+  const { data } = await authClient.auth.getSession();
+
+  if (data.session) {
+    saveSession({
+      access_token: data.session.access_token,
+      refresh_token: data.session.refresh_token,
+    });
+  }
+}
+
+// ============================================================
+// MFA : APPLICATION D'AUTHENTIFICATION (TOTP)
+// ============================================================
+
+export type MfaFactor = {
+  id: string;
+  friendlyName?: string;
+  createdAt: string;
+};
+
+/** Facteurs TOTP vérifiés (liste non vide = MFA active). */
+export async function listMfaFactors(): Promise<MfaFactor[]> {
+  await syncAuthClient();
+
+  const { data, error } = await authClient.auth.mfa.listFactors();
+  if (error) throw error;
+
+  return (data.totp ?? []).map((f) => ({
+    id: f.id,
+    friendlyName: f.friendly_name ?? undefined,
+    createdAt: f.created_at,
+  }));
+}
+
+/** Étape 1 : génère le QR code + la clé secrète. */
+export async function startMfaEnrollment(): Promise<{
+  factorId: string;
+  qrCode: string; // data:image/svg+xml;...
+  secret: string;
+}> {
+  await syncAuthClient();
+
+  // Purge les inscriptions abandonnées (non vérifiées).
+  const { data: list } = await authClient.auth.mfa.listFactors();
+  const stale = (list?.all ?? []).filter(
+    (f) => f.factor_type === "totp" && f.status === "unverified"
+  );
+  for (const f of stale) {
+    await authClient.auth.mfa.unenroll({ factorId: f.id });
+  }
+
+  const { data, error } = await authClient.auth.mfa.enroll({
+    factorType: "totp",
+    friendlyName: `Authenticator ${Date.now()}`,
+  });
+  if (error) throw error;
+
+  return {
+    factorId: data.id,
+    qrCode: data.totp.qr_code,
+    secret: data.totp.secret,
+  };
+}
+
+/** Étape 2 : code à 6 chiffres → le facteur devient actif. */
+export async function confirmMfaEnrollment(factorId: string, code: string) {
+  await syncAuthClient();
+
+  const { error } = await authClient.auth.mfa.challengeAndVerify({
+    factorId,
+    code,
+  });
+  if (error) throw error;
+
+  await persistAuthClientSession(); // la session passe en AAL2
+}
+
+/** Annule une inscription en cours (facteur non vérifié). */
+export async function cancelMfaEnrollment(factorId: string) {
+  await syncAuthClient();
+  await authClient.auth.mfa.unenroll({ factorId });
+}
+
+/** Désactive la MFA (Supabase exige une session déjà en AAL2). */
+export async function disableMfa(factorId: string) {
+  await syncAuthClient();
+
+  const { error } = await authClient.auth.mfa.unenroll({ factorId });
+  if (error) throw error;
+}
+
+/**
+ * Vérifie un code TOTP pour un facteur PRÉCIS.
+ * Utilisé pour élever la session à AAL2 avant de désactiver un facteur
+ * donné (verifyMfaLogin() utilise toujours totp[0], peu fiable s'il y a
+ * plusieurs facteurs).
+ */
+export async function verifyMfaFactorCode(
+  factorId: string,
+  code: string
+): Promise<void> {
+  await syncAuthClient();
+
+  const { error } = await authClient.auth.mfa.challengeAndVerify({
+    factorId,
+    code,
+  });
+  if (error) throw error;
+
+  await persistAuthClientSession();
+}
+
+// ── Connexion (à brancher sur la page Sign in et sur App.tsx pour OAuth) ──
+
+/** true si la MFA est activée mais le code n'a pas encore été saisi. */
+export async function needsMfaChallenge(): Promise<boolean> {
+  await syncAuthClient();
+
+  const { data, error } =
+    await authClient.auth.mfa.getAuthenticatorAssuranceLevel();
+  if (error) throw error;
+
+  return data.nextLevel === "aal2" && data.currentLevel !== "aal2";
+}
+
+/** Vérifie le code à 6 chiffres saisi à la connexion. */
+export async function verifyMfaLogin(code: string): Promise<void> {
+  await syncAuthClient();
+
+  const { data, error } = await authClient.auth.mfa.listFactors();
+  if (error) throw error;
+
+  const factor = data.totp[0];
+  if (!factor) throw new Error("No authenticator found");
+
+  const { error: verifyError } = await authClient.auth.mfa.challengeAndVerify({
+    factorId: factor.id,
+    code,
+  });
+  if (verifyError) throw verifyError;
+
+  await persistAuthClientSession();
+}
+
+// ============================================================
+// PASSKEYS (empreinte, reconnaissance faciale, PIN, clé de sécurité)
+// ============================================================
+
+export type Passkey = {
+  id: string;
+  friendlyName?: string;
+  createdAt: string;
+};
+
+export function isPasskeySupported(): boolean {
+  return (
+    typeof window !== "undefined" &&
+    typeof window.PublicKeyCredential !== "undefined"
+  );
+}
+
+export async function listPasskeys(): Promise<Passkey[]> {
+  await syncAuthClient();
+
+  const { data, error } = await authClient.auth.passkey.list();
+  if (error) throw error;
+
+  return (data ?? []).map((p: any) => ({
+    id: p.id,
+    friendlyName: p.friendly_name ?? p.friendlyName ?? undefined,
+    createdAt: p.created_at ?? p.createdAt,
+  }));
+}
+
+/** Ouvre l'invite de l'appareil (Touch ID, Face ID, Windows Hello…). */
+export async function registerPasskey(): Promise<void> {
+  await syncAuthClient();
+
+  const { error } = await authClient.auth.registerPasskey();
+  if (error) throw error;
+}
+
+export async function renamePasskey(passkeyId: string, friendlyName: string) {
+  await syncAuthClient();
+
+  const { error } = await authClient.auth.passkey.update({
+    passkeyId,
+    friendlyName,
+  });
+  if (error) throw error;
+}
+
+export async function deletePasskey(passkeyId: string): Promise<void> {
+  await syncAuthClient();
+
+  const { error } = await authClient.auth.passkey.delete({ passkeyId });
+  if (error) throw error;
+}
+
+/**
+ * Connexion SANS mot de passe avec une passkey (page Sign in).
+ * Pas besoin d'e-mail : l'appareil retrouve le compte tout seul.
+ * Stocke la session dans le même localStorage que signIn().
+ */
+export async function signInWithPasskey(): Promise<void> {
+  const { data, error } = await authClient.auth.signInWithPasskey();
+  if (error) throw error;
+
+  if (!data?.session) {
+    throw new Error("Passkey sign-in failed");
+  }
+
+  saveSession({
+    access_token: data.session.access_token,
+    refresh_token: data.session.refresh_token,
+  });
 }
