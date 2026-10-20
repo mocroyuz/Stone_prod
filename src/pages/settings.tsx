@@ -1769,26 +1769,27 @@ function BillingSection({
 /* ── Utils · Tags ── */
 
 const TAG_COLORS = [
-  // Row 1 (Light)
-  "#8b5cf6", // violet
-  "#ec4899", // pink
-  "#ef4444", // red
-  "#f97316", // orange
-  "#fbbf24", // amber
-  "#a3e635", // lime
-  "#14b8a6", // teal
-  "#60a5fa", // blue
-  "#6b7280", // gray
-  // Row 2 (Dark)
-  "#4c1d95", // violet dark
-  "#831843", // pink dark
-  "#7f1d1d", // red dark
-  "#78350f", // orange dark
-  "#713f12", // amber dark
-  "#14532d", // lime dark
-  "#134e4a", // teal dark
-  "#1e3a8a", // blue dark
-  "#111827", // gray dark
+  // Rangée du haut (vibrante)
+  "bg-[#6366f1]", // Violet / Indigo
+  "bg-[#ec4899]", // Rose / Fuchsia
+  "bg-[#ef4444]", // Rouge corail
+  "bg-[#f97316]", // Orange
+  "bg-[#eab308]", // Jaune
+  "bg-[#84cc16]", // Vert clair / Lime
+  "bg-[#14b8a6]", // Turquoise / Teal
+  "bg-[#0ea5e9]", // Bleu clair / Sky
+  "bg-[#6b7280]", // Gris
+
+  // Rangée du bas (sombre / pastel)
+  "bg-[#4c1d95]", // Violet sombre
+  "bg-[#701a75]", // Magenta sombre
+  "bg-[#7f1d1d]", // Rouge sombre
+  "bg-[#7c2d12]", // Orange sombre
+  "bg-[#713f12]", // Jaune / Olive sombre
+  "bg-[#14532d]", // Vert sombre
+  "bg-[#134e4a]", // Turquoise sombre
+  "bg-[#1e3a8a]", // Bleu sombre
+  "bg-[#171717]", // Gris très sombre / Noir
 ];
 
 type Tag = { id: string; label: string; color: string };
@@ -1797,7 +1798,7 @@ const INITIAL_TAGS: Tag[] = [
   { id: "vip", label: "VIP", color: TAG_COLORS[0] },
   { id: "urgent", label: "Urgent", color: TAG_COLORS[1] },
   { id: "bug", label: "Bug", color: TAG_COLORS[2] },
-  { id: "feature", label: "Feature", color: TAG_COLORS[5] },
+  { id: "feature", label: "Feature", color: TAG_COLORS[3] },
 ];
 
 function TagsSection({
@@ -1955,10 +1956,7 @@ function TagsSection({
               key={tag.id}
               className="flex items-center gap-3 px-4 py-3.5"
             >
-              <span
-                className="h-3.5 w-3.5 shrink-0 rounded-full"
-                style={{ backgroundColor: tag.color }}
-              />
+              <span className={cx("h-3.5 w-3.5 shrink-0 rounded-full", tag.color)} />
               <span
                 className={cx(
                   "flex-1 truncate text-[14px] font-medium",
@@ -2036,68 +2034,57 @@ function TagsSection({
         open={modalOpen}
         onClose={closeModal}
         title={editing ? "Edit Tag" : "New Tag"}
+        description={
+          editing
+            ? "Update this tag's name or color."
+            : "Create a tag to organize and filter your items."
+        }
         dark={isDark}
       >
-        <div className="flex flex-col gap-6">
-          {/* Input Name */}
-          <div className="flex flex-col gap-2">
-            <label className="text-[13px] font-medium text-white">
-              Name
-            </label>
-            <input
-              type="text"
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") handleSave();
-              }}
-              autoFocus
-              className="w-full rounded-md border border-white/10 bg-[#1a1a1a] px-3 py-2.5 text-[14px] text-white outline-none transition focus:border-[#84cc16] focus:ring-1 focus:ring-[#84cc16]"
-            />
-          </div>
+        <div className="flex flex-col gap-4">
+          <Field
+            label="Tag name"
+            value={draft}
+            onChange={setDraft}
+            placeholder="e.g. Design"
+            onEnter={handleSave}
+            autoFocus
+            tokens={tokens}
+          />
 
-          {/* Color Grid */}
-          <div className="flex flex-col gap-3">
-            <label className="text-[13px] font-medium text-white">
+          <div>
+            <p className={cx("mb-2 text-[13px] font-medium", tokens.label)}>
               Color
-            </label>
-            <div className="grid grid-cols-9 gap-2.5">
+            </p>
+            <div className="flex flex-wrap gap-2">
               {TAG_COLORS.map((c) => (
                 <button
                   key={c}
                   type="button"
+                  aria-label={`Use color ${c}`}
+                  aria-pressed={color === c}
                   onClick={() => setColor(c)}
                   className={cx(
-                    "flex h-[34px] w-[34px] items-center justify-center rounded-full transition hover:scale-110",
+                    "flex h-8 w-8 items-center justify-center rounded-full transition",
+                    c,
                     color === c
-                      ? "ring-2 ring-white/30 ring-offset-2 ring-offset-[#1e1e1e]"
-                      : ""
+                      ? "scale-110 ring-2 ring-white/70 ring-offset-2 ring-offset-transparent"
+                      : "opacity-70 hover:opacity-100"
                   )}
-                  style={{ backgroundColor: c }}
                 >
-                  {color === c && <CheckIcon className="h-4 w-4 text-white" />}
+                  {color === c && <CheckIcon className="h-3.5 w-3.5 text-white" />}
                 </button>
               ))}
             </div>
           </div>
 
-          {/* Footer Buttons */}
-          <div className="mt-2 flex items-center justify-end gap-4">
-            <button
-              type="button"
-              onClick={closeModal}
-              className="text-[14px] font-medium text-white transition hover:text-neutral-300"
-            >
+          <div className={cx("flex justify-end gap-2 border-t pt-4", tokens.cardBorder)}>
+            <Button tokens={tokens} variant="secondary" onClick={closeModal}>
               Cancel
-            </button>
-            <button
-              type="button"
-              onClick={handleSave}
-              disabled={!draft.trim()}
-              className="rounded-md bg-[#bef264] px-4 py-2 text-[14px] font-semibold text-black transition hover:bg-[#a3e635] disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Save Tag
-            </button>
+            </Button>
+            <Button tokens={tokens} onClick={handleSave} disabled={!draft.trim()}>
+              {editing ? "Save changes" : "Create tag"}
+            </Button>
           </div>
         </div>
       </Modal>
