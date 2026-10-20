@@ -10,6 +10,7 @@
 
 import { navigate } from "../hooks/useHashRoute";
 import { useTheme, type Theme } from "../hooks/useTheme";
+import Modal from "../components/Modal";
 
 import {
   getCurrentUser,
@@ -204,10 +205,40 @@ const ClipboardIcon = mkIcon(
     <path d="M8 16h.01" />
   </>
 );
+const SearchIcon = mkIcon(
+  <>
+    <circle cx="11" cy="11" r="7" />
+    <path d="m20 20-3.5-3.5" />
+  </>,
+  "h-4 w-4"
+);
+const PencilIcon = mkIcon(
+  <>
+    <path d="M12 20h9" />
+    <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" />
+  </>,
+  "h-4 w-4"
+);
+const TrashIcon = mkIcon(
+  <>
+    <path d="M3 6h18" />
+    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+    <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+    <path d="M10 11v6" />
+    <path d="M14 11v6" />
+  </>,
+  "h-4 w-4"
+);
+const MoreIcon = mkIcon(
+  <>
+    <circle cx="5" cy="12" r="1.5" fill="currentColor" stroke="none" />
+    <circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none" />
+    <circle cx="19" cy="12" r="1.5" fill="currentColor" stroke="none" />
+  </>
+);
 
 /* ── Hooks ── */
 
-/** Préférence booléenne persistée + exposée via <html data-*>. */
 function usePref(key: string, initial: boolean) {
   const [value, setValue] = useState<boolean>(() => {
     try {
@@ -244,6 +275,7 @@ function Field({
   hint,
   readOnly,
   onEnter,
+  autoFocus,
   tokens,
 }: {
   label: string;
@@ -257,6 +289,7 @@ function Field({
   hint?: string;
   readOnly?: boolean;
   onEnter?: () => void;
+  autoFocus?: boolean;
   tokens: Tokens;
 }) {
   return (
@@ -274,6 +307,7 @@ function Field({
           placeholder={placeholder}
           autoComplete={autoComplete}
           readOnly={readOnly}
+          autoFocus={autoFocus}
           aria-invalid={error ? true : undefined}
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={(e) => {
@@ -508,7 +542,7 @@ const SECTION_TITLES: Record<SectionKey, string> = {
   notifications: "Notifications",
   billing: "Billing",
   tags: "Tags",
-  savedReplies: "Saved replies",
+  savedReplies: "Saved Replies",
   danger: "Danger zone",
 };
 
@@ -637,7 +671,6 @@ export default function Settings(_props: SettingsProps) {
   const toastTimer = useRef<number | null>(null);
   const titleRef = useRef<HTMLHeadingElement | null>(null);
 
-  /* Identité stable : utilisée en dépendance des useEffect de chargement. */
   const notify = useCallback<Notify>((message, kind) => {
     const resolved =
       kind ??
@@ -725,10 +758,14 @@ export default function Settings(_props: SettingsProps) {
               <BillingSection tokens={tokens} notify={notify} />
             )}
             {active === "tags" && (
-              <TagsSection tokens={tokens} notify={notify} />
+              <TagsSection tokens={tokens} notify={notify} isDark={isDark} />
             )}
             {active === "savedReplies" && (
-              <SavedRepliesSection tokens={tokens} notify={notify} />
+              <SavedRepliesSection
+                tokens={tokens}
+                notify={notify}
+                isDark={isDark}
+              />
             )}
             {active === "danger" && (
               <DangerSection tokens={tokens} notify={notify} />
@@ -737,7 +774,6 @@ export default function Settings(_props: SettingsProps) {
         </div>
       </div>
 
-      {/* Zone live toujours montée pour que les lecteurs d'écran annoncent le toast. */}
       <div
         aria-live="polite"
         className="pointer-events-none fixed bottom-6 left-1/2 z-30 -translate-x-1/2 px-4"
@@ -818,7 +854,6 @@ function ProfileSection({
     (first.trim() !== (user.first_name || "") ||
       last.trim() !== (user.last_name || ""));
 
-  /* Avertit avant de quitter la page avec des modifications non sauvegardées. */
   useEffect(() => {
     if (!dirty) return;
     const warn = (e: BeforeUnloadEvent) => e.preventDefault();
@@ -1756,110 +1791,256 @@ const INITIAL_TAGS: Tag[] = [
 function TagsSection({
   tokens,
   notify,
+  isDark,
 }: {
   tokens: Tokens;
   notify: Notify;
+  isDark: boolean;
 }) {
   const [tags, setTags] = useState<Tag[]>(INITIAL_TAGS);
-  const saved = useRef<Tag[]>(tags);
+  const [search, setSearch] = useState("");
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editing, setEditing] = useState<Tag | null>(null);
   const [draft, setDraft] = useState("");
   const [color, setColor] = useState(TAG_COLORS[0]);
+  const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
 
-  const dirty = JSON.stringify(tags) !== JSON.stringify(saved.current);
+  const filtered = tags.filter((t) =>
+    t.label.toLowerCase().includes(search.trim().toLowerCase())
+  );
 
-  const addTag = () => {
+  const openCreate = () => {
+    setEditing(null);
+    setDraft("");
+    setColor(TAG_COLORS[0]);
+    setModalOpen(true);
+  };
+
+  const openEdit = (tag: Tag) => {
+    setEditing(tag);
+    setDraft(tag.label);
+    setColor(tag.color);
+    setModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setModalOpen(false);
+    setEditing(null);
+  };
+
+  const handleSave = () => {
     const label = draft.trim();
     if (!label) return notify("Enter a tag name", "error");
-    if (tags.some((t) => t.label.toLowerCase() === label.toLowerCase()))
-      return notify("Tag already exists", "error");
 
-    setTags((prev) => [...prev, { id: uid(), label, color }]);
-    setDraft("");
+    const duplicate = tags.some(
+      (t) => t.label.toLowerCase() === label.toLowerCase() && t.id !== editing?.id
+    );
+    if (duplicate) return notify("Tag already exists", "error");
+
+    if (editing) {
+      setTags((prev) =>
+        prev.map((t) => (t.id === editing.id ? { ...t, label, color } : t))
+      );
+      notify("Tag updated");
+    } else {
+      setTags((prev) => [...prev, { id: uid(), label, color }]);
+      notify("Tag created");
+    }
+    closeModal();
   };
 
-  const removeTag = (id: string) =>
+  const handleDelete = (id: string) => {
     setTags((prev) => prev.filter((t) => t.id !== id));
-
-  const save = () => {
-    saved.current = tags;
-    setTags((prev) => [...prev]);
-    notify("Tags saved");
+    setMenuOpenId(null);
+    notify("Tag deleted");
   };
+
+  const duplicateTag = (tag: Tag) => {
+    setTags((prev) => [
+      ...prev,
+      { id: uid(), label: `${tag.label} copy`, color: tag.color },
+    ]);
+    setMenuOpenId(null);
+    notify("Tag duplicated");
+  };
+
+  const iconBtn = cx(
+    "flex h-8 w-8 items-center justify-center rounded-md transition",
+    tokens.subtle,
+    tokens.ghostHover,
+    tokens.ring
+  );
 
   return (
-    <SectionCard
-      title="Tags"
-      description="Labels to organize and filter your items."
-      tokens={tokens}
-      footer={
-        <>
-          {dirty && (
-            <span className={cx("text-[12.5px]", tokens.subtle)}>
-              Unsaved changes
-            </span>
-          )}
-          <Button tokens={tokens} onClick={save} disabled={!dirty}>
-            Save tags
-          </Button>
-        </>
-      }
-    >
-      <div className="pb-5">
-        <p className={cx("mb-2.5 text-[13px] font-medium", tokens.label)}>
-          Your tags
+    <>
+      {/* Header : description + bouton New Tag */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <p className={cx("text-[13.5px] leading-relaxed", tokens.body)}>
+          Tags are visible to everyone in your organization.{" "}
+          <a
+            href="#"
+            onClick={(e) => e.preventDefault()}
+            className={cx(
+              "font-medium underline underline-offset-2 transition-opacity hover:opacity-80",
+              tokens.link
+            )}
+          >
+            Learn more ↗
+          </a>
         </p>
 
-        {tags.length === 0 ? (
-          <p className={cx("py-2 text-[13px]", tokens.body)}>No tags yet.</p>
-        ) : (
-          <div className="flex flex-wrap gap-2">
-            {tags.map((tag) => (
+        <div className="sm:shrink-0">
+          <Button tokens={tokens} onClick={openCreate}>
+            + New Tag
+          </Button>
+        </div>
+      </div>
+
+      {/* Barre de recherche */}
+      <div className="relative">
+        <span className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-neutral-500">
+          <SearchIcon className="h-4 w-4" />
+        </span>
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search tags..."
+          className={cx(
+            "w-full rounded-[10px] border py-3 pr-3.5 pl-10 text-[14px] outline-none transition",
+            tokens.inputBg,
+            tokens.inputText,
+            tokens.placeholder,
+            tokens.inputBorder,
+            tokens.inputFocus
+          )}
+        />
+      </div>
+
+      {/* Liste des tags */}
+      {filtered.length === 0 ? (
+        <div
+          className={cx(
+            "rounded-2xl border py-8 text-center text-[13px]",
+            tokens.card,
+            tokens.cardBorder,
+            tokens.body
+          )}
+        >
+          {tags.length === 0 ? "No tags yet." : "No tags found."}
+        </div>
+      ) : (
+        <div
+          className={cx(
+            "rounded-2xl border divide-y",
+            tokens.card,
+            tokens.cardBorder,
+            tokens.divide
+          )}
+        >
+          {filtered.map((tag) => (
+            <div
+              key={tag.id}
+              className="flex items-center gap-3 px-4 py-3.5"
+            >
+              <span className={cx("h-3.5 w-3.5 shrink-0 rounded-full", tag.color)} />
               <span
-                key={tag.id}
                 className={cx(
-                  "inline-flex items-center gap-2 rounded-full border py-1 pr-1 pl-2.5 text-[12.5px] font-medium",
-                  tokens.cardBorder,
+                  "flex-1 truncate text-[14px] font-medium",
                   tokens.heading
                 )}
               >
-                <span className={cx("h-2 w-2 rounded-full", tag.color)} />
                 {tag.label}
+              </span>
+
+              <button
+                type="button"
+                onClick={() => openEdit(tag)}
+                className={iconBtn}
+                aria-label={`Edit ${tag.label}`}
+              >
+                <PencilIcon />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleDelete(tag.id)}
+                className={cx(iconBtn, "hover:!text-red-400")}
+                aria-label={`Delete ${tag.label}`}
+              >
+                <TrashIcon />
+              </button>
+
+              <div className="relative">
                 <button
                   type="button"
-                  onClick={() => removeTag(tag.id)}
-                  aria-label={`Remove ${tag.label}`}
-                  className={cx(
-                    "flex h-5 w-5 items-center justify-center rounded-full text-[14px] leading-none transition",
-                    tokens.subtle,
-                    tokens.ghostHover,
-                    tokens.ring
-                  )}
+                  onClick={() =>
+                    setMenuOpenId(menuOpenId === tag.id ? null : tag.id)
+                  }
+                  className={iconBtn}
+                  aria-label={`More options for ${tag.label}`}
                 >
-                  ×
+                  <MoreIcon />
                 </button>
-              </span>
-            ))}
-          </div>
-        )}
-      </div>
 
-      <div className="pt-5">
-        <p className={cx("mb-2 text-[13px] font-medium", tokens.label)}>
-          Create a tag
-        </p>
+                {menuOpenId === tag.id && (
+                  <>
+                    <div
+                      className="fixed inset-0 z-10"
+                      onClick={() => setMenuOpenId(null)}
+                    />
+                    <div
+                      className={cx(
+                        "absolute top-full right-0 z-20 mt-1 min-w-[140px] overflow-hidden rounded-lg border py-1 shadow-lg",
+                        tokens.card,
+                        tokens.cardBorder
+                      )}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => duplicateTag(tag)}
+                        className={cx(
+                          "block w-full px-3 py-2 text-left text-[13px]",
+                          tokens.heading,
+                          tokens.ghostHover
+                        )}
+                      >
+                        Duplicate
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
-        <div className="flex flex-col gap-3">
+      {/* Modal de création / édition */}
+      <Modal
+        open={modalOpen}
+        onClose={closeModal}
+        title={editing ? "Edit Tag" : "New Tag"}
+        description={
+          editing
+            ? "Update this tag's name or color."
+            : "Create a tag to organize and filter your items."
+        }
+        dark={isDark}
+      >
+        <div className="flex flex-col gap-4">
           <Field
             label="Tag name"
             value={draft}
             onChange={setDraft}
             placeholder="e.g. Design"
-            onEnter={addTag}
+            onEnter={handleSave}
+            autoFocus
             tokens={tokens}
           />
 
           <div>
-            <p className={cx("mb-1.5 text-[13px] font-medium", tokens.label)}>
+            <p className={cx("mb-2 text-[13px] font-medium", tokens.label)}>
               Color
             </p>
             <div className="flex flex-wrap gap-2">
@@ -1871,27 +2052,30 @@ function TagsSection({
                   aria-pressed={color === c}
                   onClick={() => setColor(c)}
                   className={cx(
-                    "flex h-7 w-7 items-center justify-center rounded-full transition",
+                    "flex h-8 w-8 items-center justify-center rounded-full transition",
                     c,
                     color === c
                       ? "scale-110 ring-2 ring-white/70 ring-offset-2 ring-offset-transparent"
                       : "opacity-70 hover:opacity-100"
                   )}
                 >
-                  {color === c && <CheckIcon className="h-3 w-3 text-white" />}
+                  {color === c && <CheckIcon className="h-3.5 w-3.5 text-white" />}
                 </button>
               ))}
             </div>
           </div>
 
-          <div className="flex justify-end">
-            <Button tokens={tokens} onClick={addTag}>
-              Add tag
+          <div className={cx("flex justify-end gap-2 border-t pt-4", tokens.cardBorder)}>
+            <Button tokens={tokens} variant="secondary" onClick={closeModal}>
+              Cancel
+            </Button>
+            <Button tokens={tokens} onClick={handleSave} disabled={!draft.trim()}>
+              {editing ? "Save changes" : "Create tag"}
             </Button>
           </div>
         </div>
-      </div>
-    </SectionCard>
+      </Modal>
+    </>
   );
 }
 
@@ -1906,29 +2090,57 @@ type SavedReply = {
 function SavedRepliesSection({
   tokens,
   notify,
+  isDark,
 }: {
   tokens: Tokens;
   notify: Notify;
+  isDark: boolean;
 }) {
   const [replies, setReplies] = useState<SavedReply[]>([]);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editing, setEditing] = useState<SavedReply | null>(null);
   const [name, setName] = useState("");
   const [content, setContent] = useState("");
 
-  const handleCancel = () => {
+  const openCreate = () => {
+    setEditing(null);
     setName("");
     setContent("");
+    setModalOpen(true);
+  };
+
+  const openEdit = (reply: SavedReply) => {
+    setEditing(reply);
+    setName(reply.name);
+    setContent(reply.content);
+    setModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setModalOpen(false);
+    setEditing(null);
   };
 
   const handleSave = () => {
     if (!name.trim() || !content.trim()) return;
-    
-    setReplies((prev) => [
-      ...prev,
-      { id: uid(), name: name.trim(), content: content.trim() },
-    ]);
-    
-    notify("Saved reply created");
-    handleCancel();
+
+    if (editing) {
+      setReplies((prev) =>
+        prev.map((r) =>
+          r.id === editing.id
+            ? { ...r, name: name.trim(), content: content.trim() }
+            : r
+        )
+      );
+      notify("Saved reply updated");
+    } else {
+      setReplies((prev) => [
+        ...prev,
+        { id: uid(), name: name.trim(), content: content.trim() },
+      ]);
+      notify("Saved reply created");
+    }
+    closeModal();
   };
 
   const handleDelete = (id: string) => {
@@ -1936,29 +2148,75 @@ function SavedRepliesSection({
     notify("Saved reply deleted");
   };
 
+  const iconBtn = cx(
+    "flex h-8 w-8 items-center justify-center rounded-md transition",
+    tokens.subtle,
+    tokens.ghostHover,
+    tokens.ring
+  );
+
+  const emptyCircle = isDark ? "bg-white/[0.05]" : "bg-neutral-100";
+
   return (
-    <SectionCard
-      title="Saved replies"
-      description="Create a quick reply to use in your messages."
-      tokens={tokens}
-    >
-      {/* Liste des réponses enregistrées */}
-      {replies.length > 0 && (
-        <div className="pb-5">
-          <p className={cx("mb-3 text-[13px] font-medium", tokens.label)}>
-            Your saved replies
+    <>
+      <p className={cx("text-[13.5px] leading-relaxed", tokens.body)}>
+        Saved Replies are visible to everyone in your organization.
+      </p>
+
+      {replies.length === 0 ? (
+        /* État vide */
+        <div className="flex flex-col items-center gap-5 py-16 text-center">
+          <div
+            className={cx(
+              "flex h-24 w-24 items-center justify-center rounded-full",
+              emptyCircle
+            )}
+          >
+            <ClipboardIcon className="h-10 w-10 text-neutral-500" />
+          </div>
+
+          <p
+            className={cx(
+              "max-w-md text-[15px] leading-relaxed",
+              tokens.heading
+            )}
+          >
+            Save information you share often to quickly insert it to your
+            replies.
           </p>
-          <div className="flex flex-col gap-3">
+
+          <Button tokens={tokens} onClick={openCreate}>
+            + New Saved Reply
+          </Button>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-4">
+          <div className="flex justify-end">
+            <Button tokens={tokens} onClick={openCreate}>
+              + New Saved Reply
+            </Button>
+          </div>
+
+          <div
+            className={cx(
+              "rounded-2xl border divide-y",
+              tokens.card,
+              tokens.cardBorder,
+              tokens.divide
+            )}
+          >
             {replies.map((reply) => (
               <div
                 key={reply.id}
-                className={cx(
-                  "flex items-start justify-between gap-4 rounded-xl border p-3.5",
-                  tokens.cardBorder
-                )}
+                className="flex items-start justify-between gap-3 px-4 py-4"
               >
-                <div className="min-w-0">
-                  <p className={cx("text-[13.5px] font-medium", tokens.heading)}>
+                <div className="min-w-0 flex-1">
+                  <p
+                    className={cx(
+                      "text-[14px] font-medium",
+                      tokens.heading
+                    )}
+                  >
                     {reply.name}
                   </p>
                   <p
@@ -1970,85 +2228,98 @@ function SavedRepliesSection({
                     {reply.content}
                   </p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => handleDelete(reply.id)}
-                  aria-label={`Delete ${reply.name}`}
-                  className={cx(
-                    "flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[16px] leading-none transition",
-                    tokens.subtle,
-                    tokens.ghostHover,
-                    tokens.ring
-                  )}
-                >
-                  ×
-                </button>
+
+                <div className="flex shrink-0 gap-1">
+                  <button
+                    type="button"
+                    onClick={() => openEdit(reply)}
+                    className={iconBtn}
+                    aria-label={`Edit ${reply.name}`}
+                  >
+                    <PencilIcon />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(reply.id)}
+                    className={cx(iconBtn, "hover:!text-red-400")}
+                    aria-label={`Delete ${reply.name}`}
+                  >
+                    <TrashIcon />
+                  </button>
+                </div>
               </div>
             ))}
           </div>
         </div>
       )}
 
-      {/* Formulaire de création */}
-      <div className="flex flex-col gap-4 py-4">
-        <input
-          type="text"
-          placeholder="Name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          className={cx(
-            "w-full rounded-[8px] border px-3 py-3 text-[14px] outline-none transition",
-            tokens.inputBg,
-            tokens.inputText,
-            tokens.placeholder,
-            tokens.inputBorder,
-            "focus:border-neutral-500 focus:ring-1 focus:ring-neutral-500"
-          )}
-        />
-
-        <div className="flex flex-col gap-1.5">
-          <textarea
-            placeholder="Write your saved reply"
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            rows={4}
-            maxLength={1000}
-            className={cx(
-              "w-full resize-y rounded-[8px] border px-3 py-3 text-[14px] outline-none transition",
-              tokens.inputBg,
-              tokens.inputText,
-              tokens.placeholder,
-              tokens.inputBorder,
-              "focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50"
-            )}
+      {/* Modal de création / édition */}
+      <Modal
+        open={modalOpen}
+        onClose={closeModal}
+        title={editing ? "Edit Saved Reply" : "New Saved Reply"}
+        description={
+          editing
+            ? "Update this saved reply."
+            : "Create a quick reply to use in your messages."
+        }
+        dark={isDark}
+      >
+        <div className="flex flex-col gap-4">
+          <Field
+            label="Name"
+            value={name}
+            onChange={setName}
+            placeholder="e.g. Welcome message"
+            autoFocus
+            tokens={tokens}
           />
-          <div className="flex justify-end">
-            <span className={cx("text-[12px] tabular-nums", tokens.subtle)}>
-              {content.length}/1000
+
+          <div className="flex flex-col gap-1.5">
+            <span
+              className={cx("text-[13px] font-medium", tokens.label)}
+            >
+              Content
             </span>
+            <textarea
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+              placeholder="Write your saved reply"
+              rows={4}
+              maxLength={1000}
+              className={cx(
+                "w-full resize-y rounded-[10px] border px-3.5 py-2.5 text-[14px] outline-none transition",
+                tokens.inputBg,
+                tokens.inputText,
+                tokens.placeholder,
+                tokens.inputBorder,
+                tokens.inputFocus
+              )}
+            />
+            <div className="flex justify-end">
+              <span
+                className={cx("text-[12px] tabular-nums", tokens.subtle)}
+              >
+                {content.length}/1000
+              </span>
+            </div>
+          </div>
+
+          <div className={cx("flex justify-end gap-2 border-t pt-4", tokens.cardBorder)}>
+            <Button tokens={tokens} variant="secondary" onClick={closeModal}>
+              Cancel
+            </Button>
+            <Button
+              tokens={tokens}
+              onClick={handleSave}
+              disabled={!name.trim() || !content.trim()}
+            >
+              {editing ? "Save changes" : "Save reply"}
+            </Button>
           </div>
         </div>
-
-        <div className="mt-1 flex justify-end gap-2">
-          <Button
-            tokens={tokens}
-            variant="secondary"
-            onClick={handleCancel}
-            className="!px-5 !py-2"
-          >
-            Cancel
-          </Button>
-          <Button
-            tokens={tokens}
-            onClick={handleSave}
-            disabled={!name.trim() || !content.trim()}
-            className="!px-5 !py-2"
-          >
-            Save
-          </Button>
-        </div>
-      </div>
-    </SectionCard>
+      </Modal>
+    </>
   );
 }
 
