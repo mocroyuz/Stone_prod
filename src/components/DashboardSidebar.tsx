@@ -711,11 +711,7 @@ function getNetworkId(channel: ConnectedChannel): NetworkKey | null {
 function getHashChannel(): string | null {
   if (typeof window === "undefined") return null;
 
-  const hash = window.location.hash;
-  const queryIndex = hash.indexOf("?");
-  if (queryIndex === -1) return null;
-
-  return new URLSearchParams(hash.slice(queryIndex + 1)).get("channel");
+  return new URLSearchParams(window.location.search).get("channel");
 }
 
 const CHANNEL_LINKS: {
@@ -2029,12 +2025,8 @@ export default function DashboardSidebar({
   useEffect(() => {
     if (!userId) return;
 
-    const hash = window.location.hash;
-    const queryIndex = hash.indexOf("?");
-    const basePath = queryIndex === -1 ? hash : hash.slice(0, queryIndex);
-    const params = new URLSearchParams(
-      queryIndex === -1 ? "" : hash.slice(queryIndex + 1)
-    );
+    const basePath = window.location.pathname;
+    const params = new URLSearchParams(window.location.search);
 
     const errors: Record<CacheProvider, string | null> = {
       tiktok: params.get("tiktok_error"),
@@ -2077,9 +2069,7 @@ export default function DashboardSidebar({
       window.history.replaceState(
         null,
         "",
-        `${window.location.pathname}${window.location.search}${basePath}${
-          query ? `?${query}` : ""
-        }`
+        `${basePath}${query ? `?${query}` : ""}`
       );
     }
 

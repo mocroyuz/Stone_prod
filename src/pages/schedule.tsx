@@ -45,9 +45,7 @@ const focusRingClass = (isDark: boolean) =>
 
 function useHashChannel(): string | null {
   useHashRoute();
-  const hash = window.location.hash;
-  const i = hash.indexOf("?");
-  return i === -1 ? null : new URLSearchParams(hash.slice(i + 1)).get("channel");
+  return new URLSearchParams(window.location.search).get("channel");
 }
 
 /* ------------------------------------------------------------------ */
@@ -942,8 +940,11 @@ export default function Schedule() {
 
   const goChannel = (key: string) => {
     setSelectedKey(key);
-    const base = window.location.hash.split("?")[0] || "#/schedule";
-    window.history.replaceState(null, "", `${base}?channel=${encodeURIComponent(key)}`);
+    window.history.replaceState(
+      null,
+      "",
+      `/schedule?channel=${encodeURIComponent(key)}`
+    );
   };
 
   const [categories, setCategories] = useState<Category[]>([]);

@@ -345,7 +345,7 @@ export async function requestPasswordReset(email: string): Promise<string> {
 // RESET PASSWORD (étape 2 : nouveau mot de passe)
 // ============================================================
 //
-// Le lien de l'email renvoie vers  <APP_URL>/#/reset-password  et Supabase
+// Le lien de l'email renvoie vers  <APP_URL>/reset-password  et Supabase
 // ajoute les jetons de récupération à l'URL (dans le hash).
 //
 //   readRecoveryParams()            → lit les jetons dans l'URL
@@ -361,8 +361,8 @@ export async function requestPasswordReset(email: string): Promise<string> {
 function readUrlParam(key: string): string | null {
   if (typeof window === "undefined") return null;
 
-  // Hash ET query : selon la config Supabase / le routeur, les paramètres
-  // arrivent après « #/reset-password# », « #/reset-password? » ou « ? ».
+  // Hash ET query : les paramètres peuvent arriver dans le fragment OAuth
+  // ou directement dans la query string.
   const raw = `${window.location.hash}&${window.location.search}`;
   const match = new RegExp(`[#?&]${key}=([^&#]*)`).exec(raw);
 
@@ -382,6 +382,9 @@ function readUrlParam(key: string): string | null {
 export function isRecoveryUrl(): boolean {
   if (typeof window === "undefined") return false;
 
+  if (window.location.pathname.replace(/\/+$/, "") === "/reset-password") {
+    return true;
+  }
   if (window.location.hash.includes("reset-password")) return true;
 
   return (
@@ -433,7 +436,7 @@ export function clearRecoveryParamsFromUrl(): void {
   window.history.replaceState(
     null,
     "",
-    `${window.location.pathname}#/reset-password`
+    "/reset-password"
   );
 }
 

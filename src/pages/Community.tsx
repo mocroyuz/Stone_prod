@@ -70,9 +70,7 @@ function useCommunity(_channelKey: string | undefined, _tab: Tab, _filter: Filte
 
 function useHashChannel(): string | null {
   useHashRoute();
-  const hash = window.location.hash;
-  const i = hash.indexOf("?");
-  return i === -1 ? null : new URLSearchParams(hash.slice(i + 1)).get("channel");
+  return new URLSearchParams(window.location.search).get("channel");
 }
 
 /* ───────── Icônes ───────── */
@@ -358,7 +356,7 @@ export default function Community() {
     window.history.replaceState(
       null,
       "",
-      `#/community?channel=${encodeURIComponent(key)}`
+      `/community?channel=${encodeURIComponent(key)}`
     );
   };
 

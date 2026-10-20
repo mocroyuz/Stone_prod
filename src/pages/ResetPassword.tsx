@@ -14,7 +14,7 @@ import {
    JETONS DE RÉCUPÉRATION
    ============================================================
 
-   Le lien de l'email arrive sur  #/reset-password#access_token=...
+   Le lien de l'email arrive sur  /reset-password#access_token=...
    On lit les jetons UNE fois, on les garde en mémoire (hors composant, pour
    survivre à un remontage / StrictMode) puis on les retire de la barre
    d'adresse.

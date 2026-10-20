@@ -69,14 +69,13 @@ function navigateAfterVerification(): void {
 
       const qs = query.toString();
 
-      window.location.hash =
-        `#/pricing${qs ? `?${qs}` : ""}`;
+      navigate(`/pricing${qs ? `?${qs}` : ""}`);
 
       return;
     }
 
     if (next.startsWith("/") && !next.startsWith("//")) {
-      window.location.hash = `#${next}`;
+      navigate(next);
       return;
     }
   }
@@ -279,6 +278,9 @@ function Field({
 
 function readOAuthErrorFromHash(): string | null {
   if (typeof window === "undefined") return null;
+
+  const queryError = new URLSearchParams(window.location.search).get("oauth_error");
+  if (queryError) return queryError;
 
   const raw = window.location.hash;
   const idx = raw.indexOf("?");

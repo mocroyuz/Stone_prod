@@ -17,7 +17,7 @@ const HALF = Math.ceil(LINKS.length / 2);
 const LINKS_LEFT = LINKS.slice(0, HALF);
 const LINKS_RIGHT = LINKS.slice(HALF);
 
-/* Correspondance libellé → route du hash-router.
+/* Correspondance libellé → route.
    Les clés doivent correspondre EXACTEMENT aux libellés de LINKS. */
 const LINK_ROUTES: Record<string, string> = {
   Home: "",
@@ -120,7 +120,7 @@ export default function Navbar({ theme, onToggleTheme }: Props) {
 
   const hrefFor = (label: string) => {
     const route = LINK_ROUTES[label];
-    return route !== undefined ? `#/${route}` : "#/";
+    return route ? `/${route}` : "/";
   };
 
   const renderLink = (label: string) => (
@@ -179,7 +179,7 @@ export default function Navbar({ theme, onToggleTheme }: Props) {
             </button>
 
             <a
-              href="#/signup"
+              href="/signup"
               onClick={(e) => {
                 e.preventDefault();
                 navigate("signup");

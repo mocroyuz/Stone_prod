@@ -103,7 +103,7 @@ function navigateAfterSignin(): boolean {
 
     const qs = q.toString();
 
-    window.location.hash = `#/pricing${qs ? `?${qs}` : ""}`;
+    navigate(`/pricing${qs ? `?${qs}` : ""}`);
 
     return true;
 
@@ -113,7 +113,7 @@ function navigateAfterSignin(): boolean {
 
   if (next.startsWith("/")) {
 
-    window.location.hash = `#${next}`;
+    navigate(next);
 
     return true;
 
@@ -384,6 +384,8 @@ function PasswordField({
 
 
 function readOAuthErrorFromHash(): string | null {
+  const queryError = new URLSearchParams(window.location.search).get("oauth_error");
+  if (queryError) return queryError;
 
   const raw = window.location.hash;
 

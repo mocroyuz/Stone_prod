@@ -19,7 +19,7 @@ type StoredCanvaParams = {
 export function CanvaReturnConfirmation() {
   useEffect(() => {
     if (new URLSearchParams(window.location.search).has("correlation_jwt")) {
-      window.history.replaceState(null, "", "/#/canva-return");
+      window.history.replaceState(null, "", "/canva-return");
     }
   }, []);
 

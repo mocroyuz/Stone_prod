@@ -59,11 +59,19 @@ function hasCanvaReturnParameter(): boolean {
 }
 
 function isCanvaReturnPage(): boolean {
-  return (
-    hasCanvaReturnParameter() ||
-    (typeof window !== "undefined" &&
-      /^#\/canva-return(?:[/?]|$)/i.test(window.location.hash))
-  );
+  if (hasCanvaReturnParameter()) return true;
+  if (typeof window === "undefined") return false;
+
+  if (window.location.pathname.replace(/\/+$/, "") === "/canva-return") {
+    return true;
+  }
+
+  if (/^#\/canva-return(?:[/?]|$)/i.test(window.location.hash)) {
+    window.history.replaceState(null, "", "/canva-return");
+    return true;
+  }
+
+  return false;
 }
 
 const OAUTH_CALLBACK_ROUTES = new Set([
@@ -112,7 +120,7 @@ function interceptOAuthCallback(
     // sessionStorage indisponible
   }
 
-  window.history.replaceState(null, "", `/#/${provider}-callback`);
+  window.history.replaceState(null, "", `/${provider}-callback`);
 }
 
 interceptOAuthCallback("tiktok", TIKTOK_OAUTH_STORAGE_KEY);
@@ -141,7 +149,7 @@ function interceptCanvaOAuthCallback() {
     // The callback component will show a missing-parameters error.
   }
 
-  window.history.replaceState(null, "", "/#/canva-callback");
+  window.history.replaceState(null, "", "/canva-callback");
 }
 
 interceptCanvaOAuthCallback();
@@ -184,7 +192,7 @@ interceptCanvaOAuthCallback();
     window.history.replaceState(
       null,
       "",
-      `/#/signin?oauth_error=${encodeURIComponent(description)}`
+      `/signin?oauth_error=${encodeURIComponent(description)}`
     );
 
     return;
@@ -194,7 +202,7 @@ interceptCanvaOAuthCallback();
     window.history.replaceState(
       null,
       "",
-      `/#/signin?oauth_error=${encodeURIComponent(
+      `/signin?oauth_error=${encodeURIComponent(
         "PKCE flow returned instead of implicit flow"
       )}`
     );
@@ -226,7 +234,7 @@ interceptCanvaOAuthCallback();
     }
   }, 300);
 
-  window.history.replaceState(null, "", "/#/home");
+  window.history.replaceState(null, "", "/home");
 })();
 
 /* ──────────────────────────────────────────────────────────────
@@ -339,7 +347,7 @@ function Home() {
 
           <div className="mt-[clamp(22px,2.8vw,38px)] flex justify-center">
             <a
-              href="#/signup"
+              href="/signup"
               onClick={(event) => {
                 event.preventDefault();
                 navigate("signup");
@@ -399,7 +407,7 @@ function NotFound() {
       </p>
 
       <a
-        href="#/"
+        href="/"
         onClick={(event) => {
           event.preventDefault();
           navigate("");

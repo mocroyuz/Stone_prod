@@ -3,9 +3,9 @@
 // Flux :
 //   /tiktok/callback?code=XXX&state=XXX
 //     ↓ App.tsx intercepte (avant React), range les params dans sessionStorage
-//   /#/tiktok-callback
+//   /tiktok-callback
 //     ↓ useHashRoute()
-//   TikTokCallback.tsx → backend → /#/channels
+//   TikTokCallback.tsx → backend → /channels
 
 import { useEffect } from "react";
 
@@ -46,7 +46,7 @@ function clearStoredParams() {
 function goToChannels(query = "") {
   clearStoredParams();
   // replace : le callback ne reste pas dans l'historique.
-  window.location.replace(`/#/channels${query}`);
+  window.location.replace(`/channels${query}`);
 }
 
 export default function TikTokCallback() {

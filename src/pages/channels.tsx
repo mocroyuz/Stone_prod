@@ -21,6 +21,7 @@ import {
 import HelpChatButton from "../components/Helpchatbutton";
 import { useTheme } from "../hooks/useTheme";
 import { useUser } from "../contexts/UserContext";
+import { navigate } from "../hooks/useHashRoute";
 
 import {
   InstagramIcon,
@@ -759,7 +760,7 @@ export default function Channels() {
     window.setTimeout(() => {
       setOnboardingAccount(null);
       setConfirming(false);
-      window.location.hash = `#${INSIGHT_ROUTE}`;
+      navigate(INSIGHT_ROUTE);
       window.setTimeout(() => openFrequencyOnboarding(account, isDark), 150);
     }, 300);
   };
@@ -821,12 +822,8 @@ export default function Channels() {
 
   useEffect(() => {
     if (!userId) return;
-    const hash = window.location.hash;
-    const queryIndex = hash.indexOf("?");
-    const basePath = queryIndex === -1 ? hash : hash.slice(0, queryIndex);
-    const params = new URLSearchParams(
-      queryIndex === -1 ? "" : hash.slice(queryIndex + 1)
-    );
+    const basePath = window.location.pathname;
+    const params = new URLSearchParams(window.location.search);
 
     const tiktokError = params.get("tiktok_error");
     const pinterestError = params.get("pinterest_error");
@@ -881,9 +878,7 @@ export default function Channels() {
       window.history.replaceState(
         null,
         "",
-        `${window.location.pathname}${window.location.search}${basePath}${
-          query ? `?${query}` : ""
-        }`
+        `${basePath}${query ? `?${query}` : ""}`
       );
     }
 

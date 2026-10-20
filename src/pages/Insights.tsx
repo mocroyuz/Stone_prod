@@ -291,16 +291,8 @@ function useInsights(
 }
 
 function useHashChannel(): string | null {
-  const [, force] = useState(0);
   useHashRoute();
-  useEffect(() => {
-    const onHash = () => force((v) => v + 1);
-    window.addEventListener("hashchange", onHash);
-    return () => window.removeEventListener("hashchange", onHash);
-  }, []);
-  const hash = window.location.hash;
-  const i = hash.indexOf("?");
-  return i === -1 ? null : new URLSearchParams(hash.slice(i + 1)).get("channel");
+  return new URLSearchParams(window.location.search).get("channel");
 }
 
 function downloadCsv(filename: string, rows: (string | number)[][]) {
