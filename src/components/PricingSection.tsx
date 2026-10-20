@@ -103,7 +103,7 @@ const plans = [
     badge: "PRO",
     monthly: 49,
     annual: 39,
-    description: "Everything you need to grow.",
+    description: "More freedom to create and grow.",
     cta: "Get started",
     featured: true,
     features: [
@@ -116,9 +116,31 @@ const plans = [
       "Web extension included",
     ],
   },
+  {
+    key: "enterprise",
+    badge: "ENTERPRISE",
+    monthly: 99,
+    annual: 79,
+    description: "Advanced solutions for large organizations.",
+    cta: "Contact sales",
+    salesOnly: true,
+    features: [
+      "Everything in Pro",
+      "Custom channel limits",
+      "Unlimited publications",
+      "Advanced insights",
+      "Content calendar",
+      "Unlimited ideas and tags",
+      "Priority support",
+      "Dedicated assistance",
+    ],
+  },
 ] as const;
 
 type Plan = (typeof plans)[number];
+
+const ENTERPRISE_MAILTO =
+  "mailto:sales@stone.app?subject=Enterprise%20plan";
 
 /* ============================================================
    HELPERS
@@ -140,6 +162,7 @@ function readPeriodFromUrl(): BillingPeriod | null {
 
   for (const params of sources) {
     const value = params.get("period");
+
     if (value === "annual" || value === "monthly") {
       return value;
     }
@@ -165,6 +188,7 @@ export default function PricingSection() {
   const [period, setPeriod] = useState<BillingPeriod>("monthly");
   const [loadingPlan, setLoadingPlan] = useState<PlanKey | null>(null);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
+
   const [returnBanner, setReturnBanner] = useState<
     "success" | "cancel" | null
   >(null);
@@ -173,13 +197,17 @@ export default function PricingSection() {
 
   useEffect(() => {
     const urlPeriod = readPeriodFromUrl();
-    if (urlPeriod) setPeriod(urlPeriod);
+
+    if (urlPeriod) {
+      setPeriod(urlPeriod);
+    }
   }, []);
 
   /* Stripe checkout return */
 
   useEffect(() => {
     const ret = readCheckoutReturn();
+
     if (!ret.status) return;
 
     setReturnBanner(ret.status);
@@ -227,6 +255,13 @@ export default function PricingSection() {
       setCheckoutError(null);
       setReturnBanner(null);
 
+      // Enterprise: contact the sales team.
+      if ("salesOnly" in plan && plan.salesOnly) {
+        window.location.href = ENTERPRISE_MAILTO;
+        return;
+      }
+
+      // Redirect unauthenticated users to signup.
       if (!isLoggedIn) {
         navigate("signup");
         return;
@@ -258,6 +293,10 @@ export default function PricingSection() {
   );
 
   const getButtonText = (plan: Plan): string => {
+    if ("salesOnly" in plan && plan.salesOnly) {
+      return plan.cta;
+    }
+
     if (isLoggedIn && hasActiveSubscription) {
       return "Manage subscription";
     }
@@ -303,7 +342,11 @@ export default function PricingSection() {
         }
 
         .pricing-cta {
-          background: linear-gradient(180deg, #2b2b2d 0%, #141414 100%);
+          background: linear-gradient(
+            180deg,
+            #2b2b2d 0%,
+            #141414 100%
+          );
           box-shadow:
             inset 0 1px 0 rgba(255, 255, 255, 0.14),
             inset 0 -3px 6px rgba(0, 0, 0, 0.5),
@@ -311,7 +354,11 @@ export default function PricingSection() {
         }
 
         .pricing-cta:hover:not(:disabled) {
-          background: linear-gradient(180deg, #38383b 0%, #1c1c1c 100%);
+          background: linear-gradient(
+            180deg,
+            #38383b 0%,
+            #1c1c1c 100%
+          );
         }
 
         .pricing-cta:focus-visible {
@@ -320,7 +367,7 @@ export default function PricingSection() {
         }
 
         .dark .pricing-cta {
-          background: #fff;
+          background: #ffffff;
           color: #0a0a0a;
           box-shadow: none;
         }
@@ -338,6 +385,7 @@ export default function PricingSection() {
             opacity: 0;
             transform: translateY(6px) scale(0.96);
           }
+
           to {
             opacity: 1;
             transform: translateY(0) scale(1);
@@ -357,7 +405,7 @@ export default function PricingSection() {
         }
       `}</style>
 
-      <div className="mx-auto max-w-[1000px] px-4 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-[1100px] px-4 sm:px-6 lg:px-8">
         <Reveal>
           {/* Header */}
 
@@ -371,8 +419,7 @@ export default function PricingSection() {
             </h2>
 
             <p className="mx-auto mt-3 max-w-md text-sm text-neutral-600 dark:text-neutral-300">
-              Plan, organize and publish your content with the tools you need
-              to grow.
+              Everything you need to plan, organize and publish your content.
             </p>
           </div>
 
@@ -435,11 +482,17 @@ export default function PricingSection() {
 
           {/* Pricing cards */}
 
-          <div className="mx-auto mt-10 grid max-w-[760px] items-stretch gap-5 md:grid-cols-2">
+          <div className="mt-10 grid items-stretch gap-5 md:grid-cols-3">
             {plans.map((plan) => {
-              const isFeatured = "featured" in plan && plan.featured;
+              const isFeatured =
+                "featured" in plan && plan.featured;
+
+              const isEnterprise =
+                "salesOnly" in plan && plan.salesOnly;
+
               const price =
                 period === "monthly" ? plan.monthly : plan.annual;
+
               const isLoading = loadingPlan === plan.key;
 
               return (
@@ -503,7 +556,9 @@ export default function PricingSection() {
                     <h3 className="text-lg font-semibold tracking-tight">
                       {plan.key === "starter"
                         ? "Start creating"
-                        : "Scale your content"}
+                        : plan.key === "pro"
+                          ? "Scale your content"
+                          : "Grow without limits"}
                     </h3>
 
                     <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-300">
@@ -518,7 +573,12 @@ export default function PricingSection() {
                       type="button"
                       onClick={() => handlePlanClick(plan)}
                       disabled={loadingPlan !== null || userLoading}
-                      className="pricing-cta inline-flex h-11 w-full cursor-pointer items-center justify-center rounded-full text-sm font-medium text-white transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+                      className={[
+                        "inline-flex h-11 w-full cursor-pointer items-center justify-center rounded-full text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60",
+                        isEnterprise
+                          ? "border border-neutral-300 bg-white text-neutral-900 hover:bg-neutral-100 dark:border-white/15 dark:bg-white/[0.06] dark:text-white dark:hover:bg-white/10"
+                          : "pricing-cta text-white",
+                      ].join(" ")}
                     >
                       {isLoading
                         ? "Redirecting..."
@@ -579,8 +639,7 @@ export default function PricingSection() {
           )}
 
           <p className="mt-6 text-center text-xs text-neutral-500 dark:text-neutral-400">
-            Choose the plan that fits your workflow. Upgrade whenever you're
-            ready.
+            Upgrade your plan whenever your needs grow.
           </p>
         </Reveal>
       </div>
