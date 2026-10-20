@@ -2322,6 +2322,41 @@ function MfaSection({
   return (
     <>
       <SectionCard
+        title="Security keys"
+        description="Use your fingerprint, face, screen lock, or a physical security key when signing in."
+        tokens={tokens}
+      >
+        <div className="flex flex-col gap-3 py-1 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-3">
+            <div
+              className={cx(
+                "flex h-10 w-10 shrink-0 items-center justify-center rounded-full",
+                tokens.muted
+              )}
+            >
+              <ShieldIcon className="h-5 w-5" />
+            </div>
+            <div>
+              <p className={cx("text-[13.5px] font-medium", tokens.heading)}>
+                Passkey or security key
+              </p>
+              <p className={cx("mt-0.5 text-[12.5px]", tokens.body)}>
+                Sign in with a passkey, biometric verification, or a hardware security key.
+              </p>
+            </div>
+          </div>
+          <Button
+            tokens={tokens}
+            variant="secondary"
+            onClick={() => notify("Security key sign-in is not configured yet.", "error")}
+            className="sm:shrink-0"
+          >
+            + Add a security key
+          </Button>
+        </div>
+      </SectionCard>
+
+      <SectionCard
         title="Authenticator app"
         description="Use an app to generate a one-time code at sign-in. This adds an extra layer of security to your account."
         tokens={tokens}
@@ -2417,6 +2452,41 @@ function MfaSection({
             </Button>
           </div>
         )}
+      </SectionCard>
+
+      <SectionCard
+        title="Windows PIN"
+        description="Use Windows Hello on this device to verify your identity when signing in."
+        tokens={tokens}
+      >
+        <div className="flex flex-col gap-3 py-1 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-3">
+            <div
+              className={cx(
+                "flex h-10 w-10 shrink-0 items-center justify-center rounded-full",
+                tokens.muted
+              )}
+            >
+              <LockIcon className="h-5 w-5" />
+            </div>
+            <div>
+              <p className={cx("text-[13.5px] font-medium", tokens.heading)}>
+                Windows Hello PIN
+              </p>
+              <p className={cx("mt-0.5 text-[12.5px]", tokens.body)}>
+                Use your Windows PIN or device biometrics. This requires passkey/WebAuthn support.
+              </p>
+            </div>
+          </div>
+          <Button
+            tokens={tokens}
+            variant="secondary"
+            onClick={() => notify("Windows Hello setup requires passkey/WebAuthn support in the authentication backend.", "error")}
+            className="sm:shrink-0"
+          >
+            Set up Windows PIN
+          </Button>
+        </div>
       </SectionCard>
 
       {isEnabled && (
