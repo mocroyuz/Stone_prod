@@ -26,6 +26,7 @@ import {
   cancelMfaEnrollment,
   disableMfa,
   verifyMfaFactorCode,
+  isMfaRequiredError,
   type UserProfile,
   type MfaFactor,
 } from "../services/supabase";
@@ -759,7 +760,11 @@ export default function Settings(_props: SettingsProps) {
               <ProfileSection tokens={tokens} notify={notify} />
             )}
             {active === "account" && (
-              <AccountSection tokens={tokens} notify={notify} />
+              <AccountSection
+                tokens={tokens}
+                notify={notify}
+                isDark={isDark}
+              />
             )}
             {active === "mfa" && (
               <MfaSection tokens={tokens} notify={notify} isDark={isDark} />
@@ -1183,9 +1188,11 @@ function passwordScore(value: string): number {
 function AccountSection({
   tokens,
   notify,
+  isDark,
 }: {
   tokens: Tokens;
   notify: Notify;
+  isDark: boolean;
 }) {
   const [email, setEmail] = useState("");
   const [loadingAccount, setLoadingAccount] = useState(true);
@@ -1193,12 +1200,26 @@ function AccountSection({
   const [sendingVerification, setSendingVerification] = useState(false);
   const [provider, setProvider] = useState<string>("email");
   const [hasPassword, setHasPassword] = useState(true);
+  const [mfaEnabled, setMfaEnabled] = useState(false);
 
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
   const [confirmNext, setConfirmNext] = useState("");
   const [show, setShow] = useState(false);
   const [updatingPassword, setUpdatingPassword] = useState(false);
+
+  // ── MFA challenge (déclenché sur 403 MFA_REQUIRED) ──
+  const [mfaPrompt, setMfaPrompt] = useState<{
+    factorId: string;
+    pendingChange: {
+      currentPassword: string | null;
+      newPassword: string;
+      wasSetting: boolean;
+    };
+  } | null>(null);
+  const [mfaPromptCode, setMfaPromptCode] = useState("");
+  const [mfaPromptError, setMfaPromptError] = useState<string | null>(null);
+  const [verifyingPrompt, setVerifyingPrompt] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -1212,6 +1233,7 @@ function AccountSection({
         setVerified(Boolean(data.email_confirmed_at));
         setProvider(data.provider ?? "email");
         setHasPassword(data.hasPassword !== undefined ? data.hasPassword : true);
+        setMfaEnabled(Boolean(data.mfa_enabled));
       } catch (error) {
         console.error("Error loading account details:", error);
         if (mounted) notify("Failed to load account details", "error");
@@ -1249,6 +1271,15 @@ function AccountSection({
     }
   };
 
+  const applyPasswordSuccess = (wasSetting: boolean) => {
+    setCurrent("");
+    setNext("");
+    setConfirmNext("");
+    setHasPassword(true);
+    setMfaEnabled(true);
+    notify(wasSetting ? "Password set" : "Password updated");
+  };
+
   const handleUpdatePassword = async () => {
     if (updatingPassword || loadingAccount) return;
 
@@ -1263,18 +1294,50 @@ function AccountSection({
 
     setUpdatingPassword(true);
 
+    const currentPassword = hasPassword ? current : null;
+    const newPassword = next;
+    const wasSetting = !hasPassword;
+
     try {
-      await updatePassword(hasPassword ? current : null, next);
-
-      const wasSetting = !hasPassword;
-
-      setCurrent("");
-      setNext("");
-      setConfirmNext("");
-      setHasPassword(true);
-
-      notify(wasSetting ? "Password set" : "Password updated");
+      await updatePassword(currentPassword, newPassword);
+      applyPasswordSuccess(wasSetting);
     } catch (error) {
+      // ─────────────────────────────────────────────
+      // Backend : 403 MFA_REQUIRED → on ouvre le modal
+      // de challenge MFA, puis on rejouera l'opération.
+      // ─────────────────────────────────────────────
+      if (isMfaRequiredError(error)) {
+        try {
+          const factors = await listMfaFactors();
+
+          if (factors.length === 0) {
+            notify(
+              "Two-factor authentication is enabled but no authenticator was found. Set up 2FA again and retry.",
+              "error"
+            );
+            return;
+          }
+
+          setMfaPrompt({
+            factorId: factors[0].id,
+            pendingChange: {
+              currentPassword,
+              newPassword,
+              wasSetting,
+            },
+          });
+          setMfaPromptCode("");
+          setMfaPromptError(null);
+        } catch (e) {
+          console.error("Error loading MFA factors:", e);
+          notify(
+            "Could not load your authenticators. Please try again.",
+            "error"
+          );
+        }
+        return;
+      }
+
       console.error("Error updating password:", error);
       notify(
         error instanceof Error ? error.message : "Failed to update password",
@@ -1282,6 +1345,47 @@ function AccountSection({
       );
     } finally {
       setUpdatingPassword(false);
+    }
+  };
+
+  const closeMfaPrompt = () => {
+    setMfaPrompt(null);
+    setMfaPromptCode("");
+    setMfaPromptError(null);
+  };
+
+  const handleMfaPromptSubmit = async () => {
+    if (!mfaPrompt || verifyingPrompt) return;
+
+    if (!/^\d{6}$/.test(mfaPromptCode)) {
+      setMfaPromptError("Enter the 6-digit code");
+      return;
+    }
+
+    setVerifyingPrompt(true);
+    setMfaPromptError(null);
+
+    try {
+      // 1. Élève la session en AAL2 (Supabase, sauvegardée en localStorage)
+      await verifyMfaFactorCode(mfaPrompt.factorId, mfaPromptCode);
+
+      // 2. Rejoue l'opération : le token AAL2 passe maintenant requireAal2()
+      await updatePassword(
+        mfaPrompt.pendingChange.currentPassword,
+        mfaPrompt.pendingChange.newPassword
+      );
+
+      const wasSetting = mfaPrompt.pendingChange.wasSetting;
+      closeMfaPrompt();
+      applyPasswordSuccess(wasSetting);
+    } catch (e) {
+      console.error("MFA verification / password retry failed:", e);
+      const msg = e instanceof Error ? e.message : "Invalid code";
+      setMfaPromptError(
+        /invalid|code/i.test(msg) ? "Invalid code. Try again." : msg
+      );
+    } finally {
+      setVerifyingPrompt(false);
     }
   };
 
@@ -1310,6 +1414,16 @@ function AccountSection({
   const score = passwordScore(next);
   const mismatch = confirmNext.length > 0 && next !== confirmNext;
   const pwType = show ? "text" : "password";
+
+  const passwordDescription = loadingAccount
+    ? "Loading your account details..."
+    : isOAuthOnly
+    ? `You signed in with ${
+        providerLabel ?? "an external provider"
+      }. Set a password to also sign in with your email.`
+    : mfaEnabled
+    ? "Two-factor authentication is on. Changing your password requires a code from your authenticator app."
+    : "Use at least 8 characters. Mix letters, numbers, and symbols.";
 
   return (
     <>
@@ -1341,7 +1455,7 @@ function AccountSection({
           tokens={tokens}
         />
 
-        <div className="pt-4">
+        <div className="flex items-center gap-2 pt-4">
           <span
             className={cx(
               "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] font-medium",
@@ -1351,20 +1465,24 @@ function AccountSection({
             {verified && <CheckIcon className="h-3 w-3" />}
             {loadingAccount ? "Checking..." : verified ? "Verified" : "Unverified"}
           </span>
+
+          {mfaEnabled && (
+            <span
+              className={cx(
+                "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] font-medium",
+                tokens.ok
+              )}
+            >
+              <LockIcon className="h-3 w-3" />
+              2FA enabled
+            </span>
+          )}
         </div>
       </SectionCard>
 
       <SectionCard
         title={isOAuthOnly ? "Set a password" : "Password"}
-        description={
-          loadingAccount
-            ? "Loading your account details..."
-            : isOAuthOnly
-            ? `You signed in with ${
-                providerLabel ?? "an external provider"
-              }. Set a password to also sign in with your email.`
-            : "Use at least 8 characters. Mix letters, numbers, and symbols."
-        }
+        description={passwordDescription}
         tokens={tokens}
         footer={
           <Button
@@ -1465,6 +1583,58 @@ function AccountSection({
           </p>
         )}
       </SectionCard>
+
+      {/* ─────────────────────────────────────────────
+          Modal de challenge MFA (mot de passe à changer)
+          ───────────────────────────────────────────── */}
+      <Modal
+        open={!!mfaPrompt}
+        onClose={closeMfaPrompt}
+        title="Two-factor verification required"
+        description="Enter a 6-digit code from your authenticator app to change your password."
+        dark={isDark}
+      >
+        <div className="flex flex-col gap-4">
+          <Field
+            label="Verification code"
+            type="text"
+            value={mfaPromptCode}
+            onChange={(v) => {
+              setMfaPromptCode(v.replace(/\D/g, "").slice(0, 6));
+              setMfaPromptError(null);
+            }}
+            placeholder="000000"
+            autoComplete="one-time-code"
+            error={mfaPromptError ?? undefined}
+            onEnter={handleMfaPromptSubmit}
+            autoFocus
+            tokens={tokens}
+          />
+
+          <div
+            className={cx(
+              "flex justify-end gap-2 border-t pt-4",
+              tokens.cardBorder
+            )}
+          >
+            <Button
+              tokens={tokens}
+              variant="secondary"
+              onClick={closeMfaPrompt}
+              disabled={verifyingPrompt}
+            >
+              Cancel
+            </Button>
+            <Button
+              tokens={tokens}
+              onClick={handleMfaPromptSubmit}
+              disabled={verifyingPrompt || mfaPromptCode.length !== 6}
+            >
+              {verifyingPrompt ? "Verifying..." : "Verify & continue"}
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </>
   );
 }
@@ -1593,7 +1763,6 @@ function MfaSection({
     setDisabling(true);
     setDisableError(null);
     try {
-      // Élève la session à AAL2 sur ce facteur précis.
       await verifyMfaFactorCode(disableFactor, disableCode);
       await disableMfa(disableFactor);
 
@@ -2192,27 +2361,24 @@ function BillingSection({
 /* ── Utils · Tags ── */
 
 const TAG_COLORS = [
-  // Rangée du haut (vibrante)
-  "bg-[#6366f1]", // Violet / Indigo
-  "bg-[#ec4899]", // Rose / Fuchsia
-  "bg-[#ef4444]", // Rouge corail
-  "bg-[#f97316]", // Orange
-  "bg-[#eab308]", // Jaune
-  "bg-[#84cc16]", // Vert clair / Lime
-  "bg-[#14b8a6]", // Turquoise / Teal
-  "bg-[#0ea5e9]", // Bleu clair / Sky
-  "bg-[#6b7280]", // Gris
-
-  // Rangée du bas (sombre / pastel)
-  "bg-[#4c1d95]", // Violet sombre
-  "bg-[#701a75]", // Magenta sombre
-  "bg-[#7f1d1d]", // Rouge sombre
-  "bg-[#7c2d12]", // Orange sombre
-  "bg-[#713f12]", // Jaune / Olive sombre
-  "bg-[#14532d]", // Vert sombre
-  "bg-[#134e4a]", // Turquoise sombre
-  "bg-[#1e3a8a]", // Bleu sombre
-  "bg-[#171717]", // Gris très sombre / Noir
+  "bg-[#6366f1]",
+  "bg-[#ec4899]",
+  "bg-[#ef4444]",
+  "bg-[#f97316]",
+  "bg-[#eab308]",
+  "bg-[#84cc16]",
+  "bg-[#14b8a6]",
+  "bg-[#0ea5e9]",
+  "bg-[#6b7280]",
+  "bg-[#4c1d95]",
+  "bg-[#701a75]",
+  "bg-[#7f1d1d]",
+  "bg-[#7c2d12]",
+  "bg-[#713f12]",
+  "bg-[#14532d]",
+  "bg-[#134e4a]",
+  "bg-[#1e3a8a]",
+  "bg-[#171717]",
 ];
 
 type Tag = { id: string; label: string; color: string };
@@ -2309,7 +2475,6 @@ function TagsSection({
 
   return (
     <>
-      {/* Header : description + bouton New Tag */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p className={cx("text-[13.5px] leading-relaxed", tokens.body)}>
           Tags are visible to everyone in your organization.{" "}
@@ -2332,7 +2497,6 @@ function TagsSection({
         </div>
       </div>
 
-      {/* Barre de recherche */}
       <div className="relative">
         <span className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-neutral-500">
           <SearchIcon className="h-4 w-4" />
@@ -2353,7 +2517,6 @@ function TagsSection({
         />
       </div>
 
-      {/* Liste des tags */}
       {filtered.length === 0 ? (
         <div
           className={cx(
@@ -2451,7 +2614,6 @@ function TagsSection({
         </div>
       )}
 
-      {/* Modal de création / édition */}
       <Modal
         open={modalOpen}
         onClose={closeModal}
@@ -2610,7 +2772,6 @@ function SavedRepliesSection({
       </p>
 
       {replies.length === 0 ? (
-        /* État vide */
         <div className="flex flex-col items-center gap-5 py-16 text-center">
           <div
             className={cx(
@@ -2694,7 +2855,6 @@ function SavedRepliesSection({
         </div>
       )}
 
-      {/* Modal de création / édition */}
       <Modal
         open={modalOpen}
         onClose={closeModal}

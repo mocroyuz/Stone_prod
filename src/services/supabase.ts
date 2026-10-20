@@ -5,9 +5,6 @@ import { createClient } from "@supabase/supabase-js";
 // ============================================================
 // API CONFIGURATION
 // ============================================================
-//
-// URL publique du backend déployé sur Railway.
-// Aucune variable d'environnement frontend n'est utilisée.
 
 const API_BASE_URL = "https://stoneserv-production.up.railway.app";
 
@@ -32,15 +29,12 @@ export interface UserProfile {
   email_confirmed_at?: string;
   created_at?: string;
 
-  /** Provider principal du compte : "email", "google", "github"… */
   provider?: "email" | "google" | "github" | (string & {});
 
-  /**
-   * true si le compte possède une identité "email" avec un mot de passe.
-   * false pour un compte 100 % OAuth (Google / GitHub) : dans ce cas
-   * l'utilisateur peut DÉFINIR un mot de passe sans donner l'actuel.
-   */
   hasPassword?: boolean;
+
+  /** Indicateur MFA (calculé côté backend à partir des facteurs vérifiés). */
+  mfa_enabled?: boolean;
 }
 
 export interface AuthSession {
@@ -54,14 +48,70 @@ export interface AuthSession {
 export interface AuthResponse {
   user: UserProfile | null;
   session: AuthSession | null;
+
+  /** Au moins un facteur vérifié (TOTP / passkey). */
+  mfa_enabled?: boolean;
+
+  /**
+   * true si la MFA est activée mais que la session est encore en AAL1 :
+   * le frontend doit afficher le challenge avant les opérations sensibles.
+   */
+  mfa_required?: boolean;
+
+  /** Niveau d'authentification du JWT courant : "aal1", "aal2" ou null. */
+  aal?: string | null;
 }
+
+/** Réponse de GET /api/auth/mfa/status (lecture côté backend). */
+export type MfaStatus = {
+  aal: string;
+  next_aal: string;
+  mfa_enabled: boolean;
+  requires_challenge: boolean;
+  factors: Array<{
+    id: string;
+    type: string;
+    friendly_name: string | null;
+    created_at: string | null;
+  }>;
+};
 
 /** Jetons de récupération lus dans l'URL du lien « mot de passe oublié ». */
 export interface RecoveryParams {
-  /** Flux « implicit » : #access_token=... (défaut de Supabase). */
   accessToken?: string;
-  /** Flux « token_hash » : ?token_hash=... (si le template d'email l'utilise). */
   tokenHash?: string;
+}
+
+// ============================================================
+// MFA REQUIRED ERROR
+// ============================================================
+
+/**
+ * Erreur levée quand le backend renvoie 403 + code MFA_REQUIRED
+ * (ex. PUT /api/user/password sur une session encore en AAL1 alors
+ * que la MFA est activée).
+ *
+ * Le caller doit :
+ *   1. demander un code TOTP à l'utilisateur
+ *   2. appeler verifyMfaFactorCode(factorId, code) → élève la session
+ *   3. rejouer l'opération
+ */
+export class MfaRequiredError extends Error {
+  readonly code = "MFA_REQUIRED" as const;
+  readonly status = 403 as const;
+
+  constructor(message = "Two-factor verification required") {
+    super(message);
+    this.name = "MfaRequiredError";
+  }
+}
+
+export function isMfaRequiredError(error: unknown): error is MfaRequiredError {
+  return (
+    error instanceof MfaRequiredError ||
+    (error instanceof Error &&
+      (error as { code?: string }).code === "MFA_REQUIRED")
+  );
 }
 
 // ============================================================
@@ -76,7 +126,6 @@ export function getRefreshToken(): string | null {
   return localStorage.getItem(REFRESH_TOKEN_KEY);
 }
 
-/** true si une session est stockée (sans vérifier qu'elle est encore valide). */
 export function hasStoredSession(): boolean {
   return Boolean(getAccessToken() || getRefreshToken());
 }
@@ -98,7 +147,6 @@ export function clearSession(): void {
   localStorage.removeItem(REFRESH_TOKEN_KEY);
 }
 
-/** Lit la date d'expiration (en secondes) d'un JWT, ou null si illisible. */
 function readTokenExpiry(token: string): number | null {
   try {
     const payload = token.split(".")[1];
@@ -114,7 +162,6 @@ function readTokenExpiry(token: string): number | null {
   }
 }
 
-/** true si le token expire dans moins de `marginSeconds` secondes. */
 function isTokenExpiring(token: string, marginSeconds = 60): boolean {
   const exp = readTokenExpiry(token);
 
@@ -129,14 +176,6 @@ function isTokenExpiring(token: string, marginSeconds = 60): boolean {
 
 let refreshPromise: Promise<boolean> | null = null;
 
-/**
- * Renouvelle l'access token avec le refresh token.
- *
- * - Refresh refusé par le serveur (400 / 401 / 403) : la session est
- *   vraiment invalide → on la supprime.
- * - Erreur réseau ou serveur (5xx) : on GARDE les tokens, pour que
- *   l'utilisateur reste connecté dès que le serveur répond à nouveau.
- */
 async function refreshAccessToken(): Promise<boolean> {
   const refreshToken = getRefreshToken();
 
@@ -175,7 +214,6 @@ async function refreshAccessToken(): Promise<boolean> {
         clearSession();
         return false;
       } catch (error) {
-        // Réseau coupé, serveur injoignable… on ne déconnecte pas.
         console.error("Error refreshing session:", error);
         return false;
       } finally {
@@ -191,11 +229,6 @@ async function refreshAccessToken(): Promise<boolean> {
 // API REQUEST
 // ============================================================
 
-/**
- * Endpoints publics : pas de refresh proactif, et un 401 ne déclenche pas
- * de refresh. (forgot / reset-password n'utilisent pas la session stockée :
- * un 401 « lien invalide » ne doit surtout pas toucher à la session.)
- */
 const NO_REFRESH_ENDPOINTS = [
   "/api/auth/login",
   "/api/auth/signup",
@@ -213,8 +246,6 @@ export async function apiRequest<T>(
     !NO_REFRESH_ENDPOINTS.some((path) => endpoint.startsWith(path)) &&
     Boolean(getRefreshToken());
 
-  // Refresh proactif : évite une requête vouée à l'échec
-  // quand l'access token est déjà expiré (retour après plusieurs heures).
   if (canRefresh && !isRetry) {
     const current = getAccessToken();
 
@@ -227,8 +258,6 @@ export async function apiRequest<T>(
 
   const headers = new Headers(options.headers || {});
 
-  // Ne jamais définir Content-Type manuellement pour FormData :
-  // le navigateur ajoute lui-même le boundary multipart.
   if (!(options.body instanceof FormData)) {
     headers.set("Content-Type", "application/json");
   }
@@ -251,6 +280,26 @@ export async function apiRequest<T>(
   }
 
   if (!response.ok) {
+    // ------------------------------------------------------
+    // 403 + code MFA_REQUIRED → erreur typée pour que le
+    // caller puisse déclencher un challenge MFA et rejouer.
+    // ------------------------------------------------------
+    if (
+      response.status === 403 &&
+      typeof data === "object" &&
+      data !== null &&
+      "code" in data &&
+      (data as { code?: unknown }).code === "MFA_REQUIRED"
+    ) {
+      const msg =
+        "error" in data &&
+        typeof (data as { error?: unknown }).error === "string"
+          ? (data as { error: string }).error
+          : undefined;
+
+      throw new MfaRequiredError(msg);
+    }
+
     // Tout 401 sur un endpoint protégé : on tente un refresh, une seule fois.
     if (response.status === 401 && canRefresh && !isRetry) {
       const refreshed = await refreshAccessToken();
@@ -275,7 +324,7 @@ export async function apiRequest<T>(
 }
 
 // ============================================================
-// SIGN IN
+// SIGN IN / SIGN UP
 // ============================================================
 
 export async function signIn(
@@ -291,10 +340,6 @@ export async function signIn(
 
   return result;
 }
-
-// ============================================================
-// SIGN UP
-// ============================================================
 
 export async function signUp(
   email: string,
@@ -318,15 +363,42 @@ export async function signUp(
 }
 
 // ============================================================
-// FORGOT PASSWORD (étape 1 : demande du lien par email)
+// MFA STATUS (backend)
 // ============================================================
-//
-// POST /api/auth/forgot-password
-// Le serveur répond toujours « succès » (que le compte existe ou non) :
-// l'interface doit afficher un message neutre du type « Si un compte existe
-// pour cette adresse, un lien a été envoyé ».
-//
-// Lève une Error (message lisible) pour : email invalide, trop de demandes.
+
+/**
+ * Récupère le statut MFA côté backend :
+ *   - `aal` / `next_aal` : niveau d'authentification courant et attendu
+ *   - `requires_challenge` : MFA activée mais session en AAL1
+ *   - `factors` : facteurs VÉRIFIÉS uniquement
+ *
+ * Retourne null en cas d'erreur (réseau, session invalide…).
+ */
+export async function getMfaStatus(): Promise<MfaStatus | null> {
+  try {
+    const data = await apiRequest<{ success: boolean } & MfaStatus>(
+      "/api/auth/mfa/status",
+      { method: "GET" }
+    );
+
+    if (!data || !data.success) return null;
+
+    return {
+      aal: data.aal,
+      next_aal: data.next_aal,
+      mfa_enabled: data.mfa_enabled,
+      requires_challenge: data.requires_challenge,
+      factors: data.factors,
+    };
+  } catch (error) {
+    console.error("Error fetching MFA status:", error);
+    return null;
+  }
+}
+
+// ============================================================
+// FORGOT PASSWORD (étape 1)
+// ============================================================
 
 export async function requestPasswordReset(email: string): Promise<string> {
   const result = await apiRequest<{ success: boolean; message?: string }>(
@@ -344,27 +416,12 @@ export async function requestPasswordReset(email: string): Promise<string> {
 }
 
 // ============================================================
-// RESET PASSWORD (étape 2 : nouveau mot de passe)
+// RESET PASSWORD (étape 2)
 // ============================================================
-//
-// Le lien de l'email renvoie vers  <APP_URL>/reset-password  et Supabase
-// ajoute les jetons de récupération à l'URL (dans le hash).
-//
-//   readRecoveryParams()            → lit les jetons dans l'URL
-//   readRecoveryError()             → lit l'erreur Supabase (lien expiré...)
-//   resetPassword(pwd, params)      → POST /api/auth/reset-password
-//   clearRecoveryParamsFromUrl()    → retire les jetons de la barre d'adresse
-//
-// ⚠️ App.tsx : le code qui intercepte « #access_token=... » au démarrage pour
-// les connexions Google / GitHub doit IGNORER les liens de récupération
-// (voir isRecoveryUrl), sinon le lien connecterait l'utilisateur au lieu de
-// lui laisser choisir un nouveau mot de passe.
 
 function readUrlParam(key: string): string | null {
   if (typeof window === "undefined") return null;
 
-  // Hash ET query : les paramètres peuvent arriver dans le fragment OAuth
-  // ou directement dans la query string.
   const raw = `${window.location.hash}&${window.location.search}`;
   const match = new RegExp(`[#?&]${key}=([^&#]*)`).exec(raw);
 
@@ -377,10 +434,6 @@ function readUrlParam(key: string): string | null {
   }
 }
 
-/**
- * true si l'URL courante est un lien de récupération de mot de passe.
- * À utiliser dans App.tsx avant de traiter un « #access_token=... ».
- */
 export function isRecoveryUrl(): boolean {
   if (typeof window === "undefined") return false;
 
@@ -395,12 +448,9 @@ export function isRecoveryUrl(): boolean {
   );
 }
 
-/** Jetons de récupération présents dans l'URL, ou null s'il n'y en a pas. */
 export function readRecoveryParams(): RecoveryParams | null {
   const type = readUrlParam("type");
 
-  // Un access_token sans type=recovery vient d'une autre connexion (OAuth) :
-  // on ne le traite pas comme un lien de récupération.
   if (type && type !== "recovery") return null;
 
   const accessToken = readUrlParam("access_token");
@@ -414,10 +464,6 @@ export function readRecoveryParams(): RecoveryParams | null {
   };
 }
 
-/**
- * Erreur renvoyée par Supabase dans l'URL (lien expiré ou déjà utilisé),
- * ou null.
- */
 export function readRecoveryError(): string | null {
   const description = readUrlParam("error_description");
   const code = readUrlParam("error_code");
@@ -431,18 +477,12 @@ export function readRecoveryError(): string | null {
   return description || "This reset link is invalid. Request a new one.";
 }
 
-/** Retire les jetons de la barre d'adresse (historique, captures d'écran...). */
 export function clearRecoveryParamsFromUrl(): void {
   if (typeof window === "undefined") return;
 
   window.history.replaceState(null, "", "/reset-password");
 }
 
-/**
- * Définit le nouveau mot de passe. Le serveur révoque ensuite TOUTES les
- * sessions de l'utilisateur : la session locale est donc supprimée, et
- * l'utilisateur doit se reconnecter avec son nouveau mot de passe.
- */
 export async function resetPassword(
   newPassword: string,
   params: RecoveryParams
@@ -474,15 +514,6 @@ export async function resetPassword(
 // ============================================================
 // GOOGLE OAUTH
 // ============================================================
-//
-// 1) On demande au serveur l'URL d'autorisation Google.
-// 2) On redirige le navigateur.
-// 3) Google → Supabase → revient sur redirectTo avec le hash
-//    #access_token=...&refresh_token=... que App.tsx intercepte
-//    au démarrage pour stocker la session.
-//
-// Le redirectTo est l'URL du FRONTEND (window.location.origin),
-// jamais l'URL Railway du backend.
 
 export async function getGoogleAuthUrl(redirectTo?: string): Promise<string> {
   const response = await fetch(`${API_BASE_URL}/api/auth/google/url`, {
@@ -534,7 +565,6 @@ export async function signInWithGithub(redirectTo?: string): Promise<void> {
   window.location.href = url;
 }
 
-// Stocke la session renvoyée par le hash OAuth.
 export function saveOAuthSession(
   accessToken: string,
   refreshToken: string
@@ -565,10 +595,12 @@ export async function resendVerificationEmail(): Promise<boolean> {
 // UPDATE / SET PASSWORD
 // ============================================================
 //
-// - Compte avec mot de passe : currentPassword est obligatoire.
-// - Compte OAuth sans mot de passe : passer `null` (ou omettre)
-//   → le backend définit le mot de passe sans vérification de
-//   l'ancien (route à adapter : voir updateUserById côté serveur).
+// ⚠️ Si la MFA est activée mais que la session est encore en AAL1,
+//    le backend renvoie 403 + code MFA_REQUIRED → cette fonction
+//    lève une MfaRequiredError. Le caller doit :
+//      1. demander un code TOTP
+//      2. appeler verifyMfaFactorCode(factorId, code)
+//      3. rejouer updatePassword()
 
 export async function updatePassword(
   currentPassword: string | null,
@@ -591,14 +623,9 @@ export async function updatePassword(
 // ============================================================
 // GET CURRENT USER
 // ============================================================
-//
-// Retourne null si aucune session n'est stockée ou si elle est invalide.
-// Le refresh de l'access token est géré automatiquement par apiRequest.
 
 export async function getCurrentUser(): Promise<UserProfile | null> {
   try {
-    // Pas d'access token mais un refresh token : apiRequest renouvellera
-    // la session avant l'appel.
     if (!hasStoredSession()) {
       return null;
     }
@@ -741,7 +768,7 @@ export async function signOut(): Promise<void> {
       try {
         await apiRequest("/api/auth/logout", { method: "POST" });
       } catch {
-        // ignore : on supprime la session locale quoi qu'il arrive
+        // ignore
       }
     }
   } finally {
@@ -766,34 +793,19 @@ export async function checkApiHealth(): Promise<boolean> {
 // ============================================================
 // SUPABASE AUTH CLIENT (MFA + passkeys uniquement)
 // ============================================================
-//
-// Pourquoi un client supabase-js ici ? Les cérémonies WebAuthn (passkey)
-// et l'enrôlement TOTP doivent parler directement à Supabase Auth depuis le
-// navigateur. Ce client est utilisé UNIQUEMENT pour ça : le reste de l'app
-// continue de passer par ton backend Railway.
-//
-// URL du projet + clé "publishable" (anon) : ces deux valeurs sont
-// publiques par conception (Supabase Dashboard → Settings → API Keys).
-// ⚠️ N'y mets JAMAIS la clé service_role.
 
 const SUPABASE_URL = "https://VOTRE-PROJET.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_xxxxxxxxxxxxxxxx";
 
-// Ce client ne gère PAS la session lui-même (sinon il roterait le refresh
-// token en parallèle de ton apiRequest et l'un des deux se ferait
-// déconnecter) : on lui injecte les jetons juste avant chaque opération
-// (syncAuthClient) et on récupère les nouveaux jetons juste après
-// (persistAuthClientSession).
 const authClient = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
     persistSession: false,
     autoRefreshToken: false,
     detectSessionInUrl: false,
-    experimental: { passkey: true }, // API passkeys en bêta
+    experimental: { passkey: true },
   },
 });
 
-/** Injecte la session stockée dans le client (après un refresh si besoin). */
 async function syncAuthClient(): Promise<void> {
   let access = getAccessToken();
 
@@ -816,7 +828,6 @@ async function syncAuthClient(): Promise<void> {
   if (error) throw error;
 }
 
-/** Récupère les nouveaux jetons du client (ex. session AAL2) et les stocke. */
 async function persistAuthClientSession(): Promise<void> {
   const { data } = await authClient.auth.getSession();
 
@@ -838,7 +849,6 @@ export type MfaFactor = {
   createdAt: string;
 };
 
-/** Facteurs TOTP vérifiés (liste non vide = MFA active). */
 export async function listMfaFactors(): Promise<MfaFactor[]> {
   await syncAuthClient();
 
@@ -852,15 +862,13 @@ export async function listMfaFactors(): Promise<MfaFactor[]> {
   }));
 }
 
-/** Étape 1 : génère le QR code + la clé secrète. */
 export async function startMfaEnrollment(): Promise<{
   factorId: string;
-  qrCode: string; // data:image/svg+xml;...
+  qrCode: string;
   secret: string;
 }> {
   await syncAuthClient();
 
-  // Purge les inscriptions abandonnées (non vérifiées).
   const { data: list } = await authClient.auth.mfa.listFactors();
   const stale = (list?.all ?? []).filter(
     (f) => f.factor_type === "totp" && f.status === "unverified"
@@ -882,7 +890,6 @@ export async function startMfaEnrollment(): Promise<{
   };
 }
 
-/** Étape 2 : code à 6 chiffres → le facteur devient actif. */
 export async function confirmMfaEnrollment(factorId: string, code: string) {
   await syncAuthClient();
 
@@ -892,16 +899,14 @@ export async function confirmMfaEnrollment(factorId: string, code: string) {
   });
   if (error) throw error;
 
-  await persistAuthClientSession(); // la session passe en AAL2
+  await persistAuthClientSession();
 }
 
-/** Annule une inscription en cours (facteur non vérifié). */
 export async function cancelMfaEnrollment(factorId: string) {
   await syncAuthClient();
   await authClient.auth.mfa.unenroll({ factorId });
 }
 
-/** Désactive la MFA (Supabase exige une session déjà en AAL2). */
 export async function disableMfa(factorId: string) {
   await syncAuthClient();
 
@@ -910,10 +915,10 @@ export async function disableMfa(factorId: string) {
 }
 
 /**
- * Vérifie un code TOTP pour un facteur PRÉCIS.
- * Utilisé pour élever la session à AAL2 avant de désactiver un facteur
- * donné (verifyMfaLogin() utilise toujours totp[0], peu fiable s'il y a
- * plusieurs facteurs).
+ * Vérifie un code TOTP pour un facteur PRÉCIS et élève la session en AAL2.
+ * Utilisé par :
+ *   - MfaSection (désactivation d'un facteur)
+ *   - AccountSection (challenge avant changement de mot de passe)
  */
 export async function verifyMfaFactorCode(
   factorId: string,
@@ -930,9 +935,6 @@ export async function verifyMfaFactorCode(
   await persistAuthClientSession();
 }
 
-// ── Connexion (à brancher sur la page Sign in et sur App.tsx pour OAuth) ──
-
-/** true si la MFA est activée mais le code n'a pas encore été saisi. */
 export async function needsMfaChallenge(): Promise<boolean> {
   await syncAuthClient();
 
@@ -943,7 +945,6 @@ export async function needsMfaChallenge(): Promise<boolean> {
   return data.nextLevel === "aal2" && data.currentLevel !== "aal2";
 }
 
-/** Vérifie le code à 6 chiffres saisi à la connexion. */
 export async function verifyMfaLogin(code: string): Promise<void> {
   await syncAuthClient();
 
@@ -963,7 +964,7 @@ export async function verifyMfaLogin(code: string): Promise<void> {
 }
 
 // ============================================================
-// PASSKEYS (empreinte, reconnaissance faciale, PIN, clé de sécurité)
+// PASSKEYS
 // ============================================================
 
 export type Passkey = {
@@ -992,7 +993,6 @@ export async function listPasskeys(): Promise<Passkey[]> {
   }));
 }
 
-/** Ouvre l'invite de l'appareil (Touch ID, Face ID, Windows Hello…). */
 export async function registerPasskey(): Promise<void> {
   await syncAuthClient();
 
@@ -1017,11 +1017,6 @@ export async function deletePasskey(passkeyId: string): Promise<void> {
   if (error) throw error;
 }
 
-/**
- * Connexion SANS mot de passe avec une passkey (page Sign in).
- * Pas besoin d'e-mail : l'appareil retrouve le compte tout seul.
- * Stocke la session dans le même localStorage que signIn().
- */
 export async function signInWithPasskey(): Promise<void> {
   const { data, error } = await authClient.auth.signInWithPasskey();
   if (error) throw error;
