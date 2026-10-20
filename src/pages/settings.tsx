@@ -946,18 +946,22 @@ function ProfileSection({
     }
   };
 
+  /**
+   * ⚠️ Modification : on met à jour le profil en DB **avant** de
+   * supprimer le fichier storage. Comme ça, si le storage échoue,
+   * l'UI n'affiche pas une URL morte et la DB reste cohérente.
+   */
   const handleRemoveAvatar = async () => {
     if (!user || !avatarUrl || uploading) return;
 
     setUploading(true);
+    const previous = avatarUrl;
 
     try {
-      await deleteAvatar(avatarUrl);
-
       const ok = await updateUserProfile({ avatar_url: "" });
 
       if (!ok) {
-        notify("Avatar deleted but profile update failed", "error");
+        notify("Failed to remove profile picture", "error");
         return;
       }
 
@@ -965,6 +969,13 @@ function ProfileSection({
       setAvatarLoadFailed(false);
       setUser((c) => (c ? { ...c, avatar_url: undefined } : c));
       notify("Profile picture removed");
+
+      // Best-effort : nettoyage du fichier storage (non bloquant).
+      try {
+        await deleteAvatar(previous);
+      } catch (e) {
+        console.warn("Storage cleanup failed (non-blocking):", e);
+      }
     } catch (error) {
       console.error("Error removing avatar:", error);
       notify(
@@ -1271,12 +1282,16 @@ function AccountSection({
     }
   };
 
+  /**
+   * ⚠️ Modification : ne force plus `setMfaEnabled(true)`. Ce flag
+   * reflète l'état réel chargé par getCurrentUser() — un changement
+   * de mot de passe ne doit pas le faire basculer.
+   */
   const applyPasswordSuccess = (wasSetting: boolean) => {
     setCurrent("");
     setNext("");
     setConfirmNext("");
     setHasPassword(true);
-    setMfaEnabled(true);
     notify(wasSetting ? "Password set" : "Password updated");
   };
 
@@ -1959,7 +1974,7 @@ function MfaSection({
                     </span>
                   </div>
                   <p className={cx("mt-0.5 text-[12px]", tokens.subtle)}>
-                    Added on {formatDate(f.createdAt)}
+                    Added on {formatDate(f.createdAt || "")}
                   </p>
                 </div>
                 <Button

@@ -3,10 +3,6 @@
 // ============================================================
 // API CONFIGURATION
 // ============================================================
-//
-// Le frontend ne parle QU'AU backend Railway. Aucune clé Supabase,
-// aucun client supabase-js, aucune variable VITE_*. Toute la logique
-// MFA / passkey est côté backend (proxy /api/mfa/*).
 
 const API_BASE_URL = "https://stoneserv-production.up.railway.app";
 
@@ -145,6 +141,27 @@ function isTokenExpiring(token: string, marginSeconds = 60): boolean {
 }
 
 // ============================================================
+// MFA SESSION GRACE
+// ============================================================
+//
+// Après une vérification MFA réussie, on conserve la session AAL2
+// pendant une courte fenêtre. Sans ça, si le token est proche de
+// l'expiration (< 60s), apiRequest déclenche un /api/auth/refresh
+// qui rétrograde la session en AAL1 et fait échouer les endpoints
+// requireAal2 (PUT /api/user/password, DELETE /api/mfa/factors).
+
+let mfaVerifiedAt: number | null = null;
+const MFA_GRACE_MS = 5 * 60_000;
+
+function markMfaVerified(): void {
+  mfaVerifiedAt = Date.now();
+}
+
+function inMfaGrace(): boolean {
+  return mfaVerifiedAt !== null && Date.now() - mfaVerifiedAt < MFA_GRACE_MS;
+}
+
+// ============================================================
 // TOKEN REFRESH
 // ============================================================
 
@@ -216,7 +233,10 @@ export async function apiRequest<T>(
     !NO_REFRESH_ENDPOINTS.some((path) => endpoint.startsWith(path)) &&
     Boolean(getRefreshToken());
 
-  if (canRefresh && !isRetry) {
+  // ── Ne PAS rafraîchir pendant la grâce MFA ──
+  // Sinon on retombe en AAL1 et les endpoints protégés échouent
+  // juste après un verify (challenge MFA pour changer le mot de passe).
+  if (canRefresh && !isRetry && !inMfaGrace()) {
     const current = getAccessToken();
     if (!current || isTokenExpiring(current)) {
       await refreshAccessToken();
@@ -527,11 +547,41 @@ export async function getCurrentUser(): Promise<UserProfile | null> {
 
     const response = await apiRequest<{
       success: boolean;
-      user: UserProfile;
+      user: Record<string, unknown>;
     }>("/api/user/profile", { method: "GET" });
 
-    if (response && response.success && response.user) return response.user;
-    return null;
+    const u = response?.user;
+    if (!response?.success || !u) return null;
+
+    // ── Normalisation camelCase ↔ snake_case ──
+    // Le backend renvoie parfois firstName/avatarUrl, parfois
+    // first_name/avatar_url. On accepte les deux pour que
+    // ProfileSection et AccountSection fonctionnent dans tous les cas.
+    const normalized: UserProfile = {
+      id: String(u.id ?? ""),
+      email: String(u.email ?? ""),
+      first_name: (u.first_name as string) ?? (u.firstName as string) ?? "",
+      last_name: (u.last_name as string) ?? (u.lastName as string) ?? "",
+      avatar_url: (u.avatar_url as string) ?? (u.avatarUrl as string) ?? undefined,
+      bio: (u.bio as string) ?? undefined,
+      email_confirmed_at:
+        (u.email_confirmed_at as string) ??
+        (u.emailConfirmedAt as string) ??
+        undefined,
+      created_at:
+        (u.created_at as string) ?? (u.createdAt as string) ?? undefined,
+      provider: (u.provider as UserProfile["provider"]) ?? "email",
+      hasPassword:
+        (u.hasPassword as boolean) ??
+        (u.has_password as boolean) ??
+        true,
+      mfa_enabled:
+        (u.mfa_enabled as boolean) ??
+        (u.mfaEnabled as boolean) ??
+        false,
+    };
+
+    return normalized;
   } catch (error) {
     console.error("Error fetching current user:", error);
     return null;
@@ -542,11 +592,19 @@ export async function updateUserProfile(
   profile: Partial<UserProfile>
 ): Promise<boolean> {
   try {
-    const updateData: Record<string, string> = {};
+    const updateData: Record<string, string | null> = {};
 
     if (profile.first_name !== undefined) updateData.firstName = profile.first_name;
     if (profile.last_name !== undefined) updateData.lastName = profile.last_name;
-    if (profile.avatar_url !== undefined) updateData.avatarUrl = profile.avatar_url;
+
+    // ── Avatar : "" → null pour vraiment effacer côté DB ──
+    // Sinon le backend peut ignorer le champ (chaîne vide = "absent")
+    // et l'ancienne URL revient au prochain getCurrentUser.
+    if (profile.avatar_url !== undefined) {
+      updateData.avatarUrl =
+        profile.avatar_url === "" ? null : profile.avatar_url;
+    }
+
     if (profile.bio !== undefined) updateData.bio = profile.bio;
 
     await apiRequest("/api/user/profile", {
@@ -567,7 +625,7 @@ export async function updateUserProfile(
 
 export async function uploadAvatar(
   file: File,
-  _userId?: string
+  userId?: string
 ): Promise<string | null> {
   try {
     if (!file) {
@@ -588,14 +646,16 @@ export async function uploadAvatar(
 
     const formData = new FormData();
     formData.append("avatar", file);
+    if (userId) formData.append("userId", userId);
 
     const data = await apiRequest<{
       success: boolean;
       avatar_url?: string;
       avatarUrl?: string;
+      url?: string;
     }>("/api/user/avatar", { method: "POST", body: formData });
 
-    const avatarUrl = data?.avatar_url || data?.avatarUrl;
+    const avatarUrl = data?.avatar_url || data?.avatarUrl || data?.url;
     if (typeof avatarUrl !== "string" || !avatarUrl) {
       console.error("Server did not return an avatar URL.");
       return null;
@@ -608,8 +668,9 @@ export async function uploadAvatar(
 }
 
 export async function deleteAvatar(filePathOrUrl: string): Promise<boolean> {
+  if (!filePathOrUrl) return false;
+
   try {
-    if (!filePathOrUrl) return false;
     await apiRequest("/api/user/avatar", {
       method: "DELETE",
       body: JSON.stringify({ filePathOrUrl }),
@@ -617,7 +678,12 @@ export async function deleteAvatar(filePathOrUrl: string): Promise<boolean> {
     return true;
   } catch (error) {
     console.error("Error deleting avatar:", error);
-    return false;
+    // ── On propage l'erreur pour que le try/catch de Settings
+    // (ProfileSection) puisse réagir. L'appelant décide si c'est
+    // bloquant ou non (best-effort cleanup).
+    throw error instanceof Error
+      ? error
+      : new Error("Avatar deletion failed");
   }
 }
 
@@ -656,11 +722,6 @@ export async function checkApiHealth(): Promise<boolean> {
 // ============================================================
 // MFA (tout passe par le backend, aucune clé Supabase côté front)
 // ============================================================
-//
-// Chaque opération renvoie la nouvelle session AAL2 quand Supabase en
-// émet une (verify / enroll/verify). Le frontend la stocke, ce qui met
-// automatiquement à jour le claim `aal` du JWT pour requireAal2() côté
-// serveur.
 
 export type MfaFactor = {
   id: string;
@@ -676,14 +737,19 @@ export async function listMfaFactors(): Promise<MfaFactor[]> {
     factors: Array<{
       id: string;
       friendlyName?: string | null;
+      friendly_name?: string | null;
       createdAt?: string | null;
+      created_at?: string | null;
+      status?: string;
     }>;
   }>("/api/mfa/factors", { method: "GET" });
 
   return (data.factors || []).map((f) => ({
     id: f.id,
-    friendlyName: f.friendlyName ?? undefined,
-    createdAt: f.createdAt || "",
+    // ── Normalisation snake_case → camelCase ──
+    friendlyName: f.friendlyName ?? f.friendly_name ?? undefined,
+    createdAt: f.createdAt ?? f.created_at ?? null,
+    status: f.status === "unverified" ? "unverified" : "verified",
   }));
 }
 
@@ -693,28 +759,68 @@ export async function startMfaEnrollment(): Promise<{
   qrCode: string;
   secret: string;
 }> {
-  return apiRequest<{ factorId: string; qrCode: string; secret: string }>(
-    "/api/mfa/enroll",
-    { method: "POST" }
-  );
+  const raw = await apiRequest<Record<string, unknown>>("/api/mfa/enroll", {
+    method: "POST",
+  });
+
+  // ── Parsing défensif : accepte plusieurs formes de réponse ──
+  const data = (raw as { data?: Record<string, unknown> }).data ?? raw;
+  const totp = (data as { totp?: Record<string, unknown> }).totp ?? {};
+  const factor = (data as { factor?: Record<string, unknown> }).factor ?? {};
+
+  const factorId =
+    (raw as any).factorId ??
+    (raw as any).factor_id ??
+    (raw as any).id ??
+    (factor as any).id ??
+    (data as any).factorId ??
+    (data as any).factor_id;
+
+  const qrCode =
+    (raw as any).qrCode ??
+    (raw as any).qr_code ??
+    (raw as any).qr ??
+    (data as any).qrCode ??
+    (data as any).qr_code ??
+    (data as any).qr;
+
+  const secret =
+    (raw as any).secret ??
+    (totp as any).secret ??
+    (data as any).secret;
+
+  if (!factorId || !qrCode || !secret) {
+    throw new Error("Invalid MFA enrollment response from server.");
+  }
+
+  return { factorId: String(factorId), qrCode: String(qrCode), secret: String(secret) };
 }
 
 /**
  * Étape 2 : vérifie le premier code. La session renvoyée (AAL2) est
- * stockée localement.
+ * stockée localement. **Obligatoire** : sans session AAL2, le prochain
+ * appel requireAal2 échouera en 403 MFA_REQUIRED.
  */
 export async function confirmMfaEnrollment(
   factorId: string,
   code: string
 ): Promise<void> {
-  const data = await apiRequest<{ success: boolean; session: AuthSession }>(
-    "/api/mfa/enroll/verify",
-    {
-      method: "POST",
-      body: JSON.stringify({ factorId, code }),
-    }
-  );
+  const data = await apiRequest<{
+    success: boolean;
+    session: AuthSession | null;
+  }>("/api/mfa/enroll/verify", {
+    method: "POST",
+    body: JSON.stringify({ factorId, code }),
+  });
+
+  if (!data?.session?.access_token) {
+    throw new Error(
+      "MFA enrollment succeeded but the backend did not return an AAL2 session."
+    );
+  }
+
   saveSession(data.session);
+  markMfaVerified();
 }
 
 /**
@@ -742,7 +848,7 @@ export async function disableMfa(factorId: string): Promise<void> {
 
 /**
  * Vérifie un code TOTP pour un facteur précis et élève la session en
- * AAL2 (stockage local de la nouvelle session). Utilisé par :
+ * AAL2 (stockage local + grace period). Utilisé par :
  *   - MfaSection (désactivation d'un facteur)
  *   - AccountSection (challenge avant changement de mot de passe)
  */
@@ -750,14 +856,22 @@ export async function verifyMfaFactorCode(
   factorId: string,
   code: string
 ): Promise<void> {
-  const data = await apiRequest<{ success: boolean; session: AuthSession }>(
-    "/api/mfa/verify",
-    {
-      method: "POST",
-      body: JSON.stringify({ factorId, code }),
-    }
-  );
-  if (data.session) saveSession(data.session);
+  const data = await apiRequest<{
+    success: boolean;
+    session: AuthSession | null;
+  }>("/api/mfa/verify", {
+    method: "POST",
+    body: JSON.stringify({ factorId, code }),
+  });
+
+  if (!data?.session?.access_token) {
+    throw new Error(
+      "MFA verification succeeded but the backend did not return an AAL2 session."
+    );
+  }
+
+  saveSession(data.session);
+  markMfaVerified();
 }
 
 /** Vérifie un code TOTP après le login (facteur = premier vérifié). */
@@ -765,14 +879,18 @@ export async function verifyMfaLogin(
   code: string,
   factorId?: string
 ): Promise<void> {
-  const data = await apiRequest<{ success: boolean; session: AuthSession }>(
-    "/api/mfa/verify",
-    {
-      method: "POST",
-      body: JSON.stringify({ code, factorId }),
-    }
-  );
-  if (data.session) saveSession(data.session);
+  const data = await apiRequest<{
+    success: boolean;
+    session: AuthSession | null;
+  }>("/api/mfa/verify", {
+    method: "POST",
+    body: JSON.stringify({ code, factorId }),
+  });
+
+  if (data?.session?.access_token) {
+    saveSession(data.session);
+    markMfaVerified();
+  }
 }
 
 /**
