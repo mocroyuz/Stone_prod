@@ -12,6 +12,10 @@ const API_BASE_URL = "https://stoneserv-production.up.railway.app";
 
 const ACCESS_TOKEN_KEY = "crossflow_access_token";
 const REFRESH_TOKEN_KEY = "crossflow_refresh_token";
+// sessionStorage : "connecté en AAL1, code 2FA pas encore saisi"
+const MFA_PENDING_KEY = "crossflow_mfa_pending";
+// sessionStorage : horodatage de la dernière vérification MFA réussie
+const MFA_VERIFIED_KEY = "crossflow_mfa_verified_at";
 
 // ============================================================
 // TYPES
@@ -65,8 +69,20 @@ export interface RecoveryParams {
   tokenHash?: string;
 }
 
+export type MfaFactor = {
+  id: string;
+  friendlyName?: string;
+  status?: "verified" | "unverified";
+  createdAt?: string | null;
+};
+
+export type RecoveryStatus = {
+  remaining: number;
+  generatedAt: string | null;
+};
+
 // ============================================================
-// MFA REQUIRED ERROR
+// ERRORS
 // ============================================================
 
 export class MfaRequiredError extends Error {
@@ -87,6 +103,49 @@ export function isMfaRequiredError(error: unknown): error is MfaRequiredError {
   );
 }
 
+/** 429 : trop de tentatives. `retryAfterSeconds` vient du header Retry-After ou du body. */
+export class RateLimitError extends Error {
+  readonly code = "RATE_LIMITED" as const;
+  readonly status = 429 as const;
+  readonly retryAfterSeconds: number;
+
+  constructor(retryAfterSeconds: number, message = "Too many attempts") {
+    super(message);
+    this.name = "RateLimitError";
+    this.retryAfterSeconds = retryAfterSeconds;
+  }
+}
+
+export function isRateLimitError(error: unknown): error is RateLimitError {
+  return error instanceof RateLimitError;
+}
+
+// ============================================================
+// MFA PENDING (login en AAL1, challenge pas encore passé)
+// ============================================================
+//
+// Tant que ce flag est actif, l'utilisateur n'est PAS considéré comme
+// connecté : hasStoredSession() renvoie false et getCurrentUser() renvoie
+// null. Les tokens AAL1 restent stockés uniquement pour permettre
+// d'appeler /api/mfa/verify.
+
+export function isMfaPending(): boolean {
+  try {
+    return sessionStorage.getItem(MFA_PENDING_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function setMfaPending(value: boolean): void {
+  try {
+    if (value) sessionStorage.setItem(MFA_PENDING_KEY, "1");
+    else sessionStorage.removeItem(MFA_PENDING_KEY);
+  } catch {
+    /* stockage indisponible */
+  }
+}
+
 // ============================================================
 // TOKEN HELPERS
 // ============================================================
@@ -100,6 +159,7 @@ export function getRefreshToken(): string | null {
 }
 
 export function hasStoredSession(): boolean {
+  if (isMfaPending()) return false;
   return Boolean(getAccessToken() || getRefreshToken());
 }
 
@@ -118,6 +178,12 @@ function saveSession(session: AuthSession | null): void {
 export function clearSession(): void {
   localStorage.removeItem(ACCESS_TOKEN_KEY);
   localStorage.removeItem(REFRESH_TOKEN_KEY);
+  setMfaPending(false);
+  try {
+    sessionStorage.removeItem(MFA_VERIFIED_KEY);
+  } catch {
+    /* ignore */
+  }
 }
 
 function readTokenExpiry(token: string): number | null {
@@ -148,17 +214,30 @@ function isTokenExpiring(token: string, marginSeconds = 60): boolean {
 // pendant une courte fenêtre. Sans ça, si le token est proche de
 // l'expiration (< 60s), apiRequest déclenche un /api/auth/refresh
 // qui rétrograde la session en AAL1 et fait échouer les endpoints
-// requireAal2 (PUT /api/user/password, DELETE /api/mfa/factors).
+// requireAal2.
+//
+// L'horodatage est dans sessionStorage : il survit à un rechargement
+// de la page (contrairement à une variable de module).
 
-let mfaVerifiedAt: number | null = null;
 const MFA_GRACE_MS = 5 * 60_000;
 
 function markMfaVerified(): void {
-  mfaVerifiedAt = Date.now();
+  try {
+    sessionStorage.setItem(MFA_VERIFIED_KEY, String(Date.now()));
+  } catch {
+    /* ignore */
+  }
 }
 
 function inMfaGrace(): boolean {
-  return mfaVerifiedAt !== null && Date.now() - mfaVerifiedAt < MFA_GRACE_MS;
+  try {
+    const raw = sessionStorage.getItem(MFA_VERIFIED_KEY);
+    if (!raw) return false;
+    const at = Number(raw);
+    return Number.isFinite(at) && Date.now() - at < MFA_GRACE_MS;
+  } catch {
+    return false;
+  }
 }
 
 // ============================================================
@@ -233,9 +312,7 @@ export async function apiRequest<T>(
     !NO_REFRESH_ENDPOINTS.some((path) => endpoint.startsWith(path)) &&
     Boolean(getRefreshToken());
 
-  // ── Ne PAS rafraîchir pendant la grâce MFA ──
-  // Sinon on retombe en AAL1 et les endpoints protégés échouent
-  // juste après un verify (challenge MFA pour changer le mot de passe).
+  // Ne PAS rafraîchir pendant la grâce MFA, sinon retour en AAL1.
   if (canRefresh && !isRetry && !inMfaGrace()) {
     const current = getAccessToken();
     if (!current || isTokenExpiring(current)) {
@@ -267,6 +344,14 @@ export async function apiRequest<T>(
   }
 
   if (!response.ok) {
+    const bodyError =
+      typeof data === "object" &&
+      data !== null &&
+      "error" in data &&
+      typeof (data as { error?: unknown }).error === "string"
+        ? (data as { error: string }).error
+        : undefined;
+
     if (
       response.status === 403 &&
       typeof data === "object" &&
@@ -274,12 +359,24 @@ export async function apiRequest<T>(
       "code" in data &&
       (data as { code?: unknown }).code === "MFA_REQUIRED"
     ) {
-      const msg =
-        "error" in data && typeof (data as { error?: unknown }).error === "string"
-          ? (data as { error: string }).error
+      throw new MfaRequiredError(bodyError);
+    }
+
+    if (response.status === 429) {
+      const header = Number(response.headers.get("Retry-After"));
+      const bodyRetry =
+        typeof data === "object" && data !== null
+          ? (data as { retryAfter?: unknown }).retryAfter
           : undefined;
 
-      throw new MfaRequiredError(msg);
+      const seconds =
+        Number.isFinite(header) && header > 0
+          ? header
+          : typeof bodyRetry === "number" && bodyRetry > 0
+          ? bodyRetry
+          : 60;
+
+      throw new RateLimitError(Math.ceil(seconds), bodyError);
     }
 
     if (response.status === 401 && canRefresh && !isRetry) {
@@ -287,15 +384,9 @@ export async function apiRequest<T>(
       if (refreshed) return apiRequest<T>(endpoint, options, true);
     }
 
-    const errorMessage =
-      typeof data === "object" &&
-      data !== null &&
-      "error" in data &&
-      typeof (data as { error?: unknown }).error === "string"
-        ? (data as { error: string }).error
-        : `Request failed with status ${response.status}`;
-
-    throw new Error(errorMessage);
+    throw new Error(
+      bodyError ?? `Request failed with status ${response.status}`
+    );
   }
 
   return data as T;
@@ -305,12 +396,24 @@ export async function apiRequest<T>(
 // SIGN IN / SIGN UP
 // ============================================================
 
+/**
+ * Si le compte a le 2FA, la session renvoyée est AAL1 : on la stocke
+ * mais on marque "MFA en attente". L'appelant doit alors afficher l'écran
+ * de code (voir LoginMfaChallenge) tant que `isMfaPending()` est vrai.
+ */
 export async function signIn(email: string, password: string): Promise<AuthResponse> {
   const result = await apiRequest<AuthResponse>("/api/auth/login", {
     method: "POST",
     body: JSON.stringify({ email, password }),
   });
+
   saveSession(result.session);
+
+  const needsChallenge =
+    Boolean(result.mfa_required) ||
+    (Boolean(result.mfa_enabled) && Boolean(result.aal) && result.aal !== "aal2");
+
+  setMfaPending(needsChallenge);
   return result;
 }
 
@@ -352,6 +455,29 @@ export async function getMfaStatus(): Promise<MfaStatus | null> {
     console.error("Error fetching MFA status:", error);
     return null;
   }
+}
+
+/**
+ * Resynchronise le flag "MFA en attente" avec le backend.
+ * À appeler au démarrage de l'app et après un retour OAuth
+ * (Google / GitHub ne passent pas par signIn).
+ */
+export async function refreshMfaPending(): Promise<boolean> {
+  if (!getAccessToken() && !getRefreshToken()) {
+    setMfaPending(false);
+    return false;
+  }
+
+  const status = await getMfaStatus();
+  if (!status) return isMfaPending();
+
+  setMfaPending(status.requires_challenge);
+  return status.requires_challenge;
+}
+
+/** true si la MFA est activée mais que la session courante est en AAL1. */
+export async function needsMfaChallenge(): Promise<boolean> {
+  return refreshMfaPending();
 }
 
 // ============================================================
@@ -500,8 +626,19 @@ export async function signInWithGithub(redirectTo?: string): Promise<void> {
   window.location.href = url;
 }
 
-export function saveOAuthSession(accessToken: string, refreshToken: string): void {
+/**
+ * Stocke la session OAuth, puis vérifie côté backend si un code 2FA
+ * est requis. Renvoie true si l'écran de challenge doit s'afficher.
+ */
+export async function saveOAuthSession(
+  accessToken: string,
+  refreshToken: string
+): Promise<boolean> {
   saveSession({ access_token: accessToken, refresh_token: refreshToken });
+  // On bloque l'accès le temps de la vérification.
+  setMfaPending(true);
+  const pending = await refreshMfaPending();
+  return pending;
 }
 
 // ============================================================
@@ -553,10 +690,7 @@ export async function getCurrentUser(): Promise<UserProfile | null> {
     const u = response?.user;
     if (!response?.success || !u) return null;
 
-    // ── Normalisation camelCase ↔ snake_case ──
-    // Le backend renvoie parfois firstName/avatarUrl, parfois
-    // first_name/avatar_url. On accepte les deux pour que
-    // ProfileSection et AccountSection fonctionnent dans tous les cas.
+    // Le backend renvoie parfois camelCase, parfois snake_case.
     const normalized: UserProfile = {
       id: String(u.id ?? ""),
       email: String(u.email ?? ""),
@@ -597,9 +731,7 @@ export async function updateUserProfile(
     if (profile.first_name !== undefined) updateData.firstName = profile.first_name;
     if (profile.last_name !== undefined) updateData.lastName = profile.last_name;
 
-    // ── Avatar : "" → null pour vraiment effacer côté DB ──
-    // Sinon le backend peut ignorer le champ (chaîne vide = "absent")
-    // et l'ancienne URL revient au prochain getCurrentUser.
+    // "" → null pour vraiment effacer côté DB.
     if (profile.avatar_url !== undefined) {
       updateData.avatarUrl =
         profile.avatar_url === "" ? null : profile.avatar_url;
@@ -678,12 +810,27 @@ export async function deleteAvatar(filePathOrUrl: string): Promise<boolean> {
     return true;
   } catch (error) {
     console.error("Error deleting avatar:", error);
-    // ── On propage l'erreur pour que le try/catch de Settings
-    // (ProfileSection) puisse réagir. L'appelant décide si c'est
-    // bloquant ou non (best-effort cleanup).
     throw error instanceof Error
       ? error
       : new Error("Avatar deletion failed");
+  }
+}
+
+// ============================================================
+// SESSIONS
+// ============================================================
+
+/**
+ * Déconnecte tous les autres appareils (la session courante est conservée).
+ * Best-effort : à appeler après activation / désactivation du 2FA.
+ */
+export async function revokeOtherSessions(): Promise<boolean> {
+  try {
+    await apiRequest("/api/auth/sessions/revoke-others", { method: "POST" });
+    return true;
+  } catch (error) {
+    console.warn("Could not revoke other sessions:", error);
+    return false;
   }
 }
 
@@ -723,34 +870,50 @@ export async function checkApiHealth(): Promise<boolean> {
 // MFA (tout passe par le backend, aucune clé Supabase côté front)
 // ============================================================
 
-export type MfaFactor = {
+type RawFactor = {
   id: string;
-  friendlyName?: string;
-  status?: "verified" | "unverified";
+  friendlyName?: string | null;
+  friendly_name?: string | null;
   createdAt?: string | null;
+  created_at?: string | null;
+  status?: string;
 };
 
-/** Liste les facteurs TOTP vérifiés. */
-export async function listMfaFactors(): Promise<MfaFactor[]> {
-  const data = await apiRequest<{
-    success: boolean;
-    factors: Array<{
-      id: string;
-      friendlyName?: string | null;
-      friendly_name?: string | null;
-      createdAt?: string | null;
-      created_at?: string | null;
-      status?: string;
-    }>;
-  }>("/api/mfa/factors", { method: "GET" });
+/**
+ * Liste les facteurs TOTP. Par défaut : vérifiés uniquement.
+ * `includeUnverified` demande aussi les enrôlements abandonnés
+ * (GET /api/mfa/factors?status=all).
+ */
+export async function listMfaFactors(
+  options: { includeUnverified?: boolean } = {}
+): Promise<MfaFactor[]> {
+  const query = options.includeUnverified ? "?status=all" : "";
+
+  const data = await apiRequest<{ success: boolean; factors: RawFactor[] }>(
+    `/api/mfa/factors${query}`,
+    { method: "GET" }
+  );
 
   return (data.factors || []).map((f) => ({
     id: f.id,
-    // ── Normalisation snake_case → camelCase ──
     friendlyName: f.friendlyName ?? f.friendly_name ?? undefined,
     createdAt: f.createdAt ?? f.created_at ?? null,
     status: f.status === "unverified" ? "unverified" : "verified",
   }));
+}
+
+/** Supprime les enrôlements TOTP abandonnés (best-effort). */
+export async function cleanupUnverifiedFactors(): Promise<void> {
+  try {
+    const all = await listMfaFactors({ includeUnverified: true });
+    await Promise.allSettled(
+      all
+        .filter((f) => f.status === "unverified")
+        .map((f) => cancelMfaEnrollment(f.id))
+    );
+  } catch (error) {
+    console.warn("Could not clean up unverified factors:", error);
+  }
 }
 
 /** Étape 1 : démarre un enrôlement TOTP (QR + secret). */
@@ -759,11 +922,14 @@ export async function startMfaEnrollment(): Promise<{
   qrCode: string;
   secret: string;
 }> {
+  // Évite les erreurs "nom déjà pris" / limite de facteurs après un abandon.
+  await cleanupUnverifiedFactors();
+
   const raw = await apiRequest<Record<string, unknown>>("/api/mfa/enroll", {
     method: "POST",
   });
 
-  // ── Parsing défensif : accepte plusieurs formes de réponse ──
+  // Parsing défensif : accepte plusieurs formes de réponse.
   const data = (raw as { data?: Record<string, unknown> }).data ?? raw;
   const totp = (data as { totp?: Record<string, unknown> }).totp ?? {};
   const factor = (data as { factor?: Record<string, unknown> }).factor ?? {};
@@ -798,8 +964,7 @@ export async function startMfaEnrollment(): Promise<{
 
 /**
  * Étape 2 : vérifie le premier code. La session renvoyée (AAL2) est
- * stockée localement. **Obligatoire** : sans session AAL2, le prochain
- * appel requireAal2 échouera en 403 MFA_REQUIRED.
+ * stockée localement, ce qui permet ensuite de générer les codes de secours.
  */
 export async function confirmMfaEnrollment(
   factorId: string,
@@ -823,10 +988,7 @@ export async function confirmMfaEnrollment(
   markMfaVerified();
 }
 
-/**
- * Annule un enrôlement non vérifié. Aucune AAL2 requise (côté Supabase,
- * un facteur unverified peut être supprimé sans challenge).
- */
+/** Annule un enrôlement non vérifié (aucune AAL2 requise). */
 export async function cancelMfaEnrollment(factorId: string): Promise<void> {
   await apiRequest(
     `/api/mfa/factors?factorId=${encodeURIComponent(factorId)}`,
@@ -835,9 +997,9 @@ export async function cancelMfaEnrollment(factorId: string): Promise<void> {
 }
 
 /**
- * Désactive un facteur vérifié. **Le frontend doit d'abord appeler
- * verifyMfaFactorCode(factorId, code)** pour élever la session en AAL2,
- * sinon le backend renvoie 403 MFA_REQUIRED.
+ * Désactive un facteur vérifié. Requiert une session AAL2 : appeler
+ * verifyMfaFactorCode / verifyRecoveryCode avant, ou passer par le
+ * garde MFA de l'UI (MfaRequiredError → modale de challenge).
  */
 export async function disableMfa(factorId: string): Promise<void> {
   await apiRequest(
@@ -848,9 +1010,8 @@ export async function disableMfa(factorId: string): Promise<void> {
 
 /**
  * Vérifie un code TOTP pour un facteur précis et élève la session en
- * AAL2 (stockage local + grace period). Utilisé par :
- *   - MfaSection (désactivation d'un facteur)
- *   - AccountSection (challenge avant changement de mot de passe)
+ * AAL2 (stockage local + grâce). Lève RateLimitError sur 429.
+ * Sert au login, au challenge avant action sensible et à la désactivation.
  */
 export async function verifyMfaFactorCode(
   factorId: string,
@@ -872,32 +1033,102 @@ export async function verifyMfaFactorCode(
 
   saveSession(data.session);
   markMfaVerified();
+  setMfaPending(false);
 }
 
-/** Vérifie un code TOTP après le login (facteur = premier vérifié). */
+/** Vérifie un code TOTP juste après le login (facteur = premier vérifié par défaut). */
 export async function verifyMfaLogin(
   code: string,
   factorId?: string
 ): Promise<void> {
-  const data = await apiRequest<{
-    success: boolean;
-    session: AuthSession | null;
-  }>("/api/mfa/verify", {
-    method: "POST",
-    body: JSON.stringify({ code, factorId }),
-  });
+  let id = factorId;
 
-  if (data?.session?.access_token) {
-    saveSession(data.session);
-    markMfaVerified();
+  if (!id) {
+    const factors = await listMfaFactors();
+    id = factors[0]?.id;
+  }
+
+  if (!id) throw new Error("No authenticator found for this account.");
+
+  await verifyMfaFactorCode(id, code);
+}
+
+// ============================================================
+// RECOVERY CODES (codes de secours)
+// ============================================================
+//
+// Contrat backend attendu (Supabase n'a pas de codes de secours natifs,
+// le backend les gère : stockage haché, usage unique) :
+//
+//   GET  /api/mfa/recovery-codes          → { success, remaining, generatedAt }
+//   POST /api/mfa/recovery-codes          → { success, codes: string[] }   (requireAal2, remplace les anciens)
+//   POST /api/mfa/recovery-codes/verify   → { success, session, remaining } (rate-limité, élève en AAL2)
+
+/** Nombre de codes restants + date de génération. null si indisponible. */
+export async function getRecoveryCodesStatus(): Promise<RecoveryStatus | null> {
+  try {
+    const data = await apiRequest<{
+      success: boolean;
+      remaining?: number;
+      generatedAt?: string | null;
+      generated_at?: string | null;
+    }>("/api/mfa/recovery-codes", { method: "GET" });
+
+    if (!data?.success) return null;
+
+    return {
+      remaining: data.remaining ?? 0,
+      generatedAt: data.generatedAt ?? data.generated_at ?? null,
+    };
+  } catch (error) {
+    console.error("Error fetching recovery codes status:", error);
+    return null;
   }
 }
 
 /**
- * true si la MFA est activée mais que la session courante est en AAL1.
- * Lit /api/auth/mfa/status (le backend lit le claim `aal` du JWT).
+ * Génère (ou régénère) les codes de secours. Les anciens deviennent
+ * invalides. Requiert AAL2 : peut lever MfaRequiredError.
+ * Les codes ne sont renvoyés qu'une seule fois.
  */
-export async function needsMfaChallenge(): Promise<boolean> {
-  const status = await getMfaStatus();
-  return Boolean(status?.requires_challenge);
+export async function generateRecoveryCodes(): Promise<string[]> {
+  const data = await apiRequest<{ success: boolean; codes?: string[] }>(
+    "/api/mfa/recovery-codes",
+    { method: "POST" }
+  );
+
+  if (!data?.codes?.length) {
+    throw new Error("The server did not return any recovery codes.");
+  }
+
+  return data.codes;
+}
+
+/**
+ * Utilise un code de secours à la place d'un code TOTP.
+ * Le backend consomme le code et renvoie une session AAL2.
+ */
+export async function verifyRecoveryCode(
+  code: string
+): Promise<{ remaining: number }> {
+  const data = await apiRequest<{
+    success: boolean;
+    session: AuthSession | null;
+    remaining?: number;
+  }>("/api/mfa/recovery-codes/verify", {
+    method: "POST",
+    body: JSON.stringify({ code }),
+  });
+
+  if (!data?.session?.access_token) {
+    throw new Error(
+      "Recovery code accepted but the backend did not return a session."
+    );
+  }
+
+  saveSession(data.session);
+  markMfaVerified();
+  setMfaPending(false);
+
+  return { remaining: data.remaining ?? 0 };
 }
