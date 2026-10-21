@@ -552,6 +552,7 @@ const navItems: NavItem[] = [
 const EXTRA_FAVORITABLE_ITEMS: NavItem[] = [
   { label: "Channels", icon: ChannelsIcon, route: "channels" },
   { label: "Community", icon: CommunityIcon, route: "community" },
+  { label: "Insights", icon: InsightsIcon, route: "insights" },
 ];
 
 /** Liste complète utilisée pour hydrater / filtrer / afficher les favoris. */
