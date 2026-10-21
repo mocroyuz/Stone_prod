@@ -8,6 +8,7 @@ import { useTheme } from "../hooks/useTheme";
 import { navigate } from "../hooks/useHashRoute";
 import DashboardSidebar, {
   useSidebarOffset,
+  useFavorites,
 } from "../components/DashboardSidebar";
 import BottomBar, { type BottomBarTab } from "../components/Bottombar";
 import Folder from "../components/Folder";
@@ -32,6 +33,9 @@ type Idea = {
 type IconProps = { className?: string };
 
 const UNASSIGNED = "unassigned";
+
+/** Route de cette page dans la sidebar (doit exister dans navItems). */
+const PAGE_ROUTE = "create";
 
 const DEFAULT_TAGS: Tag[] = [
   { id: UNASSIGNED, label: "Unassigned" },
@@ -605,6 +609,11 @@ export default function Create() {
   const isDark = theme === "dark";
   const sidebarOffset = useSidebarOffset();
 
+  // Favoris partagés avec la sidebar : cliquer sur le marque-page ajoute /
+  // retire cette page de la section « Favorite » de la sidebar.
+  const { isFavorite, toggle: toggleFavorite } = useFavorites();
+  const saved = isFavorite(PAGE_ROUTE);
+
   const {
     tags,
     ideas,
@@ -621,7 +630,6 @@ export default function Create() {
   const [tab, setTab] = useState<Tab>("ideas");
   const [view, setView] = useState<View>("board");
   const [hidden, setHidden] = useState<string[]>([]);
-  const [saved, setSaved] = useState(false);
   const [query, setQuery] = useState("");
   const [isFolderOpen, setIsFolderOpen] = useState(false);
 
@@ -964,7 +972,7 @@ export default function Create() {
               <div className="flex items-center gap-2">
                 <IconButton
                   label={saved ? "Remove from favorites" : "Add to favorites"}
-                  onClick={() => setSaved((v) => !v)}
+                  onClick={() => toggleFavorite(PAGE_ROUTE)}
                   ghost={ghost}
                   isDark={isDark}
                   className="h-9 w-9"

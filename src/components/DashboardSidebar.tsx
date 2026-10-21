@@ -573,6 +573,50 @@ function writeStoredFavorites(userId: string | null, routes: string[]) {
   }
 }
 
+const FAVORITES_EVENT = "stone:favorites-changed";
+
+/**
+ * Favoris partagés : la sidebar ET n'importe quelle page (ex. Create.tsx)
+ * lisent / modifient la même liste (localStorage) et restent synchronisées
+ * grâce à un évènement window.
+ */
+export function useFavorites() {
+  const { user } = useUser();
+  const userId = user?.id ?? null;
+  const [routes, setRoutes] = useState<string[]>(() => readStoredFavorites(userId));
+
+  useEffect(() => {
+    const sync = () => setRoutes(readStoredFavorites(userId));
+
+    sync();
+    window.addEventListener(FAVORITES_EVENT, sync);
+    window.addEventListener("storage", sync);
+
+    return () => {
+      window.removeEventListener(FAVORITES_EVENT, sync);
+      window.removeEventListener("storage", sync);
+    };
+  }, [userId]);
+
+  const toggle = useCallback(
+    (route: string) => {
+      const current = readStoredFavorites(userId);
+      const next = current.includes(route)
+        ? current.filter((r) => r !== route)
+        : [...current, route];
+
+      writeStoredFavorites(userId, next);
+      setRoutes(next);
+      window.dispatchEvent(new Event(FAVORITES_EVENT));
+    },
+    [userId]
+  );
+
+  const isFavorite = useCallback((route: string) => routes.includes(route), [routes]);
+
+  return { routes, isFavorite, toggle };
+}
+
 const defaultAccount = {
   name: "Ronan",
   initials: "RN",
@@ -2063,28 +2107,14 @@ export default function DashboardSidebar({
   const { user } = useUser();
   const { subscription, hasActive: hasActiveSubscription } = useSubscription();
   const userId = user?.id ?? null;
-  const [favoriteRoutes, setFavoriteRoutes] = useState<string[]>(() =>
-    readStoredFavorites(userId)
-  );
-
-  useEffect(() => {
-    setFavoriteRoutes(readStoredFavorites(userId));
-  }, [userId]);
+  const { routes: favoriteRoutes, toggle: toggleFavoriteRoute } = useFavorites();
 
   const favoriteItems = useMemo(
     () => navItems.filter((item) => favoriteRoutes.includes(item.route)),
     [favoriteRoutes]
   );
 
-  const toggleFavorite = (item: NavItem) => {
-    setFavoriteRoutes((current) => {
-      const next = current.includes(item.route)
-        ? current.filter((route) => route !== item.route)
-        : [...current, item.route];
-      writeStoredFavorites(userId, next);
-      return next;
-    });
-  };
+  const toggleFavorite = (item: NavItem) => toggleFavoriteRoute(item.route);
 
   const [isCollapsed, setIsCollapsed] = useState(sidebarMemory.collapsed);
   const [mobileOpen, setMobileOpen] = useState(false);
