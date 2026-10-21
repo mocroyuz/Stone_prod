@@ -12,7 +12,6 @@ import DashboardSidebar, {
 import BottomBar, { type BottomBarTab } from "../components/Bottombar";
 import Folder from "../components/Folder";
 import HelpChatButton from "../components/Helpchatbutton";
-import PageHeader from "../components/PageHeader";
 import { requestNewPost } from "../services/Newpostbus";
 
 /* ───────── Types ───────── */
@@ -656,6 +655,7 @@ export default function Create() {
     ? "border-white/[0.10] hover:bg-white/[0.06]"
     : "border-black/[0.08] hover:bg-black/[0.03]";
   const chip = isDark ? "bg-white/[0.06]" : "bg-black/[0.05]";
+  const strong = isDark ? "text-white" : "text-neutral-900";
 
   const visibleTags = tags.filter((t) => !hidden.includes(t.id));
   visibleRef.current = visibleTags;
@@ -939,30 +939,43 @@ export default function Create() {
               "pb-6 pt-[clamp(18px,3vw,30px)]",
             ].join(" ")}
           >
-            <PageHeader
-              title="Create"
-              icon={<span className="scale-[1.45]"><BulbIcon /></span>}
-              isDark={isDark}
-              className="shrink-0 pb-4"
-              bookmarkAction={
+            {/* HEADER COMPACT (remplace PageHeader) */}
+            <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 pb-4">
+              <div className="flex min-w-0 items-center gap-2.5">
+                <span
+                  className={[
+                    "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border",
+                    isDark
+                      ? "border-white/[0.07] bg-white/[0.04] text-neutral-400"
+                      : "border-black/[0.06] bg-white text-neutral-500",
+                  ].join(" ")}
+                >
+                  <BulbIcon />
+                </span>
+                <h1
+                  className={[
+                    "truncate text-[20px] font-semibold tracking-[-0.03em]",
+                    strong,
+                  ].join(" ")}
+                >
+                  Create
+                </h1>
+              </div>
+              <div className="flex items-center gap-2">
                 <IconButton
                   label={saved ? "Remove from favorites" : "Add to favorites"}
                   onClick={() => setSaved((v) => !v)}
                   ghost={ghost}
                   isDark={isDark}
-                  className="h-10 w-10"
+                  className="h-9 w-9"
                 >
                   <BookmarkIcon className="h-5 w-5" filled={saved} />
                 </IconButton>
-              }
-              actions={
-                <div className="flex items-center gap-2">
-                  <IconButton label="Auto-replies" ghost={ghost} isDark={isDark}>
-                    <ChatHeartIcon className="h-5 w-5" />
-                  </IconButton>
-                </div>
-              }
-            />
+                <IconButton label="Auto-replies" ghost={ghost} isDark={isDark} className="h-9 w-9">
+                  <ChatHeartIcon className="h-5 w-5" />
+                </IconButton>
+              </div>
+            </div>
 
             {/* Tabs + toolbar */}
             <div
