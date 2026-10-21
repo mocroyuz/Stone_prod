@@ -584,7 +584,7 @@ const defaultAccount = {
 };
 
 /**
- * ✨ MODIFICATION ICI : On aligne les labels sur la page de tarification.
+ * On aligne les labels sur la page de tarification.
  * "pro" et "professional" deviennent "Professional".
  */
 function formatPlanLabel(name: string | null | undefined): string | null {
@@ -1518,7 +1518,9 @@ function SidebarChannelsImpl({
       ref={listRef}
       className="relative flex flex-col gap-1"
     >
-      {!compact && (
+      {/* Section Favorite : visible uniquement s'il y a au moins un favori
+          (et jamais en mode réduit). Vide → rien n'est affiché. */}
+      {!compact && favorites.length > 0 && (
         <>
           <div className="sb-fade mt-3 flex h-6 items-center px-2.5">
             <span className={["text-[12px] font-medium", t.muted].join(" ")}>
@@ -1526,38 +1528,29 @@ function SidebarChannelsImpl({
             </span>
           </div>
 
-          {favorites.length > 0 ? (
-            favorites.map((item) => {
-              const Icon = item.icon;
-              const isActive = item.route === currentRoute;
+          {favorites.map((item) => {
+            const Icon = item.icon;
+            const isActive = item.route === currentRoute;
 
-              return (
-                <button
-                  key={item.route}
-                  type="button"
-                  aria-current={isActive ? "page" : undefined}
-                  onClick={() => onNavigate(item.route)}
-                  className={[
-                    "flex h-9 w-full items-center gap-2.5 rounded-xl px-2.5 text-[13px] font-medium",
-                    "transition-[background-color,color,transform] duration-200",
-                    "active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:scale-100",
-                    focus,
-                    isActive ? t.navActive : t.navIdle,
-                  ].join(" ")}
-                >
-                  <Icon className="h-[18px] w-[18px] shrink-0" />
-                  <span className="sb-fade truncate text-left">{item.label}</span>
-                </button>
-              );
-            })
-          ) : (
-            <div
-              className={["flex items-center gap-2.5 px-2.5 py-1 text-[11.5px]", t.muted].join(" ")}
-            >
-              <BookmarkIcon className="h-3.5 w-3.5 shrink-0 opacity-60" />
-              <span className="truncate">No favorite pages yet</span>
-            </div>
-          )}
+            return (
+              <button
+                key={item.route}
+                type="button"
+                aria-current={isActive ? "page" : undefined}
+                onClick={() => onNavigate(item.route)}
+                className={[
+                  "flex h-9 w-full items-center gap-2.5 rounded-xl px-2.5 text-[13px] font-medium",
+                  "transition-[background-color,color,transform] duration-200",
+                  "active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:scale-100",
+                  focus,
+                  isActive ? t.navActive : t.navIdle,
+                ].join(" ")}
+              >
+                <Icon className="h-[18px] w-[18px] shrink-0" />
+                <span className="sb-fade truncate text-left">{item.label}</span>
+              </button>
+            );
+          })}
         </>
       )}
 
@@ -2765,35 +2758,35 @@ export default function DashboardSidebar({
               : "w-[240px]",
         ].join(" ")}
       >
-       {/* Logo → Home */}
-<button
-  type="button"
-  aria-label="Stone, go to Home"
-  aria-current={currentRoute === "home" ? "page" : undefined}
-  aria-keyshortcuts={ariaShortcut("h")}
-  onClick={() => handleNavigate("home")}
-  className={[
-    "flex h-14 w-full shrink-0 items-center text-left",
-    compact ? "justify-center" : "gap-2 px-4",
-    "transition-transform duration-200 active:scale-[0.98] motion-reduce:transition-none motion-reduce:active:scale-100",
-    focus,
-    "focus-visible:ring-inset",
-    t.title,
-  ].join(" ")}
->
-  <img
-    src={isDark ? "/images/icon_nav.png" : "/images/icon.png"}
-    alt=""
-    draggable={false}
-    className="h-8 w-7 shrink-0 select-none object-contain"
-  />
+        {/* Logo → Home */}
+        <button
+          type="button"
+          aria-label="Stone, go to Home"
+          aria-current={currentRoute === "home" ? "page" : undefined}
+          aria-keyshortcuts={ariaShortcut("h")}
+          onClick={() => handleNavigate("home")}
+          className={[
+            "flex h-14 w-full shrink-0 items-center text-left",
+            compact ? "justify-center" : "gap-2 px-4",
+            "transition-transform duration-200 active:scale-[0.98] motion-reduce:transition-none motion-reduce:active:scale-100",
+            focus,
+            "focus-visible:ring-inset",
+            t.title,
+          ].join(" ")}
+        >
+          <img
+            src={isDark ? "/images/icon_nav.png" : "/images/icon.png"}
+            alt=""
+            draggable={false}
+            className="h-8 w-7 shrink-0 select-none object-contain"
+          />
 
-  {!compact && (
-    <span className="sb-fade select-none text-[18px] font-semibold leading-none tracking-tight">
-      Stone
-    </span>
-  )}
-</button>
+          {!compact && (
+            <span className="sb-fade select-none text-[18px] font-semibold leading-none tracking-tight">
+              Stone
+            </span>
+          )}
+        </button>
 
         {/* Navigation */}
         <nav
