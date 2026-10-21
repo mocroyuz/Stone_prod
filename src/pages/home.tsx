@@ -1325,9 +1325,7 @@ export default function Home() {
               "pb-[120px] pt-[clamp(18px,3vw,30px)]",
             ].join(" ")}
           >
-            {/* HEADER */}
             <header className="flex shrink-0 items-start justify-between">
-              {/* Partie gauche : Avatar + Texte de salutation + Date */}
               <div className="flex items-center gap-4">
                 <GreetingAvatar
                   avatarUrl={user?.avatar_url}
@@ -1355,8 +1353,6 @@ export default function Home() {
                   </p>
                 </div>
               </div>
-
-              {/* Partie droite : Horloge */}
               <ClockDisplay isDark={isDark} now={now} />
             </header>
 

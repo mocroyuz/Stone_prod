@@ -19,9 +19,11 @@ import {
   type OnboardingAccount,
 } from "../components/OnboardingModals";
 import HelpChatButton from "../components/Helpchatbutton";
+import PageHeader from "../components/PageHeader";
 import { useTheme } from "../hooks/useTheme";
 import { useUser } from "../contexts/UserContext";
 import { navigate } from "../hooks/useHashRoute";
+import { Share2 } from "lucide-react";
 
 import {
   InstagramIcon,
@@ -1189,25 +1191,13 @@ export default function Channels() {
           {/* LARGEUR AUGMENTÉE ICI: max-w-[1100px] */}
           <div className="mx-auto flex w-full max-w-[1100px] flex-col px-[clamp(18px,3vw,48px)] pb-[120px] pt-[clamp(18px,3vw,30px)]">
 
-            {/* HEADER */}
-            <header className="flex shrink-0 flex-col mb-6">
-              <h1
-                className={[
-                  "text-[24px] font-semibold tracking-[-0.035em]",
-                  strongClass(isDark),
-                ].join(" ")}
-              >
-                Channels
-              </h1>
-              <p
-                className={[
-                  "mt-1 text-[13.5px] font-medium",
-                  mutedClass(isDark),
-                ].join(" ")}
-              >
-                Your connected accounts at a glance. Click on a channel to connect it.
-              </p>
-            </header>
+            <PageHeader
+              title="Channels"
+              icon={<Share2 className="h-7 w-7" strokeWidth={1.6} />}
+              isDark={isDark}
+              subtitle="Your connected accounts at a glance. Click on a channel to connect it."
+              className="mb-6 shrink-0"
+            />
 
             {/* BANNIÈRE PLAN */}
             <div

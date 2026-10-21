@@ -45,6 +45,7 @@ import DashboardSidebar, { useSidebarOffset } from "../components/DashboardSideb
 import BottomBar, { type BottomBarTab } from "../components/Bottombar";
 import Folder from "../components/Folder";
 import HelpChatButton from "../components/Helpchatbutton";
+import PageHeader from "../components/PageHeader";
 import { CalendarPicker } from "../components/CalendarPicker";
 import NewPostModal, {
   type NewPostPayload,
@@ -1254,25 +1255,13 @@ export default function Insights() {
               "pb-[120px] pt-[clamp(18px,3vw,30px)]",
             ].join(" ")}
           >
-            {/* TOP BAR */}
-            <header className="flex flex-wrap items-center justify-between gap-4">
-              <div className="flex items-center gap-2.5">
-                <div
-                  className={[
-                    "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border",
-                    isDark
-                      ? "border-white/[0.08] bg-white/[0.04] text-white"
-                      : "border-black/[0.06] bg-white text-neutral-900 shadow-sm",
-                  ].join(" ")}
-                >
-                  <InsightsIcon />
-                </div>
-                <h1 className={`text-[24px] font-semibold tracking-[-0.035em] ${t.text}`}>
-                  Insights
-                </h1>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2.5 print:hidden">
+            <PageHeader
+              title="Insights"
+              icon={<InsightsIcon />}
+              isDark={isDark}
+              className="shrink-0"
+              actions={
+                <div className="flex flex-wrap items-center gap-2.5 print:hidden">
                 <ChannelMenu channels={channels} current={channel} t={t} isDark={isDark} />
                 <button
                   type="button"
@@ -1284,8 +1273,9 @@ export default function Insights() {
                   Export
                   <ChevronDown className="h-3.5 w-3.5 opacity-70" aria-hidden="true" />
                 </button>
-              </div>
-            </header>
+                </div>
+              }
+            />
 
             {!channel ? (
               <section className={`flex flex-col items-center gap-3 rounded-2xl border px-6 py-20 text-center ${t.panel}`}>

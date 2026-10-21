@@ -15,6 +15,7 @@ import { DateTimePicker } from "../components/DateTimePicker";
 import ChannelMenu from "../components/ChannelMenu";
 import { useConnectedChannels } from "../hooks/useConnectedChannels";
 import HelpChatButton from "../components/Helpchatbutton";
+import PageHeader from "../components/PageHeader";
 
 /* ------------------------------------------------------------------ */
 /* Shell (identique à Home)                                            */
@@ -1288,38 +1289,22 @@ export default function Schedule() {
               "pb-4 pt-[clamp(18px,3vw,30px)]",
             ].join(" ")}
           >
-            {/* HEADER */}
-            <header className="relative z-40 mb-3 flex shrink-0 flex-wrap items-center justify-between gap-4">
-              <div className="flex items-center gap-2.5">
-                <div
-                  className={[
-                    "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border",
-                    isDark
-                      ? "border-white/[0.08] bg-white/[0.04] text-white"
-                      : "border-black/[0.06] bg-white text-neutral-900 shadow-sm",
-                  ].join(" ")}
-                >
-                  <CalendarIcon />
-                </div>
-                <h1
-                  className={[
-                    "text-[24px] font-semibold tracking-[-0.035em]",
-                    strongClass(isDark),
-                  ].join(" ")}
-                >
-                  Publish
-                </h1>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2.5 print:hidden">
+            <PageHeader
+              title="Publish"
+              icon={<span className="scale-[1.45]"><CalendarIcon /></span>}
+              isDark={isDark}
+              className="relative z-40 mb-3 shrink-0"
+              actions={
+                <div className="flex flex-wrap items-center gap-2.5 print:hidden">
                 <ChannelMenu
                   channels={channels}
                   current={channel}
                   isDark={isDark}
                   onSelect={goChannel}
                 />
-              </div>
-            </header>
+                </div>
+              }
+            />
 
             {/* TOOLBAR */}
             <div className="flex shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-2">

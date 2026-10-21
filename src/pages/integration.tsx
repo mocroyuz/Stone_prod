@@ -10,6 +10,7 @@ import NewPostModal, {
   unavailablePostActionMessage,
 } from "../components/Newpostmodal";
 import HelpChatButton from "../components/Helpchatbutton";
+import PageHeader from "../components/PageHeader";
 import {
   ZapierIcon,
   ClaudeIcon,
@@ -521,40 +522,13 @@ export default function Integrations() {
               "pb-[120px] pt-[clamp(18px,3vw,30px)]",
             ].join(" ")}
           >
-            {/* HEADER */}
-            <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
-              <div className="flex items-center gap-3">
-                <div
-                  className={[
-                    "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border",
-                    isDark
-                      ? "border-white/[0.08] bg-white/[0.04] text-white"
-                      : "border-black/[0.06] bg-white text-neutral-900 shadow-sm",
-                  ].join(" ")}
-                >
-                  <PlugIcon />
-                </div>
-                <div className="flex min-w-0 flex-col">
-                  <h1
-                    className={[
-                      "text-[24px] font-semibold tracking-[-0.035em]",
-                      strongClass(isDark),
-                    ].join(" ")}
-                  >
-                    Integrations
-                  </h1>
-                  <p
-                    className={[
-                      "mt-0.5 text-[12px] font-medium",
-                      mutedClass(isDark),
-                    ].join(" ")}
-                  >
-                    Connect your favorite tools and services.
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2">
+            <PageHeader
+              title="Integrations"
+              icon={<PlugIcon />}
+              isDark={isDark}
+              subtitle="Connect your favorite tools and services."
+              actions={
+                <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
                   className={[
@@ -568,8 +542,9 @@ export default function Integrations() {
                   <PlusIcon />
                   Nouvelle intégration
                 </button>
-              </div>
-            </header>
+                </div>
+              }
+            />
 
             {/* SEARCH + FILTER */}
             <div className="mt-6 flex flex-wrap items-center gap-2">

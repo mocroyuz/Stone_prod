@@ -12,6 +12,7 @@ import DashboardSidebar, {
 import BottomBar, { type BottomBarTab } from "../components/Bottombar";
 import Folder from "../components/Folder";
 import HelpChatButton from "../components/Helpchatbutton";
+import PageHeader from "../components/PageHeader";
 import { requestNewPost } from "../services/Newpostbus";
 
 /* ───────── Types ───────── */
@@ -938,44 +939,30 @@ export default function Create() {
               "pb-6 pt-[clamp(18px,3vw,30px)]",
             ].join(" ")}
           >
-            {/* Header */}
-            <header className="flex shrink-0 items-center justify-between gap-4 pb-4">
-              <div className="flex min-w-0 items-center gap-2.5">
-                <div
-                  className={[
-                    "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border",
-                    isDark
-                      ? "border-white/[0.08] bg-white/[0.04] text-white"
-                      : "border-black/[0.06] bg-white text-neutral-900 shadow-sm",
-                  ].join(" ")}
-                >
-                  <BulbIcon className="h-[18px] w-[18px]" />
-                </div>
-                <h1
-                  className={[
-                    "text-[24px] font-semibold tracking-[-0.035em]",
-                    isDark ? "text-white" : "text-neutral-900",
-                  ].join(" ")}
-                >
-                  Create
-                </h1>
+            <PageHeader
+              title="Create"
+              icon={<span className="scale-[1.45]"><BulbIcon /></span>}
+              isDark={isDark}
+              className="shrink-0 pb-4"
+              bookmarkAction={
                 <IconButton
                   label={saved ? "Remove from favorites" : "Add to favorites"}
                   onClick={() => setSaved((v) => !v)}
                   ghost={ghost}
                   isDark={isDark}
-                  className="h-8 w-8"
+                  className="h-10 w-10"
                 >
-                  <BookmarkIcon className="h-[18px] w-[18px]" filled={saved} />
+                  <BookmarkIcon className="h-5 w-5" filled={saved} />
                 </IconButton>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <IconButton label="Auto-replies" ghost={ghost} isDark={isDark}>
-                  <ChatHeartIcon className="h-5 w-5" />
-                </IconButton>
-              </div>
-            </header>
+              }
+              actions={
+                <div className="flex items-center gap-2">
+                  <IconButton label="Auto-replies" ghost={ghost} isDark={isDark}>
+                    <ChatHeartIcon className="h-5 w-5" />
+                  </IconButton>
+                </div>
+              }
+            />
 
             {/* Tabs + toolbar */}
             <div

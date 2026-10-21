@@ -302,7 +302,6 @@ export default function Faq() {
         ].join(" ")}
       >
         <div className="mx-auto w-full max-w-[900px] px-[clamp(16px,4vw,40px)] py-[clamp(48px,7vw,110px)]">
-          {/* titre */}
           <h1
             className={[
               "text-center text-[clamp(28px,4.6vw,56px)] font-semibold leading-[1.05] tracking-[-0.03em]",

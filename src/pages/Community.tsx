@@ -15,6 +15,7 @@ import NewPostModal, {
 import ChannelMenu from "../components/ChannelMenu";
 import { useConnectedChannels } from "../hooks/useConnectedChannels";
 import HelpChatButton from "../components/Helpchatbutton";
+import PageHeader from "../components/PageHeader";
 
 /* ───────── Types ───────── */
 
@@ -415,30 +416,13 @@ export default function Community() {
               "pb-6 pt-[clamp(18px,3vw,30px)]",
             ].join(" ")}
           >
-            {/* Header */}
-            <header className="relative z-40 flex shrink-0 flex-wrap items-center justify-between gap-4 pb-4">
-              <div className="flex min-w-0 items-center gap-2.5">
-                <div
-                  className={[
-                    "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border",
-                    isDark
-                      ? "border-white/[0.08] bg-white/[0.04] text-white"
-                      : "border-black/[0.06] bg-white text-neutral-900 shadow-sm",
-                  ].join(" ")}
-                >
-                  <ChatsIcon className="h-[18px] w-[18px]" />
-                </div>
-                <h1
-                  className={[
-                    "text-[24px] font-semibold tracking-[-0.035em]",
-                    strongClass(isDark),
-                  ].join(" ")}
-                >
-                  Community
-                </h1>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2.5">
+            <PageHeader
+              title="Community"
+              icon={<span className="scale-[1.45]"><ChatsIcon /></span>}
+              isDark={isDark}
+              className="relative z-40 shrink-0 pb-4"
+              actions={
+                <div className="flex flex-wrap items-center gap-2.5">
                 <ChannelMenu
                   channels={channels}
                   current={channel}
@@ -489,8 +473,9 @@ export default function Community() {
                     ))}
                   </div>
                 </div>
-              </div>
-            </header>
+                </div>
+              }
+            />
 
             {/* Tabs + toolbar */}
             <div className={["flex shrink-0 items-center justify-between gap-4 border-b", line].join(" ")}>
