@@ -35,6 +35,13 @@ import {
   type UserProfile,
   type MfaFactor,
   type RecoveryStatus,
+  // ── Passkeys / WebAuthn ──
+  listPasskeys,
+  registerPasskey,
+  deletePasskey,
+  isWebAuthnSupported,
+  verifyWithPasskey,
+  type Passkey,
 } from "../services/supabase";
 
 /* ── Tokens (classes complètes, compatibles Tailwind v3/v4) ── */
@@ -961,11 +968,6 @@ function ProfileSection({
     }
   };
 
-  /**
-   * On met à jour le profil en DB **avant** de supprimer le fichier
-   * storage. Si le storage échoue, l'UI n'affiche pas une URL morte
-   * et la DB reste cohérente.
-   */
   const handleRemoveAvatar = async () => {
     if (!user || !avatarUrl || uploading) return;
 
@@ -985,7 +987,6 @@ function ProfileSection({
       setUser((c) => (c ? { ...c, avatar_url: undefined } : c));
       notify("Profile picture removed");
 
-      // Best-effort : nettoyage du fichier storage (non bloquant).
       try {
         await deleteAvatar(previous);
       } catch (e) {
@@ -1254,7 +1255,7 @@ function MfaChallengeModal({
   isDark: boolean;
 }) {
   const [factorId, setFactorId] = useState("");
-  const [mode, setMode] = useState<"totp" | "recovery">("totp");
+  const [mode, setMode] = useState<"totp" | "recovery" | "passkey">("totp");
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -1262,6 +1263,8 @@ function MfaChallengeModal({
   const [now, setNow] = useState(() => Date.now());
   // Le code a déjà été accepté : si l'action rejouée échoue, on ne redemande pas un code.
   const verified = useRef<{ remaining?: number } | null>(null);
+  // Empêche un double déclenchement du flux passkey (effet + clic).
+  const passkeyStarted = useRef(false);
 
   useEffect(() => {
     setFactorId(gate?.factors[0]?.id ?? "");
@@ -1270,6 +1273,7 @@ function MfaChallengeModal({
     setError(null);
     setLockedUntil(0);
     verified.current = null;
+    passkeyStarted.current = false;
   }, [gate]);
 
   useEffect(() => {
@@ -1283,7 +1287,12 @@ function MfaChallengeModal({
   }, [lockedUntil]);
 
   const waitLeft = Math.max(0, Math.ceil((lockedUntil - now) / 1000));
-  const valid = mode === "totp" ? TOTP_RE.test(code) : RECOVERY_RE.test(code);
+  const valid =
+    mode === "totp"
+      ? TOTP_RE.test(code)
+      : mode === "recovery"
+      ? RECOVERY_RE.test(code)
+      : true; // passkey : pas de code à valider, le flux WebAuthn gère lui-même
   const ready = Boolean(verified.current) || valid;
 
   const submit = async () => {
@@ -1299,6 +1308,12 @@ function MfaChallengeModal({
     setError(null);
 
     try {
+      // Passkey : vérification via WebAuthn (aucun code à fournir).
+      if (!verified.current && mode === "passkey") {
+        await verifyWithPasskey();
+        verified.current = {};
+      }
+
       if (!verified.current) {
         if (mode === "totp") {
           await verifyMfaFactorCode(factorId, code);
@@ -1317,6 +1332,11 @@ function MfaChallengeModal({
       } else if (isMfaRequiredError(e)) {
         verified.current = null;
         setError("Verification expired. Enter a new code.");
+      } else if (
+        e instanceof DOMException &&
+        ["NotAllowedError", "AbortError"].includes(e.name)
+      ) {
+        setError("Passkey verification cancelled.");
       } else {
         const msg = e instanceof Error ? e.message : "Invalid code";
         setError(
@@ -1330,6 +1350,7 @@ function MfaChallengeModal({
       if (!verified.current) setCode("");
     } finally {
       setBusy(false);
+      passkeyStarted.current = false;
     }
   };
 
@@ -1341,8 +1362,22 @@ function MfaChallengeModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [code, mode]);
 
+  // Auto-déclenchement du flux passkey dès qu'on bascule dans ce mode.
+  useEffect(() => {
+    if (mode !== "passkey" || !gate) return;
+    if (verified.current || busy) return;
+    if (passkeyStarted.current) return;
+    passkeyStarted.current = true;
+    void submit();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, gate]);
+
   const switchMode = () => {
-    setMode((m) => (m === "totp" ? "recovery" : "totp"));
+    if (mode === "passkey") {
+      setMode("totp");
+    } else {
+      setMode((m) => (m === "totp" ? "recovery" : "totp"));
+    }
     setCode("");
     setError(null);
   };
@@ -1391,6 +1426,10 @@ function MfaChallengeModal({
         {verified.current ? (
           <p className={cx("text-[13px]", tokens.body)}>
             Code accepted. Retry to finish the action.
+          </p>
+        ) : mode === "passkey" ? (
+          <p className={cx("text-[13px]", tokens.body)}>
+            Use your device to verify with a passkey. This may take a moment.
           </p>
         ) : mode === "totp" ? (
           <Field
@@ -1447,19 +1486,53 @@ function MfaChallengeModal({
           </p>
         )}
 
-        {!verified.current && (
+        {!verified.current && mode !== "passkey" && (
+          <div className="flex flex-wrap gap-4">
+            <button
+              type="button"
+              onClick={switchMode}
+              className={cx(
+                "self-start text-[12.5px] font-medium underline underline-offset-2",
+                tokens.link,
+                tokens.ring
+              )}
+            >
+              {mode === "totp"
+                ? "Use a recovery code instead"
+                : "Use your authenticator app instead"}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setMode("passkey");
+                setError(null);
+              }}
+              className={cx(
+                "self-start text-[12.5px] font-medium underline underline-offset-2",
+                tokens.link,
+                tokens.ring
+              )}
+            >
+              Use a passkey instead
+            </button>
+          </div>
+        )}
+
+        {!verified.current && mode === "passkey" && error && (
           <button
             type="button"
-            onClick={switchMode}
+            onClick={() => {
+              passkeyStarted.current = false;
+              setError(null);
+              void submit();
+            }}
             className={cx(
               "self-start text-[12.5px] font-medium underline underline-offset-2",
               tokens.link,
               tokens.ring
             )}
           >
-            {mode === "totp"
-              ? "Use a recovery code instead"
-              : "Use your authenticator app instead"}
+            Retry passkey verification
           </button>
         )}
 
@@ -1483,7 +1556,9 @@ function MfaChallengeModal({
             disabled={busy || waitLeft > 0 || !ready}
           >
             {busy
-              ? "Verifying..."
+              ? mode === "passkey"
+                ? "Waiting for passkey..."
+                : "Verifying..."
               : verified.current
               ? "Retry"
               : "Verify & continue"}
@@ -2003,7 +2078,7 @@ function AccountSection({
   );
 }
 
-/* ── MFA (2FA / TOTP + codes de secours) ── */
+/* ── MFA (2FA / TOTP + passkeys + codes de secours) ── */
 
 function MfaSection({
   tokens,
@@ -2016,6 +2091,10 @@ function MfaSection({
 }) {
   const [factors, setFactors] = useState<MfaFactor[]>([]);
   const [recovery, setRecovery] = useState<RecoveryStatus | null>(null);
+  const [passkeys, setPasskeys] = useState<Passkey[]>([]);
+  const [addingPasskey, setAddingPasskey] = useState<
+    null | "platform" | "cross-platform"
+  >(null);
   const [loading, setLoading] = useState(true);
   const [starting, setStarting] = useState(false);
 
@@ -2053,6 +2132,7 @@ function MfaSection({
     const list = await listMfaFactors();
     setFactors(list);
     setRecovery(list.length > 0 ? await getRecoveryCodesStatus() : null);
+    setPasskeys(list.length > 0 ? await listPasskeys() : []);
   }, []);
 
   useEffect(() => {
@@ -2208,6 +2288,52 @@ function MfaSection({
     }
   };
 
+  /* ── Passkeys ── */
+
+  const handleAddPasskey = async (
+    attachment: "platform" | "cross-platform"
+  ) => {
+    if (addingPasskey) return;
+    if (!isWebAuthnSupported()) {
+      notify("This browser doesn't support passkeys", "error");
+      return;
+    }
+    setAddingPasskey(attachment);
+    try {
+      await guard(async () => {
+        await registerPasskey(
+          attachment === "platform" ? "Windows Hello" : "Security key",
+          attachment
+        );
+        await loadAll();
+        notify("Passkey added");
+      });
+    } catch (e) {
+      if (
+        e instanceof DOMException &&
+        ["NotAllowedError", "AbortError"].includes(e.name)
+      ) {
+        notify("Passkey setup cancelled", "error");
+      } else {
+        notify(errorMessage(e, "Failed to add passkey"), "error");
+      }
+    } finally {
+      setAddingPasskey(null);
+    }
+  };
+
+  const handleDeletePasskey = async (id: string) => {
+    try {
+      await guard(async () => {
+        await deletePasskey(id);
+        await loadAll();
+        notify("Passkey removed");
+      });
+    } catch (e) {
+      notify(errorMessage(e, "Failed to remove passkey"), "error");
+    }
+  };
+
   const factorLabel = (f: MfaFactor) => {
     const n = f.friendlyName;
     if (!n || /^Authenticator \d+$/.test(n)) return "Authenticator app";
@@ -2321,37 +2447,60 @@ function MfaSection({
 
   return (
     <>
+      {/* Passkeys & security keys — une seule carte, remplace « Security keys » + « Windows PIN » */}
       <SectionCard
-        title="Security keys"
-        description="Use your fingerprint, face, screen lock, or a physical security key when signing in."
+        title="Passkeys & security keys"
+        description="Verify with Windows Hello (PIN, fingerprint, face) or a hardware security key."
         tokens={tokens}
       >
-        <div className="flex flex-col gap-3 py-1 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-start gap-3">
-            <div
-              className={cx(
-                "flex h-10 w-10 shrink-0 items-center justify-center rounded-full",
-                tokens.muted
-              )}
-            >
-              <ShieldIcon className="h-5 w-5" />
-            </div>
+        {!isEnabled && (
+          <p className={cx("py-1 text-[12.5px]", tokens.body)}>
+            Enable the authenticator app first, then you can add a passkey.
+          </p>
+        )}
+
+        {passkeys.map((p) => (
+          <div key={p.id} className="flex items-center justify-between gap-3 py-3">
             <div>
               <p className={cx("text-[13.5px] font-medium", tokens.heading)}>
-                Passkey or security key
+                {p.name}
               </p>
-              <p className={cx("mt-0.5 text-[12.5px]", tokens.body)}>
-                Sign in with a passkey, biometric verification, or a hardware security key.
+              <p className={cx("text-[12px]", tokens.subtle)}>
+                Added {formatDate(p.createdAt)}
+                {p.lastUsedAt ? ` · last used ${formatDate(p.lastUsedAt)}` : ""}
               </p>
             </div>
+            <Button
+              tokens={tokens}
+              variant="secondary"
+              onClick={() => handleDeletePasskey(p.id)}
+              className="!px-3 !py-1.5 !text-[12.5px]"
+            >
+              Remove
+            </Button>
           </div>
+        ))}
+
+        <div className="flex flex-wrap gap-2 pt-3">
           <Button
             tokens={tokens}
             variant="secondary"
-            onClick={() => notify("Security key sign-in is not configured yet.", "error")}
-            className="sm:shrink-0"
+            disabled={!isEnabled || !!addingPasskey}
+            onClick={() => handleAddPasskey("platform")}
           >
-            + Add a security key
+            {addingPasskey === "platform"
+              ? "Waiting..."
+              : "Set up Windows Hello / PIN"}
+          </Button>
+          <Button
+            tokens={tokens}
+            variant="secondary"
+            disabled={!isEnabled || !!addingPasskey}
+            onClick={() => handleAddPasskey("cross-platform")}
+          >
+            {addingPasskey === "cross-platform"
+              ? "Waiting..."
+              : "+ Add a security key"}
           </Button>
         </div>
       </SectionCard>
@@ -2452,41 +2601,6 @@ function MfaSection({
             </Button>
           </div>
         )}
-      </SectionCard>
-
-      <SectionCard
-        title="Windows PIN"
-        description="Use Windows Hello on this device to verify your identity when signing in."
-        tokens={tokens}
-      >
-        <div className="flex flex-col gap-3 py-1 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-start gap-3">
-            <div
-              className={cx(
-                "flex h-10 w-10 shrink-0 items-center justify-center rounded-full",
-                tokens.muted
-              )}
-            >
-              <LockIcon className="h-5 w-5" />
-            </div>
-            <div>
-              <p className={cx("text-[13.5px] font-medium", tokens.heading)}>
-                Windows Hello PIN
-              </p>
-              <p className={cx("mt-0.5 text-[12.5px]", tokens.body)}>
-                Use your Windows PIN or device biometrics. This requires passkey/WebAuthn support.
-              </p>
-            </div>
-          </div>
-          <Button
-            tokens={tokens}
-            variant="secondary"
-            onClick={() => notify("Windows Hello setup requires passkey/WebAuthn support in the authentication backend.", "error")}
-            className="sm:shrink-0"
-          >
-            Set up Windows PIN
-          </Button>
-        </div>
       </SectionCard>
 
       {isEnabled && (

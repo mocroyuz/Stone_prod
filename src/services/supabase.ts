@@ -1,6 +1,16 @@
 // src/services/supabase.ts
 
 // ============================================================
+// IMPORTS
+// ============================================================
+
+import {
+  startRegistration,
+  startAuthentication,
+  browserSupportsWebAuthn,
+} from "@simplewebauthn/browser";
+
+// ============================================================
 // API CONFIGURATION
 // ============================================================
 
@@ -80,6 +90,17 @@ export type RecoveryStatus = {
   remaining: number;
   generatedAt: string | null;
 };
+
+/** Passkey enregistrée côté backend (métadonnées uniquement). */
+export type Passkey = {
+  id: string;
+  name: string;
+  createdAt: string;
+  lastUsedAt: string | null;
+};
+
+/** Options WebAuthn renvoyées par le backend (JSON sérialisable). */
+type WebAuthnOptions = Record<string, unknown>;
 
 // ============================================================
 // ERRORS
@@ -210,14 +231,11 @@ function isTokenExpiring(token: string, marginSeconds = 60): boolean {
 // MFA SESSION GRACE
 // ============================================================
 //
-// Après une vérification MFA réussie, on conserve la session AAL2
-// pendant une courte fenêtre. Sans ça, si le token est proche de
-// l'expiration (< 60s), apiRequest déclenche un /api/auth/refresh
+// Après une vérification MFA réussie (TOTP ou passkey), on conserve la
+// session AAL2 pendant une courte fenêtre. Sans ça, si le token est proche
+// de l'expiration (< 60s), apiRequest déclenche un /api/auth/refresh
 // qui rétrograde la session en AAL1 et fait échouer les endpoints
 // requireAal2.
-//
-// L'horodatage est dans sessionStorage : il survit à un rechargement
-// de la page (contrairement à une variable de module).
 
 const MFA_GRACE_MS = 5 * 60_000;
 
@@ -998,8 +1016,8 @@ export async function cancelMfaEnrollment(factorId: string): Promise<void> {
 
 /**
  * Désactive un facteur vérifié. Requiert une session AAL2 : appeler
- * verifyMfaFactorCode / verifyRecoveryCode avant, ou passer par le
- * garde MFA de l'UI (MfaRequiredError → modale de challenge).
+ * verifyMfaFactorCode / verifyRecoveryCode / verifyWithPasskey avant,
+ * ou passer par le garde MFA de l'UI (MfaRequiredError → modale).
  */
 export async function disableMfa(factorId: string): Promise<void> {
   await apiRequest(
@@ -1057,11 +1075,10 @@ export async function verifyMfaLogin(
 // RECOVERY CODES (codes de secours)
 // ============================================================
 //
-// Contrat backend attendu (Supabase n'a pas de codes de secours natifs,
-// le backend les gère : stockage haché, usage unique) :
+// Contrat backend attendu :
 //
 //   GET  /api/mfa/recovery-codes          → { success, remaining, generatedAt }
-//   POST /api/mfa/recovery-codes          → { success, codes: string[] }   (requireAal2, remplace les anciens)
+//   POST /api/mfa/recovery-codes          → { success, codes: string[] }   (requireAal2)
 //   POST /api/mfa/recovery-codes/verify   → { success, session, remaining } (rate-limité, élève en AAL2)
 
 /** Nombre de codes restants + date de génération. null si indisponible. */
@@ -1131,4 +1148,156 @@ export async function verifyRecoveryCode(
   setMfaPending(false);
 
   return { remaining: data.remaining ?? 0 };
+}
+
+// ============================================================
+// PASSKEYS (WebAuthn)
+// ============================================================
+//
+// Contrat backend attendu :
+//
+//   GET    /api/mfa/passkeys                          → { passkeys: Passkey[] }
+//   POST   /api/mfa/passkeys/register/options         → { options }
+//   POST   /api/mfa/passkeys/register/verify          → { success, passkey? }       (requireAal2)
+//   POST   /api/mfa/passkeys/authenticate/options     → { options }
+//   POST   /api/mfa/passkeys/authenticate/verify      → { success, session }        (élève en AAL2)
+//   DELETE /api/mfa/passkeys?id=...                   → { success }                 (requireAal2)
+//
+// Le navigateur exécute la cérémonie WebAuthn via @simplewebauthn/browser ;
+// le backend fait office de Relying Party.
+
+/** true si le navigateur supporte WebAuthn (à utiliser pour masquer l'option). */
+export function isWebAuthnSupported(): boolean {
+  try {
+    return browserSupportsWebAuthn();
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Liste les passkeys enregistrées pour l'utilisateur courant.
+ * Ne contient que les métadonnées (nom, dates) — jamais la clé publique.
+ */
+export async function listPasskeys(): Promise<Passkey[]> {
+  const data = await apiRequest<{ success?: boolean; passkeys?: Passkey[] }>(
+    "/api/mfa/passkeys",
+    { method: "GET" }
+  );
+  return data?.passkeys ?? [];
+}
+
+/**
+ * Enregistre une nouvelle passkey (authenticator biométrique, clé
+ * matérielle, etc.). Requiert AAL2 : peut lever MfaRequiredError.
+ *
+ * `attachment` :
+ *   - "platform"       → authenticator intégré (Touch ID, Windows Hello…)
+ *   - "cross-platform" → clé externe (YubiKey…)
+ *   - undefined        → laisser l'utilisateur / le navigateur choisir
+ *
+ * Renvoie la passkey créée si le backend la retourne, sinon null
+ * (utiliser listPasskeys() pour rafraîchir).
+ */
+export async function registerPasskey(
+  name: string,
+  attachment?: "platform" | "cross-platform"
+): Promise<Passkey | null> {
+  if (!isWebAuthnSupported()) {
+    throw new Error("WebAuthn is not supported by this browser.");
+  }
+
+  // 1. Options depuis le backend.
+  const optRes = await apiRequest<{ success?: boolean; options: WebAuthnOptions }>(
+    "/api/mfa/passkeys/register/options",
+    {
+      method: "POST",
+      body: JSON.stringify(attachment ? { attachment } : {}),
+    }
+  );
+
+  if (!optRes?.options) {
+    throw new Error("The server did not return registration options.");
+  }
+
+  // 2. Cérémonie côté navigateur (peut throw si l'utilisateur annule).
+  const attestation = await startRegistration({ optionsJSON: optRes.options });
+
+  // 3. Vérification côté backend + enregistrement du credential.
+  const verifyRes = await apiRequest<{
+    success: boolean;
+    passkey?: Passkey;
+    error?: string;
+  }>("/api/mfa/passkeys/register/verify", {
+    method: "POST",
+    body: JSON.stringify({ response: attestation, name }),
+  });
+
+  return verifyRes?.passkey ?? null;
+}
+
+/**
+ * Authentifie via une passkey existante et élève la session en AAL2.
+ *
+ * Usages :
+ *   - Login : après signIn() si mfa_pending est vrai, on peut proposer
+ *     "Utiliser une passkey" — l'AAL2 est alors obtenu sans TOTP.
+ *   - Challenge avant action sensible : au lieu de saisir un code TOTP.
+ *
+ * Peut throw MfaRequiredError (si le backend exige AAL2 avant même
+ * de démarrer — peu probable ici), RateLimitError, ou une erreur
+ * WebAuthn standard (NotAllowedError si l'utilisateur annule).
+ */
+export async function verifyWithPasskey(): Promise<void> {
+  if (!isWebAuthnSupported()) {
+    throw new Error("WebAuthn is not supported by this browser.");
+  }
+
+  // 1. Options depuis le backend.
+  const optRes = await apiRequest<{ success?: boolean; options: WebAuthnOptions }>(
+    "/api/mfa/passkeys/authenticate/options",
+    { method: "POST", body: JSON.stringify({}) }
+  );
+
+  if (!optRes?.options) {
+    throw new Error("The server did not return authentication options.");
+  }
+
+  // 2. Cérémonie côté navigateur.
+  const assertion = await startAuthentication({ optionsJSON: optRes.options });
+
+  // 3. Vérification côté backend + session AAL2.
+  const verifyRes = await apiRequest<{
+    success: boolean;
+    session: AuthSession | null;
+    error?: string;
+  }>("/api/mfa/passkeys/authenticate/verify", {
+    method: "POST",
+    body: JSON.stringify({ response: assertion }),
+  });
+
+  if (!verifyRes?.session?.access_token) {
+    throw new Error(
+      "Passkey verification succeeded but the backend did not return an AAL2 session."
+    );
+  }
+
+  saveSession(verifyRes.session);
+  markMfaVerified();
+  setMfaPending(false);
+}
+
+/**
+ * Supprime une passkey. Requiert AAL2 : peut lever MfaRequiredError.
+ * Penser à revokeOtherSessions() après une suppression si c'est la
+ * dernière méthode MFA (pour forcer la reconnexion ailleurs).
+ */
+export async function deletePasskey(id: string): Promise<void> {
+  if (!id) {
+    throw new Error("Passkey id is required.");
+  }
+  await apiRequest(
+    `/api/mfa/passkeys?id=${encodeURIComponent(id)}`,
+    { method: "DELETE" }
+  );
 }
