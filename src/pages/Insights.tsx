@@ -745,11 +745,7 @@ function Avatar({
   );
 }
 
-/**
- * Menu de sélection de canal (local à Insights).
- * Ne contient plus de bouton marque-page : celui-ci vit désormais dans le
- * header de la page et est relié à useFavorites (voir plus bas).
- */
+/** Menu de sélection de canal (local à Insights) — sans bouton marque-page. */
 function ChannelMenu({
   channels,
   current,
@@ -1291,16 +1287,25 @@ export default function Insights() {
                   <ChevronDown className="h-3.5 w-3.5 opacity-70" aria-hidden="true" />
                 </button>
 
-                {/* Marque-page : ajoute / retire cette page des favoris de la sidebar */}
+                {/* Marque-page : sans contour, fond au survol uniquement
+                    (même style que Channels / Community / Schedule). */}
                 <button
                   type="button"
                   aria-label={saved ? "Remove from favorites" : "Add to favorites"}
                   aria-pressed={saved}
                   title={saved ? "Remove from favorites" : "Add to favorites"}
                   onClick={() => toggleFavorite(PAGE_ROUTE)}
-                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors motion-reduce:transition-none ${t.ring} ${t.outlineBtn}`}
+                  className={[
+                    "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors motion-reduce:transition-none",
+                    t.ring,
+                    t.soft,
+                    t.hover,
+                  ].join(" ")}
                 >
-                  <Bookmark className={`h-4 w-4 ${saved ? "fill-current" : ""}`} aria-hidden="true" />
+                  <Bookmark
+                    className={`h-4 w-4 ${saved ? "fill-current" : ""}`}
+                    aria-hidden="true"
+                  />
                 </button>
               </div>
             </div>
