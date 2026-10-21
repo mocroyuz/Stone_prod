@@ -47,7 +47,7 @@ export default function PageHeader({
               : "border-black/[0.07] bg-[#f7f6f3] text-neutral-900",
           ].join(" ")}
         >
-          <span className="scale-[0.333333]">{icon}</span>
+          <span className="inline-flex scale-[0.333333]">{icon}</span>
         </div>
 
         <div className="min-w-0">
