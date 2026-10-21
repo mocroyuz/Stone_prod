@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useTheme } from "../hooks/useTheme";
 import DashboardSidebar, {
   useSidebarOffset,
+  useFavorites,
 } from "../components/DashboardSidebar";
 import BottomBar, { type BottomBarTab } from "../components/Bottombar";
 import Folder from "../components/Folder";
@@ -30,6 +31,9 @@ import {
   openCanvaPopup,
   waitForCanvaConnection,
 } from "../services/canva";
+
+/** Route de cette page dans la sidebar (section Favorite). */
+const PAGE_ROUTE = "integrations";
 
 /* ============================================================
    SHELL (identique à Home)
@@ -152,6 +156,30 @@ function ArrowRightIcon() {
     >
       <path d="M5 12h14" />
       <path d="m13 6 6 6-6 6" />
+    </svg>
+  );
+}
+
+/** Icône marque-page (ajout / retrait des favoris). */
+function BookmarkIcon({
+  className,
+  filled = false,
+}: {
+  className?: string;
+  filled?: boolean;
+}) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={className ?? "h-4 w-4"}
+      fill={filled ? "currentColor" : "none"}
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M7 4.5h10a1 1 0 0 1 1 1V20l-6-3.8L6 20V5.5a1 1 0 0 1 1-1Z" />
     </svg>
   );
 }
@@ -332,6 +360,11 @@ export default function Integrations() {
   const { theme } = useTheme();
   const isDark = theme === "dark";
   const sidebarOffset = useSidebarOffset();
+
+  // Favoris partagés avec la sidebar : le marque-page du header ajoute /
+  // retire cette page de la section « Favorite ».
+  const { isFavorite, toggle: toggleFavorite } = useFavorites();
+  const saved = isFavorite(PAGE_ROUTE);
 
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("Toutes");
@@ -536,6 +569,24 @@ export default function Integrations() {
                   </p>
                 </div>
               </div>
+
+              {/* Marque-page : ajoute / retire cette page des favoris de la sidebar.
+                  Sans contour : fond au survol uniquement. */}
+              <button
+                type="button"
+                aria-label={saved ? "Remove from favorites" : "Add to favorites"}
+                aria-pressed={saved}
+                title={saved ? "Remove from favorites" : "Add to favorites"}
+                onClick={() => toggleFavorite(PAGE_ROUTE)}
+                className={[
+                  "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors motion-reduce:transition-none",
+                  focusRingClass(isDark),
+                  mutedClass(isDark),
+                  isDark ? "hover:bg-white/[0.06]" : "hover:bg-black/[0.04]",
+                ].join(" ")}
+              >
+                <BookmarkIcon className="h-5 w-5" filled={saved} />
+              </button>
             </div>
 
             {/* SEARCH + FILTER */}
