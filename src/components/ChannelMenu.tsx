@@ -1,9 +1,9 @@
 // src/components/ChannelMenu.tsx
 // Sélecteur de channel partagé (même rendu que celui d'Insights) :
-// avatar + badge réseau, nom, chevron, bookmark, menu déroulant + "Manage channels".
+// avatar + badge réseau, nom, chevron, menu déroulant + "Manage channels".
 
 import { useEffect, useRef, useState, type ComponentType } from "react";
-import { Bookmark, Check, ChevronDown, Plus } from "lucide-react";
+import { Check, ChevronDown, Plus } from "lucide-react";
 import { navigate } from "../hooks/useHashRoute";
 import type { ConnectedChannel } from "../hooks/useConnectedChannels";
 import {
@@ -119,7 +119,6 @@ export default function ChannelMenu({
   onSelect: (key: string) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [saved, setSaved] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   const ring = isDark
@@ -131,9 +130,6 @@ export default function ChannelMenu({
   const muted = isDark ? "text-neutral-600" : "text-neutral-400";
   const border = isDark ? "border-white/[0.07]" : "border-black/[0.06]";
   const popover = isDark ? "border-white/10 bg-[#1b1b1e]" : "border-black/10 bg-white";
-  const boxed = isDark
-    ? "border border-white/[0.07] bg-white/[0.04]"
-    : "border border-black/[0.06] bg-white";
 
   useEffect(() => {
     if (!open) return;
@@ -169,15 +165,6 @@ export default function ChannelMenu({
             {channelName(current)}
           </span>
           {canSwitch && <ChevronDown className={`h-4 w-4 ${muted}`} aria-hidden="true" />}
-        </button>
-
-        <button
-          type="button"
-          aria-label={saved ? "Remove bookmark" : "Bookmark"}
-          onClick={() => setSaved((s) => !s)}
-          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-colors ${ring} ${soft} ${hover}`}
-        >
-          <Bookmark className={`h-4 w-4 ${saved ? "fill-current" : ""}`} aria-hidden="true" />
         </button>
       </div>
 
