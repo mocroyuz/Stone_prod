@@ -41,13 +41,13 @@ export default function PageHeader({
         <div
           aria-hidden="true"
           className={[
-            "flex h-[clamp(48px,5.2vw,70px)] w-[clamp(48px,5.2vw,70px)] shrink-0 items-center justify-center rounded-[20px] border",
+            "flex h-[clamp(16px,1.733vw,23.333px)] w-[clamp(16px,1.733vw,23.333px)] shrink-0 items-center justify-center rounded-[6.667px] border",
             isDark
               ? "border-white/[0.08] bg-[#19191b] text-white"
               : "border-black/[0.07] bg-[#f7f6f3] text-neutral-900",
           ].join(" ")}
         >
-          {icon}
+          <span className="scale-[0.333333]">{icon}</span>
         </div>
 
         <div className="min-w-0">
