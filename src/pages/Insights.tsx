@@ -41,7 +41,10 @@ import {
 } from "lucide-react";
 import { navigate, useHashRoute } from "../hooks/useHashRoute";
 import { useTheme } from "../hooks/useTheme";
-import DashboardSidebar, { useSidebarOffset } from "../components/DashboardSidebar";
+import DashboardSidebar, {
+  useSidebarOffset,
+  useFavorites,
+} from "../components/DashboardSidebar";
 import BottomBar, { type BottomBarTab } from "../components/Bottombar";
 import Folder from "../components/Folder";
 import HelpChatButton from "../components/Helpchatbutton";
@@ -59,6 +62,9 @@ import {
   PinterestIcon,
   ThreadsIcon,
 } from "../components/IntegrationIcons";
+
+/** Route de cette page dans la sidebar (section Favorite). */
+const PAGE_ROUTE = "insights";
 
 /* ============================================================
    TYPES
@@ -739,6 +745,11 @@ function Avatar({
   );
 }
 
+/**
+ * Menu de sélection de canal (local à Insights).
+ * Ne contient plus de bouton marque-page : celui-ci vit désormais dans le
+ * header de la page et est relié à useFavorites (voir plus bas).
+ */
 function ChannelMenu({
   channels,
   current,
@@ -751,7 +762,6 @@ function ChannelMenu({
   isDark: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const [saved, setSaved] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -788,9 +798,6 @@ function ChannelMenu({
           </span>
           {canSwitch && <ChevronDown className={`h-4 w-4 ${t.muted}`} aria-hidden="true" />}
         </button>
-        <IconBtn label={saved ? "Remove bookmark" : "Bookmark"} onClick={() => setSaved((s) => !s)} t={t}>
-          <Bookmark className={`h-4 w-4 ${saved ? "fill-current" : ""}`} aria-hidden="true" />
-        </IconBtn>
       </div>
 
       {open && (
@@ -1072,6 +1079,11 @@ export default function Insights() {
   const channelKey = useHashChannel();
   const channel = channels.find((c) => c.key === channelKey) ?? channels[0];
 
+  // Favoris partagés avec la sidebar : le marque-page du header ajoute /
+  // retire cette page de la section « Favorite ».
+  const { isFavorite, toggle: toggleFavorite } = useFavorites();
+  const saved = isFavorite(PAGE_ROUTE);
+
   const [range, setRange] = useState<Range>("30d");
   const [customStart, setCustomStart] = useState(() => addDays(startOfDay(new Date()), -29));
   const [customEnd, setCustomEnd] = useState(() => startOfDay(new Date()));
@@ -1277,6 +1289,18 @@ export default function Insights() {
                   <Download className="h-4 w-4" aria-hidden="true" />
                   Export
                   <ChevronDown className="h-3.5 w-3.5 opacity-70" aria-hidden="true" />
+                </button>
+
+                {/* Marque-page : ajoute / retire cette page des favoris de la sidebar */}
+                <button
+                  type="button"
+                  aria-label={saved ? "Remove from favorites" : "Add to favorites"}
+                  aria-pressed={saved}
+                  title={saved ? "Remove from favorites" : "Add to favorites"}
+                  onClick={() => toggleFavorite(PAGE_ROUTE)}
+                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors motion-reduce:transition-none ${t.ring} ${t.outlineBtn}`}
+                >
+                  <Bookmark className={`h-4 w-4 ${saved ? "fill-current" : ""}`} aria-hidden="true" />
                 </button>
               </div>
             </div>
