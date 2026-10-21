@@ -573,20 +573,79 @@ function writeStoredFavorites(userId: string | null, routes: string[]) {
   }
 }
 
+const FAVORITE_NAMES_STORAGE_PREFIX = "stone.sidebar.favorites.names";
+const FAVORITE_NAME_MAX = 30;
+
+function favoriteNamesStorageKey(userId: string | null): string {
+  return `${FAVORITE_NAMES_STORAGE_PREFIX}.${userId ?? "anon"}`;
+}
+
+function readStoredFavoriteNames(userId: string | null): Record<string, string> {
+  if (typeof window === "undefined") return {};
+
+  try {
+    const raw = window.localStorage.getItem(favoriteNamesStorageKey(userId));
+    const parsed: unknown = raw ? JSON.parse(raw) : {};
+
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+
+    const result: Record<string, string> = {};
+
+    Object.entries(parsed as Record<string, unknown>).forEach(([route, name]) => {
+      if (
+        typeof name === "string" &&
+        name.trim() &&
+        navItems.some((item) => item.route === route)
+      ) {
+        result[route] = name.trim().slice(0, FAVORITE_NAME_MAX);
+      }
+    });
+
+    return result;
+  } catch {
+    return {};
+  }
+}
+
+function writeStoredFavoriteNames(
+  userId: string | null,
+  names: Record<string, string>
+) {
+  try {
+    window.localStorage.setItem(
+      favoriteNamesStorageKey(userId),
+      JSON.stringify(names)
+    );
+  } catch {
+    // Les noms restent disponibles en mémoire si le stockage est indisponible.
+  }
+}
+
 const FAVORITES_EVENT = "stone:favorites-changed";
 
 /**
  * Favoris partagés : la sidebar ET n'importe quelle page (ex. Create.tsx)
  * lisent / modifient la même liste (localStorage) et restent synchronisées
  * grâce à un évènement window.
+ *
+ * - routes : routes enregistrées en favori
+ * - names  : noms personnalisés (route → nom) ; absent = nom par défaut
+ * - toggle : ajoute / retire une page des favoris
+ * - rename : renomme un favori (nom vide = retour au nom par défaut)
  */
 export function useFavorites() {
   const { user } = useUser();
   const userId = user?.id ?? null;
   const [routes, setRoutes] = useState<string[]>(() => readStoredFavorites(userId));
+  const [names, setNames] = useState<Record<string, string>>(() =>
+    readStoredFavoriteNames(userId)
+  );
 
   useEffect(() => {
-    const sync = () => setRoutes(readStoredFavorites(userId));
+    const sync = () => {
+      setRoutes(readStoredFavorites(userId));
+      setNames(readStoredFavoriteNames(userId));
+    };
 
     sync();
     window.addEventListener(FAVORITES_EVENT, sync);
@@ -601,12 +660,40 @@ export function useFavorites() {
   const toggle = useCallback(
     (route: string) => {
       const current = readStoredFavorites(userId);
-      const next = current.includes(route)
+      const removing = current.includes(route);
+      const next = removing
         ? current.filter((r) => r !== route)
         : [...current, route];
 
       writeStoredFavorites(userId, next);
       setRoutes(next);
+
+      // Un favori retiré perd aussi son nom personnalisé.
+      if (removing) {
+        const currentNames = readStoredFavoriteNames(userId);
+
+        if (route in currentNames) {
+          const { [route]: _removed, ...rest } = currentNames;
+          writeStoredFavoriteNames(userId, rest);
+          setNames(rest);
+        }
+      }
+
+      window.dispatchEvent(new Event(FAVORITES_EVENT));
+    },
+    [userId]
+  );
+
+  const rename = useCallback(
+    (route: string, name: string) => {
+      const trimmed = name.trim().slice(0, FAVORITE_NAME_MAX);
+      const next = { ...readStoredFavoriteNames(userId) };
+
+      if (trimmed) next[route] = trimmed;
+      else delete next[route];
+
+      writeStoredFavoriteNames(userId, next);
+      setNames(next);
       window.dispatchEvent(new Event(FAVORITES_EVENT));
     },
     [userId]
@@ -614,7 +701,7 @@ export function useFavorites() {
 
   const isFavorite = useCallback((route: string) => routes.includes(route), [routes]);
 
-  return { routes, isFavorite, toggle };
+  return { routes, names, isFavorite, toggle, rename };
 }
 
 const defaultAccount = {
@@ -1240,9 +1327,296 @@ function ChannelHoverCard({
   );
 }
 
+/* ============================================================================ 
+   Favoris : ligne avec icône « enregistré » + menu trois points
+============================================================================ */
+
+const MoreIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <circle cx="5.5" cy="12" r="1.1" fill="currentColor" stroke="none" />
+    <circle cx="12" cy="12" r="1.1" fill="currentColor" stroke="none" />
+    <circle cx="18.5" cy="12" r="1.1" fill="currentColor" stroke="none" />
+  </Svg>
+);
+
+const PencilIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M4 20h4L19 9a2.1 2.1 0 0 0-3-3L5 17v3Z" />
+    <path d="m14.5 7.5 3 3" />
+  </Svg>
+);
+
+const TrashIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M4.5 7h15M10 11v6M14 11v6" />
+    <path d="M6.5 7l.8 11.2A1.8 1.8 0 0 0 9.1 20h5.8a1.8 1.8 0 0 0 1.8-1.8L17.5 7" />
+    <path d="M9.5 7V4.8c0-.4.3-.8.8-.8h3.4c.5 0 .8.4.8.8V7" />
+  </Svg>
+);
+
+const FAVORITE_MENU_WIDTH = 184;
+
+function FavoriteRowImpl({
+  item,
+  label,
+  isActive,
+  focus,
+  t,
+  onNavigate,
+  onRename,
+  onRemove,
+}: {
+  item: NavItem;
+  label: string;
+  isActive: boolean;
+  focus: string;
+  t: ThemeTokens;
+  onNavigate: (route: string) => void;
+  onRename: (route: string, name: string) => void;
+  onRemove: (route: string) => void;
+}) {
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const cancelRef = useRef(false);
+
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
+  const [editing, setEditing] = useState(false);
+  const menuOpen = menuPos !== null;
+
+  const openMenu = () => {
+    const rect = triggerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+
+    const left = Math.max(
+      8,
+      Math.min(rect.right - FAVORITE_MENU_WIDTH, window.innerWidth - FAVORITE_MENU_WIDTH - 8)
+    );
+
+    setMenuPos({ top: rect.bottom + 6, left });
+  };
+
+  useEffect(() => {
+    if (!menuOpen) return;
+
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target as Node;
+
+      if (menuRef.current?.contains(target) || triggerRef.current?.contains(target)) {
+        return;
+      }
+
+      setMenuPos(null);
+    };
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.stopPropagation();
+        setMenuPos(null);
+        triggerRef.current?.focus();
+      }
+    };
+
+    const dismiss = () => setMenuPos(null);
+
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    window.addEventListener("resize", dismiss);
+    window.addEventListener("scroll", dismiss, true);
+
+    const id = requestAnimationFrame(() => {
+      menuRef.current
+        ?.querySelector<HTMLElement>('[role="menuitem"]')
+        ?.focus({ preventScroll: true });
+    });
+
+    return () => {
+      cancelAnimationFrame(id);
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("resize", dismiss);
+      window.removeEventListener("scroll", dismiss, true);
+    };
+  }, [menuOpen]);
+
+  const onMenuKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    const items = Array.from(
+      event.currentTarget.querySelectorAll<HTMLElement>('[role="menuitem"]')
+    );
+    const current = items.indexOf(document.activeElement as HTMLElement);
+    let next = -1;
+
+    if (event.key === "ArrowDown") next = (current + 1) % items.length;
+    else if (event.key === "ArrowUp")
+      next = (current - 1 + items.length) % items.length;
+    else if (event.key === "Home") next = 0;
+    else if (event.key === "End") next = items.length - 1;
+
+    if (next >= 0) {
+      event.preventDefault();
+      items[next].focus();
+    }
+  };
+
+  const startRename = () => {
+    setMenuPos(null);
+    cancelRef.current = false;
+    setEditing(true);
+  };
+
+  const commitRename = (value: string) => {
+    setEditing(false);
+
+    const next = value.trim();
+
+    // Nom vide ou identique au nom d'origine → retour au nom par défaut
+    onRename(item.route, next === item.label ? "" : next);
+  };
+
+  return (
+    <div className="group/fav relative rounded-xl">
+      {editing ? (
+        <div
+          className={[
+            "flex h-9 w-full items-center gap-2.5 rounded-xl px-2.5",
+            t.navActive,
+          ].join(" ")}
+        >
+          <BookmarkIcon className="h-[18px] w-[18px] shrink-0" filled />
+          <input
+            autoFocus
+            defaultValue={label}
+            maxLength={FAVORITE_NAME_MAX}
+            aria-label={`Rename ${item.label}`}
+            onFocus={(event) => event.currentTarget.select()}
+            onBlur={(event) => {
+              if (cancelRef.current) {
+                cancelRef.current = false;
+                return;
+              }
+
+              commitRename(event.currentTarget.value);
+            }}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                event.currentTarget.blur();
+              } else if (event.key === "Escape") {
+                event.preventDefault();
+                event.stopPropagation();
+                cancelRef.current = true;
+                setEditing(false);
+              }
+            }}
+            className="min-w-0 flex-1 bg-transparent text-[13px] font-medium outline-none"
+          />
+        </div>
+      ) : (
+        <>
+          <button
+            type="button"
+            aria-current={isActive ? "page" : undefined}
+            onClick={() => onNavigate(item.route)}
+            className={[
+              "flex h-9 w-full items-center gap-2.5 rounded-xl pl-2.5 pr-9 text-[13px] font-medium",
+              "transition-[background-color,color,transform] duration-200",
+              "active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:scale-100",
+              focus,
+              isActive ? t.navActive : t.navIdle,
+            ].join(" ")}
+          >
+            {/* Icône « enregistré » à la place de l'icône de la page */}
+            <BookmarkIcon className="h-[18px] w-[18px] shrink-0" filled />
+            <span className="sb-fade min-w-0 flex-1 truncate text-left">{label}</span>
+          </button>
+
+          <button
+            ref={triggerRef}
+            type="button"
+            aria-label={`Options for ${label}`}
+            aria-haspopup="menu"
+            aria-expanded={menuOpen}
+            onClick={() => (menuOpen ? setMenuPos(null) : openMenu())}
+            className={[
+              "absolute right-1 top-1/2 z-10 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-lg",
+              "transition-[opacity,background-color,color] duration-150 motion-reduce:transition-none",
+              "focus-visible:opacity-100 [@media(hover:none)]:opacity-100",
+              menuOpen
+                ? `opacity-100 ${t.rowOpen}`
+                : "opacity-0 group-hover/fav:opacity-100 group-focus-within/fav:opacity-100",
+              focus,
+              t.menuIcon,
+              t.row,
+            ].join(" ")}
+          >
+            <MoreIcon className="h-4 w-4" />
+          </button>
+        </>
+      )}
+
+      {menuPos &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div
+            ref={menuRef}
+            role="menu"
+            aria-label={`Options for ${label}`}
+            style={{ top: menuPos.top, left: menuPos.left, width: FAVORITE_MENU_WIDTH }}
+            onKeyDown={onMenuKeyDown}
+            className={["sb-menu fixed z-[70] rounded-2xl border p-1.5", t.menu].join(" ")}
+          >
+            <button
+              type="button"
+              role="menuitem"
+              onClick={startRename}
+              className={[
+                "group flex w-full items-center gap-3 rounded-[10px] px-2.5 py-2",
+                "text-left text-[12.5px] font-medium",
+                "transition-[background-color,transform] duration-150",
+                "active:scale-[0.98] motion-reduce:transition-none",
+                focus,
+                t.menuItem,
+              ].join(" ")}
+            >
+              <PencilIcon
+                className={["h-4 w-4 shrink-0 opacity-70 group-hover:opacity-100", t.menuIcon].join(" ")}
+              />
+              <span className="flex-1 truncate">Rename</span>
+            </button>
+
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setMenuPos(null);
+                onRemove(item.route);
+              }}
+              className={[
+                "group flex w-full items-center gap-3 rounded-[10px] px-2.5 py-2",
+                "text-left text-[12.5px] font-medium text-rose-500",
+                "transition-[background-color,transform] duration-150",
+                "active:scale-[0.98] motion-reduce:transition-none",
+                focus,
+                t.menuItem,
+              ].join(" ")}
+            >
+              <TrashIcon className="h-4 w-4 shrink-0 opacity-80 group-hover:opacity-100" />
+              <span className="flex-1 truncate">Remove from Favorite</span>
+            </button>
+          </div>,
+          document.body
+        )}
+    </div>
+  );
+}
+
+const FavoriteRow = memo(FavoriteRowImpl);
+
 function SidebarChannelsImpl({
   channels: rawChannels,
   favorites,
+  favoriteNames,
+  onRenameFavorite,
+  onRemoveFavorite,
   userId,
   isDark,
   compact,
@@ -1256,6 +1630,9 @@ function SidebarChannelsImpl({
 }: {
   channels: ConnectedChannel[];
   favorites: NavItem[];
+  favoriteNames: Record<string, string>;
+  onRenameFavorite: (route: string, name: string) => void;
+  onRemoveFavorite: (route: string) => void;
   userId: string | null;
   isDark: boolean;
   compact: boolean;
@@ -1572,29 +1949,19 @@ function SidebarChannelsImpl({
             </span>
           </div>
 
-          {favorites.map((item) => {
-            const Icon = item.icon;
-            const isActive = item.route === currentRoute;
-
-            return (
-              <button
-                key={item.route}
-                type="button"
-                aria-current={isActive ? "page" : undefined}
-                onClick={() => onNavigate(item.route)}
-                className={[
-                  "flex h-9 w-full items-center gap-2.5 rounded-xl px-2.5 text-[13px] font-medium",
-                  "transition-[background-color,color,transform] duration-200",
-                  "active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:scale-100",
-                  focus,
-                  isActive ? t.navActive : t.navIdle,
-                ].join(" ")}
-              >
-                <Icon className="h-[18px] w-[18px] shrink-0" />
-                <span className="sb-fade truncate text-left">{item.label}</span>
-              </button>
-            );
-          })}
+          {favorites.map((item) => (
+            <FavoriteRow
+              key={item.route}
+              item={item}
+              label={favoriteNames[item.route] ?? item.label}
+              isActive={item.route === currentRoute}
+              focus={focus}
+              t={t}
+              onNavigate={onNavigate}
+              onRename={onRenameFavorite}
+              onRemove={onRemoveFavorite}
+            />
+          ))}
         </>
       )}
 
@@ -2107,7 +2474,12 @@ export default function DashboardSidebar({
   const { user } = useUser();
   const { subscription, hasActive: hasActiveSubscription } = useSubscription();
   const userId = user?.id ?? null;
-  const { routes: favoriteRoutes, toggle: toggleFavoriteRoute } = useFavorites();
+  const {
+    routes: favoriteRoutes,
+    names: favoriteNames,
+    toggle: toggleFavoriteRoute,
+    rename: renameFavorite,
+  } = useFavorites();
 
   const favoriteItems = useMemo(
     () => navItems.filter((item) => favoriteRoutes.includes(item.route)),
@@ -2844,6 +3216,9 @@ export default function DashboardSidebar({
           <SidebarChannels
             channels={connectedChannels}
             favorites={favoriteItems}
+            favoriteNames={favoriteNames}
+            onRenameFavorite={renameFavorite}
+            onRemoveFavorite={toggleFavoriteRoute}
             userId={userId}
             isDark={isDark}
             compact={compact}
