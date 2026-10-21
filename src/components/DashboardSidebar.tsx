@@ -136,13 +136,6 @@ type StatusResponse = {
 };
 
 /* ============================================================================ 
-   Feature flags 
-============================================================================ */
-
-/** Affiche la section « Favorites » au-dessus de « Channels » (inactive pour l'instant). */
-const SHOW_FAVORITES_SECTION = false;
-
-/* ============================================================================ 
    Dimensions 
 ============================================================================ */
 
@@ -347,9 +340,12 @@ const LightbulbIcon = (p: IconProps) => (
   </Svg>
 );
 
-const StarIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="m12 3.5 2.6 5.3 5.9.86-4.25 4.14 1 5.87L12 16.9l-5.25 2.77 1-5.87L3.5 9.66l5.9-.86L12 3.5Z" />
+const BookmarkIcon = ({ className, filled = false }: IconProps & { filled?: boolean }) => (
+  <Svg className={className}>
+    <path
+      d="M6.5 4.75A1.75 1.75 0 0 1 8.25 3h7.5a1.75 1.75 0 0 1 1.75 1.75V21l-5.75-3.75L6 21V4.75Z"
+      fill={filled ? "currentColor" : "none"}
+    />
   </Svg>
 );
 
@@ -545,6 +541,38 @@ const navItems: NavItem[] = [
   { label: "Create", icon: LightbulbIcon, route: "create", badge: "New" },
 ];
 
+const FAVORITES_STORAGE_PREFIX = "stone.sidebar.favorites";
+
+function favoritesStorageKey(userId: string | null): string {
+  return `${FAVORITES_STORAGE_PREFIX}.${userId ?? "anon"}`;
+}
+
+function readStoredFavorites(userId: string | null): string[] {
+  if (typeof window === "undefined") return [];
+
+  try {
+    const raw = window.localStorage.getItem(favoritesStorageKey(userId));
+    const parsed: unknown = raw ? JSON.parse(raw) : [];
+
+    return Array.isArray(parsed)
+      ? parsed.filter(
+          (route): route is string =>
+            typeof route === "string" && navItems.some((item) => item.route === route)
+        )
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeStoredFavorites(userId: string | null, routes: string[]) {
+  try {
+    window.localStorage.setItem(favoritesStorageKey(userId), JSON.stringify(routes));
+  } catch {
+    // Les favoris restent disponibles en mémoire si le stockage est indisponible.
+  }
+}
+
 const defaultAccount = {
   name: "Ronan",
   initials: "RN",
@@ -596,16 +624,20 @@ function NavItemViewImpl({
   item,
   currentRoute,
   compact,
+  isFavorite,
   focus,
   t,
   onNavigate,
+  onToggleFavorite,
 }: {
   item: NavItem;
   currentRoute: string;
   compact: boolean;
+  isFavorite: boolean;
   focus: string;
   t: ThemeTokens;
   onNavigate: (route: string) => void;
+  onToggleFavorite: (item: NavItem) => void;
 }) {
   const Icon = item.icon;
   const isActive = item.route === currentRoute;
@@ -620,57 +652,82 @@ function NavItemViewImpl({
       menuClass={t.menu}
       countClass={t.count}
     >
-      <button
-        type="button"
-        aria-label={item.label}
-        aria-current={isActive ? "page" : undefined}
-        aria-keyshortcuts={letter ? ariaShortcut(letter) : undefined}
-        onClick={() => onNavigate(item.route)}
-        className={[
-          "group relative flex items-center rounded-xl text-[13px] font-medium",
-          "transition-[background-color,color,transform] duration-200",
-          "active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:scale-100",
-          compact ? "h-10 w-10 justify-center" : "h-9 w-full gap-2.5 px-2.5",
-          focus,
-          isActive ? t.navActive : t.navIdle,
-        ].join(" ")}
-      >
-        <Icon className="h-[18px] w-[18px] shrink-0" />
+      <div className="group/nav-item relative w-full">
+        <button
+          type="button"
+          aria-label={item.label}
+          aria-current={isActive ? "page" : undefined}
+          aria-keyshortcuts={letter ? ariaShortcut(letter) : undefined}
+          onClick={() => onNavigate(item.route)}
+          className={[
+            "group relative flex items-center rounded-xl text-[13px] font-medium",
+            "transition-[background-color,color,transform] duration-200",
+            "active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:scale-100",
+            compact ? "h-10 w-10 justify-center" : "h-9 w-full gap-2.5 px-2.5 pr-9",
+            focus,
+            isActive ? t.navActive : t.navIdle,
+          ].join(" ")}
+        >
+          <Icon className="h-[18px] w-[18px] shrink-0" />
 
-        {!compact && (
-          <>
-            <span
-              className={[
-                "sb-fade flex-1 truncate text-left",
-                !isActive ? "sb-label sb-label-1" : "",
-              ].join(" ")}
-            >
-              {item.label}
-            </span>
-            {item.badge && (
+          {!compact && (
+            <>
               <span
                 className={[
-                  "rounded-full px-2 py-0.5 text-[10px] font-semibold",
-                  t.badge,
+                  "sb-fade flex-1 truncate text-left",
+                  !isActive ? "sb-label sb-label-1" : "",
                 ].join(" ")}
               >
-                {item.badge}
+                {item.label}
               </span>
-            )}
-          </>
-        )}
+              {item.badge && (
+                <span
+                  className={[
+                    "rounded-full px-2 py-0.5 text-[10px] font-semibold",
+                    t.badge,
+                  ].join(" ")}
+                >
+                  {item.badge}
+                </span>
+              )}
+            </>
+          )}
 
-        {compact && item.badge && (
-          <span
-            aria-hidden="true"
+          {compact && item.badge && (
+            <span
+              aria-hidden="true"
+              className={[
+                "absolute right-1 top-1 h-2 w-2 rounded-full ring-2",
+                t.accent,
+                t.dotRing,
+              ].join(" ")}
+            />
+          )}
+        </button>
+
+        {!compact && (
+          <button
+            type="button"
+            aria-label={`${isFavorite ? "Remove" : "Add"} ${item.label} ${isFavorite ? "from" : "to"} Favorite`}
+            aria-pressed={isFavorite}
+            title={isFavorite ? "Remove from Favorite" : "Add to Favorite"}
+            onClick={() => onToggleFavorite(item)}
             className={[
-              "absolute right-1 top-1 h-2 w-2 rounded-full ring-2",
-              t.accent,
-              t.dotRing,
+              "absolute right-1 top-1/2 z-10 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-lg",
+              "transition-[opacity,background-color,color] duration-150",
+              "focus-visible:opacity-100",
+              isFavorite
+                ? "opacity-100"
+                : "opacity-0 group-hover/nav-item:opacity-100 group-focus-within/nav-item:opacity-100",
+              focus,
+              t.menuIcon,
+              t.row,
             ].join(" ")}
-          />
+          >
+            <BookmarkIcon className="h-4 w-4" filled={isFavorite} />
+          </button>
         )}
-      </button>
+      </div>
     </Tip>
   );
 }
@@ -1141,6 +1198,7 @@ function ChannelHoverCard({
 
 function SidebarChannelsImpl({
   channels: rawChannels,
+  favorites,
   userId,
   isDark,
   compact,
@@ -1153,6 +1211,7 @@ function SidebarChannelsImpl({
   onNewPost,
 }: {
   channels: ConnectedChannel[];
+  favorites: NavItem[];
   userId: string | null;
   isDark: boolean;
   compact: boolean;
@@ -1459,6 +1518,49 @@ function SidebarChannelsImpl({
       ref={listRef}
       className="relative flex flex-col gap-1"
     >
+      {!compact && (
+        <>
+          <div className="sb-fade mt-3 flex h-6 items-center px-2.5">
+            <span className={["text-[12px] font-medium", t.muted].join(" ")}>
+              Favorite
+            </span>
+          </div>
+
+          {favorites.length > 0 ? (
+            favorites.map((item) => {
+              const Icon = item.icon;
+              const isActive = item.route === currentRoute;
+
+              return (
+                <button
+                  key={item.route}
+                  type="button"
+                  aria-current={isActive ? "page" : undefined}
+                  onClick={() => onNavigate(item.route)}
+                  className={[
+                    "flex h-9 w-full items-center gap-2.5 rounded-xl px-2.5 text-[13px] font-medium",
+                    "transition-[background-color,color,transform] duration-200",
+                    "active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:scale-100",
+                    focus,
+                    isActive ? t.navActive : t.navIdle,
+                  ].join(" ")}
+                >
+                  <Icon className="h-[18px] w-[18px] shrink-0" />
+                  <span className="sb-fade truncate text-left">{item.label}</span>
+                </button>
+              );
+            })
+          ) : (
+            <div
+              className={["flex items-center gap-2.5 px-2.5 py-1 text-[11.5px]", t.muted].join(" ")}
+            >
+              <BookmarkIcon className="h-3.5 w-3.5 shrink-0 opacity-60" />
+              <span className="truncate">No favorite pages yet</span>
+            </div>
+          )}
+        </>
+      )}
+
       {channels.length === 0 &&
         STANDALONE_LINKS.map((link) => {
           const Icon = link.icon;
@@ -1520,47 +1622,6 @@ function SidebarChannelsImpl({
             </Tip>
           );
         })}
-
-      {/* Section Favorites — masquée tant que SHOW_FAVORITES_SECTION === false */}
-      {!compact && SHOW_FAVORITES_SECTION && (
-        <>
-          <div className="sb-fade group/favorites mt-3 flex h-6 items-center justify-between px-2.5">
-            <span className={["text-[12px] font-medium", t.muted].join(" ")}>
-              Favorites
-            </span>
-
-            {/* Bouton « + » pour ajouter un favori (à câbler plus tard) */}
-            <button
-              type="button"
-              aria-label="Add a favorite"
-              onClick={onConnect}
-              className={[
-                "flex h-6 w-6 items-center justify-center rounded-lg",
-                "opacity-0 transition-opacity duration-200",
-                "group-hover/favorites:opacity-100 group-focus-within/favorites:opacity-100",
-                "focus-visible:opacity-100 motion-reduce:transition-none",
-                "transition-colors duration-150",
-                focus,
-                t.menuIcon,
-                t.row,
-              ].join(" ")}
-            >
-              <PlusIcon className="h-[15px] w-[15px]" />
-            </button>
-          </div>
-
-          {/* État vide — remplacé plus tard par la vraie liste de favoris */}
-          <div
-            className={[
-              "flex items-center gap-2 px-2.5 py-1 text-[11.5px]",
-              t.muted,
-            ].join(" ")}
-          >
-            <StarIcon className="h-3 w-3 shrink-0 opacity-60" />
-            <span className="truncate">No favorites yet</span>
-          </div>
-        </>
-      )}
 
       {/* Séparateur horizontal (mode réduit uniquement) */}
       {compact && (
@@ -2009,6 +2070,28 @@ export default function DashboardSidebar({
   const { user } = useUser();
   const { subscription, hasActive: hasActiveSubscription } = useSubscription();
   const userId = user?.id ?? null;
+  const [favoriteRoutes, setFavoriteRoutes] = useState<string[]>(() =>
+    readStoredFavorites(userId)
+  );
+
+  useEffect(() => {
+    setFavoriteRoutes(readStoredFavorites(userId));
+  }, [userId]);
+
+  const favoriteItems = useMemo(
+    () => navItems.filter((item) => favoriteRoutes.includes(item.route)),
+    [favoriteRoutes]
+  );
+
+  const toggleFavorite = (item: NavItem) => {
+    setFavoriteRoutes((current) => {
+      const next = current.includes(item.route)
+        ? current.filter((route) => route !== item.route)
+        : [...current, item.route];
+      writeStoredFavorites(userId, next);
+      return next;
+    });
+  };
 
   const [isCollapsed, setIsCollapsed] = useState(sidebarMemory.collapsed);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -2727,14 +2810,17 @@ export default function DashboardSidebar({
               item={item}
               currentRoute={currentRoute}
               compact={compact}
+              isFavorite={favoriteRoutes.includes(item.route)}
               focus={focus}
               t={t}
               onNavigate={handleNavigate}
+              onToggleFavorite={toggleFavorite}
             />
           ))}
 
           <SidebarChannels
             channels={connectedChannels}
+            favorites={favoriteItems}
             userId={userId}
             isDark={isDark}
             compact={compact}
