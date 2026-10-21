@@ -14,7 +14,7 @@ import {
 // API CONFIGURATION
 // ============================================================
 
-const API_BASE_URL = "https://stoneserv-production.up.railway.app";
+const API_BASE_URL = "https://stone-serv.onrender.com";
 
 // ============================================================
 // STORAGE KEYS

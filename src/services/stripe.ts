@@ -8,7 +8,7 @@
    Aucune variable d'environnement frontend n'est utilisée.
    ============================================================ */
 
-const API_BASE_URL = "https://stoneserv-production.up.railway.app";
+const API_BASE_URL = "https://stone-serv.onrender.com";
 
 /* ============================================================
    TOKENS — mêmes clés que supabase.ts
