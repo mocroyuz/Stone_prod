@@ -541,6 +541,25 @@ const navItems: NavItem[] = [
   { label: "Create", icon: LightbulbIcon, route: "create", badge: "New" },
 ];
 
+/**
+ * Pages additionnelles qui peuvent être ajoutées à la section « Favorite »
+ * sans faire partie de la navigation principale (`navItems`).
+ *
+ * Ex. : « Channels » et « Community » disposent de leur propre bouton
+ * marque-page dans leur header, et doivent donc pouvoir être enregistrées
+ * et affichées dans la sidebar.
+ */
+const EXTRA_FAVORITABLE_ITEMS: NavItem[] = [
+  { label: "Channels", icon: ChannelsIcon, route: "channels" },
+  { label: "Community", icon: CommunityIcon, route: "community" },
+];
+
+/** Liste complète utilisée pour hydrater / filtrer / afficher les favoris. */
+const FAVORITABLE_ITEMS: NavItem[] = [
+  ...navItems,
+  ...EXTRA_FAVORITABLE_ITEMS,
+];
+
 const FAVORITES_STORAGE_PREFIX = "stone.sidebar.favorites";
 
 function favoritesStorageKey(userId: string | null): string {
@@ -557,7 +576,8 @@ function readStoredFavorites(userId: string | null): string[] {
     return Array.isArray(parsed)
       ? parsed.filter(
           (route): route is string =>
-            typeof route === "string" && navItems.some((item) => item.route === route)
+            typeof route === "string" &&
+            FAVORITABLE_ITEMS.some((item) => item.route === route)
         )
       : [];
   } catch {
@@ -595,7 +615,7 @@ function readStoredFavoriteNames(userId: string | null): Record<string, string> 
       if (
         typeof name === "string" &&
         name.trim() &&
-        navItems.some((item) => item.route === route)
+        FAVORITABLE_ITEMS.some((item) => item.route === route)
       ) {
         result[route] = name.trim().slice(0, FAVORITE_NAME_MAX);
       }
@@ -624,7 +644,7 @@ function writeStoredFavoriteNames(
 const FAVORITES_EVENT = "stone:favorites-changed";
 
 /**
- * Favoris partagés : la sidebar ET n'importe quelle page (ex. Create.tsx)
+ * Favoris partagés : la sidebar ET n'importe quelle page (ex. Community.tsx)
  * lisent / modifient la même liste (localStorage) et restent synchronisées
  * grâce à un évènement window.
  *
@@ -2481,8 +2501,10 @@ export default function DashboardSidebar({
     rename: renameFavorite,
   } = useFavorites();
 
+  // Utilise FAVORITABLE_ITEMS (navItems + Channels + Community) pour pouvoir
+  // afficher les pages ajoutées via leur propre bouton marque-page.
   const favoriteItems = useMemo(
-    () => navItems.filter((item) => favoriteRoutes.includes(item.route)),
+    () => FAVORITABLE_ITEMS.filter((item) => favoriteRoutes.includes(item.route)),
     [favoriteRoutes]
   );
 
