@@ -45,7 +45,6 @@ import DashboardSidebar, { useSidebarOffset } from "../components/DashboardSideb
 import BottomBar, { type BottomBarTab } from "../components/Bottombar";
 import Folder from "../components/Folder";
 import HelpChatButton from "../components/Helpchatbutton";
-import PageHeader from "../components/PageHeader";
 import { CalendarPicker } from "../components/CalendarPicker";
 import NewPostModal, {
   type NewPostPayload,
@@ -391,7 +390,7 @@ function Chart({
     smoothPath(vals.map((v, i) => [x(i), y(si, v)] as [number, number]));
 
   const ticks = [0, 1, 2, 3, 4];
-  const labelIdx = Array.from(new Set([0, 0.5, 1].map((r) => Math.round(r * (n - 1))))); 
+  const labelIdx = Array.from(new Set([0, 0.5, 1].map((r) => Math.round(r * (n - 1)))));
   const area = `${path(0, series[0].values)} L${x(n - 1).toFixed(1)},${pad.t + ih} L${x(0).toFixed(1)},${pad.t + ih} Z`;
 
   const onPointer = (e: ReactPointerEvent<SVGSVGElement>) => {
@@ -1255,13 +1254,19 @@ export default function Insights() {
               "pb-[120px] pt-[clamp(18px,3vw,30px)]",
             ].join(" ")}
           >
-            <PageHeader
-              title="Insights"
-              icon={<InsightsIcon />}
-              isDark={isDark}
-              className="shrink-0"
-              actions={
-                <div className="flex flex-wrap items-center gap-2.5 print:hidden">
+            {/* HEADER COMPACT (remplace PageHeader) */}
+            <div className="flex shrink-0 flex-wrap items-center justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-2.5">
+                <span
+                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border ${t.inner} ${t.soft}`}
+                >
+                  <InsightsIcon />
+                </span>
+                <h1 className={`truncate text-[20px] font-semibold tracking-[-0.03em] ${t.text}`}>
+                  Insights
+                </h1>
+              </div>
+              <div className="flex flex-wrap items-center gap-2.5 print:hidden">
                 <ChannelMenu channels={channels} current={channel} t={t} isDark={isDark} />
                 <button
                   type="button"
@@ -1273,9 +1278,8 @@ export default function Insights() {
                   Export
                   <ChevronDown className="h-3.5 w-3.5 opacity-70" aria-hidden="true" />
                 </button>
-                </div>
-              }
-            />
+              </div>
+            </div>
 
             {!channel ? (
               <section className={`flex flex-col items-center gap-3 rounded-2xl border px-6 py-20 text-center ${t.panel}`}>
