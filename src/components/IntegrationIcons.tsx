@@ -93,10 +93,6 @@ export const RaycastIcon = createIcon(
   "Raycast",
   "#FF6363"
 );
-export const PerplexityIcon = createIcon(
-  "logos:perplexity-icon",
-  "Perplexity"
-);
 /*
  * Canva — Logo officiel avec dégradé (SVG inline).
  */

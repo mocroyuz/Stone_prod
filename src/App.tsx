@@ -30,6 +30,7 @@ import TemplatesPage from "./pages/template";
 import TikTokCallback from "./pages/TikTokCallback";
 import PinterestCallback from "./pages/PinterestCallback";
 import YouTubeCallback from "./pages/Youtubecallback";
+import DropboxCallback from "./pages/DropboxCallback";
 import CanvaCallback, {
   CanvaReturnConfirmation,
 } from "./pages/Canvacallback";
@@ -47,6 +48,7 @@ import { readCheckoutReturn } from "./services/stripe";
 const TIKTOK_OAUTH_STORAGE_KEY = "tiktok_oauth_params";
 const PINTEREST_OAUTH_STORAGE_KEY = "pinterest_oauth_params";
 const YOUTUBE_OAUTH_STORAGE_KEY = "youtube_oauth_params";
+const DROPBOX_OAUTH_STORAGE_KEY = "dropbox_oauth_params";
 const CANVA_OAUTH_STORAGE_KEY = "canva_oauth_params";
 
 const POST_LOGIN_ROUTE_KEY = "post_login_route";
@@ -79,10 +81,11 @@ const OAUTH_CALLBACK_ROUTES = new Set([
   "pinterest-callback",
   "youtube-callback",
   "canva-callback",
+  "dropbox-callback",
 ]);
 
 function interceptOAuthCallback(
-  provider: "tiktok" | "pinterest" | "youtube",
+  provider: "tiktok" | "pinterest" | "youtube" | "dropbox",
   storageKey: string
 ) {
   if (typeof window === "undefined") return;
@@ -126,6 +129,7 @@ function interceptOAuthCallback(
 interceptOAuthCallback("tiktok", TIKTOK_OAUTH_STORAGE_KEY);
 interceptOAuthCallback("pinterest", PINTEREST_OAUTH_STORAGE_KEY);
 interceptOAuthCallback("youtube", YOUTUBE_OAUTH_STORAGE_KEY);
+interceptOAuthCallback("dropbox", DROPBOX_OAUTH_STORAGE_KEY);
 
 function interceptCanvaOAuthCallback() {
   if (typeof window === "undefined") return;
@@ -446,6 +450,7 @@ const PROTECTED_ROUTES = new Set([
   "pinterest-callback",
   "youtube-callback",
   "canva-callback",
+  "dropbox-callback",
 ]);
 
 // "create" a sa propre page (pages/Create.tsx) : il n'est plus rendu par DashboardHome.
@@ -807,6 +812,18 @@ function AppContentInner({
     return (
       <div className="relative h-screen w-screen overflow-hidden font-sans">
         <YouTubeCallback />
+      </div>
+    );
+  }
+
+  /* ─────────────────────────────────────────────
+     DROPBOX CALLBACK
+     ───────────────────────────────────────────── */
+
+  if (route === "dropbox-callback") {
+    return (
+      <div className="relative h-screen w-screen overflow-hidden font-sans">
+        <DropboxCallback />
       </div>
     );
   }

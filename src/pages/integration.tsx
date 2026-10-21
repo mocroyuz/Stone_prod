@@ -19,7 +19,7 @@ import {
   GoogleIcon,
   N8nIcon,
   RaycastIcon,
-  PerplexityIcon,
+  DropboxIcon,
   GoogleDriveIcon,
   GmailIcon,
   GoogleCalendarIcon,
@@ -31,6 +31,7 @@ import {
   openCanvaPopup,
   waitForCanvaConnection,
 } from "../services/canva";
+import { getDropboxAuthUrl, getDropboxStatus } from "../services/dropbox";
 
 /** Route de cette page dans la sidebar (section Favorite). */
 const PAGE_ROUTE = "integrations";
@@ -203,7 +204,7 @@ const INTEGRATIONS: IntegrationCardData[] = [
   { title: "Google", meta: "Productivité", body: "Connect Google services and tools", progress: 65 },
   { title: "n8n", meta: "Automatisation", body: "Workflow automation with n8n", progress: 60 },
   { title: "Raycast", meta: "Productivité", body: "Quick actions from your menu bar", progress: 70 },
-  { title: "Perplexity", meta: "IA", body: "Manage your content from Perplexity Web and Desktop", progress: 50 },
+  { title: "Dropbox", meta: "Stockage", body: "Connect and manage files from your Dropbox account", progress: 50 },
   { title: "Canva", meta: "Design", body: "Create and manage your designs from Canva", progress: 55 },
   { title: "Google Drive", meta: "Stockage", body: "Sync and manage your files from Google Drive", progress: 75 },
   { title: "Gmail", meta: "Email", body: "Manage your emails and automate responses", progress: 80 },
@@ -218,7 +219,7 @@ const ICONS: Record<string, (props: { className?: string }) => JSX.Element | nul
   Google: GoogleIcon,
   n8n: N8nIcon,
   Raycast: RaycastIcon,
-  Perplexity: PerplexityIcon,
+  Dropbox: DropboxIcon,
   Canva: CanvaIcon,
   "Google Drive": GoogleDriveIcon,
   Gmail: GmailIcon,
@@ -241,6 +242,10 @@ function IntegrationCard({
   canvaBusy,
   canvaError,
   onCanvaConnect,
+  dropboxConnected,
+  dropboxBusy,
+  dropboxError,
+  onDropboxConnect,
 }: {
   data: IntegrationCardData;
   isDark: boolean;
@@ -248,6 +253,10 @@ function IntegrationCard({
   canvaBusy?: boolean;
   canvaError?: string | null;
   onCanvaConnect?: () => void;
+  dropboxConnected?: boolean;
+  dropboxBusy?: boolean;
+  dropboxError?: string | null;
+  onDropboxConnect?: () => void;
 }) {
   const Icon = ICONS[data.title];
 
@@ -282,16 +291,28 @@ function IntegrationCard({
           </h3>
         </div>
 
-        {data.title === "Canva" ? (
+        {data.title === "Canva" || data.title === "Dropbox" ? (
           <button
             type="button"
-            onClick={onCanvaConnect}
-            disabled={canvaConnected || canvaBusy}
-            aria-label={canvaConnected ? "Canva connected" : "Connect Canva"}
+            onClick={data.title === "Canva" ? onCanvaConnect : onDropboxConnect}
+            disabled={
+              data.title === "Canva"
+                ? canvaConnected || canvaBusy
+                : dropboxConnected || dropboxBusy
+            }
+            aria-label={
+              data.title === "Canva"
+                ? canvaConnected
+                  ? "Canva connected"
+                  : "Connect Canva"
+                : dropboxConnected
+                  ? "Dropbox connected"
+                  : "Connect Dropbox"
+            }
             className={[
               "shrink-0 rounded-full px-3 py-1.5 text-[11px] font-semibold transition disabled:cursor-default",
               focusRingClass(isDark),
-              canvaConnected
+              (data.title === "Canva" ? canvaConnected : dropboxConnected)
                 ? isDark
                   ? "bg-emerald-400/10 text-emerald-300"
                   : "bg-emerald-50 text-emerald-700"
@@ -300,9 +321,9 @@ function IntegrationCard({
                   : "bg-neutral-900 text-white hover:bg-neutral-700 disabled:opacity-60",
             ].join(" ")}
           >
-            {canvaBusy
+            {(data.title === "Canva" ? canvaBusy : dropboxBusy)
               ? "Connecting…"
-              : canvaConnected
+              : (data.title === "Canva" ? canvaConnected : dropboxConnected)
                 ? "Connected"
                 : "Connect"}
           </button>
@@ -348,6 +369,11 @@ function IntegrationCard({
           {canvaError}
         </p>
       )}
+      {data.title === "Dropbox" && dropboxError && (
+        <p role="alert" className="mt-3 text-[11px] leading-relaxed text-red-400">
+          {dropboxError}
+        </p>
+      )}
     </div>
   );
 }
@@ -377,6 +403,9 @@ export default function Integrations() {
   const [canvaConnected, setCanvaConnected] = useState(false);
   const [canvaBusy, setCanvaBusy] = useState(false);
   const [canvaError, setCanvaError] = useState<string | null>(null);
+  const [dropboxConnected, setDropboxConnected] = useState(false);
+  const [dropboxBusy, setDropboxBusy] = useState(false);
+  const [dropboxError, setDropboxError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -391,6 +420,28 @@ export default function Integrations() {
             error instanceof Error
               ? error.message
               : "Impossible de vérifier la connexion Canva."
+          );
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+
+    getDropboxStatus()
+      .then((status) => {
+        if (active) setDropboxConnected(status.connected);
+      })
+      .catch((error: unknown) => {
+        if (active) {
+          setDropboxError(
+            error instanceof Error
+              ? error.message
+              : "Impossible de vérifier la connexion Dropbox."
           );
         }
       });
@@ -430,6 +481,8 @@ export default function Integrations() {
         const isConnected =
           item.title === "Canva"
             ? canvaConnected
+            : item.title === "Dropbox"
+              ? dropboxConnected
             : item.progress >= CONNECTED_THRESHOLD;
         const matchesFilter =
           filter === "Toutes" ||
@@ -437,7 +490,7 @@ export default function Integrations() {
 
         return matchesQuery && matchesFilter;
       }),
-    [needle, filter, canvaConnected]
+    [needle, filter, canvaConnected, dropboxConnected]
   );
 
   const hasActiveFilters = needle.length > 0 || filter !== "Toutes";
@@ -497,6 +550,34 @@ export default function Integrations() {
       );
     } finally {
       setCanvaBusy(false);
+    }
+  };
+
+  const handleDropboxConnect = async () => {
+    if (dropboxBusy || dropboxConnected) return;
+
+    setDropboxError(null);
+    setDropboxBusy(true);
+
+    try {
+      const { url } = await getDropboxAuthUrl();
+      const authUrl = new URL(url);
+      const hostname = authUrl.hostname.toLowerCase();
+      if (
+        authUrl.protocol !== "https:" ||
+        (hostname !== "dropbox.com" && !hostname.endsWith(".dropbox.com"))
+      ) {
+        throw new Error("Le backend a renvoyé une URL Dropbox invalide.");
+      }
+
+      window.location.assign(authUrl.toString());
+    } catch (error) {
+      setDropboxError(
+        error instanceof Error
+          ? error.message
+          : "Impossible de démarrer la connexion Dropbox. Réessayez."
+      );
+      setDropboxBusy(false);
     }
   };
 
@@ -706,6 +787,12 @@ export default function Integrations() {
                   canvaError={card.title === "Canva" ? canvaError : null}
                   onCanvaConnect={
                     card.title === "Canva" ? handleCanvaConnect : undefined
+                  }
+                  dropboxConnected={card.title === "Dropbox" && dropboxConnected}
+                  dropboxBusy={card.title === "Dropbox" && dropboxBusy}
+                  dropboxError={card.title === "Dropbox" ? dropboxError : null}
+                  onDropboxConnect={
+                    card.title === "Dropbox" ? handleDropboxConnect : undefined
                   }
                 />
               ))}
