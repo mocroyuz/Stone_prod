@@ -138,23 +138,6 @@ function CheckIcon() {
   );
 }
 
-function PlusIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className="h-[13px] w-[13px]"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M12 5v14M5 12h14" />
-    </svg>
-  );
-}
-
 function ArrowRightIcon() {
   return (
     <svg
@@ -552,21 +535,6 @@ export default function Integrations() {
                     Connect your favorite tools and services.
                   </p>
                 </div>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  type="button"
-                  className={[
-                    "flex items-center gap-1.5 rounded-full px-4 py-2 text-[13px] font-semibold transition",
-                    focusRingClass(isDark),
-                    isDark
-                      ? "bg-white text-neutral-900 hover:bg-neutral-200"
-                      : "bg-neutral-900 text-white hover:bg-neutral-800",
-                  ].join(" ")}
-                >
-                  <PlusIcon />
-                  Nouvelle intégration
-                </button>
               </div>
             </div>
 

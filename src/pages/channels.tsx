@@ -22,7 +22,6 @@ import HelpChatButton from "../components/Helpchatbutton";
 import { useTheme } from "../hooks/useTheme";
 import { useUser } from "../contexts/UserContext";
 import { navigate } from "../hooks/useHashRoute";
-import { Share2 } from "lucide-react";
 
 import {
   InstagramIcon,
@@ -240,6 +239,17 @@ function Svg({
     >
       {children}
     </svg>
+  );
+}
+
+function ChannelsIcon(props: IconProps) {
+  return (
+    <Svg {...props}>
+      <circle cx="7.5" cy="7.5" r="2.5" />
+      <circle cx="16.5" cy="7.5" r="2.5" />
+      <circle cx="7.5" cy="16.5" r="2.5" />
+      <circle cx="16.5" cy="16.5" r="2.5" />
+    </Svg>
   );
 }
 
@@ -1201,7 +1211,7 @@ export default function Channels() {
                       : "border-black/[0.06] bg-white text-neutral-500",
                   ].join(" ")}
                 >
-                  <Share2 className="h-[18px] w-[18px]" strokeWidth={1.8} />
+                  <ChannelsIcon className="h-[18px] w-[18px]" />
                 </span>
                 <div className="min-w-0">
                   <h1
