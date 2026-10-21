@@ -19,7 +19,6 @@ import {
   type OnboardingAccount,
 } from "../components/OnboardingModals";
 import HelpChatButton from "../components/Helpchatbutton";
-import PageHeader from "../components/PageHeader";
 import { useTheme } from "../hooks/useTheme";
 import { useUser } from "../contexts/UserContext";
 import { navigate } from "../hooks/useHashRoute";
@@ -1191,13 +1190,39 @@ export default function Channels() {
           {/* LARGEUR AUGMENTÉE ICI: max-w-[1100px] */}
           <div className="mx-auto flex w-full max-w-[1100px] flex-col px-[clamp(18px,3vw,48px)] pb-[120px] pt-[clamp(18px,3vw,30px)]">
 
-            <PageHeader
-              title="Channels"
-              icon={<Share2 className="h-7 w-7" strokeWidth={1.6} />}
-              isDark={isDark}
-              subtitle="Your connected accounts at a glance. Click on a channel to connect it."
-              className="mb-6 shrink-0"
-            />
+            {/* HEADER COMPACT (remplace PageHeader) */}
+            <div className="mb-6 flex shrink-0 flex-wrap items-center justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-2.5">
+                <span
+                  className={[
+                    "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border",
+                    isDark
+                      ? "border-white/[0.07] bg-white/[0.04] text-neutral-400"
+                      : "border-black/[0.06] bg-white text-neutral-500",
+                  ].join(" ")}
+                >
+                  <Share2 className="h-[18px] w-[18px]" strokeWidth={1.8} />
+                </span>
+                <div className="min-w-0">
+                  <h1
+                    className={[
+                      "truncate text-[20px] font-semibold tracking-[-0.03em]",
+                      strongClass(isDark),
+                    ].join(" ")}
+                  >
+                    Channels
+                  </h1>
+                  <p
+                    className={[
+                      "mt-0.5 truncate text-[12px]",
+                      mutedClass(isDark),
+                    ].join(" ")}
+                  >
+                    Your connected accounts at a glance. Click on a channel to connect it.
+                  </p>
+                </div>
+              </div>
+            </div>
 
             {/* BANNIÈRE PLAN */}
             <div

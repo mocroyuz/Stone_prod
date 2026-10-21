@@ -15,7 +15,6 @@ import NewPostModal, {
 import ChannelMenu from "../components/ChannelMenu";
 import { useConnectedChannels } from "../hooks/useConnectedChannels";
 import HelpChatButton from "../components/Helpchatbutton";
-import PageHeader from "../components/PageHeader";
 
 /* ───────── Types ───────── */
 
@@ -416,13 +415,30 @@ export default function Community() {
               "pb-6 pt-[clamp(18px,3vw,30px)]",
             ].join(" ")}
           >
-            <PageHeader
-              title="Community"
-              icon={<span className="scale-[1.45]"><ChatsIcon /></span>}
-              isDark={isDark}
-              className="relative z-40 shrink-0 pb-4"
-              actions={
-                <div className="flex flex-wrap items-center gap-2.5">
+            {/* HEADER COMPACT (remplace PageHeader) */}
+            <div className="relative z-40 flex shrink-0 flex-wrap items-center justify-between gap-3 pb-4">
+              <div className="flex min-w-0 items-center gap-2.5">
+                <span
+                  className={[
+                    "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border",
+                    isDark
+                      ? "border-white/[0.07] bg-white/[0.04] text-neutral-400"
+                      : "border-black/[0.06] bg-white text-neutral-500",
+                  ].join(" ")}
+                >
+                  <ChatsIcon />
+                </span>
+                <h1
+                  className={[
+                    "truncate text-[20px] font-semibold tracking-[-0.03em]",
+                    strongClass(isDark),
+                  ].join(" ")}
+                >
+                  Community
+                </h1>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2.5">
                 <ChannelMenu
                   channels={channels}
                   current={channel}
@@ -431,10 +447,10 @@ export default function Community() {
                 />
 
                 <div className="flex items-center gap-2">
-                  <IconButton label="Auto-replies" ghost={ghost} isDark={isDark}>
+                  <IconButton label="Auto-replies" ghost={ghost} isDark={isDark} className="h-9 w-9">
                     <ChatHeartIcon className="h-5 w-5" />
                   </IconButton>
-                  <IconButton label="Refresh comments" ghost={ghost} isDark={isDark}>
+                  <IconButton label="Refresh comments" ghost={ghost} isDark={isDark} className="h-9 w-9">
                     <SyncIcon className="h-5 w-5" />
                   </IconButton>
 
@@ -473,9 +489,8 @@ export default function Community() {
                     ))}
                   </div>
                 </div>
-                </div>
-              }
-            />
+              </div>
+            </div>
 
             {/* Tabs + toolbar */}
             <div className={["flex shrink-0 items-center justify-between gap-4 border-b", line].join(" ")}>
@@ -511,10 +526,10 @@ export default function Community() {
                   isDark={isDark}
                   ghost={ghost}
                 />
-                <IconButton label="Sort and filter" ghost={ghost} isDark={isDark}>
+                <IconButton label="Sort and filter" ghost={ghost} isDark={isDark} className="h-9 w-9">
                   <FilterIcon className="h-5 w-5" />
                 </IconButton>
-                <IconButton label="Mark all as read" ghost={ghost} isDark={isDark} align="end">
+                <IconButton label="Mark all as read" ghost={ghost} isDark={isDark} align="end" className="h-9 w-9">
                   <CheckCircleIcon className="h-5 w-5" />
                 </IconButton>
               </div>
