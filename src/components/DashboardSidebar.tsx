@@ -139,7 +139,8 @@ type StatusResponse = {
    Dimensions 
 ============================================================================ */
 
-export const SIDEBAR_COLLAPSED_OFFSET = 56;
+// 64px : 12px de marge de chaque côté des boutons de 40px en mode réduit.
+export const SIDEBAR_COLLAPSED_OFFSET = 64;
 export const SIDEBAR_EXPANDED_OFFSET = 240;
 
 /* ============================================================================ 
@@ -1633,6 +1634,48 @@ function FavoriteRowImpl({
 
 const FavoriteRow = memo(FavoriteRowImpl);
 
+/**
+ * Favori en mode réduit : simple icône « enregistré » avec infobulle
+ * (le nom complet s'affiche au survol).
+ */
+function CompactFavoriteImpl({
+  item,
+  label,
+  isActive,
+  focus,
+  t,
+  onNavigate,
+}: {
+  item: NavItem;
+  label: string;
+  isActive: boolean;
+  focus: string;
+  t: ThemeTokens;
+  onNavigate: (route: string) => void;
+}) {
+  return (
+    <Tip label={label} enabled menuClass={t.menu} countClass={t.count}>
+      <button
+        type="button"
+        aria-label={label}
+        aria-current={isActive ? "page" : undefined}
+        onClick={() => onNavigate(item.route)}
+        className={[
+          "flex h-10 w-10 items-center justify-center rounded-xl",
+          "transition-[background-color,color,transform] duration-200",
+          "active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:scale-100",
+          focus,
+          isActive ? t.navActive : t.navIdle,
+        ].join(" ")}
+      >
+        <BookmarkIcon className="h-[18px] w-[18px] shrink-0" filled />
+      </button>
+    </Tip>
+  );
+}
+
+const CompactFavorite = memo(CompactFavoriteImpl);
+
 function SidebarChannelsImpl({
   channels: rawChannels,
   favorites,
@@ -1959,31 +2002,52 @@ function SidebarChannelsImpl({
   return (
     <div
       ref={listRef}
-      className="relative flex flex-col gap-1"
+      className={[
+        "relative flex flex-col gap-1",
+        // Mode réduit : les éléments restent centrés dans la barre
+        compact ? "w-full items-center" : "",
+      ].join(" ")}
     >
-      {/* Section Favorite : visible uniquement s'il y a au moins un favori
-          (et jamais en mode réduit). Vide → rien n'est affiché. */}
-      {!compact && favorites.length > 0 && (
+      {/* Section Favorite : visible uniquement s'il y a au moins un favori.
+          - barre développée : titre « Favorite » + lignes complètes
+          - barre réduite : séparateur + icônes marque-page avec infobulle */}
+      {favorites.length > 0 && (
         <>
-          <div className="sb-fade mt-3 flex h-6 items-center px-2.5">
-            <span className={["text-[12px] font-medium", t.muted].join(" ")}>
-              Favorite
-            </span>
-          </div>
+          {compact ? (
+            <div className={["mx-auto mb-1 mt-2 h-px w-8", t.divider].join(" ")} />
+          ) : (
+            <div className="sb-fade mt-3 flex h-6 items-center px-2.5">
+              <span className={["text-[12px] font-medium", t.muted].join(" ")}>
+                Favorite
+              </span>
+            </div>
+          )}
 
-          {favorites.map((item) => (
-            <FavoriteRow
-              key={item.route}
-              item={item}
-              label={favoriteNames[item.route] ?? item.label}
-              isActive={item.route === currentRoute}
-              focus={focus}
-              t={t}
-              onNavigate={onNavigate}
-              onRename={onRenameFavorite}
-              onRemove={onRemoveFavorite}
-            />
-          ))}
+          {favorites.map((item) =>
+            compact ? (
+              <CompactFavorite
+                key={item.route}
+                item={item}
+                label={favoriteNames[item.route] ?? item.label}
+                isActive={item.route === currentRoute}
+                focus={focus}
+                t={t}
+                onNavigate={onNavigate}
+              />
+            ) : (
+              <FavoriteRow
+                key={item.route}
+                item={item}
+                label={favoriteNames[item.route] ?? item.label}
+                isActive={item.route === currentRoute}
+                focus={focus}
+                t={t}
+                onNavigate={onNavigate}
+                onRename={onRenameFavorite}
+                onRemove={onRemoveFavorite}
+              />
+            )
+          )}
         </>
       )}
 
@@ -2123,7 +2187,7 @@ function SidebarChannelsImpl({
           <div
             key={channel.key}
             data-channel-key={channel.key}
-            className="flex flex-col"
+            className="flex w-full flex-col"
           >
             {/* Ligne du canal = zone de survol + zone de dépôt */}
             <div
@@ -3178,7 +3242,7 @@ export default function DashboardSidebar({
           isMobile ? t.rail : "border-transparent",
           drawerHidden ? "pointer-events-none -translate-x-full" : "translate-x-0",
           compact
-            ? "w-[56px]"
+            ? "w-[64px]"
             : isMobile
               ? "w-[260px] max-w-[85vw]"
               : "w-[240px]",
@@ -3219,7 +3283,8 @@ export default function DashboardSidebar({
           aria-label="Main"
           className={[
             "flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto overflow-x-hidden pb-3 pt-4",
-            compact ? "items-center px-0" : "px-2",
+            // Mode réduit : 12px de marge de chaque côté (64px - 40px) / 2
+            compact ? "items-center px-3" : "px-2",
             "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
           ].join(" ")}
         >
