@@ -136,6 +136,13 @@ type StatusResponse = {
 };
 
 /* ============================================================================ 
+   Feature flags 
+============================================================================ */
+
+/** Affiche la section « Favorites » au-dessus de « Channels » (inactive pour l'instant). */
+const SHOW_FAVORITES_SECTION = false;
+
+/* ============================================================================ 
    Dimensions 
 ============================================================================ */
 
@@ -337,6 +344,12 @@ const LightbulbIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="M9 18h6M10 21h4" />
     <path d="M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.4 1 2.3V16h6v-.2c0-.9.4-1.7 1-2.3A6 6 0 0 0 12 3Z" />
+  </Svg>
+);
+
+const StarIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="m12 3.5 2.6 5.3 5.9.86-4.25 4.14 1 5.87L12 16.9l-5.25 2.77 1-5.87L3.5 9.66l5.9-.86L12 3.5Z" />
   </Svg>
 );
 
@@ -1507,6 +1520,47 @@ function SidebarChannelsImpl({
             </Tip>
           );
         })}
+
+      {/* Section Favorites — masquée tant que SHOW_FAVORITES_SECTION === false */}
+      {!compact && SHOW_FAVORITES_SECTION && (
+        <>
+          <div className="sb-fade group/favorites mt-3 flex h-6 items-center justify-between px-2.5">
+            <span className={["text-[12px] font-medium", t.muted].join(" ")}>
+              Favorites
+            </span>
+
+            {/* Bouton « + » pour ajouter un favori (à câbler plus tard) */}
+            <button
+              type="button"
+              aria-label="Add a favorite"
+              onClick={onConnect}
+              className={[
+                "flex h-6 w-6 items-center justify-center rounded-lg",
+                "opacity-0 transition-opacity duration-200",
+                "group-hover/favorites:opacity-100 group-focus-within/favorites:opacity-100",
+                "focus-visible:opacity-100 motion-reduce:transition-none",
+                "transition-colors duration-150",
+                focus,
+                t.menuIcon,
+                t.row,
+              ].join(" ")}
+            >
+              <PlusIcon className="h-[15px] w-[15px]" />
+            </button>
+          </div>
+
+          {/* État vide — remplacé plus tard par la vraie liste de favoris */}
+          <div
+            className={[
+              "flex items-center gap-2 px-2.5 py-1 text-[11.5px]",
+              t.muted,
+            ].join(" ")}
+          >
+            <StarIcon className="h-3 w-3 shrink-0 opacity-60" />
+            <span className="truncate">No favorites yet</span>
+          </div>
+        </>
+      )}
 
       {/* Séparateur horizontal (mode réduit uniquement) */}
       {compact && (
