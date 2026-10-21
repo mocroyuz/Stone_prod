@@ -5,6 +5,7 @@ import { useTheme } from "../hooks/useTheme";
 import { navigate, useHashRoute } from "../hooks/useHashRoute";
 import DashboardSidebar, {
   useSidebarOffset,
+  useFavorites,
 } from "../components/DashboardSidebar";
 import BottomBar, { type BottomBarTab } from "../components/Bottombar";
 import Folder from "../components/Folder";
@@ -40,6 +41,9 @@ const FILTERS: { key: Filter; label: string }[] = [
   { key: "unanswered", label: "Unanswered" },
   { key: "answered", label: "Answered" },
 ];
+
+/** Route de cette page dans la sidebar (section Favorite). */
+const PAGE_ROUTE = "community";
 
 /* ───────── Shell (identique à Home) ───────── */
 
@@ -91,6 +95,26 @@ function Svg({
       aria-hidden="true"
     >
       {children}
+    </svg>
+  );
+}
+
+function BookmarkIcon({
+  className,
+  filled = false,
+}: IconProps & { filled?: boolean }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={className ?? "h-4 w-4"}
+      fill={filled ? "currentColor" : "none"}
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M7 4.5h10a1 1 0 0 1 1 1V20l-6-3.8L6 20V5.5a1 1 0 0 1 1-1Z" />
     </svg>
   );
 }
@@ -320,6 +344,11 @@ export default function Community() {
   const sidebarOffset = useSidebarOffset();
   const channels = useConnectedChannels();
 
+  // Favoris partagés avec la sidebar : le marque-page du header ajoute /
+  // retire cette page de la section « Favorite ».
+  const { isFavorite, toggle: toggleFavorite } = useFavorites();
+  const saved = isFavorite(PAGE_ROUTE);
+
   const hashChannel = useHashChannel();
   const [selectedKey, setSelectedKey] = useState<string | null>(hashChannel);
 
@@ -415,7 +444,7 @@ export default function Community() {
               "pb-6 pt-[clamp(18px,3vw,30px)]",
             ].join(" ")}
           >
-            {/* HEADER COMPACT (remplace PageHeader) */}
+            {/* HEADER COMPACT */}
             <div className="relative z-40 flex shrink-0 flex-wrap items-center justify-between gap-3 pb-4">
               <div className="flex min-w-0 items-center gap-2.5">
                 <span
@@ -489,6 +518,22 @@ export default function Community() {
                     ))}
                   </div>
                 </div>
+
+                {/* Marque-page : ajoute / retire cette page des favoris de la sidebar */}
+                <button
+                  type="button"
+                  aria-label={saved ? "Remove from favorites" : "Add to favorites"}
+                  aria-pressed={saved}
+                  title={saved ? "Remove from favorites" : "Add to favorites"}
+                  onClick={() => toggleFavorite(PAGE_ROUTE)}
+                  className={[
+                    "ml-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-colors motion-reduce:transition-none",
+                    focusRingClass(isDark),
+                    isDark ? "hover:bg-white/[0.06]" : "hover:bg-black/[0.04]",
+                  ].join(" ")}
+                >
+                  <BookmarkIcon className="h-5 w-5" filled={saved} />
+                </button>
               </div>
             </div>
 
