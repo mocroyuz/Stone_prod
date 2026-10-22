@@ -697,8 +697,8 @@ export default function Integrations() {
     throw new Error(unavailablePostActionMessage(payload));
   };
 
-  const handleCanvaConnect = async (reconnect = false) => {
-    if (canvaBusy || (canvaConnected && !reconnect)) return;
+  const handleCanvaConnect = async () => {
+    if (canvaBusy || canvaConnected) return;
 
     const popup = openCanvaPopup();
     if (!popup) {
@@ -712,12 +712,6 @@ export default function Integrations() {
     setCanvaBusy(true);
 
     try {
-      if (reconnect) {
-        await disconnectCanva();
-        setCanvaConnected(false);
-        setCanvaProfile(null);
-      }
-
       popup.document.body.innerText = "Opening Canva…";
       popup.location.href = await getCanvaAuthUrl();
 
@@ -751,6 +745,34 @@ export default function Integrations() {
       );
     } finally {
       setCanvaBusy(false);
+    }
+  };
+
+  // Reconnect (comme sur Channels) : on déconnecte le compte, puis on repart
+  // directement sur l'OAuth Canva dans le même onglet.
+  const handleCanvaReconnect = async () => {
+    if (canvaBusy) return;
+
+    setCanvaError(null);
+    setCanvaBusy(true);
+    let redirecting = false;
+
+    try {
+      await disconnectCanva();
+      setCanvaConnected(false);
+      setCanvaProfile(null);
+
+      const url = await getCanvaAuthUrl();
+      redirecting = true;
+      window.location.assign(url);
+    } catch (error) {
+      setCanvaError(
+        error instanceof Error
+          ? error.message
+          : "Impossible de reconnecter Canva. Réessayez."
+      );
+    } finally {
+      if (!redirecting) setCanvaBusy(false);
     }
   };
 
@@ -837,7 +859,7 @@ export default function Integrations() {
       error: canvaError,
       profile: canvaProfile,
       onConnect: () => handleCanvaConnect(),
-      onReconnect: () => handleCanvaConnect(true),
+      onReconnect: handleCanvaReconnect,
       onDisconnect: handleCanvaDisconnect,
     },
     Dropbox: {

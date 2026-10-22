@@ -12,6 +12,7 @@ export type CachedTikTok = CachedProfile;
 
 export const CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 export const AVATAR_MAX_AGE_MS = 60 * 60 * 1000;
+export const PROFILE_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
 export const CACHE_PROVIDERS: CacheProvider[] = ["tiktok", "youtube", "pinterest"];
 export const CHANNELS_CHANGED_EVENT = "stone:channels-changed";
 

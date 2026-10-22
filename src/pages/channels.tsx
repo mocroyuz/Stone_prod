@@ -50,6 +50,7 @@ import {
   disconnectYouTube,
 } from "../services/youtube";
 import {
+  CHANNELS_CHANGED_EVENT,
   CACHE_MAX_AGE_MS,
   clearCache,
   readCache,
@@ -970,6 +971,26 @@ export default function Channels() {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]);
+
+  useEffect(() => {
+    if (!userId) return;
+
+    const refreshConnections = () => {
+      setConnections((current) => ({
+        ...current,
+        tiktok:
+          readCache(userId, "tiktok")?.connection ?? { connected: false },
+        pinterest:
+          readCache(userId, "pinterest")?.connection ?? { connected: false },
+        youtube:
+          readCache(userId, "youtube")?.connection ?? { connected: false },
+      }));
+    };
+
+    window.addEventListener(CHANNELS_CHANGED_EVENT, refreshConnections);
+    return () =>
+      window.removeEventListener(CHANNELS_CHANGED_EVENT, refreshConnections);
   }, [userId]);
 
   /* ------------------------------------------------------------------------

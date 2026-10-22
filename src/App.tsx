@@ -40,6 +40,15 @@ import { useTheme, ThemeProvider, type Theme } from "./hooks/useTheme";
 import { UserProvider, useUser } from "./contexts/UserContext";
 import { isRecoveryUrl, saveOAuthSession } from "./services/supabase";
 import { readCheckoutReturn } from "./services/stripe";
+import {
+  clearCache,
+  PROFILE_REFRESH_INTERVAL_MS,
+  readCache,
+  writeCache,
+} from "./services/channelsCache";
+import { getPinterestStatus } from "./services/pinterest";
+import { refreshTikTokCache } from "./services/tiktok";
+import { getYouTubeStatus } from "./services/youtube";
 
 /* ──────────────────────────────────────────────────────────────
    OAUTH CALLBACK INTERCEPTION
@@ -554,6 +563,101 @@ function AppContent(props: AppContentProps) {
   const [bootShown, setBootShown] = useState(false);
 
   const route = normalizeRoute(props.route);
+
+  useEffect(() => {
+    const userId = user?.id;
+    if (!userId) return;
+
+    let active = true;
+    let syncing = false;
+
+    const refreshProfiles = async () => {
+      if (!active || syncing || document.visibilityState === "hidden") return;
+      syncing = true;
+
+      const refreshTikTok = async () => {
+        if (!readCache(userId, "tiktok")?.connection.connected) return;
+        try {
+          await refreshTikTokCache(userId, { force: true });
+        } catch (error) {
+          console.warn("[Stone] Could not refresh TikTok profile:", error);
+        }
+      };
+
+      const refreshPinterest = async () => {
+        if (!readCache(userId, "pinterest")?.connection.connected) return;
+        try {
+          const status = await getPinterestStatus();
+          if (!active) return;
+          if (!status.connected) {
+            clearCache(userId, "pinterest");
+            return;
+          }
+          writeCache(
+            userId,
+            {
+              connected: true,
+              handle: status.account?.display_name ?? undefined,
+              avatarUrl: status.account?.avatar_url ?? undefined,
+            },
+            "pinterest"
+          );
+        } catch (error) {
+          console.warn("[Stone] Could not refresh Pinterest profile:", error);
+        }
+      };
+
+      const refreshYouTube = async () => {
+        if (!readCache(userId, "youtube")?.connection.connected) return;
+        try {
+          const status = await getYouTubeStatus();
+          if (!active) return;
+          if (!status.connected) {
+            clearCache(userId, "youtube");
+            return;
+          }
+          writeCache(
+            userId,
+            {
+              connected: true,
+              handle: status.account?.display_name ?? undefined,
+              avatarUrl: status.account?.avatar_url ?? undefined,
+            },
+            "youtube"
+          );
+        } catch (error) {
+          console.warn("[Stone] Could not refresh YouTube profile:", error);
+        }
+      };
+
+      try {
+        await Promise.all([
+          refreshTikTok(),
+          refreshPinterest(),
+          refreshYouTube(),
+        ]);
+      } finally {
+        syncing = false;
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") void refreshProfiles();
+    };
+
+    void refreshProfiles();
+    const intervalId = window.setInterval(
+      () => void refreshProfiles(),
+      PROFILE_REFRESH_INTERVAL_MS
+    );
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      active = false;
+      window.clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [user?.id]);
 
   const showBoot =
     !!user &&
