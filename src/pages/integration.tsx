@@ -270,13 +270,41 @@ function IntegrationCard({
     >
       <div className="flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-3">
-          {Icon && (
-            <Icon
-              className={[
-                "h-5 w-5 shrink-0",
-                isDark ? "text-white" : "text-neutral-900",
-              ].join(" ")}
+          {service?.connected ? (
+            // Connecté : photo de profil du compte + logo de l'app incrusté
+            // en bas à droite, à gauche de la carte.
+            <Avatar
+              name={service.profile?.name ?? data.title}
+              photoUrl={service.profile?.photoUrl}
+              isDark={isDark}
+              sizeClass="h-11 w-11"
+              radiusClass="rounded-[14px]"
+              badgeRadiusClass="rounded-[5px]"
+              title={
+                service.profile?.name
+                  ? `${service.profile.name} — ${data.title}`
+                  : `${data.title} connecté`
+              }
+              badgeClass={
+                isDark
+                  ? "bg-[#141416] text-white ring-[#141416]"
+                  : "bg-white text-neutral-900 ring-white"
+              }
+              badge={Icon ? <Icon className="h-[11px] w-[11px]" /> : undefined}
             />
+          ) : (
+            Icon && (
+              <div
+                className={[
+                  "flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] border",
+                  isDark
+                    ? "border-white/[0.08] bg-white/[0.04] text-neutral-300"
+                    : "border-black/[0.06] bg-[#f6f4f0] text-neutral-600",
+                ].join(" ")}
+              >
+                <Icon className="h-[21px] w-[21px]" />
+              </div>
+            )
           )}
           <h3
             className={[
@@ -288,26 +316,7 @@ function IntegrationCard({
           </h3>
         </div>
 
-        {service?.connected ? (
-          // Connecté : photo de profil du compte + logo de l'app incrusté.
-          <Avatar
-            name={service.profile?.name ?? data.title}
-            photoUrl={service.profile?.photoUrl}
-            isDark={isDark}
-            sizeClass="h-9 w-9"
-            title={
-              service.profile?.name
-                ? `${service.profile.name} — ${data.title}`
-                : `${data.title} connecté`
-            }
-            badgeClass={
-              isDark
-                ? "bg-[#141416] ring-[#141416] text-white"
-                : "bg-white ring-white text-neutral-900"
-            }
-            badge={Icon ? <Icon className="h-3 w-3" /> : undefined}
-          />
-        ) : (
+        {service?.connected ? null : (
           // Non connecté : la flèche lance la connexion du compte
           // (pour les autres intégrations, elle ouvre la configuration).
           <button

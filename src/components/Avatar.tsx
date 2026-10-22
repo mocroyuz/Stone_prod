@@ -8,10 +8,14 @@ type AvatarProps = {
   /** Classes Tailwind de taille, ex. "h-10 w-10" */
   sizeClass?: string;
   textClass?: string;
+  /** Arrondi de la photo (défaut : rond). Ex. "rounded-[14px]" */
+  radiusClass?: string;
   /** Petit logo incrusté en bas à droite de la photo (ex. logo de l'app). */
   badge?: ReactNode;
-  /** Classes du rond qui porte le badge (fond + anneau). */
+  /** Classes du carré qui porte le badge (fond + anneau). */
   badgeClass?: string;
+  /** Arrondi du badge (défaut : rond). Ex. "rounded-[5px]" */
+  badgeRadiusClass?: string;
   title?: string;
 };
 
@@ -22,8 +26,10 @@ export default function Avatar({
   isDark,
   sizeClass = "h-10 w-10",
   textClass = "text-[13px]",
+  radiusClass = "rounded-full",
   badge,
   badgeClass = "",
+  badgeRadiusClass = "rounded-full",
   title,
 }: AvatarProps) {
   const [failed, setFailed] = useState(false);
@@ -48,13 +54,18 @@ export default function Avatar({
         alt=""
         referrerPolicy="no-referrer"
         onError={() => setFailed(true)}
-        className={["rounded-full object-cover", sizeClass].join(" ")}
+        className={[
+          "select-none object-cover",
+          radiusClass,
+          sizeClass,
+        ].join(" ")}
       />
     ) : (
       <span
         aria-hidden="true"
         className={[
-          "flex items-center justify-center rounded-full font-semibold",
+          "flex items-center justify-center font-semibold",
+          radiusClass,
           sizeClass,
           textClass,
           isDark ? "bg-white/10 text-white" : "bg-black/[0.06] text-neutral-700",
@@ -70,7 +81,8 @@ export default function Avatar({
       {badge && (
         <span
           className={[
-            "absolute -bottom-1 -right-1 flex h-[18px] w-[18px] items-center justify-center rounded-full ring-2",
+            "absolute -bottom-1 -right-1 flex h-[18px] w-[18px] items-center justify-center ring-2",
+            badgeRadiusClass,
             badgeClass,
           ].join(" ")}
         >
