@@ -25,7 +25,6 @@ import {
   GoogleCalendarIcon,
   CanvaIcon,
 } from "../components/IntegrationIcons";
-import Avatar from "../components/Avatar";
 import {
   getCanvaAuthUrl,
   getCanvaStatus,
@@ -41,26 +40,6 @@ import {
 
 /** Route de cette page dans la sidebar (section Favorite). */
 const PAGE_ROUTE = "integrations";
-
-/**
- * Cherche l'URL de la photo de profil dans la réponse du serveur, quel que
- * soit le nom du champ (profile_photo_url, avatar_url, avatarUrl…).
- */
-function photoUrlOf(account: object | null | undefined): string | null {
-  if (!account) return null;
-  const record = account as Record<string, unknown>;
-  for (const key of [
-    "profile_photo_url",
-    "avatar_url",
-    "avatarUrl",
-    "photo_url",
-    "picture",
-  ]) {
-    const value = record[key];
-    if (typeof value === "string" && value.trim()) return value;
-  }
-  return null;
-}
 
 /* ============================================================
    SHELL (identique à Home)
@@ -152,11 +131,12 @@ function ChevronDownIcon() {
   );
 }
 
-function CheckIcon() {
+/** Coche de validation (filtre + état « connecté »). */
+function CheckIcon({ className }: { className?: string }) {
   return (
     <svg
       viewBox="0 0 24 24"
-      className="h-[12px] w-[12px]"
+      className={className ?? "h-[12px] w-[12px]"}
       fill="none"
       stroke="currentColor"
       strokeWidth="2.6"
@@ -316,7 +296,7 @@ type Filter = (typeof FILTERS)[number];
 const CONNECTED_THRESHOLD = 60;
 
 /* ============================================================
-   AVATAR + CARD
+   CARD
 ============================================================ */
 
 /** Connexion réelle à un service (Canva, Dropbox). */
@@ -324,8 +304,6 @@ type ServiceConnection = {
   connected: boolean;
   busy: boolean;
   error: string | null;
-  /** Profil du compte sur le réseau (photo + nom), quand il est connecté. */
-  profile: { name: string; photoUrl?: string | null } | null;
   onConnect: () => void;
   onReconnect: () => void;
   onDisconnect: () => void;
@@ -364,6 +342,8 @@ function IntegrationCard({
     };
   }, [menuOpen]);
 
+  const connected = Boolean(service?.connected);
+
   return (
     <div
       className={[
@@ -377,41 +357,18 @@ function IntegrationCard({
     >
       <div className="flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-3">
-          {service?.connected ? (
-            // Connecté : photo de profil du compte + logo de l'app incrusté
-            // en bas à droite, à gauche de la carte.
-            <Avatar
-              name={service.profile?.name ?? data.title}
-              photoUrl={service.profile?.photoUrl}
-              isDark={isDark}
-              sizeClass="h-11 w-11"
-              radiusClass="rounded-[14px]"
-              badgeRadiusClass="rounded-[5px]"
-              title={
-                service.profile?.name
-                  ? `${service.profile.name} — ${data.title}`
-                  : `${data.title} connecté`
-              }
-              badgeClass={
+          {/* Logo de l'application : affiché dans tous les cas (connecté ou non). */}
+          {Icon && (
+            <div
+              className={[
+                "flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] border",
                 isDark
-                  ? "bg-[#141416] text-white ring-[#141416]"
-                  : "bg-white text-neutral-900 ring-white"
-              }
-              badge={Icon ? <Icon className="h-[11px] w-[11px]" /> : undefined}
-            />
-          ) : (
-            Icon && (
-              <div
-                className={[
-                  "flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] border",
-                  isDark
-                    ? "border-white/[0.08] bg-white/[0.04] text-neutral-300"
-                    : "border-black/[0.06] bg-[#f6f4f0] text-neutral-600",
-                ].join(" ")}
-              >
-                <Icon className="h-[21px] w-[21px]" />
-              </div>
-            )
+                  ? "border-white/[0.08] bg-white/[0.04] text-neutral-300"
+                  : "border-black/[0.06] bg-[#f6f4f0] text-neutral-600",
+              ].join(" ")}
+            >
+              <Icon className="h-[21px] w-[21px]" />
+            </div>
           )}
           <h3
             className={[
@@ -423,25 +380,26 @@ function IntegrationCard({
           </h3>
         </div>
 
-        {service?.connected ? (
-          // Connecté : trois points → menu Reconnect / Disconnect.
+        {connected ? (
+          // Connecté : coche de validation qui ouvre le menu Reconnect / Disconnect.
           <div ref={menuRef} className="relative shrink-0">
             <button
               type="button"
               aria-label={`Options pour ${data.title}`}
               aria-haspopup="menu"
               aria-expanded={menuOpen}
+              disabled={service?.busy}
               onClick={() => setMenuOpen((value) => !value)}
               className={[
-                "flex h-8 w-8 items-center justify-center rounded-lg transition-colors",
+                "flex h-7 w-7 items-center justify-center rounded-full transition",
+                "disabled:cursor-default disabled:opacity-50",
                 focusRingClass(isDark),
-                mutedClass(isDark),
                 isDark
-                  ? "hover:bg-white/[0.06] hover:text-white"
-                  : "hover:bg-black/[0.05] hover:text-neutral-900",
+                  ? "bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25"
+                  : "bg-emerald-50 text-emerald-600 hover:bg-emerald-100",
               ].join(" ")}
             >
-              <MoreIcon />
+              <CheckIcon className="h-[14px] w-[14px]" />
             </button>
 
             {menuOpen && (
@@ -457,10 +415,10 @@ function IntegrationCard({
                 <button
                   type="button"
                   role="menuitem"
-                  disabled={service.busy}
+                  disabled={service?.busy}
                   onClick={() => {
                     setMenuOpen(false);
-                    service.onReconnect();
+                    service?.onReconnect();
                   }}
                   className={[
                     "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-[11px] font-medium disabled:opacity-40",
@@ -483,10 +441,10 @@ function IntegrationCard({
                 <button
                   type="button"
                   role="menuitem"
-                  disabled={service.busy}
+                  disabled={service?.busy}
                   onClick={() => {
                     setMenuOpen(false);
-                    service.onDisconnect();
+                    service?.onDisconnect();
                   }}
                   className={[
                     "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-[11px] font-medium disabled:opacity-40",
@@ -502,8 +460,7 @@ function IntegrationCard({
             )}
           </div>
         ) : (
-          // Non connecté : la flèche lance la connexion du compte
-          // (pour les autres intégrations, elle ouvre la configuration).
+          // Non connecté : la flèche lance la connexion du compte.
           <button
             type="button"
             onClick={service?.onConnect}
@@ -580,14 +537,10 @@ export default function Integrations() {
   const [isNewPostOpen, setIsNewPostOpen] = useState(false);
 
   const [canvaConnected, setCanvaConnected] = useState(false);
-  const [canvaProfile, setCanvaProfile] =
-    useState<ServiceConnection["profile"]>(null);
   const [canvaBusy, setCanvaBusy] = useState(false);
   const [canvaError, setCanvaError] = useState<string | null>(null);
 
   const [dropboxConnected, setDropboxConnected] = useState(false);
-  const [dropboxProfile, setDropboxProfile] =
-    useState<ServiceConnection["profile"]>(null);
   const [dropboxBusy, setDropboxBusy] = useState(false);
   const [dropboxError, setDropboxError] = useState<string | null>(null);
 
@@ -598,14 +551,6 @@ export default function Integrations() {
       .then((status) => {
         if (!active) return;
         setCanvaConnected(status.connected);
-        setCanvaProfile(
-          status.account
-            ? {
-                name: status.account.display_name || "Compte Canva",
-                photoUrl: photoUrlOf(status.account),
-              }
-            : null
-        );
       })
       .catch((error: unknown) => {
         if (active) {
@@ -629,14 +574,6 @@ export default function Integrations() {
       .then((status) => {
         if (!active) return;
         setDropboxConnected(status.connected);
-        setDropboxProfile(
-          status.account
-            ? {
-                name: status.account.display_name || "Compte Dropbox",
-                photoUrl: photoUrlOf(status.account),
-              }
-            : null
-        );
       })
       .catch((error: unknown) => {
         if (active) {
@@ -742,20 +679,6 @@ export default function Integrations() {
 
       setCanvaConnected(true);
       popup.close();
-
-      // Récupère la photo et le nom du compte qui vient d'être connecté.
-      getCanvaStatus()
-        .then((status) =>
-          setCanvaProfile(
-            status.account
-              ? {
-                  name: status.account.display_name || "Compte Canva",
-                  photoUrl: photoUrlOf(status.account),
-                }
-              : null
-          )
-        )
-        .catch(() => {});
     } catch (error) {
       popup.close();
       setCanvaError(
@@ -780,7 +703,6 @@ export default function Integrations() {
     try {
       await disconnectCanva();
       setCanvaConnected(false);
-      setCanvaProfile(null);
 
       const url = await getCanvaAuthUrl();
       redirecting = true;
@@ -805,7 +727,6 @@ export default function Integrations() {
     try {
       await disconnectCanva();
       setCanvaConnected(false);
-      setCanvaProfile(null);
     } catch (error) {
       setCanvaError(
         error instanceof Error
@@ -826,7 +747,6 @@ export default function Integrations() {
     try {
       await disconnectDropbox();
       setDropboxConnected(false);
-      setDropboxProfile(null);
     } catch (error) {
       setDropboxError(
         error instanceof Error
@@ -878,7 +798,6 @@ export default function Integrations() {
       connected: canvaConnected,
       busy: canvaBusy,
       error: canvaError,
-      profile: canvaProfile,
       onConnect: () => handleCanvaConnect(),
       onReconnect: handleCanvaReconnect,
       onDisconnect: handleCanvaDisconnect,
@@ -887,7 +806,6 @@ export default function Integrations() {
       connected: dropboxConnected,
       busy: dropboxBusy,
       error: dropboxError,
-      profile: dropboxProfile,
       onConnect: () => handleDropboxConnect(),
       onReconnect: () => handleDropboxConnect(true),
       onDisconnect: handleDropboxDisconnect,
@@ -964,8 +882,7 @@ export default function Integrations() {
                 </div>
               </div>
 
-              {/* Marque-page : ajoute / retire cette page des favoris de la sidebar.
-                  Sans contour : fond au survol uniquement. */}
+              {/* Marque-page : ajoute / retire cette page des favoris de la sidebar. */}
               <button
                 type="button"
                 aria-label={saved ? "Remove from favorites" : "Add to favorites"}
