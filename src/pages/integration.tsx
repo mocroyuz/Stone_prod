@@ -841,9 +841,11 @@ export default function Integrations() {
         throw new Error("Le backend a renvoyé une URL Dropbox invalide.");
       }
 
-      // Reconnect : on force Dropbox à réafficher son écran d'autorisation
-      // (sinon il peut valider silencieusement et te ramener directement).
+      // Reconnect : on force Dropbox à réafficher sa page de connexion et son
+      // écran d'autorisation (sinon il peut valider silencieusement et
+      // renvoyer directement vers le callback).
       if (reconnect) {
+        authUrl.searchParams.set("force_reauthentication", "true");
         authUrl.searchParams.set("force_reapprove", "true");
       }
 
