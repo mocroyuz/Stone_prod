@@ -31,6 +31,7 @@ import TikTokCallback from "./pages/TikTokCallback";
 import PinterestCallback from "./pages/PinterestCallback";
 import YouTubeCallback from "./pages/Youtubecallback";
 import DropboxCallback from "./pages/DropboxCallback";
+import GoogleDriveCallback from "./pages/GoogleDriveCallback";
 import CanvaCallback, {
   CanvaReturnConfirmation,
 } from "./pages/Canvacallback";
@@ -58,6 +59,7 @@ const TIKTOK_OAUTH_STORAGE_KEY = "tiktok_oauth_params";
 const PINTEREST_OAUTH_STORAGE_KEY = "pinterest_oauth_params";
 const YOUTUBE_OAUTH_STORAGE_KEY = "youtube_oauth_params";
 const DROPBOX_OAUTH_STORAGE_KEY = "dropbox_oauth_params";
+const GOOGLE_DRIVE_OAUTH_STORAGE_KEY = "google_drive_oauth_params";
 const CANVA_OAUTH_STORAGE_KEY = "canva_oauth_params";
 
 const POST_LOGIN_ROUTE_KEY = "post_login_route";
@@ -91,10 +93,11 @@ const OAUTH_CALLBACK_ROUTES = new Set([
   "youtube-callback",
   "canva-callback",
   "dropbox-callback",
+  "googledrive-callback",
 ]);
 
 function interceptOAuthCallback(
-  provider: "tiktok" | "pinterest" | "youtube" | "dropbox",
+  provider: "tiktok" | "pinterest" | "youtube" | "dropbox" | "googledrive",
   storageKey: string
 ) {
   if (typeof window === "undefined") return;
@@ -139,6 +142,7 @@ interceptOAuthCallback("tiktok", TIKTOK_OAUTH_STORAGE_KEY);
 interceptOAuthCallback("pinterest", PINTEREST_OAUTH_STORAGE_KEY);
 interceptOAuthCallback("youtube", YOUTUBE_OAUTH_STORAGE_KEY);
 interceptOAuthCallback("dropbox", DROPBOX_OAUTH_STORAGE_KEY);
+interceptOAuthCallback("googledrive", GOOGLE_DRIVE_OAUTH_STORAGE_KEY);
 
 function interceptCanvaOAuthCallback() {
   if (typeof window === "undefined") return;
@@ -460,6 +464,7 @@ const PROTECTED_ROUTES = new Set([
   "youtube-callback",
   "canva-callback",
   "dropbox-callback",
+  "googledrive-callback",
 ]);
 
 // "create" a sa propre page (pages/Create.tsx) : il n'est plus rendu par DashboardHome.
@@ -928,6 +933,18 @@ function AppContentInner({
     return (
       <div className="relative h-screen w-screen overflow-hidden font-sans">
         <DropboxCallback />
+      </div>
+    );
+  }
+
+  /* ─────────────────────────────────────────────
+     GOOGLE DRIVE CALLBACK
+     ───────────────────────────────────────────── */
+
+  if (route === "googledrive-callback") {
+    return (
+      <div className="relative h-screen w-screen overflow-hidden font-sans">
+        <GoogleDriveCallback />
       </div>
     );
   }

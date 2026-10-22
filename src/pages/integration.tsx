@@ -549,7 +549,9 @@ export default function Integrations() {
   // ← Google Drive (modif. 2 : états)
   const [gdriveConnected, setGdriveConnected] = useState(false);
   const [gdriveBusy, setGdriveBusy] = useState(false);
-  const [gdriveError, setGdriveError] = useState<string | null>(null);
+  const [gdriveError, setGdriveError] = useState<string | null>(
+    () => new URLSearchParams(window.location.search).get("gdrive_error")
+  );
 
   useEffect(() => {
     let active = true;
