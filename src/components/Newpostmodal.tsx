@@ -42,6 +42,13 @@ import {
   waitForCanvaConnection,
   type CanvaSize,
 } from "../services/canva";
+import {
+  downloadDropboxFile,
+  getDropboxAuthUrl,
+  getDropboxStatus,
+  listDropboxFiles,
+  type DropboxFileEntry,
+} from "../services/dropbox";
 
 export type SocialNetworkId =
   | "x" | "facebook" | "instagram" | "linkedin"
@@ -57,6 +64,19 @@ type MediaItem = {
   url: string;
   kind: MediaKind;
 };
+
+function isDropboxMedia(entry: DropboxFileEntry): boolean {
+  if (entry[".tag"] === "folder") return true;
+  if (entry.mime_type?.startsWith("image/") || entry.mime_type?.startsWith("video/")) {
+    return true;
+  }
+  return /\.(avif|gif|heic|heif|jpe?g|png|webp|m4v|mov|mp4|webm)$/i.test(entry.name);
+}
+
+function getDropboxParentPath(path: string): string {
+  const segments = path.split("/").filter(Boolean);
+  return segments.length > 1 ? `/${segments.slice(0, -1).join("/")}` : "";
+}
 
 /** Design Canva en cours d'édition, en attente d'être importé dans le post. */
 type CanvaPendingDesign = {
@@ -1468,6 +1488,18 @@ export default function NewPostModal({
   const [canvaBusy, setCanvaBusy] = useState<string | null>(null);
   const [canvaDesigns, setCanvaDesigns] = useState<CanvaPendingDesign[]>([]);
 
+  // ── Dropbox ──
+  const [dropboxPickerOpen, setDropboxPickerOpen] = useState(false);
+  const [dropboxNeedsConnection, setDropboxNeedsConnection] = useState(false);
+  const [dropboxFiles, setDropboxFiles] = useState<DropboxFileEntry[]>([]);
+  const [dropboxPath, setDropboxPath] = useState("");
+  const [dropboxCursor, setDropboxCursor] = useState<string | null>(null);
+  const [dropboxHasMore, setDropboxHasMore] = useState(false);
+  const [dropboxLoading, setDropboxLoading] = useState(false);
+  const [dropboxImporting, setDropboxImporting] = useState<string | null>(null);
+  const [dropboxError, setDropboxError] = useState<string | null>(null);
+  const [dropboxTarget, setDropboxTarget] = useState("master");
+
   // ── YouTube ──
   const [youtubeOptions, setYoutubeOptions] = useState<YouTubeOptions>(
     YOUTUBE_DEFAULT_OPTIONS
@@ -1771,6 +1803,16 @@ export default function NewPostModal({
     setShowSourceMenu(null);
     setCanvaBusy(null);
     setCanvaDesigns([]);
+    setDropboxPickerOpen(false);
+    setDropboxNeedsConnection(false);
+    setDropboxFiles([]);
+    setDropboxPath("");
+    setDropboxCursor(null);
+    setDropboxHasMore(false);
+    setDropboxLoading(false);
+    setDropboxImporting(null);
+    setDropboxError(null);
+    setDropboxTarget("master");
     setCollapsedCards({});
     setPreviewNetwork(null);
     setTiktokInfo(null);
@@ -2004,10 +2046,115 @@ export default function NewPostModal({
     }
   };
 
+  const loadDropboxFolder = async (
+    path: string,
+    cursor?: string,
+    append = false
+  ) => {
+    setDropboxLoading(true);
+    setDropboxError(null);
+    try {
+      const page = await listDropboxFiles(path, cursor);
+      setDropboxFiles((current) =>
+        append ? [...current, ...page.entries] : page.entries
+      );
+      setDropboxPath(path);
+      setDropboxCursor(page.cursor || null);
+      setDropboxHasMore(page.has_more);
+    } catch (error) {
+      setDropboxError(
+        error instanceof Error ? error.message : "Unable to load Dropbox files."
+      );
+    } finally {
+      setDropboxLoading(false);
+    }
+  };
+
+  const openDropboxPicker = async (target: string) => {
+    setDropboxTarget(target);
+    setDropboxPickerOpen(true);
+    setDropboxNeedsConnection(false);
+    setDropboxFiles([]);
+    setDropboxPath("");
+    setDropboxError(null);
+    setDropboxLoading(true);
+
+    try {
+      const status = await getDropboxStatus();
+      if (!status.connected) {
+        setDropboxNeedsConnection(true);
+        return;
+      }
+      await loadDropboxFolder("");
+    } catch (error) {
+      setDropboxError(
+        error instanceof Error ? error.message : "Unable to connect to Dropbox."
+      );
+    } finally {
+      setDropboxLoading(false);
+    }
+  };
+
+  const handleDropboxConnect = async () => {
+    setDropboxError(null);
+    setDropboxLoading(true);
+    try {
+      const { url } = await getDropboxAuthUrl();
+      const authUrl = new URL(url);
+      const hostname = authUrl.hostname.toLowerCase();
+      if (
+        authUrl.protocol !== "https:" ||
+        (hostname !== "dropbox.com" && !hostname.endsWith(".dropbox.com"))
+      ) {
+        throw new Error("The Dropbox authorization link is invalid.");
+      }
+      window.location.assign(authUrl.toString());
+    } catch (error) {
+      setDropboxError(
+        error instanceof Error ? error.message : "Unable to start Dropbox connection."
+      );
+      setDropboxLoading(false);
+    }
+  };
+
+  const handleDropboxImport = async (entry: DropboxFileEntry) => {
+    const current =
+      dropboxTarget === "master"
+        ? mediaRef.current
+        : channelMediaRef.current[dropboxTarget] ?? [];
+    if (current.length >= MAX_MEDIA) {
+      setMediaError({
+        target: dropboxTarget,
+        message: `You can add up to ${MAX_MEDIA} files per post.`,
+      });
+      return;
+    }
+
+    setDropboxImporting(entry.path_lower);
+    setDropboxError(null);
+    try {
+      const file = await downloadDropboxFile(entry);
+      if (!file.type.startsWith("image/") && !file.type.startsWith("video/")) {
+        throw new Error("Only image and video files can be added to a post.");
+      }
+      addFiles([file], dropboxTarget);
+    } catch (error) {
+      setDropboxError(
+        error instanceof Error ? error.message : "Unable to import this Dropbox file."
+      );
+    } finally {
+      setDropboxImporting(null);
+    }
+  };
+
   const handleSourcePick = (id: MediaSourceId) => {
     const source = MEDIA_SOURCES.find((m) => m.id === id);
     const target = showSourceMenu ?? "master";
     setShowSourceMenu(null);
+    if (id === "dropbox") {
+      void openDropboxPicker(target);
+      return;
+    }
     // TODO: brancher l'import réel (OAuth + sélecteur) pour chaque source.
     setMediaError({
       target,
@@ -3597,6 +3744,173 @@ export default function NewPostModal({
                 <button type="button" autoFocus onClick={resumeDraft} className={["flex-1 rounded-xl px-4 py-2.5 text-[13.5px] font-semibold transition", isDark ? "bg-white text-[#141416] hover:bg-neutral-200" : "bg-neutral-900 text-white hover:bg-neutral-800"].join(" ")}>Resume</button>
               </div>
             </div>
+          </div>
+        )}
+
+        {dropboxPickerOpen && (
+          <div
+            className="absolute inset-0 z-[70] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+            onClick={(event) => {
+              if (event.target === event.currentTarget) setDropboxPickerOpen(false);
+            }}
+          >
+            <section
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="dropbox-picker-title"
+              className={[
+                "flex max-h-[82vh] w-full max-w-[560px] flex-col overflow-hidden rounded-2xl border shadow-2xl",
+                bgModal,
+                border,
+              ].join(" ")}
+            >
+              <header className={["flex items-center gap-3 border-b px-5 py-4", border].join(" ")}>
+                <DropboxIcon className="h-6 w-6 shrink-0 text-[#0061ff]" />
+                <div className="min-w-0 flex-1">
+                  <h2 id="dropbox-picker-title" className={["text-[15px] font-semibold", textPrimary].join(" ")}>
+                    Add from Dropbox
+                  </h2>
+                  <p className={["text-[12px]", textSecondary].join(" ")}>
+                    Choose an image or video for this post.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  aria-label="Close Dropbox picker"
+                  onClick={() => setDropboxPickerOpen(false)}
+                  className={["flex h-8 w-8 items-center justify-center rounded-lg transition", textSecondary, hoverSoft].join(" ")}
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </header>
+
+              {dropboxNeedsConnection ? (
+                <div className="flex flex-col items-center px-6 py-12 text-center">
+                  <DropboxIcon className="h-10 w-10 text-[#0061ff]" />
+                  <p className={["mt-4 text-[14px] font-semibold", textPrimary].join(" ")}>
+                    Connect your Dropbox account
+                  </p>
+                  <p className={["mt-1 max-w-[340px] text-[12.5px]", textSecondary].join(" ")}>
+                    Authorize Dropbox to browse and import your media files.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => void handleDropboxConnect()}
+                    disabled={dropboxLoading}
+                    className="mt-5 flex items-center gap-2 rounded-lg bg-[#0061ff] px-4 py-2.5 text-[13px] font-semibold text-white transition hover:bg-[#0754d3] disabled:opacity-60"
+                  >
+                    {dropboxLoading && <Loader2 className="h-4 w-4 animate-spin" />}
+                    Connect Dropbox
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <div className={["flex items-center gap-2 border-b px-5 py-3", border].join(" ")}>
+                    {dropboxPath && (
+                      <button
+                        type="button"
+                        onClick={() => void loadDropboxFolder(getDropboxParentPath(dropboxPath))}
+                        className={["flex items-center gap-1 rounded-md px-2 py-1 text-[12px] font-semibold transition", textSecondary, hoverSoft].join(" ")}
+                      >
+                        <ArrowLeft className="h-3.5 w-3.5" />
+                        Back
+                      </button>
+                    )}
+                    <p className={["min-w-0 flex-1 truncate text-[12px]", textSecondary].join(" ")}>
+                      {dropboxPath || "All files"}
+                    </p>
+                    <span className={["text-[11px]", textSecondary].join(" ")}>
+                      {dropboxTarget === "master" ? "Shared media" : "Channel media"}
+                    </span>
+                  </div>
+
+                  {dropboxError && (
+                    <div className="mx-5 mt-4 flex items-center gap-3 rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-2.5">
+                      <p role="alert" className="min-w-0 flex-1 text-[12px] text-red-500">
+                        {dropboxError}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => void loadDropboxFolder(dropboxPath)}
+                        className="shrink-0 text-[12px] font-semibold text-red-500 underline underline-offset-2"
+                      >
+                        Retry
+                      </button>
+                    </div>
+                  )}
+
+                  <div className="min-h-[180px] overflow-y-auto px-3 py-2">
+                    {dropboxFiles.filter(isDropboxMedia).map((entry) => {
+                      const isFolder = entry[".tag"] === "folder";
+                      const importing = dropboxImporting === entry.path_lower;
+                      return (
+                        <div
+                          key={entry.id ?? entry.path_lower}
+                          className={["flex items-center gap-3 rounded-lg px-3 py-2.5", hoverSoft].join(" ")}
+                        >
+                          <span className={["flex h-8 w-8 shrink-0 items-center justify-center rounded-lg", accentSolid, textSecondary].join(" ")}>
+                            {isFolder ? <ChevronRight className="h-4 w-4" /> : <ImageIcon className="h-4 w-4" />}
+                          </span>
+                          {isFolder ? (
+                            <button
+                              type="button"
+                              onClick={() => void loadDropboxFolder(entry.path_lower)}
+                              className={["min-w-0 flex-1 truncate text-left text-[13px] font-medium", textPrimary].join(" ")}
+                            >
+                              {entry.name}
+                            </button>
+                          ) : (
+                            <span className={["min-w-0 flex-1 truncate text-[13px] font-medium", textPrimary].join(" ")}>
+                              {entry.name}
+                            </span>
+                          )}
+                          {!isFolder && (
+                            <button
+                              type="button"
+                              onClick={() => void handleDropboxImport(entry)}
+                              disabled={dropboxImporting !== null}
+                              className={[
+                                "flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[11.5px] font-semibold transition disabled:opacity-50",
+                                isDark ? "bg-white/10 text-white hover:bg-white/15" : "bg-black/[0.06] text-neutral-900 hover:bg-black/10",
+                              ].join(" ")}
+                            >
+                              {importing && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                              {importing ? "Importing" : "Add"}
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+
+                    {dropboxLoading && !dropboxNeedsConnection && (
+                      <div className={["flex items-center justify-center gap-2 py-10 text-[12.5px]", textSecondary].join(" ")}>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Loading Dropbox files…
+                      </div>
+                    )}
+
+                    {!dropboxLoading && !dropboxError && dropboxFiles.filter(isDropboxMedia).length === 0 && (
+                      <p className={["py-10 text-center text-[12.5px]", textSecondary].join(" ")}>
+                        This folder has no supported image or video files.
+                      </p>
+                    )}
+                  </div>
+
+                  {dropboxHasMore && dropboxCursor && (
+                    <footer className={["border-t px-5 py-3", border].join(" ")}>
+                      <button
+                        type="button"
+                        onClick={() => void loadDropboxFolder(dropboxPath, dropboxCursor, true)}
+                        disabled={dropboxLoading}
+                        className={["w-full rounded-lg px-3 py-2 text-[12px] font-semibold transition disabled:opacity-50", hoverSoft, textPrimary].join(" ")}
+                      >
+                        Load more files
+                      </button>
+                    </footer>
+                  )}
+                </>
+              )}
+            </section>
           </div>
         )}
       </div>

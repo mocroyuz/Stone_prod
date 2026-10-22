@@ -5,7 +5,7 @@
 //     ↓ App.tsx intercepte (avant React), range les params dans sessionStorage
 //   /dropbox-callback
 //     ↓ useHashRoute()
-//   DropboxCallback.tsx → backend → /channels
+//   DropboxCallback.tsx → backend → /integrations
 
 import { useEffect } from "react";
 
@@ -43,10 +43,10 @@ function clearStoredParams() {
   }
 }
 
-function goToChannels(query = "") {
+function goToIntegrations(query = "") {
   clearStoredParams();
   // replace : le callback ne reste pas dans l'historique.
-  window.location.replace(`/channels${query}`);
+  window.location.replace(`/integrations${query}`);
 }
 
 export default function DropboxCallback() {
@@ -57,7 +57,7 @@ export default function DropboxCallback() {
     const params = readStoredParams();
 
     if (!params) {
-      goToChannels(
+      goToIntegrations(
         `?dropbox_error=${encodeURIComponent(
           "Dropbox authorization data not found. Please try again."
         )}`
@@ -69,14 +69,14 @@ export default function DropboxCallback() {
 
     // L'utilisateur a refusé (access_denied), ou Dropbox a renvoyé une erreur.
     if (error) {
-      goToChannels(
+      goToIntegrations(
         `?dropbox_error=${encodeURIComponent(errorDescription || error)}`
       );
       return;
     }
 
     if (!code || !state) {
-      goToChannels(
+      goToIntegrations(
         `?dropbox_error=${encodeURIComponent(
           "Missing authorization code from Dropbox."
         )}`
@@ -91,10 +91,10 @@ export default function DropboxCallback() {
     }
 
     request
-      .then(() => goToChannels("?dropbox=connected"))
+      .then(() => goToIntegrations("?dropbox=connected"))
       .catch((err: unknown) => {
         console.error("[Stone] Dropbox callback error:", err);
-        goToChannels(
+        goToIntegrations(
           `?dropbox_error=${encodeURIComponent(
             err instanceof Error ? err.message : "Something went wrong."
           )}`
