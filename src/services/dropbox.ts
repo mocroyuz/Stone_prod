@@ -5,6 +5,7 @@ export type DropboxStatus = {
   account?: {
     display_name?: string | null;
     email?: string | null;
+    profile_photo_url?: string | null;
   } | null;
 };
 

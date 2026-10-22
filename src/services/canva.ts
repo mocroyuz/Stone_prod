@@ -65,7 +65,7 @@ const rawBase = (
   (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? ""
 ).trim();
 
-const API_ROOT = rawBase.replace(/\/+$/, "").replace(/\/api$/i, "");
+export const API_ROOT = rawBase.replace(/\/+$/, "").replace(/\/api$/i, "");
 
 // ── Erreurs Canva ────────────────────────────────────────────
 
@@ -104,38 +104,27 @@ async function request<T>(
   path: string,
   body?: unknown
 ): Promise<T> {
-  try {
-    const data = await apiRequest<T>(path, {
-      method,
-      ...(body !== undefined
-        ? { body: JSON.stringify(body) }
-        : {}),
-    });
+  const data = await apiRequest<T>(path, {
+    method,
+    ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+  });
 
-    // Certaines API renvoient success: false sans lever d'erreur HTTP.
-    const result = data as {
-      success?: boolean;
-      error?: string;
-      code?: string;
-    };
+  // Certaines API renvoient success: false sans lever d'erreur HTTP.
+  const result = data as {
+    success?: boolean;
+    error?: string;
+    code?: string;
+  };
 
-    if (result?.success === false) {
-      throw new CanvaError(
-        result.error || "Canva request failed",
-        400,
-        result.code
-      );
-    }
-
-    return data;
-  } catch (error) {
-    if (error instanceof CanvaError) {
-      throw error;
-    }
-
-    // Préserve les erreurs HTTP et réseau du client partagé.
-    throw error;
+  if (result?.success === false) {
+    throw new CanvaError(
+      result.error || "Canva request failed",
+      400,
+      result.code
+    );
   }
+
+  return data;
 }
 
 // ── Compte Canva ─────────────────────────────────────────────
@@ -144,6 +133,7 @@ export type CanvaStatus = {
   connected: boolean;
   account: {
     display_name: string | null;
+    profile_photo_url?: string | null;
   } | null;
 };
 
@@ -171,10 +161,7 @@ export function openCanvaPopup(): Window | null {
  * Récupère l'URL d'autorisation Canva.
  */
 export async function getCanvaAuthUrl(): Promise<string> {
-  const data = await request<{ url: string }>(
-    "POST",
-    "/api/canva/auth/url"
-  );
+  const data = await request<{ url: string }>("POST", "/api/canva/auth/url");
 
   if (!data?.url) {
     throw new CanvaError(
@@ -210,24 +197,17 @@ export function completeCanvaAuth(
   code: string,
   state: string
 ): Promise<{ connected: boolean }> {
-  return request<{ connected: boolean }>(
-    "POST",
-    "/api/canva/auth/callback",
-    {
-      code,
-      state,
-    }
-  );
+  return request<{ connected: boolean }>("POST", "/api/canva/auth/callback", {
+    code,
+    state,
+  });
 }
 
 /**
  * Déconnecte le compte Canva.
  */
 export function disconnectCanva(): Promise<{ success: true }> {
-  return request<{ success: true }>(
-    "DELETE",
-    "/api/canva/disconnect"
-  );
+  return request<{ success: true }>("DELETE", "/api/canva/disconnect");
 }
 
 /**
@@ -302,11 +282,7 @@ export async function createCanvaDesign(
 
 // ── Conversion Base64 → File ─────────────────────────────────
 
-function base64ToFile(
-  base64: string,
-  mime: string,
-  name: string
-): File {
+function base64ToFile(base64: string, mime: string, name: string): File {
   const binary = atob(base64);
   const bytes = new Uint8Array(binary.length);
 
@@ -360,8 +336,7 @@ export async function importCanvaDesign(
           ? "png"
           : "bin";
 
-    const suffix =
-      data.pages.length > 1 ? `-${index + 1}` : "";
+    const suffix = data.pages.length > 1 ? `-${index + 1}` : "";
 
     return base64ToFile(
       page.data,
