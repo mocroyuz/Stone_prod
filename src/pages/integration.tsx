@@ -31,8 +31,13 @@ import {
   getCanvaStatus,
   openCanvaPopup,
   waitForCanvaConnection,
+  disconnectCanva,
 } from "../services/canva";
-import { getDropboxAuthUrl, getDropboxStatus } from "../services/dropbox";
+import {
+  getDropboxAuthUrl,
+  getDropboxStatus,
+  disconnectDropbox,
+} from "../services/dropbox";
 
 /** Route de cette page dans la sidebar (section Favorite). */
 const PAGE_ROUTE = "integrations";
@@ -186,6 +191,64 @@ function BookmarkIcon({
   );
 }
 
+/** Trois points (menu d'options d'un compte connecté). */
+function MoreIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-4 w-4"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <circle cx="5" cy="12" r="1.2" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none" />
+      <circle cx="19" cy="12" r="1.2" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+function RefreshIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-4 w-4"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+      <path d="M3 3v5h5" />
+      <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
+      <path d="M16 21v-5h5" />
+    </svg>
+  );
+}
+
+function DisconnectIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-4 w-4"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="12" r="10" />
+      <path d="M8 12h8" />
+    </svg>
+  );
+}
+
 /* ============================================================
    DATA
 ============================================================ */
@@ -244,6 +307,8 @@ type ServiceConnection = {
   /** Profil du compte sur le réseau (photo + nom), quand il est connecté. */
   profile: { name: string; photoUrl?: string | null } | null;
   onConnect: () => void;
+  onReconnect: () => void;
+  onDisconnect: () => void;
 };
 
 function IntegrationCard({
@@ -256,6 +321,28 @@ function IntegrationCard({
   service?: ServiceConnection;
 }) {
   const Icon = ICONS[data.title];
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+
+    const onPointerDown = (event: MouseEvent) => {
+      if (!menuRef.current?.contains(event.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMenuOpen(false);
+    };
+
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [menuOpen]);
 
   return (
     <div
@@ -316,7 +403,85 @@ function IntegrationCard({
           </h3>
         </div>
 
-        {service?.connected ? null : (
+        {service?.connected ? (
+          // Connecté : trois points → menu Reconnect / Disconnect.
+          <div ref={menuRef} className="relative shrink-0">
+            <button
+              type="button"
+              aria-label={`Options pour ${data.title}`}
+              aria-haspopup="menu"
+              aria-expanded={menuOpen}
+              onClick={() => setMenuOpen((value) => !value)}
+              className={[
+                "flex h-8 w-8 items-center justify-center rounded-lg transition-colors",
+                focusRingClass(isDark),
+                mutedClass(isDark),
+                isDark
+                  ? "hover:bg-white/[0.06] hover:text-white"
+                  : "hover:bg-black/[0.05] hover:text-neutral-900",
+              ].join(" ")}
+            >
+              <MoreIcon />
+            </button>
+
+            {menuOpen && (
+              <div
+                role="menu"
+                className={[
+                  "absolute right-0 top-10 z-50 w-44 rounded-xl border p-1 shadow-xl",
+                  isDark
+                    ? "border-white/[0.08] bg-[#16161a]"
+                    : "border-black/[0.06] bg-white",
+                ].join(" ")}
+              >
+                <button
+                  type="button"
+                  role="menuitem"
+                  disabled={service.busy}
+                  onClick={() => {
+                    setMenuOpen(false);
+                    service.onReconnect();
+                  }}
+                  className={[
+                    "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-[11px] font-medium disabled:opacity-40",
+                    isDark
+                      ? "text-neutral-200 hover:bg-white/[0.06] hover:text-white"
+                      : "text-neutral-700 hover:bg-black/[0.04] hover:text-neutral-900",
+                  ].join(" ")}
+                >
+                  <RefreshIcon />
+                  Reconnect
+                </button>
+
+                <div
+                  className={[
+                    "my-1 h-px",
+                    isDark ? "bg-white/[0.06]" : "bg-black/[0.06]",
+                  ].join(" ")}
+                />
+
+                <button
+                  type="button"
+                  role="menuitem"
+                  disabled={service.busy}
+                  onClick={() => {
+                    setMenuOpen(false);
+                    service.onDisconnect();
+                  }}
+                  className={[
+                    "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-[11px] font-medium disabled:opacity-40",
+                    isDark
+                      ? "text-rose-400 hover:bg-rose-500/[0.07]"
+                      : "text-rose-600 hover:bg-rose-500/[0.07]",
+                  ].join(" ")}
+                >
+                  <DisconnectIcon />
+                  Disconnect
+                </button>
+              </div>
+            )}
+          </div>
+        ) : (
           // Non connecté : la flèche lance la connexion du compte
           // (pour les autres intégrations, elle ouvre la configuration).
           <button
@@ -532,8 +697,8 @@ export default function Integrations() {
     throw new Error(unavailablePostActionMessage(payload));
   };
 
-  const handleCanvaConnect = async () => {
-    if (canvaBusy || canvaConnected) return;
+  const handleCanvaConnect = async (reconnect = false) => {
+    if (canvaBusy || (canvaConnected && !reconnect)) return;
 
     const popup = openCanvaPopup();
     if (!popup) {
@@ -547,6 +712,12 @@ export default function Integrations() {
     setCanvaBusy(true);
 
     try {
+      if (reconnect) {
+        await disconnectCanva();
+        setCanvaConnected(false);
+        setCanvaProfile(null);
+      }
+
       popup.document.body.innerText = "Opening Canva…";
       popup.location.href = await getCanvaAuthUrl();
 
@@ -583,13 +754,61 @@ export default function Integrations() {
     }
   };
 
-  const handleDropboxConnect = async () => {
-    if (dropboxBusy || dropboxConnected) return;
+  const handleCanvaDisconnect = async () => {
+    if (canvaBusy) return;
+
+    setCanvaError(null);
+    setCanvaBusy(true);
+
+    try {
+      await disconnectCanva();
+      setCanvaConnected(false);
+      setCanvaProfile(null);
+    } catch (error) {
+      setCanvaError(
+        error instanceof Error
+          ? error.message
+          : "Impossible de déconnecter Canva. Réessayez."
+      );
+    } finally {
+      setCanvaBusy(false);
+    }
+  };
+
+  const handleDropboxDisconnect = async () => {
+    if (dropboxBusy) return;
 
     setDropboxError(null);
     setDropboxBusy(true);
 
     try {
+      await disconnectDropbox();
+      setDropboxConnected(false);
+      setDropboxProfile(null);
+    } catch (error) {
+      setDropboxError(
+        error instanceof Error
+          ? error.message
+          : "Impossible de déconnecter Dropbox. Réessayez."
+      );
+    } finally {
+      setDropboxBusy(false);
+    }
+  };
+
+  const handleDropboxConnect = async (reconnect = false) => {
+    if (dropboxBusy || (dropboxConnected && !reconnect)) return;
+
+    setDropboxError(null);
+    setDropboxBusy(true);
+
+    try {
+      if (reconnect) {
+        await disconnectDropbox();
+        setDropboxConnected(false);
+        setDropboxProfile(null);
+      }
+
       const { url } = await getDropboxAuthUrl();
       const authUrl = new URL(url);
       const hostname = authUrl.hostname.toLowerCase();
@@ -617,14 +836,18 @@ export default function Integrations() {
       busy: canvaBusy,
       error: canvaError,
       profile: canvaProfile,
-      onConnect: handleCanvaConnect,
+      onConnect: () => handleCanvaConnect(),
+      onReconnect: () => handleCanvaConnect(true),
+      onDisconnect: handleCanvaDisconnect,
     },
     Dropbox: {
       connected: dropboxConnected,
       busy: dropboxBusy,
       error: dropboxError,
       profile: dropboxProfile,
-      onConnect: handleDropboxConnect,
+      onConnect: () => handleDropboxConnect(),
+      onReconnect: () => handleDropboxConnect(true),
+      onDisconnect: handleDropboxDisconnect,
     },
   };
 
