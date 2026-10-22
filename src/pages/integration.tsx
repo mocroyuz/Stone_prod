@@ -37,6 +37,12 @@ import {
   getDropboxStatus,
   disconnectDropbox,
 } from "../services/dropbox";
+// ← Google Drive (modif. 1 : import)
+import {
+  getGoogleDriveAuthUrl,
+  getGoogleDriveStatus,
+  disconnectGoogleDrive,
+} from "../services/googledrive";
 
 /** Route de cette page dans la sidebar (section Favorite). */
 const PAGE_ROUTE = "integrations";
@@ -298,7 +304,7 @@ const CONNECTED_THRESHOLD = 60;
    CARD
 ============================================================ */
 
-/** Connexion réelle à un service (Canva, Dropbox). */
+/** Connexion réelle à un service (Canva, Dropbox, Google Drive). */
 type ServiceConnection = {
   connected: boolean;
   busy: boolean;
@@ -540,6 +546,11 @@ export default function Integrations() {
   const [dropboxBusy, setDropboxBusy] = useState(false);
   const [dropboxError, setDropboxError] = useState<string | null>(null);
 
+  // ← Google Drive (modif. 2 : états)
+  const [gdriveConnected, setGdriveConnected] = useState(false);
+  const [gdriveBusy, setGdriveBusy] = useState(false);
+  const [gdriveError, setGdriveError] = useState<string | null>(null);
+
   useEffect(() => {
     let active = true;
 
@@ -586,6 +597,29 @@ export default function Integrations() {
     };
   }, []);
 
+  // ← Google Drive (modif. 3 : vérification du statut au chargement)
+  useEffect(() => {
+    let active = true;
+
+    getGoogleDriveStatus()
+      .then((status) => {
+        if (active) setGdriveConnected(status.connected);
+      })
+      .catch((error: unknown) => {
+        if (active) {
+          setGdriveError(
+            error instanceof Error
+              ? error.message
+              : "Impossible de vérifier la connexion Google Drive."
+          );
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
   useEffect(() => {
     if (!filterOpen) return;
 
@@ -616,6 +650,8 @@ export default function Integrations() {
         let isConnected: boolean;
         if (item.title === "Canva") isConnected = canvaConnected;
         else if (item.title === "Dropbox") isConnected = dropboxConnected;
+        // ← Google Drive (modif. 4 : branche + dépendance dans useMemo)
+        else if (item.title === "Google Drive") isConnected = gdriveConnected;
         else isConnected = item.progress >= CONNECTED_THRESHOLD;
 
         const matchesFilter =
@@ -624,7 +660,7 @@ export default function Integrations() {
 
         return matchesQuery && matchesFilter;
       }),
-    [needle, filter, canvaConnected, dropboxConnected]
+    [needle, filter, canvaConnected, dropboxConnected, gdriveConnected]
   );
 
   const hasActiveFilters = needle.length > 0 || filter !== "Toutes";
@@ -789,6 +825,55 @@ export default function Integrations() {
     }
   };
 
+  // ← Google Drive (modif. 5 : handlers)
+  const handleGDriveDisconnect = async () => {
+    if (gdriveBusy) return;
+
+    setGdriveError(null);
+    setGdriveBusy(true);
+
+    try {
+      await disconnectGoogleDrive();
+      setGdriveConnected(false);
+    } catch (error) {
+      setGdriveError(
+        error instanceof Error
+          ? error.message
+          : "Impossible de déconnecter Google Drive. Réessayez."
+      );
+    } finally {
+      setGdriveBusy(false);
+    }
+  };
+
+  const handleGDriveConnect = async () => {
+    if (gdriveBusy) return;
+
+    setGdriveError(null);
+    setGdriveBusy(true);
+
+    try {
+      const { url } = await getGoogleDriveAuthUrl();
+      const authUrl = new URL(url);
+
+      if (
+        authUrl.protocol !== "https:" ||
+        authUrl.hostname.toLowerCase() !== "accounts.google.com"
+      ) {
+        throw new Error("Le backend a renvoyé une URL Google invalide.");
+      }
+
+      window.location.assign(authUrl.toString());
+    } catch (error) {
+      setGdriveError(
+        error instanceof Error
+          ? error.message
+          : "Impossible de démarrer la connexion Google Drive. Réessayez."
+      );
+      setGdriveBusy(false);
+    }
+  };
+
   const services: Record<string, ServiceConnection> = {
     Canva: {
       connected: canvaConnected,
@@ -805,6 +890,17 @@ export default function Integrations() {
       onConnect: () => handleDropboxConnect(),
       onReconnect: () => handleDropboxConnect(true),
       onDisconnect: handleDropboxDisconnect,
+    },
+    // ← Google Drive (modif. 6 : entrée dans services)
+    // Le backend force déjà prompt=consent, donc « Reconnect » repasse
+    // simplement par l'écran d'autorisation Google.
+    "Google Drive": {
+      connected: gdriveConnected,
+      busy: gdriveBusy,
+      error: gdriveError,
+      onConnect: handleGDriveConnect,
+      onReconnect: handleGDriveConnect,
+      onDisconnect: handleGDriveDisconnect,
     },
   };
 
