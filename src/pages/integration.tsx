@@ -25,18 +25,14 @@ import {
   GoogleCalendarIcon,
   CanvaIcon,
 } from "../components/IntegrationIcons";
+import Avatar from "../components/Avatar";
 import {
   getCanvaAuthUrl,
   getCanvaStatus,
   openCanvaPopup,
   waitForCanvaConnection,
-  type CanvaStatus,
 } from "../services/canva";
-import {
-  getDropboxAuthUrl,
-  getDropboxStatus,
-  type DropboxStatus,
-} from "../services/dropbox";
+import { getDropboxAuthUrl, getDropboxStatus } from "../services/dropbox";
 
 /** Route de cette page dans la sidebar (section Favorite). */
 const PAGE_ROUTE = "integrations";
@@ -245,62 +241,10 @@ type ServiceConnection = {
   connected: boolean;
   busy: boolean;
   error: string | null;
-  profile: {
-    name: string;
-    photoUrl?: string | null;
-    subtitle?: string | null;
-  } | null;
+  /** Profil du compte sur le réseau (photo + nom), quand il est connecté. */
+  profile: { name: string; photoUrl?: string | null } | null;
   onConnect: () => void;
 };
-
-function Avatar({
-  name,
-  photoUrl,
-  isDark,
-}: {
-  name: string;
-  photoUrl?: string | null;
-  isDark: boolean;
-}) {
-  const [failed, setFailed] = useState(false);
-
-  // Si l'URL change, on retente le chargement.
-  useEffect(() => {
-    setFailed(false);
-  }, [photoUrl]);
-
-  const initials =
-    name
-      .split(/\s+/)
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((part) => part[0]?.toUpperCase())
-      .join("") || "?";
-
-  if (photoUrl && !failed) {
-    return (
-      <img
-        src={photoUrl}
-        alt=""
-        referrerPolicy="no-referrer"
-        onError={() => setFailed(true)}
-        className="h-10 w-10 shrink-0 rounded-full object-cover"
-      />
-    );
-  }
-
-  return (
-    <span
-      aria-hidden="true"
-      className={[
-        "flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[13px] font-semibold",
-        isDark ? "bg-white/10 text-white" : "bg-black/[0.06] text-neutral-700",
-      ].join(" ")}
-    >
-      {initials}
-    </span>
-  );
-}
 
 function IntegrationCard({
   data,
@@ -312,14 +256,6 @@ function IntegrationCard({
   service?: ServiceConnection;
 }) {
   const Icon = ICONS[data.title];
-  const [open, setOpen] = useState(false);
-
-  // Si le compte se déconnecte, on referme le panneau.
-  useEffect(() => {
-    if (!service?.connected) setOpen(false);
-  }, [service?.connected]);
-
-  const showProfile = open && !!service?.connected && !!service.profile;
 
   return (
     <div
@@ -352,48 +288,46 @@ function IntegrationCard({
           </h3>
         </div>
 
-        {service && !service.connected ? (
-          // Non connecté : bouton Connect, pas de profil.
-          <button
-            type="button"
-            onClick={service.onConnect}
-            disabled={service.busy}
-            aria-label={`Connect ${data.title}`}
-            className={[
-              "shrink-0 rounded-full px-3 py-1.5 text-[11px] font-semibold transition disabled:cursor-default",
-              focusRingClass(isDark),
-              isDark
-                ? "bg-white text-neutral-900 hover:bg-neutral-200 disabled:opacity-60"
-                : "bg-neutral-900 text-white hover:bg-neutral-700 disabled:opacity-60",
-            ].join(" ")}
-          >
-            {service.busy ? "Connecting…" : "Connect"}
-          </button>
-        ) : (
-          // Connecté (ou intégration sans connexion réelle) : flèche.
-          <button
-            type="button"
-            aria-label={
-              service ? `Profil ${data.title}` : `Configurer ${data.title}`
+        {service?.connected ? (
+          // Connecté : photo de profil du compte + logo de l'app incrusté.
+          <Avatar
+            name={service.profile?.name ?? data.title}
+            photoUrl={service.profile?.photoUrl}
+            isDark={isDark}
+            sizeClass="h-9 w-9"
+            title={
+              service.profile?.name
+                ? `${service.profile.name} — ${data.title}`
+                : `${data.title} connecté`
             }
-            aria-expanded={service ? open : undefined}
-            onClick={service ? () => setOpen((value) => !value) : undefined}
+            badgeClass={
+              isDark
+                ? "bg-[#141416] ring-[#141416] text-white"
+                : "bg-white ring-white text-neutral-900"
+            }
+            badge={Icon ? <Icon className="h-3 w-3" /> : undefined}
+          />
+        ) : (
+          // Non connecté : la flèche lance la connexion du compte
+          // (pour les autres intégrations, elle ouvre la configuration).
+          <button
+            type="button"
+            onClick={service?.onConnect}
+            disabled={service?.busy}
+            aria-busy={service?.busy}
+            aria-label={
+              service ? `Connecter ${data.title}` : `Configurer ${data.title}`
+            }
             className={[
-              "flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition",
+              "flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition disabled:cursor-default",
+              service?.busy ? "animate-pulse opacity-60" : "",
               focusRingClass(isDark),
               isDark
                 ? "text-neutral-400 hover:bg-white/10 hover:text-white"
                 : "text-neutral-400 hover:bg-black/5 hover:text-neutral-900",
             ].join(" ")}
           >
-            <span
-              className={[
-                "flex transition-transform duration-200",
-                open ? "rotate-90" : "",
-              ].join(" ")}
-            >
-              <ArrowRightIcon />
-            </span>
+            <ArrowRightIcon />
           </button>
         )}
       </div>
@@ -418,41 +352,6 @@ function IntegrationCard({
           {data.body}
         </p>
       </div>
-
-      {showProfile && service?.profile && (
-        <div
-          className={[
-            "mt-3 flex items-center gap-3 rounded-xl border p-3",
-            panelSurfaceClass(isDark),
-          ].join(" ")}
-        >
-          <Avatar
-            name={service.profile.name}
-            photoUrl={service.profile.photoUrl}
-            isDark={isDark}
-          />
-          <div className="min-w-0">
-            <p
-              className={[
-                "truncate text-[13px] font-semibold",
-                strongClass(isDark),
-              ].join(" ")}
-            >
-              {service.profile.name}
-            </p>
-            {service.profile.subtitle && (
-              <p
-                className={[
-                  "truncate text-[11px]",
-                  mutedClass(isDark),
-                ].join(" ")}
-              >
-                {service.profile.subtitle}
-              </p>
-            )}
-          </div>
-        </div>
-      )}
 
       {service?.error && (
         <p role="alert" className="mt-3 text-[11px] leading-relaxed text-red-400">
@@ -487,14 +386,14 @@ export default function Integrations() {
   const [isNewPostOpen, setIsNewPostOpen] = useState(false);
 
   const [canvaConnected, setCanvaConnected] = useState(false);
-  const [canvaAccount, setCanvaAccount] =
-    useState<CanvaStatus["account"]>(null);
+  const [canvaProfile, setCanvaProfile] =
+    useState<ServiceConnection["profile"]>(null);
   const [canvaBusy, setCanvaBusy] = useState(false);
   const [canvaError, setCanvaError] = useState<string | null>(null);
 
   const [dropboxConnected, setDropboxConnected] = useState(false);
-  const [dropboxAccount, setDropboxAccount] =
-    useState<DropboxStatus["account"]>(null);
+  const [dropboxProfile, setDropboxProfile] =
+    useState<ServiceConnection["profile"]>(null);
   const [dropboxBusy, setDropboxBusy] = useState(false);
   const [dropboxError, setDropboxError] = useState<string | null>(null);
 
@@ -505,7 +404,14 @@ export default function Integrations() {
       .then((status) => {
         if (!active) return;
         setCanvaConnected(status.connected);
-        setCanvaAccount(status.account ?? null);
+        setCanvaProfile(
+          status.account
+            ? {
+                name: status.account.display_name || "Compte Canva",
+                photoUrl: status.account.profile_photo_url,
+              }
+            : null
+        );
       })
       .catch((error: unknown) => {
         if (active) {
@@ -529,7 +435,14 @@ export default function Integrations() {
       .then((status) => {
         if (!active) return;
         setDropboxConnected(status.connected);
-        setDropboxAccount(status.account ?? null);
+        setDropboxProfile(
+          status.account
+            ? {
+                name: status.account.display_name || "Compte Dropbox",
+                photoUrl: status.account.profile_photo_url,
+              }
+            : null
+        );
       })
       .catch((error: unknown) => {
         if (active) {
@@ -636,9 +549,18 @@ export default function Integrations() {
       setCanvaConnected(true);
       popup.close();
 
-      // Récupère le profil du compte qui vient d'être connecté.
+      // Récupère la photo et le nom du compte qui vient d'être connecté.
       getCanvaStatus()
-        .then((status) => setCanvaAccount(status.account ?? null))
+        .then((status) =>
+          setCanvaProfile(
+            status.account
+              ? {
+                  name: status.account.display_name || "Compte Canva",
+                  photoUrl: status.account.profile_photo_url,
+                }
+              : null
+          )
+        )
         .catch(() => {});
     } catch (error) {
       popup.close();
@@ -685,26 +607,15 @@ export default function Integrations() {
       connected: canvaConnected,
       busy: canvaBusy,
       error: canvaError,
+      profile: canvaProfile,
       onConnect: handleCanvaConnect,
-      profile: canvaAccount
-        ? {
-            name: canvaAccount.display_name || "Compte Canva",
-            photoUrl: canvaAccount.profile_photo_url,
-          }
-        : null,
     },
     Dropbox: {
       connected: dropboxConnected,
       busy: dropboxBusy,
       error: dropboxError,
+      profile: dropboxProfile,
       onConnect: handleDropboxConnect,
-      profile: dropboxAccount
-        ? {
-            name: dropboxAccount.display_name || "Compte Dropbox",
-            subtitle: dropboxAccount.email,
-            photoUrl: dropboxAccount.profile_photo_url,
-          }
-        : null,
     },
   };
 
