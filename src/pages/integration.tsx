@@ -845,12 +845,6 @@ export default function Integrations() {
     setDropboxBusy(true);
 
     try {
-      if (reconnect) {
-        await disconnectDropbox();
-        setDropboxConnected(false);
-        setDropboxProfile(null);
-      }
-
       const { url } = await getDropboxAuthUrl();
       const authUrl = new URL(url);
       const hostname = authUrl.hostname.toLowerCase();
