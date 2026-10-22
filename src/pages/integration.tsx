@@ -131,7 +131,6 @@ function ChevronDownIcon() {
   );
 }
 
-/** Coche de validation (filtre + état « connecté »). */
 function CheckIcon({ className }: { className?: string }) {
   return (
     <svg
@@ -342,8 +341,6 @@ function IntegrationCard({
     };
   }, [menuOpen]);
 
-  const connected = Boolean(service?.connected);
-
   return (
     <div
       className={[
@@ -380,26 +377,25 @@ function IntegrationCard({
           </h3>
         </div>
 
-        {connected ? (
-          // Connecté : coche de validation qui ouvre le menu Reconnect / Disconnect.
+        {service?.connected ? (
+          // Connecté : trois points → menu Reconnect / Disconnect.
           <div ref={menuRef} className="relative shrink-0">
             <button
               type="button"
               aria-label={`Options pour ${data.title}`}
               aria-haspopup="menu"
               aria-expanded={menuOpen}
-              disabled={service?.busy}
               onClick={() => setMenuOpen((value) => !value)}
               className={[
-                "flex h-7 w-7 items-center justify-center rounded-full transition",
-                "disabled:cursor-default disabled:opacity-50",
+                "flex h-8 w-8 items-center justify-center rounded-lg transition-colors",
                 focusRingClass(isDark),
+                mutedClass(isDark),
                 isDark
-                  ? "bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/25"
-                  : "bg-emerald-50 text-emerald-600 hover:bg-emerald-100",
+                  ? "hover:bg-white/[0.06] hover:text-white"
+                  : "hover:bg-black/[0.05] hover:text-neutral-900",
               ].join(" ")}
             >
-              <CheckIcon className="h-[14px] w-[14px]" />
+              <MoreIcon />
             </button>
 
             {menuOpen && (
@@ -415,10 +411,10 @@ function IntegrationCard({
                 <button
                   type="button"
                   role="menuitem"
-                  disabled={service?.busy}
+                  disabled={service.busy}
                   onClick={() => {
                     setMenuOpen(false);
-                    service?.onReconnect();
+                    service.onReconnect();
                   }}
                   className={[
                     "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-[11px] font-medium disabled:opacity-40",
@@ -441,10 +437,10 @@ function IntegrationCard({
                 <button
                   type="button"
                   role="menuitem"
-                  disabled={service?.busy}
+                  disabled={service.busy}
                   onClick={() => {
                     setMenuOpen(false);
-                    service?.onDisconnect();
+                    service.onDisconnect();
                   }}
                   className={[
                     "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-[11px] font-medium disabled:opacity-40",
