@@ -42,6 +42,26 @@ import {
 /** Route de cette page dans la sidebar (section Favorite). */
 const PAGE_ROUTE = "integrations";
 
+/**
+ * Cherche l'URL de la photo de profil dans la réponse du serveur, quel que
+ * soit le nom du champ (profile_photo_url, avatar_url, avatarUrl…).
+ */
+function photoUrlOf(account: object | null | undefined): string | null {
+  if (!account) return null;
+  const record = account as Record<string, unknown>;
+  for (const key of [
+    "profile_photo_url",
+    "avatar_url",
+    "avatarUrl",
+    "photo_url",
+    "picture",
+  ]) {
+    const value = record[key];
+    if (typeof value === "string" && value.trim()) return value;
+  }
+  return null;
+}
+
 /* ============================================================
    SHELL (identique à Home)
 ============================================================ */
@@ -582,7 +602,7 @@ export default function Integrations() {
           status.account
             ? {
                 name: status.account.display_name || "Compte Canva",
-                photoUrl: status.account.profile_photo_url,
+                photoUrl: photoUrlOf(status.account),
               }
             : null
         );
@@ -613,7 +633,7 @@ export default function Integrations() {
           status.account
             ? {
                 name: status.account.display_name || "Compte Dropbox",
-                photoUrl: status.account.profile_photo_url,
+                photoUrl: photoUrlOf(status.account),
               }
             : null
         );
@@ -730,7 +750,7 @@ export default function Integrations() {
             status.account
               ? {
                   name: status.account.display_name || "Compte Canva",
-                  photoUrl: status.account.profile_photo_url,
+                  photoUrl: photoUrlOf(status.account),
                 }
               : null
           )
