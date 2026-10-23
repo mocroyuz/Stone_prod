@@ -1,6 +1,4 @@
-import { apiRequest } from "./supabase";
-// ⚠️ à adapter : la fonction qui renvoie le token d'accès dans ton supabase.ts
-import { getAccessToken } from "./supabase";
+import { API_BASE_URL, apiRequest, getAccessToken } from "./supabase";
 
 export type GooglePhotosStatus = {
   connected: boolean;
@@ -23,8 +21,6 @@ export type PickedItem = {
   width: number | null;
   height: number | null;
 };
-
-const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "";
 
 export const getGooglePhotosAuthUrl = () =>
   apiRequest<{ url: string }>("/api/googlephotos/auth/url", { method: "POST" });
@@ -65,15 +61,17 @@ export const deletePickerSession = (sessionId: string) =>
 
 /** Ouvre le Picker, attend la sélection, renvoie les médias choisis. */
 export async function pickFromGooglePhotos(popup: Window): Promise<PickedItem[]> {
-  const session = await createPickerSession();
-  popup.location.href = session.picker_uri;
-
-  const deadline = Date.now() + session.timeout_ms;
+  let session: PickerSession | null = null;
   try {
+    session = await createPickerSession();
+    const pickerSession = session;
+    popup.location.href = pickerSession.picker_uri;
+
+    const deadline = Date.now() + pickerSession.timeout_ms;
     while (Date.now() < deadline) {
-      await new Promise((r) => setTimeout(r, session.poll_interval_ms));
+      await new Promise((r) => setTimeout(r, pickerSession.poll_interval_ms));
       if (popup.closed) throw new Error("La sélection a été annulée.");
-      const { media_items_set } = await pollPickerSession(session.session_id);
+      const { media_items_set } = await pollPickerSession(pickerSession.session_id);
       if (media_items_set) break;
       if (Date.now() >= deadline) throw new Error("Délai dépassé.");
     }
@@ -81,7 +79,7 @@ export async function pickFromGooglePhotos(popup: Window): Promise<PickedItem[]>
     const all: PickedItem[] = [];
     let pageToken: string | undefined;
     do {
-      const page = await listPickedItems(session.session_id, pageToken);
+      const page = await listPickedItems(pickerSession.session_id, pageToken);
       all.push(...page.items);
       pageToken = page.next_page_token ?? undefined;
     } while (pageToken);
@@ -89,7 +87,9 @@ export async function pickFromGooglePhotos(popup: Window): Promise<PickedItem[]>
     return all;
   } finally {
     if (!popup.closed) popup.close();
-    void deletePickerSession(session.session_id).catch(() => {});
+    if (session) {
+      void deletePickerSession(session.session_id).catch(() => {});
+    }
   }
 }
 
@@ -97,7 +97,9 @@ export async function downloadGooglePhotosItem(item: PickedItem): Promise<File> 
   if (!item.base_url) throw new Error("Média indisponible.");
 
   const token = await getAccessToken();
-  const response = await fetch(`${API_BASE}/api/googlephotos/picker/download`, {
+  if (!token) throw new Error("Votre session a expiré. Reconnectez-vous puis réessayez.");
+
+  const response = await fetch(`${API_BASE_URL}/api/googlephotos/picker/download`, {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
     body: JSON.stringify({ baseUrl: item.base_url, type: item.type }),

@@ -57,6 +57,12 @@ import {
   listGoogleDriveFiles,
   type GoogleDriveFileEntry,
 } from "../services/googledrive";
+import {
+  downloadGooglePhotosItem,
+  getGooglePhotosAuthUrl,
+  getGooglePhotosStatus,
+  pickFromGooglePhotos,
+} from "../services/googlephotos";
 
 export type SocialNetworkId =
   | "x" | "facebook" | "instagram" | "linkedin"
@@ -1530,6 +1536,16 @@ export default function NewPostModal({
   const [googleDriveError, setGoogleDriveError] = useState<string | null>(null);
   const [googleDriveTarget, setGoogleDriveTarget] = useState("master");
 
+  // ── Google Photos ──
+  const [googlePhotosPickerOpen, setGooglePhotosPickerOpen] = useState(false);
+  const [googlePhotosNeedsConnection, setGooglePhotosNeedsConnection] =
+    useState(false);
+  const [googlePhotosReady, setGooglePhotosReady] = useState(false);
+  const [googlePhotosChecking, setGooglePhotosChecking] = useState(false);
+  const [googlePhotosLoading, setGooglePhotosLoading] = useState(false);
+  const [googlePhotosError, setGooglePhotosError] = useState<string | null>(null);
+  const [googlePhotosTarget, setGooglePhotosTarget] = useState("master");
+
   // ── YouTube ──
   const [youtubeOptions, setYoutubeOptions] = useState<YouTubeOptions>(
     YOUTUBE_DEFAULT_OPTIONS
@@ -1853,6 +1869,13 @@ export default function NewPostModal({
     setGoogleDriveImporting(null);
     setGoogleDriveError(null);
     setGoogleDriveTarget("master");
+    setGooglePhotosPickerOpen(false);
+    setGooglePhotosNeedsConnection(false);
+    setGooglePhotosReady(false);
+    setGooglePhotosChecking(false);
+    setGooglePhotosLoading(false);
+    setGooglePhotosError(null);
+    setGooglePhotosTarget("master");
     setCollapsedCards({});
     setPreviewNetwork(null);
     setTiktokInfo(null);
@@ -2296,6 +2319,108 @@ export default function NewPostModal({
     }
   };
 
+  const openGooglePhotosPicker = async (target: string) => {
+    setGooglePhotosTarget(target);
+    setGooglePhotosPickerOpen(true);
+    setGooglePhotosNeedsConnection(false);
+    setGooglePhotosReady(false);
+    setGooglePhotosError(null);
+    setGooglePhotosChecking(true);
+    setGooglePhotosLoading(true);
+
+    try {
+      const status = await getGooglePhotosStatus();
+      if (status.connected) setGooglePhotosReady(true);
+      else setGooglePhotosNeedsConnection(true);
+    } catch (error) {
+      setGooglePhotosError(
+        error instanceof Error
+          ? error.message
+          : "Unable to check Google Photos connection."
+      );
+    } finally {
+      setGooglePhotosChecking(false);
+      setGooglePhotosLoading(false);
+    }
+  };
+
+  const handleGooglePhotosConnect = async () => {
+    setGooglePhotosError(null);
+    setGooglePhotosLoading(true);
+    try {
+      const { url } = await getGooglePhotosAuthUrl();
+      const authUrl = new URL(url);
+      const hostname = authUrl.hostname.toLowerCase();
+      if (
+        authUrl.protocol !== "https:" ||
+        (hostname !== "accounts.google.com" &&
+          !hostname.endsWith(".accounts.google.com"))
+      ) {
+        throw new Error("The Google Photos authorization link is invalid.");
+      }
+      window.location.assign(authUrl.toString());
+    } catch (error) {
+      setGooglePhotosError(
+        error instanceof Error
+          ? error.message
+          : "Unable to start Google Photos connection."
+      );
+      setGooglePhotosLoading(false);
+    }
+  };
+
+  const handleGooglePhotosPick = async () => {
+    const current =
+      googlePhotosTarget === "master"
+        ? mediaRef.current
+        : channelMediaRef.current[googlePhotosTarget] ?? [];
+    const remaining = MAX_MEDIA - current.length;
+    if (remaining <= 0) {
+      setMediaError({
+        target: googlePhotosTarget,
+        message: `You can add up to ${MAX_MEDIA} files per post.`,
+      });
+      return;
+    }
+
+    const popup = window.open("", "_blank", "popup,width=520,height=720");
+    if (!popup) {
+      setGooglePhotosError(
+        "The Google Photos picker was blocked. Allow pop-ups and try again."
+      );
+      return;
+    }
+
+    setGooglePhotosLoading(true);
+    setGooglePhotosError(null);
+    try {
+      const pickedItems = await pickFromGooglePhotos(popup);
+      if (pickedItems.length > remaining) {
+        setMediaError({
+          target: googlePhotosTarget,
+          message: `Only ${remaining} more file${remaining === 1 ? "" : "s"} can be added to this post.`,
+        });
+      }
+
+      for (const item of pickedItems.slice(0, remaining)) {
+        const file = await downloadGooglePhotosItem(item);
+        if (!file.type.startsWith("image/") && !file.type.startsWith("video/")) {
+          throw new Error("Only image and video files can be added to a post.");
+        }
+        addFiles([file], googlePhotosTarget);
+      }
+      if (pickedItems.length > 0) setGooglePhotosPickerOpen(false);
+    } catch (error) {
+      setGooglePhotosError(
+        error instanceof Error
+          ? error.message
+          : "Unable to import media from Google Photos."
+      );
+    } finally {
+      setGooglePhotosLoading(false);
+    }
+  };
+
   const handleSourcePick = (id: MediaSourceId) => {
     const source = MEDIA_SOURCES.find((m) => m.id === id);
     const target = showSourceMenu ?? "master";
@@ -2306,6 +2431,10 @@ export default function NewPostModal({
     }
     if (id === "google_drive") {
       void openGoogleDrivePicker(target);
+      return;
+    }
+    if (id === "google_photos") {
+      void openGooglePhotosPicker(target);
       return;
     }
     // TODO: brancher l'import réel (OAuth + sélecteur) pour chaque source.
@@ -4263,6 +4392,115 @@ export default function NewPostModal({
                   )}
                 </>
               )}
+            </section>
+          </div>
+        )}
+
+        {googlePhotosPickerOpen && (
+          <div
+            className="absolute inset-0 z-[70] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+            onClick={(event) => {
+              if (event.target === event.currentTarget && !googlePhotosLoading) {
+                setGooglePhotosPickerOpen(false);
+              }
+            }}
+          >
+            <section
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="google-photos-picker-title"
+              className={[
+                "flex w-full max-w-[560px] flex-col overflow-hidden rounded-2xl border shadow-2xl",
+                bgModal,
+                border,
+              ].join(" ")}
+            >
+              <header className={["flex items-center gap-3 border-b px-5 py-4", border].join(" ")}>
+                <GooglePhotosIcon className="h-6 w-6 shrink-0 text-[#4285f4]" />
+                <div className="min-w-0 flex-1">
+                  <h2 id="google-photos-picker-title" className={["text-[15px] font-semibold", textPrimary].join(" ")}>
+                    Add from Google Photos
+                  </h2>
+                  <p className={["text-[12px]", textSecondary].join(" ")}>
+                    Choose photos or videos for this post.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  aria-label="Close Google Photos picker"
+                  onClick={() => setGooglePhotosPickerOpen(false)}
+                  disabled={googlePhotosLoading}
+                  className={["flex h-8 w-8 items-center justify-center rounded-lg transition disabled:opacity-50", textSecondary, hoverSoft].join(" ")}
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </header>
+
+              <div className="flex flex-col items-center px-6 py-10 text-center">
+                <GooglePhotosIcon className="h-10 w-10 text-[#4285f4]" />
+                {googlePhotosLoading ? (
+                  <div className={["mt-4 flex items-center gap-2 text-[13px]", textSecondary].join(" ")}>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    {googlePhotosChecking
+                      ? "Checking Google Photos connection…"
+                      : "Importing selected media…"}
+                  </div>
+                ) : googlePhotosNeedsConnection ? (
+                  <>
+                    <p className={["mt-4 text-[14px] font-semibold", textPrimary].join(" ")}>
+                      Connect your Google Photos account
+                    </p>
+                    <p className={["mt-1 max-w-[340px] text-[12.5px]", textSecondary].join(" ")}>
+                      Authorize Google Photos to select and import your media.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => void handleGooglePhotosConnect()}
+                      className="mt-5 flex items-center gap-2 rounded-lg bg-[#4285f4] px-4 py-2.5 text-[13px] font-semibold text-white transition hover:bg-[#3367d6]"
+                    >
+                      Connect Google Photos
+                    </button>
+                  </>
+                ) : !googlePhotosReady ? (
+                  <>
+                    <p className={["mt-4 text-[14px] font-semibold", textPrimary].join(" ")}>
+                      Google Photos connection could not be verified
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => void openGooglePhotosPicker(googlePhotosTarget)}
+                      className={["mt-5 rounded-lg px-4 py-2.5 text-[13px] font-semibold transition", hoverSoft, textPrimary].join(" ")}
+                    >
+                      Retry
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <p className={["mt-4 text-[14px] font-semibold", textPrimary].join(" ")}>
+                      Select media from your library
+                    </p>
+                    <p className={["mt-1 max-w-[340px] text-[12.5px]", textSecondary].join(" ")}>
+                      Google Photos will open in a separate window. Your selection will be added to this post.
+                    </p>
+                    <p className={["mt-2 text-[11px]", textSecondary].join(" ")}>
+                      {googlePhotosTarget === "master" ? "Shared media" : "Channel media"}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => void handleGooglePhotosPick()}
+                      className="mt-5 flex items-center gap-2 rounded-lg bg-[#4285f4] px-4 py-2.5 text-[13px] font-semibold text-white transition hover:bg-[#3367d6]"
+                    >
+                      Open Google Photos
+                      <ExternalLink className="h-4 w-4" />
+                    </button>
+                  </>
+                )}
+                {googlePhotosError && (
+                  <p role="alert" className="mt-4 max-w-[360px] text-[12px] text-red-500">
+                    {googlePhotosError}
+                  </p>
+                )}
+              </div>
             </section>
           </div>
         )}
