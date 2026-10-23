@@ -102,7 +102,11 @@ export type Passkey = {
 /** Options WebAuthn renvoyées par le backend (JSON sérialisable). */
 type WebAuthnOptions = Record<string, unknown>;
 
-/** Tag (RLS backend : user_id rempli par default auth.uid()). */
+/**
+ * Tag côté front : `label` + classe Tailwind ("bg-[#6366f1]").
+ * Le backend utilise `name` + couleur hex ("#6366f1") : la conversion
+ * est faite dans la section TAGS plus bas.
+ */
 export type Tag = { id: string; label: string; color: string };
 
 // ============================================================
@@ -412,7 +416,7 @@ export async function apiRequest<T>(
       if (refreshed) return apiRequest<T>(endpoint, options, true);
     }
 
-    // Erreur enrichie : conserve `code` (ex : 23505), `status` et `data`
+    // Erreur enrichie : conserve `code` (ex : TAG_DUPLICATE), `status` et `data`
     // pour permettre aux callers (cf. isDuplicateError) de discriminer.
     const err: ApiErrorWithMeta = new Error(
       bodyError ?? `Request failed with status ${response.status}`
@@ -1329,70 +1333,101 @@ export async function deletePasskey(id: string): Promise<void> {
 // TAGS
 // ============================================================
 //
-// `user_id` n'est JAMAIS envoyé : la colonne est remplie côté backend
-// par `default auth.uid()` et protégée par RLS. Le backend expose les
-// endpoints REST suivants :
+// `user_id` n'est JAMAIS envoyé : il est géré côté backend.
 //
-//   GET    /api/tags                 → { success, tags: Tag[] }
-//   POST   /api/tags                 → { success, tag: Tag }
-//   PUT    /api/tags?id=<id>         → { success, tag: Tag }
-//   DELETE /api/tags?id=<id>         → { success }
+// Contrat backend (server.js) :
 //
-// En cas de conflit d'unicité (label déjà pris pour cet utilisateur),
-// le backend renvoie soit `code: "23505"`, soit HTTP 409, soit un
-// message contenant "duplicate" / "already exists" / "unique" —
-// cf. `isDuplicateError`.
+//   GET    /api/tags            → { success, tags: [{ id, name, color }] }
+//   POST   /api/tags            → { success, tag }   body: { name, color }
+//   PUT    /api/tags            → { success, tag }   body: { id, name, color }
+//   DELETE /api/tags?id=<id>    → { success }
+//
+// Le front manipule `label` + une classe Tailwind ("bg-[#6366f1]") ;
+// le backend manipule `name` + une couleur hex ("#6366f1").
+// Les conversions sont faites ici, donc l'UI (Settings.tsx) ne change pas.
+//
+// Conflit d'unicité : le backend renvoie HTTP 409 + code "TAG_DUPLICATE"
+// (cf. `isDuplicateError`).
 
-/** Liste les tags de l'utilisateur courant (ordre chronologique côté backend). */
+const DEFAULT_TAG_CLASS = "bg-[#6366f1]";
+
+/** Forme d'un tag telle que renvoyée par le backend. */
+type ServerTag = {
+  id: string;
+  name: string;
+  color?: string | null;
+};
+
+/** "bg-[#6366f1]" → "#6366f1" (null si aucune couleur hex trouvée). */
+const tagColorToHex = (value: string): string | null =>
+  value?.match(/#[0-9a-f]{6}/i)?.[0].toLowerCase() ?? null;
+
+/** "#6366f1" → "bg-[#6366f1]" (classe par défaut si invalide). */
+const tagColorToClass = (hex?: string | null): string =>
+  hex && /^#[0-9a-f]{6}$/i.test(hex)
+    ? `bg-[${hex.toLowerCase()}]`
+    : DEFAULT_TAG_CLASS;
+
+/** Tag backend → Tag front. */
+const fromServerTag = (t: ServerTag): Tag => ({
+  id: t.id,
+  label: t.name,
+  color: tagColorToClass(t.color),
+});
+
+/** Extrait un Tag d'une réponse `{ tag }` (ou d'un tag brut). */
+function parseTagResponse(data: unknown): Tag {
+  const raw = (data as { tag?: ServerTag })?.tag ?? (data as ServerTag);
+
+  if (!raw || typeof raw.id !== "string" || typeof raw.name !== "string") {
+    throw new Error("Invalid tag response from server.");
+  }
+
+  return fromServerTag(raw);
+}
+
+/** Liste les tags de l'utilisateur courant (triés par nom côté backend). */
 export async function listTags(): Promise<Tag[]> {
-  const data = await apiRequest<{ success?: boolean; tags?: Tag[] } | Tag[]>(
+  const data = await apiRequest<{ success?: boolean; tags?: ServerTag[] }>(
     "/api/tags",
     { method: "GET" }
   );
 
-  if (Array.isArray(data)) return data;
-  return data?.tags ?? [];
+  return (data?.tags ?? []).map(fromServerTag);
 }
 
 /**
- * Crée un tag. `user_id` rempli automatiquement côté DB (default auth.uid()).
- * Peut throw `isDuplicateError` si le label existe déjà pour cet utilisateur.
+ * Crée un tag.
+ * Peut throw une erreur reconnue par `isDuplicateError` si le nom existe déjà.
  */
 export async function createTag(label: string, color: string): Promise<Tag> {
-  const data = await apiRequest<
-    ({ success?: boolean; tag?: Tag } & Partial<Tag>) | Tag
-  >("/api/tags", {
+  const data = await apiRequest<unknown>("/api/tags", {
     method: "POST",
-    body: JSON.stringify({ label, color }),
+    body: JSON.stringify({ name: label, color: tagColorToHex(color) }),
   });
 
-  const tag = (data as { tag?: Tag })?.tag ?? (data as Tag);
-  if (!tag || typeof tag.id !== "string") {
-    throw new Error("Invalid tag response from server.");
-  }
-  return tag;
+  return parseTagResponse(data);
 }
 
 /**
- * Met à jour un tag existant. `user_id` non modifiable (géré côté backend).
- * Peut throw `isDuplicateError` si le nouveau label entre en conflit.
+ * Met à jour un tag existant. Le backend lit `id` dans le BODY
+ * (sans `id`, il créerait un nouveau tag).
+ * Peut throw une erreur reconnue par `isDuplicateError`.
  */
 export async function updateTag(
   id: string,
   patch: { label: string; color: string }
 ): Promise<Tag> {
-  const data = await apiRequest<
-    ({ success?: boolean; tag?: Tag } & Partial<Tag>) | Tag
-  >(`/api/tags?id=${encodeURIComponent(id)}`, {
+  const data = await apiRequest<unknown>("/api/tags", {
     method: "PUT",
-    body: JSON.stringify(patch),
+    body: JSON.stringify({
+      id,
+      name: patch.label,
+      color: tagColorToHex(patch.color),
+    }),
   });
 
-  const tag = (data as { tag?: Tag })?.tag ?? (data as Tag);
-  if (!tag || typeof tag.id !== "string") {
-    throw new Error("Invalid tag response from server.");
-  }
-  return tag;
+  return parseTagResponse(data);
 }
 
 /** Supprime un tag. */
@@ -1405,16 +1440,17 @@ export async function deleteTag(id: string): Promise<void> {
 /**
  * Détecte une violation d'unicité côté backend.
  * Reconnaît :
- *   - code Postgres `23505` (unique_violation)
+ *   - code "TAG_DUPLICATE" (backend) ou "23505" (unique_violation Postgres)
  *   - status HTTP 409 (Conflict)
  *   - message contenant duplicate / already exists / unique
  */
 export const isDuplicateError = (e: unknown): boolean => {
   if (typeof e === "object" && e !== null) {
     const obj = e as { code?: unknown; status?: unknown };
-    if (obj.code === "23505") return true;
+    if (obj.code === "TAG_DUPLICATE" || obj.code === "23505") return true;
     if (obj.status === 409) return true;
   }
+
   return (
     e instanceof Error &&
     /duplicate|already exists|unique/i.test(e.message)
