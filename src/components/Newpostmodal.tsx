@@ -1042,7 +1042,7 @@ function MediaSourceMenu({
         role="menu"
         aria-label="Add media from"
         className={[
-          "w-[230px] overflow-hidden rounded-2xl border p-2 shadow-2xl",
+          "w-[180px] overflow-hidden rounded-xl border p-1.5 shadow-2xl",
           panel,
         ].join(" ")}
       >
@@ -1061,22 +1061,22 @@ function MediaSourceMenu({
                 else onPick(id);
               }}
               className={[
-                "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-[14px] font-semibold transition",
+                "flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[13px] font-semibold transition",
                 isDark ? "text-neutral-100" : "text-neutral-800",
                 isCanvaRow && canvaOpen ? active : hover,
               ].join(" ")}
             >
-              <span className="flex h-5 w-9 shrink-0 items-center justify-center">
+              <span className="flex h-5 w-8 shrink-0 items-center justify-center">
                 <Icon
                   className={
                     isCanvaRow
-                      ? "h-auto w-[34px] shrink-0"
-                      : "h-[18px] w-[18px] shrink-0"
+                      ? "h-auto w-[28px] shrink-0"
+                      : "h-4 w-4 shrink-0"
                   }
                 />
               </span>
               <span className="flex-1">{label}</span>
-              {submenu && <ChevronRight className={["h-4 w-4", muted].join(" ")} />}
+              {submenu && <ChevronRight className={["h-3.5 w-3.5", muted].join(" ")} />}
             </button>
           );
         })}
@@ -1087,7 +1087,7 @@ function MediaSourceMenu({
           role="menu"
           aria-label="Canva design size"
           className={[
-            "absolute bottom-0 left-full ml-1.5 w-[340px] max-w-[calc(100vw-2rem)] rounded-2xl border p-2 shadow-2xl",
+            "absolute bottom-0 left-full ml-1.5 w-[230px] max-w-[calc(100vw-2rem)] rounded-xl border p-1.5 shadow-2xl",
             panel,
           ].join(" ")}
         >
@@ -1098,16 +1098,16 @@ function MediaSourceMenu({
               role="menuitem"
               onClick={() => onPickCanva(size)}
               className={[
-                "flex w-full items-baseline gap-2 rounded-lg px-4 py-3.5 text-left transition",
+                "flex w-full flex-col items-start gap-0.5 rounded-lg px-3 py-2 text-left transition",
                 isDark ? "text-neutral-100" : "text-neutral-800",
                 hover,
               ].join(" ")}
             >
-              <span className="text-[15px] font-semibold">
+              <span className="text-[13px] font-semibold">
                 {size.label} {size.ratio}
               </span>
-              <span className={["text-[13px] font-normal", muted].join(" ")}>
-                ({size.width}×{size.height})
+              <span className={["text-[11.5px] font-normal", muted].join(" ")}>
+                {size.width}×{size.height}
                 {size.isDefault ? " · Default" : ""}
               </span>
             </button>
