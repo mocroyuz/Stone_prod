@@ -32,6 +32,7 @@ import PinterestCallback from "./pages/PinterestCallback";
 import YouTubeCallback from "./pages/Youtubecallback";
 import DropboxCallback from "./pages/DropboxCallback";
 import GoogleDriveCallback from "./pages/GoogleDriveCallback";
+import GooglePhotosCallback from "./pages/GooglePhotosCallback";
 import CanvaCallback, {
   CanvaReturnConfirmation,
 } from "./pages/Canvacallback";
@@ -60,6 +61,7 @@ const PINTEREST_OAUTH_STORAGE_KEY = "pinterest_oauth_params";
 const YOUTUBE_OAUTH_STORAGE_KEY = "youtube_oauth_params";
 const DROPBOX_OAUTH_STORAGE_KEY = "dropbox_oauth_params";
 const GOOGLE_DRIVE_OAUTH_STORAGE_KEY = "google_drive_oauth_params";
+const GOOGLE_PHOTOS_OAUTH_STORAGE_KEY = "google_photos_oauth_params";
 const CANVA_OAUTH_STORAGE_KEY = "canva_oauth_params";
 
 const POST_LOGIN_ROUTE_KEY = "post_login_route";
@@ -94,12 +96,18 @@ const OAUTH_CALLBACK_ROUTES = new Set([
   "canva-callback",
   "dropbox-callback",
   "googledrive-callback",
+  "googlephotos-callback",
 ]);
 
-function interceptOAuthCallback(
-  provider: "tiktok" | "pinterest" | "youtube" | "dropbox" | "googledrive",
-  storageKey: string
-) {
+type OAuthProvider =
+  | "tiktok"
+  | "pinterest"
+  | "youtube"
+  | "dropbox"
+  | "googledrive"
+  | "googlephotos";
+
+function interceptOAuthCallback(provider: OAuthProvider, storageKey: string) {
   if (typeof window === "undefined") return;
 
   const { pathname, hash, search } = window.location;
@@ -143,6 +151,7 @@ interceptOAuthCallback("pinterest", PINTEREST_OAUTH_STORAGE_KEY);
 interceptOAuthCallback("youtube", YOUTUBE_OAUTH_STORAGE_KEY);
 interceptOAuthCallback("dropbox", DROPBOX_OAUTH_STORAGE_KEY);
 interceptOAuthCallback("googledrive", GOOGLE_DRIVE_OAUTH_STORAGE_KEY);
+interceptOAuthCallback("googlephotos", GOOGLE_PHOTOS_OAUTH_STORAGE_KEY);
 
 function interceptCanvaOAuthCallback() {
   if (typeof window === "undefined") return;
@@ -465,6 +474,7 @@ const PROTECTED_ROUTES = new Set([
   "canva-callback",
   "dropbox-callback",
   "googledrive-callback",
+  "googlephotos-callback",
 ]);
 
 // "create" a sa propre page (pages/Create.tsx) : il n'est plus rendu par DashboardHome.
@@ -945,6 +955,18 @@ function AppContentInner({
     return (
       <div className="relative h-screen w-screen overflow-hidden font-sans">
         <GoogleDriveCallback />
+      </div>
+    );
+  }
+
+  /* ─────────────────────────────────────────────
+     GOOGLE PHOTOS CALLBACK
+     ───────────────────────────────────────────── */
+
+  if (route === "googlephotos-callback") {
+    return (
+      <div className="relative h-screen w-screen overflow-hidden font-sans">
+        <GooglePhotosCallback />
       </div>
     );
   }
