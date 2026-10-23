@@ -49,6 +49,13 @@ import {
   listDropboxFiles,
   type DropboxFileEntry,
 } from "../services/dropbox";
+import {
+  downloadGoogleDriveFile,
+  getGoogleDriveAuthUrl,
+  getGoogleDriveStatus,
+  listGoogleDriveFiles,
+  type GoogleDriveFileEntry,
+} from "../services/googledrive";
 
 export type SocialNetworkId =
   | "x" | "facebook" | "instagram" | "linkedin"
@@ -76,6 +83,17 @@ function isDropboxMedia(entry: DropboxFileEntry): boolean {
 function getDropboxParentPath(path: string): string {
   const segments = path.split("/").filter(Boolean);
   return segments.length > 1 ? `/${segments.slice(0, -1).join("/")}` : "";
+}
+
+function isGoogleDriveMedia(entry: GoogleDriveFileEntry): boolean {
+  const mimeType = entry.mime_type ?? entry.mimeType ?? "";
+  if (mimeType === "application/vnd.google-apps.folder") return true;
+  if (mimeType.startsWith("image/") || mimeType.startsWith("video/")) {
+    return true;
+  }
+  return /\.(avif|gif|heic|heif|jpe?g|png|webp|m4v|mov|mp4|webm)$/i.test(
+    entry.name
+  );
 }
 
 /** Design Canva en cours d'édition, en attente d'être importé dans le post. */
@@ -1500,6 +1518,27 @@ export default function NewPostModal({
   const [dropboxError, setDropboxError] = useState<string | null>(null);
   const [dropboxTarget, setDropboxTarget] = useState("master");
 
+  // ── Google Drive ──
+  const [googleDrivePickerOpen, setGoogleDrivePickerOpen] = useState(false);
+  const [googleDriveNeedsConnection, setGoogleDriveNeedsConnection] =
+    useState(false);
+  const [googleDriveFiles, setGoogleDriveFiles] = useState<
+    GoogleDriveFileEntry[]
+  >([]);
+  const [googleDriveFolders, setGoogleDriveFolders] = useState<
+    { id: string; name: string }[]
+  >([{ id: "", name: "My Drive" }]);
+  const [googleDriveCursor, setGoogleDriveCursor] = useState<string | null>(
+    null
+  );
+  const [googleDriveHasMore, setGoogleDriveHasMore] = useState(false);
+  const [googleDriveLoading, setGoogleDriveLoading] = useState(false);
+  const [googleDriveImporting, setGoogleDriveImporting] = useState<
+    string | null
+  >(null);
+  const [googleDriveError, setGoogleDriveError] = useState<string | null>(null);
+  const [googleDriveTarget, setGoogleDriveTarget] = useState("master");
+
   // ── YouTube ──
   const [youtubeOptions, setYoutubeOptions] = useState<YouTubeOptions>(
     YOUTUBE_DEFAULT_OPTIONS
@@ -1813,6 +1852,16 @@ export default function NewPostModal({
     setDropboxImporting(null);
     setDropboxError(null);
     setDropboxTarget("master");
+    setGoogleDrivePickerOpen(false);
+    setGoogleDriveNeedsConnection(false);
+    setGoogleDriveFiles([]);
+    setGoogleDriveFolders([{ id: "", name: "My Drive" }]);
+    setGoogleDriveCursor(null);
+    setGoogleDriveHasMore(false);
+    setGoogleDriveLoading(false);
+    setGoogleDriveImporting(null);
+    setGoogleDriveError(null);
+    setGoogleDriveTarget("master");
     setCollapsedCards({});
     setPreviewNetwork(null);
     setTiktokInfo(null);
@@ -2147,12 +2196,125 @@ export default function NewPostModal({
     }
   };
 
+  const loadGoogleDriveFolder = async (
+    folderId: string,
+    cursor?: string,
+    append = false
+  ) => {
+    setGoogleDriveLoading(true);
+    setGoogleDriveError(null);
+    try {
+      const page = await listGoogleDriveFiles(folderId, cursor);
+      setGoogleDriveFiles((current) =>
+        append ? [...current, ...page.entries] : page.entries
+      );
+      setGoogleDriveCursor(page.cursor || null);
+      setGoogleDriveHasMore(page.has_more);
+    } catch (error) {
+      setGoogleDriveError(
+        error instanceof Error
+          ? error.message
+          : "Unable to load Google Drive files."
+      );
+    } finally {
+      setGoogleDriveLoading(false);
+    }
+  };
+
+  const openGoogleDrivePicker = async (target: string) => {
+    setGoogleDriveTarget(target);
+    setGoogleDrivePickerOpen(true);
+    setGoogleDriveNeedsConnection(false);
+    setGoogleDriveFiles([]);
+    setGoogleDriveFolders([{ id: "", name: "My Drive" }]);
+    setGoogleDriveError(null);
+    setGoogleDriveLoading(true);
+
+    try {
+      const status = await getGoogleDriveStatus();
+      if (!status.connected) {
+        setGoogleDriveNeedsConnection(true);
+        return;
+      }
+      await loadGoogleDriveFolder("");
+    } catch (error) {
+      setGoogleDriveError(
+        error instanceof Error
+          ? error.message
+          : "Unable to connect to Google Drive."
+      );
+    } finally {
+      setGoogleDriveLoading(false);
+    }
+  };
+
+  const handleGoogleDriveConnect = async () => {
+    setGoogleDriveError(null);
+    setGoogleDriveLoading(true);
+    try {
+      const { url } = await getGoogleDriveAuthUrl();
+      const authUrl = new URL(url);
+      const hostname = authUrl.hostname.toLowerCase();
+      if (
+        authUrl.protocol !== "https:" ||
+        (hostname !== "accounts.google.com" &&
+          !hostname.endsWith(".accounts.google.com"))
+      ) {
+        throw new Error("The Google Drive authorization link is invalid.");
+      }
+      window.location.assign(authUrl.toString());
+    } catch (error) {
+      setGoogleDriveError(
+        error instanceof Error
+          ? error.message
+          : "Unable to start Google Drive connection."
+      );
+      setGoogleDriveLoading(false);
+    }
+  };
+
+  const handleGoogleDriveImport = async (entry: GoogleDriveFileEntry) => {
+    const current =
+      googleDriveTarget === "master"
+        ? mediaRef.current
+        : channelMediaRef.current[googleDriveTarget] ?? [];
+    if (current.length >= MAX_MEDIA) {
+      setMediaError({
+        target: googleDriveTarget,
+        message: `You can add up to ${MAX_MEDIA} files per post.`,
+      });
+      return;
+    }
+
+    setGoogleDriveImporting(entry.id);
+    setGoogleDriveError(null);
+    try {
+      const file = await downloadGoogleDriveFile(entry);
+      if (!file.type.startsWith("image/") && !file.type.startsWith("video/")) {
+        throw new Error("Only image and video files can be added to a post.");
+      }
+      addFiles([file], googleDriveTarget);
+    } catch (error) {
+      setGoogleDriveError(
+        error instanceof Error
+          ? error.message
+          : "Unable to import this Google Drive file."
+      );
+    } finally {
+      setGoogleDriveImporting(null);
+    }
+  };
+
   const handleSourcePick = (id: MediaSourceId) => {
     const source = MEDIA_SOURCES.find((m) => m.id === id);
     const target = showSourceMenu ?? "master";
     setShowSourceMenu(null);
     if (id === "dropbox") {
       void openDropboxPicker(target);
+      return;
+    }
+    if (id === "google_drive") {
+      void openGoogleDrivePicker(target);
       return;
     }
     // TODO: brancher l'import réel (OAuth + sélecteur) pour chaque source.
@@ -3902,6 +4064,206 @@ export default function NewPostModal({
                         type="button"
                         onClick={() => void loadDropboxFolder(dropboxPath, dropboxCursor, true)}
                         disabled={dropboxLoading}
+                        className={["w-full rounded-lg px-3 py-2 text-[12px] font-semibold transition disabled:opacity-50", hoverSoft, textPrimary].join(" ")}
+                      >
+                        Load more files
+                      </button>
+                    </footer>
+                  )}
+                </>
+              )}
+            </section>
+          </div>
+        )}
+
+        {googleDrivePickerOpen && (
+          <div
+            className="absolute inset-0 z-[70] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+            onClick={(event) => {
+              if (event.target === event.currentTarget) {
+                setGoogleDrivePickerOpen(false);
+              }
+            }}
+          >
+            <section
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="google-drive-picker-title"
+              className={[
+                "flex max-h-[82vh] w-full max-w-[560px] flex-col overflow-hidden rounded-2xl border shadow-2xl",
+                bgModal,
+                border,
+              ].join(" ")}
+            >
+              <header className={["flex items-center gap-3 border-b px-5 py-4", border].join(" ")}>
+                <GoogleDriveIcon className="h-6 w-6 shrink-0 text-[#34a853]" />
+                <div className="min-w-0 flex-1">
+                  <h2 id="google-drive-picker-title" className={["text-[15px] font-semibold", textPrimary].join(" ")}>
+                    Add from Google Drive
+                  </h2>
+                  <p className={["text-[12px]", textSecondary].join(" ")}>
+                    Choose an image or video for this post.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  aria-label="Close Google Drive picker"
+                  onClick={() => setGoogleDrivePickerOpen(false)}
+                  className={["flex h-8 w-8 items-center justify-center rounded-lg transition", textSecondary, hoverSoft].join(" ")}
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </header>
+
+              {googleDriveNeedsConnection ? (
+                <div className="flex flex-col items-center px-6 py-12 text-center">
+                  <GoogleDriveIcon className="h-10 w-10 text-[#34a853]" />
+                  <p className={["mt-4 text-[14px] font-semibold", textPrimary].join(" ")}>
+                    Connect your Google Drive account
+                  </p>
+                  <p className={["mt-1 max-w-[340px] text-[12.5px]", textSecondary].join(" ")}>
+                    Authorize Google Drive to browse and import your media files.
+                  </p>
+                  {googleDriveError && (
+                    <p role="alert" className="mt-3 max-w-[360px] text-[12px] text-red-500">
+                      {googleDriveError}
+                    </p>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => void handleGoogleDriveConnect()}
+                    disabled={googleDriveLoading}
+                    className="mt-5 flex items-center gap-2 rounded-lg bg-[#34a853] px-4 py-2.5 text-[13px] font-semibold text-white transition hover:bg-[#278b43] disabled:opacity-60"
+                  >
+                    {googleDriveLoading && <Loader2 className="h-4 w-4 animate-spin" />}
+                    Connect Google Drive
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <div className={["flex items-center gap-2 border-b px-5 py-3", border].join(" ")}>
+                    {googleDriveFolders.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const parentFolders = googleDriveFolders.slice(0, -1);
+                          setGoogleDriveFolders(parentFolders);
+                          void loadGoogleDriveFolder(
+                            parentFolders[parentFolders.length - 1].id
+                          );
+                        }}
+                        className={["flex items-center gap-1 rounded-md px-2 py-1 text-[12px] font-semibold transition", textSecondary, hoverSoft].join(" ")}
+                      >
+                        <ArrowLeft className="h-3.5 w-3.5" />
+                        Back
+                      </button>
+                    )}
+                    <p className={["min-w-0 flex-1 truncate text-[12px]", textSecondary].join(" ")}>
+                      {googleDriveFolders[googleDriveFolders.length - 1].name}
+                    </p>
+                    <span className={["text-[11px]", textSecondary].join(" ")}>
+                      {googleDriveTarget === "master" ? "Shared media" : "Channel media"}
+                    </span>
+                  </div>
+
+                  {googleDriveError && (
+                    <div className="mx-5 mt-4 flex items-center gap-3 rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-2.5">
+                      <p role="alert" className="min-w-0 flex-1 text-[12px] text-red-500">
+                        {googleDriveError}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          void loadGoogleDriveFolder(
+                            googleDriveFolders[googleDriveFolders.length - 1].id
+                          )
+                        }
+                        className="shrink-0 text-[12px] font-semibold text-red-500 underline underline-offset-2"
+                      >
+                        Retry
+                      </button>
+                    </div>
+                  )}
+
+                  <div className="min-h-[180px] overflow-y-auto px-3 py-2">
+                    {googleDriveFiles.filter(isGoogleDriveMedia).map((entry) => {
+                      const isFolder =
+                        (entry.mime_type ?? entry.mimeType) ===
+                        "application/vnd.google-apps.folder";
+                      const importing = googleDriveImporting === entry.id;
+                      return (
+                        <div
+                          key={entry.id}
+                          className={["flex items-center gap-3 rounded-lg px-3 py-2.5", hoverSoft].join(" ")}
+                        >
+                          <span className={["flex h-8 w-8 shrink-0 items-center justify-center rounded-lg", accentSolid, textSecondary].join(" ")}>
+                            {isFolder ? <ChevronRight className="h-4 w-4" /> : <ImageIcon className="h-4 w-4" />}
+                          </span>
+                          {isFolder ? (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setGoogleDriveFolders((current) => [
+                                  ...current,
+                                  { id: entry.id, name: entry.name },
+                                ]);
+                                void loadGoogleDriveFolder(entry.id);
+                              }}
+                              className={["min-w-0 flex-1 truncate text-left text-[13px] font-medium", textPrimary].join(" ")}
+                            >
+                              {entry.name}
+                            </button>
+                          ) : (
+                            <span className={["min-w-0 flex-1 truncate text-[13px] font-medium", textPrimary].join(" ")}>
+                              {entry.name}
+                            </span>
+                          )}
+                          {!isFolder && (
+                            <button
+                              type="button"
+                              onClick={() => void handleGoogleDriveImport(entry)}
+                              disabled={googleDriveImporting !== null}
+                              className={[
+                                "flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[11.5px] font-semibold transition disabled:opacity-50",
+                                isDark ? "bg-white/10 text-white hover:bg-white/15" : "bg-black/[0.06] text-neutral-900 hover:bg-black/10",
+                              ].join(" ")}
+                            >
+                              {importing && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                              {importing ? "Importing" : "Add"}
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+
+                    {googleDriveLoading && !googleDriveNeedsConnection && (
+                      <div className={["flex items-center justify-center gap-2 py-10 text-[12.5px]", textSecondary].join(" ")}>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Loading Google Drive files…
+                      </div>
+                    )}
+
+                    {!googleDriveLoading &&
+                      !googleDriveError &&
+                      googleDriveFiles.filter(isGoogleDriveMedia).length === 0 && (
+                        <p className={["py-10 text-center text-[12.5px]", textSecondary].join(" ")}>
+                          This folder has no supported image or video files.
+                        </p>
+                      )}
+                  </div>
+
+                  {googleDriveHasMore && googleDriveCursor && (
+                    <footer className={["border-t px-5 py-3", border].join(" ")}>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          void loadGoogleDriveFolder(
+                            googleDriveFolders[googleDriveFolders.length - 1].id,
+                            googleDriveCursor,
+                            true
+                          )
+                        }
+                        disabled={googleDriveLoading}
                         className={["w-full rounded-lg px-3 py-2 text-[12px] font-semibold transition disabled:opacity-50", hoverSoft, textPrimary].join(" ")}
                       >
                         Load more files
