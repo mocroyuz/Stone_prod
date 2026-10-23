@@ -4,11 +4,13 @@ import {
   Maximize2, Minimize2, X, Tag, FileText, Smile, Hash,
   Image as ImageIcon, ImagePlus, Pencil, ChevronDown, CalendarClock,
   Check, ArrowLeft, Wand2, Plus, Play, Info, Loader2, RotateCcw,
-  PanelRightClose, PanelRightOpen, Cloud, ChevronRight, ExternalLink,
+  PanelRightClose, PanelRightOpen, ChevronRight, ExternalLink,
 } from "lucide-react";
 import {
   XIcon, FacebookIcon, InstagramIcon, LinkedInIcon,
   TikTokIcon, YouTubeIcon, PinterestIcon, ThreadsIcon,
+  CanvaIcon as IntegrationCanvaIcon,
+  DropboxIcon as IntegrationDropboxIcon,
   GoogleDriveIcon as IntegrationGoogleDriveIcon,
 } from "./IntegrationIcons";
 import { CalendarPicker } from "./CalendarPicker";
@@ -978,36 +980,9 @@ function FieldRow({
   );
 }
 
-/* ── Sources de médias (icônes simplifiées, monochromes) ── */
+/* ── Sources de médias ── */
 
-type SourceIconProps = { className?: string; inner?: string };
-
-function CanvaIcon({ className, inner = "#1c1c1e" }: SourceIconProps) {
-  return (
-    <svg viewBox="0 0 24 24" className={className} aria-hidden="true">
-      <circle cx="12" cy="12" r="11" fill="currentColor" />
-      <path
-        d="M15.2 9.2a4.2 4.2 0 1 0 0 5.6"
-        fill="none"
-        stroke={inner}
-        strokeWidth="2.2"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
-
-function DropboxIcon({ className }: SourceIconProps) {
-  return (
-    <svg viewBox="0 0 24 24" className={className} fill="currentColor" aria-hidden="true">
-      <polygon points="6,2 12,5.5 6,9 0,5.5" />
-      <polygon points="18,2 24,5.5 18,9 12,5.5" />
-      <polygon points="6,9 12,12.5 6,16 0,12.5" />
-      <polygon points="18,9 24,12.5 18,16 12,12.5" />
-      <polygon points="6,17.4 12,13.9 18,17.4 12,20.9" />
-    </svg>
-  );
-}
+type SourceIconProps = { className?: string };
 
 function GooglePhotosIcon({ className }: SourceIconProps) {
   return (
@@ -1023,34 +998,20 @@ function GooglePhotosIcon({ className }: SourceIconProps) {
   );
 }
 
-function OneDriveIcon({ className }: SourceIconProps) {
-  return <Cloud className={className} fill="currentColor" strokeWidth={1.5} />;
-}
-
-function UnsplashIcon({ className }: SourceIconProps) {
-  return (
-    <svg viewBox="0 0 24 24" className={className} fill="currentColor" aria-hidden="true">
-      <path d="M7.5 6.75V0h9v6.75h-9zm9 3.75H24V24H0V10.5h7.5v6.75h9V10.5z" />
-    </svg>
-  );
-}
-
 type MediaSourceId =
   | "canva" | "dropbox" | "google_drive"
-  | "google_photos" | "onedrive" | "unsplash";
+  | "google_photos";
 
 const MEDIA_SOURCES: {
   id: MediaSourceId;
   label: string;
-  Icon: (props: SourceIconProps) => JSX.Element;
+  Icon: React.ComponentType<SourceIconProps>;
   submenu?: boolean;
 }[] = [
-  { id: "canva", label: "Canva", Icon: CanvaIcon, submenu: true },
-  { id: "dropbox", label: "Dropbox", Icon: DropboxIcon },
+  { id: "canva", label: "Canva", Icon: IntegrationCanvaIcon, submenu: true },
+  { id: "dropbox", label: "Dropbox", Icon: IntegrationDropboxIcon },
   { id: "google_drive", label: "Google Drive", Icon: IntegrationGoogleDriveIcon },
   { id: "google_photos", label: "Google Photos", Icon: GooglePhotosIcon },
-  { id: "onedrive", label: "OneDrive", Icon: OneDriveIcon },
-  { id: "unsplash", label: "Unsplash", Icon: UnsplashIcon },
 ];
 
 /**
@@ -1105,7 +1066,15 @@ function MediaSourceMenu({
                 isCanvaRow && canvaOpen ? active : hover,
               ].join(" ")}
             >
-              <Icon className="h-[18px] w-[18px] shrink-0" inner={isDark ? "#1c1c1e" : "#ffffff"} />
+              <span className="flex h-5 w-9 shrink-0 items-center justify-center">
+                <Icon
+                  className={
+                    isCanvaRow
+                      ? "h-auto w-[34px] shrink-0"
+                      : "h-[18px] w-[18px] shrink-0"
+                  }
+                />
+              </span>
               <span className="flex-1">{label}</span>
               {submenu && <ChevronRight className={["h-4 w-4", muted].join(" ")} />}
             </button>
@@ -2989,9 +2958,8 @@ export default function NewPostModal({
               accentSolid,
             ].join(" ")}
           >
-            <CanvaIcon
-              className={["h-[18px] w-[18px] shrink-0", textPrimary].join(" ")}
-              inner={isDark ? "#1c1c1e" : "#ffffff"}
+            <IntegrationCanvaIcon
+              className={["h-auto w-[34px] shrink-0", textPrimary].join(" ")}
             />
             <div className="min-w-0 flex-1">
               <p className={["truncate text-[13px] font-semibold", textPrimary].join(" ")}>
@@ -3176,7 +3144,7 @@ export default function NewPostModal({
           "relative flex flex-col overflow-hidden border",
           isFullscreen
             ? "h-[96vh] w-[96vw] rounded-[28px]"
-            : "h-[90vh] w-full max-w-[1200px] rounded-[28px]",
+            : "h-[88vh] w-full max-w-[1080px] rounded-[28px]",
           bgModal,
           border,
           isDark ? "shadow-[0_32px_80px_rgba(0,0,0,0.6)]" : "shadow-[0_32px_80px_rgba(0,0,0,0.22)]",
@@ -4047,7 +4015,7 @@ export default function NewPostModal({
               ].join(" ")}
             >
               <header className={["flex items-center gap-3 border-b px-5 py-4", border].join(" ")}>
-                <DropboxIcon className="h-6 w-6 shrink-0 text-[#0061ff]" />
+                <IntegrationDropboxIcon className="h-6 w-6 shrink-0 text-[#0061ff]" />
                 <div className="min-w-0 flex-1">
                   <h2 id="dropbox-picker-title" className={["text-[15px] font-semibold", textPrimary].join(" ")}>
                     Add from Dropbox
@@ -4068,7 +4036,7 @@ export default function NewPostModal({
 
               {dropboxNeedsConnection ? (
                 <div className="flex flex-col items-center px-6 py-12 text-center">
-                  <DropboxIcon className="h-10 w-10 text-[#0061ff]" />
+                  <IntegrationDropboxIcon className="h-10 w-10 text-[#0061ff]" />
                   <p className={["mt-4 text-[14px] font-semibold", textPrimary].join(" ")}>
                     Connect your Dropbox account
                   </p>
