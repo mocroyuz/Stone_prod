@@ -1456,3 +1456,78 @@ export const isDuplicateError = (e: unknown): boolean => {
     /duplicate|already exists|unique/i.test(e.message)
   );
 };
+
+// ============================================================
+// SAVED REPLIES
+// ============================================================
+//
+// Contrat backend (server.js) :
+//
+//   GET    /api/saved-replies           → { success, replies: SavedReply[] }
+//   POST   /api/saved-replies           → { success, reply }  body: { name, content }
+//   PUT    /api/saved-replies           → { success, reply }  body: { id, name, content }
+//   DELETE /api/saved-replies?id=<id>   → { success }
+
+export type SavedReply = {
+  id: string;
+  name: string;
+  content: string;
+  created_at?: string;
+  updated_at?: string;
+};
+
+function parseSavedReplyResponse(data: unknown): SavedReply {
+  const raw =
+    (data as { reply?: SavedReply })?.reply ?? (data as SavedReply);
+
+  if (
+    !raw ||
+    typeof raw.id !== "string" ||
+    typeof raw.name !== "string" ||
+    typeof raw.content !== "string"
+  ) {
+    throw new Error("Invalid saved reply response from server.");
+  }
+
+  return raw;
+}
+
+/** Liste les réponses enregistrées de l'utilisateur courant. */
+export async function listSavedReplies(): Promise<SavedReply[]> {
+  const data = await apiRequest<{ success?: boolean; replies?: SavedReply[] }>(
+    "/api/saved-replies",
+    { method: "GET" }
+  );
+  return data?.replies ?? [];
+}
+
+/** Crée une réponse enregistrée. */
+export async function createSavedReply(
+  name: string,
+  content: string
+): Promise<SavedReply> {
+  const data = await apiRequest<unknown>("/api/saved-replies", {
+    method: "POST",
+    body: JSON.stringify({ name, content }),
+  });
+  return parseSavedReplyResponse(data);
+}
+
+/** Met à jour une réponse enregistrée (l'`id` part dans le body). */
+export async function updateSavedReply(
+  id: string,
+  patch: { name: string; content: string }
+): Promise<SavedReply> {
+  const data = await apiRequest<unknown>("/api/saved-replies", {
+    method: "PUT",
+    body: JSON.stringify({ id, name: patch.name, content: patch.content }),
+  });
+  return parseSavedReplyResponse(data);
+}
+
+/** Supprime une réponse enregistrée. */
+export async function deleteSavedReply(id: string): Promise<void> {
+  await apiRequest(`/api/saved-replies?id=${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
+}

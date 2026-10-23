@@ -49,6 +49,12 @@ import {
   deleteTag,
   isDuplicateError,
   type Tag,
+  // ── Saved replies ──
+  listSavedReplies,
+  createSavedReply,
+  updateSavedReply,
+  deleteSavedReply,
+  type SavedReply,
 } from "../services/supabase";
 
 /* ── Tokens (classes complètes, compatibles Tailwind v3/v4) ── */
@@ -137,8 +143,6 @@ const LIGHT: Tokens = {
 
 const cx = (...parts: (string | false | null | undefined)[]) =>
   parts.filter(Boolean).join(" ");
-
-const uid = () => Math.random().toString(36).slice(2, 10);
 
 /* ── Icons ── */
 
@@ -3391,12 +3395,6 @@ function TagsSection({
 
 /* ── Utils · Saved replies ── */
 
-type SavedReply = {
-  id: string;
-  name: string;
-  content: string;
-};
-
 function SavedRepliesSection({
   tokens,
   notify,
@@ -3407,10 +3405,32 @@ function SavedRepliesSection({
   isDark: boolean;
 }) {
   const [replies, setReplies] = useState<SavedReply[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<SavedReply | null>(null);
   const [name, setName] = useState("");
   const [content, setContent] = useState("");
+
+  useEffect(() => {
+    let mounted = true;
+
+    (async () => {
+      try {
+        const data = await listSavedReplies();
+        if (mounted) setReplies(data);
+      } catch (e) {
+        console.error("Error loading saved replies:", e);
+        if (mounted) notify("Failed to load saved replies", "error");
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, [notify]);
 
   const openCreate = () => {
     setEditing(null);
@@ -3427,35 +3447,63 @@ function SavedRepliesSection({
   };
 
   const closeModal = () => {
+    if (busy) return;
     setModalOpen(false);
     setEditing(null);
   };
 
-  const handleSave = () => {
-    if (!name.trim() || !content.trim()) return;
+  const handleSave = async () => {
+    if (busy) return;
 
-    if (editing) {
-      setReplies((prev) =>
-        prev.map((r) =>
-          r.id === editing.id
-            ? { ...r, name: name.trim(), content: content.trim() }
-            : r
-        )
+    const cleanName = name.trim();
+    const cleanContent = content.trim();
+
+    if (!cleanName) return notify("Enter a name", "error");
+    if (!cleanContent) return notify("Enter the reply content", "error");
+
+    setBusy(true);
+
+    try {
+      if (editing) {
+        const updated = await updateSavedReply(editing.id, {
+          name: cleanName,
+          content: cleanContent,
+        });
+        setReplies((prev) =>
+          prev.map((r) => (r.id === updated.id ? updated : r))
+        );
+        notify("Saved reply updated");
+      } else {
+        const created = await createSavedReply(cleanName, cleanContent);
+        setReplies((prev) => [...prev, created]);
+        notify("Saved reply created");
+      }
+
+      setModalOpen(false);
+      setEditing(null);
+    } catch (e) {
+      console.error("Error saving saved reply:", e);
+      notify(
+        e instanceof Error ? e.message : "Failed to save reply",
+        "error"
       );
-      notify("Saved reply updated");
-    } else {
-      setReplies((prev) => [
-        ...prev,
-        { id: uid(), name: name.trim(), content: content.trim() },
-      ]);
-      notify("Saved reply created");
+    } finally {
+      setBusy(false);
     }
-    closeModal();
   };
 
-  const handleDelete = (id: string) => {
-    setReplies((prev) => prev.filter((r) => r.id !== id));
-    notify("Saved reply deleted");
+  const handleDelete = async (id: string) => {
+    const previous = replies;
+    setReplies((prev) => prev.filter((r) => r.id !== id)); // optimiste
+
+    try {
+      await deleteSavedReply(id);
+      notify("Saved reply deleted");
+    } catch (e) {
+      console.error("Error deleting saved reply:", e);
+      setReplies(previous); // rollback
+      notify("Failed to delete saved reply", "error");
+    }
   };
 
   const iconBtn = cx(
@@ -3473,7 +3521,13 @@ function SavedRepliesSection({
         Saved Replies are visible to everyone in your organization.
       </p>
 
-      {replies.length === 0 ? (
+      {loading ? (
+        <div className="animate-pulse space-y-2" aria-busy="true">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className={cx("h-16 rounded-[10px]", tokens.track)} />
+          ))}
+        </div>
+      ) : replies.length === 0 ? (
         <div className="flex flex-col items-center gap-5 py-16 text-center">
           <div
             className={cx(
@@ -3610,15 +3664,20 @@ function SavedRepliesSection({
               tokens.cardBorder
             )}
           >
-            <Button tokens={tokens} variant="secondary" onClick={closeModal}>
+            <Button
+              tokens={tokens}
+              variant="secondary"
+              onClick={closeModal}
+              disabled={busy}
+            >
               Cancel
             </Button>
             <Button
               tokens={tokens}
               onClick={handleSave}
-              disabled={!name.trim() || !content.trim()}
+              disabled={!name.trim() || !content.trim() || busy}
             >
-              {editing ? "Save changes" : "Save reply"}
+              {busy ? "Saving..." : editing ? "Save changes" : "Save reply"}
             </Button>
           </div>
         </div>
