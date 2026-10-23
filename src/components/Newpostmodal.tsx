@@ -3144,7 +3144,7 @@ export default function NewPostModal({
           "relative flex flex-col overflow-hidden border",
           isFullscreen
             ? "h-[96vh] w-[96vw] rounded-[28px]"
-            : "h-[88vh] w-full max-w-[1080px] rounded-[28px]",
+            : "h-[88vh] w-full max-w-[1400px] rounded-[28px]",
           bgModal,
           border,
           isDark ? "shadow-[0_32px_80px_rgba(0,0,0,0.6)]" : "shadow-[0_32px_80px_rgba(0,0,0,0.22)]",
