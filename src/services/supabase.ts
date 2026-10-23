@@ -102,6 +102,9 @@ export type Passkey = {
 /** Options WebAuthn renvoyées par le backend (JSON sérialisable). */
 type WebAuthnOptions = Record<string, unknown>;
 
+/** Tag (RLS backend : user_id rempli par default auth.uid()). */
+export type Tag = { id: string; label: string; color: string };
+
 // ============================================================
 // ERRORS
 // ============================================================
@@ -140,6 +143,13 @@ export class RateLimitError extends Error {
 export function isRateLimitError(error: unknown): error is RateLimitError {
   return error instanceof RateLimitError;
 }
+
+/** Erreur générique enrichie (code backend + status HTTP + payload). */
+type ApiErrorWithMeta = Error & {
+  code?: string;
+  status?: number;
+  data?: unknown;
+};
 
 // ============================================================
 // MFA PENDING (login en AAL1, challenge pas encore passé)
@@ -402,9 +412,22 @@ export async function apiRequest<T>(
       if (refreshed) return apiRequest<T>(endpoint, options, true);
     }
 
-    throw new Error(
+    // Erreur enrichie : conserve `code` (ex : 23505), `status` et `data`
+    // pour permettre aux callers (cf. isDuplicateError) de discriminer.
+    const err: ApiErrorWithMeta = new Error(
       bodyError ?? `Request failed with status ${response.status}`
     );
+    err.status = response.status;
+    err.data = data;
+    if (
+      typeof data === "object" &&
+      data !== null &&
+      "code" in data &&
+      typeof (data as { code?: unknown }).code === "string"
+    ) {
+      err.code = (data as { code: string }).code;
+    }
+    throw err;
   }
 
   return data as T;
@@ -1301,3 +1324,99 @@ export async function deletePasskey(id: string): Promise<void> {
     { method: "DELETE" }
   );
 }
+
+// ============================================================
+// TAGS
+// ============================================================
+//
+// `user_id` n'est JAMAIS envoyé : la colonne est remplie côté backend
+// par `default auth.uid()` et protégée par RLS. Le backend expose les
+// endpoints REST suivants :
+//
+//   GET    /api/tags                 → { success, tags: Tag[] }
+//   POST   /api/tags                 → { success, tag: Tag }
+//   PUT    /api/tags?id=<id>         → { success, tag: Tag }
+//   DELETE /api/tags?id=<id>         → { success }
+//
+// En cas de conflit d'unicité (label déjà pris pour cet utilisateur),
+// le backend renvoie soit `code: "23505"`, soit HTTP 409, soit un
+// message contenant "duplicate" / "already exists" / "unique" —
+// cf. `isDuplicateError`.
+
+/** Liste les tags de l'utilisateur courant (ordre chronologique côté backend). */
+export async function listTags(): Promise<Tag[]> {
+  const data = await apiRequest<{ success?: boolean; tags?: Tag[] } | Tag[]>(
+    "/api/tags",
+    { method: "GET" }
+  );
+
+  if (Array.isArray(data)) return data;
+  return data?.tags ?? [];
+}
+
+/**
+ * Crée un tag. `user_id` rempli automatiquement côté DB (default auth.uid()).
+ * Peut throw `isDuplicateError` si le label existe déjà pour cet utilisateur.
+ */
+export async function createTag(label: string, color: string): Promise<Tag> {
+  const data = await apiRequest<
+    ({ success?: boolean; tag?: Tag } & Partial<Tag>) | Tag
+  >("/api/tags", {
+    method: "POST",
+    body: JSON.stringify({ label, color }),
+  });
+
+  const tag = (data as { tag?: Tag })?.tag ?? (data as Tag);
+  if (!tag || typeof tag.id !== "string") {
+    throw new Error("Invalid tag response from server.");
+  }
+  return tag;
+}
+
+/**
+ * Met à jour un tag existant. `user_id` non modifiable (géré côté backend).
+ * Peut throw `isDuplicateError` si le nouveau label entre en conflit.
+ */
+export async function updateTag(
+  id: string,
+  patch: { label: string; color: string }
+): Promise<Tag> {
+  const data = await apiRequest<
+    ({ success?: boolean; tag?: Tag } & Partial<Tag>) | Tag
+  >(`/api/tags?id=${encodeURIComponent(id)}`, {
+    method: "PUT",
+    body: JSON.stringify(patch),
+  });
+
+  const tag = (data as { tag?: Tag })?.tag ?? (data as Tag);
+  if (!tag || typeof tag.id !== "string") {
+    throw new Error("Invalid tag response from server.");
+  }
+  return tag;
+}
+
+/** Supprime un tag. */
+export async function deleteTag(id: string): Promise<void> {
+  await apiRequest(`/api/tags?id=${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
+}
+
+/**
+ * Détecte une violation d'unicité côté backend.
+ * Reconnaît :
+ *   - code Postgres `23505` (unique_violation)
+ *   - status HTTP 409 (Conflict)
+ *   - message contenant duplicate / already exists / unique
+ */
+export const isDuplicateError = (e: unknown): boolean => {
+  if (typeof e === "object" && e !== null) {
+    const obj = e as { code?: unknown; status?: unknown };
+    if (obj.code === "23505") return true;
+    if (obj.status === 409) return true;
+  }
+  return (
+    e instanceof Error &&
+    /duplicate|already exists|unique/i.test(e.message)
+  );
+};

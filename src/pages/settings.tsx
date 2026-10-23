@@ -42,6 +42,13 @@ import {
   isWebAuthnSupported,
   verifyWithPasskey,
   type Passkey,
+  // ── Tags ──
+  listTags,
+  createTag,
+  updateTag,
+  deleteTag,
+  isDuplicateError,
+  type Tag,
 } from "../services/supabase";
 
 /* ── Tokens (classes complètes, compatibles Tailwind v3/v4) ── */
@@ -291,7 +298,6 @@ function usePref(key: string, initial: boolean) {
 
 /* ── UI de base ── */
 
-
 function Field({
   label,
   type = "text",
@@ -377,7 +383,6 @@ function Field({
     </label>
   );
 }
-
 
 function Toggle({
   checked,
@@ -1261,9 +1266,7 @@ function MfaChallengeModal({
   const [busy, setBusy] = useState(false);
   const [lockedUntil, setLockedUntil] = useState(0);
   const [now, setNow] = useState(() => Date.now());
-  // Le code a déjà été accepté : si l'action rejouée échoue, on ne redemande pas un code.
   const verified = useRef<{ remaining?: number } | null>(null);
-  // Empêche un double déclenchement du flux passkey (effet + clic).
   const passkeyStarted = useRef(false);
 
   useEffect(() => {
@@ -1292,7 +1295,7 @@ function MfaChallengeModal({
       ? TOTP_RE.test(code)
       : mode === "recovery"
       ? RECOVERY_RE.test(code)
-      : true; // passkey : pas de code à valider, le flux WebAuthn gère lui-même
+      : true;
   const ready = Boolean(verified.current) || valid;
 
   const submit = async () => {
@@ -1308,7 +1311,6 @@ function MfaChallengeModal({
     setError(null);
 
     try {
-      // Passkey : vérification via WebAuthn (aucun code à fournir).
       if (!verified.current && mode === "passkey") {
         await verifyWithPasskey();
         verified.current = {};
@@ -1354,7 +1356,6 @@ function MfaChallengeModal({
     }
   };
 
-  // Envoi automatique dès que les 6 chiffres sont saisis.
   useEffect(() => {
     if (mode === "totp" && code.length === 6 && !busy && waitLeft === 0) {
       void submit();
@@ -1362,7 +1363,6 @@ function MfaChallengeModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [code, mode]);
 
-  // Auto-déclenchement du flux passkey dès qu'on bascule dans ce mode.
   useEffect(() => {
     if (mode !== "passkey" || !gate) return;
     if (verified.current || busy) return;
@@ -1569,11 +1569,6 @@ function MfaChallengeModal({
   );
 }
 
-/**
- * Enveloppe une action protégée par AAL2. Si le backend répond
- * 403 MFA_REQUIRED, ouvre la modale de challenge, puis rejoue l'action.
- * Les autres erreurs sont relancées à l'appelant.
- */
 function useMfaGate({
   tokens,
   notify,
@@ -1681,7 +1676,6 @@ function RecoveryCodesDialog({
   return (
     <Modal
       open={!!codes}
-      // On ne peut pas fermer avant d'avoir confirmé : les codes ne sont affichés qu'une fois.
       onClose={() => {
         if (saved) onClose();
       }}
@@ -1853,8 +1847,6 @@ function AccountSection({
     const wasSetting = !hasPassword;
 
     try {
-      // Si le backend répond 403 MFA_REQUIRED, le garde ouvre la modale
-      // de challenge puis rejoue toute cette fonction anonyme.
       await guard(async () => {
         await updatePassword(currentPassword, newPassword);
         setCurrent("");
@@ -2114,7 +2106,6 @@ function MfaSection({
 
   const { guard, modal: mfaModal } = useMfaGate({ tokens, notify, isDark });
 
-  // Nettoyage d'un enrôlement abandonné (changement de section, démontage).
   const enrollmentRef = useRef<typeof enrollment>(null);
   useEffect(() => {
     enrollmentRef.current = enrollment;
@@ -2157,13 +2148,10 @@ function MfaSection({
       ? e.message
       : fallback;
 
-  /* ── Enrôlement ── */
-
   const handleStart = async () => {
     if (starting) return;
     setStarting(true);
     try {
-      // Ajouter un 2e authentificateur exige AAL2 : le garde gère le challenge.
       await guard(async () => {
         const data = await startMfaEnrollment();
         enrollmentRef.current = data;
@@ -2207,8 +2195,6 @@ function MfaSection({
       setEnrollment(null);
       setCode("");
 
-      // Premier authentificateur : on génère tout de suite les codes de secours
-      // (la session est en AAL2 grâce à confirmMfaEnrollment).
       let codes: string[] | null = null;
       if (isFirstFactor) {
         try {
@@ -2236,13 +2222,10 @@ function MfaSection({
     }
   };
 
-  // Envoi automatique à 6 chiffres.
   useEffect(() => {
     if (enrollment && code.length === 6 && !confirming) void handleConfirm();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [code]);
-
-  /* ── Désactivation ── */
 
   const handleDisable = async () => {
     const factorId = disableTarget;
@@ -2266,8 +2249,6 @@ function MfaSection({
     }
   };
 
-  /* ── Codes de secours ── */
-
   const handleRegenerate = async () => {
     if (regenerating) return;
 
@@ -2287,8 +2268,6 @@ function MfaSection({
       setRegenerating(false);
     }
   };
-
-  /* ── Passkeys ── */
 
   const handleAddPasskey = async (
     attachment: "platform" | "cross-platform"
@@ -2349,8 +2328,6 @@ function MfaSection({
       notify("Copy failed", "error");
     }
   };
-
-  /* ── Rendu ── */
 
   if (loading) {
     return (
@@ -2447,7 +2424,6 @@ function MfaSection({
 
   return (
     <>
-      {/* Passkeys & security keys — une seule carte, remplace « Security keys » + « Windows PIN » */}
       <SectionCard
         title="Passkeys & security keys"
         description="Verify with Windows Hello (PIN, fingerprint, face) or a hardware security key."
@@ -2656,7 +2632,6 @@ function MfaSection({
         </SectionCard>
       )}
 
-      {/* Confirmation : désactivation */}
       <Modal
         open={!!disableTarget}
         onClose={() => setDisableTarget(null)}
@@ -2680,7 +2655,6 @@ function MfaSection({
         </div>
       </Modal>
 
-      {/* Confirmation : régénération */}
       <Modal
         open={confirmRegen}
         onClose={() => setConfirmRegen(false)}
@@ -3060,15 +3034,6 @@ const TAG_COLORS = [
   "bg-[#171717]",
 ];
 
-type Tag = { id: string; label: string; color: string };
-
-const INITIAL_TAGS: Tag[] = [
-  { id: "vip", label: "VIP", color: TAG_COLORS[0] },
-  { id: "urgent", label: "Urgent", color: TAG_COLORS[1] },
-  { id: "bug", label: "Bug", color: TAG_COLORS[2] },
-  { id: "feature", label: "Feature", color: TAG_COLORS[3] },
-];
-
 function TagsSection({
   tokens,
   notify,
@@ -3078,13 +3043,33 @@ function TagsSection({
   notify: Notify;
   isDark: boolean;
 }) {
-  const [tags, setTags] = useState<Tag[]>(INITIAL_TAGS);
+  const [tags, setTags] = useState<Tag[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
   const [search, setSearch] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Tag | null>(null);
   const [draft, setDraft] = useState("");
   const [color, setColor] = useState(TAG_COLORS[0]);
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const data = await listTags();
+        if (mounted) setTags(data);
+      } catch (e) {
+        console.error("Error loading tags:", e);
+        if (mounted) notify("Failed to load tags", "error");
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [notify]);
 
   const filtered = tags.filter((t) =>
     t.label.toLowerCase().includes(search.trim().toLowerCase())
@@ -3109,40 +3094,72 @@ function TagsSection({
     setEditing(null);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    if (busy) return;
     const label = draft.trim();
     if (!label) return notify("Enter a tag name", "error");
 
     const duplicate = tags.some(
-      (t) => t.label.toLowerCase() === label.toLowerCase() && t.id !== editing?.id
+      (t) =>
+        t.label.toLowerCase() === label.toLowerCase() && t.id !== editing?.id
     );
     if (duplicate) return notify("Tag already exists", "error");
 
-    if (editing) {
-      setTags((prev) =>
-        prev.map((t) => (t.id === editing.id ? { ...t, label, color } : t))
+    setBusy(true);
+    try {
+      if (editing) {
+        const updated = await updateTag(editing.id, { label, color });
+        setTags((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
+        notify("Tag updated");
+      } else {
+        const created = await createTag(label, color);
+        setTags((prev) => [...prev, created]);
+        notify("Tag created");
+      }
+      closeModal();
+    } catch (e) {
+      console.error("Error saving tag:", e);
+      notify(
+        isDuplicateError(e)
+          ? "Tag already exists"
+          : e instanceof Error
+          ? e.message
+          : "Failed to save tag",
+        "error"
       );
-      notify("Tag updated");
-    } else {
-      setTags((prev) => [...prev, { id: uid(), label, color }]);
-      notify("Tag created");
+    } finally {
+      setBusy(false);
     }
-    closeModal();
   };
 
-  const handleDelete = (id: string) => {
-    setTags((prev) => prev.filter((t) => t.id !== id));
+  const handleDelete = async (id: string) => {
     setMenuOpenId(null);
-    notify("Tag deleted");
+    const previous = tags;
+    setTags((prev) => prev.filter((t) => t.id !== id)); // optimiste
+    try {
+      await deleteTag(id);
+      notify("Tag deleted");
+    } catch (e) {
+      console.error("Error deleting tag:", e);
+      setTags(previous); // rollback
+      notify("Failed to delete tag", "error");
+    }
   };
 
-  const duplicateTag = (tag: Tag) => {
-    setTags((prev) => [
-      ...prev,
-      { id: uid(), label: `${tag.label} copy`, color: tag.color },
-    ]);
+  const duplicateTag = async (tag: Tag) => {
     setMenuOpenId(null);
-    notify("Tag duplicated");
+    try {
+      const created = await createTag(`${tag.label} copy`, tag.color);
+      setTags((prev) => [...prev, created]);
+      notify("Tag duplicated");
+    } catch (e) {
+      notify(
+        isDuplicateError(e)
+          ? "A copy already exists"
+          : "Failed to duplicate tag",
+        "error"
+      );
+    }
   };
 
   const iconBtn = cx(
@@ -3196,7 +3213,13 @@ function TagsSection({
         />
       </div>
 
-      {filtered.length === 0 ? (
+      {loading ? (
+        <div className="animate-pulse space-y-2" aria-busy="true">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className={cx("h-12 rounded-[10px]", tokens.track)} />
+          ))}
+        </div>
+      ) : filtered.length === 0 ? (
         <div
           className={cx(
             "rounded-2xl border py-8 text-center text-[13px]",
@@ -3355,9 +3378,9 @@ function TagsSection({
             <Button
               tokens={tokens}
               onClick={handleSave}
-              disabled={!draft.trim()}
+              disabled={!draft.trim() || busy}
             >
-              {editing ? "Save changes" : "Create tag"}
+              {busy ? "Saving..." : editing ? "Save changes" : "Create tag"}
             </Button>
           </div>
         </div>
