@@ -37,12 +37,17 @@ import {
   getDropboxStatus,
   disconnectDropbox,
 } from "../services/dropbox";
-// ← Google Drive (modif. 1 : import)
 import {
   getGoogleDriveAuthUrl,
   getGoogleDriveStatus,
   disconnectGoogleDrive,
 } from "../services/googledrive";
+// ← Google Photos (modif. 1 : import du service)
+import {
+  getGooglePhotosAuthUrl,
+  getGooglePhotosStatus,
+  disconnectGooglePhotos,
+} from "../services/googlephotos";
 
 /** Route de cette page dans la sidebar (section Favorite). */
 const PAGE_ROUTE = "integrations";
@@ -254,6 +259,21 @@ function DisconnectIcon() {
   );
 }
 
+/**
+ * ← Google Photos (modif. 2 : icône définie ici pour que le fichier soit
+ * autonome). Tu peux la déplacer dans IntegrationIcons si tu préfères.
+ */
+function GooglePhotosIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} aria-hidden="true">
+      <path fill="#EA4335" d="M12 2a5 5 0 0 1 5 5v5h-5V2Z" />
+      <path fill="#4285F4" d="M22 12a5 5 0 0 1-5 5h-5v-5h10Z" />
+      <path fill="#34A853" d="M12 22a5 5 0 0 1-5-5v-5h5v10Z" />
+      <path fill="#FBBC04" d="M2 12a5 5 0 0 1 5-5h5v5H2Z" />
+    </svg>
+  );
+}
+
 /* ============================================================
    DATA
 ============================================================ */
@@ -276,6 +296,8 @@ const INTEGRATIONS: IntegrationCardData[] = [
   { title: "Dropbox", meta: "Stockage", body: "Connect and manage files from your Dropbox account", progress: 50 },
   { title: "Canva", meta: "Design", body: "Create and manage your designs from Canva", progress: 55 },
   { title: "Google Drive", meta: "Stockage", body: "Sync and manage your files from Google Drive", progress: 75 },
+  // ← Google Photos (modif. 3 : carte)
+  { title: "Google Photos", meta: "Photos", body: "Import photos and videos from Google Photos", progress: 55 },
   { title: "Gmail", meta: "Email", body: "Manage your emails and automate responses", progress: 80 },
   { title: "Google Calendar", meta: "Planning", body: "Sync your calendar and automate scheduling", progress: 65 },
 ];
@@ -291,6 +313,8 @@ const ICONS: Record<string, (props: { className?: string }) => JSX.Element | nul
   Dropbox: DropboxIcon,
   Canva: CanvaIcon,
   "Google Drive": GoogleDriveIcon,
+  // ← Google Photos (modif. 4 : icône)
+  "Google Photos": GooglePhotosIcon,
   Gmail: GmailIcon,
   "Google Calendar": GoogleCalendarIcon,
 };
@@ -304,7 +328,7 @@ const CONNECTED_THRESHOLD = 60;
    CARD
 ============================================================ */
 
-/** Connexion réelle à un service (Canva, Dropbox, Google Drive). */
+/** Connexion réelle à un service (Canva, Dropbox, Google Drive, Google Photos). */
 type ServiceConnection = {
   connected: boolean;
   busy: boolean;
@@ -546,11 +570,17 @@ export default function Integrations() {
   const [dropboxBusy, setDropboxBusy] = useState(false);
   const [dropboxError, setDropboxError] = useState<string | null>(null);
 
-  // ← Google Drive (modif. 2 : états)
   const [gdriveConnected, setGdriveConnected] = useState(false);
   const [gdriveBusy, setGdriveBusy] = useState(false);
   const [gdriveError, setGdriveError] = useState<string | null>(
     () => new URLSearchParams(window.location.search).get("gdrive_error")
+  );
+
+  // ← Google Photos (modif. 5 : états)
+  const [gphotosConnected, setGphotosConnected] = useState(false);
+  const [gphotosBusy, setGphotosBusy] = useState(false);
+  const [gphotosError, setGphotosError] = useState<string | null>(
+    () => new URLSearchParams(window.location.search).get("gphotos_error")
   );
 
   useEffect(() => {
@@ -599,7 +629,6 @@ export default function Integrations() {
     };
   }, []);
 
-  // ← Google Drive (modif. 3 : vérification du statut au chargement)
   useEffect(() => {
     let active = true;
 
@@ -613,6 +642,29 @@ export default function Integrations() {
             error instanceof Error
               ? error.message
               : "Impossible de vérifier la connexion Google Drive."
+          );
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  // ← Google Photos (modif. 6 : vérification du statut au chargement)
+  useEffect(() => {
+    let active = true;
+
+    getGooglePhotosStatus()
+      .then((status) => {
+        if (active) setGphotosConnected(status.connected);
+      })
+      .catch((error: unknown) => {
+        if (active) {
+          setGphotosError(
+            error instanceof Error
+              ? error.message
+              : "Impossible de vérifier la connexion Google Photos."
           );
         }
       });
@@ -652,8 +704,9 @@ export default function Integrations() {
         let isConnected: boolean;
         if (item.title === "Canva") isConnected = canvaConnected;
         else if (item.title === "Dropbox") isConnected = dropboxConnected;
-        // ← Google Drive (modif. 4 : branche + dépendance dans useMemo)
         else if (item.title === "Google Drive") isConnected = gdriveConnected;
+        // ← Google Photos (modif. 7 : branche + dépendance dans useMemo)
+        else if (item.title === "Google Photos") isConnected = gphotosConnected;
         else isConnected = item.progress >= CONNECTED_THRESHOLD;
 
         const matchesFilter =
@@ -662,7 +715,14 @@ export default function Integrations() {
 
         return matchesQuery && matchesFilter;
       }),
-    [needle, filter, canvaConnected, dropboxConnected, gdriveConnected]
+    [
+      needle,
+      filter,
+      canvaConnected,
+      dropboxConnected,
+      gdriveConnected,
+      gphotosConnected,
+    ]
   );
 
   const hasActiveFilters = needle.length > 0 || filter !== "Toutes";
@@ -827,7 +887,6 @@ export default function Integrations() {
     }
   };
 
-  // ← Google Drive (modif. 5 : handlers)
   const handleGDriveDisconnect = async () => {
     if (gdriveBusy) return;
 
@@ -876,6 +935,55 @@ export default function Integrations() {
     }
   };
 
+  // ← Google Photos (modif. 8 : handlers)
+  const handleGPhotosDisconnect = async () => {
+    if (gphotosBusy) return;
+
+    setGphotosError(null);
+    setGphotosBusy(true);
+
+    try {
+      await disconnectGooglePhotos();
+      setGphotosConnected(false);
+    } catch (error) {
+      setGphotosError(
+        error instanceof Error
+          ? error.message
+          : "Impossible de déconnecter Google Photos. Réessayez."
+      );
+    } finally {
+      setGphotosBusy(false);
+    }
+  };
+
+  const handleGPhotosConnect = async () => {
+    if (gphotosBusy) return;
+
+    setGphotosError(null);
+    setGphotosBusy(true);
+
+    try {
+      const { url } = await getGooglePhotosAuthUrl();
+      const authUrl = new URL(url);
+
+      if (
+        authUrl.protocol !== "https:" ||
+        authUrl.hostname.toLowerCase() !== "accounts.google.com"
+      ) {
+        throw new Error("Le backend a renvoyé une URL Google invalide.");
+      }
+
+      window.location.assign(authUrl.toString());
+    } catch (error) {
+      setGphotosError(
+        error instanceof Error
+          ? error.message
+          : "Impossible de démarrer la connexion Google Photos. Réessayez."
+      );
+      setGphotosBusy(false);
+    }
+  };
+
   const services: Record<string, ServiceConnection> = {
     Canva: {
       connected: canvaConnected,
@@ -893,7 +1001,6 @@ export default function Integrations() {
       onReconnect: () => handleDropboxConnect(true),
       onDisconnect: handleDropboxDisconnect,
     },
-    // ← Google Drive (modif. 6 : entrée dans services)
     // Le backend force déjà prompt=consent, donc « Reconnect » repasse
     // simplement par l'écran d'autorisation Google.
     "Google Drive": {
@@ -903,6 +1010,15 @@ export default function Integrations() {
       onConnect: handleGDriveConnect,
       onReconnect: handleGDriveConnect,
       onDisconnect: handleGDriveDisconnect,
+    },
+    // ← Google Photos (modif. 9 : entrée dans services)
+    "Google Photos": {
+      connected: gphotosConnected,
+      busy: gphotosBusy,
+      error: gphotosError,
+      onConnect: handleGPhotosConnect,
+      onReconnect: handleGPhotosConnect,
+      onDisconnect: handleGPhotosDisconnect,
     },
   };
 

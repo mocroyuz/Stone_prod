@@ -9,6 +9,7 @@ import {
 import {
   XIcon, FacebookIcon, InstagramIcon, LinkedInIcon,
   TikTokIcon, YouTubeIcon, PinterestIcon, ThreadsIcon,
+  GoogleDriveIcon as IntegrationGoogleDriveIcon,
 } from "./IntegrationIcons";
 import { CalendarPicker } from "./CalendarPicker";
 import { TimePicker } from "./TimePicker";
@@ -1002,16 +1003,6 @@ function DropboxIcon({ className }: SourceIconProps) {
   );
 }
 
-function GoogleDriveIcon({ className }: SourceIconProps) {
-  return (
-    <svg viewBox="0 0 24 24" className={className} fill="currentColor" aria-hidden="true">
-      <path d="M8 3 2 13.5l3.5 6L11.5 9z" />
-      <path d="M8.5 3h7L22 13.5h-7z" />
-      <path d="M9 14.5h13l-3.5 6h-13z" />
-    </svg>
-  );
-}
-
 function GooglePhotosIcon({ className }: SourceIconProps) {
   return (
     <svg viewBox="0 0 24 24" className={className} fill="currentColor" aria-hidden="true">
@@ -1050,7 +1041,7 @@ const MEDIA_SOURCES: {
 }[] = [
   { id: "canva", label: "Canva", Icon: CanvaIcon, submenu: true },
   { id: "dropbox", label: "Dropbox", Icon: DropboxIcon },
-  { id: "google_drive", label: "Google Drive", Icon: GoogleDriveIcon },
+  { id: "google_drive", label: "Google Drive", Icon: IntegrationGoogleDriveIcon },
   { id: "google_photos", label: "Google Photos", Icon: GooglePhotosIcon },
   { id: "onedrive", label: "OneDrive", Icon: OneDriveIcon },
   { id: "unsplash", label: "Unsplash", Icon: UnsplashIcon },
@@ -4096,7 +4087,7 @@ export default function NewPostModal({
               ].join(" ")}
             >
               <header className={["flex items-center gap-3 border-b px-5 py-4", border].join(" ")}>
-                <GoogleDriveIcon className="h-6 w-6 shrink-0 text-[#34a853]" />
+                <IntegrationGoogleDriveIcon className="h-6 w-6 shrink-0" />
                 <div className="min-w-0 flex-1">
                   <h2 id="google-drive-picker-title" className={["text-[15px] font-semibold", textPrimary].join(" ")}>
                     Add from Google Drive
@@ -4117,7 +4108,7 @@ export default function NewPostModal({
 
               {googleDriveNeedsConnection ? (
                 <div className="flex flex-col items-center px-6 py-12 text-center">
-                  <GoogleDriveIcon className="h-10 w-10 text-[#34a853]" />
+                  <IntegrationGoogleDriveIcon className="h-10 w-10" />
                   <p className={["mt-4 text-[14px] font-semibold", textPrimary].join(" ")}>
                     Connect your Google Drive account
                   </p>
