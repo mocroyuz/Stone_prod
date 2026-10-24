@@ -634,7 +634,7 @@ export async function getGoogleAuthUrl(redirectTo?: string): Promise<string> {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      redirectTo: redirectTo || `${window.location.origin}/`,
+      redirectTo: redirectTo || `${window.location.origin}/home`,
     }),
   });
 
@@ -655,7 +655,7 @@ export async function getGithubAuthUrl(redirectTo?: string): Promise<string> {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      redirectTo: redirectTo || `${window.location.origin}/`,
+      redirectTo: redirectTo || `${window.location.origin}/home`,
     }),
   });
 
