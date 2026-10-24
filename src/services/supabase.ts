@@ -109,6 +109,9 @@ type WebAuthnOptions = Record<string, unknown>;
  */
 export type Tag = { id: string; label: string; color: string };
 
+/** Résultat de la consommation d'un retour OAuth (Google / GitHub). */
+export type OAuthRedirectResult = "none" | "ready" | "mfa" | "error";
+
 // ============================================================
 // ERRORS
 // ============================================================
@@ -628,21 +631,49 @@ export async function resetPassword(
 // ============================================================
 // OAUTH (Google / GitHub)
 // ============================================================
+//
+// Flux :
+//   1. signInWithGoogle/Github → le backend renvoie l'URL Supabase.
+//   2. Le navigateur part chez le provider, puis revient sur la RACINE
+//      du site avec les tokens dans le hash :
+//        https://site/#access_token=…&refresh_token=…
+//      (on redirige vers la racine, pas vers "/home" : l'app utilise un
+//      routage par hash, "/home" n'est pas une route et doit en plus
+//      figurer dans les Redirect URLs de Supabase.)
+//   3. Au démarrage de l'app, consumeOAuthRedirect() lit ces tokens, les
+//      stocke, nettoie l'URL et indique si un code 2FA est requis.
+//      L'appelant (UserContext) charge alors l'utilisateur et navigue
+//      vers "home".
 
-export async function getGoogleAuthUrl(redirectTo?: string): Promise<string> {
-  const response = await fetch(`${API_BASE_URL}/api/auth/google/url`, {
+/** URL de retour OAuth : la racine du site. */
+function defaultOAuthRedirect(): string {
+  return `${window.location.origin}/`;
+}
+
+async function requestOAuthUrl(
+  provider: "google" | "github",
+  redirectTo?: string
+): Promise<string> {
+  const response = await fetch(`${API_BASE_URL}/api/auth/${provider}/url`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      redirectTo: redirectTo || `${window.location.origin}/home`,
+      redirectTo: redirectTo || defaultOAuthRedirect(),
     }),
   });
 
   const data = await response.json().catch(() => null);
   if (!response.ok || !data?.success || !data?.url) {
-    throw new Error(data?.error || "Could not start Google sign-in");
+    throw new Error(
+      data?.error ||
+        `Could not start ${provider === "google" ? "Google" : "GitHub"} sign-in`
+    );
   }
   return data.url as string;
+}
+
+export function getGoogleAuthUrl(redirectTo?: string): Promise<string> {
+  return requestOAuthUrl("google", redirectTo);
 }
 
 export async function signInWithGoogle(redirectTo?: string): Promise<void> {
@@ -650,20 +681,8 @@ export async function signInWithGoogle(redirectTo?: string): Promise<void> {
   window.location.href = url;
 }
 
-export async function getGithubAuthUrl(redirectTo?: string): Promise<string> {
-  const response = await fetch(`${API_BASE_URL}/api/auth/github/url`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      redirectTo: redirectTo || `${window.location.origin}/home`,
-    }),
-  });
-
-  const data = await response.json().catch(() => null);
-  if (!response.ok || !data?.success || !data?.url) {
-    throw new Error(data?.error || "Could not start GitHub sign-in");
-  }
-  return data.url as string;
+export function getGithubAuthUrl(redirectTo?: string): Promise<string> {
+  return requestOAuthUrl("github", redirectTo);
 }
 
 export async function signInWithGithub(redirectTo?: string): Promise<void> {
@@ -684,6 +703,66 @@ export async function saveOAuthSession(
   setMfaPending(true);
   const pending = await refreshMfaPending();
   return pending;
+}
+
+// Mémoïsé : survit au double-montage de React StrictMode (dev) et évite
+// que deux appels se disputent le même hash.
+let oauthRedirectPromise: Promise<OAuthRedirectResult> | null = null;
+
+/**
+ * À appeler UNE FOIS au démarrage de l'app, AVANT getCurrentUser().
+ *
+ * Détecte `#access_token=…&refresh_token=…` au retour de Google/GitHub,
+ * stocke la session, nettoie l'URL (les tokens ne restent pas dans
+ * l'historique) et renvoie :
+ *   - "none"  : pas de retour OAuth dans l'URL (cas normal)
+ *   - "ready" : session OAuth stockée, utilisateur connecté
+ *   - "mfa"   : session stockée mais un code 2FA est requis
+ *   - "error" : le provider ou Supabase a renvoyé une erreur
+ */
+export function consumeOAuthRedirect(): Promise<OAuthRedirectResult> {
+  if (typeof window === "undefined") return Promise.resolve("none");
+  if (oauthRedirectPromise) return oauthRedirectPromise;
+
+  const hash = window.location.hash;
+  const idx = hash.indexOf("access_token=");
+  if (idx === -1) return Promise.resolve("none");
+
+  // Tolère un "#/route?access_token=…" comme un "#access_token=…"
+  const params = new URLSearchParams(hash.slice(idx));
+  const accessToken = params.get("access_token");
+  const refreshToken = params.get("refresh_token");
+
+  // Laisse le flux "mot de passe oublié" à son propre handler.
+  if (params.get("type") === "recovery") return Promise.resolve("none");
+
+  const cleanUrl = () =>
+    window.history.replaceState(
+      null,
+      "",
+      window.location.pathname + window.location.search
+    );
+
+  if (!accessToken || !refreshToken) {
+    cleanUrl();
+    return Promise.resolve("error");
+  }
+
+  // Nettoie l'URL tout de suite : les tokens ne doivent pas rester visibles.
+  cleanUrl();
+
+  oauthRedirectPromise = (async (): Promise<OAuthRedirectResult> => {
+    try {
+      const pending = await saveOAuthSession(accessToken, refreshToken);
+      return pending ? "mfa" : "ready";
+    } catch (error) {
+      console.error("OAuth redirect handling failed:", error);
+      clearSession();
+      return "error";
+    }
+  })();
+
+  return oauthRedirectPromise;
 }
 
 // ============================================================
@@ -1102,7 +1181,7 @@ export async function verifyMfaLogin(
 // RECOVERY CODES (codes de secours)
 // ============================================================
 //
-// Contrat backend attendu :
+// Contrat backend :
 //
 //   GET  /api/mfa/recovery-codes          → { success, remaining, generatedAt }
 //   POST /api/mfa/recovery-codes          → { success, codes: string[] }   (requireAal2)
@@ -1181,7 +1260,7 @@ export async function verifyRecoveryCode(
 // PASSKEYS (WebAuthn)
 // ============================================================
 //
-// Contrat backend attendu :
+// Contrat backend :
 //
 //   GET    /api/mfa/passkeys                          → { passkeys: Passkey[] }
 //   POST   /api/mfa/passkeys/register/options         → { options }
@@ -1248,7 +1327,7 @@ export async function registerPasskey(
   }
 
   // 2. Cérémonie côté navigateur (peut throw si l'utilisateur annule).
-  const attestation = await startRegistration({ optionsJSON: optRes.options });
+  const attestation = await startRegistration({ optionsJSON: optRes.options as any });
 
   // 3. Vérification côté backend + enregistrement du credential.
   const verifyRes = await apiRequest<{
@@ -1271,8 +1350,7 @@ export async function registerPasskey(
  *     "Utiliser une passkey" — l'AAL2 est alors obtenu sans TOTP.
  *   - Challenge avant action sensible : au lieu de saisir un code TOTP.
  *
- * Peut throw MfaRequiredError (si le backend exige AAL2 avant même
- * de démarrer — peu probable ici), RateLimitError, ou une erreur
+ * Peut throw MfaRequiredError, RateLimitError, ou une erreur
  * WebAuthn standard (NotAllowedError si l'utilisateur annule).
  */
 export async function verifyWithPasskey(): Promise<void> {
@@ -1291,7 +1369,7 @@ export async function verifyWithPasskey(): Promise<void> {
   }
 
   // 2. Cérémonie côté navigateur.
-  const assertion = await startAuthentication({ optionsJSON: optRes.options });
+  const assertion = await startAuthentication({ optionsJSON: optRes.options as any });
 
   // 3. Vérification côté backend + session AAL2.
   const verifyRes = await apiRequest<{

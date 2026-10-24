@@ -7,7 +7,12 @@ import {
   type ReactNode,
 } from "react";
 
-import { getCurrentUser, type UserProfile } from "../services/supabase";
+import { navigate } from "../hooks/useHashRoute";
+import {
+  getCurrentUser,
+  consumeOAuthRedirect,
+  type UserProfile,
+} from "../services/supabase";
 
 interface UserContextType {
   user: UserProfile | null;
@@ -49,17 +54,29 @@ export function UserProvider({ children }: { children: ReactNode }) {
 
   /**
    * Vérification initiale de la session au démarrage.
+   *
+   * IMPORTANT : `consumeOAuthRedirect()` doit être appelé AVANT
+   * `getCurrentUser()` afin de traiter un éventuel retour OAuth
+   * (échange du code PKCE, pose des tokens, nettoyage de l'URL).
    */
   useEffect(() => {
     let mounted = true;
 
     const initializeAuth = async () => {
       try {
+        const oauth = await consumeOAuthRedirect(); // ← AVANT getCurrentUser
         const userData = await getCurrentUser();
 
-        if (mounted) {
-          setUser(userData);
+        if (!mounted) return;
+
+        setUser(userData);
+
+        if (oauth === "ready" && userData) {
+          navigate("home"); // ← redirection directe post-login OAuth
         }
+        // oauth === "mfa" : getCurrentUser() renvoie null tant que le MFA est
+        // en attente ; envoie ici vers ton écran de challenge 2FA
+        // (ex : navigate("signin")) selon ta logique actuelle.
       } catch (error) {
         console.error("Error initializing authentication:", error);
 
