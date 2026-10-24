@@ -1,4 +1,3 @@
-
 import {
   useCallback,
   useEffect,
@@ -502,7 +501,7 @@ export default function PricingSection() {
                   className={[
                     "relative flex flex-col rounded-[28px] bg-white p-2.5 dark:bg-[#0b0b0d]",
                     isFeatured
-                      ? "ring-1 ring-[#b9b8dd] shadow-[0_24px_60px_-24px_rgba(65,65,120,0.28)] dark:ring-[#46446f]"
+                      ? "border border-neutral-200 shadow-[0_24px_60px_-24px_rgba(0,0,0,0.22)] dark:border-white/[0.08] dark:shadow-[0_24px_60px_-24px_rgba(0,0,0,0.6)]"
                       : "border border-neutral-200 shadow-[0_16px_40px_-28px_rgba(0,0,0,0.2)] dark:border-white/[0.08]",
                   ].join(" ")}
                 >
