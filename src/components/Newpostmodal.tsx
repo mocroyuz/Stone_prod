@@ -1457,6 +1457,12 @@ export default function NewPostModal({
   const [pendingDraft, setPendingDraft] = useState<DraftData | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitProgress, setSubmitProgress] = useState<string | null>(null);
+  /** Résultat YouTube affiché à l'utilisateur au lieu de fermer le modal en silence. */
+  const [youtubeResult, setYoutubeResult] = useState<{
+    url: string;
+    message: string;
+    warning: boolean;
+  } | null>(null);
 
   const [activeEmojiNetwork, setActiveEmojiNetwork] = useState<string | null>(null);
   const [collapsedCards, setCollapsedCards] = useState<Record<string, boolean>>({});
@@ -1823,6 +1829,7 @@ export default function NewPostModal({
     setEditingItem(null);
     setSubmitError(null);
     setSubmitProgress(null);
+    setYoutubeResult(null);
     setActiveEmojiNetwork(null);
     setShowSourceMenu(null);
     setCanvaBusy(null);
@@ -1876,6 +1883,12 @@ export default function NewPostModal({
 
   const closeWithDraft = () => {
     if (isSubmitting) return;
+
+    // Le post vient d'être envoyé : inutile d'en garder un brouillon.
+    if (youtubeResult) {
+      discardAndClose();
+      return;
+    }
 
     // Si le dialogue « Resume / Start fresh » est encore affiché et que
     // l'utilisateur ferme sans choisir : on conserve le brouillon tel quel.
@@ -2824,6 +2837,8 @@ export default function NewPostModal({
         setNetworks((prev) => prev.filter((n) => n !== "tiktok"));
       }
 
+      let youtubeOutcome: { url: string; message: string; warning: boolean } | null = null;
+
       if (youtubeNow) {
         const youtubeVideo = mediaFor("youtube").find((m) => m.kind === "video")?.file;
         if (!youtubeVideo) throw new Error("YouTube Shorts needs a video.");
@@ -2858,10 +2873,15 @@ export default function NewPostModal({
             scheduleAction === "set_date" ? scheduledAt.toISOString() : null,
         });
 
-        if (result.privacy_locked) {
-          // Projet API non audité : YouTube force la vidéo en privé.
-          console.warn("YouTube a verrouillé la vidéo en privé :", result.url);
-        }
+        youtubeOutcome = {
+          url: result.url,
+          warning: result.privacy_locked,
+          message: result.privacy_locked
+            ? "Video uploaded to YouTube, but YouTube forced it to private (your API project hasn't passed the YouTube audit yet)."
+            : scheduleAction === "set_date"
+            ? "Video uploaded and scheduled on YouTube."
+            : "Video uploaded to YouTube. It can take a few minutes to appear as a Short.",
+        };
 
         // YouTube est déjà parti : on le retire pour ne pas le renvoyer en cas de nouvel essai.
         setNetworks((prev) => prev.filter((n) => n !== "youtube"));
@@ -2872,6 +2892,14 @@ export default function NewPostModal({
         scheduleAction === "save_in_folder"
       ) {
         await onSubmit(payload);
+      }
+
+      if (youtubeOutcome) {
+        // On reste ouvert pour que l'utilisateur voie le résultat (lien, vidéo privée…).
+        setYoutubeResult(youtubeOutcome);
+        setSubmitProgress(null);
+        setIsSubmitting(false);
+        return;
       }
 
       discardAndClose();
@@ -3872,6 +3900,45 @@ export default function NewPostModal({
             </div>
           </aside>
         </div>
+
+        {/* ── Résultat YouTube ── */}
+        {youtubeResult && (
+          <div
+            role="status"
+            className={[
+              "flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-t px-6 py-3 text-[13px]",
+              border,
+              youtubeResult.warning
+                ? isDark ? "bg-amber-500/10 text-amber-300" : "bg-amber-50 text-amber-800"
+                : `${bgPanel} ${textPrimary}`,
+            ].join(" ")}
+          >
+            <Info className="h-4 w-4 shrink-0" />
+            <span className="min-w-0 flex-1">{youtubeResult.message}</span>
+            <a
+              href={youtubeResult.url}
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center gap-1.5 font-semibold underline underline-offset-2"
+            >
+              <ExternalLink className="h-3.5 w-3.5" />
+              Open on YouTube
+            </a>
+            <button
+              type="button"
+              onClick={() => {
+                setYoutubeResult(null);
+                discardAndClose();
+              }}
+              className={[
+                "rounded-lg px-3 py-1.5 text-[12.5px] font-semibold transition",
+                isDark ? "bg-white text-[#141416] hover:bg-neutral-200" : "bg-neutral-900 text-white hover:bg-neutral-800",
+              ].join(" ")}
+            >
+              Done
+            </button>
+          </div>
+        )}
 
         {/* ── Statut de publication ── */}
         {(submitProgress || submitError) && (
