@@ -32,10 +32,10 @@ import {
   publishToTikTok,
   publishPhotosToTikTok,
   waitForTikTokPublish,
-  type TikTokCapabilities,
   type TikTokCreatorInfo,
   type TikTokPostOptions,
 } from "../services/tiktok";
+import { publishToYouTube } from "../services/youtube";
 import {
   CANVA_SIZES,
   CanvaError,
@@ -1519,11 +1519,10 @@ export default function NewPostModal({
   );
 
   // ── TikTok ──
-  const [tiktokInfo, setTiktokInfo] = useState<
-    (TikTokCreatorInfo & { capabilities?: TikTokCapabilities }) | null
-  >(null);
+  const [tiktokInfo, setTiktokInfo] = useState<TikTokCreatorInfo | null>(null);
   const [tiktokInfoError, setTiktokInfoError] = useState<string | null>(null);
   const [tiktokInfoAttempt, setTiktokInfoAttempt] = useState(0);
+  // Brouillon par défaut : l'app TikTok est en sandbox (voir `tiktokDraftOnly`).
   const [tiktokMode, setTiktokMode] = useState<"direct" | "draft">("draft");
   const [tiktokOptions, setTiktokOptions] = useState<TikTokPostOptions>(
     TIKTOK_DEFAULT_OPTIONS
@@ -1532,12 +1531,6 @@ export default function NewPostModal({
   const [tiktokCommercial, setTiktokCommercial] = useState<TikTokCommercial>(
     TIKTOK_DEFAULT_COMMERCIAL
   );
-
-  // Mode forcé brouillon tant qu'on ne sait pas si l'app peut publier
-  // directement (sandbox / non audité). Par sécurité on force "draft".
-  const tiktokDraftOnly = tiktokInfo?.capabilities
-    ? !tiktokInfo.capabilities.can_direct_post
-    : true;
 
   const tiktokSelected = networks.includes("tiktok");
   const youtubeSelected = networks.includes("youtube");
@@ -1548,6 +1541,16 @@ export default function NewPostModal({
     if (tiktokInfoError || tiktokInfo) return TIKTOK_FALLBACK_PRIVACY;
     return [];
   }, [tiktokInfo, tiktokInfoError]);
+
+  // Tant que le backend n'annonce pas explicitement `can_direct_post`
+  // (app auditée + pas de FORCE_DRAFT), on n'autorise que le brouillon.
+  const tiktokDraftOnly = tiktokInfo?.capabilities
+    ? !tiktokInfo.capabilities.can_direct_post
+    : true;
+
+  useEffect(() => {
+    if (tiktokDraftOnly && tiktokMode !== "draft") setTiktokMode("draft");
+  }, [tiktokDraftOnly, tiktokMode]);
 
   const connectedChannels = useConnectedChannels();
   useNewPostShortcut(() => onRequestOpen?.(), !isOpen && Boolean(onRequestOpen));
@@ -1767,13 +1770,6 @@ export default function NewPostModal({
       cancelled = true;
     };
   }, [isOpen, tiktokSelected, tiktokInfo, tiktokInfoAttempt]);
-
-  // Force le mode brouillon quand l'app TikTok ne peut pas publier en direct
-  // (sandbox / non auditée). On ne revient jamais en "direct" automatiquement :
-  // l'utilisateur peut toujours basculer manuellement après chargement des capas.
-  useEffect(() => {
-    if (tiktokDraftOnly && tiktokMode !== "draft") setTiktokMode("draft");
-  }, [tiktokDraftOnly, tiktokMode]);
 
   if (!isOpen) return null;
 
@@ -2662,10 +2658,14 @@ export default function NewPostModal({
     youtubeOptions.title.trim() || youtubeFallbackTitle
   ).slice(0, YOUTUBE_TITLE_MAX);
 
+  const youtubeHasVideo = mediaFor("youtube").some((m) => m.kind === "video");
+
   const youtubeBlockingReason: string | null = !youtubeSelected
     ? null
     : scheduleAction === "save_in_folder"
     ? null
+    : !youtubeHasVideo
+    ? "YouTube Shorts needs a video."
     : !youtubeEffectiveTitle
     ? "Add a title for your YouTube Shorts video."
     : null;
@@ -2711,9 +2711,10 @@ export default function NewPostModal({
     );
 
     const tiktokNow = tiktokSelected && scheduleAction === "now";
-    const remainingNetworks = tiktokNow
-      ? networks.filter((n) => n !== "tiktok")
-      : networks;
+    const youtubeNow = youtubeSelected && scheduleAction !== "save_in_folder";
+    const remainingNetworks = networks.filter(
+      (n) => !(n === "tiktok" && tiktokNow) && !(n === "youtube" && youtubeNow)
+    );
 
     const mediaByNetwork: Partial<Record<SocialNetworkId, File[]>> = {};
     remainingNetworks.forEach((n) => {
@@ -2821,6 +2822,49 @@ export default function NewPostModal({
 
         // TikTok est déjà parti : on le retire pour ne pas le renvoyer en cas de nouvel essai.
         setNetworks((prev) => prev.filter((n) => n !== "tiktok"));
+      }
+
+      if (youtubeNow) {
+        const youtubeVideo = mediaFor("youtube").find((m) => m.kind === "video")?.file;
+        if (!youtubeVideo) throw new Error("YouTube Shorts needs a video.");
+
+        // Un Short dure 3 minutes maximum.
+        const duration = await getVideoDuration(youtubeVideo);
+        if (duration > 180) {
+          throw new Error("A YouTube Short can't be longer than 3 minutes.");
+        }
+
+        // `#Shorts` aide YouTube à classer la vidéo dans les Shorts.
+        let description = (resolved["youtube"] ?? "").trim();
+        if (!/#shorts\b/i.test(`${youtubeEffectiveTitle} ${description}`)) {
+          description = `${description}\n\n#Shorts`.trim();
+        }
+
+        setSubmitProgress(
+          scheduleAction === "set_date"
+            ? "Uploading video and scheduling on YouTube…"
+            : "Uploading video to YouTube…"
+        );
+
+        const result = await publishToYouTube({
+          video: youtubeVideo,
+          title: youtubeEffectiveTitle,
+          description,
+          categoryId: youtubeOptions.categoryId,
+          visibility: youtubeOptions.visibility,
+          madeForKids: youtubeOptions.madeForKids,
+          tags: extractedHashtags.filter((t) => t.toLowerCase() !== "shorts"),
+          publishAt:
+            scheduleAction === "set_date" ? scheduledAt.toISOString() : null,
+        });
+
+        if (result.privacy_locked) {
+          // Projet API non audité : YouTube force la vidéo en privé.
+          console.warn("YouTube a verrouillé la vidéo en privé :", result.url);
+        }
+
+        // YouTube est déjà parti : on le retire pour ne pas le renvoyer en cas de nouvel essai.
+        setNetworks((prev) => prev.filter((n) => n !== "youtube"));
       }
 
       if (
@@ -3660,16 +3704,16 @@ export default function NewPostModal({
                                     </button>
                                   ))}
                                 </div>
-                                {tiktokDraftOnly && (
-                                  <p className={["mt-1.5 text-[12px]", textSecondary].join(" ")}>
-                                    Your TikTok app is in sandbox mode: posts are sent to your TikTok inbox as drafts.
-                                  </p>
-                                )}
                                 <p className={["mt-1.5 text-[12px]", textSecondary].join(" ")}>
                                   {tiktokMode === "direct"
                                     ? "Goes live on your profile as soon as TikTok has processed it."
                                     : "Lands in your TikTok inbox so you can finish it in the app."}
                                 </p>
+                                {tiktokDraftOnly && (
+                                  <p className={["mt-1 text-[12px]", textSecondary].join(" ")}>
+                                    Your TikTok app is in sandbox mode: posts are sent to your TikTok inbox as drafts.
+                                  </p>
+                                )}
                               </div>
 
                               {tiktokMode === "direct" && (

@@ -80,3 +80,60 @@ export async function completeYouTubeLogin(
 export async function disconnectYouTube(): Promise<void> {
   await apiRequest("/api/youtube/disconnect", { method: "DELETE" });
 }
+
+// ── Publication ──────────────────────────────────────────────
+
+export type YouTubeVisibilityLevel = "public" | "unlisted" | "private";
+
+export interface YouTubePublishParams {
+  video: File;
+  title: string;
+  description: string;
+  categoryId: string;
+  visibility: YouTubeVisibilityLevel;
+  madeForKids: boolean;
+  tags?: string[];
+  /** Date ISO de publication programmée (la vidéo est alors envoyée en privé). */
+  publishAt?: string | null;
+}
+
+export interface YouTubePublishResult {
+  success?: boolean;
+  video_id: string;
+  url: string;
+  privacy_status: string | null;
+  requested_privacy: string;
+  publish_at: string | null;
+  upload_status: string | null;
+  /**
+   * true si la vidéo a été demandée publique/non répertoriée mais que
+   * YouTube l'a forcée en privé (projet API non audité).
+   */
+  privacy_locked: boolean;
+}
+
+/**
+ * Envoie une vidéo vers POST /api/youtube/publish.
+ * YouTube classe automatiquement la vidéo en Short si elle est verticale
+ * (ou carrée) et dure moins de 3 minutes.
+ */
+export async function publishToYouTube(
+  params: YouTubePublishParams
+): Promise<YouTubePublishResult> {
+  const form = new FormData();
+  form.append("title", params.title);
+  form.append("description", params.description);
+  form.append("category_id", params.categoryId);
+  form.append("privacy_level", params.visibility);
+  form.append("made_for_kids", String(params.madeForKids)); // obligatoire côté backend
+  if (params.tags && params.tags.length > 0) {
+    form.append("tags", JSON.stringify(params.tags));
+  }
+  if (params.publishAt) form.append("publish_at", params.publishAt);
+  form.append("video", params.video);
+
+  return apiRequest<YouTubePublishResult>("/api/youtube/publish", {
+    method: "POST",
+    body: form,
+  });
+}
