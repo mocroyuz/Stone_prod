@@ -107,7 +107,10 @@ type OAuthProvider =
   | "googledrive"
   | "googlephotos";
 
-function interceptOAuthCallback(provider: OAuthProvider, storageKey: string) {
+function interceptOAuthCallback(
+  provider: OAuthProvider,
+  storageKey: string
+) {
   if (typeof window === "undefined") return;
 
   const { pathname, hash, search } = window.location;
@@ -157,10 +160,13 @@ function interceptCanvaOAuthCallback() {
   if (typeof window === "undefined") return;
 
   const { pathname, search } = window.location;
+
   if (new URLSearchParams(search).has("correlation_jwt")) return;
+
   if (pathname.replace(/\/+$/, "") !== "/canva/callback") return;
 
   const params = new URLSearchParams(search);
+
   try {
     sessionStorage.setItem(
       CANVA_OAUTH_STORAGE_KEY,
@@ -172,7 +178,7 @@ function interceptCanvaOAuthCallback() {
       })
     );
   } catch {
-    // The callback component will show a missing-parameters error.
+    // Le composant affichera une erreur si les paramètres manquent.
   }
 
   window.history.replaceState(null, "", "/canva-callback");
@@ -188,32 +194,21 @@ interceptCanvaOAuthCallback();
   if (typeof window === "undefined") return;
   if (isRecoveryUrl()) return;
 
-  const rawHash = window.location.hash || "";
-  const rawSearch = window.location.search || "";
-  if (new URLSearchParams(rawSearch).has("correlation_jwt")) return;
+  const { hash, search } = window.location;
 
-  const hashParams =
-    rawHash.length > 1
-      ? new URLSearchParams(rawHash.replace(/^#\/?/, ""))
-      : new URLSearchParams();
+  if (new URLSearchParams(search).has("correlation_jwt")) return;
 
-  const searchParams =
-    rawSearch.length > 1
-      ? new URLSearchParams(rawSearch)
-      : new URLSearchParams();
+  const hashParams = new URLSearchParams(hash.replace(/^#\/?/, ""));
+  const searchParams = new URLSearchParams(search);
 
   const readParam = (key: string): string | null =>
     hashParams.get(key) ?? searchParams.get(key);
 
   const oauthError = readParam("error");
 
-  const accessToken = readParam("access_token");
-  const refreshToken = readParam("refresh_token");
-
-  const code = readParam("code");
-
   if (oauthError) {
-    const description = readParam("error_description") || oauthError;
+    const description =
+      readParam("error_description") || oauthError;
 
     window.history.replaceState(
       null,
@@ -224,28 +219,54 @@ interceptCanvaOAuthCallback();
     return;
   }
 
+  const accessToken = readParam("access_token");
+  const refreshToken = readParam("refresh_token");
+  const code = readParam("code");
+
+  // Un code seul indique un flux PKCE qui doit être échangé
+  // contre une session par le client Supabase.
   if (code && !accessToken) {
-    window.history.replaceState(
-      null,
-      "",
-      `/signin?oauth_error=${encodeURIComponent(
-        "PKCE flow returned instead of implicit flow"
-      )}`
+    console.error(
+      "[OAuth] Un code d'autorisation a été reçu sans tokens. Vérifiez la configuration PKCE."
     );
-
     return;
   }
 
-  if (!accessToken || !refreshToken) {
-    return;
+  if (!accessToken || !refreshToken) return;
+
+  const callbackKey = `oauth_callback_processed:${accessToken}`;
+
+  try {
+    if (sessionStorage.getItem(callbackKey) === "true") return;
+    sessionStorage.setItem(callbackKey, "true");
+  } catch {
+    // Continuer si sessionStorage n'est pas disponible.
   }
 
-saveOAuthSession(accessToken, refreshToken);
+  void (async () => {
+    try {
+      await saveOAuthSession(accessToken, refreshToken);
 
-window.history.replaceState(null, "", "/home");
+      // Redirection vers la page d'accueil du tableau de bord.
+      window.location.replace("/home");
+    } catch (error) {
+      console.error("[OAuth] Échec de l'enregistrement de session :", error);
 
-// Synchronise la route avec le système de navigation de l'application.
-navigate("home", { replace: true });
+      try {
+        sessionStorage.removeItem(callbackKey);
+      } catch {
+        // Ignorer
+      }
+
+      window.location.replace(
+        `/signin?oauth_error=${encodeURIComponent(
+          "Impossible de finaliser la connexion. Veuillez réessayer."
+        )}`
+      );
+    }
+  })();
+})();
+
 /* ──────────────────────────────────────────────────────────────
    TYPES
    ────────────────────────────────────────────────────────────── */
@@ -285,7 +306,6 @@ function useGentleWheelScroll(enabled: boolean) {
       }
 
       window.scrollTo(0, currentY + distance * 0.12);
-
       animationFrame = window.requestAnimationFrame(animate);
     };
 
@@ -317,9 +337,7 @@ function useGentleWheelScroll(enabled: boolean) {
     };
 
     const syncTarget = () => {
-      if (!animationFrame) {
-        targetY = window.scrollY;
-      }
+      if (!animationFrame) targetY = window.scrollY;
     };
 
     window.addEventListener("wheel", onWheel, { passive: false });
@@ -384,9 +402,7 @@ function Home() {
       </section>
 
       <ExpertiseSection />
-
       <IntegrationSection />
-
       <PricingSection />
 
       <div className="pt-32 sm:pt-52 lg:pt-64">
@@ -460,7 +476,6 @@ const PROTECTED_ROUTES = new Set([
   "googlephotos-callback",
 ]);
 
-// "create" a sa propre page (pages/Create.tsx) : il n'est plus rendu par DashboardHome.
 const DASHBOARD_HOME_ROUTES = new Set([
   "home",
   "billing",
@@ -490,12 +505,6 @@ function normalizeRoute(route: string | null | undefined): string {
    APP BOOT
    ────────────────────────────────────────────────────────────── */
 
-/**
- * Attend simplement que la session Supabase soit connue.
- * Écran noir pendant ce temps, jamais la landing.
- * L'animation Stone est gérée dans AppContent (à l'arrivée
- * sur une page privée après connexion).
- */
 function AppBoot() {
   const { loading } = useUser();
 
@@ -530,7 +539,6 @@ export default function App() {
 
 function AppWithTheme() {
   const { theme, toggle } = useTheme();
-
   const route = useHashRoute();
 
   return <AppContent theme={theme} toggle={toggle} route={route} />;
@@ -546,20 +554,9 @@ type AppContentProps = {
    APP CONTENT (wrapper : écran de chargement Stone)
    ────────────────────────────────────────────────────────────── */
 
-/**
- * Affiche l'animation Stone par-dessus la page quand un utilisateur
- * connecté arrive sur une page privée. La page se charge derrière
- * pendant l'animation.
- *
- * - Navigation entre pages privées : rien ne se rejoue.
- * - Déconnexion : l'animation rejouera à la prochaine connexion.
- * - Pages de callback OAuth : pas d'animation.
- */
 function AppContent(props: AppContentProps) {
   const { user } = useUser();
-
   const [bootShown, setBootShown] = useState(false);
-
   const route = normalizeRoute(props.route);
 
   useEffect(() => {
@@ -571,10 +568,12 @@ function AppContent(props: AppContentProps) {
 
     const refreshProfiles = async () => {
       if (!active || syncing || document.visibilityState === "hidden") return;
+
       syncing = true;
 
       const refreshTikTok = async () => {
         if (!readCache(userId, "tiktok")?.connection.connected) return;
+
         try {
           await refreshTikTokCache(userId, { force: true });
         } catch (error) {
@@ -584,13 +583,16 @@ function AppContent(props: AppContentProps) {
 
       const refreshPinterest = async () => {
         if (!readCache(userId, "pinterest")?.connection.connected) return;
+
         try {
           const status = await getPinterestStatus();
           if (!active) return;
+
           if (!status.connected) {
             clearCache(userId, "pinterest");
             return;
           }
+
           writeCache(
             userId,
             {
@@ -607,13 +609,16 @@ function AppContent(props: AppContentProps) {
 
       const refreshYouTube = async () => {
         if (!readCache(userId, "youtube")?.connection.connected) return;
+
         try {
           const status = await getYouTubeStatus();
           if (!active) return;
+
           if (!status.connected) {
             clearCache(userId, "youtube");
             return;
           }
+
           writeCache(
             userId,
             {
@@ -640,14 +645,18 @@ function AppContent(props: AppContentProps) {
     };
 
     const handleVisibilityChange = () => {
-      if (document.visibilityState === "visible") void refreshProfiles();
+      if (document.visibilityState === "visible") {
+        void refreshProfiles();
+      }
     };
 
     void refreshProfiles();
+
     const intervalId = window.setInterval(
       () => void refreshProfiles(),
       PROFILE_REFRESH_INTERVAL_MS
     );
+
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
@@ -674,7 +683,6 @@ function AppContent(props: AppContentProps) {
   return (
     <>
       <AppContentInner {...props} />
-
       {showBoot && <StoneBoot onComplete={handleBootComplete} />}
     </>
   );
@@ -690,7 +698,6 @@ function AppContentInner({
   route: rawRoute,
 }: AppContentProps) {
   const { user, loading } = useUser();
-
   const route = normalizeRoute(rawRoute);
 
   const isAuth = AUTH_ROUTES.has(route);
@@ -711,24 +718,28 @@ function AppContentInner({
 
   useGentleWheelScroll(isLanding || isPricing);
 
-  /* ─────────────────────────────────────────────
-     ROUTE GUARD
-     ───────────────────────────────────────────── */
-
   useEffect(() => {
     if (loading) return;
 
     if (isAccountRoute) {
       const query = new URLSearchParams();
-      if (checkoutReturn.status) query.set("checkout", checkoutReturn.status);
-      if (checkoutReturn.sessionId) query.set("session_id", checkoutReturn.sessionId);
-      navigate(query.size ? `home?${query.toString()}` : "home", { replace: true });
+
+      if (checkoutReturn.status) {
+        query.set("checkout", checkoutReturn.status);
+      }
+
+      if (checkoutReturn.sessionId) {
+        query.set("session_id", checkoutReturn.sessionId);
+      }
+
+      navigate(
+        query.size ? `home?${query.toString()}` : "home",
+        { replace: true }
+      );
+
       return;
     }
 
-    /*
-     * Utilisateur déconnecté + route privée → signin
-     */
     if (!user && isProtected) {
       if (OAUTH_CALLBACK_ROUTES.has(route)) {
         try {
@@ -739,13 +750,9 @@ function AppContentInner({
       }
 
       navigate("signin", { replace: true });
-
       return;
     }
 
-    /*
-     * Utilisateur connecté
-     */
     if (user) {
       let pending: string | null = null;
 
@@ -755,9 +762,6 @@ function AppContentInner({
         // ignore
       }
 
-      /*
-       * Retour vers la route demandée avant authentification.
-       */
       if (pending) {
         try {
           sessionStorage.removeItem(POST_LOGIN_ROUTE_KEY);
@@ -767,50 +771,35 @@ function AppContentInner({
 
         if (route !== pending) {
           navigate(pending, { replace: true });
-
           return;
         }
       }
 
-      /*
-       * Un utilisateur connecté ne doit jamais revoir
-       * /signin, /signup, /
-       */
       if (isAuth || isLanding) {
         navigate("home", { replace: true });
       }
     }
-  }, [user, loading, isProtected, isAuth, isLanding, isAccountRoute, route]);
+  }, [
+    user,
+    loading,
+    isProtected,
+    isAuth,
+    isLanding,
+    isAccountRoute,
+    route,
+    checkoutReturn.status,
+    checkoutReturn.sessionId,
+  ]);
 
-  /*
-   * Sécurité : AppBoot empêche normalement déjà ce rendu
-   * avant que loading soit terminé.
-   */
   if (loading) {
     return <div className="fixed inset-0 z-[999999] bg-[#050505]" />;
   }
 
   if (isAccountRoute) return null;
 
-  /*
-   * Empêche une frame d'une page privée avant la redirection
-   * vers signin.
-   */
-  if (!user && isProtected) {
-    return null;
-  }
+  if (!user && isProtected) return null;
 
-  /*
-   * Empêche une frame de landing/signin/signup lorsqu'un
-   * utilisateur est déjà connecté.
-   */
-  if (user && (isAuth || isLanding)) {
-    return null;
-  }
-
-  /* ─────────────────────────────────────────────
-     AUTH
-     ───────────────────────────────────────────── */
+  if (user && (isAuth || isLanding)) return null;
 
   if (isAuth) {
     return (
@@ -834,10 +823,6 @@ function AppContentInner({
     );
   }
 
-  /* ─────────────────────────────────────────────
-     FAQ
-     ───────────────────────────────────────────── */
-
   if (isFaq) {
     return (
       <div className="relative min-h-screen w-full overflow-x-hidden font-sans">
@@ -845,10 +830,6 @@ function AppContentInner({
       </div>
     );
   }
-
-  /* ─────────────────────────────────────────────
-     TOS
-     ───────────────────────────────────────────── */
 
   if (isTos) {
     return (
@@ -858,10 +839,6 @@ function AppContentInner({
     );
   }
 
-  /* ─────────────────────────────────────────────
-     PRIVACY
-     ───────────────────────────────────────────── */
-
   if (isPrivacy) {
     return (
       <div className="relative min-h-screen w-full overflow-x-hidden font-sans">
@@ -869,10 +846,6 @@ function AppContentInner({
       </div>
     );
   }
-
-  /* ─────────────────────────────────────────────
-     PRICING
-     ───────────────────────────────────────────── */
 
   if (isPricing) {
     return (
@@ -882,10 +855,6 @@ function AppContentInner({
     );
   }
 
-  /* ─────────────────────────────────────────────
-     TIKTOK CALLBACK
-     ───────────────────────────────────────────── */
-
   if (route === "tiktok-callback") {
     return (
       <div className="relative h-screen w-screen overflow-hidden font-sans">
@@ -893,10 +862,6 @@ function AppContentInner({
       </div>
     );
   }
-
-  /* ─────────────────────────────────────────────
-     PINTEREST CALLBACK
-     ───────────────────────────────────────────── */
 
   if (route === "pinterest-callback") {
     return (
@@ -906,10 +871,6 @@ function AppContentInner({
     );
   }
 
-  /* ─────────────────────────────────────────────
-     YOUTUBE CALLBACK
-     ───────────────────────────────────────────── */
-
   if (route === "youtube-callback") {
     return (
       <div className="relative h-screen w-screen overflow-hidden font-sans">
@@ -917,10 +878,6 @@ function AppContentInner({
       </div>
     );
   }
-
-  /* ─────────────────────────────────────────────
-     DROPBOX CALLBACK
-     ───────────────────────────────────────────── */
 
   if (route === "dropbox-callback") {
     return (
@@ -930,10 +887,6 @@ function AppContentInner({
     );
   }
 
-  /* ─────────────────────────────────────────────
-     GOOGLE DRIVE CALLBACK
-     ───────────────────────────────────────────── */
-
   if (route === "googledrive-callback") {
     return (
       <div className="relative h-screen w-screen overflow-hidden font-sans">
@@ -941,10 +894,6 @@ function AppContentInner({
       </div>
     );
   }
-
-  /* ─────────────────────────────────────────────
-     GOOGLE PHOTOS CALLBACK
-     ───────────────────────────────────────────── */
 
   if (route === "googlephotos-callback") {
     return (
@@ -954,10 +903,6 @@ function AppContentInner({
     );
   }
 
-  /* ─────────────────────────────────────────────
-     CANVA CALLBACK
-     ───────────────────────────────────────────── */
-
   if (route === "canva-callback") {
     return (
       <div className="relative h-screen w-screen overflow-hidden font-sans">
@@ -965,10 +910,6 @@ function AppContentInner({
       </div>
     );
   }
-
-  /* ─────────────────────────────────────────────
-     INTEGRATIONS
-     ───────────────────────────────────────────── */
 
   if (route === "integrations") {
     return (
@@ -978,10 +919,6 @@ function AppContentInner({
     );
   }
 
-  /* ─────────────────────────────────────────────
-     SETTINGS
-     ───────────────────────────────────────────── */
-
   if (route === "settings") {
     return (
       <div className="relative h-screen w-screen overflow-hidden font-sans">
@@ -989,10 +926,6 @@ function AppContentInner({
       </div>
     );
   }
-
-  /* ─────────────────────────────────────────────
-     SCHEDULE / CALENDAR
-     ───────────────────────────────────────────── */
 
   if (route === "schedule" || route === "calendar") {
     return (
@@ -1002,10 +935,6 @@ function AppContentInner({
     );
   }
 
-  /* ─────────────────────────────────────────────
-     INSIGHTS
-     ───────────────────────────────────────────── */
-
   if (route === "insights") {
     return (
       <div className="relative h-screen w-screen overflow-y-auto overflow-x-hidden font-sans">
@@ -1013,10 +942,6 @@ function AppContentInner({
       </div>
     );
   }
-
-  /* ─────────────────────────────────────────────
-     COMMUNITY
-     ───────────────────────────────────────────── */
 
   if (route === "community") {
     return (
@@ -1026,10 +951,6 @@ function AppContentInner({
     );
   }
 
-  /* ─────────────────────────────────────────────
-     CREATE
-     ───────────────────────────────────────────── */
-
   if (route === "create") {
     return (
       <div className="relative h-screen w-screen overflow-hidden font-sans">
@@ -1037,10 +958,6 @@ function AppContentInner({
       </div>
     );
   }
-
-  /* ─────────────────────────────────────────────
-     CHANNELS
-     ───────────────────────────────────────────── */
 
   if (route === "channels") {
     return (
@@ -1050,10 +967,6 @@ function AppContentInner({
     );
   }
 
-  /* ─────────────────────────────────────────────
-     TEMPLATES
-     ───────────────────────────────────────────── */
-
   if (isTemplate) {
     return (
       <div className="relative min-h-screen w-screen overflow-y-auto overflow-x-hidden font-sans">
@@ -1061,10 +974,6 @@ function AppContentInner({
       </div>
     );
   }
-
-  /* ─────────────────────────────────────────────
-     DASHBOARD HOME
-     ───────────────────────────────────────────── */
 
   if (DASHBOARD_HOME_ROUTES.has(route)) {
     return (
@@ -1075,28 +984,18 @@ function AppContentInner({
     );
   }
 
-  /* ─────────────────────────────────────────────
-     404
-     ───────────────────────────────────────────── */
-
   if (isUnknown) {
     return (
       <div className="tint relative min-h-screen w-full overflow-x-hidden bg-white font-sans dark:bg-[#050505]">
         <Navbar theme={theme} onToggleTheme={toggle} />
-
         <NotFound />
       </div>
     );
   }
 
-  /* ─────────────────────────────────────────────
-     LANDING
-     ───────────────────────────────────────────── */
-
   return (
     <div className="tint relative min-h-screen w-full overflow-x-hidden bg-white font-sans dark:bg-[#050505]">
       <Navbar theme={theme} onToggleTheme={toggle} />
-
       <Home />
     </div>
   );
