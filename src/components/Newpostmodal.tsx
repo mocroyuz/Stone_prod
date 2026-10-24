@@ -32,6 +32,7 @@ import {
   publishToTikTok,
   publishPhotosToTikTok,
   waitForTikTokPublish,
+  type TikTokCapabilities,
   type TikTokCreatorInfo,
   type TikTokPostOptions,
 } from "../services/tiktok";
@@ -1518,10 +1519,12 @@ export default function NewPostModal({
   );
 
   // ── TikTok ──
-  const [tiktokInfo, setTiktokInfo] = useState<TikTokCreatorInfo | null>(null);
+  const [tiktokInfo, setTiktokInfo] = useState<
+    (TikTokCreatorInfo & { capabilities?: TikTokCapabilities }) | null
+  >(null);
   const [tiktokInfoError, setTiktokInfoError] = useState<string | null>(null);
   const [tiktokInfoAttempt, setTiktokInfoAttempt] = useState(0);
-  const [tiktokMode, setTiktokMode] = useState<"direct" | "draft">("direct");
+  const [tiktokMode, setTiktokMode] = useState<"direct" | "draft">("draft");
   const [tiktokOptions, setTiktokOptions] = useState<TikTokPostOptions>(
     TIKTOK_DEFAULT_OPTIONS
   );
@@ -1529,6 +1532,12 @@ export default function NewPostModal({
   const [tiktokCommercial, setTiktokCommercial] = useState<TikTokCommercial>(
     TIKTOK_DEFAULT_COMMERCIAL
   );
+
+  // Mode forcé brouillon tant qu'on ne sait pas si l'app peut publier
+  // directement (sandbox / non audité). Par sécurité on force "draft".
+  const tiktokDraftOnly = tiktokInfo?.capabilities
+    ? !tiktokInfo.capabilities.can_direct_post
+    : true;
 
   const tiktokSelected = networks.includes("tiktok");
   const youtubeSelected = networks.includes("youtube");
@@ -1759,6 +1768,13 @@ export default function NewPostModal({
     };
   }, [isOpen, tiktokSelected, tiktokInfo, tiktokInfoAttempt]);
 
+  // Force le mode brouillon quand l'app TikTok ne peut pas publier en direct
+  // (sandbox / non auditée). On ne revient jamais en "direct" automatiquement :
+  // l'utilisateur peut toujours basculer manuellement après chargement des capas.
+  useEffect(() => {
+    if (tiktokDraftOnly && tiktokMode !== "draft") setTiktokMode("draft");
+  }, [tiktokDraftOnly, tiktokMode]);
+
   if (!isOpen) return null;
 
   /* ── Contenu : le texte principal est la source, chaque réseau peut le surcharger ── */
@@ -1846,7 +1862,7 @@ export default function NewPostModal({
     setPreviewNetwork(null);
     setTiktokInfo(null);
     setTiktokInfoError(null);
-    setTiktokMode("direct");
+    setTiktokMode("draft");
     setTiktokOptions(TIKTOK_DEFAULT_OPTIONS);
     setTiktokAllow(TIKTOK_DEFAULT_ALLOW);
     setTiktokCommercial(TIKTOK_DEFAULT_COMMERCIAL);
@@ -3621,7 +3637,10 @@ export default function NewPostModal({
                                   aria-label="TikTok publishing mode"
                                   className={["inline-flex rounded-xl border p-1", border].join(" ")}
                                 >
-                                  {(["direct", "draft"] as const).map((m) => (
+                                  {(tiktokDraftOnly
+                                    ? (["draft"] as const)
+                                    : (["direct", "draft"] as const)
+                                  ).map((m) => (
                                     <button
                                       key={m}
                                       type="button"
@@ -3641,6 +3660,11 @@ export default function NewPostModal({
                                     </button>
                                   ))}
                                 </div>
+                                {tiktokDraftOnly && (
+                                  <p className={["mt-1.5 text-[12px]", textSecondary].join(" ")}>
+                                    Your TikTok app is in sandbox mode: posts are sent to your TikTok inbox as drafts.
+                                  </p>
+                                )}
                                 <p className={["mt-1.5 text-[12px]", textSecondary].join(" ")}>
                                   {tiktokMode === "direct"
                                     ? "Goes live on your profile as soon as TikTok has processed it."

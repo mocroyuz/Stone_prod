@@ -279,12 +279,14 @@ export async function handleTikTokAvatarError(
 
 // ── Publication ──────────────────────────────────────────────
 
-export async function getTikTokCreatorInfo(): Promise<TikTokCreatorInfo> {
-  const data = await apiRequest<{ creator: TikTokCreatorInfo }>(
-    "/api/tiktok/creator-info",
-    { method: "GET" }
-  );
-  return data.creator;
+export async function getTikTokCreatorInfo(): Promise<
+  TikTokCreatorInfo & { capabilities?: TikTokCapabilities }
+> {
+  const data = await apiRequest<{
+    creator: TikTokCreatorInfo;
+    capabilities?: TikTokCapabilities;
+  }>("/api/tiktok/creator-info", { method: "GET" });
+  return { ...data.creator, capabilities: data.capabilities };
 }
 
 export async function publishToTikTok(params: {
