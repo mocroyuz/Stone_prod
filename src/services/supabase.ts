@@ -634,20 +634,22 @@ export async function resetPassword(
 //
 // Flux :
 //   1. signInWithGoogle/Github → le backend renvoie l'URL Supabase.
-//   2. Le navigateur part chez le provider, puis revient sur la RACINE
-//      du site avec les tokens dans le hash :
-//        https://site/#access_token=…&refresh_token=…
-//      (on redirige vers la racine, pas vers "/home" : l'app utilise un
-//      routage par hash, "/home" n'est pas une route et doit en plus
-//      figurer dans les Redirect URLs de Supabase.)
+//   2. Le navigateur part chez le provider, puis revient sur /home avec
+//      les tokens dans le hash :
+//        https://site/home#access_token=…&refresh_token=…
+//      (l'app utilise un routage par hash : "/home" doit donc figurer
+//      dans les Redirect URLs autorisées côté Supabase.)
 //   3. Au démarrage de l'app, consumeOAuthRedirect() lit ces tokens, les
 //      stocke, nettoie l'URL et indique si un code 2FA est requis.
 //      L'appelant (UserContext) charge alors l'utilisateur et navigue
 //      vers "home".
 
-/** URL de retour OAuth : la racine du site. */
+/**
+ * URL de retour OAuth par défaut : `/home`.
+ * Doit figurer dans les Redirect URLs autorisées côté Supabase.
+ */
 function defaultOAuthRedirect(): string {
-  return `${window.location.origin}/`;
+  return `${window.location.origin}/home`;
 }
 
 async function requestOAuthUrl(
