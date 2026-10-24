@@ -619,6 +619,31 @@ function getVideoDuration(file: File): Promise<number> {
   });
 }
 
+/** Durée et dimensions d'une vidéo (lues depuis ses métadonnées). */
+function getVideoInfo(
+  file: File
+): Promise<{ duration: number; width: number; height: number }> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const video = document.createElement("video");
+    video.preload = "metadata";
+    video.onloadedmetadata = () => {
+      const info = {
+        duration: video.duration,
+        width: video.videoWidth,
+        height: video.videoHeight,
+      };
+      URL.revokeObjectURL(url);
+      resolve(info);
+    };
+    video.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("Could not read the video."));
+    };
+    video.src = url;
+  });
+}
+
 async function toTikTokImage(file: File): Promise<File> {
   if (file.type === "image/jpeg" || file.type === "image/webp") return file;
 
@@ -2843,10 +2868,22 @@ export default function NewPostModal({
         const youtubeVideo = mediaFor("youtube").find((m) => m.kind === "video")?.file;
         if (!youtubeVideo) throw new Error("YouTube Shorts needs a video.");
 
-        // Un Short dure 3 minutes maximum.
-        const duration = await getVideoDuration(youtubeVideo);
+        // YouTube n'a pas de champ « Short » : il classe la vidéo en Short
+        // seulement si elle est verticale ou carrée ET dure 3 minutes maximum.
+        // On bloque donc tout ce qui serait publié comme une vidéo normale.
+        const { duration, width, height } = await getVideoInfo(youtubeVideo);
+        if (!width || !height) {
+          throw new Error("Could not read the video size. Try another file.");
+        }
+        if (width > height) {
+          throw new Error(
+            "This video is horizontal, so YouTube would publish it as a regular video. A Short must be vertical (9:16) or square."
+          );
+        }
         if (duration > 180) {
-          throw new Error("A YouTube Short can't be longer than 3 minutes.");
+          throw new Error(
+            "This video is longer than 3 minutes, so YouTube would publish it as a regular video. A Short must be 3 minutes or less."
+          );
         }
 
         // `#Shorts` aide YouTube à classer la vidéo dans les Shorts.
