@@ -986,14 +986,11 @@ type SourceIconProps = { className?: string };
 
 function GooglePhotosIcon({ className }: SourceIconProps) {
   return (
-    <svg viewBox="0 0 24 24" className={className} fill="currentColor" aria-hidden="true">
-      {[0, 90, 180, 270].map((deg) => (
-        <path
-          key={deg}
-          d="M12 2a5 5 0 0 1 5 5v5h-5z"
-          transform={`rotate(${deg} 12 12)`}
-        />
-      ))}
+    <svg viewBox="0 0 24 24" className={className} aria-hidden="true">
+      <path fill="#EA4335" d="M12 2a5 5 0 0 1 5 5v5h-5V2Z" />
+      <path fill="#4285F4" d="M22 12a5 5 0 0 1-5 5h-5v-5h10Z" />
+      <path fill="#34A853" d="M12 22a5 5 0 0 1-5-5v-5h5v10Z" />
+      <path fill="#FBBC04" d="M2 12a5 5 0 0 1 5-5h5v5H2Z" />
     </svg>
   );
 }
@@ -4384,7 +4381,7 @@ export default function NewPostModal({
               ].join(" ")}
             >
               <header className={["flex items-center gap-3 border-b px-5 py-4", border].join(" ")}>
-                <GooglePhotosIcon className="h-6 w-6 shrink-0 text-[#4285f4]" />
+                <GooglePhotosIcon className="h-6 w-6 shrink-0" />
                 <div className="min-w-0 flex-1">
                   <h2 id="google-photos-picker-title" className={["text-[15px] font-semibold", textPrimary].join(" ")}>
                     Add from Google Photos
@@ -4405,7 +4402,7 @@ export default function NewPostModal({
               </header>
 
               <div className="flex flex-col items-center px-6 py-10 text-center">
-                <GooglePhotosIcon className="h-10 w-10 text-[#4285f4]" />
+                <GooglePhotosIcon className="h-10 w-10" />
                 {googlePhotosLoading ? (
                   <div className={["mt-4 flex items-center gap-2 text-[13px]", textSecondary].join(" ")}>
                     <Loader2 className="h-4 w-4 animate-spin" />
