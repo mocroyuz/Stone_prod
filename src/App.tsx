@@ -240,29 +240,12 @@ interceptCanvaOAuthCallback();
     return;
   }
 
-  saveOAuthSession(accessToken, refreshToken);
+saveOAuthSession(accessToken, refreshToken);
 
-  setTimeout(async () => {
-    try {
-      const baseUrl =
-        (import.meta as any).env?.VITE_API_BASE_URL ||
-        "http://localhost:3002";
+window.history.replaceState(null, "", "/home");
 
-      const res = await fetch(`${baseUrl}/api/user/profile`, {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      });
-
-      console.log("OAuth profile data:", await res.json());
-    } catch {
-      // Erreur silencieuse
-    }
-  }, 300);
-
-  window.history.replaceState(null, "", "/home");
-})();
-
+// Synchronise la route avec le système de navigation de l'application.
+navigate("home", { replace: true });
 /* ──────────────────────────────────────────────────────────────
    TYPES
    ────────────────────────────────────────────────────────────── */
