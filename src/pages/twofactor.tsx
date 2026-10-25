@@ -87,18 +87,39 @@ function Icon({
   );
 }
 
-const ShieldIcon = () => (
-  <Icon>
-    <path d="M12 3 4 6v6c0 4.5 3.2 8 8 9 4.8-1 8-4.5 8-9V6l-8-3Z" />
-    <path d="m9 12 2 2 4-4" />
-  </Icon>
-);
+/** Trois points qui "chargent" (même animation que la page d'inscription). */
+function LoadingDots() {
+  return (
+    <span
+      className="inline-flex items-center gap-1"
+      role="status"
+      aria-label="Waiting for verification code"
+    >
+      {[0, 1, 2].map((i) => (
+        <span
+          key={i}
+          className="dot-wave h-1.5 w-1.5 rounded-full bg-current"
+          style={{ animationDelay: `${i * 160}ms` }}
+        />
+      ))}
+    </span>
+  );
+}
 
-const MailIcon = () => (
-  <Icon>
-    <rect x="3" y="5" width="18" height="14" rx="2" />
-    <path d="m3 7 9 6 9-6" />
-  </Icon>
+/** Flèche de validation (coche) affichée quand le code est accepté. */
+const CheckIcon = () => (
+  <svg
+    viewBox="0 0 24 24"
+    className="h-6 w-6"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2.4"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
+    <path d="m5 12.5 4.2 4.2L19 7" />
+  </svg>
 );
 
 const Spinner = ({ className = "h-4 w-4" }: { className?: string }) => (
@@ -267,6 +288,7 @@ function MfaChallenge({
   const [error, setError] = useState<string | null>(null);
   const [shakeKey, setShakeKey] = useState(0);
   const [busy, setBusy] = useState(false);
+  const [verified, setVerified] = useState(false);
   const [factors, setFactors] = useState<MfaFactor[]>([]);
   const [factorId, setFactorId] = useState("");
   const [sentTo, setSentTo] = useState<string | null>(null);
@@ -364,8 +386,13 @@ function MfaChallenge({
       if (method === "email") await verifyEmailMfaCode(code);
       else await verifyMfaLogin(code, factorId || undefined);
 
+      // Code valide : la coche remplace les points, puis on continue.
+      setVerified(true);
+      await new Promise((resolve) => window.setTimeout(resolve, 700));
+
       await onVerified();
     } catch (verificationError) {
+      setVerified(false);
       if (isRateLimitError(verificationError)) {
         const seconds = verificationError.retryAfterSeconds;
         setLockTotal(seconds);
@@ -453,16 +480,43 @@ function MfaChallenge({
           to { opacity: 1; transform: translateY(0); }
         }
         .mfa-fade { animation: mfa-fade 0.22s ease-out; }
+        @keyframes dot-wave {
+          0%, 80%, 100% { transform: translateY(0); opacity: 0.35; }
+          40% { transform: translateY(-4px); opacity: 1; }
+        }
+        .dot-wave { animation: dot-wave 1.2s ease-in-out infinite; }
+        @keyframes cta-pop {
+          0% { transform: scale(0.85); opacity: 0.5; }
+          60% { transform: scale(1.12); }
+          100% { transform: scale(1); opacity: 1; }
+        }
+        .cta-pop { animation: cta-pop 0.45s ease-out; }
         @media (prefers-reduced-motion: reduce) {
-          .mfa-shake, .mfa-fade { animation: none; }
+          .mfa-shake, .mfa-fade, .cta-pop { animation: none; }
+          .dot-wave { animation: none; opacity: 0.7; }
         }
       `}</style>
 
       {/* Header ---------------------------------------------------------------- */}
       <div
-        className={`mx-auto flex h-12 w-12 items-center justify-center rounded-full ${ui.iconWrap}`}
+        className={[
+          "mx-auto flex h-14 w-14 items-center justify-center rounded-full transition-colors duration-300",
+          verified
+            ? isDark
+              ? "bg-white text-neutral-900"
+              : "bg-black text-white"
+            : isDark
+              ? "bg-white/10 text-neutral-300"
+              : "bg-black/10 text-neutral-700",
+        ].join(" ")}
       >
-        {isEmail ? <MailIcon /> : <ShieldIcon />}
+        {verified ? (
+          <span className="cta-pop flex">
+            <CheckIcon />
+          </span>
+        ) : (
+          <LoadingDots />
+        )}
       </div>
 
       <h1
@@ -529,7 +583,7 @@ function MfaChallenge({
                 setCode(next);
                 setError(null);
               }}
-              disabled={busy || locked}
+              disabled={busy || locked || verified}
               invalid={Boolean(error)}
               isDark={isDark}
             />
@@ -537,7 +591,9 @@ function MfaChallenge({
               className={`mt-3 flex h-4 items-center justify-center gap-2 text-center text-[12px] ${ui.muted}`}
               aria-live="polite"
             >
-              {busy ? (
+              {verified ? (
+                "Code verified"
+              ) : busy ? (
                 <>
                   <Spinner className="h-3.5 w-3.5" /> Verifying…
                 </>
