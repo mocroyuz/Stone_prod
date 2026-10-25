@@ -84,9 +84,18 @@ const DEFAULT_FEEDS: Feed[] = [
  * route serveur (ex. GET /api/feed?url=...), plus fiable et sans quota.
  */
 const PROXIES: ((u: string) => string)[] = [
+  // 1) Ta propre route serveur (recommandé) : VITE_FEED_ENDPOINT=https://ton-api/api/feed
+  //    Elle doit répondre avec le XML du flux : GET <endpoint>?url=<flux>
+  ...(import.meta.env.VITE_FEED_ENDPOINT
+    ? [
+        (u: string) =>
+          `${import.meta.env.VITE_FEED_ENDPOINT}?url=${encodeURIComponent(u)}`,
+      ]
+    : []),
+  // 2) Proxys publics (peuvent tomber ou être limités)
   (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
-  (u) => `https://corsproxy.io/?url=${encodeURIComponent(u)}`,
-  (u) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`,
+  (u) => `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(u)}`,
+  (u) => `https://thingproxy.freeboard.io/fetch/${u}`,
 ];
 
 async function fetchXml(url: string, signal?: AbortSignal): Promise<string> {
@@ -204,6 +213,97 @@ function parseFeed(xml: string, feedUrl: string) {
   });
 
   return { title, siteUrl, articles };
+}
+
+type LoadedFeed = {
+  title: string;
+  siteUrl: string;
+  articles: Omit<Article, "feedId">[];
+};
+
+/** rss2json : renvoie le flux déjà converti en JSON, avec CORS activé. */
+async function fetchViaRss2Json(url: string, signal?: AbortSignal): Promise<LoadedFeed> {
+  const res = await fetch(
+    `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(url)}`,
+    { signal }
+  );
+  if (!res.ok) throw new Error(`rss2json HTTP ${res.status}`);
+
+  const data = (await res.json()) as {
+    status: string;
+    message?: string;
+    feed?: { title?: string; link?: string };
+    items?: {
+      title?: string;
+      link?: string;
+      pubDate?: string;
+      description?: string;
+      content?: string;
+      thumbnail?: string;
+      enclosure?: { link?: string; type?: string };
+    }[];
+  };
+  if (data.status !== "ok" || !data.items) {
+    throw new Error(data.message || "rss2json error");
+  }
+
+  const articles = data.items.slice(0, MAX_PER_FEED).map((it) => {
+    const html = it.content || it.description || "";
+    const summary = htmlToText(it.description || it.content || "");
+    // rss2json renvoie des dates "YYYY-MM-DD HH:mm:ss" en UTC.
+    const iso = it.pubDate ? `${it.pubDate.replace(" ", "T")}Z` : "";
+    const parsed = Date.parse(iso) || Date.parse(it.pubDate ?? "");
+    const enclosureImg = it.enclosure?.type?.startsWith("image")
+      ? it.enclosure.link
+      : undefined;
+
+    return {
+      id: it.link || `${url}#${it.title ?? ""}`,
+      title: htmlToText(it.title ?? "") || "Untitled",
+      link: it.link ?? "",
+      date: Number.isNaN(parsed) ? 0 : parsed,
+      summary: summary.length > 200 ? `${summary.slice(0, 200).trimEnd()}…` : summary,
+      imageUrl: it.thumbnail || enclosureImg || firstImage(html),
+    };
+  });
+
+  return {
+    title: data.feed?.title?.trim() ?? "",
+    siteUrl: data.feed?.link ?? "",
+    articles,
+  };
+}
+
+/** Essaie rss2json, puis les proxys XML. Lève une erreur détaillée si tout échoue. */
+async function loadFeed(url: string, signal?: AbortSignal): Promise<LoadedFeed> {
+  const errors: string[] = [];
+
+  // Ta route serveur en premier si elle est configurée.
+  if (import.meta.env.VITE_FEED_ENDPOINT) {
+    try {
+      return parseFeed(await fetchXml(url, signal), url);
+    } catch (e) {
+      if ((e as Error).name === "AbortError") throw e;
+      errors.push(`endpoint: ${(e as Error).message}`);
+    }
+  }
+
+  try {
+    return await fetchViaRss2Json(url, signal);
+  } catch (e) {
+    if ((e as Error).name === "AbortError") throw e;
+    errors.push(`rss2json: ${(e as Error).message}`);
+  }
+
+  try {
+    return parseFeed(await fetchXml(url, signal), url);
+  } catch (e) {
+    if ((e as Error).name === "AbortError") throw e;
+    errors.push(`proxies: ${(e as Error).message}`);
+  }
+
+  console.warn(`[Feeds] Could not load ${url}`, errors);
+  throw new Error(errors.join(" | "));
 }
 
 /* ============================================================
@@ -575,8 +675,7 @@ export default function FeedsPanel({ isDark }: { isDark: boolean }) {
     await Promise.all(
       list.map(async (f) => {
         try {
-          const xml = await fetchXml(f.url, ctrl.signal);
-          const parsed = parseFeed(xml, f.url);
+          const parsed = await loadFeed(f.url, ctrl.signal);
           if (ctrl.signal.aborted) return;
           setArticles((a) => ({
             ...a,
@@ -620,8 +719,7 @@ export default function FeedsPanel({ isDark }: { isDark: boolean }) {
     setAdding(true);
     setError(null);
     try {
-      const xml = await fetchXml(normalized);
-      const parsed = parseFeed(xml, normalized);
+      const parsed = await loadFeed(normalized);
       const siteUrl = parsed.siteUrl || new URL(normalized).origin;
       const feed: Feed = {
         id: normalized,
