@@ -166,6 +166,16 @@ function OtpInput({
   const ui = tokens(isDark);
   const refs = useRef<Array<HTMLInputElement | null>>([]);
 
+  // Toujours la valeur la plus récente, même avant le prochain rendu :
+  // évite que onFocus lise une valeur périmée et renvoie le focus en arrière.
+  const valueRef = useRef(value);
+  valueRef.current = value;
+
+  const update = (next: string) => {
+    valueRef.current = next;
+    onChange(next);
+  };
+
   const focusAt = (index: number) => {
     const el = refs.current[Math.min(Math.max(index, 0), CODE_LENGTH - 1)];
     el?.focus();
@@ -180,18 +190,20 @@ function OtpInput({
   const handleChange = (index: number, raw: string) => {
     const digits = raw.replace(/\D/g, "");
 
+    const current = valueRef.current;
+
     if (!digits) {
-      onChange(value.slice(0, index) + value.slice(index + 1));
+      update(current.slice(0, index) + current.slice(index + 1));
       return;
     }
 
     // Single digit replaces the cell; several digits (autofill / paste) spread out.
     const next =
       digits.length === 1
-        ? value.slice(0, index) + digits + value.slice(index + 1)
-        : (value.slice(0, index) + digits).slice(0, CODE_LENGTH);
+        ? current.slice(0, index) + digits + current.slice(index + 1)
+        : (current.slice(0, index) + digits).slice(0, CODE_LENGTH);
 
-    onChange(next.slice(0, CODE_LENGTH));
+    update(next.slice(0, CODE_LENGTH));
     focusAt(Math.min(index + digits.length, CODE_LENGTH - 1));
   };
 
@@ -199,9 +211,9 @@ function OtpInput({
     index: number,
     event: React.KeyboardEvent<HTMLInputElement>,
   ) => {
-    if (event.key === "Backspace" && !value[index] && index > 0) {
+    if (event.key === "Backspace" && !valueRef.current[index] && index > 0) {
       event.preventDefault();
-      onChange(value.slice(0, index - 1));
+      update(valueRef.current.slice(0, index - 1));
       focusAt(index - 1);
     } else if (event.key === "ArrowLeft") {
       event.preventDefault();
@@ -219,7 +231,7 @@ function OtpInput({
       .slice(0, CODE_LENGTH);
     if (!digits) return;
     event.preventDefault();
-    onChange(digits);
+    update(digits);
     focusAt(digits.length);
   };
 
@@ -248,7 +260,7 @@ function OtpInput({
           onPaste={handlePaste}
           onFocus={(event) => {
             // Never let the user skip ahead of the next empty cell.
-            if (index > value.length) focusAt(value.length);
+            if (index > valueRef.current.length) focusAt(valueRef.current.length);
             else event.target.select();
           }}
           className={[
