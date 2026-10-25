@@ -447,7 +447,8 @@ export async function apiRequest<T>(
 /**
  * Si le compte a le 2FA, la session renvoyée est AAL1 : on la stocke
  * mais on marque "MFA en attente". L'appelant doit alors afficher l'écran
- * de code (voir LoginMfaChallenge) tant que `isMfaPending()` est vrai.
+ * de code (voir MfaChallenge dans Signin.tsx) tant que `isMfaPending()`
+ * est vrai.
  */
 export async function signIn(email: string, password: string): Promise<AuthResponse> {
   const result = await apiRequest<AuthResponse>("/api/auth/login", {
@@ -1042,6 +1043,24 @@ export async function cleanupUnverifiedFactors(): Promise<void> {
   }
 }
 
+/**
+ * Supabase renvoie le QR code sous forme de SVG brut (`<svg ...>`).
+ * Une balise <img> ne sait pas afficher ce texte directement : on le
+ * convertit en URL `data:image/svg+xml`. Si c'est déjà une data URL
+ * (ou une autre forme d'URL), on la laisse telle quelle.
+ */
+function toQrDataUri(qr: string): string {
+  const value = qr.trim();
+
+  if (value.startsWith("data:")) return value;
+
+  if (value.startsWith("<svg") || value.startsWith("<?xml")) {
+    return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(value)}`;
+  }
+
+  return value;
+}
+
 /** Étape 1 : démarre un enrôlement TOTP (QR + secret). */
 export async function startMfaEnrollment(): Promise<{
   factorId: string;
@@ -1072,6 +1091,7 @@ export async function startMfaEnrollment(): Promise<{
     (raw as any).qrCode ??
     (raw as any).qr_code ??
     (raw as any).qr ??
+    (totp as any).qr_code ??
     (data as any).qrCode ??
     (data as any).qr_code ??
     (data as any).qr;
@@ -1085,7 +1105,11 @@ export async function startMfaEnrollment(): Promise<{
     throw new Error("Invalid MFA enrollment response from server.");
   }
 
-  return { factorId: String(factorId), qrCode: String(qrCode), secret: String(secret) };
+  return {
+    factorId: String(factorId),
+    qrCode: toQrDataUri(String(qrCode)),
+    secret: String(secret),
+  };
 }
 
 /**
