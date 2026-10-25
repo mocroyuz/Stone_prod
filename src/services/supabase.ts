@@ -1,16 +1,6 @@
 // src/services/supabase.ts
 
 // ============================================================
-// IMPORTS
-// ============================================================
-
-import {
-  startRegistration,
-  startAuthentication,
-  browserSupportsWebAuthn,
-} from "@simplewebauthn/browser";
-
-// ============================================================
 // API CONFIGURATION
 // ============================================================
 
@@ -61,11 +51,18 @@ export interface AuthResponse {
   aal?: string | null;
 }
 
+/** Méthode 2FA choisie par l'utilisateur : app d'authentification ou email. */
+export type MfaMethod = "totp" | "email";
+
 export type MfaStatus = {
   aal: string;
   next_aal: string;
   mfa_enabled: boolean;
   requires_challenge: boolean;
+  /** Méthode active (null si la 2FA est désactivée). */
+  method: MfaMethod | null;
+  /** Email masqué (ex : j***@gmail.com), utile pour la méthode email. */
+  email_hint: string | null;
   factors: Array<{
     id: string;
     type: string;
@@ -86,21 +83,10 @@ export type MfaFactor = {
   createdAt?: string | null;
 };
 
-export type RecoveryStatus = {
-  remaining: number;
-  generatedAt: string | null;
-};
+/** Résultat de l'envoi d'un code par email. */
+export type EmailCodeSent = { sentTo: string | null; resendIn: number };
 
-/** Passkey enregistrée côté backend (métadonnées uniquement). */
-export type Passkey = {
-  id: string;
-  name: string;
-  createdAt: string;
-  lastUsedAt: string | null;
-};
-
-/** Options WebAuthn renvoyées par le backend (JSON sérialisable). */
-type WebAuthnOptions = Record<string, unknown>;
+type EmailPurpose = "login" | "enroll" | "challenge";
 
 /**
  * Tag côté front : `label` + classe Tailwind ("bg-[#6366f1]").
@@ -165,7 +151,14 @@ type ApiErrorWithMeta = Error & {
 // Tant que ce flag est actif, l'utilisateur n'est PAS considéré comme
 // connecté : hasStoredSession() renvoie false et getCurrentUser() renvoie
 // null. Les tokens AAL1 restent stockés uniquement pour permettre
-// d'appeler /api/mfa/verify.
+// d'appeler les endpoints de vérification MFA.
+
+/**
+ * Mémoïsation de l'envoi d'email au login : évite deux emails quand React
+ * StrictMode monte le composant deux fois. Remis à zéro dès que le flag
+ * "MFA en attente" change.
+ */
+let loginEmailPromise: Promise<EmailCodeSent> | null = null;
 
 export function isMfaPending(): boolean {
   try {
@@ -176,6 +169,7 @@ export function isMfaPending(): boolean {
 }
 
 function setMfaPending(value: boolean): void {
+  loginEmailPromise = null;
   try {
     if (value) sessionStorage.setItem(MFA_PENDING_KEY, "1");
     else sessionStorage.removeItem(MFA_PENDING_KEY);
@@ -248,7 +242,7 @@ function isTokenExpiring(token: string, marginSeconds = 60): boolean {
 // MFA SESSION GRACE
 // ============================================================
 //
-// Après une vérification MFA réussie (TOTP ou passkey), on conserve la
+// Après une vérification MFA réussie (TOTP ou email), on conserve la
 // session AAL2 pendant une courte fenêtre. Sans ça, si le token est proche
 // de l'expiration (< 60s), apiRequest déclenche un /api/auth/refresh
 // qui rétrograde la session en AAL1 et fait échouer les endpoints
@@ -447,8 +441,8 @@ export async function apiRequest<T>(
 /**
  * Si le compte a le 2FA, la session renvoyée est AAL1 : on la stocke
  * mais on marque "MFA en attente". L'appelant doit alors afficher l'écran
- * de code (voir MfaChallenge dans pages/twofactor.tsx) tant que `isMfaPending()`
- * est vrai.
+ * de code (voir TwoFactor) tant que `isMfaPending()` est vrai. L'écran
+ * s'adapte à la méthode choisie (app ou email).
  */
 export async function signIn(email: string, password: string): Promise<AuthResponse> {
   const result = await apiRequest<AuthResponse>("/api/auth/login", {
@@ -481,24 +475,33 @@ export async function signUp(
 }
 
 // ============================================================
-// MFA STATUS (lecture AAL + facteurs vérifiés)
+// MFA STATUS (lecture AAL + méthode + facteurs vérifiés)
 // ============================================================
 
 export async function getMfaStatus(): Promise<MfaStatus | null> {
   try {
-    const data = await apiRequest<{ success: boolean } & MfaStatus>(
-      "/api/auth/mfa/status",
-      { method: "GET" }
-    );
+    const data = await apiRequest<
+      { success: boolean } & Omit<MfaStatus, "method" | "email_hint"> & {
+          method?: MfaMethod | null;
+          email_hint?: string | null;
+          emailHint?: string | null;
+        }
+    >("/api/auth/mfa/status", { method: "GET" });
 
     if (!data || !data.success) return null;
+
+    const factors = data.factors ?? [];
 
     return {
       aal: data.aal,
       next_aal: data.next_aal,
       mfa_enabled: data.mfa_enabled,
       requires_challenge: data.requires_challenge,
-      factors: data.factors,
+      factors,
+      method:
+        data.method ??
+        (factors.length > 0 ? "totp" : data.mfa_enabled ? "email" : null),
+      email_hint: data.email_hint ?? data.emailHint ?? null,
     };
   } catch (error) {
     console.error("Error fetching MFA status:", error);
@@ -520,7 +523,11 @@ export async function refreshMfaPending(): Promise<boolean> {
   const status = await getMfaStatus();
   if (!status) return isMfaPending();
 
+  // Ne réinitialise pas la mémoïsation si l'état ne change pas.
+  const saved = loginEmailPromise;
   setMfaPending(status.requires_challenge);
+  if (status.requires_challenge && saved) loginEmailPromise = saved;
+
   return status.requires_challenge;
 }
 
@@ -994,8 +1001,10 @@ export async function checkApiHealth(): Promise<boolean> {
 }
 
 // ============================================================
-// MFA (tout passe par le backend, aucune clé Supabase côté front)
+// MFA · APP D'AUTHENTIFICATION (TOTP)
 // ============================================================
+//
+// Tout passe par le backend, aucune clé Supabase côté front.
 
 type RawFactor = {
   id: string;
@@ -1114,7 +1123,7 @@ export async function startMfaEnrollment(): Promise<{
 
 /**
  * Étape 2 : vérifie le premier code. La session renvoyée (AAL2) est
- * stockée localement, ce qui permet ensuite de générer les codes de secours.
+ * stockée localement.
  */
 export async function confirmMfaEnrollment(
   factorId: string,
@@ -1148,8 +1157,8 @@ export async function cancelMfaEnrollment(factorId: string): Promise<void> {
 
 /**
  * Désactive un facteur vérifié. Requiert une session AAL2 : appeler
- * verifyMfaFactorCode / verifyRecoveryCode / verifyWithPasskey avant,
- * ou passer par le garde MFA de l'UI (MfaRequiredError → modale).
+ * verifyMfaFactorCode / verifyEmailMfaCode avant, ou passer par le garde
+ * MFA de l'UI (MfaRequiredError → modale).
  */
 export async function disableMfa(factorId: string): Promise<void> {
   await apiRequest(
@@ -1204,233 +1213,105 @@ export async function verifyMfaLogin(
 }
 
 // ============================================================
-// RECOVERY CODES (codes de secours)
+// MFA · CODE PAR EMAIL
 // ============================================================
 //
 // Contrat backend :
 //
-//   GET  /api/mfa/recovery-codes          → { success, remaining, generatedAt }
-//   POST /api/mfa/recovery-codes          → { success, codes: string[] }   (requireAal2)
-//   POST /api/mfa/recovery-codes/verify   → { success, session, remaining } (rate-limité, élève en AAL2)
+//   POST   /api/mfa/email/send           body { purpose } → { success, sentTo, resendIn }
+//   POST   /api/mfa/email/enroll/verify  body { code }    → { success, session }   (active la méthode)
+//   POST   /api/mfa/email/verify         body { code }    → { success, session }   (élève en AAL2)
+//   DELETE /api/mfa/email                                 → { success }            (requireAal2)
+//
+// Le code (6 chiffres) est stocké hashé côté serveur, expire après 10 min
+// et est limité en essais. Le renvoi est limité (429 + Retry-After).
 
-/** Nombre de codes restants + date de génération. null si indisponible. */
-export async function getRecoveryCodesStatus(): Promise<RecoveryStatus | null> {
-  try {
+/**
+ * Envoie un code par email.
+ *  - "login"     : mémoïsé (un seul envoi même si le composant est monté 2 fois)
+ *  - "enroll"    : activation de la méthode email dans les réglages
+ *  - "challenge" : action sensible (changer le mot de passe, désactiver la 2FA…)
+ */
+export function sendEmailMfaCode(
+  purpose: EmailPurpose = "login",
+  options: { force?: boolean } = {}
+): Promise<EmailCodeSent> {
+  if (purpose === "login" && !options.force && loginEmailPromise) {
+    return loginEmailPromise;
+  }
+
+  const request = (async (): Promise<EmailCodeSent> => {
     const data = await apiRequest<{
       success: boolean;
-      remaining?: number;
-      generatedAt?: string | null;
-      generated_at?: string | null;
-    }>("/api/mfa/recovery-codes", { method: "GET" });
-
-    if (!data?.success) return null;
+      sentTo?: string | null;
+      sent_to?: string | null;
+      resendIn?: number;
+      resend_in?: number;
+    }>("/api/mfa/email/send", {
+      method: "POST",
+      body: JSON.stringify({ purpose }),
+    });
 
     return {
-      remaining: data.remaining ?? 0,
-      generatedAt: data.generatedAt ?? data.generated_at ?? null,
+      sentTo: data.sentTo ?? data.sent_to ?? null,
+      resendIn: data.resendIn ?? data.resend_in ?? 60,
     };
-  } catch (error) {
-    console.error("Error fetching recovery codes status:", error);
-    return null;
-  }
-}
+  })();
 
-/**
- * Génère (ou régénère) les codes de secours. Les anciens deviennent
- * invalides. Requiert AAL2 : peut lever MfaRequiredError.
- * Les codes ne sont renvoyés qu'une seule fois.
- */
-export async function generateRecoveryCodes(): Promise<string[]> {
-  const data = await apiRequest<{ success: boolean; codes?: string[] }>(
-    "/api/mfa/recovery-codes",
-    { method: "POST" }
-  );
-
-  if (!data?.codes?.length) {
-    throw new Error("The server did not return any recovery codes.");
+  if (purpose === "login") {
+    loginEmailPromise = request;
+    request.catch(() => {
+      if (loginEmailPromise === request) loginEmailPromise = null;
+    });
   }
 
-  return data.codes;
+  return request;
 }
 
-/**
- * Utilise un code de secours à la place d'un code TOTP.
- * Le backend consomme le code et renvoie une session AAL2.
- */
-export async function verifyRecoveryCode(
-  code: string
-): Promise<{ remaining: number }> {
+/** Vérifie le premier code reçu et active la méthode email (session AAL2). */
+export async function confirmEmailMfaEnrollment(code: string): Promise<void> {
   const data = await apiRequest<{
     success: boolean;
     session: AuthSession | null;
-    remaining?: number;
-  }>("/api/mfa/recovery-codes/verify", {
+  }>("/api/mfa/email/enroll/verify", {
     method: "POST",
     body: JSON.stringify({ code }),
   });
 
   if (!data?.session?.access_token) {
     throw new Error(
-      "Recovery code accepted but the backend did not return a session."
+      "Email verification succeeded but the backend did not return an AAL2 session."
+    );
+  }
+
+  saveSession(data.session);
+  markMfaVerified();
+}
+
+/** Vérifie un code email (login ou action sensible) et élève la session en AAL2. */
+export async function verifyEmailMfaCode(code: string): Promise<void> {
+  const data = await apiRequest<{
+    success: boolean;
+    session: AuthSession | null;
+  }>("/api/mfa/email/verify", {
+    method: "POST",
+    body: JSON.stringify({ code }),
+  });
+
+  if (!data?.session?.access_token) {
+    throw new Error(
+      "Email verification succeeded but the backend did not return an AAL2 session."
     );
   }
 
   saveSession(data.session);
   markMfaVerified();
   setMfaPending(false);
-
-  return { remaining: data.remaining ?? 0 };
 }
 
-// ============================================================
-// PASSKEYS (WebAuthn)
-// ============================================================
-//
-// Contrat backend :
-//
-//   GET    /api/mfa/passkeys                          → { passkeys: Passkey[] }
-//   POST   /api/mfa/passkeys/register/options         → { options }
-//   POST   /api/mfa/passkeys/register/verify          → { success, passkey? }       (requireAal2)
-//   POST   /api/mfa/passkeys/authenticate/options     → { options }
-//   POST   /api/mfa/passkeys/authenticate/verify      → { success, session }        (élève en AAL2)
-//   DELETE /api/mfa/passkeys?id=...                   → { success }                 (requireAal2)
-//
-// Le navigateur exécute la cérémonie WebAuthn via @simplewebauthn/browser ;
-// le backend fait office de Relying Party.
-
-/** true si le navigateur supporte WebAuthn (à utiliser pour masquer l'option). */
-export function isWebAuthnSupported(): boolean {
-  try {
-    return browserSupportsWebAuthn();
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Liste les passkeys enregistrées pour l'utilisateur courant.
- * Ne contient que les métadonnées (nom, dates) — jamais la clé publique.
- */
-export async function listPasskeys(): Promise<Passkey[]> {
-  const data = await apiRequest<{ success?: boolean; passkeys?: Passkey[] }>(
-    "/api/mfa/passkeys",
-    { method: "GET" }
-  );
-  return data?.passkeys ?? [];
-}
-
-/**
- * Enregistre une nouvelle passkey (authenticator biométrique, clé
- * matérielle, etc.). Requiert AAL2 : peut lever MfaRequiredError.
- *
- * `attachment` :
- *   - "platform"       → authenticator intégré (Touch ID, Windows Hello…)
- *   - "cross-platform" → clé externe (YubiKey…)
- *   - undefined        → laisser l'utilisateur / le navigateur choisir
- *
- * Renvoie la passkey créée si le backend la retourne, sinon null
- * (utiliser listPasskeys() pour rafraîchir).
- */
-export async function registerPasskey(
-  name: string,
-  attachment?: "platform" | "cross-platform"
-): Promise<Passkey | null> {
-  if (!isWebAuthnSupported()) {
-    throw new Error("WebAuthn is not supported by this browser.");
-  }
-
-  // 1. Options depuis le backend.
-  const optRes = await apiRequest<{ success?: boolean; options: WebAuthnOptions }>(
-    "/api/mfa/passkeys/register/options",
-    {
-      method: "POST",
-      body: JSON.stringify(attachment ? { attachment } : {}),
-    }
-  );
-
-  if (!optRes?.options) {
-    throw new Error("The server did not return registration options.");
-  }
-
-  // 2. Cérémonie côté navigateur (peut throw si l'utilisateur annule).
-  const attestation = await startRegistration({ optionsJSON: optRes.options as any });
-
-  // 3. Vérification côté backend + enregistrement du credential.
-  const verifyRes = await apiRequest<{
-    success: boolean;
-    passkey?: Passkey;
-    error?: string;
-  }>("/api/mfa/passkeys/register/verify", {
-    method: "POST",
-    body: JSON.stringify({ response: attestation, name }),
-  });
-
-  return verifyRes?.passkey ?? null;
-}
-
-/**
- * Authentifie via une passkey existante et élève la session en AAL2.
- *
- * Usages :
- *   - Login : après signIn() si mfa_pending est vrai, on peut proposer
- *     "Utiliser une passkey" — l'AAL2 est alors obtenu sans TOTP.
- *   - Challenge avant action sensible : au lieu de saisir un code TOTP.
- *
- * Peut throw MfaRequiredError, RateLimitError, ou une erreur
- * WebAuthn standard (NotAllowedError si l'utilisateur annule).
- */
-export async function verifyWithPasskey(): Promise<void> {
-  if (!isWebAuthnSupported()) {
-    throw new Error("WebAuthn is not supported by this browser.");
-  }
-
-  // 1. Options depuis le backend.
-  const optRes = await apiRequest<{ success?: boolean; options: WebAuthnOptions }>(
-    "/api/mfa/passkeys/authenticate/options",
-    { method: "POST", body: JSON.stringify({}) }
-  );
-
-  if (!optRes?.options) {
-    throw new Error("The server did not return authentication options.");
-  }
-
-  // 2. Cérémonie côté navigateur.
-  const assertion = await startAuthentication({ optionsJSON: optRes.options as any });
-
-  // 3. Vérification côté backend + session AAL2.
-  const verifyRes = await apiRequest<{
-    success: boolean;
-    session: AuthSession | null;
-    error?: string;
-  }>("/api/mfa/passkeys/authenticate/verify", {
-    method: "POST",
-    body: JSON.stringify({ response: assertion }),
-  });
-
-  if (!verifyRes?.session?.access_token) {
-    throw new Error(
-      "Passkey verification succeeded but the backend did not return an AAL2 session."
-    );
-  }
-
-  saveSession(verifyRes.session);
-  markMfaVerified();
-  setMfaPending(false);
-}
-
-/**
- * Supprime une passkey. Requiert AAL2 : peut lever MfaRequiredError.
- * Penser à revokeOtherSessions() après une suppression si c'est la
- * dernière méthode MFA (pour forcer la reconnexion ailleurs).
- */
-export async function deletePasskey(id: string): Promise<void> {
-  if (!id) {
-    throw new Error("Passkey id is required.");
-  }
-  await apiRequest(
-    `/api/mfa/passkeys?id=${encodeURIComponent(id)}`,
-    { method: "DELETE" }
-  );
+/** Désactive la méthode email (requiert AAL2 : peut lever MfaRequiredError). */
+export async function disableEmailMfa(): Promise<void> {
+  await apiRequest("/api/mfa/email", { method: "DELETE" });
 }
 
 // ============================================================

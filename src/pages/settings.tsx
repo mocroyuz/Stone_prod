@@ -19,29 +19,24 @@ import {
   deleteAvatar,
   resendVerificationEmail,
   updatePassword,
-  // ── MFA ──
+  // ── MFA (app ou email) ──
+  getMfaStatus,
   listMfaFactors,
   startMfaEnrollment,
   confirmMfaEnrollment,
   cancelMfaEnrollment,
   disableMfa,
   verifyMfaFactorCode,
-  verifyRecoveryCode,
-  generateRecoveryCodes,
-  getRecoveryCodesStatus,
+  sendEmailMfaCode,
+  confirmEmailMfaEnrollment,
+  verifyEmailMfaCode,
+  disableEmailMfa,
   revokeOtherSessions,
   isMfaRequiredError,
   isRateLimitError,
   type UserProfile,
   type MfaFactor,
-  type RecoveryStatus,
-  // ── Passkeys / WebAuthn ──
-  listPasskeys,
-  registerPasskey,
-  deletePasskey,
-  isWebAuthnSupported,
-  verifyWithPasskey,
-  type Passkey,
+  type MfaMethod,
   // ── Tags ──
   listTags,
   createTag,
@@ -1221,16 +1216,16 @@ function passwordScore(value: string): number {
   return Math.min(score, 4);
 }
 
-/* ── 2FA : garde MFA, modale de challenge, codes de secours ── */
+/* ── 2FA : garde MFA + modale de challenge (app ou email) ── */
 
 type MfaGate = {
+  method: MfaMethod;
   factors: MfaFactor[];
   /** Action à rejouer une fois la session passée en AAL2. */
   run: () => Promise<void>;
 };
 
 const TOTP_RE = /^\d{6}$/;
-const RECOVERY_RE = /^[A-Z0-9-]{8,16}$/;
 
 const formatWait = (seconds: number) =>
   seconds >= 60 ? `${Math.ceil(seconds / 60)} min` : `${seconds} s`;
@@ -1257,57 +1252,81 @@ function MfaChallengeModal({
 }: {
   gate: MfaGate | null;
   onClose: () => void;
-  onDone: (remainingRecoveryCodes?: number) => void;
+  onDone: () => void;
   title: string;
   description: string;
   tokens: Tokens;
   isDark: boolean;
 }) {
   const [factorId, setFactorId] = useState("");
-  const [mode, setMode] = useState<"totp" | "recovery" | "passkey">("totp");
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [sentTo, setSentTo] = useState<string | null>(null);
   const [lockedUntil, setLockedUntil] = useState(0);
+  const [resendAt, setResendAt] = useState(0);
   const [now, setNow] = useState(() => Date.now());
-  const verified = useRef<{ remaining?: number } | null>(null);
-  const passkeyStarted = useRef(false);
+  const verified = useRef(false);
+  const sentFor = useRef<MfaGate | null>(null);
+
+  const method: MfaMethod = gate?.method ?? "totp";
+
+  const sendCode = useCallback(async () => {
+    setSending(true);
+    setError(null);
+    try {
+      const sent = await sendEmailMfaCode("challenge", { force: true });
+      setSentTo(sent.sentTo);
+      setResendAt(Date.now() + sent.resendIn * 1000);
+      setNow(Date.now());
+    } catch (e) {
+      if (isRateLimitError(e)) {
+        setResendAt(Date.now() + e.retryAfterSeconds * 1000);
+        setNow(Date.now());
+      } else {
+        setError(e instanceof Error ? e.message : "Could not send the code.");
+      }
+    } finally {
+      setSending(false);
+    }
+  }, []);
 
   useEffect(() => {
     setFactorId(gate?.factors[0]?.id ?? "");
-    setMode("totp");
     setCode("");
     setError(null);
     setLockedUntil(0);
-    verified.current = null;
-    passkeyStarted.current = false;
-  }, [gate]);
+    setResendAt(0);
+    setSentTo(null);
+    verified.current = false;
+
+    // Méthode email : envoie le code dès l'ouverture de la modale.
+    if (gate?.method === "email" && sentFor.current !== gate) {
+      sentFor.current = gate;
+      void sendCode();
+    }
+    if (!gate) sentFor.current = null;
+  }, [gate, sendCode]);
 
   useEffect(() => {
-    if (lockedUntil <= Date.now()) return;
+    if (Math.max(lockedUntil, resendAt) <= Date.now()) return;
     const timer = window.setInterval(() => {
       const t = Date.now();
       setNow(t);
-      if (t >= lockedUntil) window.clearInterval(timer);
+      if (t >= Math.max(lockedUntil, resendAt)) window.clearInterval(timer);
     }, 500);
     return () => window.clearInterval(timer);
-  }, [lockedUntil]);
+  }, [lockedUntil, resendAt]);
 
   const waitLeft = Math.max(0, Math.ceil((lockedUntil - now) / 1000));
-  const valid =
-    mode === "totp"
-      ? TOTP_RE.test(code)
-      : mode === "recovery"
-      ? RECOVERY_RE.test(code)
-      : true;
-  const ready = Boolean(verified.current) || valid;
+  const resendLeft = Math.max(0, Math.ceil((resendAt - now) / 1000));
+  const ready = verified.current || TOTP_RE.test(code);
 
   const submit = async () => {
     if (!gate || busy || waitLeft > 0) return;
     if (!ready) {
-      setError(
-        mode === "totp" ? "Enter the 6-digit code" : "Enter a recovery code"
-      );
+      setError("Enter the 6-digit code");
       return;
     }
 
@@ -1315,40 +1334,27 @@ function MfaChallengeModal({
     setError(null);
 
     try {
-      if (!verified.current && mode === "passkey") {
-        await verifyWithPasskey();
-        verified.current = {};
-      }
-
       if (!verified.current) {
-        if (mode === "totp") {
-          await verifyMfaFactorCode(factorId, code);
-          verified.current = {};
-        } else {
-          verified.current = await verifyRecoveryCode(code);
-        }
+        if (method === "email") await verifyEmailMfaCode(code);
+        else await verifyMfaFactorCode(factorId, code);
+        verified.current = true;
       }
 
       await gate.run();
-      onDone(verified.current?.remaining);
+      onDone();
     } catch (e) {
       if (isRateLimitError(e)) {
         setLockedUntil(Date.now() + e.retryAfterSeconds * 1000);
         setNow(Date.now());
       } else if (isMfaRequiredError(e)) {
-        verified.current = null;
+        verified.current = false;
         setError("Verification expired. Enter a new code.");
-      } else if (
-        e instanceof DOMException &&
-        ["NotAllowedError", "AbortError"].includes(e.name)
-      ) {
-        setError("Passkey verification cancelled.");
       } else {
         const msg = e instanceof Error ? e.message : "Invalid code";
         setError(
           verified.current
             ? msg
-            : /invalid|code/i.test(msg)
+            : /invalid|code|expired/i.test(msg)
             ? "Invalid code. Try again."
             : msg
         );
@@ -1356,35 +1362,15 @@ function MfaChallengeModal({
       if (!verified.current) setCode("");
     } finally {
       setBusy(false);
-      passkeyStarted.current = false;
     }
   };
 
   useEffect(() => {
-    if (mode === "totp" && code.length === 6 && !busy && waitLeft === 0) {
+    if (code.length === 6 && !busy && waitLeft === 0 && !verified.current) {
       void submit();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [code, mode]);
-
-  useEffect(() => {
-    if (mode !== "passkey" || !gate) return;
-    if (verified.current || busy) return;
-    if (passkeyStarted.current) return;
-    passkeyStarted.current = true;
-    void submit();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, gate]);
-
-  const switchMode = () => {
-    if (mode === "passkey") {
-      setMode("totp");
-    } else {
-      setMode((m) => (m === "totp" ? "recovery" : "totp"));
-    }
-    setCode("");
-    setError(null);
-  };
+  }, [code]);
 
   const factors = gate?.factors ?? [];
 
@@ -1393,11 +1379,15 @@ function MfaChallengeModal({
       open={!!gate}
       onClose={busy ? () => undefined : onClose}
       title={title}
-      description={description}
+      description={
+        method === "email"
+          ? `Enter the 6-digit code we emailed${sentTo ? ` to ${sentTo}` : ""}.`
+          : description
+      }
       dark={isDark}
     >
       <div className="flex flex-col gap-4">
-        {mode === "totp" && factors.length > 1 && (
+        {method === "totp" && factors.length > 1 && (
           <label className="block">
             <span
               className={cx("mb-1.5 block text-[13px] font-medium", tokens.label)}
@@ -1431,11 +1421,7 @@ function MfaChallengeModal({
           <p className={cx("text-[13px]", tokens.body)}>
             Code accepted. Retry to finish the action.
           </p>
-        ) : mode === "passkey" ? (
-          <p className={cx("text-[13px]", tokens.body)}>
-            Use your device to verify with a passkey. This may take a moment.
-          </p>
-        ) : mode === "totp" ? (
+        ) : (
           <Field
             label="Verification code"
             value={code}
@@ -1451,27 +1437,6 @@ function MfaChallengeModal({
             autoFocus
             tokens={tokens}
           />
-        ) : (
-          <Field
-            label="Recovery code"
-            value={code}
-            onChange={(v) => {
-              setCode(
-                v
-                  .toUpperCase()
-                  .replace(/[^A-Z0-9-]/g, "")
-                  .slice(0, 16)
-              );
-              setError(null);
-            }}
-            placeholder="XXXXX-XXXXX"
-            autoCapitalize="characters"
-            error={error ?? undefined}
-            onEnter={submit}
-            hint="Each recovery code works only once."
-            autoFocus
-            tokens={tokens}
-          />
         )}
 
         {verified.current && error && (
@@ -1481,70 +1446,33 @@ function MfaChallengeModal({
         {waitLeft > 0 && (
           <p
             role="alert"
-            className={cx(
-              "rounded-[10px] px-3 py-2 text-[12.5px]",
-              tokens.warn
-            )}
+            className={cx("rounded-[10px] px-3 py-2 text-[12.5px]", tokens.warn)}
           >
             Too many attempts. Try again in {formatWait(waitLeft)}.
           </p>
         )}
 
-        {!verified.current && mode !== "passkey" && (
-          <div className="flex flex-wrap gap-4">
-            <button
-              type="button"
-              onClick={switchMode}
-              className={cx(
-                "self-start text-[12.5px] font-medium underline underline-offset-2",
-                tokens.link,
-                tokens.ring
-              )}
-            >
-              {mode === "totp"
-                ? "Use a recovery code instead"
-                : "Use your authenticator app instead"}
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setMode("passkey");
-                setError(null);
-              }}
-              className={cx(
-                "self-start text-[12.5px] font-medium underline underline-offset-2",
-                tokens.link,
-                tokens.ring
-              )}
-            >
-              Use a passkey instead
-            </button>
-          </div>
-        )}
-
-        {!verified.current && mode === "passkey" && error && (
+        {method === "email" && !verified.current && (
           <button
             type="button"
-            onClick={() => {
-              passkeyStarted.current = false;
-              setError(null);
-              void submit();
-            }}
+            onClick={() => void sendCode()}
+            disabled={sending || resendLeft > 0}
             className={cx(
-              "self-start text-[12.5px] font-medium underline underline-offset-2",
+              "self-start text-[12.5px] font-medium underline underline-offset-2 disabled:no-underline disabled:opacity-60",
               tokens.link,
               tokens.ring
             )}
           >
-            Retry passkey verification
+            {sending
+              ? "Sending..."
+              : resendLeft > 0
+              ? `Resend code in ${formatWait(resendLeft)}`
+              : "Resend code"}
           </button>
         )}
 
         <div
-          className={cx(
-            "flex justify-end gap-2 border-t pt-4",
-            tokens.cardBorder
-          )}
+          className={cx("flex justify-end gap-2 border-t pt-4", tokens.cardBorder)}
         >
           <Button
             tokens={tokens}
@@ -1560,9 +1488,7 @@ function MfaChallengeModal({
             disabled={busy || waitLeft > 0 || !ready}
           >
             {busy
-              ? mode === "passkey"
-                ? "Waiting for passkey..."
-                : "Verifying..."
+              ? "Verifying..."
               : verified.current
               ? "Retry"
               : "Verify & continue"}
@@ -1578,7 +1504,7 @@ function useMfaGate({
   notify,
   isDark,
   title = "Verify it's you",
-  description = "Enter a code from your authenticator app to continue.",
+  description = "Enter a verification code to continue.",
 }: {
   tokens: Tokens;
   notify: Notify;
@@ -1595,17 +1521,28 @@ function useMfaGate({
       } catch (error) {
         if (!isMfaRequiredError(error)) throw error;
 
-        const factors = await listMfaFactors();
+        const status = await getMfaStatus();
+        const method = status?.method;
 
-        if (factors.length === 0) {
+        if (!method) {
           notify(
-            "Two-factor authentication is enabled but no authenticator was found. Set up 2FA again and retry.",
+            "Two-factor authentication is enabled but no method was found. Set it up again and retry.",
             "error"
           );
           return;
         }
 
-        setGate({ factors, run });
+        const factors = method === "totp" ? await listMfaFactors() : [];
+
+        if (method === "totp" && factors.length === 0) {
+          notify(
+            "No authenticator was found. Set up 2FA again and retry.",
+            "error"
+          );
+          return;
+        }
+
+        setGate({ method, factors, run });
       }
     },
     [notify]
@@ -1615,17 +1552,7 @@ function useMfaGate({
     <MfaChallengeModal
       gate={gate}
       onClose={() => setGate(null)}
-      onDone={(remaining) => {
-        setGate(null);
-        if (remaining !== undefined && remaining <= 2) {
-          notify(
-            remaining === 0
-              ? "Last recovery code used. Generate new ones in Two-factor auth."
-              : `Recovery code used. ${remaining} left. Generate new ones in Two-factor auth.`,
-            remaining === 0 ? "error" : "success"
-          );
-        }
-      }}
+      onDone={() => setGate(null)}
       title={title}
       description={description}
       tokens={tokens}
@@ -1634,118 +1561,6 @@ function useMfaGate({
   );
 
   return { guard, modal };
-}
-
-function RecoveryCodesDialog({
-  codes,
-  onClose,
-  tokens,
-  isDark,
-  notify,
-}: {
-  codes: string[] | null;
-  onClose: () => void;
-  tokens: Tokens;
-  isDark: boolean;
-  notify: Notify;
-}) {
-  const [saved, setSaved] = useState(false);
-
-  useEffect(() => {
-    setSaved(false);
-  }, [codes]);
-
-  const text = codes
-    ? `Recovery codes\nEach code works once. Keep them somewhere safe.\n\n${codes.join("\n")}\n`
-    : "";
-
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(codes?.join("\n") ?? "");
-      notify("Recovery codes copied");
-    } catch {
-      notify("Copy failed", "error");
-    }
-  };
-
-  const download = () => {
-    const url = URL.createObjectURL(new Blob([text], { type: "text/plain" }));
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "recovery-codes.txt";
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-  return (
-    <Modal
-      open={!!codes}
-      onClose={() => {
-        if (saved) onClose();
-      }}
-      title="Save your recovery codes"
-      description="Use one of these codes to sign in if you lose access to your authenticator app. They won't be shown again."
-      dark={isDark}
-    >
-      <div className="flex flex-col gap-4">
-        <ul
-          className={cx(
-            "grid grid-cols-2 gap-2 rounded-[10px] p-3 font-mono text-[13px] tracking-wider",
-            tokens.muted,
-            tokens.heading
-          )}
-        >
-          {codes?.map((c) => (
-            <li key={c} className="select-all">
-              {c}
-            </li>
-          ))}
-        </ul>
-
-        <div className="flex gap-2">
-          <Button
-            tokens={tokens}
-            variant="secondary"
-            onClick={copy}
-            className="!px-3.5 !py-2 !font-medium"
-          >
-            Copy
-          </Button>
-          <Button
-            tokens={tokens}
-            variant="secondary"
-            onClick={download}
-            className="!px-3.5 !py-2 !font-medium"
-          >
-            Download
-          </Button>
-        </div>
-
-        <label
-          className={cx(
-            "flex cursor-pointer items-start gap-2.5 text-[13px]",
-            tokens.body
-          )}
-        >
-          <input
-            type="checkbox"
-            checked={saved}
-            onChange={(e) => setSaved(e.target.checked)}
-            className="mt-0.5 h-4 w-4"
-          />
-          I saved these codes in a safe place.
-        </label>
-
-        <div
-          className={cx("flex justify-end border-t pt-4", tokens.cardBorder)}
-        >
-          <Button tokens={tokens} onClick={onClose} disabled={!saved}>
-            Done
-          </Button>
-        </div>
-      </div>
-    </Modal>
-  );
 }
 
 /* ── Security (AccountSection) ── */
@@ -1778,8 +1593,7 @@ function AccountSection({
     notify,
     isDark,
     title: "Two-factor verification required",
-    description:
-      "Enter a code from your authenticator app to change your password.",
+    description: "Enter a verification code to change your password.",
   });
 
   useEffect(() => {
@@ -1907,7 +1721,7 @@ function AccountSection({
         providerLabel ?? "an external provider"
       }. Set a password to also sign in with your email.`
     : mfaEnabled
-    ? "Two-factor authentication is on. Changing your password requires a code from your authenticator app or a recovery code."
+    ? "Two-factor authentication is on. Changing your password requires a verification code."
     : "Use at least 8 characters. Mix letters, numbers, and symbols.";
 
   return (
@@ -2074,7 +1888,7 @@ function AccountSection({
   );
 }
 
-/* ── MFA (2FA / TOTP + passkeys + codes de secours) ── */
+/* ── MFA (une seule méthode : app d'authentification OU code par email) ── */
 
 function MfaSection({
   tokens,
@@ -2085,36 +1899,45 @@ function MfaSection({
   notify: Notify;
   isDark: boolean;
 }) {
+  const [method, setMethod] = useState<MfaMethod | null>(null);
   const [factors, setFactors] = useState<MfaFactor[]>([]);
-  const [recovery, setRecovery] = useState<RecoveryStatus | null>(null);
-  const [passkeys, setPasskeys] = useState<Passkey[]>([]);
-  const [addingPasskey, setAddingPasskey] = useState<
-    null | "platform" | "cross-platform"
-  >(null);
+  const [emailHint, setEmailHint] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [starting, setStarting] = useState(false);
+  const [starting, setStarting] = useState<null | "totp" | "email">(null);
 
+  // Activation TOTP (QR) ou email (code reçu)
   const [enrollment, setEnrollment] = useState<{
     factorId: string;
     qrCode: string;
     secret: string;
   } | null>(null);
+  const [emailEnroll, setEmailEnroll] = useState<{
+    sentTo: string | null;
+  } | null>(null);
+  const [resendAt, setResendAt] = useState(0);
+  const [now, setNow] = useState(() => Date.now());
   const [code, setCode] = useState("");
   const [confirming, setConfirming] = useState(false);
 
-  const [disableTarget, setDisableTarget] = useState<string | null>(null);
+  const [disableTarget, setDisableTarget] = useState<
+    null | { type: "totp"; id: string } | { type: "email" }
+  >(null);
   const [disabling, setDisabling] = useState(false);
-  const [confirmRegen, setConfirmRegen] = useState(false);
-  const [regenerating, setRegenerating] = useState(false);
-  const [codesToShow, setCodesToShow] = useState<string[] | null>(null);
 
-  const { guard, modal: mfaModal } = useMfaGate({ tokens, notify, isDark });
+  const { guard, modal: mfaModal } = useMfaGate({
+    tokens,
+    notify,
+    isDark,
+    title: "Verify it's you",
+    description: "Enter a verification code to continue.",
+  });
 
   const enrollmentRef = useRef<typeof enrollment>(null);
   useEffect(() => {
     enrollmentRef.current = enrollment;
   }, [enrollment]);
 
+  // Annule l'enrôlement TOTP abandonné si on quitte la page.
   useEffect(
     () => () => {
       const pending = enrollmentRef.current;
@@ -2123,11 +1946,22 @@ function MfaSection({
     []
   );
 
+  useEffect(() => {
+    if (resendAt <= Date.now()) return;
+    const timer = window.setInterval(() => {
+      const t = Date.now();
+      setNow(t);
+      if (t >= resendAt) window.clearInterval(timer);
+    }, 500);
+    return () => window.clearInterval(timer);
+  }, [resendAt]);
+
   const loadAll = useCallback(async () => {
-    const list = await listMfaFactors();
-    setFactors(list);
-    setRecovery(list.length > 0 ? await getRecoveryCodesStatus() : null);
-    setPasskeys(list.length > 0 ? await listPasskeys() : []);
+    const status = await getMfaStatus();
+    const current = status?.method ?? null;
+    setMethod(current);
+    setEmailHint(status?.email_hint ?? null);
+    setFactors(current === "totp" ? await listMfaFactors() : []);
   }, []);
 
   useEffect(() => {
@@ -2135,15 +1969,13 @@ function MfaSection({
       try {
         await loadAll();
       } catch (e) {
-        console.error("Error loading MFA factors:", e);
+        console.error("Error loading MFA settings:", e);
         notify("Failed to load security settings", "error");
       } finally {
         setLoading(false);
       }
     })();
   }, [loadAll, notify]);
-
-  const isEnabled = factors.length > 0;
 
   const errorMessage = (e: unknown, fallback: string) =>
     isRateLimitError(e)
@@ -2152,71 +1984,95 @@ function MfaSection({
       ? e.message
       : fallback;
 
-  const handleStart = async () => {
+  const resendLeft = Math.max(0, Math.ceil((resendAt - now) / 1000));
+
+  /* ----- Activer : app d'authentification ------------------------------------ */
+  const handleStartTotp = async () => {
     if (starting) return;
-    setStarting(true);
+    setStarting("totp");
     try {
-      await guard(async () => {
-        const data = await startMfaEnrollment();
-        enrollmentRef.current = data;
-        setEnrollment(data);
-        setCode("");
-      });
+      const data = await startMfaEnrollment();
+      enrollmentRef.current = data;
+      setEnrollment(data);
+      setCode("");
     } catch (e) {
       console.error("Error starting MFA enrollment:", e);
       notify(errorMessage(e, "Failed to start setup"), "error");
     } finally {
-      setStarting(false);
+      setStarting(null);
     }
   };
 
+  /* ----- Activer : code par email --------------------------------------------- */
+  const sendEnrollEmail = async () => {
+    const sent = await sendEmailMfaCode("enroll", { force: true });
+    setEmailEnroll({ sentTo: sent.sentTo ?? emailHint });
+    setResendAt(Date.now() + sent.resendIn * 1000);
+    setNow(Date.now());
+    setCode("");
+  };
+
+  const handleStartEmail = async () => {
+    if (starting) return;
+    setStarting("email");
+    try {
+      await sendEnrollEmail();
+    } catch (e) {
+      console.error("Error starting email MFA:", e);
+      notify(errorMessage(e, "Failed to send the code"), "error");
+    } finally {
+      setStarting(null);
+    }
+  };
+
+  const handleResendEnroll = async () => {
+    if (resendLeft > 0 || confirming) return;
+    try {
+      await sendEnrollEmail();
+      notify("A new code was sent");
+    } catch (e) {
+      notify(errorMessage(e, "Failed to send the code"), "error");
+    }
+  };
+
+  /* ----- Annuler / confirmer --------------------------------------------------- */
   const handleCancel = async () => {
-    if (!enrollment) return;
-    const { factorId } = enrollment;
+    const pending = enrollment;
     enrollmentRef.current = null;
     setEnrollment(null);
+    setEmailEnroll(null);
     setCode("");
-    try {
-      await cancelMfaEnrollment(factorId);
-    } catch (e) {
-      console.warn("Error cancelling enrollment:", e);
+    if (pending) {
+      try {
+        await cancelMfaEnrollment(pending.factorId);
+      } catch (e) {
+        console.warn("Error cancelling enrollment:", e);
+      }
     }
   };
 
   const handleConfirm = async () => {
-    if (!enrollment || confirming) return;
+    if ((!enrollment && !emailEnroll) || confirming) return;
     if (!TOTP_RE.test(code)) {
       notify("Enter the 6-digit code", "error");
       return;
     }
 
     setConfirming(true);
-    const isFirstFactor = factors.length === 0;
-
     try {
-      await confirmMfaEnrollment(enrollment.factorId, code);
-      enrollmentRef.current = null;
-      setEnrollment(null);
-      setCode("");
-
-      let codes: string[] | null = null;
-      if (isFirstFactor) {
-        try {
-          codes = await generateRecoveryCodes();
-        } catch (e) {
-          console.error("Error generating recovery codes:", e);
-          notify(
-            "2FA is on, but recovery codes could not be generated. Generate them now.",
-            "error"
-          );
-        }
+      if (enrollment) {
+        await confirmMfaEnrollment(enrollment.factorId, code);
+        enrollmentRef.current = null;
+        setEnrollment(null);
+      } else {
+        await confirmEmailMfaEnrollment(code);
+        setEmailEnroll(null);
       }
 
+      setCode("");
       await loadAll();
       void revokeOtherSessions();
-
-      if (codes) setCodesToShow(codes);
-      else notify("Two-factor authentication enabled");
+      notify("Two-factor authentication enabled");
     } catch (e) {
       console.error("Error confirming MFA enrollment:", e);
       notify(errorMessage(e, "Invalid code"), "error");
@@ -2227,20 +2083,24 @@ function MfaSection({
   };
 
   useEffect(() => {
-    if (enrollment && code.length === 6 && !confirming) void handleConfirm();
+    if ((enrollment || emailEnroll) && code.length === 6 && !confirming) {
+      void handleConfirm();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [code]);
 
+  /* ----- Désactiver -------------------------------------------------------------- */
   const handleDisable = async () => {
-    const factorId = disableTarget;
-    if (!factorId || disabling) return;
+    const target = disableTarget;
+    if (!target || disabling) return;
 
     setDisableTarget(null);
     setDisabling(true);
 
     try {
       await guard(async () => {
-        await disableMfa(factorId);
+        if (target.type === "email") await disableEmailMfa();
+        else await disableMfa(target.id);
         await loadAll();
         void revokeOtherSessions();
         notify("Two-factor authentication disabled");
@@ -2250,70 +2110,6 @@ function MfaSection({
       notify(errorMessage(e, "Failed to disable 2FA"), "error");
     } finally {
       setDisabling(false);
-    }
-  };
-
-  const handleRegenerate = async () => {
-    if (regenerating) return;
-
-    setConfirmRegen(false);
-    setRegenerating(true);
-
-    try {
-      await guard(async () => {
-        const codes = await generateRecoveryCodes();
-        await loadAll();
-        setCodesToShow(codes);
-      });
-    } catch (e) {
-      console.error("Error generating recovery codes:", e);
-      notify(errorMessage(e, "Failed to generate recovery codes"), "error");
-    } finally {
-      setRegenerating(false);
-    }
-  };
-
-  const handleAddPasskey = async (
-    attachment: "platform" | "cross-platform"
-  ) => {
-    if (addingPasskey) return;
-    if (!isWebAuthnSupported()) {
-      notify("This browser doesn't support passkeys", "error");
-      return;
-    }
-    setAddingPasskey(attachment);
-    try {
-      await guard(async () => {
-        await registerPasskey(
-          attachment === "platform" ? "Windows Hello" : "Security key",
-          attachment
-        );
-        await loadAll();
-        notify("Passkey added");
-      });
-    } catch (e) {
-      if (
-        e instanceof DOMException &&
-        ["NotAllowedError", "AbortError"].includes(e.name)
-      ) {
-        notify("Passkey setup cancelled", "error");
-      } else {
-        notify(errorMessage(e, "Failed to add passkey"), "error");
-      }
-    } finally {
-      setAddingPasskey(null);
-    }
-  };
-
-  const handleDeletePasskey = async (id: string) => {
-    try {
-      await guard(async () => {
-        await deletePasskey(id);
-        await loadAll();
-        notify("Passkey removed");
-      });
-    } catch (e) {
-      notify(errorMessage(e, "Failed to remove passkey"), "error");
     }
   };
 
@@ -2333,6 +2129,7 @@ function MfaSection({
     }
   };
 
+  /* ----- Rendu -------------------------------------------------------------------- */
   if (loading) {
     return (
       <SectionCard
@@ -2424,73 +2221,80 @@ function MfaSection({
     );
   }
 
-  const lowCodes = recovery !== null && recovery.remaining <= 2;
+  if (emailEnroll) {
+    return (
+      <>
+        <SectionCard
+          title="Verify your email"
+          description={`We sent a 6-digit code to ${
+            emailEnroll.sentTo ?? "your email address"
+          }. Enter it to turn on email verification.`}
+          tokens={tokens}
+        >
+          <div className="flex flex-col gap-4 py-1">
+            <Field
+              label="Verification code"
+              value={code}
+              onChange={(v) => setCode(v.replace(/\D/g, "").slice(0, 6))}
+              placeholder="000000"
+              autoComplete="one-time-code"
+              inputMode="numeric"
+              onEnter={handleConfirm}
+              autoFocus
+              tokens={tokens}
+              hint="The code expires in 10 minutes."
+            />
+
+            <button
+              type="button"
+              onClick={() => void handleResendEnroll()}
+              disabled={resendLeft > 0 || confirming}
+              className={cx(
+                "self-start text-[12.5px] font-medium underline underline-offset-2 disabled:no-underline disabled:opacity-60",
+                tokens.link,
+                tokens.ring
+              )}
+            >
+              {resendLeft > 0
+                ? `Resend code in ${formatWait(resendLeft)}`
+                : "Resend code"}
+            </button>
+
+            <div className="flex justify-end gap-2">
+              <Button
+                tokens={tokens}
+                variant="secondary"
+                onClick={handleCancel}
+                disabled={confirming}
+              >
+                Cancel
+              </Button>
+              <Button
+                tokens={tokens}
+                onClick={handleConfirm}
+                disabled={confirming || code.length !== 6}
+              >
+                {confirming ? "Verifying..." : "Verify & enable"}
+              </Button>
+            </div>
+          </div>
+        </SectionCard>
+
+        {mfaModal}
+      </>
+    );
+  }
+
+  const otherActive = (self: MfaMethod) => method !== null && method !== self;
 
   return (
     <>
       <SectionCard
-        title="Passkeys & security keys"
-        description="Verify with Windows Hello (PIN, fingerprint, face) or a hardware security key."
-        tokens={tokens}
-      >
-        {!isEnabled && (
-          <p className={cx("py-1 text-[12.5px]", tokens.body)}>
-            Enable the authenticator app first, then you can add a passkey.
-          </p>
-        )}
-
-        {passkeys.map((p) => (
-          <div key={p.id} className="flex items-center justify-between gap-3 py-3">
-            <div>
-              <p className={cx("text-[13.5px] font-medium", tokens.heading)}>
-                {p.name}
-              </p>
-              <p className={cx("text-[12px]", tokens.subtle)}>
-                Added {formatDate(p.createdAt)}
-                {p.lastUsedAt ? ` · last used ${formatDate(p.lastUsedAt)}` : ""}
-              </p>
-            </div>
-            <Button
-              tokens={tokens}
-              variant="secondary"
-              onClick={() => handleDeletePasskey(p.id)}
-              className="!px-3 !py-1.5 !text-[12.5px]"
-            >
-              Remove
-            </Button>
-          </div>
-        ))}
-
-        <div className="flex flex-wrap gap-2 pt-3">
-          <Button
-            tokens={tokens}
-            variant="secondary"
-            disabled={!isEnabled || !!addingPasskey}
-            onClick={() => handleAddPasskey("platform")}
-          >
-            {addingPasskey === "platform"
-              ? "Waiting..."
-              : "Set up Windows Hello / PIN"}
-          </Button>
-          <Button
-            tokens={tokens}
-            variant="secondary"
-            disabled={!isEnabled || !!addingPasskey}
-            onClick={() => handleAddPasskey("cross-platform")}
-          >
-            {addingPasskey === "cross-platform"
-              ? "Waiting..."
-              : "+ Add a security key"}
-          </Button>
-        </div>
-      </SectionCard>
-
-      <SectionCard
         title="Authenticator app"
-        description="Use an app to generate a one-time code at sign-in. This adds an extra layer of security to your account."
+        description="Use an app (Google Authenticator, 1Password, Authy…) to generate a one-time code at sign-in."
         tokens={tokens}
       >
-        {isEnabled ? (
+        {method === "totp" ? (
           <div className="flex flex-col gap-3 py-1">
             {factors.map((f) => {
               const added = formatDate(f.createdAt);
@@ -2530,7 +2334,7 @@ function MfaSection({
                   <Button
                     tokens={tokens}
                     variant="secondary"
-                    onClick={() => setDisableTarget(f.id)}
+                    onClick={() => setDisableTarget({ type: "totp", id: f.id })}
                     disabled={disabling}
                     className="!px-3 !py-1.5 !text-[12.5px]"
                   >
@@ -2539,102 +2343,84 @@ function MfaSection({
                 </div>
               );
             })}
-            <div className="pt-2">
-              <Button
-                tokens={tokens}
-                variant="secondary"
-                onClick={handleStart}
-                disabled={starting}
-                className="!px-3.5 !py-2 !font-medium"
-              >
-                {starting ? "Starting..." : "Add another authenticator"}
-              </Button>
-            </div>
           </div>
         ) : (
           <div className="flex flex-col gap-3 py-1 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-start gap-3">
-              <div
-                className={cx(
-                  "flex h-10 w-10 shrink-0 items-center justify-center rounded-full",
-                  tokens.muted
-                )}
-              >
-                <LockIcon className="h-5 w-5" />
-              </div>
-              <div>
-                <p className={cx("text-[13.5px] font-medium", tokens.heading)}>
-                  Authenticator app
-                </p>
-                <p className={cx("mt-0.5 text-[12.5px]", tokens.body)}>
-                  Use Google Authenticator, 1Password, Authy, or a similar app.
-                </p>
-              </div>
-            </div>
+            <p className={cx("text-[12.5px]", tokens.body)}>
+              {otherActive("totp")
+                ? "Disable email verification first to switch to an authenticator app."
+                : "Not enabled."}
+            </p>
             <Button
               tokens={tokens}
-              onClick={handleStart}
-              disabled={starting}
+              onClick={handleStartTotp}
+              disabled={!!starting || otherActive("totp")}
               className="sm:shrink-0"
             >
-              {starting ? "Starting..." : "Enable authenticator app"}
+              {starting === "totp" ? "Starting..." : "Enable authenticator app"}
             </Button>
           </div>
         )}
       </SectionCard>
 
-      {isEnabled && (
-        <SectionCard
-          title="Recovery codes"
-          description="One-time codes that let you sign in if you lose your authenticator app."
-          tokens={tokens}
-        >
-          <div className="flex flex-col gap-3 py-1 sm:flex-row sm:items-center sm:justify-between">
-            <div>
+      <SectionCard
+        title="Email code"
+        description="We email you a 6-digit code every time you sign in."
+        tokens={tokens}
+      >
+        {method === "email" ? (
+          <div
+            className={cx(
+              "flex items-center justify-between gap-3 rounded-[10px] border px-4 py-3",
+              tokens.cardBorder
+            )}
+          >
+            <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <p className={cx("text-[13.5px] font-medium", tokens.heading)}>
-                  {recovery === null || recovery.remaining === 0
-                    ? "No recovery codes available"
-                    : `${recovery.remaining} ${
-                        recovery.remaining === 1 ? "code" : "codes"
-                      } remaining`}
+                  {emailHint ?? "Your email address"}
                 </p>
-                {(recovery === null || lowCodes) && (
-                  <span
-                    className={cx(
-                      "rounded-full px-2 py-0.5 text-[11px] font-medium",
-                      tokens.warn
-                    )}
-                  >
-                    {recovery === null || recovery.remaining === 0
-                      ? "Action needed"
-                      : "Running low"}
-                  </span>
-                )}
+                <span
+                  className={cx(
+                    "rounded-full px-2 py-0.5 text-[11px] font-medium",
+                    tokens.ok
+                  )}
+                >
+                  Active
+                </span>
               </div>
-              <p className={cx("mt-0.5 text-[12.5px]", tokens.body)}>
-                {formatDate(recovery?.generatedAt)
-                  ? `Generated on ${formatDate(recovery?.generatedAt)}. `
-                  : ""}
-                Generating new codes invalidates the previous ones.
+              <p className={cx("mt-0.5 text-[12px]", tokens.subtle)}>
+                Codes are sent to the email on your account.
               </p>
             </div>
             <Button
               tokens={tokens}
-              variant={recovery === null || lowCodes ? "primary" : "secondary"}
-              onClick={() => setConfirmRegen(true)}
-              disabled={regenerating}
-              className="sm:shrink-0"
+              variant="secondary"
+              onClick={() => setDisableTarget({ type: "email" })}
+              disabled={disabling}
+              className="!px-3 !py-1.5 !text-[12.5px]"
             >
-              {regenerating
-                ? "Generating..."
-                : recovery === null || recovery.remaining === 0
-                ? "Generate codes"
-                : "Generate new codes"}
+              Disable
             </Button>
           </div>
-        </SectionCard>
-      )}
+        ) : (
+          <div className="flex flex-col gap-3 py-1 sm:flex-row sm:items-center sm:justify-between">
+            <p className={cx("text-[12.5px]", tokens.body)}>
+              {otherActive("email")
+                ? "Disable the authenticator app first to switch to email codes."
+                : "Not enabled."}
+            </p>
+            <Button
+              tokens={tokens}
+              onClick={handleStartEmail}
+              disabled={!!starting || otherActive("email")}
+              className="sm:shrink-0"
+            >
+              {starting === "email" ? "Sending..." : "Enable email code"}
+            </Button>
+          </div>
+        )}
+      </SectionCard>
 
       <Modal
         open={!!disableTarget}
@@ -2658,40 +2444,6 @@ function MfaSection({
           </Button>
         </div>
       </Modal>
-
-      <Modal
-        open={confirmRegen}
-        onClose={() => setConfirmRegen(false)}
-        title="Generate new recovery codes?"
-        description="Your current codes will stop working. You'll need to verify with a code to continue."
-        dark={isDark}
-      >
-        <div
-          className={cx("flex justify-end gap-2 border-t pt-4", tokens.cardBorder)}
-        >
-          <Button
-            tokens={tokens}
-            variant="secondary"
-            onClick={() => setConfirmRegen(false)}
-          >
-            Cancel
-          </Button>
-          <Button tokens={tokens} onClick={handleRegenerate}>
-            Generate codes
-          </Button>
-        </div>
-      </Modal>
-
-      <RecoveryCodesDialog
-        codes={codesToShow}
-        onClose={() => {
-          setCodesToShow(null);
-          notify("Two-factor authentication is ready");
-        }}
-        tokens={tokens}
-        isDark={isDark}
-        notify={notify}
-      />
 
       {mfaModal}
     </>
