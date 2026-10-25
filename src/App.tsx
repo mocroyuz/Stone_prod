@@ -41,7 +41,11 @@ import CanvaCallback, {
 import { useHashRoute, navigate } from "./hooks/useHashRoute";
 import { useTheme, ThemeProvider, type Theme } from "./hooks/useTheme";
 import { UserProvider, useUser } from "./contexts/UserContext";
-import { isRecoveryUrl, saveOAuthSession } from "./services/supabase";
+import {
+  hasStoredSession,
+  isRecoveryUrl,
+  saveOAuthSession,
+} from "./services/supabase";
 import { readCheckoutReturn } from "./services/stripe";
 import {
   clearCache,
@@ -512,13 +516,29 @@ function normalizeRoute(route: string | null | undefined): string {
    ────────────────────────────────────────────────────────────── */
 
 function AppBoot() {
-  const { loading } = useUser();
+  const { loading, user } = useUser();
+  const [startupBootFinished, setStartupBootFinished] = useState(false);
+  const [startupBootClosed, setStartupBootClosed] = useState(false);
+
+  if (hasStoredSession() && !startupBootClosed) {
+    return (
+      <StoneBoot
+        hold={loading}
+        onFillComplete={() => setStartupBootFinished(true)}
+        onComplete={() => setStartupBootClosed(true)}
+      />
+    );
+  }
 
   if (loading) {
     return <div className="fixed inset-0 z-[999999] bg-[#050505]" />;
   }
 
-  return <AppWithTheme />;
+  return (
+    <AppWithTheme
+      skipInitialBoot={Boolean(user) && startupBootFinished}
+    />
+  );
 }
 
 /* ──────────────────────────────────────────────────────────────
@@ -543,17 +563,29 @@ export default function App() {
    THEME + ROUTE
    ────────────────────────────────────────────────────────────── */
 
-function AppWithTheme() {
+function AppWithTheme({
+  skipInitialBoot,
+}: {
+  skipInitialBoot: boolean;
+}) {
   const { theme, toggle } = useTheme();
   const route = useHashRoute();
 
-  return <AppContent theme={theme} toggle={toggle} route={route} />;
+  return (
+    <AppContent
+      theme={theme}
+      toggle={toggle}
+      route={route}
+      skipInitialBoot={skipInitialBoot}
+    />
+  );
 }
 
 type AppContentProps = {
   theme: Theme;
   toggle: ToggleThemeFn;
   route: string;
+  skipInitialBoot: boolean;
 };
 
 /* ──────────────────────────────────────────────────────────────
@@ -562,7 +594,7 @@ type AppContentProps = {
 
 function AppContent(props: AppContentProps) {
   const { user } = useUser();
-  const [bootShown, setBootShown] = useState(false);
+  const [bootShown, setBootShown] = useState(props.skipInitialBoot);
   const route = normalizeRoute(props.route);
 
   useEffect(() => {

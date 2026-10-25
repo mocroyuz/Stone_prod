@@ -2,6 +2,8 @@ import { useEffect, useRef, useState, useCallback } from "react";
 
 type StoneBootProps = {
   onComplete: () => void;
+  hold?: boolean;
+  onFillComplete?: () => void;
 };
 
 const FILL_DURATION = 8000; // durée du remplissage
@@ -25,15 +27,26 @@ function Brand({ className = "" }: { className?: string }) {
   );
 }
 
-export default function StoneBoot({ onComplete }: StoneBootProps) {
+export default function StoneBoot({
+  onComplete,
+  hold = false,
+  onFillComplete,
+}: StoneBootProps) {
   const fillRef = useRef<HTMLDivElement>(null);
   const doneRef = useRef(false);
   const onCompleteRef = useRef(onComplete);
+  const onFillCompleteRef = useRef(onFillComplete);
+  const holdRef = useRef(hold);
+  const filledRef = useRef(false);
   const [leaving, setLeaving] = useState(false);
 
   useEffect(() => {
     onCompleteRef.current = onComplete;
   }, [onComplete]);
+
+  useEffect(() => {
+    onFillCompleteRef.current = onFillComplete;
+  }, [onFillComplete]);
 
   const finish = useCallback(() => {
     if (doneRef.current) return;
@@ -41,6 +54,11 @@ export default function StoneBoot({ onComplete }: StoneBootProps) {
     setLeaving(true);
     window.setTimeout(() => onCompleteRef.current(), FADE_OUT);
   }, []);
+
+  useEffect(() => {
+    holdRef.current = hold;
+    if (!hold && filledRef.current) finish();
+  }, [finish, hold]);
 
   useEffect(() => {
     const reduceMotion = window.matchMedia(
@@ -74,10 +92,11 @@ export default function StoneBoot({ onComplete }: StoneBootProps) {
       if (elapsed < duration) {
         raf = requestAnimationFrame(frame);
       } else {
-        holdTimer = window.setTimeout(
-          finish,
-          reduceMotion ? 200 : HOLD_AFTER_FILL
-        );
+        holdTimer = window.setTimeout(() => {
+          filledRef.current = true;
+          onFillCompleteRef.current?.();
+          if (!holdRef.current) finish();
+        }, reduceMotion ? 200 : HOLD_AFTER_FILL);
       }
     };
 
