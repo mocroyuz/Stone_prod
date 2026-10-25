@@ -131,11 +131,35 @@ function htmlToText(html: string): string {
   return (doc.body.textContent ?? "").replace(/\s+/g, " ").trim();
 }
 
-function firstImage(html: string): string | undefined {
+/** Rend une URL d'image utilisable : absolue, en https (sinon bloquée en mixed content). */
+function normalizeUrl(src: string | null | undefined, base?: string): string | undefined {
+  const s = src?.trim();
+  if (!s || s.startsWith("data:")) return undefined;
+  try {
+    const u = new URL(s.startsWith("//") ? `https:${s}` : s, base);
+    if (!/^https?:$/.test(u.protocol)) return undefined;
+    u.protocol = "https:";
+    return u.toString();
+  } catch {
+    return undefined;
+  }
+}
+
+/** Première vraie image d'un contenu HTML (ignore les pixels de tracking). */
+function firstImage(html: string, base?: string): string | undefined {
   if (!html) return undefined;
   const doc = new DOMParser().parseFromString(html, "text/html");
-  const src = doc.querySelector("img")?.getAttribute("src");
-  return src && /^https?:\/\//.test(src) ? src : undefined;
+  for (const img of Array.from(doc.querySelectorAll("img"))) {
+    const w = Number(img.getAttribute("width"));
+    if (w && w < 50) continue;
+    const srcset = img.getAttribute("srcset")?.split(",")[0]?.trim().split(/\s+/)[0];
+    const url = normalizeUrl(
+      img.getAttribute("src") || img.getAttribute("data-src") || srcset,
+      base
+    );
+    if (url) return url;
+  }
+  return undefined;
 }
 
 function parseFeed(xml: string, feedUrl: string) {
@@ -186,18 +210,34 @@ function parseFeed(xml: string, feedUrl: string) {
     // Image : enclosure, media:thumbnail / media:content, sinon 1re <img> du contenu.
     const enclosure = child(e, "enclosure");
     if (enclosure?.getAttribute("type")?.startsWith("image")) {
-      imageUrl = enclosure.getAttribute("url") ?? undefined;
+      imageUrl = normalizeUrl(enclosure.getAttribute("url"));
     }
     if (!imageUrl) {
-      const media = Array.from(e.getElementsByTagName("*")).find(
-        (n) =>
-          (n.localName === "thumbnail" || n.localName === "content") &&
-          n.namespaceURI?.includes("search.yahoo.com") &&
-          n.getAttribute("url")
-      );
-      imageUrl = media?.getAttribute("url") ?? undefined;
+      const nodes = Array.from(e.getElementsByTagName("*"));
+      const media =
+        nodes.find((n) => n.localName === "thumbnail" && n.getAttribute("url")) ??
+        nodes.find((n) => {
+          const u = n.getAttribute("url");
+          return (
+            n.localName === "content" &&
+            !!u &&
+            (n.getAttribute("medium") === "image" ||
+              n.getAttribute("type")?.startsWith("image") ||
+              /\.(jpe?g|png|webp|gif|avif)(\?|$)/i.test(u))
+          );
+        });
+      imageUrl = normalizeUrl(media?.getAttribute("url"));
     }
-    if (!imageUrl) imageUrl = firstImage(rawHtml);
+    if (!imageUrl && isAtom) {
+      const enc = Array.from(e.children).find(
+        (c) =>
+          c.localName === "link" &&
+          c.getAttribute("rel") === "enclosure" &&
+          c.getAttribute("type")?.startsWith("image")
+      );
+      imageUrl = normalizeUrl(enc?.getAttribute("href"));
+    }
+    if (!imageUrl) imageUrl = firstImage(rawHtml, link || feedUrl);
 
     const parsed = Date.parse(dateStr);
     const summary = htmlToText(rawHtml);
@@ -263,7 +303,10 @@ async function fetchViaRss2Json(url: string, signal?: AbortSignal): Promise<Load
       link: it.link ?? "",
       date: Number.isNaN(parsed) ? 0 : parsed,
       summary: summary.length > 200 ? `${summary.slice(0, 200).trimEnd()}…` : summary,
-      imageUrl: it.thumbnail || enclosureImg || firstImage(html),
+      imageUrl:
+        normalizeUrl(it.thumbnail) ||
+        normalizeUrl(enclosureImg) ||
+        firstImage(html, it.link || url),
     };
   });
 
@@ -476,13 +519,14 @@ function FeedPill({
 ============================================================ */
 
 function ArticleImage({ src, isDark }: { src?: string; isDark: boolean }) {
-  const [failed, setFailed] = useState(false);
+  // 0 = URL d'origine, 1 = via proxy d'images (contourne le hotlinking), 2 = abandon
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
-    setFailed(false);
+    setAttempt(0);
   }, [src]);
 
-  if (!src || failed) {
+  if (!src || attempt >= 2) {
     return (
       <div
         className={[
@@ -495,12 +539,19 @@ function ArticleImage({ src, isDark }: { src?: string; isDark: boolean }) {
 
   return (
     <img
-      src={src}
+      key={attempt}
+      src={
+        attempt === 0
+          ? src
+          : `https://images.weserv.nl/?url=${encodeURIComponent(
+              src.replace(/^https?:\/\//, "")
+            )}&w=640&output=jpg`
+      }
       alt=""
       loading="lazy"
       referrerPolicy="no-referrer"
       draggable={false}
-      onError={() => setFailed(true)}
+      onError={() => setAttempt((a) => a + 1)}
       className="h-[140px] w-full rounded-xl object-cover"
     />
   );
@@ -660,6 +711,33 @@ export default function FeedsPanel({ isDark }: { isDark: boolean }) {
     return () => clearInterval(id);
   }, []);
 
+  /**
+   * rss2json ne renvoie presque jamais les images media:content. En arrière-plan,
+   * on tente de lire le XML complet pour compléter les images manquantes.
+   */
+  const enrichImages = useCallback(
+    async (feedId: string, feedUrl: string, signal?: AbortSignal) => {
+      try {
+        const full = parseFeed(await fetchXml(feedUrl, signal), feedUrl);
+        const byLink = new Map<string, string>();
+        full.articles.forEach((a) => {
+          if (a.imageUrl && a.link) byLink.set(a.link, a.imageUrl);
+        });
+        if (signal?.aborted || byLink.size === 0) return;
+
+        setArticles((prev) => ({
+          ...prev,
+          [feedId]: (prev[feedId] ?? []).map((a) =>
+            a.imageUrl ? a : { ...a, imageUrl: byLink.get(a.link) }
+          ),
+        }));
+      } catch {
+        /* silencieux : les articles restent affichés sans image */
+      }
+    },
+    []
+  );
+
   /** Recharge une liste de flux en parallèle, sans recharger la page. */
   const refresh = useCallback(async (list: Feed[]) => {
     abortRef.current?.abort();
@@ -682,6 +760,9 @@ export default function FeedsPanel({ isDark }: { isDark: boolean }) {
             [f.id]: parsed.articles.map((x) => ({ ...x, feedId: f.id })),
           }));
           setStatus((s) => ({ ...s, [f.id]: "ok" }));
+          if (parsed.articles.some((a) => !a.imageUrl)) {
+            void enrichImages(f.id, f.url, ctrl.signal);
+          }
         } catch (e) {
           if ((e as Error).name === "AbortError") return;
           setStatus((s) => ({ ...s, [f.id]: "error" }));
@@ -690,7 +771,7 @@ export default function FeedsPanel({ isDark }: { isDark: boolean }) {
     );
 
     if (!ctrl.signal.aborted) setLastRefresh(Date.now());
-  }, []);
+  }, [enrichImages]);
 
   const feedsRef = useRef(feeds);
   feedsRef.current = feeds;
@@ -733,6 +814,9 @@ export default function FeedsPanel({ isDark }: { isDark: boolean }) {
         [feed.id]: parsed.articles.map((x) => ({ ...x, feedId: feed.id })),
       }));
       setStatus((s) => ({ ...s, [feed.id]: "ok" }));
+      if (parsed.articles.some((a) => !a.imageUrl)) {
+        void enrichImages(feed.id, feed.url);
+      }
       setUrl("");
       setSelected(feed.id);
     } catch {
