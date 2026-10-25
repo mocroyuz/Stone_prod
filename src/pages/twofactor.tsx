@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { navigate } from "../hooks/useHashRoute";
 import { useTheme } from "../hooks/useTheme";
@@ -18,17 +18,73 @@ import { navigateAfterSignin } from "../utils/authNavigation";
 
 type MfaMode = "totp" | "recovery" | "passkey";
 
+const CODE_LENGTH = 6;
 const TOTP_RE = /^\d{6}$/;
 const RECOVERY_RE = /^[A-Z0-9-]{8,16}$/;
 
 const formatWait = (seconds: number) =>
   seconds >= 60 ? `${Math.ceil(seconds / 60)} min` : `${seconds} s`;
 
-function ShieldIcon() {
+/* -------------------------------------------------------------------------- */
+/*  Theme tokens                                                              */
+/* -------------------------------------------------------------------------- */
+
+const tokens = (isDark: boolean) =>
+  isDark
+    ? {
+        card: "border-white/10 bg-[#111113]",
+        title: "text-white",
+        muted: "text-neutral-400",
+        label: "text-neutral-300",
+        iconWrap: "bg-white text-neutral-900",
+        field:
+          "border-white/10 bg-[#1c1c1e] text-white placeholder:text-neutral-600 focus:border-neutral-400 focus:ring-2 focus:ring-white/10",
+        cellFilled: "border-white/30",
+        tabsWrap: "bg-white/[0.04] border-white/10",
+        tabActive: "bg-white text-neutral-900 shadow-sm",
+        tabIdle: "text-neutral-400 hover:text-white",
+        primary:
+          "bg-white text-neutral-900 hover:bg-neutral-200 focus-visible:outline-white",
+        ghost: "text-neutral-500 hover:text-neutral-200",
+        focusRing: "focus-visible:outline-white",
+        passkeyBox: "border-white/10 bg-white/[0.03]",
+        track: "bg-white/10",
+      }
+    : {
+        card: "border-black/10 bg-white",
+        title: "text-neutral-900",
+        muted: "text-neutral-600",
+        label: "text-neutral-700",
+        iconWrap: "bg-neutral-900 text-white",
+        field:
+          "border-black/10 bg-neutral-50 text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-500 focus:ring-2 focus:ring-black/5",
+        cellFilled: "border-black/30",
+        tabsWrap: "bg-black/[0.04] border-black/10",
+        tabActive: "bg-white text-neutral-900 shadow-sm",
+        tabIdle: "text-neutral-500 hover:text-neutral-900",
+        primary:
+          "bg-neutral-900 text-white hover:bg-neutral-700 focus-visible:outline-neutral-900",
+        ghost: "text-neutral-500 hover:text-neutral-900",
+        focusRing: "focus-visible:outline-neutral-900",
+        passkeyBox: "border-black/10 bg-neutral-50",
+        track: "bg-black/10",
+      };
+
+/* -------------------------------------------------------------------------- */
+/*  Icons                                                                     */
+/* -------------------------------------------------------------------------- */
+
+function Icon({
+  children,
+  className = "h-5 w-5",
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
   return (
     <svg
       viewBox="0 0 24 24"
-      className="h-5 w-5"
+      className={className}
       fill="none"
       stroke="currentColor"
       strokeWidth="2"
@@ -36,10 +92,198 @@ function ShieldIcon() {
       strokeLinejoin="round"
       aria-hidden
     >
-      <path d="M12 3 4 6v6c0 4.5 3.2 8 8 9 4.8-1 8-4.5 8-9V6l-8-3Z" />
+      {children}
     </svg>
   );
 }
+
+const ShieldIcon = () => (
+  <Icon>
+    <path d="M12 3 4 6v6c0 4.5 3.2 8 8 9 4.8-1 8-4.5 8-9V6l-8-3Z" />
+    <path d="m9 12 2 2 4-4" />
+  </Icon>
+);
+
+const PhoneIcon = ({ className }: { className?: string }) => (
+  <Icon className={className}>
+    <rect x="7" y="2.5" width="10" height="19" rx="2.5" />
+    <path d="M11 18.5h2" />
+  </Icon>
+);
+
+const KeyIcon = ({ className }: { className?: string }) => (
+  <Icon className={className}>
+    <circle cx="8" cy="15" r="4" />
+    <path d="m10.8 12.2 8.2-8.2" />
+    <path d="m16 7 3 3" />
+  </Icon>
+);
+
+const LifebuoyIcon = ({ className }: { className?: string }) => (
+  <Icon className={className}>
+    <circle cx="12" cy="12" r="9" />
+    <circle cx="12" cy="12" r="3.5" />
+    <path d="m5.6 5.6 3.9 3.9M14.5 14.5l3.9 3.9M18.4 5.6l-3.9 3.9M9.5 14.5l-3.9 3.9" />
+  </Icon>
+);
+
+const FingerprintIcon = () => (
+  <Icon className="h-7 w-7">
+    <path d="M12 11v3.5c0 2 .5 3.8 1.5 5.5" />
+    <path d="M8.5 14.5c0-2.5 1.5-3.5 3.5-3.5s3.5 1 3.5 3.5c0 1.5.3 3 .9 4.3" />
+    <path d="M5.5 14.5C5.5 10.4 8 8 12 8s6.5 2.4 6.5 6.5c0 .9.1 1.8.3 2.7" />
+    <path d="M3 12.5C3 7.5 6.5 4.5 12 4.5s9 3 9 8c0 .6 0 1.2-.1 1.8" />
+  </Icon>
+);
+
+const Spinner = ({ className = "h-4 w-4" }: { className?: string }) => (
+  <svg
+    viewBox="0 0 24 24"
+    className={`${className} animate-spin`}
+    fill="none"
+    aria-hidden
+  >
+    <circle
+      cx="12"
+      cy="12"
+      r="9"
+      stroke="currentColor"
+      strokeOpacity="0.25"
+      strokeWidth="3"
+    />
+    <path
+      d="M21 12a9 9 0 0 0-9-9"
+      stroke="currentColor"
+      strokeWidth="3"
+      strokeLinecap="round"
+    />
+  </svg>
+);
+
+/* -------------------------------------------------------------------------- */
+/*  OTP input (6 separate cells, paste / autofill / keyboard friendly)        */
+/* -------------------------------------------------------------------------- */
+
+function OtpInput({
+  value,
+  onChange,
+  disabled,
+  invalid,
+  isDark,
+}: {
+  value: string;
+  onChange: (next: string) => void;
+  disabled: boolean;
+  invalid: boolean;
+  isDark: boolean;
+}) {
+  const ui = tokens(isDark);
+  const refs = useRef<Array<HTMLInputElement | null>>([]);
+
+  const focusAt = (index: number) => {
+    const el = refs.current[Math.min(Math.max(index, 0), CODE_LENGTH - 1)];
+    el?.focus();
+    el?.select();
+  };
+
+  // (Re)focus the first empty cell whenever the field is empty and usable.
+  useEffect(() => {
+    if (!disabled && value === "") focusAt(0);
+  }, [disabled, value]);
+
+  const handleChange = (index: number, raw: string) => {
+    const digits = raw.replace(/\D/g, "");
+
+    if (!digits) {
+      onChange(value.slice(0, index) + value.slice(index + 1));
+      return;
+    }
+
+    // Single digit replaces the cell; several digits (autofill / paste) spread out.
+    const next =
+      digits.length === 1
+        ? value.slice(0, index) + digits + value.slice(index + 1)
+        : (value.slice(0, index) + digits).slice(0, CODE_LENGTH);
+
+    onChange(next.slice(0, CODE_LENGTH));
+    focusAt(Math.min(index + digits.length, CODE_LENGTH - 1));
+  };
+
+  const handleKeyDown = (
+    index: number,
+    event: React.KeyboardEvent<HTMLInputElement>,
+  ) => {
+    if (event.key === "Backspace" && !value[index] && index > 0) {
+      event.preventDefault();
+      onChange(value.slice(0, index - 1));
+      focusAt(index - 1);
+    } else if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      focusAt(index - 1);
+    } else if (event.key === "ArrowRight") {
+      event.preventDefault();
+      focusAt(index + 1);
+    }
+  };
+
+  const handlePaste = (event: React.ClipboardEvent<HTMLInputElement>) => {
+    const digits = event.clipboardData
+      .getData("text")
+      .replace(/\D/g, "")
+      .slice(0, CODE_LENGTH);
+    if (!digits) return;
+    event.preventDefault();
+    onChange(digits);
+    focusAt(digits.length);
+  };
+
+  return (
+    <div
+      role="group"
+      aria-label="6-digit verification code"
+      className="flex justify-center gap-2 sm:gap-2.5"
+    >
+      {Array.from({ length: CODE_LENGTH }, (_, index) => (
+        <input
+          key={index}
+          ref={(el) => {
+            refs.current[index] = el;
+          }}
+          type="text"
+          inputMode="numeric"
+          pattern="[0-9]*"
+          autoComplete={index === 0 ? "one-time-code" : "off"}
+          aria-label={`Digit ${index + 1} of ${CODE_LENGTH}`}
+          aria-invalid={invalid}
+          disabled={disabled}
+          value={value[index] ?? ""}
+          onChange={(event) => handleChange(index, event.target.value)}
+          onKeyDown={(event) => handleKeyDown(index, event)}
+          onPaste={handlePaste}
+          onFocus={(event) => {
+            // Never let the user skip ahead of the next empty cell.
+            if (index > value.length) focusAt(value.length);
+            else event.target.select();
+          }}
+          className={[
+            "h-[52px] w-full max-w-[52px] min-w-0 rounded-xl border text-center font-mono text-[22px] font-semibold outline-none transition",
+            "disabled:cursor-not-allowed disabled:opacity-60",
+            ui.field,
+            invalid
+              ? "!border-red-500/70 !ring-2 !ring-red-500/15"
+              : value[index]
+                ? ui.cellFilled
+                : "",
+          ].join(" ")}
+        />
+      ))}
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/*  MFA challenge                                                             */
+/* -------------------------------------------------------------------------- */
 
 function MfaChallenge({
   isDark,
@@ -50,18 +294,23 @@ function MfaChallenge({
   onVerified: () => Promise<void>;
   onCancel: () => void;
 }) {
+  const ui = tokens(isDark);
+
   const [mode, setMode] = useState<MfaMode>("totp");
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [shakeKey, setShakeKey] = useState(0);
   const [busy, setBusy] = useState(false);
   const [factors, setFactors] = useState<MfaFactor[]>([]);
   const [factorId, setFactorId] = useState("");
   const [lockedUntil, setLockedUntil] = useState(0);
+  const [lockTotal, setLockTotal] = useState(0);
   const [now, setNow] = useState(() => Date.now());
 
   const passkeyAvailable = isWebAuthnSupported();
   const busyRef = useRef(false);
 
+  /* ----- load authenticators ------------------------------------------------ */
   useEffect(() => {
     let mounted = true;
 
@@ -81,6 +330,7 @@ function MfaChallenge({
     };
   }, []);
 
+  /* ----- rate-limit countdown ---------------------------------------------- */
   useEffect(() => {
     if (lockedUntil <= Date.now()) return;
 
@@ -88,12 +338,16 @@ function MfaChallenge({
       const timestamp = Date.now();
       setNow(timestamp);
       if (timestamp >= lockedUntil) window.clearInterval(timer);
-    }, 500);
+    }, 250);
 
     return () => window.clearInterval(timer);
   }, [lockedUntil]);
 
   const waitLeft = Math.max(0, Math.ceil((lockedUntil - now) / 1000));
+  const lockProgress =
+    lockTotal > 0 ? Math.min(100, ((lockTotal - waitLeft) / lockTotal) * 100) : 0;
+  const locked = waitLeft > 0;
+
   const valid =
     mode === "totp"
       ? TOTP_RE.test(code)
@@ -101,16 +355,22 @@ function MfaChallenge({
         ? RECOVERY_RE.test(code)
         : true;
 
+  /* ----- submit ------------------------------------------------------------- */
+  const fail = (message: string) => {
+    setError(message);
+    setShakeKey((key) => key + 1);
+  };
+
   const submit = async (overrideMode?: MfaMode) => {
     const activeMode = overrideMode ?? mode;
-    if (busyRef.current || waitLeft > 0) return;
+    if (busyRef.current || locked) return;
 
     if (activeMode === "totp" && !TOTP_RE.test(code)) {
-      setError("Enter the 6-digit code.");
+      fail("Enter the 6-digit code.");
       return;
     }
     if (activeMode === "recovery" && !RECOVERY_RE.test(code)) {
-      setError("Enter a valid recovery code.");
+      fail("Enter a valid recovery code.");
       return;
     }
 
@@ -130,23 +390,25 @@ function MfaChallenge({
       await onVerified();
     } catch (verificationError) {
       if (isRateLimitError(verificationError)) {
-        setLockedUntil(Date.now() + verificationError.retryAfterSeconds * 1000);
+        const seconds = verificationError.retryAfterSeconds;
+        setLockTotal(seconds);
+        setLockedUntil(Date.now() + seconds * 1000);
         setNow(Date.now());
       } else if (
         verificationError instanceof DOMException &&
         ["NotAllowedError", "AbortError"].includes(verificationError.name)
       ) {
-        setError("Passkey verification cancelled.");
+        fail("Passkey verification was cancelled. You can try again.");
       } else {
         const message =
           verificationError instanceof Error
             ? verificationError.message
             : "Verification failed.";
-        setError(
+        fail(
           /invalid|code/i.test(message)
             ? activeMode === "recovery"
               ? "Invalid or already used recovery code."
-              : "Invalid code. Try again."
+              : "Invalid code. Check your app and try again."
             : message,
         );
       }
@@ -157,62 +419,124 @@ function MfaChallenge({
     }
   };
 
+  // Auto-submit as soon as the 6th digit is entered.
   useEffect(() => {
-    if (mode === "totp" && code.length === 6) void submit();
+    if (mode === "totp" && code.length === CODE_LENGTH) void submit();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [code, mode]);
 
   const switchTo = (next: MfaMode) => {
+    if (busy || next === mode) return;
     setMode(next);
     setCode("");
     setError(null);
   };
 
+  /* ----- copy ---------------------------------------------------------------- */
   const title =
     mode === "passkey"
       ? "Use your passkey"
       : mode === "recovery"
-        ? "Enter a recovery code"
+        ? "Use a recovery code"
         : "Two-factor authentication";
   const description =
     mode === "passkey"
-      ? "Verify with Windows Hello, Touch ID or your security key."
+      ? "Confirm it's you with Windows Hello, Touch ID, Face ID or your security key."
       : mode === "recovery"
-        ? "Use one of the recovery codes you saved. Each code works once."
-        : "Enter the 6-digit code from your authenticator app.";
-  const linkClass =
-    "cursor-pointer text-[12px] font-medium text-neutral-300 underline underline-offset-2 transition hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white";
+        ? "Enter one of the recovery codes you saved. Each code can only be used once."
+        : "Open your authenticator app and enter the 6-digit code.";
+
+  const tabs: Array<{
+    id: MfaMode;
+    label: string;
+    icon: (props: { className?: string }) => ReactNode;
+  }> = [
+    { id: "totp", label: "App", icon: PhoneIcon },
+    ...(passkeyAvailable
+      ? [{ id: "passkey" as const, label: "Passkey", icon: KeyIcon }]
+      : []),
+    { id: "recovery", label: "Recovery", icon: LifebuoyIcon },
+  ];
+
+  const primaryClass = [
+    "flex w-full cursor-pointer items-center justify-center gap-2 rounded-[11px] py-[clamp(11px,1vw,13px)] text-[clamp(13px,1vw,14.5px)] font-semibold transition",
+    "disabled:cursor-not-allowed disabled:opacity-50",
+    "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2",
+    ui.primary,
+  ].join(" ");
 
   return (
     <div>
+      <style>{`
+        @keyframes mfa-shake {
+          0%, 100% { transform: translateX(0); }
+          20% { transform: translateX(-6px); }
+          40% { transform: translateX(6px); }
+          60% { transform: translateX(-4px); }
+          80% { transform: translateX(4px); }
+        }
+        .mfa-shake { animation: mfa-shake 0.38s ease-in-out; }
+        @keyframes mfa-fade {
+          from { opacity: 0; transform: translateY(6px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .mfa-fade { animation: mfa-fade 0.22s ease-out; }
+        @media (prefers-reduced-motion: reduce) {
+          .mfa-shake, .mfa-fade { animation: none; }
+        }
+      `}</style>
+
+      {/* Header ---------------------------------------------------------------- */}
       <div
-        className={[
-          "mx-auto flex h-12 w-12 items-center justify-center rounded-full",
-          isDark ? "bg-white text-neutral-900" : "bg-neutral-900 text-white",
-        ].join(" ")}
+        className={`mx-auto flex h-12 w-12 items-center justify-center rounded-full ${ui.iconWrap}`}
       >
         <ShieldIcon />
       </div>
 
       <h1
-        className={[
-          "mt-5 text-center font-display text-[clamp(20px,1.7vw,26px)] font-semibold tracking-[-0.01em]",
-          isDark ? "text-white" : "text-neutral-900",
-        ].join(" ")}
+        className={`mt-5 text-center font-display text-[clamp(20px,1.7vw,26px)] font-semibold tracking-[-0.01em] ${ui.title}`}
       >
         {title}
       </h1>
       <p
-        className={[
-          "mt-2 text-center text-[clamp(11.5px,0.95vw,13.5px)]",
-          isDark ? "text-neutral-400" : "text-neutral-600",
-        ].join(" ")}
+        className={`mx-auto mt-2 max-w-[320px] text-center text-[clamp(12px,0.95vw,13.5px)] leading-relaxed ${ui.muted}`}
       >
         {description}
       </p>
 
+      {/* Method switcher -------------------------------------------------------- */}
+      <div
+        role="tablist"
+        aria-label="Verification method"
+        className={`mt-6 grid gap-1 rounded-xl border p-1 ${ui.tabsWrap}`}
+        style={{ gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))` }}
+      >
+        {tabs.map(({ id, label, icon: TabIcon }) => (
+          <button
+            key={id}
+            type="button"
+            role="tab"
+            aria-selected={mode === id}
+            disabled={busy}
+            onClick={() => switchTo(id)}
+            className={[
+              "flex cursor-pointer items-center justify-center gap-1.5 rounded-[9px] px-2 py-2 text-[12.5px] font-medium transition",
+              "disabled:cursor-not-allowed",
+              "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1",
+              ui.focusRing,
+              mode === id ? ui.tabActive : ui.tabIdle,
+            ].join(" ")}
+          >
+            <TabIcon className="h-4 w-4" />
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* Form ------------------------------------------------------------------- */}
       <form
-        className="mt-6 space-y-3.5"
+        key={mode}
+        className="mfa-fade mt-6 space-y-4"
         onSubmit={(event) => {
           event.preventDefault();
           void submit();
@@ -221,13 +545,16 @@ function MfaChallenge({
       >
         {mode === "totp" && factors.length > 1 && (
           <label className="block">
-            <span className="mb-1.5 block text-[clamp(11.5px,0.95vw,13px)] font-medium text-neutral-300">
+            <span
+              className={`mb-1.5 block text-[12.5px] font-medium ${ui.label}`}
+            >
               Authenticator
             </span>
             <select
               value={factorId}
               onChange={(event) => setFactorId(event.target.value)}
-              className="w-full rounded-[9px] border border-white/10 bg-[#1c1c1e] px-3.5 py-[clamp(9px,0.9vw,12px)] text-[clamp(12.5px,1vw,14px)] text-white outline-none focus:border-neutral-500"
+              disabled={busy}
+              className={`w-full cursor-pointer rounded-[10px] border px-3.5 py-2.5 text-[13.5px] outline-none transition ${ui.field}`}
             >
               {factors.map((factor, index) => (
                 <option key={factor.id} value={factor.id}>
@@ -242,40 +569,50 @@ function MfaChallenge({
         )}
 
         {mode === "totp" && (
-          <label className="block">
-            <span className="mb-1.5 block text-[clamp(11.5px,0.95vw,13px)] font-medium text-neutral-300">
-              Verification code
-            </span>
-            <input
-              type="text"
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              autoFocus
+          <div key={shakeKey} className={error ? "mfa-shake" : undefined}>
+            <OtpInput
               value={code}
-              onChange={(event) => {
-                setCode(event.target.value.replace(/\D/g, "").slice(0, 6));
+              onChange={(next) => {
+                setCode(next);
                 setError(null);
               }}
-              placeholder="000000"
-              aria-invalid={Boolean(error)}
-              className={`w-full rounded-[9px] border bg-[#1c1c1e] px-3.5 py-[clamp(9px,0.9vw,12px)] text-center font-mono text-[18px] tracking-[0.4em] text-white outline-none placeholder:text-neutral-600 transition focus:border-neutral-500 ${
-                error ? "border-red-500/70" : "border-white/10"
-              }`}
+              disabled={busy || locked}
+              invalid={Boolean(error)}
+              isDark={isDark}
             />
-          </label>
+            <p
+              className={`mt-3 flex h-4 items-center justify-center gap-2 text-center text-[12px] ${ui.muted}`}
+              aria-live="polite"
+            >
+              {busy ? (
+                <>
+                  <Spinner className="h-3.5 w-3.5" /> Verifying…
+                </>
+              ) : (
+                "The code refreshes every 30 seconds."
+              )}
+            </p>
+          </div>
         )}
 
         {mode === "recovery" && (
-          <label className="block">
-            <span className="mb-1.5 block text-[clamp(11.5px,0.95vw,13px)] font-medium text-neutral-300">
+          <label
+            key={shakeKey}
+            className={`block ${error ? "mfa-shake" : ""}`}
+          >
+            <span
+              className={`mb-1.5 block text-[12.5px] font-medium ${ui.label}`}
+            >
               Recovery code
             </span>
             <input
               type="text"
               autoCapitalize="characters"
               autoComplete="off"
+              autoCorrect="off"
               spellCheck={false}
               autoFocus
+              disabled={busy || locked}
               value={code}
               onChange={(event) => {
                 setCode(
@@ -288,80 +625,134 @@ function MfaChallenge({
               }}
               placeholder="XXXXX-XXXXX"
               aria-invalid={Boolean(error)}
-              className={`w-full rounded-[9px] border bg-[#1c1c1e] px-3.5 py-[clamp(9px,0.9vw,12px)] text-center font-mono text-[15px] tracking-[0.2em] text-white outline-none placeholder:text-neutral-600 transition focus:border-neutral-500 ${
-                error ? "border-red-500/70" : "border-white/10"
-              }`}
+              className={[
+                "w-full rounded-[11px] border px-3.5 py-3 text-center font-mono text-[16px] tracking-[0.18em] outline-none transition disabled:opacity-60",
+                ui.field,
+                error ? "!border-red-500/70 !ring-2 !ring-red-500/15" : "",
+              ].join(" ")}
             />
+            <span className={`mt-2 block text-[11.5px] ${ui.muted}`}>
+              Using a recovery code is a one-time action — generate new ones in
+              your security settings afterwards.
+            </span>
           </label>
         )}
 
+        {mode === "passkey" && (
+          <div
+            className={`flex flex-col items-center gap-3 rounded-[14px] border px-4 py-6 text-center ${ui.passkeyBox}`}
+          >
+            <div
+              className={`flex h-14 w-14 items-center justify-center rounded-full ${ui.iconWrap} ${
+                busy ? "animate-pulse" : ""
+              }`}
+            >
+              <FingerprintIcon />
+            </div>
+            <p className={`text-[12.5px] leading-relaxed ${ui.muted}`}>
+              {busy
+                ? "Follow the prompt on your device to continue…"
+                : "Your browser will ask you to verify with your device."}
+            </p>
+          </div>
+        )}
+
+        {/* Feedback -------------------------------------------------------------- */}
         {error && (
           <div
             role="alert"
-            className="rounded-[9px] border border-red-500/30 bg-red-500/10 px-3.5 py-2.5 text-[12.5px] text-red-300"
+            className="flex items-start gap-2.5 rounded-[10px] border border-red-500/30 bg-red-500/10 px-3.5 py-2.5 text-[12.5px] text-red-500"
           >
-            {error}
+            <Icon className="mt-[1px] h-4 w-4 shrink-0">
+              <circle cx="12" cy="12" r="9" />
+              <path d="M12 8v4.5M12 16h.01" />
+            </Icon>
+            <span className={isDark ? "text-red-300" : "text-red-700"}>
+              {error}
+            </span>
           </div>
         )}
-        {waitLeft > 0 && (
+
+        {locked && (
           <div
             role="alert"
-            className="rounded-[9px] border border-amber-500/30 bg-amber-500/10 px-3.5 py-2.5 text-[12.5px] text-amber-300"
+            className="rounded-[10px] border border-amber-500/30 bg-amber-500/10 px-3.5 py-3"
           >
-            Too many attempts. Try again in {formatWait(waitLeft)}.
+            <p
+              className={`text-[12.5px] ${isDark ? "text-amber-300" : "text-amber-800"}`}
+            >
+              Too many attempts. Try again in{" "}
+              <strong className="font-semibold tabular-nums">
+                {formatWait(waitLeft)}
+              </strong>
+              .
+            </p>
+            <div
+              className={`mt-2.5 h-1 overflow-hidden rounded-full ${ui.track}`}
+            >
+              <div
+                className="h-full rounded-full bg-amber-500 transition-[width] duration-300 ease-linear"
+                style={{ width: `${lockProgress}%` }}
+              />
+            </div>
           </div>
         )}
 
-        <button
-          type={mode === "passkey" ? "button" : "submit"}
-          onClick={mode === "passkey" ? () => void submit("passkey") : undefined}
-          disabled={busy || waitLeft > 0 || (mode !== "passkey" && !valid)}
-          className="mt-1 w-full cursor-pointer rounded-[10px] bg-white py-[clamp(10px,0.95vw,13px)] text-[clamp(12.5px,1vw,14.5px)] font-semibold text-neutral-900 transition hover:bg-neutral-200 disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-        >
-          {busy
-            ? mode === "passkey"
-              ? "Waiting for passkey..."
-              : "Verifying..."
-            : mode === "passkey"
-              ? "Continue with passkey"
-              : "Verify & continue"}
-        </button>
-      </form>
-
-      <div className="mt-5 flex flex-col items-center gap-2.5">
-        {mode !== "totp" && (
+        {/* Primary action ----------------------------------------------------------- */}
+        {mode === "passkey" ? (
           <button
             type="button"
-            onClick={() => switchTo("totp")}
-            className={linkClass}
+            onClick={() => void submit("passkey")}
+            disabled={busy || locked}
+            className={primaryClass}
           >
-            Use your authenticator app instead
+            {busy ? (
+              <>
+                <Spinner /> Waiting for passkey…
+              </>
+            ) : (
+              "Continue with passkey"
+            )}
+          </button>
+        ) : (
+          <button
+            type="submit"
+            disabled={busy || locked || !valid}
+            className={primaryClass}
+          >
+            {busy ? (
+              <>
+                <Spinner /> Verifying…
+              </>
+            ) : (
+              "Verify & continue"
+            )}
           </button>
         )}
-        {mode !== "recovery" && (
+      </form>
+
+      {/* Footer ------------------------------------------------------------------ */}
+      <div className="mt-5 flex flex-col items-center gap-3">
+        {mode === "totp" && (
           <button
             type="button"
             onClick={() => switchTo("recovery")}
-            className={linkClass}
+            disabled={busy}
+            className={`cursor-pointer text-[12px] font-medium underline underline-offset-2 transition disabled:opacity-60 ${ui.muted} hover:opacity-80`}
           >
-            Use a recovery code instead
-          </button>
-        )}
-        {mode !== "passkey" && passkeyAvailable && (
-          <button
-            type="button"
-            onClick={() => switchTo("passkey")}
-            className={linkClass}
-          >
-            Use a passkey instead
+            Lost access to your authenticator?
           </button>
         )}
         <button
           type="button"
           onClick={onCancel}
           disabled={busy}
-          className="mt-2 cursor-pointer text-[12px] text-neutral-500 transition hover:text-neutral-300 disabled:opacity-60"
+          className={`inline-flex cursor-pointer items-center gap-1.5 text-[12px] transition disabled:cursor-not-allowed disabled:opacity-60 ${ui.ghost}`}
         >
+          <Icon className="h-3.5 w-3.5">
+            <path d="M19 12H5" />
+            <path d="m11 6-6 6 6 6" />
+          </Icon>
           Back to log in
         </button>
       </div>
@@ -369,10 +760,15 @@ function MfaChallenge({
   );
 }
 
+/* -------------------------------------------------------------------------- */
+/*  Page                                                                      */
+/* -------------------------------------------------------------------------- */
+
 export default function TwoFactor() {
   const { theme } = useTheme();
   const { refreshUser } = useUser();
   const isDark = theme === "dark";
+  const ui = tokens(isDark);
   const [pending] = useState(isMfaPending);
   const [done, setDone] = useState(false);
 
@@ -412,33 +808,24 @@ export default function TwoFactor() {
         title="Back to home"
         className="back-button absolute top-[clamp(16px,2vw,30px)] right-[clamp(16px,2vw,30px)] flex h-[clamp(36px,3.4vw,44px)] w-[clamp(36px,3.4vw,44px)] cursor-pointer items-center justify-center rounded-full border backdrop-blur-md transition-colors duration-200"
       >
-        <svg
-          viewBox="0 0 24 24"
-          className="h-4 w-4"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2.1"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden
-        >
+        <Icon className="h-4 w-4">
           <path d="M19 12H5" />
           <path d="m11 6-6 6 6 6" />
-        </svg>
+        </Icon>
       </button>
 
       <div
         className={[
-          "w-full max-w-[420px] rounded-[20px] border p-[clamp(24px,4vw,44px)] shadow-[0_24px_80px_-36px_rgba(0,0,0,0.65)]",
-          isDark
-            ? "border-white/10 bg-[#111113]"
-            : "border-black/10 bg-white",
+          "w-full max-w-[420px] rounded-[22px] border p-[clamp(24px,4vw,40px)] shadow-[0_24px_80px_-36px_rgba(0,0,0,0.65)]",
+          ui.card,
         ].join(" ")}
       >
         {done ? (
-          <div className="text-center">
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-white text-neutral-900">
-              <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none">
+          <div className="text-center" role="status">
+            <div
+              className={`mx-auto flex h-14 w-14 items-center justify-center rounded-full ${ui.iconWrap}`}
+            >
+              <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" aria-hidden>
                 <path
                   d="m5 12.5 4.5 4.5L19 7.5"
                   stroke="currentColor"
@@ -448,16 +835,23 @@ export default function TwoFactor() {
                 />
               </svg>
             </div>
-            <h1 className="mt-5 font-display text-[19px] font-semibold text-white">
+            <h1
+              className={`mt-5 font-display text-[21px] font-semibold ${ui.title}`}
+            >
               Welcome back!
             </h1>
-            <p className="mt-2 text-[12px] leading-relaxed text-neutral-400">
-              You are now signed in to your account.
+            <p className={`mt-2 text-[13px] leading-relaxed ${ui.muted}`}>
+              Your identity is verified and you are now signed in.
             </p>
             <button
               type="button"
+              autoFocus
               onClick={() => navigate("home")}
-              className="mt-6 w-full cursor-pointer rounded-[10px] bg-white py-[clamp(10px,0.95vw,13px)] text-[clamp(12.5px,1vw,14.5px)] font-semibold text-neutral-900 transition hover:bg-neutral-200"
+              className={[
+                "mt-6 w-full cursor-pointer rounded-[11px] py-[clamp(11px,1vw,13px)] text-[clamp(13px,1vw,14.5px)] font-semibold transition",
+                "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2",
+                ui.primary,
+              ].join(" ")}
             >
               Continue to Dashboard
             </button>
