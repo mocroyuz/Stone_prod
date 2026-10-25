@@ -1,8 +1,8 @@
 // src/pages/Create.tsx
-// Page Create (route "create") : tableau d'idées (Board / Gallery).
+// Page Create (routes "create", "create/ideas", "create/templates", "create/feeds").
 // Shell visuel aligné sur Home : fond de page + panneau arrondi à la jointure de la sidebar.
 
-import { useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { PointerEvent as RPointerEvent, ReactNode } from "react";
 import { useTheme } from "../hooks/useTheme";
 import { navigate } from "../hooks/useHashRoute";
@@ -13,6 +13,7 @@ import DashboardSidebar, {
 import BottomBar, { type BottomBarTab } from "../components/Bottombar";
 import Folder from "../components/Folder";
 import HelpChatButton from "../components/Helpchatbutton";
+import FeedsPanel from "../components/FeedsPanel";
 import { requestNewPost } from "../services/Newpostbus";
 
 /* ───────── Types ───────── */
@@ -48,6 +49,22 @@ const TABS: { key: Tab; label: string }[] = [
   { key: "templates", label: "Templates" },
   { key: "feeds", label: "Feeds" },
 ];
+
+/* ───────── Onglet ↔ URL (#/create, #/create/feeds, …) ───────── */
+
+/** Lit l'onglet depuis le hash courant ("create/feeds" → "feeds"). */
+function tabFromHash(): Tab {
+  const m = window.location.hash.match(/create\/(ideas|templates|feeds)/);
+  return (m?.[1] as Tab | undefined) ?? "ideas";
+}
+
+/** Met à jour l'URL sans déclencher de navigation (pas de remontage). */
+function writeTabToHash(tab: Tab) {
+  const current = window.location.hash;
+  const prefix = current.startsWith("#/") ? "#/" : "#";
+  const next = tab === "ideas" ? `${prefix}create` : `${prefix}create/${tab}`;
+  if (current !== next) history.replaceState(null, "", next);
+}
 
 /* ───────── Données (à remplacer par ton API) ───────── */
 
@@ -627,7 +644,7 @@ export default function Create() {
     moveAll,
   } = useBoard();
 
-  const [tab, setTab] = useState<Tab>("ideas");
+  const [tab, setTab] = useState<Tab>(tabFromHash);
   const [view, setView] = useState<View>("board");
   const [hidden, setHidden] = useState<string[]>([]);
   const [query, setQuery] = useState("");
@@ -646,6 +663,22 @@ export default function Create() {
   const [editing, setEditing] = useState<string | null>(null);
   const [addingCol, setAddingCol] = useState(false);
 
+  /* ───────── Onglet ↔ URL ───────── */
+
+  const selectTab = (next: Tab) => {
+    setTab(next);
+    writeTabToHash(next);
+  };
+
+  // Retour / avance du navigateur, ou lien direct vers #/create/feeds.
+  useEffect(() => {
+    const onHash = () => {
+      if (/create(\/|$)/.test(window.location.hash)) setTab(tabFromHash());
+    };
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
+  }, []);
+
   /* ───────── Shell tokens (alignés sur Home) ───────── */
 
   const page = isDark ? "bg-[#09090a]" : "bg-[#f5f3ef]";
@@ -659,9 +692,6 @@ export default function Create() {
     ? "focus-visible:ring-white/30"
     : "focus-visible:ring-black/25";
   const column = isDark ? "bg-white/[0.03]" : "bg-[#f6f4f0]";
-  const outline = isDark
-    ? "border-white/[0.10] hover:bg-white/[0.06]"
-    : "border-black/[0.08] hover:bg-black/[0.03]";
   const chip = isDark ? "bg-white/[0.06]" : "bg-black/[0.05]";
   const strong = isDark ? "text-white" : "text-neutral-900";
 
@@ -947,7 +977,7 @@ export default function Create() {
               "pb-6 pt-[clamp(18px,3vw,30px)]",
             ].join(" ")}
           >
-            {/* HEADER COMPACT (remplace PageHeader) */}
+            {/* HEADER COMPACT */}
             <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 pb-4">
               <div className="flex min-w-0 items-center gap-2.5">
                 <span
@@ -979,7 +1009,12 @@ export default function Create() {
                 >
                   <BookmarkIcon className="h-5 w-5" filled={saved} />
                 </IconButton>
-                <IconButton label="Auto-replies" ghost={ghost} isDark={isDark} className="h-9 w-9">
+                <IconButton
+                  label="Auto-replies"
+                  ghost={ghost}
+                  isDark={isDark}
+                  className="h-9 w-9"
+                >
                   <ChatHeartIcon className="h-5 w-5" />
                 </IconButton>
               </div>
@@ -999,7 +1034,7 @@ export default function Create() {
                     type="button"
                     role="tab"
                     aria-selected={tab === t.key}
-                    onClick={() => setTab(t.key)}
+                    onClick={() => selectTab(t.key)}
                     className={[
                       "-mb-px border-b-2 px-1 pb-3 pt-2 text-[14px] font-medium transition-colors motion-reduce:transition-none",
                       "focus-visible:outline-none focus-visible:ring-2",
@@ -1082,15 +1117,16 @@ export default function Create() {
 
             {/* Body */}
             <div className="flex min-h-0 flex-1 flex-col pt-5">
-              {tab !== "ideas" && (
+              {/* ───── Templates ───── */}
+              {tab === "templates" && (
                 <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center">
                   <h2
                     className={[
                       "text-[20px] font-semibold tracking-[-0.02em]",
-                      isDark ? "text-white" : "text-neutral-900",
+                      strong,
                     ].join(" ")}
                   >
-                    {tab === "templates" ? "No templates yet" : "No feeds yet"}
+                    No templates yet
                   </h2>
                   <p
                     className={[
@@ -1098,12 +1134,13 @@ export default function Create() {
                       muted,
                     ].join(" ")}
                   >
-                    {tab === "templates"
-                      ? "Save a post as a template to reuse it later."
-                      : "Follow sources to get fresh content ideas here."}
+                    Save a post as a template to reuse it later.
                   </p>
                 </div>
               )}
+
+              {/* ───── Feeds ───── */}
+              {tab === "feeds" && <FeedsPanel isDark={isDark} />}
 
               {/* ───── Board ───── */}
               {tab === "ideas" && view === "board" && (
@@ -1188,9 +1225,7 @@ export default function Create() {
                               <h2
                                 className={[
                                   "truncate text-[14px] font-semibold",
-                                  isDark
-                                    ? "text-white"
-                                    : "text-neutral-900",
+                                  strong,
                                 ].join(" ")}
                               >
                                 {tag.label}
@@ -1242,7 +1277,8 @@ export default function Create() {
                                         },
                                         {
                                           label: "Move all to Unassigned",
-                                          run: () => moveAll(tag.id, UNASSIGNED),
+                                          run: () =>
+                                            moveAll(tag.id, UNASSIGNED),
                                         },
                                         {
                                           label: "Delete tag",
@@ -1347,7 +1383,7 @@ export default function Create() {
                       <h2
                         className={[
                           "text-[20px] font-semibold tracking-[-0.02em]",
-                          isDark ? "text-white" : "text-neutral-900",
+                          strong,
                         ].join(" ")}
                       >
                         No ideas yet
