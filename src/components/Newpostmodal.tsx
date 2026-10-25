@@ -1899,11 +1899,15 @@ export default function NewPostModal({
     preselectRef.current = null;
   };
 
+  /** Ferme toujours le modal, même si le nettoyage du formulaire échoue. */
   const discardAndClose = () => {
     savedDraft = null;
     void clearDraftFromStorage();
-    clearForm();
-    onClose();
+    try {
+      clearForm();
+    } finally {
+      onClose();
+    }
   };
 
   const closeWithDraft = () => {
@@ -2919,9 +2923,6 @@ export default function NewPostModal({
             ? "Video uploaded and scheduled on YouTube."
             : "Video uploaded to YouTube. It can take a few minutes to appear as a Short.",
         };
-
-        // YouTube est déjà parti : on le retire pour ne pas le renvoyer en cas de nouvel essai.
-        setNetworks((prev) => prev.filter((n) => n !== "youtube"));
       }
 
       if (
@@ -2933,6 +2934,7 @@ export default function NewPostModal({
 
       if (youtubeOutcome) {
         // On reste ouvert pour que l'utilisateur voie le résultat (lien, vidéo privée…).
+        // Le bouton « Done » ferme ensuite tout le modal via `discardAndClose`.
         setYoutubeResult(youtubeOutcome);
         setSubmitProgress(null);
         setIsSubmitting(false);
@@ -3443,11 +3445,7 @@ export default function NewPostModal({
                   </div>
                 )}
                 <span className={["text-[15px] font-semibold", textPrimary].join(" ")}>
-                  {networks.length > 1
-                    ? "Write once, post everywhere"
-                    : networks.length === 1
-                    ? "Your post"
-                    : "Write your post"}
+                  {networks.length > 0 ? "Write once, post everywhere" : "Write your post"}
                 </span>
               </div>
 
@@ -3963,10 +3961,7 @@ export default function NewPostModal({
             </a>
             <button
               type="button"
-              onClick={() => {
-                setYoutubeResult(null);
-                discardAndClose();
-              }}
+              onClick={discardAndClose}
               className={[
                 "rounded-lg px-3 py-1.5 text-[12.5px] font-semibold transition",
                 isDark ? "bg-white text-[#141416] hover:bg-neutral-200" : "bg-neutral-900 text-white hover:bg-neutral-800",
