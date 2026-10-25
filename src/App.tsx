@@ -10,6 +10,7 @@ import StoneBoot from "./components/StoneBoot";
 
 import Signup from "./pages/signup";
 import Signin from "./pages/signin";
+import TwoFactor from "./pages/twofactor";
 import ForgotPassword from "./pages/forgotpassword";
 import ResetPassword from "./pages/ResetPassword";
 import DashboardHome from "./pages/home";
@@ -486,7 +487,12 @@ const DASHBOARD_HOME_ROUTES = new Set([
   "refer",
 ]);
 
-const AUTH_ROUTES = new Set(["signin", "signup", "forgot-password"]);
+const AUTH_ROUTES = new Set([
+  "signin",
+  "signup",
+  "forgot-password",
+  "two-factor",
+]);
 
 const PUBLIC_ROUTES = new Set([
   "",
@@ -806,6 +812,8 @@ function AppContentInner({
       <div className="relative min-h-screen w-full overflow-x-hidden font-sans">
         {route === "signin" ? (
           <Signin />
+        ) : route === "two-factor" ? (
+          <TwoFactor />
         ) : route === "forgot-password" ? (
           <ForgotPassword />
         ) : (

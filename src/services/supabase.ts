@@ -447,7 +447,7 @@ export async function apiRequest<T>(
 /**
  * Si le compte a le 2FA, la session renvoyée est AAL1 : on la stocke
  * mais on marque "MFA en attente". L'appelant doit alors afficher l'écran
- * de code (voir MfaChallenge dans Signin.tsx) tant que `isMfaPending()`
+ * de code (voir MfaChallenge dans pages/twofactor.tsx) tant que `isMfaPending()`
  * est vrai.
  */
 export async function signIn(email: string, password: string): Promise<AuthResponse> {

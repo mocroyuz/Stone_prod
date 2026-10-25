@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { navigate } from "../hooks/useHashRoute";
+import { navigateAfterSignin } from "../utils/authNavigation";
 
 import { useTheme } from "../hooks/useTheme";
 import { useUser } from "../contexts/UserContext";
@@ -9,71 +10,8 @@ import {
   signIn,
   signInWithGoogle,
   signInWithGithub,
-  signOut,
   isMfaPending,
-  isRateLimitError,
-  isWebAuthnSupported,
-  listMfaFactors,
-  verifyMfaLogin,
-  verifyRecoveryCode,
-  verifyWithPasskey,
-  type MfaFactor,
 } from "../services/supabase";
-
-/* ============================================================
-   LECTURE DES PARAMS D'URL
-   ============================================================ */
-
-function readUrlParams(): URLSearchParams {
-  const params = new URLSearchParams();
-
-  if (typeof window === "undefined") return params;
-
-  new URLSearchParams(window.location.search).forEach((value, key) => {
-    params.set(key, value);
-  });
-
-  const rawHash = window.location.hash || "";
-  const qIdx = rawHash.indexOf("?");
-
-  if (qIdx !== -1) {
-    new URLSearchParams(rawHash.slice(qIdx + 1)).forEach((value, key) => {
-      params.set(key, value);
-    });
-  }
-
-  return params;
-}
-
-/* ============================================================
-   NAVIGATION POST-SIGNIN
-   ============================================================ */
-
-function navigateAfterSignin(): boolean {
-  const params = readUrlParams();
-  const next = params.get("next");
-  const plan = params.get("plan");
-  const period = params.get("period");
-
-  if (!next) return false;
-
-  if (next === "/pricing" || next === "pricing") {
-    const q = new URLSearchParams();
-    if (plan) q.set("plan", plan);
-    if (period) q.set("period", period);
-
-    const qs = q.toString();
-    navigate(`/pricing${qs ? `?${qs}` : ""}`);
-    return true;
-  }
-
-  if (next.startsWith("/")) {
-    navigate(next);
-    return true;
-  }
-
-  return false;
-}
 
 /* ============================================================
    ICONES
@@ -111,23 +49,6 @@ function GithubIcon() {
       aria-hidden
     >
       <path d="M12 2a10 10 0 0 0-3.16 19.49c.5.09.68-.22.68-.48l-.01-1.7c-2.78.6-3.37-1.34-3.37-1.34-.45-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.61.07-.61 1 .07 1.53 1.03 1.53 1.03.9 1.53 2.34 1.09 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.56-1.11-4.56-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.65 0 0 .84-.27 2.75 1.02a9.5 9.5 0 0 1 5 0c1.91-1.29 2.75-1.02 2.75-1.02.55 1.38.2 2.4.1 2.65.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.68-4.57 4.93.36.31.68.92.68 1.85l-.01 2.75c0 .27.18.58.69.48A10 10 0 0 0 12 2Z" />
-    </svg>
-  );
-}
-
-function ShieldIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className="h-5 w-5"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
-      <path d="M12 3 4 6v6c0 4.5 3.2 8 8 9 4.8-1 8-4.5 8-9V6l-8-3Z" />
     </svg>
   );
 }
@@ -240,353 +161,6 @@ function readOAuthErrorFromHash(): string | null {
 }
 
 /* ============================================================
-   ECRAN DE VERIFICATION 2FA
-   ============================================================ */
-
-type MfaMode = "totp" | "recovery" | "passkey";
-
-const TOTP_RE = /^\d{6}$/;
-const RECOVERY_RE = /^[A-Z0-9-]{8,16}$/;
-
-const formatWait = (seconds: number) =>
-  seconds >= 60 ? `${Math.ceil(seconds / 60)} min` : `${seconds} s`;
-
-function MfaChallenge({
-  isDark,
-  onVerified,
-  onCancel,
-}: {
-  isDark: boolean;
-  onVerified: () => Promise<void>;
-  onCancel: () => void;
-}) {
-  const [mode, setMode] = useState<MfaMode>("totp");
-  const [code, setCode] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-
-  const [factors, setFactors] = useState<MfaFactor[]>([]);
-  const [factorId, setFactorId] = useState("");
-
-  const [lockedUntil, setLockedUntil] = useState(0);
-  const [now, setNow] = useState(() => Date.now());
-
-  const passkeyAvailable = isWebAuthnSupported();
-  const busyRef = useRef(false);
-
-  /* Charge la liste des authenticators (au cas où il y en a plusieurs). */
-  useEffect(() => {
-    let mounted = true;
-
-    (async () => {
-      try {
-        const list = await listMfaFactors();
-        if (!mounted) return;
-        setFactors(list);
-        setFactorId(list[0]?.id ?? "");
-      } catch (e) {
-        console.error("Could not load MFA factors:", e);
-      }
-    })();
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
-  /* Compte à rebours en cas de rate limit (429). */
-  useEffect(() => {
-    if (lockedUntil <= Date.now()) return;
-
-    const timer = window.setInterval(() => {
-      const t = Date.now();
-      setNow(t);
-      if (t >= lockedUntil) window.clearInterval(timer);
-    }, 500);
-
-    return () => window.clearInterval(timer);
-  }, [lockedUntil]);
-
-  const waitLeft = Math.max(0, Math.ceil((lockedUntil - now) / 1000));
-
-  const valid =
-    mode === "totp"
-      ? TOTP_RE.test(code)
-      : mode === "recovery"
-        ? RECOVERY_RE.test(code)
-        : true;
-
-  const submit = async (overrideMode?: MfaMode) => {
-    const activeMode = overrideMode ?? mode;
-
-    if (busyRef.current || waitLeft > 0) return;
-
-    if (activeMode === "totp" && !TOTP_RE.test(code)) {
-      setError("Enter the 6-digit code.");
-      return;
-    }
-    if (activeMode === "recovery" && !RECOVERY_RE.test(code)) {
-      setError("Enter a valid recovery code.");
-      return;
-    }
-
-    busyRef.current = true;
-    setBusy(true);
-    setError(null);
-
-    try {
-      if (activeMode === "totp") {
-        await verifyMfaLogin(code, factorId || undefined);
-      } else if (activeMode === "recovery") {
-        await verifyRecoveryCode(code);
-      } else {
-        await verifyWithPasskey();
-      }
-
-      await onVerified();
-    } catch (e) {
-      if (isRateLimitError(e)) {
-        setLockedUntil(Date.now() + e.retryAfterSeconds * 1000);
-        setNow(Date.now());
-      } else if (
-        e instanceof DOMException &&
-        ["NotAllowedError", "AbortError"].includes(e.name)
-      ) {
-        setError("Passkey verification cancelled.");
-      } else {
-        const message = e instanceof Error ? e.message : "Verification failed.";
-        setError(
-          /invalid|code/i.test(message)
-            ? activeMode === "recovery"
-              ? "Invalid or already used recovery code."
-              : "Invalid code. Try again."
-            : message,
-        );
-      }
-      setCode("");
-    } finally {
-      busyRef.current = false;
-      setBusy(false);
-    }
-  };
-
-  /* Envoi automatique dès que les 6 chiffres sont saisis. */
-  useEffect(() => {
-    if (mode === "totp" && code.length === 6) void submit();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [code, mode]);
-
-  const switchTo = (next: MfaMode) => {
-    setMode(next);
-    setCode("");
-    setError(null);
-  };
-
-  const title =
-    mode === "passkey"
-      ? "Use your passkey"
-      : mode === "recovery"
-        ? "Enter a recovery code"
-        : "Two-factor authentication";
-
-  const description =
-    mode === "passkey"
-      ? "Verify with Windows Hello, Touch ID or your security key."
-      : mode === "recovery"
-        ? "Use one of the recovery codes you saved. Each code works once."
-        : "Enter the 6-digit code from your authenticator app.";
-
-  const linkClass =
-    "cursor-pointer text-[12px] font-medium text-neutral-300 underline underline-offset-2 transition hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white";
-
-  return (
-    <div>
-      <div
-        className={[
-          "mx-auto flex h-12 w-12 items-center justify-center rounded-full",
-          isDark ? "bg-white text-neutral-900" : "bg-neutral-900 text-white",
-        ].join(" ")}
-      >
-        <ShieldIcon />
-      </div>
-
-      <h2
-        className={[
-          "mt-5 text-center font-display text-[clamp(20px,1.7vw,26px)] font-semibold tracking-[-0.01em]",
-          isDark ? "text-white" : "text-neutral-900",
-        ].join(" ")}
-      >
-        {title}
-      </h2>
-
-      <p
-        className={[
-          "mt-2 text-center text-[clamp(11.5px,0.95vw,13.5px)]",
-          isDark ? "text-neutral-400" : "text-neutral-600",
-        ].join(" ")}
-      >
-        {description}
-      </p>
-
-      <form
-        className="mt-6 space-y-3.5"
-        onSubmit={(event) => {
-          event.preventDefault();
-          void submit();
-        }}
-        noValidate
-      >
-        {mode === "totp" && factors.length > 1 && (
-          <label className="block">
-            <span className="mb-1.5 block text-[clamp(11.5px,0.95vw,13px)] font-medium text-neutral-300">
-              Authenticator
-            </span>
-            <select
-              value={factorId}
-              onChange={(event) => setFactorId(event.target.value)}
-              className="w-full rounded-[9px] border border-white/10 bg-[#1c1c1e] px-3.5 py-[clamp(9px,0.9vw,12px)] text-[clamp(12.5px,1vw,14px)] text-white outline-none focus:border-neutral-500"
-            >
-              {factors.map((factor, index) => (
-                <option key={factor.id} value={factor.id}>
-                  {factor.friendlyName &&
-                  !/^Authenticator \d+$/.test(factor.friendlyName)
-                    ? factor.friendlyName
-                    : `Authenticator ${index + 1}`}
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
-
-        {mode === "totp" && (
-          <label className="block">
-            <span className="mb-1.5 block text-[clamp(11.5px,0.95vw,13px)] font-medium text-neutral-300">
-              Verification code
-            </span>
-            <input
-              type="text"
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              autoFocus
-              value={code}
-              onChange={(event) => {
-                setCode(event.target.value.replace(/\D/g, "").slice(0, 6));
-                setError(null);
-              }}
-              placeholder="000000"
-              aria-invalid={Boolean(error)}
-              className={`w-full rounded-[9px] border bg-[#1c1c1e] px-3.5 py-[clamp(9px,0.9vw,12px)] text-center font-mono text-[18px] tracking-[0.4em] text-white outline-none placeholder:text-neutral-600 transition focus:border-neutral-500 ${
-                error ? "border-red-500/70" : "border-white/10"
-              }`}
-            />
-          </label>
-        )}
-
-        {mode === "recovery" && (
-          <label className="block">
-            <span className="mb-1.5 block text-[clamp(11.5px,0.95vw,13px)] font-medium text-neutral-300">
-              Recovery code
-            </span>
-            <input
-              type="text"
-              autoCapitalize="characters"
-              autoComplete="off"
-              spellCheck={false}
-              autoFocus
-              value={code}
-              onChange={(event) => {
-                setCode(
-                  event.target.value
-                    .toUpperCase()
-                    .replace(/[^A-Z0-9-]/g, "")
-                    .slice(0, 16),
-                );
-                setError(null);
-              }}
-              placeholder="XXXXX-XXXXX"
-              aria-invalid={Boolean(error)}
-              className={`w-full rounded-[9px] border bg-[#1c1c1e] px-3.5 py-[clamp(9px,0.9vw,12px)] text-center font-mono text-[15px] tracking-[0.2em] text-white outline-none placeholder:text-neutral-600 transition focus:border-neutral-500 ${
-                error ? "border-red-500/70" : "border-white/10"
-              }`}
-            />
-          </label>
-        )}
-
-        {error && (
-          <div
-            role="alert"
-            className="rounded-[9px] border border-red-500/30 bg-red-500/10 px-3.5 py-2.5 text-[12.5px] text-red-300"
-          >
-            {error}
-          </div>
-        )}
-
-        {waitLeft > 0 && (
-          <div
-            role="alert"
-            className="rounded-[9px] border border-amber-500/30 bg-amber-500/10 px-3.5 py-2.5 text-[12.5px] text-amber-300"
-          >
-            Too many attempts. Try again in {formatWait(waitLeft)}.
-          </div>
-        )}
-
-        <button
-          type={mode === "passkey" ? "button" : "submit"}
-          onClick={mode === "passkey" ? () => void submit("passkey") : undefined}
-          disabled={busy || waitLeft > 0 || (mode !== "passkey" && !valid)}
-          className="mt-1 w-full cursor-pointer rounded-[10px] bg-white py-[clamp(10px,0.95vw,13px)] text-[clamp(12.5px,1vw,14.5px)] font-semibold text-neutral-900 transition hover:bg-neutral-200 disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-        >
-          {busy
-            ? mode === "passkey"
-              ? "Waiting for passkey..."
-              : "Verifying..."
-            : mode === "passkey"
-              ? "Continue with passkey"
-              : "Verify & continue"}
-        </button>
-      </form>
-
-      <div className="mt-5 flex flex-col items-center gap-2.5">
-        {mode !== "totp" && (
-          <button type="button" onClick={() => switchTo("totp")} className={linkClass}>
-            Use your authenticator app instead
-          </button>
-        )}
-
-        {mode !== "recovery" && (
-          <button
-            type="button"
-            onClick={() => switchTo("recovery")}
-            className={linkClass}
-          >
-            Use a recovery code instead
-          </button>
-        )}
-
-        {mode !== "passkey" && passkeyAvailable && (
-          <button
-            type="button"
-            onClick={() => switchTo("passkey")}
-            className={linkClass}
-          >
-            Use a passkey instead
-          </button>
-        )}
-
-        <button
-          type="button"
-          onClick={onCancel}
-          disabled={busy}
-          className="mt-2 cursor-pointer text-[12px] text-neutral-500 transition hover:text-neutral-300 disabled:opacity-60"
-        >
-          Back to log in
-        </button>
-      </div>
-    </div>
-  );
-}
-
-/* ============================================================
    SIGN IN
    ============================================================ */
 
@@ -611,10 +185,11 @@ export default function Signin() {
   const [githubLoading, setGithubLoading] = useState(false);
   const [done, setDone] = useState(false);
 
-  // Vrai si le mot de passe est validé mais que le code 2FA n'est pas encore saisi.
-  // Initialisé depuis le stockage : couvre aussi le retour OAuth (Google / GitHub)
-  // et le rechargement de la page pendant le challenge.
-  const [mfaStep, setMfaStep] = useState<boolean>(() => isMfaPending());
+  useEffect(() => {
+    if (isMfaPending()) {
+      navigate(`/two-factor${window.location.search}`, { replace: true });
+    }
+  }, []);
 
   /* ----------------------------------------------------------
      FIN DE CONNEXION (après mot de passe, ou après 2FA)
@@ -624,14 +199,11 @@ export default function Signin() {
     const user = await refreshUser();
 
     if (!user) {
-      setMfaStep(false);
       setServerError(
         "You are signed in, but your account could not be loaded. Please try again.",
       );
       return;
     }
-
-    setMfaStep(false);
 
     const navigated = navigateAfterSignin();
     if (!navigated) setDone(true);
@@ -669,11 +241,9 @@ export default function Signin() {
         return;
       }
 
-      // signIn() a posé le flag "MFA en attente" si le compte a la 2FA :
-      // on affiche l'écran de code au lieu de charger l'utilisateur.
       if (isMfaPending()) {
         setPassword("");
-        setMfaStep(true);
+        navigate(`/two-factor${window.location.search}`);
         return;
       }
 
@@ -689,16 +259,6 @@ export default function Signin() {
     } finally {
       setLoading(false);
     }
-  };
-
-  /* ----------------------------------------------------------
-     ANNULER LE CHALLENGE 2FA
-     ---------------------------------------------------------- */
-
-  const cancelMfa = async () => {
-    await signOut();
-    setMfaStep(false);
-    setServerError(null);
   };
 
   /* ----------------------------------------------------------
@@ -841,13 +401,7 @@ export default function Signin() {
           ].join(" ")}
         >
           <div className="w-full max-w-[380px]">
-            {mfaStep ? (
-              <MfaChallenge
-                isDark={isDark}
-                onVerified={finishLogin}
-                onCancel={cancelMfa}
-              />
-            ) : done ? (
+            {done ? (
               <div className="text-center">
                 <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-white text-neutral-900">
                   <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none">
