@@ -1538,8 +1538,6 @@ export default function TwoFactor() {
 
   const isDark = theme === "dark";
 
-  const ui = tokens(isDark);
-
   const [pending] = useState(isMfaPending);
 
   const [done, setDone] = useState(false);
@@ -1587,159 +1585,133 @@ export default function TwoFactor() {
 
 
   if (!pending) return null;
-
   return (
     <main
       className={[
-        "auth-page relative min-h-screen w-full overflow-hidden transition-colors duration-500",
-        isDark ? "auth-dark bg-[#09090a] text-white" : "auth-light bg-[#f3f1ed] text-neutral-900",
+        "auth-page relative min-h-screen w-full transition-colors duration-500",
+        isDark ? "auth-dark bg-[#09090a]" : "auth-light bg-[#f3f1ed]",
       ].join(" ")}
     >
-      <button
-        type="button"
-        onClick={() => navigate("")}
-        aria-label="Back to home"
-        title="Back to home"
+      <div className="absolute top-[clamp(16px,2vw,30px)] right-[clamp(16px,2vw,30px)] z-20 flex gap-2">
+        <button
+          type="button"
+          onClick={() => navigate("")}
+          aria-label="Back to home"
+          title="Back to home"
+          className="back-button flex h-[clamp(36px,3.4vw,44px)] w-[clamp(36px,3.4vw,44px)] cursor-pointer items-center justify-center rounded-full border backdrop-blur-md transition-colors duration-200"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            className="h-4 w-4"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.1"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M19 12H5" />
+            <path d="m11 6-6 6 6 6" />
+          </svg>
+        </button>
+      </div>
+
+      <div
         className={[
-          "back-button absolute right-5 top-5 z-20 flex h-10 w-10 cursor-pointer items-center justify-center rounded-full border backdrop-blur-md transition-colors duration-200 md:right-7 md:top-7",
-          isDark ? "border-white/10 bg-white/5 text-neutral-300 hover:bg-white/10" : "border-black/10 bg-white/60 text-neutral-700 hover:bg-white",
+          "grid min-h-screen w-full md:grid-cols-2",
+          isDark ? "bg-[#09090a]" : "bg-[#f3f1ed]",
         ].join(" ")}
       >
-        <Icon className="h-4 w-4">
-          <path d="M19 12H5" />
-          <path d="m11 6-6 6 6 6" />
-        </Icon>
-      </button>
+        <div className="auth-panel hidden p-[clamp(12px,1.4vw,22px)] md:block">
+          <div
+            className="relative flex h-full flex-col justify-end overflow-hidden rounded-[clamp(18px,2vw,28px)] p-[clamp(22px,3vw,48px)]"
+            style={{
+              background:
+                "radial-gradient(120% 95% at 18% 42%, #9a9a9e 0%, #5d5d62 34%, #2a2a2d 64%, #131315 100%)",
+            }}
+          >
+            <div
+              className="pointer-events-none absolute inset-0"
+              style={{
+                background:
+                  "radial-gradient(85% 68% at 12% 34%, rgba(255,255,255,0.92) 0%, rgba(214,214,218,0.55) 22%, rgba(90,90,95,0.45) 48%, rgba(16,16,18,0.92) 78%, #0b0b0c 100%)",
+              }}
+            />
 
-      <div className="grid min-h-screen w-full md:grid-cols-2">
-        {/* Left visual panel — aligned with the Signin page */}
-        <section
+            <div
+              className="pointer-events-none absolute inset-0 opacity-70"
+              style={{
+                background:
+                  "linear-gradient(158deg, rgba(255,255,255,0.35) 0%, rgba(255,255,255,0.05) 28%, rgba(0,0,0,0) 52%)",
+              }}
+            />
+
+            <div className="relative">
+              <h1
+                className={[
+                  "font-display text-[clamp(28px,3vw,44px)] leading-[1.15] font-medium tracking-[-0.02em]",
+                  isDark ? "text-white" : "text-neutral-900",
+                ].join(" ")}
+              >
+                Welcome
+                <br />
+                back
+              </h1>
+
+              <div className="mt-[clamp(24px,3.2vw,44px)] rounded-[clamp(12px,1.2vw,16px)] bg-white p-[clamp(12px,1.2vw,18px)] shadow-[0_12px_30px_-12px_rgba(0,0,0,0.6)]">
+                <span className="flex h-[clamp(22px,2vw,28px)] w-[clamp(22px,2vw,28px)] items-center justify-center rounded-full bg-neutral-900 text-[clamp(11px,0.95vw,13px)] font-semibold text-white">
+                  2
+                </span>
+
+                <p className="mt-[clamp(24px,2.6vw,38px)] text-[clamp(11.5px,1vw,14px)] leading-[1.35] font-medium text-neutral-900">
+                  Verify your
+                  <br />
+                  identity
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div
           className={[
-            "relative hidden min-h-screen overflow-hidden border-r md:flex md:flex-col md:justify-between md:p-10 lg:p-14",
-            isDark ? "border-white/[0.07] bg-[#09090a]" : "border-black/[0.06] bg-[#ece9e3]",
+            "flex items-center justify-center px-[clamp(20px,4vw,56px)] py-[clamp(36px,5vw,64px)]",
+            isDark ? "bg-[#09090a]" : "bg-[#f3f1ed]",
           ].join(" ")}
         >
-          <div
-            aria-hidden="true"
-            className={[
-              "pointer-events-none absolute inset-0",
-              isDark
-                ? "bg-[radial-gradient(ellipse_at_25%_20%,rgba(255,255,255,0.09),transparent_48%),radial-gradient(ellipse_at_80%_85%,rgba(255,255,255,0.05),transparent_40%)]"
-                : "bg-[radial-gradient(ellipse_at_25%_20%,rgba(255,255,255,0.9),transparent_48%),radial-gradient(ellipse_at_80%_85%,rgba(120,110,90,0.12),transparent_40%)]",
-            ].join(" ")}
-          />
-
-          <div className="relative z-10 flex items-center gap-3">
-            <div className={[
-              "flex h-10 w-10 items-center justify-center rounded-xl border",
-              isDark ? "border-white/15 bg-white/5" : "border-black/10 bg-white/70",
-            ].join(" ")}>
-              <ShieldIcon />
-            </div>
-            <span className={[
-              "text-sm font-semibold tracking-tight",
-              isDark ? "text-white" : "text-neutral-900",
-            ].join(" ")}>Secure access</span>
-          </div>
-
-          <div className="relative z-10 mx-auto w-full max-w-lg py-12">
-            <div className={[
-              "mb-8 inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium",
-              isDark ? "border-white/10 bg-white/[0.04] text-neutral-300" : "border-black/10 bg-white/60 text-neutral-600",
-            ].join(" ")}>
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-              Account protection enabled
-            </div>
-            <h1 className={[
-              "max-w-md font-display text-4xl font-semibold leading-[1.08] tracking-[-0.04em] lg:text-5xl",
-              isDark ? "text-white" : "text-neutral-900",
-            ].join(" ")}>
-              One more step. <span className={isDark ? "text-neutral-400" : "text-neutral-500"}>Then you’re in.</span>
-            </h1>
-            <p className={[
-              "mt-5 max-w-sm text-sm leading-7",
-              isDark ? "text-neutral-400" : "text-neutral-600",
-            ].join(" ")}>
-              Verify your identity to keep your account and personal information protected.
-            </p>
-
-            <div className={[
-              "mt-10 rounded-2xl border p-5 shadow-sm backdrop-blur-sm",
-              isDark ? "border-white/10 bg-white/[0.035]" : "border-black/[0.07] bg-white/65",
-            ].join(" ")}>
-              <div className="flex items-start gap-4">
-                <div className={[
-                  "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl",
-                  isDark ? "bg-white text-neutral-900" : "bg-neutral-900 text-white",
-                ].join(" ")}>
-                  <ShieldIcon />
-                </div>
-                <div>
-                  <p className={[
-                    "text-sm font-semibold",
-                    isDark ? "text-white" : "text-neutral-900",
-                  ].join(" ")}>Two-factor authentication</p>
-                  <p className={[
-                    "mt-1.5 text-xs leading-5",
-                    isDark ? "text-neutral-400" : "text-neutral-600",
-                  ].join(" ")}>Use your authenticator app, a passkey, or a recovery code to securely sign in.</p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className={[
-            "relative z-10 flex items-center justify-between text-[11px]",
-            isDark ? "text-neutral-500" : "text-neutral-500",
-          ].join(" ")}>
-            <span>Protected sign-in</span>
-            <span>Identity verification</span>
-          </div>
-        </section>
-
-        {/* Right panel: keep the original MFA flow and states */}
-        <section className="relative flex min-h-screen items-center justify-center px-5 py-20 sm:px-8 md:px-10 lg:px-14">
-          <div className="w-full max-w-[420px]">
-            <div className="mb-8 flex items-center gap-2 md:hidden">
-              <div className={[
-                "flex h-9 w-9 items-center justify-center rounded-xl",
-                isDark ? "bg-white text-neutral-900" : "bg-neutral-900 text-white",
-              ].join(" ")}>
-                <ShieldIcon />
-              </div>
-              <span className="text-sm font-semibold">Secure access</span>
-            </div>
-
-            <div className={[
-              "rounded-[22px] border p-[clamp(22px,3.5vw,36px)] shadow-[0_24px_80px_-36px_rgba(0,0,0,0.65)]",
-              ui.card,
-            ].join(" ")}>
+          <div className="w-full max-w-[380px]">
               {done ? (
                 <div className="text-center" role="status">
-                  <div className={`mx-auto flex h-14 w-14 items-center justify-center rounded-full ${ui.iconWrap}`}>
-                    <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" aria-hidden="true">
-                      <path d="m5 12.5 4.5 4.5L19 7.5" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+                  <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-white text-neutral-900">
+                    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" aria-hidden="true">
+                      <path
+                        d="m5 12.5 4.5 4.5L19 7.5"
+                        stroke="currentColor"
+                        strokeWidth="2.4"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
                     </svg>
                   </div>
-                  <h1 className={`mt-5 font-display text-[21px] font-semibold ${ui.title}`}>Welcome back!</h1>
-                  <p className={`mt-2 text-[13px] leading-relaxed ${ui.muted}`}>Your identity is verified and you are now signed in.</p>
+                  <h1 className="mt-5 font-display text-[19px] font-semibold text-white">
+                    Welcome back!
+                  </h1>
+                  <p className="mt-2 text-[12px] leading-relaxed text-neutral-400">
+                    You are now signed in to your account.
+                  </p>
                   <button
                     type="button"
                     autoFocus
                     onClick={() => navigate("home")}
-                    className={["mt-6 w-full cursor-pointer rounded-[11px] py-[clamp(11px,1vw,13px)] text-[clamp(13px,1vw,14.5px)] font-semibold transition", "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2", ui.primary].join(" ")}
-                  >Continue to Dashboard</button>
+                    className="mt-6 w-full cursor-pointer rounded-[10px] bg-white py-[clamp(10px,0.95vw,13px)] text-[clamp(12.5px,1vw,14.5px)] font-semibold text-neutral-900 transition hover:bg-neutral-200"
+                  >
+                    Continue to Dashboard
+                  </button>
                 </div>
               ) : (
                 <MfaChallenge isDark={isDark} onVerified={finishLogin} onCancel={() => void cancelMfa()} />
               )}
-            </div>
-            <p className={[
-              "mt-6 text-center text-[11px]",
-              isDark ? "text-neutral-600" : "text-neutral-500",
-            ].join(" ")}>Your security matters. Never share your verification codes.</p>
           </div>
-        </section>
+        </div>
       </div>
     </main>
   );
