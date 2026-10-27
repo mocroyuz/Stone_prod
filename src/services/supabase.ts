@@ -471,6 +471,7 @@ export async function signUp(
     body: JSON.stringify({ email, password, firstName, lastName }),
   });
   saveSession(result.session);
+  if (result.session) void ensureDefaultTags().catch(() => {});
   return result;
 }
 
