@@ -14,13 +14,19 @@ import BottomBar, { type BottomBarTab } from "../components/Bottombar";
 import Folder from "../components/Folder";
 import HelpChatButton from "../components/Helpchatbutton";
 import { requestNewPost } from "../services/Newpostbus";
+import {
+  ensureDefaultTags,
+  listTags,
+  createTag as apiCreateTag,
+  updateTag as apiUpdateTag,
+  deleteTag as apiDeleteTag,
+  type Tag,
+} from "../services/supabase";
 
 /* ───────── Types ───────── */
 
 type Tab = "ideas" | "templates";
 type View = "board" | "gallery";
-
-type Tag = { id: string; label: string };
 
 type Idea = {
   id: string;
@@ -37,10 +43,16 @@ const UNASSIGNED = "unassigned";
 /** Route de cette page dans la sidebar (doit exister dans navItems). */
 const PAGE_ROUTE = "create";
 
-const DEFAULT_TAGS: Tag[] = [
-  { id: UNASSIGNED, label: "Unassigned" },
-  { id: "todo", label: "To Do" },
-  { id: "inprogress", label: "In Progress" },
+const UNASSIGNED_TAG: Tag = {
+  id: UNASSIGNED,
+  label: "Unassigned",
+  color: "bg-neutral-400",
+};
+
+const DEFAULT_ORDER = ["to do", "in progress"];
+const NEW_TAG_COLORS = [
+  "bg-[#6366f1]", "bg-[#ec4899]", "bg-[#14b8a6]",
+  "bg-[#eab308]", "bg-[#84cc16]", "bg-[#0ea5e9]",
 ];
 
 const TABS: { key: Tab; label: string }[] = [
@@ -64,34 +76,77 @@ function writeTabToHash(tab: Tab) {
   if (current !== next) history.replaceState(null, "", next);
 }
 
-/* ───────── Données (à remplacer par ton API) ───────── */
+/* ───────── Données (persistées côté backend via services/supabase) ───────── */
 
 function useBoard() {
-  const [tags, setTags] = useState<Tag[]>(DEFAULT_TAGS);
+  const [tags, setTags] = useState<Tag[]>([UNASSIGNED_TAG]);
   const [ideas, setIdeas] = useState<Idea[]>([]);
 
-  const addTag = (label: string): string | null => {
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        await ensureDefaultTags();
+        const server = await listTags();
+        const rank = (t: Tag) => {
+          const i = DEFAULT_ORDER.indexOf(t.label.trim().toLowerCase());
+          return i === -1 ? DEFAULT_ORDER.length : i;
+        };
+        const sorted = [...server].sort((a, b) => rank(a) - rank(b));
+        if (mounted) setTags([UNASSIGNED_TAG, ...sorted]);
+      } catch (e) {
+        console.error("Error loading tags:", e);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const addTag = async (label: string): Promise<string | null> => {
     const l = label.trim();
     if (!l) return null;
     const existing = tags.find((t) => t.label.toLowerCase() === l.toLowerCase());
     if (existing) return existing.id;
-    const id = crypto.randomUUID();
-    setTags((prev) => [...prev, { id, label: l }]);
-    return id;
+    try {
+      const color = NEW_TAG_COLORS[(tags.length - 1) % NEW_TAG_COLORS.length];
+      const created = await apiCreateTag(l, color);
+      setTags((prev) => [...prev, created]);
+      return created.id;
+    } catch (e) {
+      console.error("Error creating tag:", e);
+      return null;
+    }
   };
 
-  const renameTag = (id: string, label: string) => {
+  const renameTag = async (id: string, label: string) => {
     const l = label.trim();
-    if (!l || id === UNASSIGNED) return;
+    const tag = tags.find((t) => t.id === id);
+    if (!l || !tag || id === UNASSIGNED || l === tag.label) return;
     setTags((prev) => prev.map((t) => (t.id === id ? { ...t, label: l } : t)));
+    try {
+      await apiUpdateTag(id, { label: l, color: tag.color });
+    } catch (e) {
+      console.error("Error renaming tag:", e);
+      setTags((prev) => prev.map((t) => (t.id === id ? tag : t)));
+    }
   };
 
-  const deleteTag = (id: string) => {
+  const deleteTag = async (id: string) => {
     if (id === UNASSIGNED) return;
+    const prevTags = tags;
+    const prevIdeas = ideas;
     setIdeas((prev) =>
       prev.map((i) => (i.tagId === id ? { ...i, tagId: UNASSIGNED } : i))
     );
     setTags((prev) => prev.filter((t) => t.id !== id));
+    try {
+      await apiDeleteTag(id);
+    } catch (e) {
+      console.error("Error deleting tag:", e);
+      setTags(prevTags);
+      setIdeas(prevIdeas);
+    }
   };
 
   const moveTag = (id: string, toId: string) => {
@@ -415,7 +470,12 @@ function TagsMenu({
                         isDark ? "hover:bg-white/[0.06]" : "hover:bg-black/[0.04]"
                       }`}
                     >
-                      <span className="truncate">{t.label}</span>
+                      <span className="flex min-w-0 items-center gap-2">
+                        <span
+                          className={`h-2.5 w-2.5 shrink-0 rounded-full ${t.color}`}
+                        />
+                        <span className="truncate">{t.label}</span>
+                      </span>
                       <span
                         className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[10px] ${
                           on
@@ -452,6 +512,7 @@ function TagsMenu({
 function IdeaCard({
   idea,
   tagLabel,
+  tagColor,
   isDark,
   muted,
   draggable,
@@ -461,6 +522,7 @@ function IdeaCard({
 }: {
   idea: Idea;
   tagLabel?: string;
+  tagColor?: string;
   isDark: boolean;
   muted: string;
   draggable?: boolean;
@@ -577,10 +639,11 @@ function IdeaCard({
           )}
           {tagLabel && (
             <span
-              className={`mt-2 w-fit rounded-md px-2 py-0.5 text-[11px] font-medium ${
+              className={`mt-2 inline-flex w-fit items-center gap-1.5 rounded-md px-2 py-0.5 text-[11px] font-medium ${
                 isDark ? "bg-white/[0.06]" : "bg-black/[0.05]"
               }`}
             >
+              {tagColor && <span className={`h-2 w-2 rounded-full ${tagColor}`} />}
               {tagLabel}
             </span>
           )}
@@ -703,14 +766,15 @@ export default function Create() {
   const visibleTags = tags.filter((t) => !hidden.includes(t.id));
   visibleRef.current = visibleTags;
   const tagLabel = (id: string) => tags.find((t) => t.id === id)?.label;
+  const tagColor = (id: string) => tags.find((t) => t.id === id)?.color;
 
   const toggleHidden = (id: string) =>
     setHidden((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
     );
 
-  const createTag = (label: string) => {
-    const id = addTag(label);
+  const createTag = async (label: string) => {
+    const id = await addTag(label);
     if (id) setHidden((prev) => prev.filter((x) => x !== id));
     return id;
   };
@@ -1203,13 +1267,16 @@ export default function Create() {
                           ].join(" ")}
                         >
                           <div className="flex min-w-0 items-center gap-2.5">
+                            <span
+                              className={`h-2.5 w-2.5 shrink-0 rounded-full ${tag.color}`}
+                            />
                             {editing === tag.id ? (
                               <input
                                 autoFocus
                                 defaultValue={tag.label}
                                 maxLength={30}
                                 onBlur={(e) => {
-                                  renameTag(tag.id, e.target.value);
+                                  void renameTag(tag.id, e.target.value);
                                   setEditing(null);
                                 }}
                                 onKeyDown={(e) => {
@@ -1284,7 +1351,7 @@ export default function Create() {
                                         },
                                         {
                                           label: "Delete tag",
-                                          run: () => deleteTag(tag.id),
+                                          run: () => void deleteTag(tag.id),
                                         },
                                       ].map((o) => (
                                         <button
@@ -1344,7 +1411,7 @@ export default function Create() {
                           isDark={isDark}
                           placeholder="Tag name…"
                           onCreate={(l) => {
-                            createTag(l);
+                            void createTag(l);
                             setAddingCol(false);
                           }}
                         />
@@ -1406,6 +1473,7 @@ export default function Create() {
                           key={idea.id}
                           idea={idea}
                           tagLabel={tagLabel(idea.tagId)}
+                          tagColor={tagColor(idea.tagId)}
                           isDark={isDark}
                           muted={muted}
                           onDelete={() => deleteIdea(idea.id)}

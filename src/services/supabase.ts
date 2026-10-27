@@ -1443,6 +1443,62 @@ export const isDuplicateError = (e: unknown): boolean => {
 };
 
 // ============================================================
+// DEFAULT TAGS SEED
+// ============================================================
+
+const DEFAULT_TAG_SEEDS = [
+  { label: "To Do", color: "bg-[#0ea5e9]" },
+  { label: "In Progress", color: "bg-[#f97316]" },
+];
+const DEFAULT_TAGS_SEEDED_KEY = "crossflow_default_tags_seeded";
+
+let seedPromise: Promise<void> | null = null;
+
+/**
+ * Crée "To Do" et "In Progress" si le compte ne les a jamais eus.
+ * Idempotent, et ne les recrée pas si l'utilisateur les supprime ensuite
+ * (flag par utilisateur). Couvre aussi les comptes existants.
+ */
+export function ensureDefaultTags(): Promise<void> {
+  if (seedPromise) return seedPromise;
+
+  seedPromise = (async () => {
+    const user = await getCurrentUser();
+    if (!user) return;
+
+    const flag = `${DEFAULT_TAGS_SEEDED_KEY}:${user.id}`;
+    try {
+      if (localStorage.getItem(flag) === "1") return;
+    } catch {
+      /* stockage indisponible */
+    }
+
+    const existing = await listTags();
+    const names = new Set(existing.map((t) => t.label.trim().toLowerCase()));
+
+    for (const seed of DEFAULT_TAG_SEEDS) {
+      if (names.has(seed.label.toLowerCase())) continue;
+      try {
+        await createTag(seed.label, seed.color);
+      } catch (e) {
+        if (!isDuplicateError(e)) throw e;
+      }
+    }
+
+    try {
+      localStorage.setItem(flag, "1");
+    } catch {
+      /* ignore */
+    }
+  })().catch((e) => {
+    seedPromise = null; // permet de réessayer
+    throw e;
+  });
+
+  return seedPromise;
+}
+
+// ============================================================
 // SAVED REPLIES
 // ============================================================
 //
