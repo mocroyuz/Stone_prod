@@ -27,6 +27,11 @@ import {
   peekNewPostRequest,
   subscribeNewPostRequests,
 } from "../services/Newpostbus";
+// ── Tags ──
+// `Tag` est déjà pris par l'icône lucide, d'où l'alias `ApiTag`.
+import { listTags, type Tag as ApiTag } from "../services/supabase";
+import { tagHex } from "../services/posts";
+// ──────────
 import {
   getTikTokCreatorInfo,
   publishToTikTok,
@@ -144,6 +149,11 @@ export type NewPostPayload = {
   /** Médias propres à un réseau (remplacent `media` pour ce réseau). */
   mediaByNetwork?: Partial<Record<SocialNetworkId, File[]>>;
   youtube?: YouTubeOptions;
+  // ── Tags & programmation externe ──
+  tagIds?: string[];
+  /** Réseaux déjà programmés ailleurs (YouTube) : affichés dans le calendrier, pas republiés. */
+  externalNetworks?: SocialNetworkId[];
+  channelKeys?: Partial<Record<SocialNetworkId, string>>;
 };
 
 export function unavailablePostActionMessage(payload: NewPostPayload): string {
@@ -1496,6 +1506,11 @@ export default function NewPostModal({
   const [showSourceMenu, setShowSourceMenu] = useState<string | null>(null);
   const [requestTick, setRequestTick] = useState(0);
 
+  // ── Tags ──
+  const [tags, setTags] = useState<ApiTag[]>([]);
+  const [tagIds, setTagIds] = useState<string[]>([]);
+  const [tagMenuOpen, setTagMenuOpen] = useState(false);
+
   // ── Canva ──
   /** Zone de texte (target) pour laquelle un design Canva est en cours de création. */
   const [canvaBusy, setCanvaBusy] = useState<string | null>(null);
@@ -1663,11 +1678,39 @@ export default function NewPostModal({
     setNetworks([tile.network.id]);
   }, [isOpen, requestTick, channelTiles]);
 
+  // ── Tags : chargement à l'ouverture ──
+  useEffect(() => {
+    if (!isOpen) return;
+    let cancelled = false;
+    listTags()
+      .then((t) => {
+        if (!cancelled) setTags(t);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen]);
+
+  // ── Tags : fermeture du menu au clic extérieur ──
+  useEffect(() => {
+    if (!tagMenuOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (!(e.target as HTMLElement).closest("[data-tag-menu]")) {
+        setTagMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [tagMenuOpen]);
+
   useEffect(() => {
     if (!isOpen) return;
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        if (showSourceMenu) {
+        if (tagMenuOpen) {
+          setTagMenuOpen(false);
+        } else if (showSourceMenu) {
           setShowSourceMenu(null);
         } else if (activeEmojiNetwork) {
           setActiveEmojiNetwork(null);
@@ -1689,7 +1732,7 @@ export default function NewPostModal({
       document.removeEventListener("keydown", handleKeyDown);
       document.body.style.overflow = previousOverflow;
     };
-  }, [isOpen, showActionMenu, showDateTimePanel, activeEmojiNetwork, showSourceMenu]);
+  }, [isOpen, showActionMenu, showDateTimePanel, activeEmojiNetwork, showSourceMenu, tagMenuOpen]);
 
   // Focus le champ principal à l'ouverture (sauf si un brouillon est proposé)
   useEffect(() => {
@@ -1897,6 +1940,9 @@ export default function NewPostModal({
     setYoutubeOptions(YOUTUBE_DEFAULT_OPTIONS);
     caretRefs.current = {};
     preselectRef.current = null;
+    // ── Tags ──
+    setTagIds([]);
+    setTagMenuOpen(false);
   };
 
   /** Ferme toujours le modal, même si le nettoyage du formulaire échoue. */
@@ -2758,10 +2804,20 @@ export default function NewPostModal({
       (n) => !(n === "tiktok" && tiktokNow) && !(n === "youtube" && youtubeNow)
     );
 
+    // YouTube programmé : déjà envoyé à Google, mais il doit apparaître dans le calendrier.
+    const externallyScheduled: SocialNetworkId[] =
+      youtubeNow && scheduleAction === "set_date" ? ["youtube"] : [];
+
     const mediaByNetwork: Partial<Record<SocialNetworkId, File[]>> = {};
-    remainingNetworks.forEach((n) => {
+    [...remainingNetworks, ...externallyScheduled].forEach((n) => {
       const own = channelMedia[n];
       if (own) mediaByNetwork[n] = own.map((item) => item.file);
+    });
+
+    const channelKeys: Partial<Record<SocialNetworkId, string>> = {};
+    networks.forEach((n) => {
+      const key = channelTiles.find((t) => t.network.id === n)?.channel.key;
+      if (key) channelKeys[n] = key;
     });
 
     const payload: NewPostPayload = {
@@ -2775,9 +2831,12 @@ export default function NewPostModal({
         scheduleAction === "set_date" ? scheduledAt.toISOString() : null,
       media: media.map((item) => item.file),
       ...(Object.keys(mediaByNetwork).length > 0 ? { mediaByNetwork } : {}),
-      ...(remainingNetworks.includes("youtube")
+      ...(remainingNetworks.includes("youtube") || externallyScheduled.includes("youtube")
         ? { youtube: { ...youtubeOptions, title: youtubeEffectiveTitle } }
         : {}),
+      tagIds,
+      externalNetworks: externallyScheduled,
+      channelKeys,
     };
 
     try {
@@ -2927,6 +2986,7 @@ export default function NewPostModal({
 
       if (
         remainingNetworks.length > 0 ||
+        externallyScheduled.length > 0 ||
         scheduleAction === "save_in_folder"
       ) {
         await onSubmit(payload);
@@ -3285,16 +3345,61 @@ export default function NewPostModal({
               <ArrowLeft className="h-4 w-4" />
               Create post
             </button>
-            <button
-              type="button"
-              disabled
-              title="Coming soon"
-              className={["flex cursor-not-allowed items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[13px] font-medium opacity-50", border, textSecondary].join(" ")}
-            >
-              <Tag className="h-3.5 w-3.5" />
-              Tags
-              <ChevronDown className="h-3.5 w-3.5" />
-            </button>
+
+            {/* ── Tags ── */}
+            <div className="relative" data-tag-menu>
+              <button
+                type="button"
+                aria-expanded={tagMenuOpen}
+                onClick={() => setTagMenuOpen((v) => !v)}
+                className={["flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[13px] font-medium transition", border, textSecondary, hoverSoft].join(" ")}
+              >
+                <Tag className="h-3.5 w-3.5" />
+                Tags
+                {tagIds.length > 0 && (
+                  <span className={["rounded-full px-1.5 text-[11px] font-semibold", accentBg, accentText].join(" ")}>
+                    {tagIds.length}
+                  </span>
+                )}
+                <ChevronDown className="h-3.5 w-3.5" />
+              </button>
+
+              {tagMenuOpen && (
+                <div
+                  role="menu"
+                  className={[
+                    "absolute left-0 top-full z-50 mt-2 max-h-72 w-60 overflow-y-auto rounded-xl border p-1.5 shadow-2xl",
+                    isDark ? "border-white/10 bg-[#1c1c1e]" : "border-black/10 bg-white",
+                  ].join(" ")}
+                >
+                  {tags.length === 0 && (
+                    <p className={["px-3 py-2 text-[12.5px]", textSecondary].join(" ")}>
+                      No tags yet. Create some in Settings.
+                    </p>
+                  )}
+                  {tags.map((tag) => {
+                    const on = tagIds.includes(tag.id);
+                    return (
+                      <button
+                        key={tag.id}
+                        type="button"
+                        role="menuitemcheckbox"
+                        aria-checked={on}
+                        onClick={() =>
+                          setTagIds((prev) => (on ? prev.filter((id) => id !== tag.id) : [...prev, tag.id]))
+                        }
+                        className={["flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[13px] font-medium transition", textPrimary, hoverSoft].join(" ")}
+                      >
+                        <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: tagHex(tag.color) }} />
+                        <span className="min-w-0 flex-1 truncate">{tag.label}</span>
+                        {on && <Check className="h-3.5 w-3.5" strokeWidth={3} />}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+            {/* ────────── */}
           </div>
 
           <div className="flex items-center gap-2">

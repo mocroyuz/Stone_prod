@@ -11,12 +11,31 @@ import BottomBar, { type BottomBarTab } from "../components/Bottombar";
 import Folder from "../components/Folder";
 import NewPostModal, {
   type NewPostPayload,
-  unavailablePostActionMessage,
+  type SocialNetworkId,
 } from "../components/Newpostmodal";
 import { DateTimePicker } from "../components/DateTimePicker";
 import ChannelMenu from "../components/ChannelMenu";
 import { useConnectedChannels } from "../hooks/useConnectedChannels";
 import HelpChatButton from "../components/Helpchatbutton";
+
+import {
+  createPosts,
+  listPosts,
+  tagHex,
+  isPostPosted,
+  type CalendarPost,
+} from "../services/posts";
+import { listTags, type Tag as ApiTag } from "../services/supabase";
+import {
+  XIcon,
+  FacebookIcon,
+  InstagramIcon,
+  LinkedInIcon,
+  TikTokIcon,
+  YouTubeIcon,
+  PinterestIcon,
+  ThreadsIcon,
+} from "../components/IntegrationIcons";
 
 /* ------------------------------------------------------------------ */
 /* Shell (identique à Home)                                            */
@@ -442,7 +461,11 @@ type CalendarEvent = {
 const START_HOUR = 0;
 const END_HOUR = 24;
 const SPAN = END_HOUR - START_HOUR;
-const HOUR_HEIGHT = 72;
+
+/** ⬇️ Modifié : les cartes de post font maintenant ~1 h de haut. */
+const HOUR_HEIGHT = 112;   // était 72
+const POST_SPAN = 1;       // une carte de post occupe 1 h dans la grille
+
 const TOTAL_HEIGHT = SPAN * HOUR_HEIGHT;
 
 const DEFAULT_SCROLL_HOUR = 8;
@@ -498,7 +521,7 @@ const NEUTRAL_STYLE: ToneStyle = {
 };
 
 /* ------------------------------------------------------------------ */
-/* Layout                                                              */
+/* Layout des événements (calendrier)                                  */
 /* ------------------------------------------------------------------ */
 
 type PositionedEvent = {
@@ -526,6 +549,163 @@ function layoutDayEvents(events: CalendarEvent[]): PositionedEvent[] {
     i = j;
   }
   return result;
+}
+
+/* ------------------------------------------------------------------ */
+/* Posts : icônes, layout côte-à-côte, carte                           */
+/* ------------------------------------------------------------------ */
+
+type NetIcon = (props: { className?: string }) => ReactNode;
+
+const NETWORK_ICONS: Record<SocialNetworkId, NetIcon> = {
+  x: XIcon,
+  facebook: FacebookIcon,
+  instagram: InstagramIcon,
+  linkedin: LinkedInIcon,
+  tiktok: TikTokIcon,
+  youtube: YouTubeIcon,
+  pinterest: PinterestIcon,
+  threads: ThreadsIcon as unknown as NetIcon,
+};
+
+type PositionedPost = { post: CalendarPost; start: number; col: number; cols: number };
+
+/** Place côte à côte les posts qui se chevauchent (même heure ou à moins d'1 h). */
+function layoutPosts(list: { post: CalendarPost; start: number }[]): PositionedPost[] {
+  const sorted = [...list].sort((a, b) => a.start - b.start);
+  const out: PositionedPost[] = [];
+  let cluster: PositionedPost[] = [];
+  let colEnds: number[] = [];
+  let clusterEnd = -1;
+
+  const flush = () => {
+    cluster.forEach((c) => (c.cols = colEnds.length));
+    out.push(...cluster);
+    cluster = [];
+    colEnds = [];
+    clusterEnd = -1;
+  };
+
+  for (const item of sorted) {
+    if (cluster.length && item.start >= clusterEnd) flush();
+    let col = colEnds.findIndex((end) => end <= item.start);
+    if (col === -1) {
+      col = colEnds.length;
+      colEnds.push(0);
+    }
+    colEnds[col] = item.start + POST_SPAN;
+    cluster.push({ ...item, col, cols: 1 });
+    clusterEnd = Math.max(clusterEnd, item.start + POST_SPAN);
+  }
+  flush();
+  return out;
+}
+
+function PostCard({
+  item, tagsById, isDark, posted,
+}: {
+  item: PositionedPost;
+  tagsById: Map<string, ApiTag>;
+  isDark: boolean;
+  posted: boolean;
+}) {
+  const { post, start, col, cols } = item;
+  const [expanded, setExpanded] = useState(false);
+
+  const Icon = NETWORK_ICONS[post.network];
+  const cover = post.media[0];
+  const tags = post.tagIds.map((id) => tagsById.get(id)).filter(Boolean) as ApiTag[];
+  const time = new Date(post.scheduledAt).toLocaleTimeString(LOCALE, {
+    hour: "numeric", minute: "2-digit", hour12: true,
+  });
+
+  const height = HOUR_HEIGHT * POST_SPAN - 6;
+  const width = 100 / cols;
+
+  return (
+    <div
+      tabIndex={0}
+      onMouseEnter={() => setExpanded(true)}
+      onMouseLeave={() => setExpanded(false)}
+      onFocus={() => setExpanded(true)}
+      onBlur={() => setExpanded(false)}
+      className={[
+        "absolute flex flex-col justify-between gap-2 rounded-2xl border p-3 outline-none transition-[box-shadow,opacity,filter]",
+        isDark ? "border-white/[0.08] bg-[#17171a]" : "border-black/[0.08] bg-white",
+        expanded ? "shadow-xl" : "overflow-hidden",
+        posted ? "opacity-60 grayscale" : "",
+      ].join(" ")}
+      style={{
+        top: start * HOUR_HEIGHT,
+        left: `calc(${col * width}% + 4px)`,
+        width: `calc(${width}% - 8px)`,
+        zIndex: expanded ? 50 : 2,
+        // Survol : la carte s'agrandit pour montrer TOUS les tags.
+        ...(expanded ? { minHeight: height } : { height }),
+      }}
+    >
+      <div className="flex items-center gap-2">
+        <span
+          className={[
+            "flex h-7 w-7 shrink-0 items-center justify-center rounded-lg",
+            isDark ? "bg-[#e4e4e7] text-[#111]" : "bg-neutral-900 text-white",
+          ].join(" ")}
+        >
+          <Icon className="h-4 w-4" />
+        </span>
+        <span className={["truncate text-[15px] font-bold tracking-[-0.02em]", isDark ? "text-neutral-200" : "text-neutral-800"].join(" ")}>
+          {time}
+        </span>
+      </div>
+
+      <div className="flex items-end justify-between gap-2">
+        <div className="flex min-w-0 flex-1 flex-wrap content-end gap-1">
+          {posted && (
+            <span
+              className={[
+                "inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-semibold",
+                isDark ? "bg-white/10 text-neutral-200" : "bg-black/[0.06] text-neutral-700",
+              ].join(" ")}
+            >
+              <CheckIcon className="h-[9px] w-[9px]" />
+              Posted
+            </span>
+          )}
+          {tags.map((tag) => {
+            const hex = tagHex(tag.color);
+            return (
+              <span
+                key={tag.id}
+                className={[
+                  "inline-flex max-w-full items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium",
+                  isDark ? "text-neutral-200" : "text-neutral-700",
+                ].join(" ")}
+                style={{ backgroundColor: `${hex}26` }}
+              >
+                <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: hex }} />
+                <span className="truncate">{tag.label}</span>
+              </span>
+            );
+          })}
+        </div>
+
+        {cover && (
+          <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl">
+            {cover.kind === "image" ? (
+              <img src={cover.url} alt="" loading="lazy" className="h-full w-full object-cover" />
+            ) : (
+              <video src={`${cover.url}#t=0.1`} preload="metadata" muted playsInline className="h-full w-full object-cover" />
+            )}
+            {post.media.length > 1 && (
+              <span className="absolute bottom-0.5 right-0.5 rounded bg-black/70 px-1 text-[9px] font-semibold text-white">
+                +{post.media.length - 1}
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
 /* ------------------------------------------------------------------ */
@@ -984,6 +1164,12 @@ export default function Schedule() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
 
+  // ⬇️ État lié aux posts (chargés depuis Supabase)
+  const [posts, setPosts] = useState<CalendarPost[]>([]);
+  const [apiTags, setApiTags] = useState<ApiTag[]>([]);
+  const [postsTick, setPostsTick] = useState(0);
+  const tagsById = useMemo(() => new Map(apiTags.map((t) => [t.id, t])), [apiTags]);
+
   const [activeCategory, setActiveCategory] = useState<string | "All">("All");
   const [weekOffset, setWeekOffset] = useState(0);
   const [openPanel, setOpenPanel] = useState<ToolbarPanel | null>(null);
@@ -1099,6 +1285,31 @@ export default function Schedule() {
     [now.toDateString(), weekOffset],
   );
 
+  // ⬇️ Chargement des posts pour la semaine courante
+  useEffect(() => {
+    let cancelled = false;
+    listPosts(weekStart, addDays(weekStart, 7))
+      .then((p) => {
+        if (!cancelled) setPosts(p);
+      })
+      .catch((e) => console.error("Could not load posts:", e));
+    return () => {
+      cancelled = true;
+    };
+  }, [weekStart, postsTick]);
+
+  // ⬇️ Chargement des tags (couleurs / labels)
+  useEffect(() => {
+    listTags().then(setApiTags).catch(() => {});
+  }, [postsTick]);
+
+  // ⬇️ Resynchronise quand on revient sur l'onglet
+  useEffect(() => {
+    const onFocus = () => setPostsTick((n) => n + 1);
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, []);
+
   const days = useMemo(
     () =>
       Array.from({ length: 7 }, (_, i) => {
@@ -1159,28 +1370,62 @@ export default function Schedule() {
     return map;
   }, [visibleEvents]);
 
+  // ⬇️ Regroupement des posts par jour (avec layout côte-à-côte)
+  const postsByDay = useMemo(() => {
+    const raw = new Map<number, { post: CalendarPost; start: number }[]>();
+    for (let i = 0; i < 7; i++) raw.set(i, []);
+
+    for (const post of posts) {
+      if (post.channelKey && channelKey && post.channelKey !== channelKey) continue;
+      const posted = isPostPosted(post, now);
+      if (scope === "Publié" && !posted) continue;
+      if (scope === "À publier" && posted) continue;
+
+      const d = new Date(post.scheduledAt);
+      const dayStart = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+      const idx = Math.round((dayStart.getTime() - weekStart.getTime()) / 86_400_000);
+      if (idx < 0 || idx > 6) continue;
+      raw.get(idx)!.push({ post, start: d.getHours() + d.getMinutes() / 60 });
+    }
+
+    const map = new Map<number, PositionedPost[]>();
+    for (const [day, list] of raw) map.set(day, layoutPosts(list));
+    return map;
+  }, [posts, channelKey, scope, now, weekStart]);
+
+  // ⬇️ Items "scroll" unifiés (événements + posts) pour les flèches haut/bas
+  const scrollItems = useMemo(
+    () => [
+      ...visibleEvents.map((e) => ({ start: e.start, end: e.end })),
+      ...[...postsByDay.values()]
+        .flat()
+        .map((p) => ({ start: p.start, end: p.start + POST_SPAN })),
+    ],
+    [visibleEvents, postsByDay],
+  );
+
   const hiddenAbove = useMemo(() => {
     if (viewportHeight === 0) return false;
-    return visibleEvents.some((e) => {
-      const bottom = (e.end - START_HOUR) * HOUR_HEIGHT;
+    return scrollItems.some((item) => {
+      const bottom = (item.end - START_HOUR) * HOUR_HEIGHT;
       return bottom <= scrollTop;
     });
-  }, [visibleEvents, scrollTop, viewportHeight]);
+  }, [scrollItems, scrollTop, viewportHeight]);
 
   const hiddenBelow = useMemo(() => {
     if (viewportHeight === 0) return false;
     const viewportBottom = scrollTop + viewportHeight;
-    return visibleEvents.some((e) => {
-      const top = (e.start - START_HOUR) * HOUR_HEIGHT;
+    return scrollItems.some((item) => {
+      const top = (item.start - START_HOUR) * HOUR_HEIGHT;
       return top >= viewportBottom;
     });
-  }, [visibleEvents, scrollTop, viewportHeight]);
+  }, [scrollItems, scrollTop, viewportHeight]);
 
   const scrollToNextHidden = (direction: "up" | "down") => {
     const el = scrollRef.current;
     if (!el) return;
 
-    const tops = visibleEvents.map((e) => (e.start - START_HOUR) * HOUR_HEIGHT);
+    const tops = scrollItems.map((item) => (item.start - START_HOUR) * HOUR_HEIGHT);
     if (tops.length === 0) return;
 
     if (direction === "up") {
@@ -1280,8 +1525,10 @@ export default function Schedule() {
     setIsNewPostOpen(true);
   };
 
+  // ⬇️ Création réelle d'un post via le service
   const handleCreatePost = async (payload: NewPostPayload) => {
-    throw new Error(unavailablePostActionMessage(payload));
+    await createPosts(payload);
+    setPostsTick((n) => n + 1);
   };
 
   const calendarBorder = isDark ? "border-white/[0.07]" : "border-black/[0.06]";
@@ -1762,6 +2009,7 @@ export default function Schedule() {
                             );
                           })}
 
+                        {/* Événements du calendrier */}
                         {layoutByDay.get(dayIndex)?.map(({ event, depth }) => (
                           <EventCard
                             key={event.id}
@@ -1774,6 +2022,17 @@ export default function Schedule() {
                             onCloseMenu={() => setOpenMenuId(null)}
                             onEdit={() => handleEditEvent(event.id)}
                             onDelete={() => handleDeleteEvent(event.id)}
+                          />
+                        ))}
+
+                        {/* ⬇️ Posts planifiés (nouveaux) */}
+                        {postsByDay.get(dayIndex)?.map((item) => (
+                          <PostCard
+                            key={item.post.id}
+                            item={item}
+                            tagsById={tagsById}
+                            isDark={isDark}
+                            posted={isPostPosted(item.post, now)}
                           />
                         ))}
 
