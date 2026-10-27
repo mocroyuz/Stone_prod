@@ -1,5 +1,5 @@
 // src/pages/Create.tsx
-// Page Create (routes "create", "create/ideas", "create/templates", "create/feeds").
+// Page Create (routes "create", "create/ideas", "create/templates").
 // Shell visuel aligné sur Home : fond de page + panneau arrondi à la jointure de la sidebar.
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
@@ -13,12 +13,11 @@ import DashboardSidebar, {
 import BottomBar, { type BottomBarTab } from "../components/Bottombar";
 import Folder from "../components/Folder";
 import HelpChatButton from "../components/Helpchatbutton";
-import FeedsPanel from "../components/FeedsPanel";
 import { requestNewPost } from "../services/Newpostbus";
 
 /* ───────── Types ───────── */
 
-type Tab = "ideas" | "templates" | "feeds";
+type Tab = "ideas" | "templates";
 type View = "board" | "gallery";
 
 type Tag = { id: string; label: string };
@@ -47,14 +46,13 @@ const DEFAULT_TAGS: Tag[] = [
 const TABS: { key: Tab; label: string }[] = [
   { key: "ideas", label: "Ideas" },
   { key: "templates", label: "Templates" },
-  { key: "feeds", label: "Feeds" },
 ];
 
-/* ───────── Onglet ↔ URL (#/create, #/create/feeds, …) ───────── */
+/* ───────── Onglet ↔ URL (#/create, #/create/templates, …) ───────── */
 
-/** Lit l'onglet depuis le hash courant ("create/feeds" → "feeds"). */
+/** Lit l'onglet depuis le hash courant. */
 function tabFromHash(): Tab {
-  const m = window.location.hash.match(/create\/(ideas|templates|feeds)/);
+  const m = window.location.hash.match(/create\/(ideas|templates)/);
   return (m?.[1] as Tab | undefined) ?? "ideas";
 }
 
@@ -670,12 +668,19 @@ export default function Create() {
     writeTabToHash(next);
   };
 
-  // Retour / avance du navigateur, ou lien direct vers #/create/feeds.
+  // Retour / avance du navigateur, ou lien direct vers un onglet Create.
   useEffect(() => {
     const onHash = () => {
-      if (/create(\/|$)/.test(window.location.hash)) setTab(tabFromHash());
+      if (/create(\/|$)/.test(window.location.hash)) {
+        const next = tabFromHash();
+        setTab(next);
+        if (/create\/feeds(?:$|[?#])/.test(window.location.hash)) {
+          writeTabToHash(next);
+        }
+      }
     };
     window.addEventListener("hashchange", onHash);
+    onHash();
     return () => window.removeEventListener("hashchange", onHash);
   }, []);
 
@@ -1138,9 +1143,6 @@ export default function Create() {
                   </p>
                 </div>
               )}
-
-              {/* ───── Feeds ───── */}
-              {tab === "feeds" && <FeedsPanel isDark={isDark} />}
 
               {/* ───── Board ───── */}
               {tab === "ideas" && view === "board" && (
