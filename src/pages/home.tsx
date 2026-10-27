@@ -23,6 +23,7 @@ import HelpChatButton from "../components/Helpchatbutton";
 import BottomBar, { type BottomBarTab } from "../components/Bottombar";
 import Folder from "../components/Folder";
 import { getCurrentUser, type UserProfile } from "../services/supabase";
+import { createPosts } from "../services/posts";
 import {
   CHANNELS,
   PLAN,
@@ -1251,6 +1252,11 @@ export default function Home() {
   ---------------------------------------------------------- */
 
   const handleCreatePost = async (payload: NewPostPayload) => {
+    if (payload.scheduleMode === "later") {
+      await createPosts(payload);
+      return;
+    }
+
     throw new Error(unavailablePostActionMessage(payload));
   };
 

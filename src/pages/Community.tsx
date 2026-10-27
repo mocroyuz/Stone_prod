@@ -16,6 +16,7 @@ import NewPostModal, {
 import ChannelMenu from "../components/ChannelMenu";
 import { useConnectedChannels } from "../hooks/useConnectedChannels";
 import HelpChatButton from "../components/Helpchatbutton";
+import { createPosts } from "../services/posts";
 
 /* ───────── Types ───────── */
 
@@ -405,6 +406,11 @@ export default function Community() {
   };
 
   const handleCreatePost = async (payload: NewPostPayload) => {
+    if (payload.scheduleMode === "later") {
+      await createPosts(payload);
+      return;
+    }
+
     throw new Error(unavailablePostActionMessage(payload));
   };
 

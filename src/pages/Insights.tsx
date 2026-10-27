@@ -54,6 +54,7 @@ import NewPostModal, {
   unavailablePostActionMessage,
 } from "../components/Newpostmodal";
 import { useConnectedChannels, type ConnectedChannel } from "../hooks/useConnectedChannels";
+import { createPosts } from "../services/posts";
 import {
   InstagramIcon,
   FacebookIcon,
@@ -1213,6 +1214,11 @@ export default function Insights() {
   };
 
   const handleCreatePost = async (payload: NewPostPayload) => {
+    if (payload.scheduleMode === "later") {
+      await createPosts(payload);
+      return;
+    }
+
     throw new Error(unavailablePostActionMessage(payload));
   };
 

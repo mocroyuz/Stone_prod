@@ -15,6 +15,7 @@ import NewPostModal, {
   type NewPostPayload,
   unavailablePostActionMessage,
 } from "../components/Newpostmodal";
+import { createPosts } from "../services/posts";
 
 import Folder from "../components/Folder";
 
@@ -550,6 +551,11 @@ export default function TemplatesPage() {
 
   const handleCreatePost = useCallback(
     async (payload: NewPostPayload) => {
+      if (payload.scheduleMode === "later") {
+        await createPosts(payload);
+        return;
+      }
+
       throw new Error(unavailablePostActionMessage(payload));
     },
     []

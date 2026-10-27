@@ -19,6 +19,7 @@ import {
   openFrequencyOnboarding,
   type OnboardingAccount,
 } from "../components/OnboardingModals";
+import { createPosts } from "../services/posts";
 import HelpChatButton from "../components/Helpchatbutton";
 import { useTheme } from "../hooks/useTheme";
 import { useUser } from "../contexts/UserContext";
@@ -854,6 +855,11 @@ export default function Channels() {
   };
 
   const handleCreatePost = async (payload: NewPostPayload) => {
+    if (payload.scheduleMode === "later") {
+      await createPosts(payload);
+      return;
+    }
+
     throw new Error(unavailablePostActionMessage(payload));
   };
 

@@ -11,6 +11,7 @@ import NewPostModal, {
   unavailablePostActionMessage,
 } from "../components/Newpostmodal";
 import HelpChatButton from "../components/Helpchatbutton";
+import { createPosts } from "../services/posts";
 import {
   ZapierIcon,
   ClaudeIcon,
@@ -745,6 +746,11 @@ export default function Integrations() {
   };
 
   const handleCreatePost = async (payload: NewPostPayload) => {
+    if (payload.scheduleMode === "later") {
+      await createPosts(payload);
+      return;
+    }
+
     throw new Error(unavailablePostActionMessage(payload));
   };
 
