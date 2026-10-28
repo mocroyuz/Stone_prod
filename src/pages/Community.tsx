@@ -1,5 +1,5 @@
 // src/pages/Community.tsx
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { useTheme } from "../hooks/useTheme";
 import { navigate, useHashRoute } from "../hooks/useHashRoute";
@@ -33,6 +33,7 @@ type Post = {
   id: string;
   title: string;
   commentCount: number;
+  thumbnail: string | null;
 };
 
 type IconProps = { className?: string };
@@ -69,6 +70,17 @@ const focusRingClass = (isDark: boolean) =>
     ? "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
     : "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/25";
 
+/* ───────── Helpers ───────── */
+
+/** Miniature YouTube : fonctionne pour n'importe quelle vidéo, même hors liste chargée. */
+const thumbnailFor = (videoId: string) =>
+  `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`;
+
+function useHashChannel(): string | null {
+  useHashRoute();
+  return new URLSearchParams(window.location.search).get("channel");
+}
+
 /* ───────── Données ───────── */
 
 function useCommunity(
@@ -83,16 +95,12 @@ function useCommunity(
   const [nextPageToken, setNextPageToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // ⚠️ Deux états d'erreur séparés :
+  // Deux états d'erreur séparés :
   //   - `error`      : erreurs de chargement des COMMENTAIRES
   //   - `postsError` : erreurs de chargement des VIDÉOS
-  // Auparavant ils étaient fusionnés, ce qui faisait apparaître une
-  // TypeError du fetch vidéos ("Cannot read properties of undefined
-  // (reading 'map')") dans la zone commentaires.
   const [error, setError] = useState<string | null>(null);
   const [postsError, setPostsError] = useState<string | null>(null);
 
-  // À adapter : comment identifies-tu le canal YouTube dans useConnectedChannels ?
   const isYouTube = Boolean(channelKey?.toLowerCase().startsWith("youtube"));
 
   /* ── Posts (vidéos) ── */
@@ -109,14 +117,13 @@ function useCommunity(
     fetchYouTubeVideos()
       .then((r) => {
         if (cancelled) return;
-        // Défense en profondeur : le service valide déjà, mais on
-        // protège le `.map` contre toute valeur inattendue.
         const list = Array.isArray(r?.videos) ? r.videos : [];
         setPosts(
           list.map((v) => ({
             id: v.id,
             title: v.title,
             commentCount: v.comment_count,
+            thumbnail: v.thumbnail,
           }))
         );
       })
@@ -194,13 +201,6 @@ function useCommunity(
     hasMore: Boolean(nextPageToken),
     loadMore,
   };
-}
-
-/* ───────── Helpers ───────── */
-
-function useHashChannel(): string | null {
-  useHashRoute();
-  return new URLSearchParams(window.location.search).get("channel");
 }
 
 /* ───────── Icônes ───────── */
@@ -503,13 +503,16 @@ export default function Community() {
     error,
     hasMore,
     loadMore,
-  } = useCommunity(
-    channel?.key,
-    tab,
-    filter,
-    selectedPostId,
-    reloadKey
+  } = useCommunity(channel?.key, tab, filter, selectedPostId, reloadKey);
+
+  // Index des vidéos par id : sert aux miniatures / titres dans les commentaires
+  const postById = useMemo(
+    () => new Map(posts.map((p) => [p.id, p])),
+    [posts]
   );
+  const selectedPost = selectedPostId
+    ? postById.get(selectedPostId) ?? null
+    : null;
 
   const needle = query.trim().toLowerCase();
 
@@ -533,8 +536,9 @@ export default function Community() {
     );
   };
 
-  const visiblePosts = (showAll ? posts : posts.filter((p) => p.commentCount > 0))
-    .filter((post) => post.title.toLowerCase().includes(needle));
+  const visiblePosts = (
+    showAll ? posts : posts.filter((p) => p.commentCount > 0)
+  ).filter((post) => post.title.toLowerCase().includes(needle));
 
   const handleBottomBarChange = (id: BottomBarTab) => {
     switch (id) {
@@ -577,7 +581,7 @@ export default function Community() {
         ].join(" ")}
         style={{ paddingLeft: sidebarOffset }}
       >
-        {/* PANNEAU ARRONDI (flex column car le layout "By post" réserve de la hauteur) */}
+        {/* PANNEAU ARRONDI */}
         <div
           className={[
             "flex h-full flex-col overflow-hidden",
@@ -625,7 +629,12 @@ export default function Community() {
                 />
 
                 <div className="flex items-center gap-2">
-                  <IconButton label="Auto-replies" ghost={ghost} isDark={isDark} className="h-9 w-9">
+                  <IconButton
+                    label="Auto-replies"
+                    ghost={ghost}
+                    isDark={isDark}
+                    className="h-9 w-9"
+                  >
                     <ChatHeartIcon className="h-5 w-5" />
                   </IconButton>
                   <IconButton
@@ -641,12 +650,23 @@ export default function Community() {
                   <div
                     role="tablist"
                     aria-label="Layout"
-                    className={["ml-2 inline-flex gap-1 rounded-xl border p-1", line].join(" ")}
+                    className={[
+                      "ml-2 inline-flex gap-1 rounded-xl border p-1",
+                      line,
+                    ].join(" ")}
                   >
                     {(
                       [
-                        { key: "post", label: "By post", icon: <PanelIcon className="h-4 w-4" /> },
-                        { key: "list", label: "List", icon: <ListIcon className="h-4 w-4" /> },
+                        {
+                          key: "post",
+                          label: "By post",
+                          icon: <PanelIcon className="h-4 w-4" />,
+                        },
+                        {
+                          key: "list",
+                          label: "List",
+                          icon: <ListIcon className="h-4 w-4" />,
+                        },
                       ] as { key: Layout; label: string; icon: ReactNode }[]
                     ).map((o) => (
                       <button
@@ -693,7 +713,12 @@ export default function Community() {
             </div>
 
             {/* Tabs + toolbar */}
-            <div className={["flex shrink-0 items-center justify-between gap-4 border-b", line].join(" ")}>
+            <div
+              className={[
+                "flex shrink-0 items-center justify-between gap-4 border-b",
+                line,
+              ].join(" ")}
+            >
               <div role="tablist" aria-label="Inbox" className="flex gap-6">
                 {TABS.map((t) => (
                   <button
@@ -726,10 +751,21 @@ export default function Community() {
                   isDark={isDark}
                   ghost={ghost}
                 />
-                <IconButton label="Sort and filter" ghost={ghost} isDark={isDark} className="h-9 w-9">
+                <IconButton
+                  label="Sort and filter"
+                  ghost={ghost}
+                  isDark={isDark}
+                  className="h-9 w-9"
+                >
                   <FilterIcon className="h-5 w-5" />
                 </IconButton>
-                <IconButton label="Mark all as read" ghost={ghost} isDark={isDark} align="end" className="h-9 w-9">
+                <IconButton
+                  label="Mark all as read"
+                  ghost={ghost}
+                  isDark={isDark}
+                  align="end"
+                  className="h-9 w-9"
+                >
                   <CheckCircleIcon className="h-5 w-5" />
                 </IconButton>
               </div>
@@ -738,9 +774,16 @@ export default function Community() {
             {/* Body */}
             <div className="flex min-h-0 flex-1">
               {layout === "post" && postsOpen && (
-                <aside className={["flex w-[300px] shrink-0 flex-col border-r pr-4 pt-4", line].join(" ")}>
+                <aside
+                  className={[
+                    "flex w-[300px] shrink-0 flex-col border-r pr-4 pt-4",
+                    line,
+                  ].join(" ")}
+                >
                   <div className="flex items-center justify-between">
-                    <h2 className={["text-[14px] font-medium", muted].join(" ")}>Posts</h2>
+                    <h2 className={["text-[14px] font-medium", muted].join(" ")}>
+                      Posts
+                    </h2>
                     <div className="flex items-center">
                       <IconButton
                         label="Bring posts with the newest unanswered comments to the top."
@@ -773,14 +816,22 @@ export default function Community() {
 
                   {/* Erreur de chargement des vidéos : affichée ICI, pas dans la zone commentaires */}
                   {postsError && (
-                    <p className="mt-3 px-1 text-[12px] leading-snug text-red-500" role="alert">
+                    <p
+                      className="mt-3 px-1 text-[12px] leading-snug text-red-500"
+                      role="alert"
+                    >
                       Could not load videos: {postsError}
                     </p>
                   )}
 
                   {visiblePosts.length === 0 ? (
                     <div className="mt-16 flex flex-col items-center gap-3 px-2 text-center">
-                      <h3 className={["text-[18px] font-semibold tracking-[-0.02em]", strongClass(isDark)].join(" ")}>
+                      <h3
+                        className={[
+                          "text-[18px] font-semibold tracking-[-0.02em]",
+                          strongClass(isDark),
+                        ].join(" ")}
+                      >
                         {postsError ? "Videos unavailable" : "No posts found"}
                       </h3>
                       <p className={["text-[13px] leading-relaxed", muted].join(" ")}>
@@ -813,7 +864,7 @@ export default function Community() {
                             }
                             aria-pressed={selectedPostId === p.id}
                             className={[
-                              "flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-left text-[13px] font-medium transition-colors",
+                              "flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left text-[13px] font-medium transition-colors",
                               ghost,
                               selectedPostId === p.id
                                 ? isDark
@@ -822,7 +873,14 @@ export default function Community() {
                                 : "",
                             ].join(" ")}
                           >
-                            <span className="truncate">{p.title}</span>
+                            <img
+                              src={p.thumbnail ?? thumbnailFor(p.id)}
+                              alt=""
+                              loading="lazy"
+                              referrerPolicy="no-referrer"
+                              className="aspect-video w-[72px] shrink-0 rounded-md object-cover"
+                            />
+                            <span className="min-w-0 flex-1 truncate">{p.title}</span>
                             <span className={["tabular-nums", muted].join(" ")}>
                               {p.commentCount}
                             </span>
@@ -850,12 +908,41 @@ export default function Community() {
 
               {/* Inbox */}
               <section className="flex min-w-0 flex-1 flex-col overflow-y-auto">
+                {/* Bandeau « affiche » de la vidéo sélectionnée */}
+                {tab === "comments" && selectedPostId && (
+                  <div
+                    className={[
+                      "mx-6 mt-4 flex shrink-0 items-center gap-4 rounded-2xl border p-3",
+                      line,
+                    ].join(" ")}
+                  >
+                    <img
+                      src={selectedPost?.thumbnail ?? thumbnailFor(selectedPostId)}
+                      alt=""
+                      className="h-[72px] w-[128px] shrink-0 rounded-xl object-cover"
+                      referrerPolicy="no-referrer"
+                    />
+                    <div className="min-w-0">
+                      <p
+                        className={[
+                          "truncate text-[14px] font-semibold",
+                          strongClass(isDark),
+                        ].join(" ")}
+                      >
+                        {selectedPost?.title ?? "Selected video"}
+                      </p>
+                      {selectedPost && (
+                        <p className={["text-[12px]", muted].join(" ")}>
+                          {selectedPost.commentCount} comments
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 {/* Erreur de chargement des COMMENTAIRES uniquement */}
                 {error && (
-                  <p
-                    className="px-6 pt-4 text-[13px] text-red-500"
-                    role="alert"
-                  >
+                  <p className="px-6 pt-4 text-[13px] text-red-500" role="alert">
                     {error}
                   </p>
                 )}
@@ -868,68 +955,96 @@ export default function Community() {
                   </div>
                 ) : tab === "comments" && comments.length > 0 ? (
                   <ul className="flex flex-col gap-2 px-6 py-4">
-                    {comments.map((c) => (
-                      <li key={c.id}>
-                        <a
-                          href={`https://www.youtube.com/watch?v=${c.video_id}&lc=${c.id}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className={[
-                            "flex items-start gap-3 rounded-2xl border p-4 transition-colors",
-                            focusRingClass(isDark),
-                            card,
-                          ].join(" ")}
-                        >
-                          {c.author_avatar ? (
-                            <img
-                              src={c.author_avatar}
-                              alt=""
-                              className="h-9 w-9 shrink-0 rounded-full"
-                              referrerPolicy="no-referrer"
-                            />
-                          ) : (
-                            <span className="h-9 w-9 shrink-0 rounded-full bg-neutral-500/30" />
-                          )}
-                          <span className="min-w-0 flex-1">
-                            <span className="flex items-center gap-2">
+                    {comments.map((c) => {
+                      const video = c.video_id ? postById.get(c.video_id) : undefined;
+
+                      return (
+                        <li key={c.id}>
+                          <a
+                            href={`https://www.youtube.com/watch?v=${c.video_id}&lc=${c.id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={[
+                              "flex items-start gap-3 rounded-2xl border p-4 transition-colors",
+                              focusRingClass(isDark),
+                              card,
+                            ].join(" ")}
+                          >
+                            {c.author_avatar ? (
+                              <img
+                                src={c.author_avatar}
+                                alt=""
+                                className="h-9 w-9 shrink-0 rounded-full"
+                                referrerPolicy="no-referrer"
+                              />
+                            ) : (
+                              <span className="h-9 w-9 shrink-0 rounded-full bg-neutral-500/30" />
+                            )}
+
+                            <span className="min-w-0 flex-1">
+                              <span className="flex items-center gap-2">
+                                <span
+                                  className={[
+                                    "truncate text-[13px] font-semibold",
+                                    strongClass(isDark),
+                                  ].join(" ")}
+                                >
+                                  {c.author_name}
+                                </span>
+                                {c.published_at && (
+                                  <span className={["text-[12px]", muted].join(" ")}>
+                                    {new Date(c.published_at).toLocaleDateString()}
+                                  </span>
+                                )}
+                                {c.answered && (
+                                  <span
+                                    className={["text-[11px] font-medium", muted].join(" ")}
+                                  >
+                                    · Answered
+                                  </span>
+                                )}
+                              </span>
                               <span
                                 className={[
-                                  "truncate text-[13px] font-semibold",
+                                  "mt-1 block whitespace-pre-wrap break-words text-[13.5px] leading-relaxed",
                                   strongClass(isDark),
                                 ].join(" ")}
                               >
-                                {c.author_name}
+                                {c.text}
                               </span>
-                              {c.published_at && (
-                                <span className={["text-[12px]", muted].join(" ")}>
-                                  {new Date(c.published_at).toLocaleDateString()}
-                                </span>
-                              )}
-                              {c.answered && (
-                                <span
-                                  className={["text-[11px] font-medium", muted].join(" ")}
-                                >
-                                  · Answered
-                                </span>
-                              )}
+                              <span
+                                className={["mt-1 block text-[12px]", muted].join(" ")}
+                              >
+                                {c.like_count} likes · {c.reply_count} replies
+                              </span>
                             </span>
-                            <span
-                              className={[
-                                "mt-1 block whitespace-pre-wrap break-words text-[13.5px] leading-relaxed",
-                                strongClass(isDark),
-                              ].join(" ")}
-                            >
-                              {c.text}
-                            </span>
-                            <span
-                              className={["mt-1 block text-[12px]", muted].join(" ")}
-                            >
-                              {c.like_count} likes · {c.reply_count} replies
-                            </span>
-                          </span>
-                        </a>
-                      </li>
-                    ))}
+
+                            {/* Affiche de la vidéo */}
+                            {c.video_id && (
+                              <span className="hidden w-[120px] shrink-0 flex-col gap-1.5 sm:flex">
+                                <img
+                                  src={video?.thumbnail ?? thumbnailFor(c.video_id)}
+                                  alt=""
+                                  loading="lazy"
+                                  referrerPolicy="no-referrer"
+                                  className="aspect-video w-full rounded-lg object-cover"
+                                />
+                                {video && (
+                                  <span
+                                    className={[
+                                      "line-clamp-2 text-[11px] leading-snug",
+                                      muted,
+                                    ].join(" ")}
+                                  >
+                                    {video.title}
+                                  </span>
+                                )}
+                              </span>
+                            )}
+                          </a>
+                        </li>
+                      );
+                    })}
 
                     {hasMore && (
                       <li className="flex justify-center pt-2">
@@ -1016,8 +1131,8 @@ export default function Community() {
                                 muted,
                               ].join(" ")}
                             >
-                              Use templates to create content that starts conversations. Pro tip: ask a
-                              question.
+                              Use templates to create content that starts conversations.
+                              Pro tip: ask a question.
                             </span>
                           </span>
                         </button>
@@ -1049,8 +1164,8 @@ export default function Community() {
                                 muted,
                               ].join(" ")}
                             >
-                              Manage conversations from all your channels in a single, distraction-free
-                              inbox.
+                              Manage conversations from all your channels in a single,
+                              distraction-free inbox.
                             </span>
                           </span>
                         </button>
