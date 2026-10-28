@@ -1,5 +1,5 @@
 // src/pages/Community.tsx
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useTheme } from "../hooks/useTheme";
 import { navigate, useHashRoute } from "../hooks/useHashRoute";
@@ -20,14 +20,18 @@ import { createPosts } from "../services/posts";
 import {
   fetchYouTubeComments,
   fetchYouTubeVideos,
+  replyToYouTubeComment,
+  setYouTubeCommentsRead,
   type YouTubeComment,
+  type YouTubeFilter,
+  type YouTubeReply,
 } from "../services/youtubeComments";
 
 /* ───────── Types ───────── */
 
 type Tab = "comments" | "mentions";
 type Layout = "post" | "list";
-type Filter = "all" | "unanswered" | "answered";
+type Filter = YouTubeFilter;
 
 type Post = {
   id: string;
@@ -45,12 +49,19 @@ const TABS: { key: Tab; label: string }[] = [
 
 const FILTERS: { key: Filter; label: string }[] = [
   { key: "all", label: "All" },
+  { key: "unread", label: "Unread" },
   { key: "unanswered", label: "Unanswered" },
   { key: "answered", label: "Answered" },
 ];
 
 /** Route de cette page dans la sidebar (section Favorite). */
 const PAGE_ROUTE = "community";
+
+/** Actualisation automatique (onglet visible uniquement). */
+const COMMENTS_POLL_MS = 60_000;
+const VIDEOS_POLL_MS = 5 * 60_000;
+
+const REPLY_MAX = 10_000;
 
 /* ───────── Shell (identique à Home) ───────── */
 
@@ -81,6 +92,24 @@ function useHashChannel(): string | null {
   return new URLSearchParams(window.location.search).get("channel");
 }
 
+/**
+ * Fusionne la première page fraîche (polling) dans la liste affichée :
+ * - les nouveaux commentaires sont ajoutés en haut ;
+ * - les commentaires déjà connus sont mis à jour (likes, réponses, lu / non lu…) ;
+ * - les pages déjà chargées via « Load more » sont conservées.
+ */
+function mergeComments(
+  prev: YouTubeComment[],
+  fresh: YouTubeComment[]
+): YouTubeComment[] {
+  const freshById = new Map(fresh.map((c) => [c.id, c]));
+  const known = new Set(prev.map((c) => c.id));
+  const added = fresh.filter((c) => !known.has(c.id));
+  const updated = prev.map((c) => freshById.get(c.id) ?? c);
+
+  return added.length > 0 ? [...added, ...updated] : updated;
+}
+
 /* ───────── Données ───────── */
 
 function useCommunity(
@@ -101,9 +130,12 @@ function useCommunity(
   const [error, setError] = useState<string | null>(null);
   const [postsError, setPostsError] = useState<string | null>(null);
 
+  const commentsRef = useRef<YouTubeComment[]>([]);
+  commentsRef.current = comments;
+
   const isYouTube = Boolean(channelKey?.toLowerCase().startsWith("youtube"));
 
-  /* ── Posts (vidéos) ── */
+  /* ── Posts (vidéos) : chargement + actualisation lente ── */
   useEffect(() => {
     if (!isYouTube) {
       setPosts([]);
@@ -112,33 +144,43 @@ function useCommunity(
     }
 
     let cancelled = false;
-    setPostsError(null);
 
-    fetchYouTubeVideos()
-      .then((r) => {
-        if (cancelled) return;
-        const list = Array.isArray(r?.videos) ? r.videos : [];
-        setPosts(
-          list.map((v) => ({
-            id: v.id,
-            title: v.title,
-            commentCount: v.comment_count,
-            thumbnail: v.thumbnail,
-          }))
-        );
-      })
-      .catch((e: Error) => {
-        if (cancelled) return;
-        setPosts([]);
-        setPostsError(e.message);
-      });
+    const load = () => {
+      fetchYouTubeVideos()
+        .then((r) => {
+          if (cancelled) return;
+          setPostsError(null);
+          const list = Array.isArray(r?.videos) ? r.videos : [];
+          setPosts(
+            list.map((v) => ({
+              id: v.id,
+              title: v.title,
+              commentCount: v.comment_count,
+              thumbnail: v.thumbnail,
+            }))
+          );
+        })
+        .catch((e: Error) => {
+          if (cancelled) return;
+          setPosts([]);
+          setPostsError(e.message);
+        });
+    };
+
+    setPostsError(null);
+    load();
+
+    const timer = window.setInterval(() => {
+      if (!document.hidden) load();
+    }, VIDEOS_POLL_MS);
 
     return () => {
       cancelled = true;
+      window.clearInterval(timer);
     };
   }, [isYouTube, channelKey, reloadKey]);
 
-  /* ── Commentaires ── */
+  /* ── Commentaires : chargement initial ── */
   useEffect(() => {
     if (!isYouTube || tab !== "comments") {
       setComments([]);
@@ -173,6 +215,51 @@ function useCommunity(
     };
   }, [isYouTube, channelKey, tab, filter, postId, reloadKey]);
 
+  /* ── Commentaires : actualisation automatique (sans refresh manuel) ── */
+  useEffect(() => {
+    if (!isYouTube || tab !== "comments") return;
+
+    let cancelled = false;
+    let busy = false;
+
+    const poll = async () => {
+      if (busy || document.hidden) return;
+      busy = true;
+
+      try {
+        const r = await fetchYouTubeComments({ filter, videoId: postId });
+        if (cancelled) return;
+
+        const fresh = Array.isArray(r?.comments) ? r.comments : [];
+
+        // Liste vide au départ : on reprend aussi le jeton de pagination
+        if (commentsRef.current.length === 0) {
+          setNextPageToken(r?.next_page_token ?? null);
+        }
+
+        setComments((prev) => mergeComments(prev, fresh));
+      } catch {
+        // Erreur silencieuse : on garde ce qui est déjà affiché
+      } finally {
+        busy = false;
+      }
+    };
+
+    const timer = window.setInterval(poll, COMMENTS_POLL_MS);
+
+    // Retour sur l'onglet : actualisation immédiate
+    const onVisible = () => {
+      if (!document.hidden) void poll();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [isYouTube, channelKey, tab, filter, postId]);
+
   const loadMore = async () => {
     if (!nextPageToken) return;
     setLoading(true);
@@ -183,7 +270,10 @@ function useCommunity(
         pageToken: nextPageToken,
       });
       const incoming = Array.isArray(r?.comments) ? r.comments : [];
-      setComments((prev) => [...prev, ...incoming]);
+      setComments((prev) => {
+        const known = new Set(prev.map((c) => c.id));
+        return [...prev, ...incoming.filter((c) => !known.has(c.id))];
+      });
       setNextPageToken(r?.next_page_token ?? null);
     } catch (e) {
       setError((e as Error).message);
@@ -191,6 +281,42 @@ function useCommunity(
       setLoading(false);
     }
   };
+
+  /** Lu / non lu : mise à jour immédiate, annulée si le serveur refuse. */
+  const markRead = useCallback(async (ids: string[], read: boolean) => {
+    if (ids.length === 0) return;
+    const targets = new Set(ids);
+
+    setComments((prev) =>
+      prev.map((c) => (targets.has(c.id) ? { ...c, is_read: read } : c))
+    );
+
+    try {
+      await setYouTubeCommentsRead(ids, read);
+    } catch (e) {
+      setComments((prev) =>
+        prev.map((c) => (targets.has(c.id) ? { ...c, is_read: !read } : c))
+      );
+      throw e;
+    }
+  }, []);
+
+  /** Ajoute une réponse envoyée à la discussion affichée. */
+  const addReply = useCallback((commentId: string, reply: YouTubeReply) => {
+    setComments((prev) =>
+      prev.map((c) =>
+        c.id === commentId
+          ? {
+              ...c,
+              answered: true,
+              is_read: true,
+              reply_count: c.reply_count + 1,
+              replies: [...(c.replies ?? []), reply],
+            }
+          : c
+      )
+    );
+  }, []);
 
   return {
     posts,
@@ -200,6 +326,8 @@ function useCommunity(
     error,
     hasMore: Boolean(nextPageToken),
     loadMore,
+    markRead,
+    addReply,
   };
 }
 
@@ -325,6 +453,18 @@ const PlusIcon = (p: IconProps) => (
     <path d="M12 5v14M5 12h14" />
   </Svg>
 );
+const ReplyIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M9.5 6 4 11.5 9.5 17" />
+    <path d="M4 11.5h9a7 7 0 0 1 7 7V19" />
+  </Svg>
+);
+const ExternalIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M14 4h6v6M20 4l-9 9" />
+    <path d="M18 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4" />
+  </Svg>
+);
 
 /* ───────── Petits composants ───────── */
 
@@ -423,6 +563,7 @@ function IconButton({
   isDark,
   className = "h-9 w-9",
   align = "center",
+  disabled = false,
 }: {
   label: string;
   onClick?: () => void;
@@ -431,6 +572,7 @@ function IconButton({
   isDark: boolean;
   className?: string;
   align?: "center" | "end";
+  disabled?: boolean;
 }) {
   return (
     <span className="group relative inline-flex shrink-0">
@@ -438,8 +580,9 @@ function IconButton({
         type="button"
         aria-label={label}
         onClick={onClick}
+        disabled={disabled}
         className={[
-          "flex items-center justify-center rounded-xl transition-colors motion-reduce:transition-none",
+          "flex items-center justify-center rounded-xl transition-colors motion-reduce:transition-none disabled:cursor-not-allowed disabled:opacity-40",
           focusRingClass(isDark),
           ghost,
           className,
@@ -495,6 +638,13 @@ export default function Community() {
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
 
+  // Réponse en cours de rédaction
+  const [replyingId, setReplyingId] = useState<string | null>(null);
+  const [replyText, setReplyText] = useState("");
+  const [sendingReply, setSendingReply] = useState(false);
+  const [replyError, setReplyError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+
   const {
     posts,
     postsError,
@@ -503,6 +653,8 @@ export default function Community() {
     error,
     hasMore,
     loadMore,
+    markRead,
+    addReply,
   } = useCommunity(channel?.key, tab, filter, selectedPostId, reloadKey);
 
   // Index des vidéos par id : sert aux miniatures / titres dans les commentaires
@@ -513,6 +665,16 @@ export default function Community() {
   const selectedPost = selectedPostId
     ? postById.get(selectedPostId) ?? null
     : null;
+
+  // Dans la vue « Unread », un commentaire marqué lu disparaît tout de suite
+  const shownComments = useMemo(
+    () => (filter === "unread" ? comments.filter((c) => !c.is_read) : comments),
+    [comments, filter]
+  );
+  const unreadIds = useMemo(
+    () => comments.filter((c) => !c.is_read).map((c) => c.id),
+    [comments]
+  );
 
   const needle = query.trim().toLowerCase();
 
@@ -525,10 +687,17 @@ export default function Community() {
   const card = isDark
     ? "border-white/[0.07] bg-[#141416] hover:bg-[#19191c]"
     : "border-black/[0.06] bg-white hover:bg-[#f6f4f0]";
+  const cardStatic = isDark
+    ? "border-white/[0.07] bg-[#141416]"
+    : "border-black/[0.06] bg-white";
+  const fieldClass = isDark
+    ? "border-white/[0.10] bg-[#0f0f11] text-white placeholder:text-neutral-600"
+    : "border-black/[0.10] bg-white text-neutral-900 placeholder:text-neutral-400";
 
   const goChannel = (key: string) => {
     setSelectedKey(key);
     setSelectedPostId(null);
+    setReplyingId(null);
     window.history.replaceState(
       null,
       "",
@@ -539,6 +708,47 @@ export default function Community() {
   const visiblePosts = (
     showAll ? posts : posts.filter((p) => p.commentCount > 0)
   ).filter((post) => post.title.toLowerCase().includes(needle));
+
+  /* ── Actions ── */
+
+  const handleMarkRead = async (ids: string[], read: boolean) => {
+    setActionError(null);
+    try {
+      await markRead(ids, read);
+    } catch (e) {
+      setActionError((e as Error).message);
+    }
+  };
+
+  const openReply = (commentId: string) => {
+    setReplyError(null);
+    setReplyText("");
+    setReplyingId((cur) => (cur === commentId ? null : commentId));
+  };
+
+  const closeReply = () => {
+    setReplyingId(null);
+    setReplyText("");
+    setReplyError(null);
+  };
+
+  const submitReply = async (commentId: string) => {
+    const text = replyText.trim();
+    if (!text || sendingReply) return;
+
+    setSendingReply(true);
+    setReplyError(null);
+
+    try {
+      const reply = await replyToYouTubeComment(commentId, text);
+      addReply(commentId, reply);
+      closeReply();
+    } catch (e) {
+      setReplyError((e as Error).message);
+    } finally {
+      setSendingReply(false);
+    }
+  };
 
   const handleBottomBarChange = (id: BottomBarTab) => {
     switch (id) {
@@ -728,7 +938,7 @@ export default function Community() {
                     aria-selected={tab === t.key}
                     onClick={() => setTab(t.key)}
                     className={[
-                      "-mb-px border-b-2 px-1 pb-3 pt-2 text-[14px] font-medium transition-colors motion-reduce:transition-none",
+                      "-mb-px flex items-center gap-2 border-b-2 px-1 pb-3 pt-2 text-[14px] font-medium transition-colors motion-reduce:transition-none",
                       focusRingClass(isDark),
                       tab === t.key
                         ? isDark
@@ -738,6 +948,11 @@ export default function Community() {
                     ].join(" ")}
                   >
                     {t.label}
+                    {t.key === "comments" && unreadIds.length > 0 && (
+                      <span className="rounded-full bg-sky-500 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white">
+                        {unreadIds.length > 99 ? "99+" : unreadIds.length}
+                      </span>
+                    )}
                   </button>
                 ))}
               </div>
@@ -760,7 +975,13 @@ export default function Community() {
                   <FilterIcon className="h-5 w-5" />
                 </IconButton>
                 <IconButton
-                  label="Mark all as read"
+                  label={
+                    unreadIds.length > 0
+                      ? `Mark all as read (${unreadIds.length})`
+                      : "Mark all as read"
+                  }
+                  onClick={() => void handleMarkRead(unreadIds, true)}
+                  disabled={unreadIds.length === 0}
                   ghost={ghost}
                   isDark={isDark}
                   align="end"
@@ -940,10 +1161,17 @@ export default function Community() {
                   </div>
                 )}
 
-                {/* Erreur de chargement des COMMENTAIRES uniquement */}
+                {/* Erreur de chargement des COMMENTAIRES */}
                 {error && (
                   <p className="px-6 pt-4 text-[13px] text-red-500" role="alert">
                     {error}
+                  </p>
+                )}
+
+                {/* Erreur d'une action (marquer comme lu) */}
+                {actionError && (
+                  <p className="px-6 pt-4 text-[13px] text-red-500" role="alert">
+                    {actionError}
                   </p>
                 )}
 
@@ -953,95 +1181,300 @@ export default function Community() {
                       Loading comments…
                     </p>
                   </div>
-                ) : tab === "comments" && comments.length > 0 ? (
+                ) : tab === "comments" && shownComments.length > 0 ? (
                   <ul className="flex flex-col gap-2 px-6 py-4">
-                    {comments.map((c) => {
+                    {shownComments.map((c) => {
                       const video = c.video_id ? postById.get(c.video_id) : undefined;
+                      const replies = c.replies ?? [];
+                      const isReplying = replyingId === c.id;
+                      const youtubeUrl = `https://www.youtube.com/watch?v=${c.video_id}&lc=${c.id}`;
 
                       return (
                         <li key={c.id}>
-                          <a
-                            href={`https://www.youtube.com/watch?v=${c.video_id}&lc=${c.id}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
+                          <article
                             className={[
-                              "flex items-start gap-3 rounded-2xl border p-4 transition-colors",
-                              focusRingClass(isDark),
-                              card,
+                              "rounded-2xl border p-4",
+                              cardStatic,
+                              !c.is_read
+                                ? isDark
+                                  ? "border-l-2 border-l-sky-400"
+                                  : "border-l-2 border-l-sky-500"
+                                : "",
                             ].join(" ")}
                           >
-                            {c.author_avatar ? (
-                              <img
-                                src={c.author_avatar}
-                                alt=""
-                                className="h-9 w-9 shrink-0 rounded-full"
-                                referrerPolicy="no-referrer"
-                              />
-                            ) : (
-                              <span className="h-9 w-9 shrink-0 rounded-full bg-neutral-500/30" />
-                            )}
+                            <div className="flex items-start gap-3">
+                              {c.author_avatar ? (
+                                <img
+                                  src={c.author_avatar}
+                                  alt=""
+                                  className="h-9 w-9 shrink-0 rounded-full"
+                                  referrerPolicy="no-referrer"
+                                />
+                              ) : (
+                                <span className="h-9 w-9 shrink-0 rounded-full bg-neutral-500/30" />
+                              )}
 
-                            <span className="min-w-0 flex-1">
-                              <span className="flex items-center gap-2">
-                                <span
+                              <div className="min-w-0 flex-1">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  {!c.is_read && (
+                                    <span
+                                      className="h-2 w-2 shrink-0 rounded-full bg-sky-500"
+                                      role="img"
+                                      aria-label="Unread"
+                                    />
+                                  )}
+                                  <span
+                                    className={[
+                                      "truncate text-[13px] font-semibold",
+                                      strongClass(isDark),
+                                    ].join(" ")}
+                                  >
+                                    {c.author_name}
+                                  </span>
+                                  {c.is_own && (
+                                    <span
+                                      className={[
+                                        "rounded-md px-1.5 py-0.5 text-[10px] font-semibold",
+                                        isDark
+                                          ? "bg-white/[0.08] text-neutral-300"
+                                          : "bg-black/[0.06] text-neutral-600",
+                                      ].join(" ")}
+                                    >
+                                      You
+                                    </span>
+                                  )}
+                                  {c.published_at && (
+                                    <span className={["text-[12px]", muted].join(" ")}>
+                                      {new Date(c.published_at).toLocaleDateString()}
+                                    </span>
+                                  )}
+                                  {c.answered && (
+                                    <span
+                                      className={["text-[11px] font-medium", muted].join(" ")}
+                                    >
+                                      · Answered
+                                    </span>
+                                  )}
+                                </div>
+
+                                <p
                                   className={[
-                                    "truncate text-[13px] font-semibold",
+                                    "mt-1 whitespace-pre-wrap break-words text-[13.5px] leading-relaxed",
                                     strongClass(isDark),
                                   ].join(" ")}
                                 >
-                                  {c.author_name}
-                                </span>
-                                {c.published_at && (
-                                  <span className={["text-[12px]", muted].join(" ")}>
-                                    {new Date(c.published_at).toLocaleDateString()}
-                                  </span>
-                                )}
-                                {c.answered && (
-                                  <span
-                                    className={["text-[11px] font-medium", muted].join(" ")}
-                                  >
-                                    · Answered
-                                  </span>
-                                )}
-                              </span>
-                              <span
-                                className={[
-                                  "mt-1 block whitespace-pre-wrap break-words text-[13.5px] leading-relaxed",
-                                  strongClass(isDark),
-                                ].join(" ")}
-                              >
-                                {c.text}
-                              </span>
-                              <span
-                                className={["mt-1 block text-[12px]", muted].join(" ")}
-                              >
-                                {c.like_count} likes · {c.reply_count} replies
-                              </span>
-                            </span>
+                                  {c.text}
+                                </p>
 
-                            {/* Affiche de la vidéo */}
-                            {c.video_id && (
-                              <span className="hidden w-[120px] shrink-0 flex-col gap-1.5 sm:flex">
-                                <img
-                                  src={video?.thumbnail ?? thumbnailFor(c.video_id)}
-                                  alt=""
-                                  loading="lazy"
-                                  referrerPolicy="no-referrer"
-                                  className="aspect-video w-full rounded-lg object-cover"
-                                />
-                                {video && (
-                                  <span
+                                <p className={["mt-1 text-[12px]", muted].join(" ")}>
+                                  {c.like_count} likes · {c.reply_count} replies
+                                </p>
+
+                                {/* Réponses déjà publiées */}
+                                {replies.length > 0 && (
+                                  <ul
                                     className={[
-                                      "line-clamp-2 text-[11px] leading-snug",
-                                      muted,
+                                      "mt-3 flex flex-col gap-3 border-l pl-3",
+                                      line,
                                     ].join(" ")}
                                   >
-                                    {video.title}
-                                  </span>
+                                    {replies.map((r) => (
+                                      <li key={r.id} className="flex items-start gap-2.5">
+                                        {r.author_avatar ? (
+                                          <img
+                                            src={r.author_avatar}
+                                            alt=""
+                                            className="h-6 w-6 shrink-0 rounded-full"
+                                            referrerPolicy="no-referrer"
+                                          />
+                                        ) : (
+                                          <span className="h-6 w-6 shrink-0 rounded-full bg-neutral-500/30" />
+                                        )}
+                                        <div className="min-w-0">
+                                          <p className="flex flex-wrap items-center gap-1.5">
+                                            <span
+                                              className={[
+                                                "text-[12px] font-semibold",
+                                                strongClass(isDark),
+                                              ].join(" ")}
+                                            >
+                                              {r.author_name}
+                                            </span>
+                                            {r.is_own && (
+                                              <span
+                                                className={[
+                                                  "rounded px-1 py-0.5 text-[9px] font-semibold",
+                                                  isDark
+                                                    ? "bg-white/[0.08] text-neutral-300"
+                                                    : "bg-black/[0.06] text-neutral-600",
+                                                ].join(" ")}
+                                              >
+                                                You
+                                              </span>
+                                            )}
+                                          </p>
+                                          <p
+                                            className={[
+                                              "whitespace-pre-wrap break-words text-[12.5px] leading-relaxed",
+                                              strongClass(isDark),
+                                            ].join(" ")}
+                                          >
+                                            {r.text}
+                                          </p>
+                                        </div>
+                                      </li>
+                                    ))}
+                                  </ul>
                                 )}
-                              </span>
-                            )}
-                          </a>
+
+                                {/* Actions */}
+                                <div className="mt-3 flex flex-wrap items-center gap-1">
+                                  {c.can_reply && !c.is_own && (
+                                    <button
+                                      type="button"
+                                      onClick={() => openReply(c.id)}
+                                      aria-expanded={isReplying}
+                                      className={[
+                                        "flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-semibold transition-colors",
+                                        focusRingClass(isDark),
+                                        ghost,
+                                        isReplying
+                                          ? isDark
+                                            ? "bg-white/[0.08]"
+                                            : "bg-black/[0.05]"
+                                          : "",
+                                      ].join(" ")}
+                                    >
+                                      <ReplyIcon className="h-4 w-4" />
+                                      Reply
+                                    </button>
+                                  )}
+
+                                  {!c.is_own && (
+                                    <button
+                                      type="button"
+                                      onClick={() => void handleMarkRead([c.id], !c.is_read)}
+                                      className={[
+                                        "flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-semibold transition-colors",
+                                        focusRingClass(isDark),
+                                        ghost,
+                                      ].join(" ")}
+                                    >
+                                      <CheckCircleIcon className="h-4 w-4" />
+                                      {c.is_read ? "Mark as unread" : "Mark as read"}
+                                    </button>
+                                  )}
+
+                                  {c.video_id && (
+                                    <a
+                                      href={youtubeUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className={[
+                                        "flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-semibold transition-colors",
+                                        focusRingClass(isDark),
+                                        ghost,
+                                      ].join(" ")}
+                                    >
+                                      <ExternalIcon className="h-4 w-4" />
+                                      Open on YouTube
+                                    </a>
+                                  )}
+                                </div>
+
+                                {/* Zone de réponse */}
+                                {isReplying && (
+                                  <div className="mt-3 flex flex-col gap-2">
+                                    <textarea
+                                      autoFocus
+                                      value={replyText}
+                                      onChange={(e) =>
+                                        setReplyText(e.target.value.slice(0, REPLY_MAX))
+                                      }
+                                      onKeyDown={(e) => {
+                                        if (e.key === "Escape") closeReply();
+                                        if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                                          e.preventDefault();
+                                          void submitReply(c.id);
+                                        }
+                                      }}
+                                      rows={3}
+                                      placeholder={`Reply to ${c.author_name}…`}
+                                      disabled={sendingReply}
+                                      className={[
+                                        "w-full resize-y rounded-xl border px-3 py-2 text-[13px] leading-relaxed",
+                                        focusRingClass(isDark),
+                                        fieldClass,
+                                      ].join(" ")}
+                                    />
+
+                                    {replyError && (
+                                      <p className="text-[12px] text-red-500" role="alert">
+                                        {replyError}
+                                      </p>
+                                    )}
+
+                                    <div className="flex items-center justify-between gap-3">
+                                      <span className={["text-[11px]", muted].join(" ")}>
+                                        Ctrl/⌘ + Enter to send
+                                      </span>
+                                      <div className="flex items-center gap-2">
+                                        <button
+                                          type="button"
+                                          onClick={closeReply}
+                                          disabled={sendingReply}
+                                          className={[
+                                            "rounded-lg border px-3 py-1.5 text-[12px] font-semibold transition-colors",
+                                            focusRingClass(isDark),
+                                            outline,
+                                          ].join(" ")}
+                                        >
+                                          Cancel
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => void submitReply(c.id)}
+                                          disabled={sendingReply || replyText.trim().length === 0}
+                                          className={[
+                                            "rounded-lg px-3 py-1.5 text-[12px] font-semibold transition-opacity disabled:cursor-not-allowed disabled:opacity-40",
+                                            focusRingClass(isDark),
+                                            isDark
+                                              ? "bg-white text-black"
+                                              : "bg-neutral-900 text-white",
+                                          ].join(" ")}
+                                        >
+                                          {sendingReply ? "Sending…" : "Send reply"}
+                                        </button>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Affiche de la vidéo */}
+                              {c.video_id && (
+                                <span className="hidden w-[120px] shrink-0 flex-col gap-1.5 sm:flex">
+                                  <img
+                                    src={video?.thumbnail ?? thumbnailFor(c.video_id)}
+                                    alt=""
+                                    loading="lazy"
+                                    referrerPolicy="no-referrer"
+                                    className="aspect-video w-full rounded-lg object-cover"
+                                  />
+                                  {video && (
+                                    <span
+                                      className={[
+                                        "line-clamp-2 text-[11px] leading-snug",
+                                        muted,
+                                      ].join(" ")}
+                                    >
+                                      {video.title}
+                                    </span>
+                                  )}
+                                </span>
+                              )}
+                            </div>
+                          </article>
                         </li>
                       );
                     })}

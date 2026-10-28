@@ -7,6 +7,8 @@ const REFRESH_KEY = "crossflow_refresh_token";
 
 /* ───────── Types ───────── */
 
+export type YouTubeFilter = "all" | "unanswered" | "answered" | "unread";
+
 export type YouTubeVideo = {
   id: string;
   title: string;
@@ -15,17 +17,30 @@ export type YouTubeVideo = {
   comment_count: number;
 };
 
+export type YouTubeReply = {
+  id: string;
+  text: string;
+  author_name: string;
+  author_avatar: string | null;
+  published_at: string | null;
+  is_own: boolean;
+};
+
 export type YouTubeComment = {
   id: string;
   video_id: string | null;
   text: string;
   author_name: string;
   author_avatar: string | null;
+  author_channel_id?: string | null;
+  is_own: boolean;
+  is_read: boolean;
   published_at: string | null;
   like_count: number;
   reply_count: number;
   answered: boolean;
   can_reply: boolean;
+  replies: YouTubeReply[];
 };
 
 /* ───────── Client HTTP ───────── */
@@ -83,22 +98,31 @@ function refreshAccessToken(): Promise<string> {
   return refreshing;
 }
 
-async function request(path: string, token: string): Promise<Response> {
+type CallInit = { method?: "GET" | "POST"; body?: unknown };
+
+function send(path: string, token: string, init: CallInit): Promise<Response> {
+  const hasBody = init.body !== undefined;
+
   return fetch(`${BASE_URL}${path}`, {
-    headers: { Authorization: `Bearer ${token}` },
+    method: init.method ?? "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      ...(hasBody ? { "Content-Type": "application/json" } : {}),
+    },
+    body: hasBody ? JSON.stringify(init.body) : undefined,
   });
 }
 
-async function apiGet<T>(path: string): Promise<T> {
+async function apiCall<T>(path: string, init: CallInit = {}): Promise<T> {
   let { access } = readSession();
   if (!access) throw new Error("Non connecté : aucun token trouvé (vérifie ACCESS_KEY).");
 
-  let res = await request(path, access);
+  let res = await send(path, access, init);
 
   // Token expiré → refresh puis une seule nouvelle tentative
   if (res.status === 401) {
     access = await refreshAccessToken();
-    res = await request(path, access);
+    res = await send(path, access, init);
   }
 
   const data = await parseJson(res);
@@ -112,7 +136,7 @@ async function apiGet<T>(path: string): Promise<T> {
 /* ───────── API ───────── */
 
 export async function fetchYouTubeVideos(pageToken?: string) {
-  const data = await apiGet<{ videos: YouTubeVideo[]; next_page_token: string | null }>(
+  const data = await apiCall<{ videos: YouTubeVideo[]; next_page_token: string | null }>(
     `/api/youtube/videos${pageToken ? `?pageToken=${encodeURIComponent(pageToken)}` : ""}`
   );
 
@@ -123,7 +147,7 @@ export async function fetchYouTubeVideos(pageToken?: string) {
 }
 
 export async function fetchYouTubeComments(opts: {
-  filter: "all" | "unanswered" | "answered";
+  filter: YouTubeFilter;
   videoId?: string | null;
   pageToken?: string | null;
 }) {
@@ -131,7 +155,7 @@ export async function fetchYouTubeComments(opts: {
   if (opts.videoId) q.set("videoId", opts.videoId);
   if (opts.pageToken) q.set("pageToken", opts.pageToken);
 
-  const data = await apiGet<{
+  const data = await apiCall<{
     comments: YouTubeComment[];
     next_page_token: string | null;
   }>(`/api/youtube/comments?${q.toString()}`);
@@ -140,4 +164,28 @@ export async function fetchYouTubeComments(opts: {
     throw new Error(`Format inattendu : ${JSON.stringify(data).slice(0, 120)}`);
   }
   return data;
+}
+
+/** Répond à un commentaire (parentId = id du fil de discussion). */
+export async function replyToYouTubeComment(parentId: string, text: string) {
+  const data = await apiCall<{ reply: YouTubeReply }>(`/api/youtube/comments/reply`, {
+    method: "POST",
+    body: { parentId, text },
+  });
+
+  if (!data.reply?.id) {
+    throw new Error(`Format inattendu : ${JSON.stringify(data).slice(0, 120)}`);
+  }
+  return data.reply;
+}
+
+/** Marque des commentaires comme lus (read = true) ou non lus (read = false). */
+export async function setYouTubeCommentsRead(ids: string[], read: boolean) {
+  // Le serveur accepte 200 ids max par appel
+  for (let i = 0; i < ids.length; i += 200) {
+    await apiCall<{ success: true }>(`/api/youtube/comments/read`, {
+      method: "POST",
+      body: { ids: ids.slice(i, i + 200), read },
+    });
+  }
 }
