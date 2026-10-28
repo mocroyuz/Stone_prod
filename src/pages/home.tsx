@@ -24,7 +24,10 @@ import BottomBar, { type BottomBarTab } from "../components/Bottombar";
 import Folder from "../components/Folder";
 import { getCurrentUser, type UserProfile } from "../services/supabase";
 import { createPosts } from "../services/posts";
-import { fetchYouTubeComments } from "../services/youtubeComments";
+import {
+  fetchYouTubeComments,
+  fetchYouTubeVideos,
+} from "../services/youtubeComments";
 import {
   CHANNELS,
   PLAN,
@@ -262,12 +265,43 @@ type RawComment = {
   publishedAt: string | null;
   answered: boolean;
   isRead: boolean;
+  videoId: string | null;
+  videoTitle: string | null;
+  videoThumbnail: string | null;
 };
 
 type HomeComment = RawComment & {
   channel: ConnectedChannel;
   network: SocialNetworkKey;
 };
+
+/* Titres / miniatures des vidéos : mis en cache pour ne pas coûter
+   de quota YouTube à chaque actualisation des commentaires. */
+type VideoInfo = { title: string; thumbnail: string | null };
+
+const VIDEO_CACHE_MS = 5 * 60_000;
+let youtubeVideoCache: { at: number; map: Map<string, VideoInfo> } | null = null;
+
+async function getYouTubeVideoMap(): Promise<Map<string, VideoInfo>> {
+  if (youtubeVideoCache && Date.now() - youtubeVideoCache.at < VIDEO_CACHE_MS) {
+    return youtubeVideoCache.map;
+  }
+
+  try {
+    const { videos } = await fetchYouTubeVideos();
+    const map = new Map<string, VideoInfo>(
+      videos.map((v) => [v.id, { title: v.title, thumbnail: v.thumbnail }])
+    );
+    youtubeVideoCache = { at: Date.now(), map };
+    return map;
+  } catch {
+    // Les commentaires restent affichés même si la liste des vidéos échoue.
+    return youtubeVideoCache?.map ?? new Map<string, VideoInfo>();
+  }
+}
+
+const youtubeThumbnail = (videoId: string) =>
+  `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`;
 
 /* Réseaux dont les commentaires sont branchés côté serveur.
    Pour en ajouter un : une entrée ici suffit, ses commentaires seront
@@ -276,18 +310,29 @@ const COMMENT_SOURCES: Partial<
   Record<SocialNetworkKey, () => Promise<RawComment[]>>
 > = {
   youtube: async () => {
-    const { comments } = await fetchYouTubeComments({ filter: "all" });
+    const [{ comments }, videos] = await Promise.all([
+      fetchYouTubeComments({ filter: "all" }),
+      getYouTubeVideoMap(),
+    ]);
 
     return comments
       .filter((c) => !c.is_own)
-      .map((c) => ({
-        id: `youtube:${c.id}`,
-        author: c.author_name,
-        text: c.text,
-        publishedAt: c.published_at,
-        answered: c.answered,
-        isRead: c.is_read,
-      }));
+      .map((c) => {
+        const video = c.video_id ? videos.get(c.video_id) : undefined;
+
+        return {
+          id: `youtube:${c.id}`,
+          author: c.author_name,
+          text: c.text,
+          publishedAt: c.published_at,
+          answered: c.answered,
+          isRead: c.is_read,
+          videoId: c.video_id,
+          videoTitle: video?.title ?? null,
+          videoThumbnail:
+            video?.thumbnail ?? (c.video_id ? youtubeThumbnail(c.video_id) : null),
+        };
+      });
   },
 };
 
@@ -1138,7 +1183,29 @@ function CommentsPanel({
                   >
                     {c.text}
                   </p>
+
+                  {c.videoTitle && (
+                    <p
+                      className={["mt-1 truncate text-[10.5px]", mutedClass(isDark)].join(" ")}
+                      title={c.videoTitle}
+                    >
+                      <span className="sr-only">On video: </span>
+                      {c.videoTitle}
+                    </p>
+                  )}
                 </div>
+
+                {/* Affiche de la vidéo d'où vient le commentaire */}
+                {c.videoThumbnail && (
+                  <img
+                    src={c.videoThumbnail}
+                    alt={c.videoTitle ? `Video: ${c.videoTitle}` : ""}
+                    loading="lazy"
+                    draggable={false}
+                    referrerPolicy="no-referrer"
+                    className="aspect-video w-[68px] shrink-0 rounded-md object-cover"
+                  />
+                )}
               </button>
             </li>
           ))}
