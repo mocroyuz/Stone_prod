@@ -42,7 +42,6 @@ import { useHashRoute, navigate } from "./hooks/useHashRoute";
 import { useTheme, ThemeProvider, type Theme } from "./hooks/useTheme";
 import { UserProvider, useUser } from "./contexts/UserContext";
 import {
-  hasStoredSession,
   isRecoveryUrl,
   saveOAuthSession,
 } from "./services/supabase";
@@ -516,29 +515,7 @@ function normalizeRoute(route: string | null | undefined): string {
    ────────────────────────────────────────────────────────────── */
 
 function AppBoot() {
-  const { loading, user } = useUser();
-  const [startupBootFinished, setStartupBootFinished] = useState(false);
-  const [startupBootClosed, setStartupBootClosed] = useState(false);
-
-  if (hasStoredSession() && !startupBootClosed) {
-    return (
-      <StoneBoot
-        hold={loading}
-        onFillComplete={() => setStartupBootFinished(true)}
-        onComplete={() => setStartupBootClosed(true)}
-      />
-    );
-  }
-
-  if (loading) {
-    return <div className="fixed inset-0 z-[999999] bg-[#050505]" />;
-  }
-
-  return (
-    <AppWithTheme
-      skipInitialBoot={Boolean(user) && startupBootFinished}
-    />
-  );
+  return <AppWithTheme skipInitialBoot={false} />;
 }
 
 /* ──────────────────────────────────────────────────────────────
@@ -829,7 +806,7 @@ function AppContentInner({
     checkoutReturn.sessionId,
   ]);
 
-  if (loading) {
+  if (loading && !isPublic && !isAuth) {
     return <div className="fixed inset-0 z-[999999] bg-[#050505]" />;
   }
 

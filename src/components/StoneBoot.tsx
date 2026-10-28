@@ -6,9 +6,9 @@ type StoneBootProps = {
   onFillComplete?: () => void;
 };
 
-const FILL_DURATION = 8000; // durée du remplissage
-const HOLD_AFTER_FILL = 500; // pause une fois le logo plein
-const FADE_OUT = 600; // fondu final
+const FILL_DURATION = 1800; // durée du remplissage
+const HOLD_AFTER_FILL = 200; // pause une fois le logo plein
+const FADE_OUT = 300; // fondu final
 const WAVE_AMPLITUDE = 3; // hauteur de la vague (en % de la hauteur)
 
 const easeInOut = (t: number) =>
