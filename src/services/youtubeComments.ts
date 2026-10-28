@@ -1,5 +1,12 @@
 // src/services/youtubeComments.ts
 
+import { API_BASE_URL } from "./supabase";
+
+const ACCESS_KEY = "crossflow_access_token";
+const REFRESH_KEY = "crossflow_refresh_token";
+
+/* ───────── Types ───────── */
+
 export type YouTubeVideo = {
   id: string;
   title: string;
@@ -21,142 +28,116 @@ export type YouTubeComment = {
   can_reply: boolean;
 };
 
-/* ──────────────────────────────────────────────────────────
- *  apiGet — robuste aux réponses non-JSON (fallback SPA,
- *  502 HTML, proxy mal configuré, etc.)
- *  ⚠️ Remplace-le par ton helper existant si tu en as un,
- *  mais conserve la validation JSON + success === false.
- *
- *  ⚠️  Plus de VITE_API_BASE_URL côté frontend :
- *  les appels passent par des URLs relatives (`/api/...`),
- *  ce qui suppose que le frontend et l'API partagent la
- *  même origine (rewrite Vercel, reverse-proxy, etc.).
- *  La valeur VITE_API_BASE_URL reste lue côté backend
- *  (fallback de PUBLIC_API_URL pour TikTok).
- * ────────────────────────────────────────────────────────── */
+/* ───────── Client HTTP ───────── */
 
-async function apiGet<T>(path: string): Promise<T> {
-  // ⚠️ Remplace par ton access token réel (celui de services/posts.ts)
-  const token = "";
+const BASE_URL = API_BASE_URL;
 
-  const res = await fetch(path, {
-    headers: {
-      Accept: "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-  });
-
-  const raw = await res.text();
-  let data: unknown;
-
-  if (raw) {
-    try {
-      data = JSON.parse(raw);
-    } catch {
-      throw new Error(
-        `Invalid JSON response from API (HTTP ${res.status}) — check that /api is proxied to the backend`
-      );
-    }
-  } else {
-    data = {};
-  }
-
-  if (
-    !res.ok ||
-    (data &&
-      typeof data === "object" &&
-      "success" in data &&
-      (data as { success?: unknown }).success === false)
-  ) {
-    const message =
-      (data &&
-        typeof data === "object" &&
-        "error" in data &&
-        typeof (data as { error?: unknown }).error === "string"
-        ? (data as { error: string }).error
-        : null) || `HTTP ${res.status}`;
-    throw new Error(message);
-  }
-
-  return data as T;
-}
-
-/* ──────────────────────────────────────────────────────────
- *  Videos
- * ────────────────────────────────────────────────────────── */
-
-export async function fetchYouTubeVideos(pageToken?: string): Promise<{
-  videos: YouTubeVideo[];
-  next_page_token: string | null;
-}> {
-  const query = pageToken ? `?pageToken=${encodeURIComponent(pageToken)}` : "";
-
-  const response = await apiGet<{
-    videos?: unknown;
-    next_page_token?: unknown;
-  }>(`/api/youtube/videos${query}`);
-
-  if (!Array.isArray(response.videos)) {
-    throw new Error(
-      "Invalid response from YouTube videos API: videos must be an array."
-    );
-  }
-
-  if (
-    response.next_page_token !== undefined &&
-    response.next_page_token !== null &&
-    typeof response.next_page_token !== "string"
-  ) {
-    throw new Error(
-      "Invalid response from YouTube videos API: next_page_token must be a string or null."
-    );
-  }
-
+function readSession() {
   return {
-    videos: response.videos as YouTubeVideo[],
-    next_page_token: response.next_page_token ?? null,
+    access: localStorage.getItem(ACCESS_KEY) ?? "",
+    refresh: localStorage.getItem(REFRESH_KEY) ?? "",
   };
 }
 
-/* ──────────────────────────────────────────────────────────
- *  Comments
- * ────────────────────────────────────────────────────────── */
+async function parseJson(res: Response): Promise<any> {
+  const text = await res.text();
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error(
+      `Réponse non-JSON de ${res.url} (HTTP ${res.status}) : ${text.slice(0, 80)}`
+    );
+  }
+}
+
+// Un seul refresh à la fois, même si plusieurs requêtes échouent en parallèle
+let refreshing: Promise<string> | null = null;
+
+function refreshAccessToken(): Promise<string> {
+  if (refreshing) return refreshing;
+
+  refreshing = (async () => {
+    const { refresh } = readSession();
+    if (!refresh) throw new Error("Session expirée, reconnecte-toi.");
+
+    const res = await fetch(`${BASE_URL}/api/auth/refresh`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refreshToken: refresh }),
+    });
+    const data = await parseJson(res);
+
+    if (!res.ok || !data.session?.access_token) {
+      throw new Error("Session expirée, reconnecte-toi.");
+    }
+
+    localStorage.setItem(ACCESS_KEY, data.session.access_token);
+    if (data.session.refresh_token) {
+      localStorage.setItem(REFRESH_KEY, data.session.refresh_token);
+    }
+    return data.session.access_token as string;
+  })().finally(() => {
+    refreshing = null;
+  });
+
+  return refreshing;
+}
+
+async function request(path: string, token: string): Promise<Response> {
+  return fetch(`${BASE_URL}${path}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+async function apiGet<T>(path: string): Promise<T> {
+  let { access } = readSession();
+  if (!access) throw new Error("Non connecté : aucun token trouvé (vérifie ACCESS_KEY).");
+
+  let res = await request(path, access);
+
+  // Token expiré → refresh puis une seule nouvelle tentative
+  if (res.status === 401) {
+    access = await refreshAccessToken();
+    res = await request(path, access);
+  }
+
+  const data = await parseJson(res);
+
+  if (!res.ok || data.success === false) {
+    throw new Error(data.error || `HTTP ${res.status}`);
+  }
+  return data as T;
+}
+
+/* ───────── API ───────── */
+
+export async function fetchYouTubeVideos(pageToken?: string) {
+  const data = await apiGet<{ videos: YouTubeVideo[]; next_page_token: string | null }>(
+    `/api/youtube/videos${pageToken ? `?pageToken=${encodeURIComponent(pageToken)}` : ""}`
+  );
+
+  if (!Array.isArray(data.videos)) {
+    throw new Error(`Format inattendu : ${JSON.stringify(data).slice(0, 120)}`);
+  }
+  return data;
+}
 
 export async function fetchYouTubeComments(opts: {
   filter: "all" | "unanswered" | "answered";
   videoId?: string | null;
   pageToken?: string | null;
-}): Promise<{
-  comments: YouTubeComment[];
-  next_page_token: string | null;
-}> {
+}) {
   const q = new URLSearchParams({ filter: opts.filter });
   if (opts.videoId) q.set("videoId", opts.videoId);
   if (opts.pageToken) q.set("pageToken", opts.pageToken);
 
-  const response = await apiGet<{
-    comments?: unknown;
-    next_page_token?: unknown;
+  const data = await apiGet<{
+    comments: YouTubeComment[];
+    next_page_token: string | null;
   }>(`/api/youtube/comments?${q.toString()}`);
 
-  if (!Array.isArray(response.comments)) {
-    throw new Error(
-      "Invalid response from YouTube comments API: comments must be an array."
-    );
+  if (!Array.isArray(data.comments)) {
+    throw new Error(`Format inattendu : ${JSON.stringify(data).slice(0, 120)}`);
   }
-
-  if (
-    response.next_page_token !== undefined &&
-    response.next_page_token !== null &&
-    typeof response.next_page_token !== "string"
-  ) {
-    throw new Error(
-      "Invalid response from YouTube comments API: next_page_token must be a string or null."
-    );
-  }
-
-  return {
-    comments: response.comments as YouTubeComment[],
-    next_page_token: response.next_page_token ?? null,
-  };
+  return data;
 }
