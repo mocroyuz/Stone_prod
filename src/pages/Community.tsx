@@ -605,6 +605,65 @@ function IconButton({
   );
 }
 
+/** Bouton d'action minimaliste : icône seule, libellé en infobulle au survol. */
+function ActionIcon({
+  label,
+  onClick,
+  href,
+  active = false,
+  isDark,
+  children,
+}: {
+  label: string;
+  onClick?: () => void;
+  href?: string;
+  active?: boolean;
+  isDark: boolean;
+  children: ReactNode;
+}) {
+  const cls = [
+    "flex h-8 w-8 items-center justify-center rounded-lg transition-colors motion-reduce:transition-none",
+    focusRingClass(isDark),
+    active
+      ? isDark
+        ? "bg-white/[0.08] text-white"
+        : "bg-black/[0.06] text-neutral-900"
+      : isDark
+        ? "text-neutral-500 hover:bg-white/[0.06] hover:text-white"
+        : "text-neutral-400 hover:bg-black/[0.04] hover:text-neutral-900",
+  ].join(" ");
+
+  return (
+    <span className="group relative inline-flex shrink-0">
+      {href ? (
+        <a
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label={label}
+          className={cls}
+        >
+          {children}
+        </a>
+      ) : (
+        <button type="button" aria-label={label} onClick={onClick} className={cls}>
+          {children}
+        </button>
+      )}
+
+      <span
+        role="tooltip"
+        className={[
+          "pointer-events-none absolute left-1/2 top-full z-50 mt-1.5 w-max -translate-x-1/2 rounded-md px-2 py-1 text-[11.5px] font-medium leading-none text-white opacity-0 shadow-lg transition-opacity duration-150 motion-reduce:transition-none group-hover:opacity-100 group-hover:delay-300 group-focus-within:opacity-100",
+          isDark ? "bg-[#2e2e31]" : "bg-neutral-900",
+        ].join(" ")}
+      >
+        {label}
+      </span>
+    </span>
+  );
+}
+
 /* ───────── Page ───────── */
 
 export default function Community() {
@@ -1195,11 +1254,6 @@ export default function Community() {
                             className={[
                               "rounded-2xl border p-4",
                               cardStatic,
-                              !c.is_read
-                                ? isDark
-                                  ? "border-l-2 border-l-sky-400"
-                                  : "border-l-2 border-l-sky-500"
-                                : "",
                             ].join(" ")}
                           >
                             <div className="flex items-start gap-3">
@@ -1327,58 +1381,38 @@ export default function Community() {
                                   </ul>
                                 )}
 
-                                {/* Actions */}
-                                <div className="mt-3 flex flex-wrap items-center gap-1">
+                                {/* Actions : icônes seules, libellé au survol */}
+                                <div className="mt-2 -ml-1.5 flex flex-wrap items-center gap-0.5">
                                   {c.can_reply && !c.is_own && (
-                                    <button
-                                      type="button"
+                                    <ActionIcon
+                                      label="Reply"
                                       onClick={() => openReply(c.id)}
-                                      aria-expanded={isReplying}
-                                      className={[
-                                        "flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-semibold transition-colors",
-                                        focusRingClass(isDark),
-                                        ghost,
-                                        isReplying
-                                          ? isDark
-                                            ? "bg-white/[0.08]"
-                                            : "bg-black/[0.05]"
-                                          : "",
-                                      ].join(" ")}
+                                      active={isReplying}
+                                      isDark={isDark}
                                     >
-                                      <ReplyIcon className="h-4 w-4" />
-                                      Reply
-                                    </button>
+                                      <ReplyIcon className="h-[17px] w-[17px]" />
+                                    </ActionIcon>
                                   )}
 
                                   {!c.is_own && (
-                                    <button
-                                      type="button"
+                                    <ActionIcon
+                                      label={c.is_read ? "Mark as unread" : "Mark as read"}
                                       onClick={() => void handleMarkRead([c.id], !c.is_read)}
-                                      className={[
-                                        "flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-semibold transition-colors",
-                                        focusRingClass(isDark),
-                                        ghost,
-                                      ].join(" ")}
+                                      active={c.is_read}
+                                      isDark={isDark}
                                     >
-                                      <CheckCircleIcon className="h-4 w-4" />
-                                      {c.is_read ? "Mark as unread" : "Mark as read"}
-                                    </button>
+                                      <CheckCircleIcon className="h-[17px] w-[17px]" />
+                                    </ActionIcon>
                                   )}
 
                                   {c.video_id && (
-                                    <a
+                                    <ActionIcon
+                                      label="Open on YouTube"
                                       href={youtubeUrl}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className={[
-                                        "flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-semibold transition-colors",
-                                        focusRingClass(isDark),
-                                        ghost,
-                                      ].join(" ")}
+                                      isDark={isDark}
                                     >
-                                      <ExternalIcon className="h-4 w-4" />
-                                      Open on YouTube
-                                    </a>
+                                      <ExternalIcon className="h-[17px] w-[17px]" />
+                                    </ActionIcon>
                                   )}
                                 </div>
 
