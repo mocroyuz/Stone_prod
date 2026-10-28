@@ -261,6 +261,7 @@ function getNetworkId(channel: ConnectedChannel): SocialNetworkKey | null {
 type RawComment = {
   id: string;
   author: string;
+  authorAvatar: string | null;
   text: string;
   publishedAt: string | null;
   answered: boolean;
@@ -323,6 +324,7 @@ const COMMENT_SOURCES: Partial<
         return {
           id: `youtube:${c.id}`,
           author: c.author_name,
+          authorAvatar: c.author_avatar,
           text: c.text,
           publishedAt: c.published_at,
           answered: c.answered,
@@ -1077,6 +1079,105 @@ function Panel({
   );
 }
 
+/* Photo de profil de la personne qui a écrit le commentaire,
+   avec l'icône du réseau en badge. */
+function CommentAvatar({
+  src,
+  name,
+  network,
+  isDark,
+}: {
+  src: string | null;
+  name: string;
+  network: SocialNetworkKey;
+  isDark: boolean;
+}) {
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    setFailed(false);
+  }, [src]);
+
+  const initial = name.replace(/^@/, "").charAt(0).toUpperCase() || "?";
+  const NetworkIcon = NETWORK_ICONS[network];
+
+  return (
+    <div className="relative h-9 w-9 shrink-0">
+      {src && !failed ? (
+        <img
+          src={src}
+          alt=""
+          draggable={false}
+          referrerPolicy="no-referrer"
+          onError={() => setFailed(true)}
+          className="h-full w-full rounded-full object-cover"
+        />
+      ) : (
+        <div
+          className={[
+            "flex h-full w-full items-center justify-center rounded-full",
+            "text-[12px] font-semibold",
+            isDark ? "bg-[#29292c] text-white" : "bg-neutral-900 text-white",
+          ].join(" ")}
+        >
+          {initial}
+        </div>
+      )}
+
+      <span
+        className={[
+          "absolute -bottom-1 -right-1 flex h-4 w-4 items-center",
+          "justify-center rounded-full bg-white text-black ring-2",
+          panelRingClass(isDark),
+        ].join(" ")}
+      >
+        <NetworkIcon className="h-2.5 w-2.5" />
+      </span>
+    </div>
+  );
+}
+
+/* Petit avatar du canal qui a reçu le commentaire. */
+function ChannelMini({
+  channel,
+  isDark,
+}: {
+  channel: ConnectedChannel;
+  isDark: boolean;
+}) {
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    setFailed(false);
+  }, [channel.avatarUrl]);
+
+  const label = channel.handle || channel.name || "Channel";
+  const initial = label.replace(/^@/, "").charAt(0).toUpperCase() || "?";
+
+  return (
+    <span className="ml-auto flex shrink-0 items-center" title={label}>
+      {channel.avatarUrl && !failed ? (
+        <img
+          src={channel.avatarUrl}
+          alt={label}
+          referrerPolicy="no-referrer"
+          onError={() => setFailed(true)}
+          className="h-4 w-4 rounded-full object-cover"
+        />
+      ) : (
+        <span
+          className={[
+            "flex h-4 w-4 items-center justify-center rounded-full text-[8px] font-semibold",
+            isDark ? "bg-[#29292c] text-white" : "bg-neutral-900 text-white",
+          ].join(" ")}
+        >
+          {initial}
+        </span>
+      )}
+    </span>
+  );
+}
+
 /* ============================================================
    COMMENTS PANEL
 ============================================================ */
@@ -1135,8 +1236,13 @@ function CommentsPanel({
                   isDark ? "hover:bg-white/[0.04]" : "hover:bg-black/[0.03]",
                 ].join(" ")}
               >
-                {/* Avatar du canal + icône du réseau : d'où vient le commentaire */}
-                <ChannelAvatar channel={c.channel} isDark={isDark} overlap={false} />
+                {/* Photo de la personne + icône du réseau */}
+                <CommentAvatar
+                  src={c.authorAvatar}
+                  name={c.author}
+                  network={c.network}
+                  isDark={isDark}
+                />
 
                 <div className="min-w-0 flex-1">
                   <span className="sr-only">
@@ -1167,6 +1273,7 @@ function CommentsPanel({
                     >
                       · {timeAgo(c.publishedAt, now)}
                     </span>
+                    <ChannelMini channel={c.channel} isDark={isDark} />
                   </div>
 
                   <p
