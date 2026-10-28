@@ -24,6 +24,7 @@ import BottomBar, { type BottomBarTab } from "../components/Bottombar";
 import Folder from "../components/Folder";
 import { getCurrentUser, type UserProfile } from "../services/supabase";
 import { createPosts } from "../services/posts";
+import { fetchYouTubeComments } from "../services/youtubeComments";
 import {
   CHANNELS,
   PLAN,
@@ -248,6 +249,173 @@ function getNetworkId(channel: ConnectedChannel): SocialNetworkKey | null {
   if (raw.includes("pinterest")) return "pinterest";
   if (raw === "x" || raw.includes("twitter")) return "x";
   return null;
+}
+
+/* ============================================================
+   LATEST COMMENTS (tous les canaux mélangés)
+============================================================ */
+
+type RawComment = {
+  id: string;
+  author: string;
+  text: string;
+  publishedAt: string | null;
+  answered: boolean;
+  isRead: boolean;
+};
+
+type HomeComment = RawComment & {
+  channel: ConnectedChannel;
+  network: SocialNetworkKey;
+};
+
+/* Réseaux dont les commentaires sont branchés côté serveur.
+   Pour en ajouter un : une entrée ici suffit, ses commentaires seront
+   mélangés aux autres automatiquement. */
+const COMMENT_SOURCES: Partial<
+  Record<SocialNetworkKey, () => Promise<RawComment[]>>
+> = {
+  youtube: async () => {
+    const { comments } = await fetchYouTubeComments({ filter: "all" });
+
+    return comments
+      .filter((c) => !c.is_own)
+      .map((c) => ({
+        id: `youtube:${c.id}`,
+        author: c.author_name,
+        text: c.text,
+        publishedAt: c.published_at,
+        answered: c.answered,
+        isRead: c.is_read,
+      }));
+  },
+};
+
+const COMMENTS_POLL_MS = 60_000;
+const HOME_COMMENTS_LIMIT = 3;
+
+const commentTime = (c: { publishedAt: string | null }) =>
+  c.publishedAt ? new Date(c.publishedAt).getTime() || 0 : 0;
+
+function timeAgo(iso: string | null, now: Date): string {
+  if (!iso) return "";
+
+  const then = new Date(iso);
+  if (Number.isNaN(then.getTime())) return "";
+
+  const minutes = Math.floor(Math.max(0, now.getTime() - then.getTime()) / 60000);
+  if (minutes < 1) return "now";
+  if (minutes < 60) return `${minutes}m`;
+
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h`;
+
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d`;
+
+  return then.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+}
+
+function useLatestComments(channels: ConnectedChannel[]) {
+  const [comments, setComments] = useState<HomeComment[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  /* Un canal par réseau : le serveur gère un compte par réseau. */
+  const sources = useMemo(() => {
+    const seen = new Set<SocialNetworkKey>();
+    const list: { channel: ConnectedChannel; network: SocialNetworkKey }[] = [];
+
+    for (const channel of channels) {
+      const network = getNetworkId(channel);
+      if (!network || !COMMENT_SOURCES[network] || seen.has(network)) continue;
+
+      seen.add(network);
+      list.push({ channel, network });
+    }
+
+    return list;
+  }, [channels]);
+
+  /* Signature stable : évite de relancer l'effet si le tableau change de référence. */
+  const sourceKey = sources.map((s) => `${s.network}:${s.channel.key}`).join("|");
+  const sourcesRef = useRef(sources);
+  sourcesRef.current = sources;
+
+  useEffect(() => {
+    const list = sourcesRef.current;
+
+    if (list.length === 0) {
+      setComments([]);
+      setError(null);
+      setLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    let busy = false;
+
+    const load = async (initial: boolean) => {
+      if (busy || (!initial && document.hidden)) return;
+      busy = true;
+
+      if (initial) setLoading(true);
+
+      try {
+        const results = await Promise.allSettled(
+          list.map(async ({ channel, network }) => {
+            const raw = await COMMENT_SOURCES[network]!();
+            return raw.map((c): HomeComment => ({ ...c, channel, network }));
+          })
+        );
+
+        if (cancelled) return;
+
+        const merged: HomeComment[] = [];
+        const errors: string[] = [];
+
+        for (const result of results) {
+          if (result.status === "fulfilled") {
+            merged.push(...result.value);
+          } else {
+            errors.push(
+              result.reason instanceof Error
+                ? result.reason.message
+                : "Could not load comments."
+            );
+          }
+        }
+
+        const allFailed = errors.length === results.length;
+
+        // Échec d'une actualisation automatique : on garde ce qui est affiché.
+        if (allFailed && !initial) return;
+
+        merged.sort((a, b) => commentTime(b) - commentTime(a));
+        setComments(merged);
+        setError(allFailed ? errors[0] : null);
+      } finally {
+        busy = false;
+        if (initial && !cancelled) setLoading(false);
+      }
+    };
+
+    void load(true);
+
+    const timer = window.setInterval(() => void load(false), COMMENTS_POLL_MS);
+    const onVisible = () => {
+      if (!document.hidden) void load(false);
+    };
+    document.addEventListener("visibilitychange", onVisible);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [sourceKey]);
+
+  return { comments, loading, error };
 }
 
 /* ============================================================
@@ -865,6 +1033,138 @@ function Panel({
 }
 
 /* ============================================================
+   COMMENTS PANEL
+============================================================ */
+
+function CommentsPanel({
+  isDark,
+  comments,
+  unanswered,
+  now,
+  onOpen,
+  onViewMore,
+}: {
+  isDark: boolean;
+  comments: HomeComment[];
+  unanswered: number;
+  now: Date;
+  onOpen: (channelKey: string) => void;
+  onViewMore: () => void;
+}) {
+  return (
+    <section className="min-w-0">
+      <div className="mb-3 flex items-center justify-between">
+        <p
+          className={[
+            "text-[12px] font-semibold",
+            isDark ? "text-neutral-300" : "text-neutral-700",
+          ].join(" ")}
+        >
+          Comments
+          <span className={["ml-1.5 font-normal", mutedClass(isDark)].join(" ")}>
+            · {unanswered} unanswered
+          </span>
+        </p>
+      </div>
+
+      <div
+        className={[
+          "flex min-h-[190px] flex-col overflow-hidden rounded-2xl border",
+          panelSurfaceClass(isDark),
+        ].join(" ")}
+      >
+        <ul
+          className={[
+            "flex-1 divide-y",
+            isDark ? "divide-white/[0.06]" : "divide-black/[0.06]",
+          ].join(" ")}
+        >
+          {comments.map((c) => (
+            <li key={c.id}>
+              <button
+                type="button"
+                onClick={() => onOpen(c.channel.key)}
+                className={[
+                  "flex w-full items-start gap-3 px-3.5 py-3 text-left transition-colors",
+                  focusRingClass(isDark),
+                  isDark ? "hover:bg-white/[0.04]" : "hover:bg-black/[0.03]",
+                ].join(" ")}
+              >
+                {/* Avatar du canal + icône du réseau : d'où vient le commentaire */}
+                <ChannelAvatar channel={c.channel} isDark={isDark} overlap={false} />
+
+                <div className="min-w-0 flex-1">
+                  <span className="sr-only">
+                    {c.channel.handle || c.channel.name} on {c.network}.
+                  </span>
+
+                  <div className="flex items-center gap-1.5">
+                    {!c.isRead && (
+                      <span
+                        role="img"
+                        aria-label="Unread"
+                        className={[
+                          "h-1.5 w-1.5 shrink-0 rounded-full",
+                          isDark ? "bg-white" : "bg-neutral-900",
+                        ].join(" ")}
+                      />
+                    )}
+                    <span
+                      className={[
+                        "truncate text-[12px] font-semibold",
+                        strongClass(isDark),
+                      ].join(" ")}
+                    >
+                      {c.author}
+                    </span>
+                    <span
+                      className={["shrink-0 text-[10.5px]", mutedClass(isDark)].join(" ")}
+                    >
+                      · {timeAgo(c.publishedAt, now)}
+                    </span>
+                  </div>
+
+                  <p
+                    className={[
+                      "mt-0.5 break-words text-[12px] leading-snug",
+                      isDark ? "text-neutral-400" : "text-neutral-600",
+                    ].join(" ")}
+                    style={{
+                      display: "-webkit-box",
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: "vertical",
+                      overflow: "hidden",
+                    }}
+                  >
+                    {c.text}
+                  </p>
+                </div>
+              </button>
+            </li>
+          ))}
+        </ul>
+
+        <button
+          type="button"
+          onClick={onViewMore}
+          className={[
+            "flex w-full items-center justify-center gap-0.5 border-t px-3.5 py-2.5",
+            "text-[11px] font-semibold transition-colors",
+            focusRingClass(isDark),
+            isDark
+              ? "border-white/[0.07] text-neutral-400 hover:bg-white/[0.04] hover:text-white"
+              : "border-black/[0.06] text-neutral-500 hover:bg-black/[0.03] hover:text-neutral-900",
+          ].join(" ")}
+        >
+          View more
+          <ChevronRight className="h-3.5 w-3.5" />
+        </button>
+      </div>
+    </section>
+  );
+}
+
+/* ============================================================
    BLOG IMAGE
 ============================================================ */
 
@@ -1016,6 +1316,7 @@ export default function Home() {
   );
   const [now, setNow] = useState(() => new Date());
   const connectedChannels = useConnectedChannels();
+  const latestComments = useLatestComments(connectedChannels);
 
   /* ----------------------------------------------------------
      CONNECT CHANNEL MODAL (état identique à la page Channels)
@@ -1449,24 +1750,47 @@ export default function Home() {
 
             {/* COMMENTS + UP NEXT */}
             <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
-              <Panel
-                isDark={isDark}
-                title="Comments"
-                meta="0 unanswered"
-                onViewAll={handleViewAllComments}
-                icon={<MessageCircle className="h-5 w-5" />}
-                line1="No comments yet."
-                line2={
-                  connectedChannels.length === 0
-                    ? "Connect a channel to start receiving comments."
-                    : "You'll see the latest comments here."
-                }
-                action={
-                  connectedChannels.length === 0
-                    ? { label: "Connect a channel", onClick: openConnectModal }
-                    : undefined
-                }
-              />
+              {latestComments.comments.length > 0 ? (
+                <CommentsPanel
+                  isDark={isDark}
+                  comments={latestComments.comments.slice(0, HOME_COMMENTS_LIMIT)}
+                  unanswered={
+                    latestComments.comments.filter((c) => !c.answered).length
+                  }
+                  now={now}
+                  onOpen={(key) =>
+                    navigate(`community?channel=${encodeURIComponent(key)}`)
+                  }
+                  onViewMore={handleViewAllComments}
+                />
+              ) : (
+                <Panel
+                  isDark={isDark}
+                  title="Comments"
+                  meta="0 unanswered"
+                  onViewAll={handleViewAllComments}
+                  icon={<MessageCircle className="h-5 w-5" />}
+                  line1={
+                    latestComments.loading
+                      ? "Loading comments…"
+                      : latestComments.error
+                        ? "Couldn't load comments."
+                        : "No comments yet."
+                  }
+                  line2={
+                    latestComments.error && !latestComments.loading
+                      ? latestComments.error
+                      : connectedChannels.length === 0
+                        ? "Connect a channel to start receiving comments."
+                        : "You'll see the latest comments here."
+                  }
+                  action={
+                    connectedChannels.length === 0
+                      ? { label: "Connect a channel", onClick: openConnectModal }
+                      : undefined
+                  }
+                />
+              )}
               <Panel
                 isDark={isDark}
                 title="Up Next"
