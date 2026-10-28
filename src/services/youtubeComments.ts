@@ -38,15 +38,40 @@ export const fetchYouTubeVideos = (pageToken?: string) =>
     `/api/youtube/videos${pageToken ? `?pageToken=${encodeURIComponent(pageToken)}` : ""}`
   );
 
-export const fetchYouTubeComments = (opts: {
+export const fetchYouTubeComments = async (opts: {
   filter: "all" | "unanswered" | "answered";
   videoId?: string | null;
   pageToken?: string | null;
-}) => {
+}): Promise<{
+  comments: YouTubeComment[];
+  next_page_token: string | null;
+}> => {
   const q = new URLSearchParams({ filter: opts.filter });
   if (opts.videoId) q.set("videoId", opts.videoId);
   if (opts.pageToken) q.set("pageToken", opts.pageToken);
-  return apiGet<{ comments: YouTubeComment[]; next_page_token: string | null }>(
+  const response = await apiGet<{
+    comments?: unknown;
+    next_page_token?: unknown;
+  }>(
     `/api/youtube/comments?${q.toString()}`
   );
+
+  if (!Array.isArray(response.comments)) {
+    throw new Error("Invalid response from YouTube comments API: comments must be an array.");
+  }
+
+  if (
+    response.next_page_token !== undefined &&
+    response.next_page_token !== null &&
+    typeof response.next_page_token !== "string"
+  ) {
+    throw new Error(
+      "Invalid response from YouTube comments API: next_page_token must be a string or null."
+    );
+  }
+
+  return {
+    comments: response.comments,
+    next_page_token: response.next_page_token ?? null,
+  };
 };
