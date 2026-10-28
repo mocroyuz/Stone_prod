@@ -17,6 +17,11 @@ import ChannelMenu from "../components/ChannelMenu";
 import { useConnectedChannels } from "../hooks/useConnectedChannels";
 import HelpChatButton from "../components/Helpchatbutton";
 import { createPosts } from "../services/posts";
+import {
+  fetchYouTubeComments,
+  fetchYouTubeVideos,
+  type YouTubeComment,
+} from "../services/youtubeComments";
 
 /* ───────── Types ───────── */
 
@@ -66,9 +71,101 @@ const focusRingClass = (isDark: boolean) =>
 
 /* ───────── Données ───────── */
 
-function useCommunity(_channelKey: string | undefined, _tab: Tab, _filter: Filter) {
-  const posts: Post[] = [];
-  return { posts };
+function useCommunity(
+  channelKey: string | undefined,
+  tab: Tab,
+  filter: Filter,
+  postId: string | null,
+  reloadKey: number
+) {
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [comments, setComments] = useState<YouTubeComment[]>([]);
+  const [nextPageToken, setNextPageToken] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // À adapter : comment identifies-tu le canal YouTube dans useConnectedChannels ?
+  const isYouTube = Boolean(channelKey?.toLowerCase().startsWith("youtube"));
+
+  // Posts (vidéos)
+  useEffect(() => {
+    if (!isYouTube) {
+      setPosts([]);
+      return;
+    }
+    let cancelled = false;
+    fetchYouTubeVideos()
+      .then(({ videos }) => {
+        if (cancelled) return;
+        setPosts(
+          videos.map((v) => ({
+            id: v.id,
+            title: v.title,
+            commentCount: v.comment_count,
+          }))
+        );
+      })
+      .catch((e: Error) => {
+        if (!cancelled) setError(e.message);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isYouTube, channelKey, reloadKey]);
+
+  // Commentaires
+  useEffect(() => {
+    if (!isYouTube || tab !== "comments") {
+      setComments([]);
+      setNextPageToken(null);
+      return;
+    }
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    fetchYouTubeComments({ filter, videoId: postId })
+      .then((r) => {
+        if (cancelled) return;
+        setComments(r.comments);
+        setNextPageToken(r.next_page_token);
+      })
+      .catch((e: Error) => {
+        if (!cancelled) setError(e.message);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isYouTube, channelKey, tab, filter, postId, reloadKey]);
+
+  const loadMore = async () => {
+    if (!nextPageToken) return;
+    setLoading(true);
+    try {
+      const r = await fetchYouTubeComments({
+        filter,
+        videoId: postId,
+        pageToken: nextPageToken,
+      });
+      setComments((prev) => [...prev, ...r.comments]);
+      setNextPageToken(r.next_page_token);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return {
+    posts,
+    comments,
+    loading,
+    error,
+    hasMore: Boolean(nextPageToken),
+    loadMore,
+  };
 }
 
 /* ───────── Helpers ───────── */
@@ -367,8 +464,17 @@ export default function Community() {
   const [isFolderOpen, setIsFolderOpen] = useState(false);
   const [isNewPostOpen, setIsNewPostOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
-  const { posts } = useCommunity(channel?.key, tab, filter);
+  const { posts, comments, loading, error, hasMore, loadMore } = useCommunity(
+    channel?.key,
+    tab,
+    filter,
+    selectedPostId,
+    reloadKey
+  );
+
   const needle = query.trim().toLowerCase();
 
   const line = isDark ? "border-white/[0.07]" : "border-black/[0.06]";
@@ -383,6 +489,7 @@ export default function Community() {
 
   const goChannel = (key: string) => {
     setSelectedKey(key);
+    setSelectedPostId(null);
     window.history.replaceState(
       null,
       "",
@@ -485,7 +592,13 @@ export default function Community() {
                   <IconButton label="Auto-replies" ghost={ghost} isDark={isDark} className="h-9 w-9">
                     <ChatHeartIcon className="h-5 w-5" />
                   </IconButton>
-                  <IconButton label="Refresh comments" ghost={ghost} isDark={isDark} className="h-9 w-9">
+                  <IconButton
+                    label="Refresh comments"
+                    onClick={() => setReloadKey((k) => k + 1)}
+                    ghost={ghost}
+                    isDark={isDark}
+                    className="h-9 w-9"
+                  >
                     <SyncIcon className="h-5 w-5" />
                   </IconButton>
 
@@ -649,13 +762,24 @@ export default function Community() {
                         <li key={p.id}>
                           <button
                             type="button"
+                            onClick={() =>
+                              setSelectedPostId((cur) => (cur === p.id ? null : p.id))
+                            }
+                            aria-pressed={selectedPostId === p.id}
                             className={[
                               "flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-left text-[13px] font-medium transition-colors",
                               ghost,
+                              selectedPostId === p.id
+                                ? isDark
+                                  ? "bg-white/[0.08]"
+                                  : "bg-black/[0.05]"
+                                : "",
                             ].join(" ")}
                           >
                             <span className="truncate">{p.title}</span>
-                            <span className={["tabular-nums", muted].join(" ")}>{p.commentCount}</span>
+                            <span className={["tabular-nums", muted].join(" ")}>
+                              {p.commentCount}
+                            </span>
                           </button>
                         </li>
                       ))}
@@ -679,77 +803,214 @@ export default function Community() {
               )}
 
               {/* Inbox */}
-              <section className="flex min-w-0 flex-1 flex-col items-center overflow-y-auto px-6 py-10">
-                <div className="my-auto flex w-full max-w-[560px] flex-col items-center gap-10">
-                  <div className="flex flex-col items-center gap-3 text-center">
-                    <span
-                      className={[
-                        "flex h-20 w-20 items-center justify-center rounded-full",
-                        isDark ? "bg-white/[0.07] text-neutral-300" : "bg-black/[0.05] text-neutral-600",
-                      ].join(" ")}
-                    >
-                      <ListenIcon className="h-9 w-9" />
-                    </span>
-                    <h2 className={["text-[22px] font-semibold tracking-[-0.03em]", strongClass(isDark)].join(" ")}>
-                      {tab === "comments"
-                        ? "We\u2019re listening for new comments"
-                        : "We\u2019re listening for new mentions"}
-                    </h2>
-                    <p className={["max-w-[420px] text-[14px] leading-relaxed", muted].join(" ")}>
-                      {tab === "comments"
-                        ? "We\u2019ll let you know when someone comments on your posts."
-                        : "We\u2019ll let you know when someone mentions you."}
+              <section className="flex min-w-0 flex-1 flex-col overflow-y-auto">
+                {error && (
+                  <p
+                    className="px-6 pt-4 text-[13px] text-red-500"
+                    role="alert"
+                  >
+                    {error}
+                  </p>
+                )}
+
+                {tab === "comments" && loading && comments.length === 0 ? (
+                  <div className="flex min-h-0 flex-1 items-center justify-center px-6 py-10">
+                    <p className={["text-[13px]", muted].join(" ")}>
+                      Loading comments…
                     </p>
                   </div>
+                ) : tab === "comments" && comments.length > 0 ? (
+                  <ul className="flex flex-col gap-2 px-6 py-4">
+                    {comments.map((c) => (
+                      <li key={c.id}>
+                        <a
+                          href={`https://www.youtube.com/watch?v=${c.video_id}&lc=${c.id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={[
+                            "flex items-start gap-3 rounded-2xl border p-4 transition-colors",
+                            focusRingClass(isDark),
+                            card,
+                          ].join(" ")}
+                        >
+                          {c.author_avatar ? (
+                            <img
+                              src={c.author_avatar}
+                              alt=""
+                              className="h-9 w-9 shrink-0 rounded-full"
+                              referrerPolicy="no-referrer"
+                            />
+                          ) : (
+                            <span className="h-9 w-9 shrink-0 rounded-full bg-neutral-500/30" />
+                          )}
+                          <span className="min-w-0 flex-1">
+                            <span className="flex items-center gap-2">
+                              <span
+                                className={[
+                                  "truncate text-[13px] font-semibold",
+                                  strongClass(isDark),
+                                ].join(" ")}
+                              >
+                                {c.author_name}
+                              </span>
+                              {c.published_at && (
+                                <span className={["text-[12px]", muted].join(" ")}>
+                                  {new Date(c.published_at).toLocaleDateString()}
+                                </span>
+                              )}
+                              {c.answered && (
+                                <span
+                                  className={["text-[11px] font-medium", muted].join(" ")}
+                                >
+                                  · Answered
+                                </span>
+                              )}
+                            </span>
+                            <span
+                              className={[
+                                "mt-1 block whitespace-pre-wrap break-words text-[13.5px] leading-relaxed",
+                                strongClass(isDark),
+                              ].join(" ")}
+                            >
+                              {c.text}
+                            </span>
+                            <span
+                              className={["mt-1 block text-[12px]", muted].join(" ")}
+                            >
+                              {c.like_count} likes · {c.reply_count} replies
+                            </span>
+                          </span>
+                        </a>
+                      </li>
+                    ))}
 
-                  <div className="flex w-full flex-col gap-3">
-                    <p className={["text-center text-[13px]", muted].join(" ")}>
-                      In the meantime, keep exploring:
-                    </p>
+                    {hasMore && (
+                      <li className="flex justify-center pt-2">
+                        <button
+                          type="button"
+                          onClick={loadMore}
+                          disabled={loading}
+                          className={[
+                            "rounded-xl border px-4 py-2 text-[13px] font-semibold transition-colors",
+                            focusRingClass(isDark),
+                            outline,
+                          ].join(" ")}
+                        >
+                          {loading ? "Loading…" : "Load more"}
+                        </button>
+                      </li>
+                    )}
+                  </ul>
+                ) : (
+                  <div className="flex min-h-0 flex-1 flex-col items-center px-6 py-10">
+                    <div className="my-auto flex w-full max-w-[560px] flex-col items-center gap-10">
+                      <div className="flex flex-col items-center gap-3 text-center">
+                        <span
+                          className={[
+                            "flex h-20 w-20 items-center justify-center rounded-full",
+                            isDark
+                              ? "bg-white/[0.07] text-neutral-300"
+                              : "bg-black/[0.05] text-neutral-600",
+                          ].join(" ")}
+                        >
+                          <ListenIcon className="h-9 w-9" />
+                        </span>
+                        <h2
+                          className={[
+                            "text-[22px] font-semibold tracking-[-0.03em]",
+                            strongClass(isDark),
+                          ].join(" ")}
+                        >
+                          {tab === "comments"
+                            ? "We\u2019re listening for new comments"
+                            : "We\u2019re listening for new mentions"}
+                        </h2>
+                        <p
+                          className={[
+                            "max-w-[420px] text-[14px] leading-relaxed",
+                            muted,
+                          ].join(" ")}
+                        >
+                          {tab === "comments"
+                            ? "We\u2019ll let you know when someone comments on your posts."
+                            : "We\u2019ll let you know when someone mentions you."}
+                        </p>
+                      </div>
 
-                    <button
-                      type="button"
-                      onClick={() => navigate("create")}
-                      className={[
-                        "flex items-start gap-4 rounded-2xl border p-5 text-left transition-colors motion-reduce:transition-none",
-                        focusRingClass(isDark),
-                        card,
-                      ].join(" ")}
-                    >
-                      <EditIcon className={["mt-0.5 h-5 w-5 shrink-0", muted].join(" ")} />
-                      <span>
-                        <span className={["block text-[15px] font-semibold", strongClass(isDark)].join(" ")}>
-                          Post something new
-                        </span>
-                        <span className={["mt-1 block text-[13px] leading-relaxed", muted].join(" ")}>
-                          Use templates to create content that starts conversations. Pro tip: ask a
-                          question.
-                        </span>
-                      </span>
-                    </button>
+                      <div className="flex w-full flex-col gap-3">
+                        <p className={["text-center text-[13px]", muted].join(" ")}>
+                          In the meantime, keep exploring:
+                        </p>
 
-                    <button
-                      type="button"
-                      onClick={() => navigate("channels")}
-                      className={[
-                        "flex items-start gap-4 rounded-2xl border p-5 text-left transition-colors motion-reduce:transition-none",
-                        focusRingClass(isDark),
-                        card,
-                      ].join(" ")}
-                    >
-                      <PlusIcon className={["mt-0.5 h-5 w-5 shrink-0", muted].join(" ")} />
-                      <span>
-                        <span className={["block text-[15px] font-semibold", strongClass(isDark)].join(" ")}>
-                          Connect more channels
-                        </span>
-                        <span className={["mt-1 block text-[13px] leading-relaxed", muted].join(" ")}>
-                          Manage conversations from all your channels in a single, distraction-free
-                          inbox.
-                        </span>
-                      </span>
-                    </button>
+                        <button
+                          type="button"
+                          onClick={() => navigate("create")}
+                          className={[
+                            "flex items-start gap-4 rounded-2xl border p-5 text-left transition-colors motion-reduce:transition-none",
+                            focusRingClass(isDark),
+                            card,
+                          ].join(" ")}
+                        >
+                          <EditIcon
+                            className={["mt-0.5 h-5 w-5 shrink-0", muted].join(" ")}
+                          />
+                          <span>
+                            <span
+                              className={[
+                                "block text-[15px] font-semibold",
+                                strongClass(isDark),
+                              ].join(" ")}
+                            >
+                              Post something new
+                            </span>
+                            <span
+                              className={[
+                                "mt-1 block text-[13px] leading-relaxed",
+                                muted,
+                              ].join(" ")}
+                            >
+                              Use templates to create content that starts conversations. Pro tip: ask a
+                              question.
+                            </span>
+                          </span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => navigate("channels")}
+                          className={[
+                            "flex items-start gap-4 rounded-2xl border p-5 text-left transition-colors motion-reduce:transition-none",
+                            focusRingClass(isDark),
+                            card,
+                          ].join(" ")}
+                        >
+                          <PlusIcon
+                            className={["mt-0.5 h-5 w-5 shrink-0", muted].join(" ")}
+                          />
+                          <span>
+                            <span
+                              className={[
+                                "block text-[15px] font-semibold",
+                                strongClass(isDark),
+                              ].join(" ")}
+                            >
+                              Connect more channels
+                            </span>
+                            <span
+                              className={[
+                                "mt-1 block text-[13px] leading-relaxed",
+                                muted,
+                              ].join(" ")}
+                            >
+                              Manage conversations from all your channels in a single, distraction-free
+                              inbox.
+                            </span>
+                          </span>
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                </div>
+                )}
               </section>
             </div>
           </div>
