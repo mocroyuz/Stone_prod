@@ -23,21 +23,23 @@ export type YouTubeComment = {
 
 /* ──────────────────────────────────────────────────────────
  *  apiGet — robuste aux réponses non-JSON (fallback SPA,
- *  502 HTML, base URL mal configurée, etc.)
+ *  502 HTML, proxy mal configuré, etc.)
  *  ⚠️ Remplace-le par ton helper existant si tu en as un,
  *  mais conserve la validation JSON + success === false.
+ *
+ *  ⚠️  Plus de VITE_API_BASE_URL côté frontend :
+ *  les appels passent par des URLs relatives (`/api/...`),
+ *  ce qui suppose que le frontend et l'API partagent la
+ *  même origine (rewrite Vercel, reverse-proxy, etc.).
+ *  La valeur VITE_API_BASE_URL reste lue côté backend
+ *  (fallback de PUBLIC_API_URL pour TikTok).
  * ────────────────────────────────────────────────────────── */
 
 async function apiGet<T>(path: string): Promise<T> {
   // ⚠️ Remplace par ton access token réel (celui de services/posts.ts)
   const token = "";
 
-  const base = import.meta.env.VITE_API_BASE_URL;
-  if (!base) {
-    throw new Error("VITE_API_BASE_URL is not configured");
-  }
-
-  const res = await fetch(`${base}${path}`, {
+  const res = await fetch(path, {
     headers: {
       Accept: "application/json",
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -52,7 +54,7 @@ async function apiGet<T>(path: string): Promise<T> {
       data = JSON.parse(raw);
     } catch {
       throw new Error(
-        `Invalid JSON response from API (HTTP ${res.status}) — check VITE_API_BASE_URL`
+        `Invalid JSON response from API (HTTP ${res.status}) — check that /api is proxied to the backend`
       );
     }
   } else {
@@ -61,10 +63,16 @@ async function apiGet<T>(path: string): Promise<T> {
 
   if (
     !res.ok ||
-    (data && typeof data === "object" && "success" in data && (data as { success?: unknown }).success === false)
+    (data &&
+      typeof data === "object" &&
+      "success" in data &&
+      (data as { success?: unknown }).success === false)
   ) {
     const message =
-      (data && typeof data === "object" && "error" in data && typeof (data as { error?: unknown }).error === "string"
+      (data &&
+        typeof data === "object" &&
+        "error" in data &&
+        typeof (data as { error?: unknown }).error === "string"
         ? (data as { error: string }).error
         : null) || `HTTP ${res.status}`;
     throw new Error(message);
