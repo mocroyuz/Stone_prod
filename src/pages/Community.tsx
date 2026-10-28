@@ -82,23 +82,38 @@ function useCommunity(
   const [comments, setComments] = useState<YouTubeComment[]>([]);
   const [nextPageToken, setNextPageToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // ⚠️ Deux états d'erreur séparés :
+  //   - `error`      : erreurs de chargement des COMMENTAIRES
+  //   - `postsError` : erreurs de chargement des VIDÉOS
+  // Auparavant ils étaient fusionnés, ce qui faisait apparaître une
+  // TypeError du fetch vidéos ("Cannot read properties of undefined
+  // (reading 'map')") dans la zone commentaires.
   const [error, setError] = useState<string | null>(null);
+  const [postsError, setPostsError] = useState<string | null>(null);
 
   // À adapter : comment identifies-tu le canal YouTube dans useConnectedChannels ?
   const isYouTube = Boolean(channelKey?.toLowerCase().startsWith("youtube"));
 
-  // Posts (vidéos)
+  /* ── Posts (vidéos) ── */
   useEffect(() => {
     if (!isYouTube) {
       setPosts([]);
+      setPostsError(null);
       return;
     }
+
     let cancelled = false;
+    setPostsError(null);
+
     fetchYouTubeVideos()
-      .then(({ videos }) => {
+      .then((r) => {
         if (cancelled) return;
+        // Défense en profondeur : le service valide déjà, mais on
+        // protège le `.map` contre toute valeur inattendue.
+        const list = Array.isArray(r?.videos) ? r.videos : [];
         setPosts(
-          videos.map((v) => ({
+          list.map((v) => ({
             id: v.id,
             title: v.title,
             commentCount: v.comment_count,
@@ -106,35 +121,46 @@ function useCommunity(
         );
       })
       .catch((e: Error) => {
-        if (!cancelled) setError(e.message);
+        if (cancelled) return;
+        setPosts([]);
+        setPostsError(e.message);
       });
+
     return () => {
       cancelled = true;
     };
   }, [isYouTube, channelKey, reloadKey]);
 
-  // Commentaires
+  /* ── Commentaires ── */
   useEffect(() => {
     if (!isYouTube || tab !== "comments") {
       setComments([]);
       setNextPageToken(null);
+      setLoading(false);
+      setError(null);
       return;
     }
+
     let cancelled = false;
     setLoading(true);
     setError(null);
+
     fetchYouTubeComments({ filter, videoId: postId })
       .then((r) => {
         if (cancelled) return;
-        setComments(r.comments);
-        setNextPageToken(r.next_page_token);
+        setComments(Array.isArray(r?.comments) ? r.comments : []);
+        setNextPageToken(r?.next_page_token ?? null);
       })
       .catch((e: Error) => {
-        if (!cancelled) setError(e.message);
+        if (cancelled) return;
+        setComments([]);
+        setNextPageToken(null);
+        setError(e.message);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
+
     return () => {
       cancelled = true;
     };
@@ -149,8 +175,9 @@ function useCommunity(
         videoId: postId,
         pageToken: nextPageToken,
       });
-      setComments((prev) => [...prev, ...r.comments]);
-      setNextPageToken(r.next_page_token);
+      const incoming = Array.isArray(r?.comments) ? r.comments : [];
+      setComments((prev) => [...prev, ...incoming]);
+      setNextPageToken(r?.next_page_token ?? null);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -160,6 +187,7 @@ function useCommunity(
 
   return {
     posts,
+    postsError,
     comments,
     loading,
     error,
@@ -467,7 +495,15 @@ export default function Community() {
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
 
-  const { posts, comments, loading, error, hasMore, loadMore } = useCommunity(
+  const {
+    posts,
+    postsError,
+    comments,
+    loading,
+    error,
+    hasMore,
+    loadMore,
+  } = useCommunity(
     channel?.key,
     tab,
     filter,
@@ -735,26 +771,36 @@ export default function Community() {
                     </div>
                   </div>
 
+                  {/* Erreur de chargement des vidéos : affichée ICI, pas dans la zone commentaires */}
+                  {postsError && (
+                    <p className="mt-3 px-1 text-[12px] leading-snug text-red-500" role="alert">
+                      Could not load videos: {postsError}
+                    </p>
+                  )}
+
                   {visiblePosts.length === 0 ? (
                     <div className="mt-16 flex flex-col items-center gap-3 px-2 text-center">
                       <h3 className={["text-[18px] font-semibold tracking-[-0.02em]", strongClass(isDark)].join(" ")}>
-                        No posts found
+                        {postsError ? "Videos unavailable" : "No posts found"}
                       </h3>
                       <p className={["text-[13px] leading-relaxed", muted].join(" ")}>
-                        When your posts receive comments, they&rsquo;ll appear here. Want to see all
-                        your posts?
+                        {postsError
+                          ? "We couldn't load your videos. Try refreshing."
+                          : "When your posts receive comments, they\u2019ll appear here. Want to see all your posts?"}
                       </p>
-                      <button
-                        type="button"
-                        onClick={() => setShowAll(true)}
-                        className={[
-                          "mt-2 rounded-xl border px-4 py-2 text-[13px] font-semibold transition-colors motion-reduce:transition-none",
-                          focusRingClass(isDark),
-                          outline,
-                        ].join(" ")}
-                      >
-                        Show all posts
-                      </button>
+                      {!postsError && (
+                        <button
+                          type="button"
+                          onClick={() => setShowAll(true)}
+                          className={[
+                            "mt-2 rounded-xl border px-4 py-2 text-[13px] font-semibold transition-colors motion-reduce:transition-none",
+                            focusRingClass(isDark),
+                            outline,
+                          ].join(" ")}
+                        >
+                          Show all posts
+                        </button>
+                      )}
                     </div>
                   ) : (
                     <ul className="mt-4 flex min-h-0 flex-col gap-1 overflow-y-auto">
@@ -804,6 +850,7 @@ export default function Community() {
 
               {/* Inbox */}
               <section className="flex min-w-0 flex-1 flex-col overflow-y-auto">
+                {/* Erreur de chargement des COMMENTAIRES uniquement */}
                 {error && (
                   <p
                     className="px-6 pt-4 text-[13px] text-red-500"
