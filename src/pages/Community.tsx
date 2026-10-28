@@ -1008,7 +1008,12 @@ export default function Community() {
                   >
                     {t.label}
                     {t.key === "comments" && unreadIds.length > 0 && (
-                      <span className="rounded-full bg-sky-500 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white">
+                      <span
+                        className={[
+                          "rounded-full px-1.5 py-0.5 text-[10px] font-semibold leading-none",
+                          isDark ? "bg-white text-black" : "bg-neutral-900 text-white",
+                        ].join(" ")}
+                      >
                         {unreadIds.length > 99 ? "99+" : unreadIds.length}
                       </span>
                     )}
@@ -1272,7 +1277,10 @@ export default function Community() {
                                 <div className="flex flex-wrap items-center gap-2">
                                   {!c.is_read && (
                                     <span
-                                      className="h-2 w-2 shrink-0 rounded-full bg-sky-500"
+                                      className={[
+                                        "h-2 w-2 shrink-0 rounded-full",
+                                        isDark ? "bg-white" : "bg-neutral-900",
+                                      ].join(" ")}
                                       role="img"
                                       aria-label="Unread"
                                     />
