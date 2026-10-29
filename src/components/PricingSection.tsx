@@ -9,7 +9,7 @@ import {
 import { navigate } from "../hooks/useHashRoute";
 import { useUser } from "../contexts/UserContext";
 import { useSubscription } from "../hooks/useSubscription";
-import { useTheme } from "../hooks/useTheme"; // Ajout du hook de thème
+import { useTheme } from "../hooks/useTheme";
 import {
   clearCheckoutParams,
   openBillingPortal,
@@ -21,21 +21,19 @@ import {
 } from "../services/stripe";
 
 /* ============================================================
-   THEME HELPERS (basés sur votre Home.tsx)
+   THEME HELPERS
    ============================================================ */
 
 const pageBgClass = (isDark: boolean) =>
   isDark ? "bg-[#09090a]" : "bg-[#f5f3ef]";
 
-const cardClass = (isDark: boolean) =>
-  isDark
-    ? "border-white/[0.07] bg-[#141416]"
-    : "border-black/[0.06] bg-white";
+// Fond de la carte Starter : un peu plus sombre que le fond principal
+const starterBgClass = (isDark: boolean) =>
+  isDark ? "bg-[#141416] border-white/[0.07]" : "bg-[#e6e1d8] border-black/[0.06]";
 
-const panelSurfaceClass = (isDark: boolean) =>
-  isDark
-    ? "border-white/[0.07] bg-white/[0.03]"
-    : "border-black/[0.06] bg-[#f6f4f0]";
+// Fond de la carte Pro/Enterprise : contraste avec la carte Starter
+const innerCardClass = (isDark: boolean) =>
+  isDark ? "bg-[#1a1a1d] border-white/[0.08]" : "bg-white border-black/[0.06]";
 
 const strongClass = (isDark: boolean) =>
   isDark ? "text-white" : "text-neutral-900";
@@ -152,7 +150,7 @@ const CheckIcon = ({ isDark }: { isDark: boolean }) => (
 );
 
 /* ============================================================
-   PLANS DATA (Données originales)
+   PLANS DATA
    ============================================================ */
 
 const plans = [
@@ -368,7 +366,7 @@ export default function PricingSection() {
       <div className="mx-auto max-w-[1200px] px-4 sm:px-6 lg:px-8">
         <Reveal>
           
-          {/* Header Original */}
+          {/* Header */}
           <div className="text-center mb-10">
             <p className={["mb-3 text-xs font-semibold uppercase tracking-[0.18em]", softClass(isDark)].join(" ")}>
               Simple, transparent pricing
@@ -381,7 +379,7 @@ export default function PricingSection() {
             </p>
           </div>
 
-          {/* Toggle Original (Thémé) */}
+          {/* Toggle */}
           <div className="mt-7 flex justify-center mb-12">
             <div
               className={["inline-flex rounded-full p-1", isDark ? "bg-white/[0.06]" : "bg-neutral-100"].join(" ")}
@@ -438,20 +436,17 @@ export default function PricingSection() {
             </p>
           )}
 
-          {/* Wrapper global avec la couleur de fond adaptée au thème */}
-          <div className={[
-            "rounded-[40px] border p-3 md:p-4 lg:p-6",
-            panelSurfaceClass(isDark)
-          ].join(" ")}>
+          {/* Wrapper global (Zone Starter) */}
+          <div className={["rounded-[40px] border p-3 md:p-4 lg:p-6", starterBgClass(isDark)].join(" ")}>
             <div className="flex flex-col lg:flex-row gap-6 lg:gap-8 items-stretch">
               
-              {/* STARTER CARD (Left) - Fond transparent */}
+              {/* STARTER CARD (Left) - Fond transparent pour laisser voir le wrapper */}
               <div className="lg:w-[32%] flex flex-col justify-between p-5 md:p-6 lg:p-8">
                 <div>
                   <div className="flex items-center gap-3 mb-6">
                     <div className={[
                       "flex h-10 w-10 items-center justify-center rounded-xl shadow-sm",
-                      isDark ? "bg-white/[0.08] text-white" : "bg-white text-neutral-900 border border-black/5"
+                      isDark ? "bg-white/[0.08] text-white border border-white/10" : "bg-white text-neutral-900 border border-black/5"
                     ].join(" ")}>
                       {starterPlan.icon}
                     </div>
@@ -466,13 +461,13 @@ export default function PricingSection() {
                       <span className={["text-sm", softClass(isDark)].join(" ")}>/Month</span>
                     </div>
                     {period === "annual" && (
-                      <p className={["mt-2 text-xs", mutedClass(isDark)].join(" ")}>
+                      <p className={["mt-2 text-xs", softClass(isDark)].join(" ")}>
                         ${(period === "monthly" ? starterPlan.monthly : starterPlan.annual) * 12} billed annually
                       </p>
                     )}
                   </div>
 
-                  <p className={["text-[13px] leading-relaxed mb-8", softClass(isDark)].join(" ")}>
+                  <p className={["text-[13px] leading-relaxed mb-8", isDark ? "text-neutral-300" : "text-neutral-600"].join(" ")}>
                     {starterPlan.description}
                   </p>
 
@@ -501,10 +496,10 @@ export default function PricingSection() {
                 </button>
               </div>
 
-              {/* PRO & ENTERPRISE CARDS (Right) - Carte avec fond du thème */}
+              {/* PRO & ENTERPRISE CARDS (Right) */}
               <div className={[
-                "lg:w-[68%] rounded-[32px] border p-6 md:p-8 flex flex-col md:flex-row gap-8",
-                cardClass(isDark)
+                "lg:w-[68%] rounded-[32px] border p-6 md:p-8 flex flex-col md:flex-row gap-8 shadow-sm",
+                innerCardClass(isDark)
               ].join(" ")}>
                 
                 {/* Pro Column */}
