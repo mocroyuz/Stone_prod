@@ -3107,19 +3107,24 @@ export default function NewPostModal({
   const avatarRing = isDark ? "ring-[#1c1c1e]" : "ring-neutral-50";
 
   // Zone média (miniatures + tuile « Drag & drop ») : une pour le texte principal,
-  // une par canal. Un canal sans média propre utilise les médias partagés.
+  // une par canal. Un canal sans média propre affiche les médias partagés
+  // (badge « Shared ») — les boutons supprimer/éditer n'apparaissent que sur
+  // les médias réellement possédés par la zone courante, pour éviter qu'un clic
+  // depuis une carte de canal ne supprime le média partagé pour tous les canaux.
   const renderMediaArea = (target: string) => {
     const isMaster = target === "master";
-    const items = isMaster ? media : channelMedia[target] ?? [];
     const hasOwn = !isMaster && channelMedia[target] !== undefined;
+    const ownItems = isMaster ? media : channelMedia[target] ?? [];
+    const usingShared = !isMaster && !hasOwn && media.length > 0;
+    const items = usingShared ? media : ownItems;
     const error = mediaError?.target === target ? mediaError.message : null;
     const pendingCanva = canvaDesigns.filter((d) => d.target === target);
 
     return (
       <>
-        {!isMaster && !hasOwn && media.length > 0 && (
+        {usingShared && (
           <p className={["mt-3 text-[12.5px]", textSecondary].join(" ")}>
-            Using the shared media ({media.length}). Add files here to use different media for this channel.
+            Using the shared media below ({media.length}). Add files here to use different media for this channel.
           </p>
         )}
 
@@ -3189,47 +3194,58 @@ export default function NewPostModal({
         ))}
 
         <div className="mt-4 flex flex-wrap items-end gap-3">
-          {items.map((item, index) => (
-            <div
-              key={item.id}
-              className="group relative h-[104px] w-[104px] shrink-0 overflow-hidden rounded-xl border border-black/5"
-            >
-              {item.kind === "image" ? (
-                <img src={item.url} alt="" className="h-full w-full object-cover" />
-              ) : (
-                <div className="relative h-full w-full">
-                  <video src={item.url} className="h-full w-full object-cover" muted playsInline />
-                  <div className="absolute inset-0 flex items-center justify-center bg-black/30 text-white">
-                    <Play className="h-5 w-5 fill-current" />
-                  </div>
-                </div>
-              )}
-              {index === 0 && items.length > 1 && (
-                <span className="absolute bottom-1.5 left-1.5 rounded-md bg-black/70 px-1.5 py-0.5 text-[10px] font-semibold text-white">
-                  Cover
-                </span>
-              )}
-              <div className="pointer-events-none absolute inset-0 bg-black/0 transition-colors group-hover:bg-black/20" />
-              <button
-                type="button"
-                aria-label="Remove media"
-                onClick={() => removeMedia(item.id)}
-                className="absolute right-1.5 top-1.5 z-30 flex h-6 w-6 cursor-pointer items-center justify-center rounded-lg bg-black/70 text-white opacity-0 backdrop-blur-sm transition-opacity hover:bg-black/90 focus-visible:opacity-100 group-hover:opacity-100"
+          {items.map((item, index) => {
+            const sharedHere = usingShared;
+            return (
+              <div
+                key={item.id}
+                className="group relative h-[104px] w-[104px] shrink-0 overflow-hidden rounded-xl border border-black/5"
               >
-                <X className="h-3.5 w-3.5" strokeWidth={2.5} />
-              </button>
-              {item.kind === "image" && (
-                <button
-                  type="button"
-                  aria-label="Edit image"
-                  onClick={() => setEditingItem(item)}
-                  className="absolute bottom-1.5 right-1.5 z-30 flex h-6 w-6 cursor-pointer items-center justify-center rounded-lg bg-black/70 text-white opacity-0 backdrop-blur-sm transition-opacity hover:bg-black/90 focus-visible:opacity-100 group-hover:opacity-100"
-                >
-                  <Pencil className="h-3.5 w-3.5" strokeWidth={2.5} />
-                </button>
-              )}
-            </div>
-          ))}
+                {item.kind === "image" ? (
+                  <img src={item.url} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <div className="relative h-full w-full">
+                    <video src={item.url} className="h-full w-full object-cover" muted playsInline />
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/30 text-white">
+                      <Play className="h-5 w-5 fill-current" />
+                    </div>
+                  </div>
+                )}
+                {index === 0 && items.length > 1 && (
+                  <span className="absolute bottom-1.5 left-1.5 rounded-md bg-black/70 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                    Cover
+                  </span>
+                )}
+                {sharedHere ? (
+                  <span className="absolute right-1.5 top-1.5 rounded-md bg-black/70 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                    Shared
+                  </span>
+                ) : (
+                  <>
+                    <div className="pointer-events-none absolute inset-0 bg-black/0 transition-colors group-hover:bg-black/20" />
+                    <button
+                      type="button"
+                      aria-label="Remove media"
+                      onClick={() => removeMedia(item.id)}
+                      className="absolute right-1.5 top-1.5 z-30 flex h-6 w-6 cursor-pointer items-center justify-center rounded-lg bg-black/70 text-white opacity-0 backdrop-blur-sm transition-opacity hover:bg-black/90 focus-visible:opacity-100 group-hover:opacity-100"
+                    >
+                      <X className="h-3.5 w-3.5" strokeWidth={2.5} />
+                    </button>
+                    {item.kind === "image" && (
+                      <button
+                        type="button"
+                        aria-label="Edit image"
+                        onClick={() => setEditingItem(item)}
+                        className="absolute bottom-1.5 right-1.5 z-30 flex h-6 w-6 cursor-pointer items-center justify-center rounded-lg bg-black/70 text-white opacity-0 backdrop-blur-sm transition-opacity hover:bg-black/90 focus-visible:opacity-100 group-hover:opacity-100"
+                      >
+                        <Pencil className="h-3.5 w-3.5" strokeWidth={2.5} />
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
+            );
+          })}
 
           {items.length < MAX_MEDIA && (
             <button
