@@ -9,6 +9,7 @@ import {
 import { navigate } from "../hooks/useHashRoute";
 import { useUser } from "../contexts/UserContext";
 import { useSubscription } from "../hooks/useSubscription";
+import { useTheme } from "../hooks/useTheme"; // Ajout du hook de thème
 import {
   clearCheckoutParams,
   openBillingPortal,
@@ -18,6 +19,37 @@ import {
   type BillingPeriod,
   type PlanKey,
 } from "../services/stripe";
+
+/* ============================================================
+   THEME HELPERS (basés sur votre Home.tsx)
+   ============================================================ */
+
+const pageBgClass = (isDark: boolean) =>
+  isDark ? "bg-[#09090a]" : "bg-[#f5f3ef]";
+
+const cardClass = (isDark: boolean) =>
+  isDark
+    ? "border-white/[0.07] bg-[#141416]"
+    : "border-black/[0.06] bg-white";
+
+const panelSurfaceClass = (isDark: boolean) =>
+  isDark
+    ? "border-white/[0.07] bg-white/[0.03]"
+    : "border-black/[0.06] bg-[#f6f4f0]";
+
+const strongClass = (isDark: boolean) =>
+  isDark ? "text-white" : "text-neutral-900";
+
+const softClass = (isDark: boolean) =>
+  isDark ? "text-neutral-400" : "text-neutral-500";
+
+const mutedClass = (isDark: boolean) =>
+  isDark ? "text-neutral-600" : "text-neutral-400";
+
+const focusRingClass = (isDark: boolean) =>
+  isDark
+    ? "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
+    : "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/25";
 
 /* ============================================================
    REVEAL
@@ -106,8 +138,13 @@ const EnterpriseIcon = () => (
   </svg>
 );
 
-const CheckIcon = () => (
-  <div className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[#dce4f5] text-[#4a6c9e]">
+const CheckIcon = ({ isDark }: { isDark: boolean }) => (
+  <div
+    className={[
+      "flex h-4 w-4 shrink-0 items-center justify-center rounded-full",
+      isDark ? "bg-indigo-500/20 text-indigo-300" : "bg-[#dce4f5] text-[#4a6c9e]",
+    ].join(" ")}
+  >
     <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
       <polyline points="20 6 9 17 4 12"></polyline>
     </svg>
@@ -217,6 +254,9 @@ function readPeriodFromUrl(): BillingPeriod | null {
    ============================================================ */
 
 export default function PricingSection() {
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
+
   const { user, loading: userLoading } = useUser();
   const { hasActive: hasActiveSubscription, refresh: refreshSubscription } = useSubscription();
 
@@ -304,7 +344,11 @@ export default function PricingSection() {
   return (
     <section
       id="pricing"
-      className="relative z-10 w-full overflow-hidden bg-[#F8F9FC] py-20 text-neutral-950"
+      className={[
+        "relative z-10 w-full overflow-hidden py-20 transition-colors duration-300",
+        pageBgClass(isDark),
+        strongClass(isDark),
+      ].join(" ")}
     >
       <style>{`
         .pricing-reveal {
@@ -326,21 +370,21 @@ export default function PricingSection() {
           
           {/* Header Original */}
           <div className="text-center mb-10">
-            <p className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-neutral-500">
+            <p className={["mb-3 text-xs font-semibold uppercase tracking-[0.18em]", softClass(isDark)].join(" ")}>
               Simple, transparent pricing
             </p>
-            <h2 className="font-display text-[clamp(30px,3.4vw,42px)] font-bold leading-tight tracking-[-0.045em]">
+            <h2 className={["font-display text-[clamp(30px,3.4vw,42px)] font-bold leading-tight tracking-[-0.045em]", strongClass(isDark)].join(" ")}>
               Choose your plan
             </h2>
-            <p className="mx-auto mt-3 max-w-md text-sm text-neutral-600">
+            <p className={["mx-auto mt-3 max-w-md text-sm", softClass(isDark)].join(" ")}>
               Everything you need to plan, organize and publish your content.
             </p>
           </div>
 
-          {/* Toggle Original */}
+          {/* Toggle Original (Thémé) */}
           <div className="mt-7 flex justify-center mb-12">
             <div
-              className="inline-flex rounded-full bg-neutral-100 p-1"
+              className={["inline-flex rounded-full p-1", isDark ? "bg-white/[0.06]" : "bg-neutral-100"].join(" ")}
               aria-label="Billing period"
             >
               {(["monthly", "annual"] as const).map((value) => {
@@ -354,16 +398,19 @@ export default function PricingSection() {
                     onClick={() => setPeriod(value)}
                     className={[
                       "inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-colors",
-                      "focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#6d7bd6]",
+                      focusRingClass(isDark),
                       isActive
-                        ? "bg-neutral-900 text-white"
-                        : "text-neutral-600 hover:text-neutral-900",
+                        ? isDark ? "bg-white text-neutral-900" : "bg-neutral-900 text-white"
+                        : isDark ? "text-neutral-400 hover:text-white" : "text-neutral-600 hover:text-neutral-900",
                     ].join(" ")}
                   >
                     {value === "monthly" ? "Monthly" : "Yearly"}
 
                     {value === "annual" && (
-                      <span className="rounded-full bg-[#dcdaf0] px-2 py-0.5 text-[10px] font-bold text-neutral-800">
+                      <span className={[
+                        "rounded-full px-2 py-0.5 text-[10px] font-bold",
+                        isDark ? "bg-indigo-500/20 text-indigo-300" : "bg-[#dcdaf0] text-neutral-800"
+                      ].join(" ")}>
                         SAVE 20%
                       </span>
                     )}
@@ -375,52 +422,64 @@ export default function PricingSection() {
 
           {/* Messages */}
           {returnBanner === "success" && (
-            <p className="mb-8 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-center text-sm text-emerald-800">
+            <p className={[
+              "mb-8 rounded-xl border px-4 py-3 text-center text-sm",
+              isDark ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-300" : "border-emerald-200 bg-emerald-50 text-emerald-800"
+            ].join(" ")}>
               Payment confirmed — your subscription is being activated.
             </p>
           )}
           {returnBanner === "cancel" && (
-            <p className="mb-8 rounded-xl border border-neutral-200 bg-white px-4 py-3 text-center text-sm text-neutral-700">
+            <p className={[
+              "mb-8 rounded-xl border px-4 py-3 text-center text-sm",
+              isDark ? "border-white/10 bg-white/[0.04] text-neutral-300" : "border-neutral-200 bg-white text-neutral-700"
+            ].join(" ")}>
               Checkout canceled. You have not been charged.
             </p>
           )}
 
-          {/* Wrapper global avec la couleur de fond (Starter Zone) */}
-          <div className="rounded-[40px] bg-[#E8ECF5] p-3 md:p-4 lg:p-6">
+          {/* Wrapper global avec la couleur de fond adaptée au thème */}
+          <div className={[
+            "rounded-[40px] border p-3 md:p-4 lg:p-6",
+            panelSurfaceClass(isDark)
+          ].join(" ")}>
             <div className="flex flex-col lg:flex-row gap-6 lg:gap-8 items-stretch">
               
-              {/* STARTER CARD (Left) - Fond transparent pour laisser voir le wrapper */}
+              {/* STARTER CARD (Left) - Fond transparent */}
               <div className="lg:w-[32%] flex flex-col justify-between p-5 md:p-6 lg:p-8">
                 <div>
                   <div className="flex items-center gap-3 mb-6">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-neutral-900 shadow-sm">
+                    <div className={[
+                      "flex h-10 w-10 items-center justify-center rounded-xl shadow-sm",
+                      isDark ? "bg-white/[0.08] text-white" : "bg-white text-neutral-900 border border-black/5"
+                    ].join(" ")}>
                       {starterPlan.icon}
                     </div>
-                    <h3 className="text-xl font-medium text-[#111827] capitalize">{starterPlan.key}</h3>
+                    <h3 className={["text-xl font-medium capitalize", strongClass(isDark)].join(" ")}>{starterPlan.key}</h3>
                   </div>
 
                   <div className="mb-4">
                     <div className="flex items-baseline gap-1">
-                      <span className="text-4xl font-medium tracking-tight text-[#111827]">
+                      <span className={["text-4xl font-medium tracking-tight", strongClass(isDark)].join(" ")}>
                         ${period === "monthly" ? starterPlan.monthly : starterPlan.annual}
                       </span>
-                      <span className="text-sm text-neutral-500">/Month</span>
+                      <span className={["text-sm", softClass(isDark)].join(" ")}>/Month</span>
                     </div>
                     {period === "annual" && (
-                      <p className="mt-2 text-xs text-neutral-600">
+                      <p className={["mt-2 text-xs", mutedClass(isDark)].join(" ")}>
                         ${(period === "monthly" ? starterPlan.monthly : starterPlan.annual) * 12} billed annually
                       </p>
                     )}
                   </div>
 
-                  <p className="text-[13px] leading-relaxed text-neutral-600 mb-8">
+                  <p className={["text-[13px] leading-relaxed mb-8", softClass(isDark)].join(" ")}>
                     {starterPlan.description}
                   </p>
 
                   <ul className="space-y-3.5 mb-8">
                     {starterPlan.features.map((feature) => (
-                      <li key={feature} className="flex items-center gap-3 text-[13px] text-neutral-700">
-                        <CheckIcon />
+                      <li key={feature} className={["flex items-center gap-3 text-[13px]", isDark ? "text-neutral-300" : "text-neutral-700"].join(" ")}>
+                        <CheckIcon isDark={isDark} />
                         <span>{feature}</span>
                       </li>
                     ))}
@@ -431,47 +490,61 @@ export default function PricingSection() {
                   type="button"
                   onClick={() => handlePlanClick(starterPlan)}
                   disabled={loadingPlan !== null || userLoading}
-                  className="w-full rounded-full bg-[#0a1128] py-3.5 text-sm font-medium text-white transition-colors hover:bg-[#1a2542] disabled:opacity-70 shadow-lg shadow-black/10"
+                  className={[
+                    "w-full rounded-full py-3.5 text-sm font-medium transition-colors disabled:opacity-70 shadow-lg",
+                    isDark 
+                      ? "bg-white text-black hover:bg-neutral-200 shadow-none" 
+                      : "bg-[#0a1128] text-white hover:bg-[#1a2542] shadow-black/10"
+                  ].join(" ")}
                 >
                   {loadingPlan === starterPlan.key ? "Redirecting..." : getButtonText(starterPlan)}
                 </button>
               </div>
 
-              {/* PRO & ENTERPRISE CARDS (Right) - Carte blanche */}
-              <div className="lg:w-[68%] rounded-[32px] bg-white p-6 md:p-8 shadow-[0_4px_30px_rgba(0,0,0,0.03)] flex flex-col md:flex-row gap-8">
+              {/* PRO & ENTERPRISE CARDS (Right) - Carte avec fond du thème */}
+              <div className={[
+                "lg:w-[68%] rounded-[32px] border p-6 md:p-8 flex flex-col md:flex-row gap-8",
+                cardClass(isDark)
+              ].join(" ")}>
                 
                 {/* Pro Column */}
-                <div className="flex-1 flex flex-col justify-between border-b md:border-b-0 md:border-r border-neutral-100 pb-8 md:pb-0 md:pr-8">
+                <div className={[
+                  "flex-1 flex flex-col justify-between border-b md:border-b-0 md:border-r pb-8 md:pb-0 md:pr-8",
+                  isDark ? "border-white/[0.07]" : "border-black/[0.06]"
+                ].join(" ")}>
                   <div>
                     <div className="flex items-center gap-3 mb-6">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white border border-neutral-200 text-neutral-900">
+                      <div className={[
+                        "flex h-10 w-10 items-center justify-center rounded-xl border",
+                        isDark ? "bg-white/[0.04] border-white/10 text-white" : "bg-white border-neutral-200 text-neutral-900"
+                      ].join(" ")}>
                         {proPlan.icon}
                       </div>
-                      <h3 className="text-xl font-medium text-[#111827] capitalize">{proPlan.key}</h3>
+                      <h3 className={["text-xl font-medium capitalize", strongClass(isDark)].join(" ")}>{proPlan.key}</h3>
                     </div>
 
                     <div className="mb-4">
                       <div className="flex items-baseline gap-1">
-                        <span className="text-4xl font-medium tracking-tight text-[#111827]">
+                        <span className={["text-4xl font-medium tracking-tight", strongClass(isDark)].join(" ")}>
                           ${period === "monthly" ? proPlan.monthly : proPlan.annual}
                         </span>
-                        <span className="text-sm text-neutral-500">/Month</span>
+                        <span className={["text-sm", softClass(isDark)].join(" ")}>/Month</span>
                       </div>
                       {period === "annual" && (
-                        <p className="mt-2 text-xs text-neutral-500">
+                        <p className={["mt-2 text-xs", softClass(isDark)].join(" ")}>
                           ${(period === "monthly" ? proPlan.monthly : proPlan.annual) * 12} billed annually
                         </p>
                       )}
                     </div>
 
-                    <p className="text-[13px] leading-relaxed text-neutral-500 mb-8">
+                    <p className={["text-[13px] leading-relaxed mb-8", softClass(isDark)].join(" ")}>
                       {proPlan.description}
                     </p>
 
                     <ul className="space-y-3.5 mb-8">
                       {proPlan.features.map((feature) => (
-                        <li key={feature} className="flex items-center gap-3 text-[13px] text-neutral-700">
-                          <CheckIcon />
+                        <li key={feature} className={["flex items-center gap-3 text-[13px]", isDark ? "text-neutral-300" : "text-neutral-700"].join(" ")}>
+                          <CheckIcon isDark={isDark} />
                           <span>{feature}</span>
                         </li>
                       ))}
@@ -482,7 +555,13 @@ export default function PricingSection() {
                     type="button"
                     onClick={() => handlePlanClick(proPlan)}
                     disabled={loadingPlan !== null || userLoading}
-                    className="inline-flex w-fit items-center gap-2 rounded-full border border-neutral-200 bg-white px-6 py-2.5 text-sm font-medium text-[#111827] transition-colors hover:bg-neutral-50 disabled:opacity-70"
+                    className={[
+                      "inline-flex w-fit items-center gap-2 rounded-full border px-6 py-2.5 text-sm font-medium transition-colors disabled:opacity-70",
+                      focusRingClass(isDark),
+                      isDark 
+                        ? "border-white/10 text-white hover:bg-white/[0.07]" 
+                        : "border-black/10 text-neutral-900 hover:bg-black/[0.04]"
+                    ].join(" ")}
                   >
                     {loadingPlan === proPlan.key ? "Redirecting..." : getButtonText(proPlan)}
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
@@ -493,34 +572,37 @@ export default function PricingSection() {
                 <div className="flex-1 flex flex-col justify-between pt-8 md:pt-0 md:pl-0">
                   <div>
                     <div className="flex items-center gap-3 mb-6">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white border border-neutral-200 text-neutral-900">
+                      <div className={[
+                        "flex h-10 w-10 items-center justify-center rounded-xl border",
+                        isDark ? "bg-white/[0.04] border-white/10 text-white" : "bg-white border-neutral-200 text-neutral-900"
+                      ].join(" ")}>
                         {enterprisePlan.icon}
                       </div>
-                      <h3 className="text-xl font-medium text-[#111827] capitalize">{enterprisePlan.key}</h3>
+                      <h3 className={["text-xl font-medium capitalize", strongClass(isDark)].join(" ")}>{enterprisePlan.key}</h3>
                     </div>
 
                     <div className="mb-4">
                       <div className="flex items-baseline gap-1">
-                        <span className="text-4xl font-medium tracking-tight text-[#111827]">
+                        <span className={["text-4xl font-medium tracking-tight", strongClass(isDark)].join(" ")}>
                           ${period === "monthly" ? enterprisePlan.monthly : enterprisePlan.annual}
                         </span>
-                        <span className="text-sm text-neutral-500">/Month</span>
+                        <span className={["text-sm", softClass(isDark)].join(" ")}>/Month</span>
                       </div>
                       {period === "annual" && (
-                        <p className="mt-2 text-xs text-neutral-500">
+                        <p className={["mt-2 text-xs", softClass(isDark)].join(" ")}>
                           ${(period === "monthly" ? enterprisePlan.monthly : enterprisePlan.annual) * 12} billed annually
                         </p>
                       )}
                     </div>
 
-                    <p className="text-[13px] leading-relaxed text-neutral-500 mb-8">
+                    <p className={["text-[13px] leading-relaxed mb-8", softClass(isDark)].join(" ")}>
                       {enterprisePlan.description}
                     </p>
 
                     <ul className="space-y-3.5 mb-8">
                       {enterprisePlan.features.map((feature) => (
-                        <li key={feature} className="flex items-start gap-3 text-[13px] text-neutral-700">
-                          <div className="mt-0.5"><CheckIcon /></div>
+                        <li key={feature} className={["flex items-start gap-3 text-[13px]", isDark ? "text-neutral-300" : "text-neutral-700"].join(" ")}>
+                          <div className="mt-0.5"><CheckIcon isDark={isDark} /></div>
                           <span>{feature}</span>
                         </li>
                       ))}
@@ -531,7 +613,13 @@ export default function PricingSection() {
                     type="button"
                     onClick={() => handlePlanClick(enterprisePlan)}
                     disabled={loadingPlan !== null || userLoading}
-                    className="inline-flex w-fit items-center gap-2 rounded-full border border-neutral-200 bg-white px-6 py-2.5 text-sm font-medium text-[#111827] transition-colors hover:bg-neutral-50 disabled:opacity-70"
+                    className={[
+                      "inline-flex w-fit items-center gap-2 rounded-full border px-6 py-2.5 text-sm font-medium transition-colors disabled:opacity-70",
+                      focusRingClass(isDark),
+                      isDark 
+                        ? "border-white/10 text-white hover:bg-white/[0.07]" 
+                        : "border-black/10 text-neutral-900 hover:bg-black/[0.04]"
+                    ].join(" ")}
                   >
                     {loadingPlan === enterprisePlan.key ? "Redirecting..." : getButtonText(enterprisePlan)}
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
@@ -543,10 +631,10 @@ export default function PricingSection() {
           </div>
 
           {checkoutError && (
-            <p className="mt-8 text-center text-sm text-red-600">{checkoutError}</p>
+            <p className={["mt-8 text-center text-sm", isDark ? "text-rose-400" : "text-red-600"].join(" ")}>{checkoutError}</p>
           )}
 
-          <p className="mt-6 text-center text-xs text-neutral-500">
+          <p className={["mt-6 text-center text-xs", mutedClass(isDark)].join(" ")}>
             Upgrade your plan whenever your needs grow.
           </p>
         </Reveal>
