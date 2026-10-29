@@ -149,17 +149,26 @@ export const SIDEBAR_EXPANDED_OFFSET = 240;
 const UNREAD_STORAGE_KEY = "stone.unread-counts";
 const UNREAD_EVENT = "stone:unread-changed";
 
+/**
+ * Quand un compteur BAISSE, on attend ce délai avant de l'afficher.
+ * Si la page Community remet à 0 puis recalcule le vrai nombre juste après
+ * (ce qui provoquait le "disparaît puis réapparaît"), l'état transitoire
+ * n'est jamais rendu. Les hausses sont affichées immédiatement.
+ */
+const UNREAD_SETTLE_MS = 350;
+
 type UnreadCounts = Record<string, number>;
 
-function getStoredUnread(): UnreadCounts {
-  if (typeof window === "undefined") return {};
+const EMPTY_UNREAD: UnreadCounts = Object.freeze({}) as UnreadCounts;
+
+function parseUnread(raw: string | null): UnreadCounts {
+  if (!raw) return EMPTY_UNREAD;
 
   try {
-    const raw = window.localStorage.getItem(UNREAD_STORAGE_KEY);
-    const parsed: unknown = raw ? JSON.parse(raw) : {};
+    const parsed: unknown = JSON.parse(raw);
 
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-      return {};
+      return EMPTY_UNREAD;
     }
 
     const result: UnreadCounts = {};
@@ -172,7 +181,17 @@ function getStoredUnread(): UnreadCounts {
 
     return result;
   } catch {
-    return {};
+    return EMPTY_UNREAD;
+  }
+}
+
+function getStoredUnread(): UnreadCounts {
+  if (typeof window === "undefined") return EMPTY_UNREAD;
+
+  try {
+    return parseUnread(window.localStorage.getItem(UNREAD_STORAGE_KEY));
+  } catch {
+    return EMPTY_UNREAD;
   }
 }
 
@@ -201,21 +220,67 @@ export function setChannelUnread(channelKey: string, hasUnread: boolean) {
   setChannelUnreadCount(channelKey, hasUnread ? Math.max(existing, 1) : 0);
 }
 
+/* Snapshot stable (même référence tant que le contenu stocké ne change pas) */
+let unreadRawCache: string | null | undefined;
+let unreadSnapshotCache: UnreadCounts = EMPTY_UNREAD;
+
+function readUnreadSnapshot(): UnreadCounts {
+  if (typeof window === "undefined") return EMPTY_UNREAD;
+
+  let raw: string | null = null;
+  try {
+    raw = window.localStorage.getItem(UNREAD_STORAGE_KEY);
+  } catch {}
+
+  if (raw === unreadRawCache) return unreadSnapshotCache;
+
+  unreadRawCache = raw;
+  unreadSnapshotCache = parseUnread(raw);
+  return unreadSnapshotCache;
+}
+
+function subscribeUnread(listener: () => void) {
+  window.addEventListener(UNREAD_EVENT, listener);
+  window.addEventListener("storage", listener);
+
+  return () => {
+    window.removeEventListener(UNREAD_EVENT, listener);
+    window.removeEventListener("storage", listener);
+  };
+}
+
 function useUnreadCounts(): UnreadCounts {
-  const [counts, setCounts] = useState<UnreadCounts>(getStoredUnread);
+  const live = useSyncExternalStore(
+    subscribeUnread,
+    readUnreadSnapshot,
+    () => EMPTY_UNREAD
+  );
+
+  const [shown, setShown] = useState<UnreadCounts>(live);
+  const shownRef = useRef<UnreadCounts>(live);
 
   useEffect(() => {
-    const sync = () => setCounts(getStoredUnread());
-    window.addEventListener(UNREAD_EVENT, sync);
-    window.addEventListener("storage", sync);
+    const previous = shownRef.current;
 
-    return () => {
-      window.removeEventListener(UNREAD_EVENT, sync);
-      window.removeEventListener("storage", sync);
+    const apply = () => {
+      shownRef.current = live;
+      setShown(live);
     };
-  }, []);
 
-  return counts;
+    const decreased = Object.keys(previous).some(
+      (key) => (live[key] ?? 0) < previous[key]
+    );
+
+    if (!decreased) {
+      apply();
+      return;
+    }
+
+    const id = window.setTimeout(apply, UNREAD_SETTLE_MS);
+    return () => window.clearTimeout(id);
+  }, [live]);
+
+  return shown;
 }
 
 /* ============================================================================ 
@@ -617,14 +682,18 @@ const navItems: NavItem[] = [
   { label: "Community", icon: CommunityIcon, route: "community" },
 ];
 
+/* Community est déjà dans navItems : on ne le répète pas ici (doublon de clé). */
 const EXTRA_FAVORITABLE_ITEMS: NavItem[] = [
   { label: "Channels", icon: ChannelsIcon, route: "channels" },
-  { label: "Community", icon: CommunityIcon, route: "community" },
   { label: "Insights", icon: InsightsIcon, route: "insights" },
   { label: "Integrations", icon: AppsIcon, route: "integrations" },
 ];
 
 const FAVORITABLE_ITEMS: NavItem[] = [...navItems, ...EXTRA_FAVORITABLE_ITEMS];
+
+/** Routes masquées de la navigation principale dès qu'un channel est connecté
+ *  (elles sont alors accessibles par channel, dans la sidebar). */
+const PER_CHANNEL_NAV_ROUTES = new Set(["schedule", "community"]);
 
 const FAVORITES_STORAGE_PREFIX = "stone.sidebar.favorites";
 
@@ -1002,7 +1071,7 @@ const STANDALONE_LINKS: ChannelLink[] = [
   { label: "Insights", route: "insights", icon: InsightsIcon, badge: "New" },
 ];
 
-// ✅ FIX : Ajout de "schedule" pour que l'onglet Publish sache quel canal est actif
+// "schedule" inclus pour que l'onglet Publish sache quel canal est actif
 const CHANNEL_ROUTES = new Set(["insights", "community", "schedule"]);
 
 /** Plafond d'affichage : "9+" au-delà de 9 non-lus. */
@@ -2643,9 +2712,12 @@ export default function DashboardSidebar({
   const communityNavBadge = totalUnread > 0 ? formatUnread(totalUnread) : undefined;
 
   const hasChannels = connectedChannels.length > 0;
+
+  // Dès qu'un channel est connecté, Publish ET Community quittent la nav
+  // principale : ils vivent dans chaque channel (sous-liens + hover card).
   const visibleNavItems = useMemo(() => {
     const base = hasChannels
-      ? navItems.filter((item) => item.route !== "schedule")
+      ? navItems.filter((item) => !PER_CHANNEL_NAV_ROUTES.has(item.route))
       : navItems;
 
     return base.map((item) =>
