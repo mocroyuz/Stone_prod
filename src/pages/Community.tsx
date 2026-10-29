@@ -111,6 +111,29 @@ function mergeComments(
   return added.length > 0 ? [...added, ...updated] : updated;
 }
 
+/* ───────── Cache module (survit aux navigations SPA) ───────── */
+
+type VideosCacheEntry = { posts: Post[]; at: number };
+type CommentsCacheEntry = {
+  comments: YouTubeComment[];
+  nextPageToken: string | null;
+  at: number;
+};
+
+const videosCache = new Map<string, VideosCacheEntry>();
+const commentsCache = new Map<string, CommentsCacheEntry>();
+
+/** Au-delà de ce délai on refetch en arrière-plan (sans spinner). */
+const VIDEOS_FRESH_MS = 2 * 60_000; // 2 min
+const COMMENTS_FRESH_MS = 30_000; // 30 s
+
+const commentsCacheKey = (
+  channelKey: string,
+  tab: Tab,
+  filter: Filter,
+  postId: string | null
+) => `${channelKey}|${tab}|${filter}|${postId ?? "all"}`;
+
 /* ───────── Données ───────── */
 
 function useCommunity(
@@ -120,28 +143,64 @@ function useCommunity(
   postId: string | null,
   reloadKey: number
 ) {
-  const [posts, setPosts] = useState<Post[]>([]);
-  const [comments, setComments] = useState<YouTubeComment[]>([]);
-  const [nextPageToken, setNextPageToken] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const isYouTube = Boolean(channelKey?.toLowerCase().startsWith("youtube"));
+  const isCommentsTab = tab === "comments" && isYouTube && Boolean(channelKey);
 
-  // Deux états d'erreur séparés :
-  //   - `error`      : erreurs de chargement des COMMENTAIRES
-  //   - `postsError` : erreurs de chargement des VIDÉOS
-  const [error, setError] = useState<string | null>(null);
+  /* ── Init depuis le cache (évite le flash « loading » au retour) ── */
+  const [posts, setPosts] = useState<Post[]>(() =>
+    channelKey && isYouTube ? videosCache.get(channelKey)?.posts ?? [] : []
+  );
   const [postsError, setPostsError] = useState<string | null>(null);
+
+  const [comments, setComments] = useState<YouTubeComment[]>(() => {
+    if (!isCommentsTab) return [];
+    return (
+      commentsCache.get(commentsCacheKey(channelKey!, tab, filter, postId))
+        ?.comments ?? []
+    );
+  });
+  const [nextPageToken, setNextPageToken] = useState<string | null>(() => {
+    if (!isCommentsTab) return null;
+    return (
+      commentsCache.get(commentsCacheKey(channelKey!, tab, filter, postId))
+        ?.nextPageToken ?? null
+    );
+  });
+  const [loading, setLoading] = useState<boolean>(() => {
+    if (!isCommentsTab) return false;
+    return !commentsCache.has(
+      commentsCacheKey(channelKey!, tab, filter, postId)
+    );
+  });
+  const [error, setError] = useState<string | null>(null);
 
   const commentsRef = useRef<YouTubeComment[]>([]);
   commentsRef.current = comments;
 
-  const isYouTube = Boolean(channelKey?.toLowerCase().startsWith("youtube"));
+  // Refs pour détecter un rechargement manuel (bouton « Refresh »)
+  const lastVideosReloadRef = useRef(reloadKey);
+  const lastCommentsReloadRef = useRef(reloadKey);
 
-  /* ── Posts (vidéos) : chargement + actualisation lente ── */
+  /* ── Posts (vidéos) ── */
   useEffect(() => {
-    if (!isYouTube) {
+    const forceReload = reloadKey !== lastVideosReloadRef.current;
+    lastVideosReloadRef.current = reloadKey;
+
+    if (!isYouTube || !channelKey) {
       setPosts([]);
       setPostsError(null);
       return;
+    }
+
+    const key = channelKey;
+    const cached = videosCache.get(key);
+    const stale = !cached || Date.now() - cached.at >= VIDEOS_FRESH_MS;
+    const shouldFetch = forceReload || stale;
+
+    // Restaure depuis le cache immédiatement (pas de spinner)
+    if (cached) {
+      setPosts(cached.posts);
+      setPostsError(null);
     }
 
     let cancelled = false;
@@ -150,26 +209,28 @@ function useCommunity(
       fetchYouTubeVideos()
         .then((r) => {
           if (cancelled) return;
-          setPostsError(null);
           const list = Array.isArray(r?.videos) ? r.videos : [];
-          setPosts(
-            list.map((v) => ({
-              id: v.id,
-              title: v.title,
-              commentCount: v.comment_count,
-              thumbnail: v.thumbnail,
-            }))
-          );
+          const mapped = list.map((v) => ({
+            id: v.id,
+            title: v.title,
+            commentCount: v.comment_count,
+            thumbnail: v.thumbnail,
+          }));
+          setPosts(mapped);
+          setPostsError(null);
+          videosCache.set(key, { posts: mapped, at: Date.now() });
         })
         .catch((e: Error) => {
           if (cancelled) return;
-          setPosts([]);
-          setPostsError(e.message);
+          // On n'écrase pas un cache existant avec une erreur
+          if (!cached) {
+            setPosts([]);
+            setPostsError(e.message);
+          }
         });
     };
 
-    setPostsError(null);
-    load();
+    if (shouldFetch) load();
 
     const timer = window.setInterval(() => {
       if (!document.hidden) load();
@@ -181,9 +242,12 @@ function useCommunity(
     };
   }, [isYouTube, channelKey, reloadKey]);
 
-  /* ── Commentaires : chargement initial ── */
+  /* ── Commentaires : chargement initial (avec cache) ── */
   useEffect(() => {
-    if (!isYouTube || tab !== "comments") {
+    const forceReload = reloadKey !== lastCommentsReloadRef.current;
+    lastCommentsReloadRef.current = reloadKey;
+
+    if (!isYouTube || tab !== "comments" || !channelKey) {
       setComments([]);
       setNextPageToken(null);
       setLoading(false);
@@ -191,35 +255,62 @@ function useCommunity(
       return;
     }
 
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
+    const key = commentsCacheKey(channelKey, tab, filter, postId);
+    const cached = commentsCache.get(key);
+    const stale = !cached || Date.now() - cached.at >= COMMENTS_FRESH_MS;
+    const shouldFetch = forceReload || stale;
 
-    fetchYouTubeComments({ filter, videoId: postId })
-      .then((r) => {
-        if (cancelled) return;
-        setComments(Array.isArray(r?.comments) ? r.comments : []);
-        setNextPageToken(r?.next_page_token ?? null);
-      })
-      .catch((e: Error) => {
-        if (cancelled) return;
-        setComments([]);
-        setNextPageToken(null);
-        setError(e.message);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
+    if (cached) {
+      setComments(cached.comments);
+      setNextPageToken(cached.nextPageToken);
+      setError(null);
+    }
+
+    let cancelled = false;
+
+    if (shouldFetch) {
+      setLoading(!cached); // spinner uniquement si pas de cache
+      setError(null);
+
+      fetchYouTubeComments({ filter, videoId: postId })
+        .then((r) => {
+          if (cancelled) return;
+          const fresh = Array.isArray(r?.comments) ? r.comments : [];
+          const token = r?.next_page_token ?? null;
+          setComments(fresh);
+          setNextPageToken(token);
+          setError(null);
+          commentsCache.set(key, {
+            comments: fresh,
+            nextPageToken: token,
+            at: Date.now(),
+          });
+        })
+        .catch((e: Error) => {
+          if (cancelled) return;
+          if (!cached) {
+            setComments([]);
+            setNextPageToken(null);
+            setError(e.message);
+          }
+        })
+        .finally(() => {
+          if (!cancelled) setLoading(false);
+        });
+    } else {
+      setLoading(false);
+    }
 
     return () => {
       cancelled = true;
     };
   }, [isYouTube, channelKey, tab, filter, postId, reloadKey]);
 
-  /* ── Commentaires : actualisation automatique (sans refresh manuel) ── */
+  /* ── Commentaires : polling (met aussi le cache à jour) ── */
   useEffect(() => {
-    if (!isYouTube || tab !== "comments") return;
+    if (!isYouTube || tab !== "comments" || !channelKey) return;
 
+    const key = commentsCacheKey(channelKey, tab, filter, postId);
     let cancelled = false;
     let busy = false;
 
@@ -232,15 +323,28 @@ function useCommunity(
         if (cancelled) return;
 
         const fresh = Array.isArray(r?.comments) ? r.comments : [];
+        const prev = commentsRef.current;
+        const wasEmpty = prev.length === 0;
 
-        // Liste vide au départ : on reprend aussi le jeton de pagination
-        if (commentsRef.current.length === 0) {
+        const merged = mergeComments(prev, fresh);
+        setComments(merged);
+
+        if (wasEmpty) {
           setNextPageToken(r?.next_page_token ?? null);
         }
 
-        setComments((prev) => mergeComments(prev, fresh));
+        const existing = commentsCache.get(key);
+        const token = wasEmpty
+          ? r?.next_page_token ?? existing?.nextPageToken ?? null
+          : existing?.nextPageToken ?? null;
+
+        commentsCache.set(key, {
+          comments: merged,
+          nextPageToken: token,
+          at: Date.now(),
+        });
       } catch {
-        // Erreur silencieuse : on garde ce qui est déjà affiché
+        /* silencieux : on garde ce qui est déjà affiché */
       } finally {
         busy = false;
       }
@@ -262,7 +366,7 @@ function useCommunity(
   }, [isYouTube, channelKey, tab, filter, postId]);
 
   const loadMore = async () => {
-    if (!nextPageToken) return;
+    if (!nextPageToken || !channelKey) return;
     setLoading(true);
     try {
       const r = await fetchYouTubeComments({
@@ -271,11 +375,22 @@ function useCommunity(
         pageToken: nextPageToken,
       });
       const incoming = Array.isArray(r?.comments) ? r.comments : [];
-      setComments((prev) => {
-        const known = new Set(prev.map((c) => c.id));
-        return [...prev, ...incoming.filter((c) => !known.has(c.id))];
+      const newToken = r?.next_page_token ?? null;
+
+      const prev = commentsRef.current;
+      const known = new Set(prev.map((c) => c.id));
+      const merged = [...prev, ...incoming.filter((c) => !known.has(c.id))];
+
+      setComments(merged);
+      setNextPageToken(newToken);
+
+      const key = commentsCacheKey(channelKey, tab, filter, postId);
+      const existing = commentsCache.get(key);
+      commentsCache.set(key, {
+        comments: merged,
+        nextPageToken: newToken,
+        at: existing?.at ?? Date.now(),
       });
-      setNextPageToken(r?.next_page_token ?? null);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -284,40 +399,66 @@ function useCommunity(
   };
 
   /** Lu / non lu : mise à jour immédiate, annulée si le serveur refuse. */
-  const markRead = useCallback(async (ids: string[], read: boolean) => {
-    if (ids.length === 0) return;
-    const targets = new Set(ids);
+  const markRead = useCallback(
+    async (ids: string[], read: boolean) => {
+      if (ids.length === 0 || !channelKey) return;
+      const targets = new Set(ids);
+      const key = commentsCacheKey(channelKey, tab, filter, postId);
 
-    setComments((prev) =>
-      prev.map((c) => (targets.has(c.id) ? { ...c, is_read: read } : c))
-    );
+      const apply = (list: YouTubeComment[]) =>
+        list.map((c) => (targets.has(c.id) ? { ...c, is_read: read } : c));
 
-    try {
-      await setYouTubeCommentsRead(ids, read);
-    } catch (e) {
-      setComments((prev) =>
-        prev.map((c) => (targets.has(c.id) ? { ...c, is_read: !read } : c))
-      );
-      throw e;
-    }
-  }, []);
+      setComments(apply);
+      {
+        const entry = commentsCache.get(key);
+        if (entry)
+          commentsCache.set(key, { ...entry, comments: apply(entry.comments) });
+      }
+
+      try {
+        await setYouTubeCommentsRead(ids, read);
+      } catch (e) {
+        const revert = (list: YouTubeComment[]) =>
+          list.map((c) => (targets.has(c.id) ? { ...c, is_read: !read } : c));
+        setComments(revert);
+        const entry = commentsCache.get(key);
+        if (entry)
+          commentsCache.set(key, { ...entry, comments: revert(entry.comments) });
+        throw e;
+      }
+    },
+    [channelKey, tab, filter, postId]
+  );
 
   /** Ajoute une réponse envoyée à la discussion affichée. */
-  const addReply = useCallback((commentId: string, reply: YouTubeReply) => {
-    setComments((prev) =>
-      prev.map((c) =>
-        c.id === commentId
-          ? {
-              ...c,
-              answered: true,
-              is_read: true,
-              reply_count: c.reply_count + 1,
-              replies: [...(c.replies ?? []), reply],
-            }
-          : c
-      )
-    );
-  }, []);
+  const addReply = useCallback(
+    (commentId: string, reply: YouTubeReply) => {
+      const mutate = (list: YouTubeComment[]) =>
+        list.map((c) =>
+          c.id === commentId
+            ? {
+                ...c,
+                answered: true,
+                is_read: true,
+                reply_count: c.reply_count + 1,
+                replies: [...(c.replies ?? []), reply],
+              }
+            : c
+        );
+
+      setComments(mutate);
+      if (channelKey) {
+        const key = commentsCacheKey(channelKey, tab, filter, postId);
+        const entry = commentsCache.get(key);
+        if (entry)
+          commentsCache.set(key, {
+            ...entry,
+            comments: mutate(entry.comments),
+          });
+      }
+    },
+    [channelKey, tab, filter, postId]
+  );
 
   return {
     posts,
