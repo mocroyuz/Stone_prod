@@ -27,11 +27,9 @@ import {
 const pageBgClass = (isDark: boolean) =>
   isDark ? "bg-[#0e0e0f]" : "bg-[#ebebeb]";
 
-// Fond de la carte Starter (wrapper) : un peu plus sombre / grisé que le fond principal
 const starterBgClass = (isDark: boolean) =>
   isDark ? "bg-[#161617] border-white/[0.07]" : "bg-[#dcdcdc] border-black/[0.07]";
 
-// Fond du grand container central Pro/Enterprise
 const innerCardClass = (isDark: boolean) =>
   isDark ? "bg-[#1f1f21] border-white/[0.09]" : "bg-[#f6f6f6] border-black/[0.07]";
 
@@ -363,8 +361,8 @@ export default function PricingSection() {
         }
       `}</style>
 
-      {/* Largeur globale agrandie : 1200px -> 1360px */}
-      <div className="mx-auto max-w-[1360px] px-4 sm:px-6 lg:px-8">
+      {/* Largeur réduite 1360px -> 1200px pour recentrer la composition */}
+      <div className="mx-auto max-w-[1200px] px-4 sm:px-6 lg:px-8">
         <Reveal>
 
           {/* Header */}
@@ -439,10 +437,10 @@ export default function PricingSection() {
 
           {/* Wrapper global (Zone Starter) */}
           <div className={["rounded-[40px] border p-3 md:p-4 lg:p-6", starterBgClass(isDark)].join(" ")}>
-            <div className="flex flex-col lg:flex-row gap-6 lg:gap-8 items-stretch">
+            <div className="flex flex-col lg:flex-row gap-6 lg:gap-8 items-stretch justify-center">
 
-              {/* STARTER CARD (Left) — réduite pour laisser plus de place au centre */}
-              <div className="lg:w-[26%] flex flex-col justify-between p-5 md:p-6 lg:p-8">
+              {/* STARTER CARD (Left) */}
+              <div className="lg:w-[28%] flex flex-col justify-between p-5 md:p-6 lg:p-8">
                 <div>
                   <div className="flex items-center gap-3 mb-6">
                     <div className={[
@@ -498,9 +496,9 @@ export default function PricingSection() {
                 </button>
               </div>
 
-              {/* PRO & ENTERPRISE CARDS (Centre/Droite) — container agrandi */}
+              {/* PRO & ENTERPRISE CARDS (Centre/Droite) */}
               <div className={[
-                "lg:w-[74%] rounded-[32px] border p-8 md:p-10 lg:p-12 flex flex-col md:flex-row gap-10 md:gap-12 shadow-sm",
+                "lg:w-[72%] rounded-[32px] border p-8 md:p-10 lg:p-12 flex flex-col md:flex-row gap-10 md:gap-12 shadow-sm",
                 innerCardClass(isDark)
               ].join(" ")}>
 
