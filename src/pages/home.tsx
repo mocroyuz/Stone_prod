@@ -64,10 +64,12 @@ import {
   ArrowUpRight,
   CalendarDays,
   ChevronRight,
+  Heart,
   MessageCircle,
   Plus,
   TrendingDown,
   TrendingUp,
+  Users,
 } from "lucide-react";
 import {
   XIcon,
@@ -603,14 +605,14 @@ function ClockDisplay({ isDark, now }: { isDark: boolean; now: Date }) {
 }
 
 /* ============================================================
-   OVERVIEW (Streak / Goals / Score + Weekly Pulse)
+   OVERVIEW (Streak / Goals / Score)
    Noir & blanc uniquement : en thème sombre l'accent est blanc,
    en thème clair l'accent est noir (inversion des couleurs).
 ============================================================ */
 
 /* Petit « i » cerclé : explique en infobulle ce que montre la statistique.
    Visible au survol ET au focus clavier. */
-function InfoHint({ isDark, text }: { isDark: boolean; text: string }) {
+function GoalInfoHint({ isDark, text }: { isDark: boolean; text: string }) {
   return (
     <span className="group relative flex shrink-0 items-center">
       <button
@@ -772,7 +774,7 @@ function GoalItem({
           <p className={["text-[12px] font-semibold", strongClass(isDark)].join(" ")}>
             {title}
           </p>
-          <InfoHint isDark={isDark} text={hint} />
+          <GoalInfoHint isDark={isDark} text={hint} />
         </div>
         <p
           className={[
@@ -787,52 +789,139 @@ function GoalItem({
   );
 }
 
-/* Carte « Weekly Pulse » */
-function PulseCard({
+/* ------------------------------------------------------------
+   STAT (code d'origine)
+------------------------------------------------------------ */
+
+/* Petit « ! » cerclé : explique en infobulle ce que montre la statistique.
+   Visible au survol ET au focus clavier. */
+function InfoHint({ isDark, text }: { isDark: boolean; text: string }) {
+  return (
+    <span className="group relative flex shrink-0 items-center">
+      <button
+        type="button"
+        aria-label={text}
+        className={[
+          "flex h-3.5 w-3.5 items-center justify-center rounded-full transition",
+          "focus-visible:outline-none focus-visible:ring-1",
+          isDark
+            ? "text-neutral-600 hover:text-neutral-300 focus-visible:ring-white/30"
+            : "text-neutral-400 hover:text-neutral-700 focus-visible:ring-black/30",
+        ].join(" ")}
+      >
+        <svg
+          viewBox="0 0 24 24"
+          className="h-full w-full"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <circle cx="12" cy="12" r="9.5" />
+          <path d="M12 7.5v5.5" />
+          <path d="M12 16.6v.1" strokeWidth="2.6" />
+        </svg>
+      </button>
+
+      <span
+        role="tooltip"
+        className={[
+          "pointer-events-none absolute bottom-full left-1/2 z-30 mb-2 w-max max-w-[210px]",
+          "-translate-x-1/2 rounded-lg px-2.5 py-1.5 text-center text-[11px] font-medium leading-snug",
+          "opacity-0 shadow-lg transition-opacity duration-150",
+          "group-hover:opacity-100 group-focus-within:opacity-100",
+          isDark ? "bg-[#2e2e31] text-white" : "bg-neutral-900 text-white",
+        ].join(" ")}
+      >
+        {text}
+      </span>
+    </span>
+  );
+}
+
+function Stat({
   isDark,
+  icon,
   label,
-  hint,
   value,
   change,
+  hint,
 }: {
   isDark: boolean;
+  icon: ReactNode;
   label: string;
+  value: string;
+  change: string;
   hint: string;
-  value: string | number;
-  change?: number;
 }) {
+  const positive = change.startsWith("+");
+
   return (
     <div
       className={[
-        "rounded-xl border px-3.5 py-2.5",
-        panelSurfaceClass(isDark),
+        "flex min-w-0 items-center gap-3",
+        /* Mobile : séparateur horizontal ; desktop : séparateur vertical. */
+        "border-b pb-3 last:border-b-0 last:pb-0 sm:border-b-0 sm:pb-0",
+        "sm:border-r sm:last:border-r-0 sm:pr-5 sm:last:pr-0",
+        isDark ? "border-white/[0.07]" : "border-black/[0.07]",
       ].join(" ")}
     >
-      <div className="flex items-center justify-between gap-2">
-        <p className={["text-[11px] font-medium", softClass(isDark)].join(" ")}>
-          {label}
-        </p>
-        <InfoHint isDark={isDark} text={hint} />
+      <div
+        className={[
+          "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl",
+          isDark
+            ? "bg-white/[0.06] text-white"
+            : "bg-white text-neutral-700 shadow-sm ring-1 ring-black/[0.05]",
+        ].join(" ")}
+      >
+        {icon}
       </div>
-
-      <div className="mt-1 flex items-baseline gap-1.5">
-        <span
-          className={[
-            "text-[18px] font-semibold leading-none tracking-tight tabular-nums",
-            strongClass(isDark),
-          ].join(" ")}
-        >
-          {value}
-        </span>
-
-        {change !== undefined && (
-          <span className={["text-[10.5px]", softClass(isDark)].join(" ")}>
-            <Trend isDark={isDark} change={change} />
-            <span className={["ml-1.5", isDark ? "text-neutral-500" : "text-neutral-400"].join(" ")}>
-              · vs last week
-            </span>
+      <div className="min-w-0">
+        {/* L'infobulle est hors du <p> tronqué pour ne pas être coupée. */}
+        <div className="flex items-center gap-1">
+          <p
+            className={[
+              "truncate text-[10px] font-medium",
+              isDark ? "text-neutral-500" : "text-neutral-400",
+            ].join(" ")}
+          >
+            {label}
+          </p>
+          <InfoHint isDark={isDark} text={hint} />
+        </div>
+        <div className="mt-0.5 flex items-baseline gap-1.5">
+          <span
+            className={[
+              "text-[17px] font-bold tracking-tight",
+              strongClass(isDark),
+            ].join(" ")}
+          >
+            {value}
           </span>
-        )}
+          {/* Pastille + flèche : la tendance ne repose plus uniquement sur la couleur. */}
+          <span
+            className={[
+              "flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[9px] font-semibold",
+              positive
+                ? isDark
+                  ? "bg-emerald-500/10 text-emerald-400"
+                  : "bg-emerald-500/10 text-emerald-600"
+                : isDark
+                  ? "bg-rose-500/10 text-rose-400"
+                  : "bg-rose-500/10 text-rose-600",
+            ].join(" ")}
+          >
+            {positive ? (
+              <TrendingUp className="h-2.5 w-2.5" aria-hidden="true" />
+            ) : (
+              <TrendingDown className="h-2.5 w-2.5" aria-hidden="true" />
+            )}
+            <span className="sr-only">{positive ? "Up " : "Down "}</span>
+            {change}
+          </span>
+        </div>
       </div>
     </div>
   );
@@ -840,26 +929,16 @@ function PulseCard({
 
 type HomeOverviewProps = {
   isDark: boolean;
-  /** Ex. « Oct 25 to Oct 29 » */
-  rangeLabel: string;
   weekStreak: number;
   postingGoal: { done: number; target: number };
   commentScore: { value: number; changePct: number };
-  pulse: {
-    posts: number;
-    postsChangePct?: number;
-    followers: number;
-    comments: number;
-  };
 };
 
 function HomeOverview({
   isDark,
-  rangeLabel,
   weekStreak,
   postingGoal,
   commentScore,
-  pulse,
 }: HomeOverviewProps) {
   const goalRatio =
     postingGoal.target > 0 ? postingGoal.done / postingGoal.target : 0;
@@ -935,43 +1014,6 @@ function HomeOverview({
               </span>
             </Ring>
           }
-        />
-      </div>
-
-      {/* Weekly Pulse */}
-      <p
-        className={[
-          "mb-2.5 mt-5 text-[13px] font-semibold tracking-[-0.01em]",
-          strongClass(isDark),
-        ].join(" ")}
-      >
-        Weekly Pulse
-        <span
-          className={["ml-1.5 text-[11px] font-normal", softClass(isDark)].join(" ")}
-        >
-          · {rangeLabel} · Compared to previous week
-        </span>
-      </p>
-
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <PulseCard
-          isDark={isDark}
-          label="Posts"
-          hint="Posts published this week across all channels."
-          value={pulse.posts}
-          change={pulse.postsChangePct}
-        />
-        <PulseCard
-          isDark={isDark}
-          label="Total Followers"
-          hint="Total followers across all your connected channels."
-          value={pulse.followers}
-        />
-        <PulseCard
-          isDark={isDark}
-          label="Comments"
-          hint="Comments received this week across all channels."
-          value={pulse.comments}
         />
       </div>
     </section>
@@ -1853,13 +1895,6 @@ export default function Home() {
     month: "short",
   })} ${now.getDate()} ${now.getFullYear()}`;
 
-  /* Période du « Weekly Pulse » : du dimanche à aujourd'hui (ex. "Oct 25 to Oct 29") */
-  const weekStart = new Date(now);
-  weekStart.setDate(now.getDate() - now.getDay());
-  const formatShortDate = (d: Date) =>
-    d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-  const weekRangeLabel = `${formatShortDate(weekStart)} to ${formatShortDate(now)}`;
-
   /* Nom affiché : on utilise le nom complet, ou un fallback */
   const displayName = fullName || "adamnolke";
 
@@ -1982,16 +2017,69 @@ export default function Home() {
               <ClockDisplay isDark={isDark} now={now} />
             </header>
 
-            {/* OVERVIEW : Streak / Goals / Score + Weekly Pulse
+            {/* STREAK / GOALS / SCORE
                 (valeurs d'exemple : à brancher sur les vraies données) */}
             <HomeOverview
               isDark={isDark}
-              rangeLabel={weekRangeLabel}
               weekStreak={1}
               postingGoal={{ done: 1, target: 2 }}
               commentScore={{ value: 13, changePct: 100 }}
-              pulse={{ posts: 3, postsChangePct: -40, followers: 0, comments: 7 }}
             />
+
+            {/* OVERVIEW */}
+            <section className="mt-7 shrink-0">
+              <div className="mb-3">
+                <p
+                  className={[
+                    "text-[11px] font-semibold",
+                    isDark ? "text-neutral-500" : "text-neutral-400",
+                  ].join(" ")}
+                >
+                  Overview
+                </p>
+                <p
+                  className={[
+                    "mt-0.5 text-[11px]",
+                    isDark ? "text-neutral-400" : "text-neutral-500",
+                  ].join(" ")}
+                >
+                  Example metrics · not connected to live channels
+                </p>
+              </div>
+
+              <div
+                className={[
+                  "grid grid-cols-1 gap-3 rounded-2xl border p-4",
+                  "sm:grid-cols-3",
+                  panelSurfaceClass(isDark),
+                ].join(" ")}
+              >
+                <Stat
+                  isDark={isDark}
+                  label="Followers"
+                  value="27K"
+                  change="-2%"
+                  hint="Total followers across all your connected channels, compared to the previous period."
+                  icon={<Users className="h-4 w-4" />}
+                />
+                <Stat
+                  isDark={isDark}
+                  label="Likes"
+                  value="12.4K"
+                  change="+16%"
+                  hint="Total likes received on your posts across all channels, compared to the previous period."
+                  icon={<Heart className="h-4 w-4" />}
+                />
+                <Stat
+                  isDark={isDark}
+                  label="Comments"
+                  value="342"
+                  change="+5%"
+                  hint="Total comments received on your posts across all channels, compared to the previous period."
+                  icon={<MessageCircle className="h-4 w-4" />}
+                />
+              </div>
+            </section>
 
             {/* CHANNELS */}
             <section className="mt-5 shrink-0">
