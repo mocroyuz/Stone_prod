@@ -27,11 +27,9 @@ import {
 const pageBgClass = (isDark: boolean) =>
   isDark ? "bg-[#0e0e0f]" : "bg-[#ebebeb]";
 
-// Fond de la carte Starter (wrapper) : un peu plus sombre / grisé que le fond principal
 const starterBgClass = (isDark: boolean) =>
   isDark ? "bg-[#161617] border-white/[0.07]" : "bg-[#dcdcdc] border-black/[0.07]";
 
-// Fond du grand container central Pro/Enterprise
 const innerCardClass = (isDark: boolean) =>
   isDark ? "bg-[#1f1f21] border-white/[0.09]" : "bg-[#f6f6f6] border-black/[0.07]";
 
@@ -343,7 +341,7 @@ export default function PricingSection() {
     <section
       id="pricing"
       className={[
-        "relative z-10 w-full overflow-hidden py-20 transition-colors duration-300",
+        "relative z-10 flex min-h-[100svh] w-full items-center justify-center overflow-hidden py-[clamp(12px,3vh,48px)] transition-colors duration-300",
         pageBgClass(isDark),
         strongClass(isDark),
       ].join(" ")}
@@ -363,25 +361,25 @@ export default function PricingSection() {
         }
       `}</style>
 
-      {/* Container principal : centré (mx-auto) + allongé en longueur (max-w-[1440px]) */}
+      {/* Container principal : centré + large, et compacté en hauteur */}
       <div className="mx-auto w-full max-w-[1440px] px-4 sm:px-6 lg:px-8">
         <Reveal>
 
-          {/* Header */}
-          <div className="text-center mb-10">
-            <p className={["mb-3 text-xs font-semibold uppercase tracking-[0.18em]", softClass(isDark)].join(" ")}>
+          {/* Header compact */}
+          <div className="text-center mb-[clamp(8px,1.5vh,24px)]">
+            <p className={["mb-[clamp(4px,1vh,12px)] text-[11px] font-semibold uppercase tracking-[0.18em]", softClass(isDark)].join(" ")}>
               Simple, transparent pricing
             </p>
-            <h2 className={["font-display text-[clamp(30px,3.4vw,42px)] font-bold leading-tight tracking-[-0.045em]", strongClass(isDark)].join(" ")}>
+            <h2 className={["font-display text-[clamp(24px,3.2vh,42px)] font-bold leading-tight tracking-[-0.045em]", strongClass(isDark)].join(" ")}>
               Choose your plan
             </h2>
-            <p className={["mx-auto mt-3 max-w-md text-sm", softClass(isDark)].join(" ")}>
+            <p className={["mx-auto mt-[clamp(4px,1vh,12px)] max-w-md text-[clamp(12px,1.6vh,14px)]", softClass(isDark)].join(" ")}>
               Everything you need to plan, organize and publish your content.
             </p>
           </div>
 
-          {/* Toggle */}
-          <div className="mt-7 flex justify-center mb-12">
+          {/* Toggle compact */}
+          <div className="flex justify-center mt-[clamp(4px,1vh,16px)] mb-[clamp(8px,2vh,32px)]">
             <div
               className={["inline-flex rounded-full p-1", isDark ? "bg-white/[0.07]" : "bg-black/[0.07]"].join(" ")}
               aria-label="Billing period"
@@ -396,7 +394,7 @@ export default function PricingSection() {
                     aria-pressed={isActive}
                     onClick={() => setPeriod(value)}
                     className={[
-                      "inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-colors",
+                      "inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium transition-colors",
                       focusRingClass(isDark),
                       isActive
                         ? isDark ? "bg-neutral-100 text-neutral-900" : "bg-neutral-900 text-neutral-100"
@@ -422,7 +420,7 @@ export default function PricingSection() {
           {/* Messages */}
           {returnBanner === "success" && (
             <p className={[
-              "mb-8 rounded-xl border px-4 py-3 text-center text-sm",
+              "mb-[clamp(8px,2vh,24px)] rounded-xl border px-4 py-2 text-center text-sm",
               isDark ? "border-white/15 bg-white/[0.07] text-neutral-200" : "border-black/10 bg-black/[0.05] text-neutral-800"
             ].join(" ")}>
               Payment confirmed — your subscription is being activated.
@@ -430,21 +428,21 @@ export default function PricingSection() {
           )}
           {returnBanner === "cancel" && (
             <p className={[
-              "mb-8 rounded-xl border px-4 py-3 text-center text-sm",
+              "mb-[clamp(8px,2vh,24px)] rounded-xl border px-4 py-2 text-center text-sm",
               isDark ? "border-white/10 bg-white/[0.04] text-neutral-300" : "border-black/10 bg-[#f6f6f6] text-neutral-700"
             ].join(" ")}>
               Checkout canceled. You have not been charged.
             </p>
           )}
 
-          {/* Wrapper global (Zone Starter) */}
-          <div className={["w-full rounded-[40px] border p-3 md:p-4 lg:p-6", starterBgClass(isDark)].join(" ")}>
-            <div className="flex flex-col lg:flex-row gap-6 lg:gap-8 items-stretch justify-center w-full">
+          {/* Wrapper global compact */}
+          <div className={["w-full rounded-[32px] border p-[clamp(8px,1.2vh,16px)]", starterBgClass(isDark)].join(" ")}>
+            <div className="flex w-full flex-col items-stretch justify-center gap-[clamp(12px,1.8vh,24px)] lg:flex-row">
 
-              {/* STARTER CARD (Left) */}
-              <div className="lg:w-[30%] flex flex-col justify-between p-5 md:p-6 lg:p-8">
+              {/* STARTER CARD */}
+              <div className="flex flex-col justify-between p-[clamp(12px,2vh,24px)] lg:w-[30%]">
                 <div>
-                  <div className="flex items-center gap-3 mb-6">
+                  <div className="mb-[clamp(8px,1.2vh,16px)] flex items-center gap-3">
                     <div className={[
                       "flex h-10 w-10 items-center justify-center rounded-xl shadow-sm",
                       isDark ? "bg-white/[0.08] text-neutral-100 border border-white/10" : "bg-[#f6f6f6] text-neutral-900 border border-black/5"
@@ -454,25 +452,25 @@ export default function PricingSection() {
                     <h3 className={["text-xl font-medium capitalize", strongClass(isDark)].join(" ")}>{starterPlan.key}</h3>
                   </div>
 
-                  <div className="mb-4">
+                  <div className="mb-[clamp(8px,1.2vh,16px)]">
                     <div className="flex items-baseline gap-1">
-                      <span className={["text-4xl font-medium tracking-tight", strongClass(isDark)].join(" ")}>
+                      <span className={["text-[clamp(28px,4vh,40px)] font-medium tracking-tight", strongClass(isDark)].join(" ")}>
                         ${period === "monthly" ? starterPlan.monthly : starterPlan.annual}
                       </span>
                       <span className={["text-sm", softClass(isDark)].join(" ")}>/Month</span>
                     </div>
                     {period === "annual" && (
-                      <p className={["mt-2 text-xs", softClass(isDark)].join(" ")}>
+                      <p className={["mt-1 text-xs", softClass(isDark)].join(" ")}>
                         ${(period === "monthly" ? starterPlan.monthly : starterPlan.annual) * 12} billed annually
                       </p>
                     )}
                   </div>
 
-                  <p className={["text-[13px] leading-relaxed mb-8", isDark ? "text-neutral-300" : "text-neutral-600"].join(" ")}>
+                  <p className={["mb-[clamp(12px,2vh,24px)] text-[13px] leading-relaxed", isDark ? "text-neutral-300" : "text-neutral-600"].join(" ")}>
                     {starterPlan.description}
                   </p>
 
-                  <ul className="space-y-3.5 mb-8">
+                  <ul className="mb-[clamp(12px,2vh,24px)] space-y-[clamp(4px,1vh,12px)]">
                     {starterPlan.features.map((feature) => (
                       <li key={feature} className={["flex items-center gap-3 text-[13px]", isDark ? "text-neutral-300" : "text-neutral-700"].join(" ")}>
                         <CheckIcon isDark={isDark} />
@@ -487,7 +485,7 @@ export default function PricingSection() {
                   onClick={() => handlePlanClick(starterPlan)}
                   disabled={loadingPlan !== null || userLoading}
                   className={[
-                    "w-full rounded-full py-3.5 text-sm font-medium transition-colors disabled:opacity-70 shadow-lg",
+                    "w-full rounded-full py-[clamp(8px,1.4vh,14px)] text-sm font-medium transition-colors disabled:opacity-70 shadow-lg",
                     focusRingClass(isDark),
                     isDark
                       ? "bg-neutral-100 text-neutral-900 hover:bg-neutral-300 shadow-none"
@@ -498,19 +496,19 @@ export default function PricingSection() {
                 </button>
               </div>
 
-              {/* PRO & ENTERPRISE CARDS (Centre/Droite) */}
+              {/* PRO & ENTERPRISE CARDS */}
               <div className={[
-                "lg:w-[70%] rounded-[32px] border p-8 md:p-10 lg:p-12 flex flex-col md:flex-row gap-10 md:gap-12 shadow-sm",
+                "flex flex-col gap-[clamp(16px,2.5vh,32px)] rounded-[28px] border p-[clamp(16px,2.5vh,36px)] shadow-sm md:flex-row lg:w-[70%]",
                 innerCardClass(isDark)
               ].join(" ")}>
 
                 {/* Pro Column */}
                 <div className={[
-                  "flex-1 flex flex-col justify-between border-b md:border-b-0 md:border-r pb-10 md:pb-0 md:pr-12",
+                  "flex flex-1 flex-col justify-between border-b pb-[clamp(12px,2vh,24px)] md:border-b-0 md:border-r md:pb-0 md:pr-[clamp(16px,2.5vh,32px)]",
                   isDark ? "border-white/[0.08]" : "border-black/[0.08]"
                 ].join(" ")}>
                   <div>
-                    <div className="flex items-center gap-3 mb-6">
+                    <div className="mb-[clamp(8px,1.2vh,16px)] flex items-center gap-3">
                       <div className={[
                         "flex h-11 w-11 items-center justify-center rounded-xl border",
                         isDark ? "bg-white/[0.05] border-white/10 text-neutral-100" : "bg-white border-neutral-300 text-neutral-900"
@@ -520,25 +518,25 @@ export default function PricingSection() {
                       <h3 className={["text-2xl font-medium capitalize", strongClass(isDark)].join(" ")}>{proPlan.key}</h3>
                     </div>
 
-                    <div className="mb-4">
+                    <div className="mb-[clamp(8px,1.2vh,16px)]">
                       <div className="flex items-baseline gap-1">
-                        <span className={["text-5xl font-medium tracking-tight", strongClass(isDark)].join(" ")}>
+                        <span className={["text-[clamp(32px,4.5vh,48px)] font-medium tracking-tight", strongClass(isDark)].join(" ")}>
                           ${period === "monthly" ? proPlan.monthly : proPlan.annual}
                         </span>
                         <span className={["text-sm", softClass(isDark)].join(" ")}>/Month</span>
                       </div>
                       {period === "annual" && (
-                        <p className={["mt-2 text-xs", softClass(isDark)].join(" ")}>
+                        <p className={["mt-1 text-xs", softClass(isDark)].join(" ")}>
                           ${(period === "monthly" ? proPlan.monthly : proPlan.annual) * 12} billed annually
                         </p>
                       )}
                     </div>
 
-                    <p className={["text-sm leading-relaxed mb-10", softClass(isDark)].join(" ")}>
+                    <p className={["mb-[clamp(12px,2vh,24px)] text-sm leading-relaxed", softClass(isDark)].join(" ")}>
                       {proPlan.description}
                     </p>
 
-                    <ul className="space-y-4 mb-10">
+                    <ul className="mb-[clamp(12px,2vh,24px)] space-y-[clamp(6px,1.2vh,14px)]">
                       {proPlan.features.map((feature) => (
                         <li key={feature} className={["flex items-center gap-3 text-sm", isDark ? "text-neutral-300" : "text-neutral-700"].join(" ")}>
                           <CheckIcon isDark={isDark} />
@@ -553,7 +551,7 @@ export default function PricingSection() {
                     onClick={() => handlePlanClick(proPlan)}
                     disabled={loadingPlan !== null || userLoading}
                     className={[
-                      "inline-flex w-fit items-center gap-2 rounded-full border px-7 py-3 text-sm font-medium transition-colors disabled:opacity-70",
+                      "inline-flex w-fit items-center gap-2 rounded-full border px-7 py-[clamp(8px,1.4vh,12px)] text-sm font-medium transition-colors disabled:opacity-70",
                       focusRingClass(isDark),
                       isDark
                         ? "border-white/15 text-neutral-100 hover:bg-white/[0.08]"
@@ -566,9 +564,9 @@ export default function PricingSection() {
                 </div>
 
                 {/* Enterprise Column */}
-                <div className="flex-1 flex flex-col justify-between">
+                <div className="flex flex-1 flex-col justify-between">
                   <div>
-                    <div className="flex items-center gap-3 mb-6">
+                    <div className="mb-[clamp(8px,1.2vh,16px)] flex items-center gap-3">
                       <div className={[
                         "flex h-11 w-11 items-center justify-center rounded-xl border",
                         isDark ? "bg-white/[0.05] border-white/10 text-neutral-100" : "bg-white border-neutral-300 text-neutral-900"
@@ -578,25 +576,25 @@ export default function PricingSection() {
                       <h3 className={["text-2xl font-medium capitalize", strongClass(isDark)].join(" ")}>{enterprisePlan.key}</h3>
                     </div>
 
-                    <div className="mb-4">
+                    <div className="mb-[clamp(8px,1.2vh,16px)]">
                       <div className="flex items-baseline gap-1">
-                        <span className={["text-5xl font-medium tracking-tight", strongClass(isDark)].join(" ")}>
+                        <span className={["text-[clamp(32px,4.5vh,48px)] font-medium tracking-tight", strongClass(isDark)].join(" ")}>
                           ${period === "monthly" ? enterprisePlan.monthly : enterprisePlan.annual}
                         </span>
                         <span className={["text-sm", softClass(isDark)].join(" ")}>/Month</span>
                       </div>
                       {period === "annual" && (
-                        <p className={["mt-2 text-xs", softClass(isDark)].join(" ")}>
+                        <p className={["mt-1 text-xs", softClass(isDark)].join(" ")}>
                           ${(period === "monthly" ? enterprisePlan.monthly : enterprisePlan.annual) * 12} billed annually
                         </p>
                       )}
                     </div>
 
-                    <p className={["text-sm leading-relaxed mb-10", softClass(isDark)].join(" ")}>
+                    <p className={["mb-[clamp(12px,2vh,24px)] text-sm leading-relaxed", softClass(isDark)].join(" ")}>
                       {enterprisePlan.description}
                     </p>
 
-                    <ul className="space-y-4 mb-10">
+                    <ul className="mb-[clamp(12px,2vh,24px)] space-y-[clamp(6px,1.2vh,14px)]">
                       {enterprisePlan.features.map((feature) => (
                         <li key={feature} className={["flex items-start gap-3 text-sm", isDark ? "text-neutral-300" : "text-neutral-700"].join(" ")}>
                           <div className="mt-0.5"><CheckIcon isDark={isDark} /></div>
@@ -611,7 +609,7 @@ export default function PricingSection() {
                     onClick={() => handlePlanClick(enterprisePlan)}
                     disabled={loadingPlan !== null || userLoading}
                     className={[
-                      "inline-flex w-fit items-center gap-2 rounded-full border px-7 py-3 text-sm font-medium transition-colors disabled:opacity-70",
+                      "inline-flex w-fit items-center gap-2 rounded-full border px-7 py-[clamp(8px,1.4vh,12px)] text-sm font-medium transition-colors disabled:opacity-70",
                       focusRingClass(isDark),
                       isDark
                         ? "border-white/15 text-neutral-100 hover:bg-white/[0.08]"
@@ -628,10 +626,10 @@ export default function PricingSection() {
           </div>
 
           {checkoutError && (
-            <p className={["mt-8 text-center text-sm", isDark ? "text-rose-400" : "text-red-600"].join(" ")}>{checkoutError}</p>
+            <p className={["mt-[clamp(6px,1.2vh,16px)] text-center text-sm", isDark ? "text-rose-400" : "text-red-600"].join(" ")}>{checkoutError}</p>
           )}
 
-          <p className={["mt-6 text-center text-xs", mutedClass(isDark)].join(" ")}>
+          <p className={["mt-[clamp(6px,1.2vh,16px)] text-center text-xs", mutedClass(isDark)].join(" ")}>
             Upgrade your plan whenever your needs grow.
           </p>
         </Reveal>
