@@ -63,7 +63,9 @@ import {
   ArrowRight,
   ArrowUpRight,
   CalendarDays,
+  CheckCheck,
   ChevronRight,
+  Clock3,
   Heart,
   MessageCircle,
   Plus,
@@ -1408,139 +1410,219 @@ function CommentAvatar({
 }
 
 /* ============================================================
-   COMMENTS PANEL
+   COMMENTS PANEL — aperçu plus lisible et orienté action
 ============================================================ */
 
-/* Pile de cartes : même hauteur que le panneau « Up Next » (190 px).
-   Le commentaire le plus récent est devant (en bas), les suivants dépassent
-   au-dessus avec leur en-tête (avatar + pseudo). */
-const DECK_HEIGHT = 190;
-const DECK_PEEK = 42;
-const DECK_FRONT_MAX = 110;
-const DECK_INSET = 8;
+function formatCommentTime(value: string | null): string {
+  if (!value) return "Date inconnue";
+  const timestamp = new Date(value).getTime();
+  if (!Number.isFinite(timestamp)) return "Date inconnue";
 
-/* Une carte par commentaire : avatar + pseudo, puis le texte en dessous. */
+  const diffSeconds = Math.round((timestamp - Date.now()) / 1000);
+  const abs = Math.abs(diffSeconds);
+  const rtf = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
+  if (abs < 60) return rtf.format(diffSeconds, "second");
+  if (abs < 3600) return rtf.format(Math.round(diffSeconds / 60), "minute");
+  if (abs < 86400) return rtf.format(Math.round(diffSeconds / 3600), "hour");
+  if (abs < 604800) return rtf.format(Math.round(diffSeconds / 86400), "day");
+  return new Date(timestamp).toLocaleDateString("en", {
+    month: "short",
+    day: "numeric",
+  });
+}
+
 function CommentsPanel({
   isDark,
   comments,
   unanswered,
+  loading,
+  error,
+  connectedChannelsCount,
   onOpen,
   onViewMore,
+  onConnect,
 }: {
   isDark: boolean;
   comments: HomeComment[];
   unanswered: number;
+  loading: boolean;
+  error: string | null;
+  connectedChannelsCount: number;
   onOpen: (channelKey: string) => void;
   onViewMore: () => void;
+  onConnect: () => void;
 }) {
-  const stack = comments.slice(0, 3);
-  const frontHeight = Math.min(
-    DECK_FRONT_MAX,
-    DECK_HEIGHT - (stack.length - 1) * DECK_PEEK
-  );
-
-  /* Fond opaque : les cartes se recouvrent, elles ne doivent pas se voir à travers. */
-  const deckSurface = isDark
-    ? "border-white/[0.07] bg-[#151517]"
-    : "border-black/[0.06] bg-[#f6f4f0]";
+  const visibleComments = comments.slice(0, HOME_COMMENTS_LIMIT);
+  const cardSurface = isDark
+    ? "border-white/[0.08] bg-[#171719] hover:border-white/[0.15] hover:bg-[#1b1b1e]"
+    : "border-black/[0.07] bg-white hover:border-black/[0.12] hover:bg-[#fcfbf9]";
 
   return (
-    <section className="min-w-0">
-      <div className="mb-3 flex items-center justify-between">
-        <p
-          className={[
-            "text-[12px] font-semibold",
-            isDark ? "text-neutral-300" : "text-neutral-700",
-          ].join(" ")}
-        >
-          Comments
-          <span className={["ml-1.5 font-normal", mutedClass(isDark)].join(" ")}>
-            · {unanswered} unanswered
-          </span>
-        </p>
+    <section className="min-w-0" aria-labelledby="home-comments-title">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <h2
+              id="home-comments-title"
+              className={["text-[12px] font-semibold", strongClass(isDark)].join(" ")}
+            >
+              Comments
+            </h2>
+            <span
+              className={[
+                "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold tabular-nums",
+                unanswered > 0
+                  ? isDark
+                    ? "bg-amber-300/10 text-amber-200"
+                    : "bg-amber-50 text-amber-800"
+                  : isDark
+                    ? "bg-white/[0.06] text-neutral-400"
+                    : "bg-black/[0.04] text-neutral-500",
+              ].join(" ")}
+            >
+              {unanswered} to reply
+            </span>
+          </div>
+          <p className={["mt-1 text-[11px]", softClass(isDark)].join(" ")}>
+            Keep up with your community
+          </p>
+        </div>
 
         <button
           type="button"
           onClick={onViewMore}
           className={[
-            "flex items-center gap-0.5 rounded-md text-[11px] font-semibold transition",
+            "inline-flex shrink-0 items-center gap-1 rounded-lg px-2 py-1.5",
+            "text-[11px] font-semibold transition-colors",
             focusRingClass(isDark),
             isDark
-              ? "text-neutral-400 hover:text-white"
-              : "text-neutral-500 hover:text-neutral-900",
+              ? "text-neutral-400 hover:bg-white/[0.06] hover:text-white"
+              : "text-neutral-500 hover:bg-black/[0.04] hover:text-neutral-900",
           ].join(" ")}
         >
-          View All
-          <ChevronRight className="h-3.5 w-3.5" />
+          View all
+          <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
         </button>
       </div>
 
-      <div className="relative" style={{ height: DECK_HEIGHT }}>
-        {stack.map((c, index) => {
-          const isFront = index === 0;
-
-          return (
-            <button
-              key={c.id}
-              type="button"
-              onClick={() => onOpen(c.channel.key)}
-              className={[
-                "absolute flex flex-col gap-2 overflow-hidden rounded-2xl border px-3.5 py-2.5 text-left",
-                "transition-colors duration-200 motion-reduce:transition-none",
-                focusRingClass(isDark),
-                deckSurface,
-                isDark
-                  ? "hover:border-white/[0.14] hover:bg-[#19191c]"
-                  : "hover:border-black/[0.12] hover:bg-[#f1eee9]",
-              ].join(" ")}
-              style={{
-                height: frontHeight,
-                /* index 0 = devant (en bas) ; les suivants remontent derrière */
-                top: (stack.length - 1 - index) * DECK_PEEK,
-                left: index * DECK_INSET,
-                right: index * DECK_INSET,
-                zIndex: 10 - index,
-              }}
-            >
-              <div className="flex items-center gap-2.5">
-                <CommentAvatar
-                  src={c.authorAvatar}
-                  name={c.author}
-                  network={c.network}
-                  isDark={isDark}
-                />
-                <span
-                  className={[
-                    "min-w-0 truncate text-[12px]",
-                    isDark ? "text-neutral-400" : "text-neutral-500",
-                  ].join(" ")}
-                >
-                  {c.author}
-                </span>
-                <span className="sr-only">
-                  {c.isRead ? "" : "Unread. "}
-                  {c.answered ? "Answered. " : "Needs a reply. "}
-                  On {c.channel.handle || c.channel.name} ({c.network}).
-                </span>
+      <div className="flex min-h-[190px] flex-col gap-2.5">
+        {loading && visibleComments.length === 0 ? (
+          <div
+            className={["flex min-h-[190px] flex-col justify-center gap-3 rounded-2xl border p-4", panelSurfaceClass(isDark)].join(" ")}
+            aria-label="Loading comments"
+            aria-live="polite"
+          >
+            {[0, 1, 2].map((item) => (
+              <div key={item} className="flex animate-pulse items-start gap-3" aria-hidden="true">
+                <div className={["h-9 w-9 shrink-0 rounded-xl", isDark ? "bg-white/10" : "bg-black/[0.07]"].join(" ")} />
+                <div className="min-w-0 flex-1 space-y-2 pt-1">
+                  <div className={["h-2.5 w-1/3 rounded", isDark ? "bg-white/10" : "bg-black/[0.07]"].join(" ")} />
+                  <div className={["h-2.5 w-full rounded", isDark ? "bg-white/[0.07]" : "bg-black/[0.05]"].join(" ")} />
+                </div>
               </div>
-
-              <p
-                className={[
-                  "break-words text-[13px] leading-snug",
-                  strongClass(isDark),
-                ].join(" ")}
-                style={{
-                  display: "-webkit-box",
-                  WebkitLineClamp: isFront ? 2 : 1,
-                  WebkitBoxOrient: "vertical",
-                  overflow: "hidden",
-                }}
+            ))}
+          </div>
+        ) : visibleComments.length === 0 ? (
+          <div className={["flex min-h-[190px] flex-col items-center justify-center rounded-2xl border px-5 py-6 text-center", panelSurfaceClass(isDark)].join(" ")}>
+            <div className={["mb-3 flex h-11 w-11 items-center justify-center rounded-2xl", isDark ? "bg-white/[0.07] text-neutral-300" : "bg-white text-neutral-600 shadow-sm ring-1 ring-black/[0.04]"].join(" ")}>
+              <MessageCircle className="h-5 w-5" aria-hidden="true" />
+            </div>
+            <p className={["text-[12px] font-semibold", strongClass(isDark)].join(" ")}>
+              {error ? "Comments couldn't be loaded" : connectedChannelsCount === 0 ? "Connect a channel to get started" : "You're all caught up"}
+            </p>
+            <p className={["mt-1 max-w-[280px] text-[11px] leading-relaxed", softClass(isDark)].join(" ")}>
+              {error
+                ? "We couldn't retrieve your latest comments. Please check your connection and try again later."
+                : connectedChannelsCount === 0
+                  ? "Connect your YouTube account to see and manage comments from your audience here."
+                  : "When new comments arrive, they'll appear here so you can respond quickly."}
+            </p>
+            {connectedChannelsCount === 0 && !error && (
+              <button
+                type="button"
+                onClick={onConnect}
+                className={["mt-4 inline-flex min-h-9 items-center gap-2 rounded-xl px-3.5 text-[11px] font-semibold transition", focusRingClass(isDark), isDark ? "bg-white text-black hover:bg-neutral-200" : "bg-neutral-900 text-white hover:bg-neutral-700"].join(" ")}
               >
-                {c.text}
+                <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+                Connect a channel
+              </button>
+            )}
+          </div>
+        ) : (
+          <>
+            {error && (
+              <p className={["rounded-xl border px-3 py-2 text-[11px]", isDark ? "border-amber-200/10 bg-amber-200/[0.05] text-amber-100/80" : "border-amber-700/10 bg-amber-50 text-amber-800"].join(" ")} role="status">
+                Some comments may be missing because a source couldn't be reached.
               </p>
-            </button>
-          );
-        })}
+            )}
+            {visibleComments.map((comment) => (
+              <button
+                key={comment.id}
+                type="button"
+                onClick={() => onOpen(comment.channel.key)}
+                aria-label={`Open conversation with ${comment.author}`}
+                className={[
+                  "group w-full rounded-2xl border p-3.5 text-left",
+                  "transition duration-200 motion-reduce:transition-none",
+                  "focus-visible:outline-none focus-visible:ring-2",
+                  isDark ? "focus-visible:ring-white/30" : "focus-visible:ring-black/25",
+                  cardSurface,
+                ].join(" ")}
+              >
+                <div className="flex items-start gap-3">
+                  <CommentAvatar
+                    src={comment.authorAvatar}
+                    name={comment.author}
+                    network={comment.network}
+                    isDark={isDark}
+                  />
+
+                  <div className="min-w-0 flex-1">
+                    <div className="flex min-w-0 items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className={["truncate text-[12px] font-semibold", strongClass(isDark)].join(" ")}>
+                          {comment.author}
+                        </p>
+                        <p className={["mt-0.5 truncate text-[10px]", softClass(isDark)].join(" ")}>
+                          {comment.channel.handle || comment.channel.name || comment.network}
+                          {comment.videoTitle ? ` · ${comment.videoTitle}` : ""}
+                        </p>
+                      </div>
+                      <span className={["inline-flex shrink-0 items-center gap-1 pt-0.5 text-[10px]", mutedClass(isDark)].join(" ")}>
+                        <Clock3 className="h-3 w-3" aria-hidden="true" />
+                        {formatCommentTime(comment.publishedAt)}
+                      </span>
+                    </div>
+
+                    <p
+                      className={["mt-2 text-[12px] leading-[1.55]", isDark ? "text-neutral-300" : "text-neutral-700"].join(" ")}
+                      style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", overflowWrap: "anywhere" }}
+                    >
+                      {comment.text || "This comment has no text."}
+                    </p>
+
+                    <div className="mt-3 flex items-center justify-between gap-2">
+                      <span className={["inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-[10px] font-medium", comment.answered
+                        ? isDark ? "bg-emerald-400/10 text-emerald-300" : "bg-emerald-50 text-emerald-700"
+                        : isDark ? "bg-amber-300/10 text-amber-200" : "bg-amber-50 text-amber-800"].join(" ")}>
+                        {comment.answered ? <CheckCheck className="h-3 w-3" aria-hidden="true" /> : <MessageCircle className="h-3 w-3" aria-hidden="true" />}
+                        {comment.answered ? "Replied" : "Needs a reply"}
+                      </span>
+                      <span className={["inline-flex items-center gap-1 text-[10px] font-semibold opacity-80 transition group-hover:translate-x-0.5 group-hover:opacity-100", strongClass(isDark)].join(" ")}>
+                        Open conversation
+                        <ArrowUpRight className="h-3 w-3" aria-hidden="true" />
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <span className="sr-only">
+                  {comment.isRead ? "Read. " : "Unread. "}
+                  {comment.answered ? "Answered." : "Needs a reply."}
+                </span>
+              </button>
+            ))}
+          </>
+        )}
       </div>
     </section>
   );
@@ -2145,48 +2227,21 @@ export default function Home() {
 
             {/* COMMENTS + UP NEXT */}
             <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
-              {latestComments.comments.length > 0 ? (
-                <CommentsPanel
-                  isDark={isDark}
-                  comments={latestComments.comments.slice(0, HOME_COMMENTS_LIMIT)}
-                  unanswered={
-                    latestComments.comments.filter((c) => !c.answered).length
-                  }
-                  onOpen={(key) =>
-                    navigate(`community?channel=${encodeURIComponent(key)}`)
-                  }
-                  onViewMore={() =>
-                    handleViewAllComments(latestComments.comments[0]?.channel.key)
-                  }
-                />
-              ) : (
-                <Panel
-                  isDark={isDark}
-                  title="Comments"
-                  meta="0 unanswered"
-                  onViewAll={handleViewAllComments}
-                  icon={<MessageCircle className="h-5 w-5" />}
-                  line1={
-                    latestComments.loading
-                      ? "Loading comments…"
-                      : latestComments.error
-                        ? "Couldn't load comments."
-                        : "No comments yet."
-                  }
-                  line2={
-                    latestComments.error && !latestComments.loading
-                      ? latestComments.error
-                      : connectedChannels.length === 0
-                        ? "Connect a channel to start receiving comments."
-                        : "You'll see the latest comments here."
-                  }
-                  action={
-                    connectedChannels.length === 0
-                      ? { label: "Connect a channel", onClick: openConnectModal }
-                      : undefined
-                  }
-                />
-              )}
+              <CommentsPanel
+                isDark={isDark}
+                comments={latestComments.comments}
+                unanswered={latestComments.comments.filter((comment) => !comment.answered).length}
+                loading={latestComments.loading}
+                error={latestComments.error}
+                connectedChannelsCount={connectedChannels.length}
+                onOpen={(key) =>
+                  navigate(`community?channel=${encodeURIComponent(key)}`)
+                }
+                onViewMore={() =>
+                  handleViewAllComments(latestComments.comments[0]?.channel.key)
+                }
+                onConnect={openConnectModal}
+              />
               <Panel
                 isDark={isDark}
                 title="Up Next"
