@@ -3,12 +3,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ComponentType, ReactNode } from "react";
 
-import ConnectChannelModal from "./ConnectChannelModal";
+import ConnectChannelModal from "../components/ConnectChannelModal";
 import {
   ConfirmAccountModal,
   openFrequencyOnboarding,
   type OnboardingAccount,
-} from "./OnboardingModals";
+} from "../components/OnboardingModals";
 import { useTheme } from "../hooks/useTheme";
 import { useUser } from "../contexts/UserContext";
 import { navigate } from "../hooks/useHashRoute";
@@ -20,7 +20,7 @@ import {
   YouTubeIcon,
   PinterestIcon,
   ThreadsIcon,
-} from "./IntegrationIcons";
+} from "../components/IntegrationIcons";
 
 import {
   getTikTokStatus,

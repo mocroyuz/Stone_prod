@@ -7,7 +7,7 @@ import type {
   Channel,
   ChannelKey,
   ConnectionState,
-} from "../pages/Channels";
+} from "../pages/channels";
 
 /* ============================================================================
    Icônes locales au modal (pour ne pas dépendre de Channels.tsx à l'exécution)
