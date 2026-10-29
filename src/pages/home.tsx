@@ -950,7 +950,7 @@ function HomeOverview({
       {/* Bandeau : Streak / Goals / Score */}
       <div
         className={[
-          "grid grid-cols-1 gap-4 rounded-2xl border p-4",
+          "grid w-full max-w-[480px] grid-cols-1 gap-4 rounded-2xl border p-4",
           "sm:grid-cols-3",
           panelSurfaceClass(isDark),
         ].join(" ")}
