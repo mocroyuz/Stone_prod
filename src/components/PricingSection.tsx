@@ -95,7 +95,7 @@ const ProfessionalIcon = () => (
   </svg>
 );
 
-const GeniusIcon = () => (
+const EnterpriseIcon = () => (
   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
     <path d="M12 21C16.9706 21 21 16.9706 21 12C21 7.02944 16.9706 3 12 3C7.02944 3 3 7.02944 3 12C3 16.9706 7.02944 21 12 21Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
     <path d="M12 15C13.6569 15 15 13.6569 15 12C15 10.3431 13.6569 9 12 9C10.3431 9 9 10.3431 9 12C9 13.6569 10.3431 15 12 15Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
@@ -115,63 +115,73 @@ const CheckIcon = () => (
 );
 
 /* ============================================================
-   PLANS DATA
+   PLANS DATA (Données originales)
    ============================================================ */
 
 const plans = [
   {
     key: "starter",
-    name: "Starter",
+    badge: "STARTER",
     icon: <StarterIcon />,
-    monthly: 0,
-    annual: 0,
-    description: "Ideal for new investors or those with smaller portfolios. Offers essential features and tools to get started.",
-    cta: "Register For Free!",
+    monthly: 19,
+    annual: 15,
+    description: "Everything you need to get started.",
+    cta: "Get started",
     features: [
-      "Market data and news",
-      "Basic portfolio tracking",
-      "Access to educational resources",
-      "Limited customer support",
+      "Up to 3 channels",
+      "10 posts per channel",
+      "Basic insights",
+      "Content calendar",
+      "Up to 100 ideas",
+      "Up to 50 tags",
+      "Web extension included",
     ],
   },
   {
     key: "pro",
-    name: "Professional",
+    badge: "PRO",
     icon: <ProfessionalIcon />,
-    monthly: 59,
-    annual: 49,
-    description: "A comprehensive plan for investors seeking more advanced features and Ollier AI Assistant.",
-    cta: "Get Started",
+    monthly: 49,
+    annual: 39,
+    description: "More freedom to create and grow.",
+    cta: "Get started",
+    featured: true,
     features: [
-      "All features from the Starter plan",
-      "Advanced portfolio analysis",
-      "Personalized investment recommendations",
-      "Priority customer support",
-      "Access to a community of investors",
-      "Ollier AI Assistant",
+      "All channels",
+      "Unlimited publications",
+      "Advanced insights",
+      "Content calendar",
+      "Unlimited ideas",
+      "Up to 250 tags",
+      "Web extension included",
     ],
   },
   {
     key: "enterprise",
-    name: "Genius",
-    icon: <GeniusIcon />,
-    monthly: 299,
-    annual: 249,
-    description: "Tailored for experienced investors and companies with complex portfolios and high-level needs.",
-    cta: "Get Started",
+    badge: "ENTERPRISE",
+    icon: <EnterpriseIcon />,
+    monthly: 99,
+    annual: 79,
+    description: "Advanced solutions for large organizations.",
+    cta: "Contact sales",
+    salesOnly: true,
     features: [
-      "All features from the Professional plan",
-      "Exclusive access to investment research & analysis",
-      "Private personal letter news",
-      "Personalized wealth management services",
-      "Dedicated account manager",
-      "Access to exclusive investment opportunities",
-      "Exclusive company investing Account",
+      "Everything in Pro",
+      "Custom channel limits",
+      "Unlimited publications",
+      "Advanced insights",
+      "Content calendar",
+      "Unlimited ideas and tags",
+      "Priority support",
+      "Dedicated assistance",
     ],
   },
 ] as const;
 
 type Plan = (typeof plans)[number];
+
+const ENTERPRISE_MAILTO =
+  "mailto:sales@stone.app?subject=Enterprise%20plan";
 
 /* ============================================================
    HELPERS
@@ -179,18 +189,26 @@ type Plan = (typeof plans)[number];
 
 function readPeriodFromUrl(): BillingPeriod | null {
   if (typeof window === "undefined") return null;
-  const sources: URLSearchParams[] = [new URLSearchParams(window.location.search)];
+
+  const sources: URLSearchParams[] = [
+    new URLSearchParams(window.location.search),
+  ];
+
   const hash = window.location.hash || "";
   const qIdx = hash.indexOf("?");
+
   if (qIdx !== -1) {
     sources.push(new URLSearchParams(hash.slice(qIdx + 1)));
   }
+
   for (const params of sources) {
     const value = params.get("period");
+
     if (value === "annual" || value === "monthly") {
       return value;
     }
   }
+
   return null;
 }
 
@@ -245,6 +263,11 @@ export default function PricingSection() {
       setCheckoutError(null);
       setReturnBanner(null);
 
+      if ("salesOnly" in plan && plan.salesOnly) {
+        window.location.href = ENTERPRISE_MAILTO;
+        return;
+      }
+
       if (!isLoggedIn) {
         navigate("signup");
         return;
@@ -269,13 +292,14 @@ export default function PricingSection() {
   );
 
   const getButtonText = (plan: Plan): string => {
+    if ("salesOnly" in plan && plan.salesOnly) return plan.cta;
     if (isLoggedIn && hasActiveSubscription) return "Manage subscription";
     return plan.cta;
   };
 
-  const starterPlan = plans.find(p => p.key === "starter")!;
-  const proPlan = plans.find(p => p.key === "pro")!;
-  const geniusPlan = plans.find(p => p.key === "enterprise")!;
+  const starterPlan = plans[0];
+  const proPlan = plans[1];
+  const enterprisePlan = plans[2];
 
   return (
     <section
@@ -299,37 +323,53 @@ export default function PricingSection() {
 
       <div className="mx-auto max-w-[1200px] px-4 sm:px-6 lg:px-8">
         <Reveal>
-          {/* Header */}
+          
+          {/* Header Original */}
           <div className="text-center mb-10">
-            <h2 className="font-sans text-[clamp(28px,4vw,42px)] font-normal leading-tight tracking-tight text-[#111827]">
-              Choose <span className="font-bold">The Plan</span> That's Right For<br className="hidden sm:block"/> Your Investment Goals!
+            <p className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-neutral-500">
+              Simple, transparent pricing
+            </p>
+            <h2 className="font-display text-[clamp(30px,3.4vw,42px)] font-bold leading-tight tracking-[-0.045em]">
+              Choose your plan
             </h2>
+            <p className="mx-auto mt-3 max-w-md text-sm text-neutral-600">
+              Everything you need to plan, organize and publish your content.
+            </p>
           </div>
 
-          {/* Toggle */}
-          <div className="mb-12 flex justify-center">
-            <div className="inline-flex items-center rounded-full bg-white p-1.5 shadow-[0_2px_10px_rgba(0,0,0,0.05)]">
-              <button
-                type="button"
-                onClick={() => setPeriod("monthly")}
-                className={`flex items-center gap-2 rounded-full px-6 py-2.5 text-sm font-medium transition-all ${
-                  period === "monthly" ? "text-[#111827]" : "text-neutral-500 hover:text-neutral-900"
-                }`}
-              >
-                Monthly
-                <div className={`h-4 w-7 rounded-full p-0.5 transition-colors ${period === "monthly" ? "bg-[#0a1128]" : "bg-neutral-200"}`}>
-                  <div className={`h-3 w-3 rounded-full bg-white transition-transform ${period === "monthly" ? "translate-x-3" : "translate-x-0"}`} />
-                </div>
-              </button>
-              <button
-                type="button"
-                onClick={() => setPeriod("annual")}
-                className={`rounded-full px-6 py-2.5 text-sm font-medium transition-all ${
-                  period === "annual" ? "text-[#111827]" : "text-neutral-500 hover:text-neutral-900"
-                }`}
-              >
-                Annually
-              </button>
+          {/* Toggle Original */}
+          <div className="mt-7 flex justify-center mb-12">
+            <div
+              className="inline-flex rounded-full bg-neutral-100 p-1"
+              aria-label="Billing period"
+            >
+              {(["monthly", "annual"] as const).map((value) => {
+                const isActive = period === value;
+
+                return (
+                  <button
+                    key={value}
+                    type="button"
+                    aria-pressed={isActive}
+                    onClick={() => setPeriod(value)}
+                    className={[
+                      "inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-colors",
+                      "focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#6d7bd6]",
+                      isActive
+                        ? "bg-neutral-900 text-white"
+                        : "text-neutral-600 hover:text-neutral-900",
+                    ].join(" ")}
+                  >
+                    {value === "monthly" ? "Monthly" : "Yearly"}
+
+                    {value === "annual" && (
+                      <span className="rounded-full bg-[#dcdaf0] px-2 py-0.5 text-[10px] font-bold text-neutral-800">
+                        SAVE 20%
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -345,18 +385,18 @@ export default function PricingSection() {
             </p>
           )}
 
-          {/* Wrapper global avec la couleur de fond */}
+          {/* Wrapper global avec la couleur de fond (Starter Zone) */}
           <div className="rounded-[40px] bg-[#E8ECF5] p-3 md:p-4 lg:p-6">
             <div className="flex flex-col lg:flex-row gap-6 lg:gap-8 items-stretch">
               
-              {/* STARTER CARD (Left) - No background, transparent to show the wrapper color */}
+              {/* STARTER CARD (Left) - Fond transparent pour laisser voir le wrapper */}
               <div className="lg:w-[32%] flex flex-col justify-between p-5 md:p-6 lg:p-8">
                 <div>
                   <div className="flex items-center gap-3 mb-6">
                     <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-neutral-900 shadow-sm">
                       {starterPlan.icon}
                     </div>
-                    <h3 className="text-xl font-medium text-[#111827]">{starterPlan.name}</h3>
+                    <h3 className="text-xl font-medium text-[#111827] capitalize">{starterPlan.key}</h3>
                   </div>
 
                   <div className="mb-4">
@@ -366,6 +406,11 @@ export default function PricingSection() {
                       </span>
                       <span className="text-sm text-neutral-500">/Month</span>
                     </div>
+                    {period === "annual" && (
+                      <p className="mt-2 text-xs text-neutral-600">
+                        ${(period === "monthly" ? starterPlan.monthly : starterPlan.annual) * 12} billed annually
+                      </p>
+                    )}
                   </div>
 
                   <p className="text-[13px] leading-relaxed text-neutral-600 mb-8">
@@ -392,17 +437,17 @@ export default function PricingSection() {
                 </button>
               </div>
 
-              {/* PROFESSIONAL & GENIUS CARD (Right) - White card over the background */}
+              {/* PRO & ENTERPRISE CARDS (Right) - Carte blanche */}
               <div className="lg:w-[68%] rounded-[32px] bg-white p-6 md:p-8 shadow-[0_4px_30px_rgba(0,0,0,0.03)] flex flex-col md:flex-row gap-8">
                 
-                {/* Professional Column */}
+                {/* Pro Column */}
                 <div className="flex-1 flex flex-col justify-between border-b md:border-b-0 md:border-r border-neutral-100 pb-8 md:pb-0 md:pr-8">
                   <div>
                     <div className="flex items-center gap-3 mb-6">
                       <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white border border-neutral-200 text-neutral-900">
                         {proPlan.icon}
                       </div>
-                      <h3 className="text-xl font-medium text-[#111827]">{proPlan.name}</h3>
+                      <h3 className="text-xl font-medium text-[#111827] capitalize">{proPlan.key}</h3>
                     </div>
 
                     <div className="mb-4">
@@ -412,6 +457,11 @@ export default function PricingSection() {
                         </span>
                         <span className="text-sm text-neutral-500">/Month</span>
                       </div>
+                      {period === "annual" && (
+                        <p className="mt-2 text-xs text-neutral-500">
+                          ${(period === "monthly" ? proPlan.monthly : proPlan.annual) * 12} billed annually
+                        </p>
+                      )}
                     </div>
 
                     <p className="text-[13px] leading-relaxed text-neutral-500 mb-8">
@@ -439,31 +489,36 @@ export default function PricingSection() {
                   </button>
                 </div>
 
-                {/* Genius Column */}
+                {/* Enterprise Column */}
                 <div className="flex-1 flex flex-col justify-between pt-8 md:pt-0 md:pl-0">
                   <div>
                     <div className="flex items-center gap-3 mb-6">
                       <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white border border-neutral-200 text-neutral-900">
-                        {geniusPlan.icon}
+                        {enterprisePlan.icon}
                       </div>
-                      <h3 className="text-xl font-medium text-[#111827]">{geniusPlan.name}</h3>
+                      <h3 className="text-xl font-medium text-[#111827] capitalize">{enterprisePlan.key}</h3>
                     </div>
 
                     <div className="mb-4">
                       <div className="flex items-baseline gap-1">
                         <span className="text-4xl font-medium tracking-tight text-[#111827]">
-                          ${period === "monthly" ? geniusPlan.monthly : geniusPlan.annual}
+                          ${period === "monthly" ? enterprisePlan.monthly : enterprisePlan.annual}
                         </span>
                         <span className="text-sm text-neutral-500">/Month</span>
                       </div>
+                      {period === "annual" && (
+                        <p className="mt-2 text-xs text-neutral-500">
+                          ${(period === "monthly" ? enterprisePlan.monthly : enterprisePlan.annual) * 12} billed annually
+                        </p>
+                      )}
                     </div>
 
                     <p className="text-[13px] leading-relaxed text-neutral-500 mb-8">
-                      {geniusPlan.description}
+                      {enterprisePlan.description}
                     </p>
 
                     <ul className="space-y-3.5 mb-8">
-                      {geniusPlan.features.map((feature) => (
+                      {enterprisePlan.features.map((feature) => (
                         <li key={feature} className="flex items-start gap-3 text-[13px] text-neutral-700">
                           <div className="mt-0.5"><CheckIcon /></div>
                           <span>{feature}</span>
@@ -474,11 +529,11 @@ export default function PricingSection() {
 
                   <button
                     type="button"
-                    onClick={() => handlePlanClick(geniusPlan)}
+                    onClick={() => handlePlanClick(enterprisePlan)}
                     disabled={loadingPlan !== null || userLoading}
                     className="inline-flex w-fit items-center gap-2 rounded-full border border-neutral-200 bg-white px-6 py-2.5 text-sm font-medium text-[#111827] transition-colors hover:bg-neutral-50 disabled:opacity-70"
                   >
-                    {loadingPlan === geniusPlan.key ? "Redirecting..." : getButtonText(geniusPlan)}
+                    {loadingPlan === enterprisePlan.key ? "Redirecting..." : getButtonText(enterprisePlan)}
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
                   </button>
                 </div>
@@ -490,6 +545,10 @@ export default function PricingSection() {
           {checkoutError && (
             <p className="mt-8 text-center text-sm text-red-600">{checkoutError}</p>
           )}
+
+          <p className="mt-6 text-center text-xs text-neutral-500">
+            Upgrade your plan whenever your needs grow.
+          </p>
         </Reveal>
       </div>
     </section>
