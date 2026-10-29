@@ -1005,7 +1005,8 @@ const STANDALONE_LINKS: ChannelLink[] = [
 
 const CHANNEL_ROUTES = new Set(["insights", "community"]);
 
-const formatUnread = (count: number) => (count > 99 ? "99+" : String(count));
+/** Plafond d'affichage : "9+" au-delà de 9 non-lus. */
+const formatUnread = (count: number) => (count > 9 ? "9+" : String(count));
 
 /** Le badge de « Community » = nombre de commentaires non lus (rien s'il n'y en a pas). */
 function withUnreadBadge<T extends { route: string; badge?: string }>(
@@ -1441,6 +1442,7 @@ function FavoriteRowImpl({
   onNavigate,
   onRename,
   onRemove,
+  badge,
 }: {
   item: NavItem;
   label: string;
@@ -1450,6 +1452,7 @@ function FavoriteRowImpl({
   onNavigate: (route: string) => void;
   onRename: (route: string, name: string) => void;
   onRemove: (route: string) => void;
+  badge?: string;
 }) {
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -1584,6 +1587,16 @@ function FavoriteRowImpl({
           >
             <BookmarkIcon className="h-[18px] w-[18px] shrink-0" filled />
             <span className="sb-fade min-w-0 flex-1 truncate text-left">{label}</span>
+            {badge && (
+              <span
+                className={[
+                  "flex h-[18px] min-w-[18px] shrink-0 items-center justify-center rounded-full px-1.5 text-[10px] font-semibold leading-none opacity-80",
+                  t.badge,
+                ].join(" ")}
+              >
+                {badge}
+              </span>
+            )}
           </button>
 
           <button
@@ -1673,6 +1686,7 @@ function CompactFavoriteImpl({
   focus,
   t,
   onNavigate,
+  badge,
 }: {
   item: NavItem;
   label: string;
@@ -1680,6 +1694,7 @@ function CompactFavoriteImpl({
   focus: string;
   t: ThemeTokens;
   onNavigate: (route: string) => void;
+  badge?: string;
 }) {
   return (
     <Tip label={label} enabled menuClass={t.menu} countClass={t.count}>
@@ -1689,7 +1704,7 @@ function CompactFavoriteImpl({
         aria-current={isActive ? "page" : undefined}
         onClick={() => onNavigate(item.route)}
         className={[
-          "flex h-10 w-10 items-center justify-center rounded-xl",
+          "relative flex h-10 w-10 items-center justify-center rounded-xl",
           "transition-[background-color,color,transform] duration-200",
           "active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:scale-100",
           focus,
@@ -1697,6 +1712,16 @@ function CompactFavoriteImpl({
         ].join(" ")}
       >
         <BookmarkIcon className="h-[18px] w-[18px] shrink-0" filled />
+        {badge && (
+          <span
+            aria-hidden="true"
+            className={[
+              "absolute right-1 top-1 h-2 w-2 rounded-full ring-2",
+              t.accent,
+              t.dotRing,
+            ].join(" ")}
+          />
+        )}
       </button>
     </Tip>
   );
@@ -1757,6 +1782,7 @@ function SidebarChannelsImpl({
     (sum, count) => sum + count,
     0
   );
+  const favCommunityBadge = totalUnread > 0 ? formatUnread(totalUnread) : undefined;
 
   const [order, setOrder] = useState<string[]>(() => readStoredOrder(userId));
   const [dragKey, setDragKey] = useState<string | null>(null);
@@ -2045,6 +2071,9 @@ function SidebarChannelsImpl({
                   focus={focus}
                   t={t}
                   onNavigate={onNavigate}
+                  badge={
+                    item.route === "community" ? favCommunityBadge : undefined
+                  }
                 />
               ))}
             </>
@@ -2095,6 +2124,11 @@ function SidebarChannelsImpl({
                         onNavigate={onNavigate}
                         onRename={onRenameFavorite}
                         onRemove={onRemoveFavorite}
+                        badge={
+                          item.route === "community"
+                            ? favCommunityBadge
+                            : undefined
+                        }
                       />
                     ))}
                   </div>
