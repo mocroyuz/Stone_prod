@@ -1,14 +1,26 @@
-// src/components/ChannelsSection.tsx
+// src/pages/Channels.tsx
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ComponentType, ReactNode } from "react";
 
+import DashboardSidebar, {
+  useSidebarOffset,
+  useFavorites,
+} from "../components/DashboardSidebar";
+import BottomBar, { type BottomBarTab } from "../components/Bottombar";
+import Folder from "../components/Folder";
 import ConnectChannelModal from "../components/ConnectChannelModal";
+import NewPostModal, {
+  type NewPostPayload,
+  unavailablePostActionMessage,
+} from "../components/Newpostmodal";
 import {
   ConfirmAccountModal,
   openFrequencyOnboarding,
   type OnboardingAccount,
 } from "../components/OnboardingModals";
+import { createPosts } from "../services/posts";
+import HelpChatButton from "../components/Helpchatbutton";
 import { useTheme } from "../hooks/useTheme";
 import { useUser } from "../contexts/UserContext";
 import { navigate } from "../hooks/useHashRoute";
@@ -47,42 +59,6 @@ import {
   type CacheProvider,
   type Connection,
 } from "../services/channelsCache";
-
-/* ============================================================================
-   SETTINGS SECTION REQUEST
-   — utilisé par l'ancienne route « channels » pour demander l'ouverture
-     de la section Channels dans la page Settings.
-============================================================================ */
-
-const SETTINGS_SECTION_KEY = "stone:settings-section";
-export const SETTINGS_SECTION_EVENT = "stone:open-settings-section";
-
-export function requestChannelsSection() {
-  try {
-    sessionStorage.setItem(SETTINGS_SECTION_KEY, "channels");
-  } catch {
-    /* storage indisponible */
-  }
-  try {
-    window.dispatchEvent(
-      new CustomEvent(SETTINGS_SECTION_EVENT, { detail: "channels" })
-    );
-  } catch {
-    /* event indisponible */
-  }
-}
-
-export function consumeChannelsSectionRequest(): boolean {
-  try {
-    if (sessionStorage.getItem(SETTINGS_SECTION_KEY) === "channels") {
-      sessionStorage.removeItem(SETTINGS_SECTION_KEY);
-      return true;
-    }
-  } catch {
-    /* storage indisponible */
-  }
-  return false;
-}
 
 /* ============================================================================
    TYPES
@@ -129,6 +105,56 @@ type ToastState = {
   id: number;
   message: string;
   type: "success" | "error";
+};
+
+/** Route de cette page dans la sidebar (section Favorite). */
+const PAGE_ROUTE = "channels";
+
+/* ============================================================================
+   SHELL (identique à Home)
+============================================================================ */
+
+const pageBgClass = (isDark: boolean) =>
+  isDark ? "bg-[#09090a]" : "bg-[#f5f3ef]";
+
+const mainPanelClass = (isDark: boolean) =>
+  isDark
+    ? "border-white/[0.07] bg-[#0f0f11]"
+    : "border-black/[0.06] bg-white";
+
+const panelSurfaceClass = (isDark: boolean) =>
+  isDark
+    ? "border-white/[0.07] bg-white/[0.03]"
+    : "border-black/[0.06] bg-[#f6f4f0]";
+
+const mutedClass = (isDark: boolean) =>
+  isDark ? "text-neutral-500" : "text-neutral-400";
+
+const strongClass = (isDark: boolean) =>
+  isDark ? "text-white" : "text-neutral-900";
+
+const focusRingClass = (isDark: boolean) =>
+  isDark
+    ? "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
+    : "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/25";
+
+/* ============================================================================
+   THEME TOKENS
+============================================================================ */
+
+type ThemeTokens = {
+  text: string;
+  muted: string;
+  card: string;
+  cardHover: string;
+  border: string;
+  borderHover: string;
+  icon: string;
+  iconConnected: string;
+  button: string;
+  danger: string;
+  ring: string;
+  avatarBadgeBg: string;
 };
 
 /* ============================================================================
@@ -233,6 +259,26 @@ function ChannelsIcon(props: IconProps) {
   );
 }
 
+function BookmarkIcon({
+  className,
+  filled = false,
+}: IconProps & { filled?: boolean }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={className ?? "h-4 w-4"}
+      fill={filled ? "currentColor" : "none"}
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M7 4.5h10a1 1 0 0 1 1 1V20l-6-3.8L6 20V5.5a1 1 0 0 1 1-1Z" />
+    </svg>
+  );
+}
+
 function MoreIcon(props: IconProps) {
   return (
     <Svg {...props}>
@@ -243,6 +289,7 @@ function MoreIcon(props: IconProps) {
   );
 }
 
+// Nouvelle icône Disconnect (cercle avec un trait)
 function DisconnectIcon(props: IconProps) {
   return (
     <Svg {...props}>
@@ -252,6 +299,7 @@ function DisconnectIcon(props: IconProps) {
   );
 }
 
+// Nouvelle icône Reconnect (double flèche circulaire)
 function RefreshIcon(props: IconProps) {
   return (
     <Svg {...props}>
@@ -381,41 +429,6 @@ function buildAccount(
     avatarUrl: connection.avatarUrl,
   };
 }
-
-/* ============================================================================
-   THEME TOKENS
-============================================================================ */
-
-type ThemeTokens = {
-  text: string;
-  muted: string;
-  card: string;
-  cardHover: string;
-  border: string;
-  borderHover: string;
-  icon: string;
-  iconConnected: string;
-  button: string;
-  danger: string;
-  ring: string;
-  avatarBadgeBg: string;
-};
-
-const focusRingClass = (isDark: boolean) =>
-  isDark
-    ? "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
-    : "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/25";
-
-const panelSurfaceClass = (isDark: boolean) =>
-  isDark
-    ? "border-white/[0.07] bg-white/[0.03]"
-    : "border-black/[0.06] bg-[#f6f4f0]";
-
-const mutedClass = (isDark: boolean) =>
-  isDark ? "text-neutral-500" : "text-neutral-400";
-
-const strongClass = (isDark: boolean) =>
-  isDark ? "text-white" : "text-neutral-900";
 
 /* ============================================================================
    TOAST
@@ -695,19 +708,20 @@ function ChannelRow({
 }
 
 /* ============================================================================
-   SECTION
+   PAGE
 ============================================================================ */
 
-type ChannelsSectionProps = {
-  /** Optionnel : si absent, on lit le thème via useTheme(). */
-  isDark?: boolean;
-};
-
-export function ChannelsSection({ isDark: isDarkProp }: ChannelsSectionProps = {}) {
+export default function Channels() {
   const { theme } = useTheme();
-  const isDark = isDarkProp ?? theme === "dark";
+  const isDark = theme === "dark";
+  const sidebarOffset = useSidebarOffset();
   const { user } = useUser();
   const userId = user?.id ?? null;
+
+  // Favoris partagés avec la sidebar : le marque-page du header ajoute /
+  // retire cette page de la section « Favorite ».
+  const { isFavorite, toggle: toggleFavorite } = useFavorites();
+  const saved = isFavorite(PAGE_ROUTE);
 
   /* ------------------------------------------------------------------------
      STATE
@@ -728,6 +742,9 @@ export function ChannelsSection({ isDark: isDarkProp }: ChannelsSectionProps = {
 
   const [pendingKey, setPendingKey] = useState<ChannelKey | null>(null);
   const [showConnectModal, setShowConnectModal] = useState(false);
+  const [isFolderOpen, setIsFolderOpen] = useState(false);
+  const [isNewPostOpen, setIsNewPostOpen] = useState(false);
+  const [query, setQuery] = useState("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [toast, setToast] = useState<ToastState | null>(null);
 
@@ -814,6 +831,37 @@ export function ChannelsSection({ isDark: isDarkProp }: ChannelsSectionProps = {
   const connectedCount = connectedChannels.length;
   const limitReached = connectedCount >= PLAN.maxChannels;
   const slotsLeft = Math.max(0, PLAN.maxChannels - connectedCount);
+
+  const visibleChannels = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    if (!needle) return CHANNELS;
+    return CHANNELS.filter((channel) =>
+      `${channel.name} ${channel.accountLabel} ${connections[channel.key].handle ?? ""}`
+        .toLowerCase()
+        .includes(needle)
+    );
+  }, [connections, query]);
+
+  const handleBottomBarChange = (id: BottomBarTab) => {
+    switch (id) {
+      case "add":
+        setIsFolderOpen(false);
+        setIsNewPostOpen(true);
+        break;
+      case "files":
+        setIsFolderOpen((open) => !open);
+        break;
+    }
+  };
+
+  const handleCreatePost = async (payload: NewPostPayload) => {
+    if (payload.scheduleMode === "later") {
+      await createPosts(payload);
+      return;
+    }
+
+    throw new Error(unavailablePostActionMessage(payload));
+  };
 
   /* ------------------------------------------------------------------------
      SYNC OAUTH
@@ -1178,156 +1226,194 @@ export function ChannelsSection({ isDark: isDarkProp }: ChannelsSectionProps = {
   ========================================================================== */
 
   return (
-    <div className="mx-auto flex w-full max-w-[1100px] flex-col px-[clamp(18px,3vw,48px)] pb-8 pt-[clamp(12px,2vw,20px)]">
-      {/* HEADER */}
-      <div className="mb-6 flex shrink-0 flex-wrap items-center justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-2.5">
-          <span
-            className={[
-              "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border",
-              isDark
-                ? "border-white/[0.07] bg-white/[0.04] text-neutral-400"
-                : "border-black/[0.06] bg-white text-neutral-500",
-            ].join(" ")}
-          >
-            <ChannelsIcon className="h-[18px] w-[18px]" />
-          </span>
-          <div className="min-w-0">
-            <h2
+    <main
+      className={[
+        "relative h-screen w-full overflow-hidden",
+        "transition-colors duration-300",
+        pageBgClass(isDark),
+      ].join(" ")}
+    >
+      <DashboardSidebar theme={theme} />
+
+      <div
+        className={[
+          "h-full py-3 pr-3",
+          "transition-[padding-left] duration-[380ms]",
+          "ease-[cubic-bezier(0.4,0,0.2,1)]",
+          "motion-reduce:transition-none",
+        ].join(" ")}
+        style={{ paddingLeft: sidebarOffset }}
+      >
+        <div
+          className={[
+            "h-full overflow-y-auto overflow-x-hidden",
+            "rounded-[28px] border",
+            "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+            "transition-colors duration-300",
+            mainPanelClass(isDark),
+          ].join(" ")}
+        >
+          {/* LARGEUR AUGMENTÉE ICI: max-w-[1100px] */}
+          <div className="mx-auto flex w-full max-w-[1100px] flex-col px-[clamp(18px,3vw,48px)] pb-[120px] pt-[clamp(18px,3vw,30px)]">
+
+            {/* HEADER COMPACT (remplace PageHeader) */}
+            <div className="mb-6 flex shrink-0 flex-wrap items-center justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-2.5">
+                <span
+                  className={[
+                    "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border",
+                    isDark
+                      ? "border-white/[0.07] bg-white/[0.04] text-neutral-400"
+                      : "border-black/[0.06] bg-white text-neutral-500",
+                  ].join(" ")}
+                >
+                  <ChannelsIcon className="h-[18px] w-[18px]" />
+                </span>
+                <div className="min-w-0">
+                  <h1
+                    className={[
+                      "truncate text-[20px] font-semibold tracking-[-0.03em]",
+                      strongClass(isDark),
+                    ].join(" ")}
+                  >
+                    Channels
+                  </h1>
+                  <p
+                    className={[
+                      "mt-0.5 truncate text-[12px]",
+                      mutedClass(isDark),
+                    ].join(" ")}
+                  >
+                    Your connected accounts at a glance. Click on a channel to connect it.
+                  </p>
+                </div>
+              </div>
+
+              {/* Marque-page : ajoute / retire cette page des favoris de la sidebar */}
+              <button
+                type="button"
+                aria-label={saved ? "Remove from favorites" : "Add to favorites"}
+                aria-pressed={saved}
+                title={saved ? "Remove from favorites" : "Add to favorites"}
+                onClick={() => toggleFavorite(PAGE_ROUTE)}
+                className={[
+                  "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-colors motion-reduce:transition-none",
+                  focusRingClass(isDark),
+                  isDark ? "hover:bg-white/[0.06]" : "hover:bg-black/[0.04]",
+                ].join(" ")}
+              >
+                <BookmarkIcon className="h-5 w-5" filled={saved} />
+              </button>
+            </div>
+
+            {/* BANNIÈRE PLAN */}
+            <div
               className={[
-                "truncate text-[20px] font-semibold tracking-[-0.03em]",
-                strongClass(isDark),
+                "relative overflow-hidden rounded-2xl border p-6 md:p-8 flex flex-col md:flex-row md:items-center justify-between gap-6",
+                panelSurfaceClass(isDark),
               ].join(" ")}
             >
-              Channels
-            </h2>
-            <p
+              <div className="flex items-start gap-4">
+                <div
+                  className={[
+                    "flex h-12 w-12 shrink-0 items-center justify-center rounded-xl",
+                    isDark
+                      ? "bg-white/[0.06] text-white"
+                      : "bg-white text-black shadow-sm ring-1 ring-black/[0.05]",
+                  ].join(" ")}
+                >
+                  <BoltIcon className="h-6 w-6" />
+                </div>
+                <div>
+                  <h2
+                    className={[
+                      "text-lg font-bold tracking-tight",
+                      strongClass(isDark),
+                    ].join(" ")}
+                  >
+                    {PLAN.name} Plan
+                  </h2>
+                  <p
+                    className={[
+                      "mt-1 text-[13px]",
+                      mutedClass(isDark),
+                    ].join(" ")}
+                  >
+                    You are currently on the {PLAN.name} plan. You can connect up to{" "}
+                    {PLAN.maxChannels} channels.
+                    {slotsLeft > 0
+                      ? ` ${slotsLeft} slots remaining.`
+                      : " Limit reached."}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleUpgrade}
+                className={[
+                  "inline-flex shrink-0 items-center justify-center rounded-xl px-5 py-2.5 text-[13px] font-semibold transition-all hover:scale-[1.02] active:scale-[0.98]",
+                  focusRingClass(isDark),
+                  isDark
+                    ? "bg-white text-neutral-900 hover:bg-neutral-200"
+                    : "bg-neutral-900 text-white hover:bg-neutral-800",
+                ].join(" ")}
+              >
+                Upgrade Plan
+              </button>
+            </div>
+
+            {/* ERREUR */}
+            {errorMessage && (
+              <div
+                role="alert"
+                className={[
+                  "mt-6 flex shrink-0 items-center gap-2.5 rounded-xl border px-4 py-3 text-[12px]",
+                  isDark
+                    ? "border-rose-500/20 bg-rose-500/[0.06] text-rose-400"
+                    : "border-rose-500/20 bg-rose-500/[0.06] text-rose-600",
+                ].join(" ")}
+              >
+                <span className="flex-1">{errorMessage}</span>
+                <button
+                  type="button"
+                  aria-label="Dismiss"
+                  onClick={() => setErrorMessage(null)}
+                  className="rounded-md p-1 hover:bg-rose-500/10"
+                >
+                  <CloseIcon className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            )}
+
+            {/* GRILLE DES CHANNELS */}
+            <div className="mt-6 grid grid-cols-1 gap-2 md:grid-cols-2 lg:gap-4">
+              {visibleChannels.map((channel) => (
+                <ChannelRow
+                  key={channel.key}
+                  channel={channel}
+                  connection={connections[channel.key]}
+                  pending={pendingKey === channel.key}
+                  disabled={false}
+                  t={t}
+                  isDark={isDark}
+                  onToggle={() => handleToggle(channel.key)}
+                  onReconnect={() => handleReconnect(channel.key)}
+                />
+              ))}
+            </div>
+
+            {/* FOOTER */}
+            <div
               className={[
-                "mt-0.5 truncate text-[12px]",
+                "mt-10 flex shrink-0 items-center justify-between text-[11px]",
                 mutedClass(isDark),
               ].join(" ")}
             >
-              Your connected accounts at a glance. Click on a channel to connect it.
-            </p>
+              <span>Secure OAuth connections</span>
+            </div>
           </div>
         </div>
-      </div>
-
-      {/* BANNIÈRE PLAN */}
-      <div
-        className={[
-          "relative flex flex-col justify-between gap-6 overflow-hidden rounded-2xl border p-6 md:flex-row md:items-center md:p-8",
-          panelSurfaceClass(isDark),
-        ].join(" ")}
-      >
-        <div className="flex items-start gap-4">
-          <div
-            className={[
-              "flex h-12 w-12 shrink-0 items-center justify-center rounded-xl",
-              isDark
-                ? "bg-white/[0.06] text-white"
-                : "bg-white text-black shadow-sm ring-1 ring-black/[0.05]",
-            ].join(" ")}
-          >
-            <BoltIcon className="h-6 w-6" />
-          </div>
-          <div>
-            <h3
-              className={[
-                "text-lg font-bold tracking-tight",
-                strongClass(isDark),
-              ].join(" ")}
-            >
-              {PLAN.name} Plan
-            </h3>
-            <p
-              className={["mt-1 text-[13px]", mutedClass(isDark)].join(" ")}
-            >
-              You are currently on the {PLAN.name} plan. You can connect up to{" "}
-              {PLAN.maxChannels} channels.
-              {slotsLeft > 0
-                ? ` ${slotsLeft} slots remaining.`
-                : " Limit reached."}
-            </p>
-          </div>
-        </div>
-
-        <button
-          type="button"
-          onClick={handleUpgrade}
-          className={[
-            "inline-flex shrink-0 items-center justify-center rounded-xl px-5 py-2.5 text-[13px] font-semibold transition-all hover:scale-[1.02] active:scale-[0.98]",
-            focusRingClass(isDark),
-            isDark
-              ? "bg-white text-neutral-900 hover:bg-neutral-200"
-              : "bg-neutral-900 text-white hover:bg-neutral-800",
-          ].join(" ")}
-        >
-          Upgrade Plan
-        </button>
-      </div>
-
-      {/* ERREUR */}
-      {errorMessage && (
-        <div
-          role="alert"
-          className={[
-            "mt-6 flex shrink-0 items-center gap-2.5 rounded-xl border px-4 py-3 text-[12px]",
-            isDark
-              ? "border-rose-500/20 bg-rose-500/[0.06] text-rose-400"
-              : "border-rose-500/20 bg-rose-500/[0.06] text-rose-600",
-          ].join(" ")}
-        >
-          <span className="flex-1">{errorMessage}</span>
-          <button
-            type="button"
-            aria-label="Dismiss"
-            onClick={() => setErrorMessage(null)}
-            className="rounded-md p-1 hover:bg-rose-500/10"
-          >
-            <CloseIcon className="h-3.5 w-3.5" />
-          </button>
-        </div>
-      )}
-
-      {/* GRILLE DES CHANNELS */}
-      <div className="mt-6 grid grid-cols-1 gap-2 md:grid-cols-2 lg:gap-4">
-        {CHANNELS.map((channel) => (
-          <ChannelRow
-            key={channel.key}
-            channel={channel}
-            connection={connections[channel.key]}
-            pending={pendingKey === channel.key}
-            disabled={false}
-            t={t}
-            isDark={isDark}
-            onToggle={() => handleToggle(channel.key)}
-            onReconnect={() => handleReconnect(channel.key)}
-          />
-        ))}
-      </div>
-
-      {/* FOOTER */}
-      <div
-        className={[
-          "mt-10 flex shrink-0 items-center justify-between text-[11px]",
-          mutedClass(isDark),
-        ].join(" ")}
-      >
-        <span>Secure OAuth connections</span>
-        <button
-          type="button"
-          onClick={openModal}
-          className={[
-            "rounded-lg px-2.5 py-1 font-medium transition-colors",
-            focusRingClass(isDark),
-            isDark
-              ? "text-neutral-400 hover:bg-white/[0.06] hover:text-white"
-              : "text-neutral-500 hover:bg-black/[0.04] hover:text-neutral-900",
-          ].join(" ")}
-        >
-          Open channel browser
-        </button>
       </div>
 
       {/* MODALS & OVERLAYS */}
@@ -1365,8 +1451,31 @@ export function ChannelsSection({ isDark: isDarkProp }: ChannelsSectionProps = {
           onClose={dismissToast}
         />
       )}
-    </div>
+
+      <Folder
+        isOpen={isFolderOpen}
+        onClose={() => setIsFolderOpen(false)}
+        isDark={isDark}
+        offsetLeft={sidebarOffset}
+      />
+      <BottomBar
+        isDark={isDark}
+        offsetLeft={sidebarOffset}
+        active={isFolderOpen ? "files" : null}
+        onChange={handleBottomBarChange}
+        onCreatePost={() => handleBottomBarChange("add")}
+        query={query}
+        onQueryChange={setQuery}
+      />
+      <NewPostModal
+        isOpen={isNewPostOpen}
+        onClose={() => setIsNewPostOpen(false)}
+        isDark={isDark}
+        onSubmit={handleCreatePost}
+        onRequestOpen={() => setIsNewPostOpen(true)}
+      />
+
+      <HelpChatButton isDark={isDark} />
+    </main>
   );
 }
-
-export default ChannelsSection;

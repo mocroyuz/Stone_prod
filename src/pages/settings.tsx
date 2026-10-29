@@ -5,17 +5,54 @@
   useRef,
   useState,
   type ChangeEvent,
+  type ComponentType,
   type ReactNode,
 } from "react";
 
 import { navigate } from "../hooks/useHashRoute";
 import { useTheme, type Theme } from "../hooks/useTheme";
+import { useUser } from "../contexts/UserContext";
 import Modal from "../components/Modal";
-import ChannelsSection, {
-  ChannelsIcon,
-  clearChannelsSectionRequest,
-  shouldOpenChannelsSection,
-} from "../components/ChannelsSection";
+import {
+  ConfirmAccountModal,
+  openFrequencyOnboarding,
+  type OnboardingAccount,
+} from "../components/OnboardingModals";
+
+import {
+  InstagramIcon,
+  FacebookIcon,
+  TikTokIcon,
+  YouTubeIcon,
+  PinterestIcon,
+  ThreadsIcon,
+} from "../components/IntegrationIcons";
+
+import {
+  getTikTokStatus,
+  startTikTokLogin,
+  disconnectTikTok,
+} from "../services/tiktok";
+import {
+  getPinterestStatus,
+  startPinterestLogin,
+  disconnectPinterest,
+  connectPinterestWithToken,
+} from "../services/pinterest";
+import {
+  getYouTubeStatus,
+  startYouTubeLogin,
+  disconnectYouTube,
+} from "../services/youtube";
+import {
+  CHANNELS_CHANGED_EVENT,
+  CACHE_MAX_AGE_MS,
+  clearCache,
+  readCache,
+  writeCache,
+  type CacheProvider,
+  type Connection,
+} from "../services/channelsCache";
 
 import {
   getCurrentUser,
@@ -274,6 +311,45 @@ const MoreIcon = mkIcon(
     <circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none" />
     <circle cx="19" cy="12" r="1.5" fill="currentColor" stroke="none" />
   </>
+);
+
+/* Icônes Channels */
+
+const ChannelsIcon = mkIcon(
+  <>
+    <circle cx="7.5" cy="7.5" r="2.5" />
+    <circle cx="16.5" cy="7.5" r="2.5" />
+    <circle cx="7.5" cy="16.5" r="2.5" />
+    <circle cx="16.5" cy="16.5" r="2.5" />
+  </>
+);
+const DisconnectIcon = mkIcon(
+  <>
+    <circle cx="12" cy="12" r="10" />
+    <path d="M8 12h8" />
+  </>,
+  "h-4 w-4"
+);
+const RefreshIcon = mkIcon(
+  <>
+    <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+    <path d="M3 3v5h5" />
+    <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
+    <path d="M16 21v-5h5" />
+  </>,
+  "h-4 w-4"
+);
+const CloseIcon = mkIcon(
+  <>
+    <path d="m6 6 12 12" />
+    <path d="m18 6-12 12" />
+  </>,
+  "h-4 w-4"
+);
+const ChevronRightIcon = mkIcon(<path d="m9 18 6-6-6-6" />, "h-4 w-4");
+const BoltIcon = mkIcon(
+  <path d="M13 2.5 5 13.2h5.6L9.5 21.5l8-10.7h-5.6L13 2.5Z" />,
+  "h-6 w-6"
 );
 
 /* ── Hooks ── */
@@ -546,9 +622,9 @@ type SectionKey =
   | "appearance"
   | "notifications"
   | "billing"
+  | "channels"
   | "tags"
   | "savedReplies"
-  | "channels"
   | "danger";
 
 const SIDEBAR_GROUPS: {
@@ -592,9 +668,9 @@ const SECTION_TITLES: Record<SectionKey, string> = {
   appearance: "Appearance",
   notifications: "Notifications",
   billing: "Billing",
+  channels: "Channels",
   tags: "Tags",
   savedReplies: "Saved Replies",
-  channels: "Channels",
   danger: "Danger zone",
 };
 
@@ -706,32 +782,43 @@ function SettingsSidebar({
 type SettingsProps = {
   theme?: Theme;
   onToggleTheme?: () => void;
-  /** Section à ouvrir au chargement (par défaut : profile, ou channels après un retour OAuth). */
-  initialSection?: SectionKey;
 };
 
 type Notify = (message: string, kind?: "success" | "error") => void;
 
-export default function Settings({ initialSection }: SettingsProps) {
+/** Ouvre directement « Channels » au retour d'un OAuth (TikTok / Pinterest / YouTube). */
+function initialSection(): SectionKey {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const fromUrl = [
+      "tiktok",
+      "tiktok_error",
+      "pinterest",
+      "pinterest_error",
+      "youtube",
+      "youtube_error",
+    ].some((key) => params.has(key));
+    const parsed = JSON.parse(sessionStorage.getItem(RETURN_KEY) ?? "[]");
+    const pending = Array.isArray(parsed) && parsed.length > 0;
+    if (fromUrl || pending) return "channels";
+  } catch {
+    /* ignore */
+  }
+  return "profile";
+}
+
+export default function Settings(_props: SettingsProps) {
   const { theme, toggle } = useTheme();
   const isDark = theme === "dark";
   const tokens = useMemo<Tokens>(() => (isDark ? DARK : LIGHT), [isDark]);
 
-  const [active, setActive] = useState<SectionKey>(
-    () =>
-      initialSection ?? (shouldOpenChannelsSection() ? "channels" : "profile")
-  );
+  const [active, setActive] = useState<SectionKey>(initialSection);
   const [toast, setToast] = useState<{
     message: string;
     kind: "success" | "error";
   } | null>(null);
   const toastTimer = useRef<number | null>(null);
   const titleRef = useRef<HTMLHeadingElement | null>(null);
-
-  // La demande d'ouverture (ex. ancienne route /channels) est consommée une fois montée.
-  useEffect(() => {
-    clearChannelsSectionRequest();
-  }, []);
 
   const notify = useCallback<Notify>((message, kind) => {
     const resolved =
@@ -787,7 +874,12 @@ export default function Settings({ initialSection }: SettingsProps) {
           tokens={tokens}
         />
 
-        <div className="mx-auto w-full max-w-[840px] min-w-0 flex-1 px-[clamp(16px,4vw,48px)] py-[clamp(24px,4vw,56px)]">
+        <div
+          className={cx(
+            "mx-auto w-full min-w-0 flex-1 px-[clamp(16px,4vw,48px)] py-[clamp(24px,4vw,56px)]",
+            active === "channels" ? "max-w-[1100px]" : "max-w-[840px]"
+          )}
+        >
           <h1
             ref={titleRef}
             tabIndex={-1}
@@ -827,11 +919,7 @@ export default function Settings({ initialSection }: SettingsProps) {
               <BillingSection tokens={tokens} notify={notify} />
             )}
             {active === "channels" && (
-              <ChannelsSection
-                tokens={tokens}
-                notify={notify}
-                isDark={isDark}
-              />
+              <ChannelsSection tokens={tokens} notify={notify} isDark={isDark} />
             )}
             {active === "tags" && (
               <TagsSection tokens={tokens} notify={notify} isDark={isDark} />
@@ -852,7 +940,7 @@ export default function Settings({ initialSection }: SettingsProps) {
 
       <div
         aria-live="polite"
-        className="pointer-events-none fixed bottom-6 left-1/2 z-30 -translate-x-1/2 px-4"
+        className="pointer-events-none fixed bottom-6 left-1/2 z-[110] -translate-x-1/2 px-4"
       >
         {toast && (
           <div
@@ -2788,6 +2876,896 @@ function BillingSection({
       >
         <p className={cx("text-[13px]", tokens.body)}>No invoices yet.</p>
       </SectionCard>
+    </>
+  );
+}
+
+/* ── Utils · Channels ── */
+
+export type ChannelKey =
+  | "instagram"
+  | "facebook"
+  | "tiktok"
+  | "youtube"
+  | "pinterest"
+  | "threads";
+
+export type IconComponent = ComponentType<{
+  className?: string;
+  size?: number;
+}>;
+
+export type Channel = {
+  key: ChannelKey;
+  name: string;
+  subtitle: string;
+  accountLabel: string;
+  icon: IconComponent;
+};
+
+export type ConnectionState = Record<ChannelKey, Connection>;
+
+type StatusResponse = {
+  connected: boolean;
+  account:
+    | {
+        display_name?: string | null;
+        avatar_url?: string | null;
+        avatarUrl?: string | null;
+      }
+    | null
+    | undefined;
+};
+
+type ChannelTokens = {
+  text: string;
+  muted: string;
+  icon: string;
+  iconConnected: string;
+  ring: string;
+  avatarBadgeBg: string;
+};
+
+export const PLAN = {
+  name: "Free",
+  maxChannels: 3,
+};
+
+export const INSIGHT_ROUTE = "/insights";
+
+export const REAL_OAUTH: ChannelKey[] = ["tiktok", "pinterest", "youtube"];
+
+export const CHANNELS: Channel[] = [
+  {
+    key: "instagram",
+    name: "Instagram",
+    subtitle: "Business or Creator",
+    accountLabel: "Instagram Account",
+    icon: InstagramIcon,
+  },
+  {
+    key: "facebook",
+    name: "Facebook",
+    subtitle: "Page",
+    accountLabel: "Facebook Page",
+    icon: FacebookIcon,
+  },
+  {
+    key: "threads",
+    name: "Threads",
+    subtitle: "Profile",
+    accountLabel: "Threads Profile",
+    icon: ThreadsIcon,
+  },
+  {
+    key: "youtube",
+    name: "YouTube Shorts",
+    subtitle: "Channel",
+    accountLabel: "YouTube Shorts Channel",
+    icon: YouTubeIcon,
+  },
+  {
+    key: "tiktok",
+    name: "TikTok",
+    subtitle: "Business or Personal",
+    accountLabel: "TikTok Account",
+    icon: TikTokIcon,
+  },
+  {
+    key: "pinterest",
+    name: "Pinterest",
+    subtitle: "Business or Profile",
+    accountLabel: "Pinterest Account",
+    icon: PinterestIcon,
+  },
+];
+
+const initialConnections: ConnectionState = {
+  instagram: { connected: false },
+  facebook: { connected: false },
+  tiktok: { connected: false },
+  youtube: { connected: false },
+  pinterest: { connected: false },
+  threads: { connected: false },
+};
+
+function formatOAuthError(provider: string, error: unknown): string {
+  const raw = error instanceof Error ? error.message : "";
+  if (/failed to fetch|networkerror|load failed/i.test(raw)) {
+    return "Unable to reach the server. Check that the backend is running and VITE_API_URL is correct.";
+  }
+  return raw
+    ? `Unable to connect to ${provider}. ${raw}`
+    : `Unable to connect to ${provider}.`;
+}
+
+function mockHandleFor(key: ChannelKey): string {
+  const handles: Record<ChannelKey, string> = {
+    instagram: "@ronan.studio",
+    facebook: "Ronan Studio",
+    threads: "@ronan.studio",
+    tiktok: "",
+    youtube: "",
+    pinterest: "",
+  };
+  return handles[key];
+}
+
+function toConnection(status: StatusResponse): Connection {
+  if (!status.connected) {
+    return { connected: false };
+  }
+  const account = status.account;
+  return {
+    connected: true,
+    handle: account?.display_name ?? undefined,
+    avatarUrl: account?.avatar_url ?? account?.avatarUrl ?? undefined,
+  };
+}
+
+const RETURN_KEY = "stone:oauth-returned";
+
+function readReturned(): CacheProvider[] {
+  try {
+    const parsed = JSON.parse(sessionStorage.getItem(RETURN_KEY) ?? "[]");
+    return Array.isArray(parsed) ? (parsed as CacheProvider[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeReturned(list: CacheProvider[]) {
+  try {
+    if (list.length === 0) sessionStorage.removeItem(RETURN_KEY);
+    else sessionStorage.setItem(RETURN_KEY, JSON.stringify(list));
+  } catch {
+    /* storage indisponible */
+  }
+}
+
+function markReturning(provider: CacheProvider) {
+  writeReturned(Array.from(new Set([...readReturned(), provider])));
+}
+
+function buildAccount(
+  channel: Channel,
+  connection: Connection
+): OnboardingAccount {
+  return {
+    key: channel.key,
+    name: channel.name,
+    accountLabel: channel.accountLabel,
+    handle: connection.handle,
+    avatarUrl: connection.avatarUrl,
+  };
+}
+
+const channelTokens = (isDark: boolean): ChannelTokens =>
+  isDark
+    ? {
+        text: "text-white",
+        muted: "text-neutral-500",
+        icon: "border-white/[0.08] bg-white/[0.04] text-neutral-300",
+        iconConnected: "border-white/20 bg-white/10 text-white",
+        ring: "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30",
+        avatarBadgeBg: "bg-[#0f0f11] text-white ring-[#0f0f11]",
+      }
+    : {
+        text: "text-neutral-900",
+        muted: "text-neutral-500",
+        icon: "border-black/[0.06] bg-[#f6f4f0] text-neutral-600",
+        iconConnected: "border-black/10 bg-black/[0.04] text-neutral-900",
+        ring: "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/25",
+        avatarBadgeBg: "bg-white text-black ring-white",
+      };
+
+function ChannelAvatar({
+  channel,
+  connection,
+  t,
+}: {
+  channel: Channel;
+  connection: Connection;
+  t: ChannelTokens;
+}) {
+  const Icon = channel.icon;
+  const [imageFailed, setImageFailed] = useState(false);
+  const hasAvatar = Boolean(connection.avatarUrl) && !imageFailed;
+
+  useEffect(() => {
+    setImageFailed(false);
+  }, [connection.avatarUrl]);
+
+  if (connection.connected && hasAvatar) {
+    return (
+      <span className="relative h-11 w-11 shrink-0">
+        <img
+          src={connection.avatarUrl}
+          alt=""
+          referrerPolicy="no-referrer"
+          onError={() => setImageFailed(true)}
+          className="h-11 w-11 rounded-[14px] object-cover select-none"
+        />
+        <span
+          className={cx(
+            "absolute -right-1 -bottom-1 flex h-[18px] w-[18px] items-center justify-center",
+            "rounded-[5px] text-black ring-2",
+            t.avatarBadgeBg
+          )}
+        >
+          <Icon className="h-[11px] w-[11px]" size={11} />
+        </span>
+      </span>
+    );
+  }
+
+  return (
+    <div
+      className={cx(
+        "flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] border",
+        connection.connected ? t.iconConnected : t.icon
+      )}
+    >
+      <Icon className="h-[21px] w-[21px]" size={21} />
+    </div>
+  );
+}
+
+function ChannelRow({
+  channel,
+  connection,
+  pending,
+  disabled,
+  t,
+  isDark,
+  onToggle,
+  onReconnect,
+}: {
+  channel: Channel;
+  connection: Connection;
+  pending: boolean;
+  disabled: boolean;
+  t: ChannelTokens;
+  isDark: boolean;
+  onToggle: () => void;
+  onReconnect: () => void;
+}) {
+  const isConnected = connection.connected;
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onPointerDown = (event: MouseEvent) => {
+      if (!menuRef.current?.contains(event.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMenuOpen(false);
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [menuOpen]);
+
+  return (
+    <div
+      onClick={() => !isConnected && !disabled && !pending && onToggle()}
+      className={cx(
+        "group relative flex items-center gap-4 rounded-xl px-4 py-4 transition-colors",
+        !isConnected && !disabled
+          ? isDark
+            ? "cursor-pointer hover:bg-white/[0.04]"
+            : "cursor-pointer hover:bg-black/[0.03]"
+          : "",
+        disabled ? "opacity-50" : ""
+      )}
+    >
+      <ChannelAvatar channel={channel} connection={connection} t={t} />
+
+      <div className="flex min-w-0 flex-1 flex-col">
+        <span className={cx("text-[14px] font-semibold", t.text)}>
+          {isConnected ? connection.handle || channel.name : channel.name}
+        </span>
+        <span className="truncate text-[12.5px] text-neutral-400">
+          {isConnected ? "Connected" : channel.subtitle}
+        </span>
+      </div>
+
+      {isConnected ? (
+        <div ref={menuRef} className="relative shrink-0">
+          <button
+            type="button"
+            aria-label={`Options for ${channel.name}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              setMenuOpen((value) => !value);
+            }}
+            className={cx(
+              "flex h-8 w-8 items-center justify-center rounded-lg transition-colors",
+              t.muted,
+              isDark
+                ? "hover:bg-white/[0.06] hover:text-white"
+                : "hover:bg-black/[0.05] hover:text-neutral-900",
+              t.ring
+            )}
+          >
+            <MoreIcon className="h-4 w-4" />
+          </button>
+
+          {menuOpen && (
+            <div
+              className={cx(
+                "absolute top-10 right-0 z-50 w-44 rounded-xl border p-1 shadow-xl",
+                isDark
+                  ? "border-white/[0.08] bg-[#16161a]"
+                  : "border-black/[0.06] bg-white"
+              )}
+            >
+              <button
+                type="button"
+                disabled={pending}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setMenuOpen(false);
+                  onReconnect();
+                }}
+                className={cx(
+                  "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-[11px] font-medium disabled:opacity-40",
+                  isDark
+                    ? "text-neutral-200 hover:bg-white/[0.06] hover:text-white"
+                    : "text-neutral-700 hover:bg-black/[0.04] hover:text-neutral-900"
+                )}
+              >
+                <RefreshIcon />
+                Reconnect
+              </button>
+
+              <div
+                className={cx(
+                  "my-1 h-px",
+                  isDark ? "bg-white/[0.06]" : "bg-black/[0.06]"
+                )}
+              />
+
+              <button
+                type="button"
+                disabled={pending}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setMenuOpen(false);
+                  onToggle();
+                }}
+                className={cx(
+                  "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-[11px] font-medium disabled:opacity-40",
+                  isDark
+                    ? "text-rose-400 hover:bg-rose-500/[0.07]"
+                    : "text-rose-600 hover:bg-rose-500/[0.07]"
+                )}
+              >
+                <DisconnectIcon />
+                Disconnect
+              </button>
+            </div>
+          )}
+        </div>
+      ) : (
+        <ChevronRightIcon className="h-4 w-4 shrink-0 text-neutral-500 transition-transform group-hover:translate-x-0.5" />
+      )}
+    </div>
+  );
+}
+
+function ChannelsSection({
+  tokens,
+  notify,
+  isDark,
+}: {
+  tokens: Tokens;
+  notify: Notify;
+  isDark: boolean;
+}) {
+  const { user } = useUser();
+  const userId = user?.id ?? null;
+  const t = useMemo(() => channelTokens(isDark), [isDark]);
+
+  const [connections, setConnections] = useState<ConnectionState>(() => {
+    if (!userId) return initialConnections;
+    const tiktok = readCache(userId, "tiktok");
+    const pinterest = readCache(userId, "pinterest");
+    const youtube = readCache(userId, "youtube");
+    return {
+      ...initialConnections,
+      ...(tiktok ? { tiktok: tiktok.connection } : {}),
+      ...(pinterest ? { pinterest: pinterest.connection } : {}),
+      ...(youtube ? { youtube: youtube.connection } : {}),
+    };
+  });
+
+  const [pendingKey, setPendingKey] = useState<ChannelKey | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [onboardingAccount, setOnboardingAccount] =
+    useState<OnboardingAccount | null>(null);
+  const [confirming, setConfirming] = useState(false);
+
+  const tiktokBusy = useRef(false);
+  const pinterestBusy = useRef(false);
+  const youtubeBusy = useRef(false);
+
+  /* ---- Onboarding ---- */
+
+  const startOnboarding = (key: ChannelKey, connection: Connection) => {
+    const channel = CHANNELS.find((c) => c.key === key);
+    if (!channel) return;
+    setConfirming(false);
+    setOnboardingAccount(buildAccount(channel, connection));
+    notify(`${channel.name} connected successfully!`, "success");
+  };
+
+  const handleConfirmAccount = () => {
+    if (!onboardingAccount || confirming) return;
+    const account = onboardingAccount;
+    setConfirming(true);
+
+    window.setTimeout(() => {
+      setOnboardingAccount(null);
+      setConfirming(false);
+      navigate(INSIGHT_ROUTE);
+      window.setTimeout(() => openFrequencyOnboarding(account, isDark), 150);
+    }, 300);
+  };
+
+  const handleRejectAccount = () => {
+    if (!onboardingAccount) return;
+    const key = onboardingAccount.key;
+    setOnboardingAccount(null);
+    handleToggle(key);
+  };
+
+  const handleCloseOnboarding = () => {
+    setOnboardingAccount(null);
+    setConfirming(false);
+  };
+
+  /* ---- Derived ---- */
+
+  const connectedCount = useMemo(
+    () => CHANNELS.filter((c) => connections[c.key].connected).length,
+    [connections]
+  );
+  const limitReached = connectedCount >= PLAN.maxChannels;
+  const slotsLeft = Math.max(0, PLAN.maxChannels - connectedCount);
+
+  /* ---- Sync OAuth ---- */
+
+  useEffect(() => {
+    if (!userId) return;
+    const basePath = window.location.pathname;
+    const params = new URLSearchParams(window.location.search);
+
+    const tiktokError = params.get("tiktok_error");
+    const pinterestError = params.get("pinterest_error");
+    const youtubeError = params.get("youtube_error");
+
+    const fromUrl: Record<CacheProvider, boolean> = {
+      tiktok: params.has("tiktok") || Boolean(tiktokError),
+      pinterest: params.has("pinterest") || Boolean(pinterestError),
+      youtube: params.has("youtube") || Boolean(youtubeError),
+    };
+    const oauthErrors: Record<CacheProvider, string | null> = {
+      tiktok: tiktokError,
+      pinterest: pinterestError,
+      youtube: youtubeError,
+    };
+
+    const providers: CacheProvider[] = ["tiktok", "pinterest", "youtube"];
+    const pendingReturn = new Set<CacheProvider>(readReturned());
+    providers.forEach((p) => {
+      if (fromUrl[p]) pendingReturn.add(p);
+      if (oauthErrors[p]) pendingReturn.delete(p);
+    });
+    writeReturned([...pendingReturn]);
+
+    const returned: Record<CacheProvider, boolean> = {
+      tiktok: pendingReturn.has("tiktok"),
+      pinterest: pendingReturn.has("pinterest"),
+      youtube: pendingReturn.has("youtube"),
+    };
+
+    if (tiktokError)
+      setErrorMessage(`Unable to connect to TikTok. ${tiktokError}`);
+    if (pinterestError)
+      setErrorMessage(`Unable to connect to Pinterest. ${pinterestError}`);
+    if (youtubeError)
+      setErrorMessage(`Unable to connect to YouTube Shorts. ${youtubeError}`);
+
+    if (returned.tiktok) clearCache(userId, "tiktok");
+    if (returned.pinterest) clearCache(userId, "pinterest");
+    if (returned.youtube) clearCache(userId, "youtube");
+
+    if (fromUrl.tiktok || fromUrl.pinterest || fromUrl.youtube) {
+      [
+        "tiktok",
+        "tiktok_error",
+        "pinterest",
+        "pinterest_error",
+        "youtube",
+        "youtube_error",
+      ].forEach((key) => params.delete(key));
+      const qs = params.toString();
+      window.history.replaceState(
+        null,
+        "",
+        `${basePath}${qs ? `?${qs}` : ""}${window.location.hash}`
+      );
+    }
+
+    let cancelled = false;
+
+    const sync = (
+      provider: CacheProvider,
+      justReturned: boolean,
+      fetchStatus: () => Promise<StatusResponse>
+    ) => {
+      const cached = justReturned ? null : readCache(userId, provider);
+      if (cached) {
+        setConnections((current) => ({
+          ...current,
+          [provider]: cached.connection,
+        }));
+        if (Date.now() - cached.savedAt < CACHE_MAX_AGE_MS) return;
+      }
+
+      void (async () => {
+        try {
+          const status = await fetchStatus();
+          if (cancelled) return;
+          if (justReturned) {
+            writeReturned(readReturned().filter((p) => p !== provider));
+          }
+          const connection = toConnection(status);
+          if (connection.connected) writeCache(userId, connection, provider);
+          else clearCache(userId, provider);
+          setConnections((current) => ({
+            ...current,
+            [provider]: connection,
+          }));
+
+          if (justReturned && connection.connected) {
+            startOnboarding(provider, connection);
+          }
+        } catch (error) {
+          console.warn(`[Stone] Could not load ${provider} status:`, error);
+        }
+      })();
+    };
+
+    sync("tiktok", returned.tiktok, getTikTokStatus);
+    sync("pinterest", returned.pinterest, getPinterestStatus);
+    sync("youtube", returned.youtube, getYouTubeStatus);
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]);
+
+  useEffect(() => {
+    if (!userId) return;
+
+    const refreshConnections = () => {
+      setConnections((current) => ({
+        ...current,
+        tiktok:
+          readCache(userId, "tiktok")?.connection ?? { connected: false },
+        pinterest:
+          readCache(userId, "pinterest")?.connection ?? { connected: false },
+        youtube:
+          readCache(userId, "youtube")?.connection ?? { connected: false },
+      }));
+    };
+
+    window.addEventListener(CHANNELS_CHANGED_EVENT, refreshConnections);
+    return () =>
+      window.removeEventListener(CHANNELS_CHANGED_EVENT, refreshConnections);
+  }, [userId]);
+
+  /* ---- OAuth ---- */
+
+  const handleTikTokToggle = async (isReconnect = false) => {
+    if (tiktokBusy.current) return;
+    tiktokBusy.current = true;
+    setPendingKey("tiktok");
+    let redirecting = false;
+    try {
+      if (connections.tiktok.connected) {
+        await disconnectTikTok();
+        if (userId) clearCache(userId, "tiktok");
+        setConnections((current) => ({
+          ...current,
+          tiktok: { connected: false },
+        }));
+        if (!isReconnect) {
+          notify("TikTok disconnected successfully!", "success");
+          return;
+        }
+      }
+      markReturning("tiktok");
+      await startTikTokLogin();
+      redirecting = true;
+    } catch (error) {
+      console.error("[Stone] TikTok OAuth error:", error);
+      setErrorMessage(formatOAuthError("TikTok", error));
+    } finally {
+      if (!redirecting) {
+        setPendingKey(null);
+        tiktokBusy.current = false;
+      }
+    }
+  };
+
+  const handlePinterestToggle = async (isReconnect = false) => {
+    if (pinterestBusy.current) return;
+    pinterestBusy.current = true;
+    setPendingKey("pinterest");
+    let redirecting = false;
+    try {
+      if (connections.pinterest.connected) {
+        await disconnectPinterest();
+        if (userId) clearCache(userId, "pinterest");
+        setConnections((current) => ({
+          ...current,
+          pinterest: { connected: false },
+        }));
+        if (!isReconnect) {
+          notify("Pinterest disconnected successfully!", "success");
+          return;
+        }
+      }
+      if (import.meta.env.VITE_PINTEREST_MANUAL_TOKEN === "true") {
+        const token = window.prompt("Pinterest access token:");
+        if (!token?.trim()) {
+          setPendingKey(null);
+          return;
+        }
+        const account = await connectPinterestWithToken(token.trim());
+        const connection: Connection = {
+          connected: true,
+          handle: account?.display_name ?? undefined,
+          avatarUrl: account?.avatar_url ?? undefined,
+        };
+        if (userId) writeCache(userId, connection, "pinterest");
+        setConnections((current) => ({ ...current, pinterest: connection }));
+        startOnboarding("pinterest", connection);
+      } else {
+        markReturning("pinterest");
+        await startPinterestLogin();
+        redirecting = true;
+      }
+    } catch (error) {
+      console.error("[Stone] Pinterest OAuth error:", error);
+      setErrorMessage(formatOAuthError("Pinterest", error));
+    } finally {
+      if (!redirecting) {
+        setPendingKey(null);
+        pinterestBusy.current = false;
+      }
+    }
+  };
+
+  const handleYouTubeToggle = async (isReconnect = false) => {
+    if (youtubeBusy.current) return;
+    youtubeBusy.current = true;
+    setPendingKey("youtube");
+    let redirecting = false;
+    try {
+      if (connections.youtube.connected) {
+        await disconnectYouTube();
+        if (userId) clearCache(userId, "youtube");
+        setConnections((current) => ({
+          ...current,
+          youtube: { connected: false },
+        }));
+        if (!isReconnect) {
+          notify("YouTube Shorts disconnected successfully!", "success");
+          return;
+        }
+      }
+      markReturning("youtube");
+      await startYouTubeLogin();
+      redirecting = true;
+    } catch (error) {
+      console.error("[Stone] YouTube OAuth error:", error);
+      setErrorMessage(formatOAuthError("YouTube Shorts", error));
+    } finally {
+      if (!redirecting) {
+        setPendingKey(null);
+        youtubeBusy.current = false;
+      }
+    }
+  };
+
+  const handlePlaceholderToggle = (key: ChannelKey) => {
+    const wasConnected = connections[key].connected;
+    const name = CHANNELS.find((c) => c.key === key)?.name ?? key;
+    setPendingKey(key);
+    window.setTimeout(() => {
+      if (wasConnected) {
+        setConnections((current) => ({
+          ...current,
+          [key]: { connected: false },
+        }));
+        notify(`${name} disconnected successfully!`, "success");
+      } else {
+        const connection: Connection = {
+          connected: true,
+          handle: mockHandleFor(key),
+        };
+        setConnections((current) => ({ ...current, [key]: connection }));
+        startOnboarding(key, connection);
+      }
+      setPendingKey(null);
+    }, 450);
+  };
+
+  const handlePlaceholderReconnect = (key: ChannelKey) => {
+    setPendingKey(key);
+    window.setTimeout(() => {
+      const connection: Connection = {
+        connected: true,
+        handle: mockHandleFor(key),
+      };
+      setConnections((current) => ({ ...current, [key]: connection }));
+      startOnboarding(key, connection);
+      setPendingKey(null);
+    }, 450);
+  };
+
+  function handleToggle(key: ChannelKey) {
+    setErrorMessage(null);
+    if (!connections[key].connected && limitReached) {
+      setErrorMessage(
+        `Your ${PLAN.name} plan allows up to ${PLAN.maxChannels} channels. Upgrade to connect more.`
+      );
+      return;
+    }
+    if (key === "tiktok") return void handleTikTokToggle();
+    if (key === "pinterest") return void handlePinterestToggle();
+    if (key === "youtube") return void handleYouTubeToggle();
+    handlePlaceholderToggle(key);
+  }
+
+  function handleReconnect(key: ChannelKey) {
+    setErrorMessage(null);
+    if (key === "tiktok") return void handleTikTokToggle(true);
+    if (key === "pinterest") return void handlePinterestToggle(true);
+    if (key === "youtube") return void handleYouTubeToggle(true);
+    handlePlaceholderReconnect(key);
+  }
+
+  const handleUpgrade = () => console.log("[Stone] Upgrade clicked");
+
+  const panelSurface = isDark
+    ? "border-white/[0.07] bg-white/[0.03]"
+    : "border-black/[0.06] bg-[#f6f4f0]";
+  const mutedText = isDark ? "text-neutral-500" : "text-neutral-400";
+  const strongText = isDark ? "text-white" : "text-neutral-900";
+
+  return (
+    <>
+      <p className={cx("text-[13px]", mutedText)}>
+        Your connected accounts at a glance. Click on a channel to connect it.
+      </p>
+
+      {/* Bannière plan */}
+      <div
+        className={cx(
+          "relative flex flex-col justify-between gap-6 overflow-hidden rounded-2xl border p-6 md:flex-row md:items-center md:p-8",
+          panelSurface
+        )}
+      >
+        <div className="flex items-start gap-4">
+          <div
+            className={cx(
+              "flex h-12 w-12 shrink-0 items-center justify-center rounded-xl",
+              isDark
+                ? "bg-white/[0.06] text-white"
+                : "bg-white text-black shadow-sm ring-1 ring-black/[0.05]"
+            )}
+          >
+            <BoltIcon />
+          </div>
+          <div>
+            <h2 className={cx("text-lg font-bold tracking-tight", strongText)}>
+              {PLAN.name} Plan
+            </h2>
+            <p className={cx("mt-1 text-[13px]", mutedText)}>
+              You are currently on the {PLAN.name} plan. You can connect up to{" "}
+              {PLAN.maxChannels} channels.
+              {slotsLeft > 0 ? ` ${slotsLeft} slots remaining.` : " Limit reached."}
+            </p>
+          </div>
+        </div>
+
+        <Button tokens={tokens} onClick={handleUpgrade} className="shrink-0">
+          Upgrade Plan
+        </Button>
+      </div>
+
+      {/* Erreur */}
+      {errorMessage && (
+        <div
+          role="alert"
+          className="flex shrink-0 items-center gap-2.5 rounded-xl border border-rose-500/20 bg-rose-500/[0.06] px-4 py-3 text-[12px] text-rose-600 dark:text-rose-400"
+          style={isDark ? { color: "#fb7185" } : undefined}
+        >
+          <span className="flex-1">{errorMessage}</span>
+          <button
+            type="button"
+            aria-label="Dismiss"
+            onClick={() => setErrorMessage(null)}
+            className="rounded-md p-1 hover:bg-rose-500/10"
+          >
+            <CloseIcon className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
+
+      {/* Grille des channels */}
+      <div className="grid grid-cols-1 gap-2 md:grid-cols-2 lg:gap-4">
+        {CHANNELS.map((channel) => (
+          <ChannelRow
+            key={channel.key}
+            channel={channel}
+            connection={connections[channel.key]}
+            pending={pendingKey === channel.key}
+            disabled={false}
+            t={t}
+            isDark={isDark}
+            onToggle={() => handleToggle(channel.key)}
+            onReconnect={() => handleReconnect(channel.key)}
+          />
+        ))}
+      </div>
+
+      <div className={cx("flex items-center justify-between text-[11px]", mutedText)}>
+        <span>Secure OAuth connections</span>
+      </div>
+
+      {onboardingAccount && (
+        <ConfirmAccountModal
+          account={onboardingAccount}
+          isDark={isDark}
+          loading={confirming}
+          onConfirm={handleConfirmAccount}
+          onReject={handleRejectAccount}
+          onClose={handleCloseOnboarding}
+        />
+      )}
     </>
   );
 }
