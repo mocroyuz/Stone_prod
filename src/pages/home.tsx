@@ -1114,7 +1114,7 @@ function CommentAvatar({
     network === "youtube" ? YouTubeShortsIcon : NETWORK_ICONS[network];
 
   return (
-    <div className="relative h-10 w-10 shrink-0">
+    <div className="relative h-8 w-8 shrink-0">
       {src && !failed ? (
         <img
           src={src}
@@ -1139,12 +1139,12 @@ function CommentAvatar({
       {/* L'anneau reprend la couleur de la carte (= celle du panneau Comments vide) */}
       <span
         className={[
-          "absolute -bottom-1 -right-1 flex h-5 w-5 items-center",
+          "absolute -bottom-1 -right-1 flex h-4 w-4 items-center",
           "justify-center rounded-full bg-white text-black ring-2",
           panelRingClass(isDark),
         ].join(" ")}
       >
-        <NetworkIcon className="h-3.5 w-3.5" />
+        <NetworkIcon className="h-2.5 w-2.5" />
       </span>
     </div>
   );
@@ -1154,12 +1154,14 @@ function CommentAvatar({
    COMMENTS PANEL
 ============================================================ */
 
-/* Pile de cartes : même hauteur que le panneau « Up Next » (190 px),
-   sans fond visible autour. Le commentaire le plus récent est devant,
-   les suivants dépassent au-dessus, la pile monte vers le haut. */
+/* Pile de cartes compactes, de bas en haut : même hauteur que le panneau
+   « Up Next » (190 px), sans fond visible autour. Le commentaire le plus
+   récent est devant (en bas), les suivants dépassent au-dessus avec leur
+   en-tête et la première ligne de leur texte bien lisibles. */
 const DECK_HEIGHT = 190;
-const DECK_PEEK = 14;
-const DECK_CARD_HEIGHT = DECK_HEIGHT - DECK_PEEK * 2;
+const DECK_PEEK = 44;
+const DECK_FRONT_MAX = 120;
+const DECK_INSET = 8;
 
 function CommentsPanel({
   isDark,
@@ -1176,16 +1178,17 @@ function CommentsPanel({
   onOpen: (channelKey: string) => void;
   onViewMore: () => void;
 }) {
-  const front = comments[0];
-  const behind = comments.slice(1, 3);
+  const stack = comments.slice(0, 3);
+  const frontHeight = Math.min(
+    DECK_FRONT_MAX,
+    DECK_HEIGHT - (stack.length - 1) * DECK_PEEK
+  );
 
   /* Fond opaque (équivalent du fond du panneau vide) : les cartes se
      recouvrent, elles ne doivent pas se voir à travers. */
   const deckSurface = isDark
     ? "border-white/[0.07] bg-[#151517]"
     : "border-black/[0.06] bg-[#f6f4f0]";
-
-  const time = front ? timeAgo(front.publishedAt, now) : "";
 
   return (
     <section className="min-w-0">
@@ -1218,62 +1221,49 @@ function CommentsPanel({
         </button>
       </div>
 
-      {front && (
-        <div className="relative" style={{ height: DECK_HEIGHT }}>
-          {/* Cartes derrière : seul leur bord dépasse au-dessus de la carte de devant */}
-          {behind.map((c, index) => {
-            const depth = index + 1;
+      <div className="relative" style={{ height: DECK_HEIGHT }}>
+        {stack.map((c, index) => {
+          const isFront = index === 0;
+          const time = timeAgo(c.publishedAt, now);
 
-            return (
-              <div
-                key={c.id}
-                aria-hidden="true"
-                className={[
-                  "pointer-events-none absolute inset-x-0 bottom-0 rounded-2xl border",
-                  deckSurface,
-                ].join(" ")}
-                style={{
-                  height: DECK_CARD_HEIGHT,
-                  zIndex: 10 - depth,
-                  transformOrigin: "top center",
-                  transform: `translateY(${-depth * DECK_PEEK}px) scale(${1 - depth * 0.05})`,
-                  opacity: 1 - depth * 0.18,
-                }}
-              />
-            );
-          })}
-
-          {/* Carte de devant : le commentaire le plus récent */}
-          <button
-            type="button"
-            onClick={() => onOpen(front.channel.key)}
-            className={[
-              "group absolute inset-x-0 bottom-0 z-20 flex flex-col justify-between",
-              "rounded-2xl border p-4 text-left",
-              "transition-colors duration-200 motion-reduce:transition-none",
-              focusRingClass(isDark),
-              deckSurface,
-              isDark
-                ? "hover:border-white/[0.14] hover:bg-[#19191c]"
-                : "hover:border-black/[0.12] hover:bg-[#f1eee9]",
-            ].join(" ")}
-            style={{ height: DECK_CARD_HEIGHT }}
-          >
-            <div className="flex items-center gap-3">
+          return (
+            <button
+              key={c.id}
+              type="button"
+              onClick={() => onOpen(c.channel.key)}
+              className={[
+                "group absolute flex items-start gap-3 overflow-hidden rounded-2xl border px-3.5 pt-3 text-left",
+                "transition-colors duration-200 motion-reduce:transition-none",
+                focusRingClass(isDark),
+                deckSurface,
+                isDark
+                  ? "hover:border-white/[0.14] hover:bg-[#19191c]"
+                  : "hover:border-black/[0.12] hover:bg-[#f1eee9]",
+              ].join(" ")}
+              style={{
+                height: frontHeight,
+                bottom: 0,
+                left: index * DECK_INSET,
+                right: index * DECK_INSET,
+                /* index 0 = devant, bas ; les suivants remontent derrière */
+                transform: `translateY(${-index * DECK_PEEK}px)`,
+                zIndex: 10 - index,
+              }}
+            >
               <CommentAvatar
-                src={front.authorAvatar}
-                name={front.author}
-                network={front.network}
+                src={c.authorAvatar}
+                name={c.author}
+                network={c.network}
                 isDark={isDark}
               />
 
               <span className="sr-only">
-                {front.channel.handle || front.channel.name} on {front.network}.
+                {c.channel.handle || c.channel.name} on {c.network}.
               </span>
 
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5">
-                  {!front.isRead && (
+                  {!c.isRead && (
                     <span
                       role="img"
                       aria-label="Unread"
@@ -1282,100 +1272,79 @@ function CommentsPanel({
                   )}
                   <span
                     className={[
-                      "truncate text-[12.5px] font-semibold",
+                      "truncate text-[12px] font-semibold",
                       strongClass(isDark),
                     ].join(" ")}
                   >
-                    {front.author}
+                    {c.author}
                   </span>
                   {time && (
                     <span
-                      className={["shrink-0 text-[11px]", mutedClass(isDark)].join(" ")}
+                      className={["shrink-0 text-[10.5px]", mutedClass(isDark)].join(" ")}
                     >
                       · {time}
                     </span>
                   )}
+
+                  {isFront && (
+                    <span
+                      className={[
+                        "ml-auto inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5",
+                        "text-[9.5px] font-semibold",
+                        c.answered
+                          ? isDark
+                            ? "bg-emerald-500/10 text-emerald-400"
+                            : "bg-emerald-500/10 text-emerald-600"
+                          : isDark
+                            ? "bg-blue-500/10 text-blue-400"
+                            : "bg-blue-500/10 text-blue-600",
+                      ].join(" ")}
+                    >
+                      {c.answered ? (
+                        <Check className="h-2.5 w-2.5" aria-hidden="true" />
+                      ) : (
+                        <span
+                          aria-hidden="true"
+                          className="h-1.5 w-1.5 rounded-full bg-current"
+                        />
+                      )}
+                      {c.answered ? "Answered" : "Needs a reply"}
+                    </span>
+                  )}
                 </div>
 
-                {front.videoTitle && (
+                <p
+                  className={[
+                    "mt-0.5 break-words text-[12.5px] leading-snug",
+                    isDark ? "text-neutral-200" : "text-neutral-800",
+                  ].join(" ")}
+                  style={{
+                    display: "-webkit-box",
+                    WebkitLineClamp: isFront ? 2 : 1,
+                    WebkitBoxOrient: "vertical",
+                    overflow: "hidden",
+                  }}
+                >
+                  {c.text}
+                </p>
+
+                {isFront && c.videoTitle && (
                   <p
                     className={[
-                      "mt-0.5 truncate text-[11px]",
+                      "mt-1.5 truncate text-[10.5px]",
                       isDark ? "text-neutral-500" : "text-neutral-400",
                     ].join(" ")}
-                    title={front.videoTitle}
+                    title={c.videoTitle}
                   >
                     <span className="sr-only">On video: </span>
-                    {front.videoTitle}
+                    {c.videoTitle}
                   </p>
                 )}
               </div>
-
-              <ArrowUpRight
-                aria-hidden="true"
-                className={[
-                  "h-4 w-4 shrink-0 opacity-0 transition-opacity duration-200",
-                  "group-hover:opacity-100 group-focus-visible:opacity-100",
-                  "motion-reduce:transition-none",
-                  isDark ? "text-neutral-400" : "text-neutral-500",
-                ].join(" ")}
-              />
-            </div>
-
-            <p
-              className={[
-                "break-words text-[13.5px] leading-relaxed",
-                isDark ? "text-neutral-100" : "text-neutral-800",
-              ].join(" ")}
-              style={{
-                display: "-webkit-box",
-                WebkitLineClamp: 2,
-                WebkitBoxOrient: "vertical",
-                overflow: "hidden",
-              }}
-            >
-              {front.text}
-            </p>
-
-            <div className="flex items-center justify-between gap-2">
-              {front.answered ? (
-                <span
-                  className={[
-                    "inline-flex items-center gap-1 rounded-full px-2 py-0.5",
-                    "text-[10px] font-semibold",
-                    "bg-emerald-500/10",
-                    isDark ? "text-emerald-400" : "text-emerald-600",
-                  ].join(" ")}
-                >
-                  <Check className="h-3 w-3" aria-hidden="true" />
-                  Answered
-                </span>
-              ) : (
-                <span
-                  className={[
-                    "inline-flex items-center gap-1.5 rounded-full px-2 py-0.5",
-                    "text-[10px] font-semibold",
-                    "bg-blue-500/10",
-                    isDark ? "text-blue-400" : "text-blue-600",
-                  ].join(" ")}
-                >
-                  <span
-                    aria-hidden="true"
-                    className="h-1.5 w-1.5 rounded-full bg-current"
-                  />
-                  Needs a reply
-                </span>
-              )}
-
-              {behind.length > 0 && (
-                <span className={["text-[10px] font-medium", mutedClass(isDark)].join(" ")}>
-                  +{behind.length} more
-                </span>
-              )}
-            </div>
-          </button>
-        </div>
-      )}
+            </button>
+          );
+        })}
+      </div>
     </section>
   );
 }

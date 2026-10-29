@@ -1020,11 +1020,13 @@ function ChannelAvatar({
   NetworkIcon,
   dotRing,
   size = "md",
+  hasUnread = false,
 }: {
   channel: ConnectedChannel;
   NetworkIcon?: IconComponent;
   dotRing: string;
   size?: "md" | "lg";
+  hasUnread?: boolean;
 }) {
   const [failed, setFailed] = useState(false);
 
@@ -1063,6 +1065,17 @@ function ChannelAvatar({
         </span>
       )}
 
+      {/* Notification de commentaire non lu : boule blanche ou noire */}
+      {hasUnread && (
+        <span
+          className={[
+            "absolute -left-0.5 -top-0.5 flex h-2.5 w-2.5 rounded-full ring-2",
+            "bg-black dark:bg-white", // Noire en mode clair, blanche en mode sombre
+            dotRing,
+          ].join(" ")}
+        />
+      )}
+
       {/* Badge réseau : 14px (h-3.5 w-3.5), icône 10px */}
       {NetworkIcon && (
         <span
@@ -1099,6 +1112,7 @@ function ChannelHoverCard({
   onNavigate,
   onNewPost,
   children,
+  hasUnread,
 }: {
   channel: ConnectedChannel;
   label: string;
@@ -1112,6 +1126,7 @@ function ChannelHoverCard({
   onNavigate: (route: string) => void;
   onNewPost: (channelKey: string) => void;
   children: ReactNode;
+  hasUnread?: boolean;
 }) {
   const anchorRef = useRef<HTMLSpanElement>(null);
   const popRef = useRef<HTMLDivElement>(null);
@@ -1256,6 +1271,7 @@ function ChannelHoverCard({
                 channel={channel}
                 NetworkIcon={NetworkIcon}
                 dotRing={t.dotRing}
+                hasUnread={hasUnread}
               />
               <span
                 className={[
@@ -2221,6 +2237,10 @@ function SidebarChannelsImpl({
             : hashChannel === channel.key);
 
         const isDragging = dragKey === channel.key;
+        
+        // Simulation : indique qu'il y a un commentaire non lu sur ce canal
+        // Vous pouvez remplacer cette condition par vos vraies données (ex: channel.hasUnread)
+        const hasUnread = channel.key === channels[0]?.key; 
 
         return (
           <div
@@ -2304,6 +2324,7 @@ function SidebarChannelsImpl({
                 enabled={compact}
                 onNavigate={onNavigate}
                 onNewPost={onNewPost}
+                hasUnread={hasUnread}
               >
                 <button
                   type="button"
@@ -2348,6 +2369,7 @@ function SidebarChannelsImpl({
                     NetworkIcon={NetworkIcon}
                     dotRing={t.dotRing}
                     size={compact ? "lg" : "md"}
+                    hasUnread={hasUnread}
                   />
 
                   {!compact && (
@@ -3600,13 +3622,6 @@ export default function DashboardSidebar({
                       {account.initials}
                     </span>
                   )}
-                  {/* Point de notification sans chiffre */}
-                  <span
-                    className={[
-                      "absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-rose-500 ring-2",
-                      isDark ? "ring-[#09090a]" : "ring-[#f5f3ef]",
-                    ].join(" ")}
-                  />
                 </span>
 
                 {!compact && (
