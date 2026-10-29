@@ -2713,10 +2713,8 @@ export default function NewPostModal({
   const brandedChosen =
     tiktokMode === "direct" && tiktokCommercial.on && tiktokCommercial.branded;
 
-  const tiktokBlockingReason: string | null = !tiktokSelected
+    const tiktokBlockingReason: string | null = !tiktokSelected
     ? null
-    : scheduleAction === "set_date"
-    ? "TikTok doesn't support scheduling. Choose “Now” or remove TikTok."
     : scheduleAction === "save_in_folder"
     ? null
     : !tiktokPostType
@@ -3837,7 +3835,7 @@ export default function NewPostModal({
                           )}
 
                           {/* TikTok */}
-                          {networkId === "tiktok" && scheduleAction !== "save_in_folder" && (
+                         {networkId === "tiktok" && scheduleAction !== "save_in_folder" && scheduleAction !== "set_date" && (
                             <SettingsBlock
                               title={`TikTok settings${tiktokInfo?.creator_nickname ? ` · ${tiktokInfo.creator_nickname}` : ""}`}
                               subtitle={tiktokTypeLabel}
