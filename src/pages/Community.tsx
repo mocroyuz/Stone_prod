@@ -6,7 +6,7 @@ import { navigate, useHashRoute } from "../hooks/useHashRoute";
 import DashboardSidebar, {
   useSidebarOffset,
   useFavorites,
-  setChannelUnreadCount,
+  setChannelUnreadCount, // ✅ AJOUT — synchronise les non-lus vers la sidebar
 } from "../components/DashboardSidebar";
 import BottomBar, { type BottomBarTab } from "../components/Bottombar";
 import Folder from "../components/Folder";
@@ -55,14 +55,16 @@ const FILTERS: { key: Filter; label: string }[] = [
   { key: "answered", label: "Answered" },
 ];
 
+/** Route de cette page dans la sidebar (section Favorite). */
 const PAGE_ROUTE = "community";
 
+/** Actualisation automatique (onglet visible uniquement). */
 const COMMENTS_POLL_MS = 60_000;
 const VIDEOS_POLL_MS = 5 * 60_000;
 
 const REPLY_MAX = 10_000;
 
-/* ───────── Shell ───────── */
+/* ───────── Shell (identique à Home) ───────── */
 
 const pageBgClass = (isDark: boolean) =>
   isDark ? "bg-[#09090a]" : "bg-[#f5f3ef]";
@@ -82,33 +84,21 @@ const focusRingClass = (isDark: boolean) =>
 
 /* ───────── Helpers ───────── */
 
+/** Miniature YouTube : fonctionne pour n'importe quelle vidéo, même hors liste chargée. */
 const thumbnailFor = (videoId: string) =>
   `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`;
 
-function baseRoute(route: string): string {
-  const q = route.indexOf("?");
-  return q === -1 ? route : route.slice(0, q);
-}
-
-/**
- * Lit le canal actif en priorité dans le hash (#community?channel=xxx),
- * puis fallback sur la query classique (/community?channel=xxx).
- */
 function useHashChannel(): string | null {
   useHashRoute();
-
-  if (typeof window === "undefined") return null;
-
-  const hash = window.location.hash.slice(1);
-  const q = hash.indexOf("?");
-  if (q !== -1) {
-    const ch = new URLSearchParams(hash.slice(q + 1)).get("channel");
-    if (ch) return ch;
-  }
-
   return new URLSearchParams(window.location.search).get("channel");
 }
 
+/**
+ * Fusionne la première page fraîche (polling) dans la liste affichée :
+ * - les nouveaux commentaires sont ajoutés en haut ;
+ * - les commentaires déjà connus sont mis à jour (likes, réponses, lu / non lu…) ;
+ * - les pages déjà chargées via « Load more » sont conservées.
+ */
 function mergeComments(
   prev: YouTubeComment[],
   fresh: YouTubeComment[]
@@ -135,6 +125,9 @@ function useCommunity(
   const [nextPageToken, setNextPageToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  // Deux états d'erreur séparés :
+  //   - `error`      : erreurs de chargement des COMMENTAIRES
+  //   - `postsError` : erreurs de chargement des VIDÉOS
   const [error, setError] = useState<string | null>(null);
   const [postsError, setPostsError] = useState<string | null>(null);
 
@@ -143,6 +136,7 @@ function useCommunity(
 
   const isYouTube = Boolean(channelKey?.toLowerCase().startsWith("youtube"));
 
+  /* ── Posts (vidéos) : chargement + actualisation lente ── */
   useEffect(() => {
     if (!isYouTube) {
       setPosts([]);
@@ -187,6 +181,7 @@ function useCommunity(
     };
   }, [isYouTube, channelKey, reloadKey]);
 
+  /* ── Commentaires : chargement initial ── */
   useEffect(() => {
     if (!isYouTube || tab !== "comments") {
       setComments([]);
@@ -221,6 +216,7 @@ function useCommunity(
     };
   }, [isYouTube, channelKey, tab, filter, postId, reloadKey]);
 
+  /* ── Commentaires : actualisation automatique (sans refresh manuel) ── */
   useEffect(() => {
     if (!isYouTube || tab !== "comments") return;
 
@@ -237,6 +233,7 @@ function useCommunity(
 
         const fresh = Array.isArray(r?.comments) ? r.comments : [];
 
+        // Liste vide au départ : on reprend aussi le jeton de pagination
         if (commentsRef.current.length === 0) {
           setNextPageToken(r?.next_page_token ?? null);
         }
@@ -251,6 +248,7 @@ function useCommunity(
 
     const timer = window.setInterval(poll, COMMENTS_POLL_MS);
 
+    // Retour sur l'onglet : actualisation immédiate
     const onVisible = () => {
       if (!document.hidden) void poll();
     };
@@ -285,6 +283,7 @@ function useCommunity(
     }
   };
 
+  /** Lu / non lu : mise à jour immédiate, annulée si le serveur refuse. */
   const markRead = useCallback(async (ids: string[], read: boolean) => {
     if (ids.length === 0) return;
     const targets = new Set(ids);
@@ -303,6 +302,7 @@ function useCommunity(
     }
   }, []);
 
+  /** Ajoute une réponse envoyée à la discussion affichée. */
   const addReply = useCallback((commentId: string, reply: YouTubeReply) => {
     setComments((prev) =>
       prev.map((c) =>
@@ -606,6 +606,7 @@ function IconButton({
   );
 }
 
+/** Bouton d'action minimaliste : icône seule, libellé en infobulle au survol. */
 function ActionIcon({
   label,
   onClick,
@@ -672,6 +673,8 @@ export default function Community() {
   const sidebarOffset = useSidebarOffset();
   const channels = useConnectedChannels();
 
+  // Favoris partagés avec la sidebar : le marque-page du header ajoute /
+  // retire cette page de la section « Favorite ».
   const { isFavorite, toggle: toggleFavorite } = useFavorites();
   const saved = isFavorite(PAGE_ROUTE);
 
@@ -698,6 +701,7 @@ export default function Community() {
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
 
+  // Réponse en cours de rédaction
   const [replyingId, setReplyingId] = useState<string | null>(null);
   const [replyText, setReplyText] = useState("");
   const [sendingReply, setSendingReply] = useState(false);
@@ -716,15 +720,19 @@ export default function Community() {
     addReply,
   } = useCommunity(channel?.key, tab, filter, selectedPostId, reloadKey);
 
-  // Synchronise les non-lus vers la sidebar
+  // ✅ SYNCHRO SIDEBAR : pousse le nombre de commentaires non lus vers le
+  //    localStorage (lu par DashboardSidebar → badge + pastille sur l'avatar).
   useEffect(() => {
     if (!channel?.key) return;
+    // On attend la fin du chargement initial pour ne pas écraser un badge
+    // existant avec "0" avant que la 1ʳᵉ page n'arrive.
     if (loading) return;
 
     const unread = comments.filter((c) => !c.is_read).length;
     setChannelUnreadCount(channel.key, unread);
   }, [channel?.key, comments, loading]);
 
+  // Index des vidéos par id : sert aux miniatures / titres dans les commentaires
   const postById = useMemo(
     () => new Map(posts.map((p) => [p.id, p])),
     [posts]
@@ -733,6 +741,7 @@ export default function Community() {
     ? postById.get(selectedPostId) ?? null
     : null;
 
+  // Dans la vue « Unread », un commentaire marqué lu disparaît tout de suite
   const shownComments = useMemo(
     () => (filter === "unread" ? comments.filter((c) => !c.is_read) : comments),
     [comments, filter]
@@ -760,17 +769,22 @@ export default function Community() {
     ? "border-white/[0.10] bg-[#0f0f11] text-white placeholder:text-neutral-600"
     : "border-black/[0.10] bg-white text-neutral-900 placeholder:text-neutral-400";
 
-  // ✅ Utilise navigate() : met à jour le hash → sidebar active
   const goChannel = (key: string) => {
     setSelectedKey(key);
     setSelectedPostId(null);
     setReplyingId(null);
-    navigate(`community?channel=${encodeURIComponent(key)}`);
+    window.history.replaceState(
+      null,
+      "",
+      `/community?channel=${encodeURIComponent(key)}`
+    );
   };
 
   const visiblePosts = (
     showAll ? posts : posts.filter((p) => p.commentCount > 0)
   ).filter((post) => post.title.toLowerCase().includes(needle));
+
+  /* ── Actions ── */
 
   const handleMarkRead = async (ids: string[], read: boolean) => {
     setActionError(null);
@@ -832,10 +846,6 @@ export default function Community() {
     throw new Error(unavailablePostActionMessage(payload));
   };
 
-  // baseRoute() est utilisé pour éviter une query string résiduelle dans le header
-  const displayRoute = baseRoute(window.location.hash.slice(1) || "community");
-  void displayRoute;
-
   return (
     <main
       className={[
@@ -846,6 +856,7 @@ export default function Community() {
     >
       <DashboardSidebar theme={theme} />
 
+      {/* Zone à droite de la sidebar : marge autour du panneau arrondi */}
       <div
         className={[
           "h-full py-3 pr-3",
@@ -855,6 +866,7 @@ export default function Community() {
         ].join(" ")}
         style={{ paddingLeft: sidebarOffset }}
       >
+        {/* PANNEAU ARRONDI */}
         <div
           className={[
             "flex h-full flex-col overflow-hidden",
@@ -870,6 +882,7 @@ export default function Community() {
               "pb-6 pt-[clamp(18px,3vw,30px)]",
             ].join(" ")}
           >
+            {/* HEADER COMPACT */}
             <div className="relative z-40 flex shrink-0 flex-wrap items-center justify-between gap-3 pb-4">
               <div className="flex min-w-0 items-center gap-2.5">
                 <span
@@ -966,6 +979,7 @@ export default function Community() {
                   </div>
                 </div>
 
+                {/* Marque-page : ajoute / retire cette page des favoris de la sidebar */}
                 <button
                   type="button"
                   aria-label={saved ? "Remove from favorites" : "Add to favorites"}
@@ -983,6 +997,7 @@ export default function Community() {
               </div>
             </div>
 
+            {/* Tabs + toolbar */}
             <div
               className={[
                 "flex shrink-0 items-center justify-between gap-4 border-b",
@@ -1057,6 +1072,7 @@ export default function Community() {
               </div>
             </div>
 
+            {/* Body */}
             <div className="flex min-h-0 flex-1">
               {layout === "post" && postsOpen && (
                 <aside
@@ -1099,6 +1115,7 @@ export default function Community() {
                     </div>
                   </div>
 
+                  {/* Erreur de chargement des vidéos : affichée ICI, pas dans la zone commentaires */}
                   {postsError && (
                     <p
                       className="mt-3 px-1 text-[12px] leading-snug text-red-500"
@@ -1190,7 +1207,9 @@ export default function Community() {
                 </div>
               )}
 
+              {/* Inbox */}
               <section className="flex min-w-0 flex-1 flex-col overflow-y-auto">
+                {/* Bandeau « affiche » de la vidéo sélectionnée */}
                 {tab === "comments" && selectedPostId && (
                   <div
                     className={[
@@ -1222,12 +1241,14 @@ export default function Community() {
                   </div>
                 )}
 
+                {/* Erreur de chargement des COMMENTAIRES */}
                 {error && (
                   <p className="px-6 pt-4 text-[13px] text-red-500" role="alert">
                     {error}
                   </p>
                 )}
 
+                {/* Erreur d'une action (marquer comme lu) */}
                 {actionError && (
                   <p className="px-6 pt-4 text-[13px] text-red-500" role="alert">
                     {actionError}
@@ -1327,6 +1348,7 @@ export default function Community() {
                                   {c.like_count} likes · {c.reply_count} replies
                                 </p>
 
+                                {/* Réponses déjà publiées */}
                                 {replies.length > 0 && (
                                   <ul
                                     className={[
@@ -1383,6 +1405,7 @@ export default function Community() {
                                   </ul>
                                 )}
 
+                                {/* Actions : icônes seules, libellé au survol */}
                                 <div className="mt-2 -ml-1.5 flex flex-wrap items-center gap-0.5">
                                   {c.can_reply && !c.is_own && (
                                     <ActionIcon
@@ -1417,6 +1440,7 @@ export default function Community() {
                                   )}
                                 </div>
 
+                                {/* Zone de réponse */}
                                 {isReplying && (
                                   <div className="mt-3 flex flex-col gap-2">
                                     <textarea
@@ -1485,6 +1509,7 @@ export default function Community() {
                                 )}
                               </div>
 
+                              {/* Affiche de la vidéo */}
                               {c.video_id && (
                                 <span className="hidden w-[120px] shrink-0 flex-col gap-1.5 sm:flex">
                                   <img
@@ -1668,6 +1693,7 @@ export default function Community() {
         onRequestOpen={() => setIsNewPostOpen(true)}
       />
 
+      {/* HELP — même bouton que sur Home */}
       <HelpChatButton isDark={isDark} />
     </main>
   );
