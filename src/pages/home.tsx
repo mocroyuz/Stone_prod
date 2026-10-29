@@ -63,7 +63,6 @@ import {
   ArrowRight,
   ArrowUpRight,
   CalendarDays,
-  Check,
   ChevronRight,
   MessageCircle,
   Plus,
@@ -346,25 +345,6 @@ const HOME_COMMENTS_LIMIT = 3;
 const commentTime = (c: { publishedAt: string | null }) =>
   c.publishedAt ? new Date(c.publishedAt).getTime() || 0 : 0;
 
-function timeAgo(iso: string | null, now: Date): string {
-  if (!iso) return "";
-
-  const then = new Date(iso);
-  if (Number.isNaN(then.getTime())) return "";
-
-  const minutes = Math.floor(Math.max(0, now.getTime() - then.getTime()) / 60000);
-  if (minutes < 1) return "now";
-  if (minutes < 60) return `${minutes}m`;
-
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h`;
-
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d`;
-
-  return then.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
-}
-
 function useLatestComments(channels: ConnectedChannel[]) {
   const [comments, setComments] = useState<HomeComment[]>([]);
   const [loading, setLoading] = useState(false);
@@ -637,7 +617,7 @@ function InfoHint({ isDark, text }: { isDark: boolean; text: string }) {
         type="button"
         aria-label={text}
         className={[
-          "flex h-4 w-4 items-center justify-center rounded-full transition",
+          "flex h-3.5 w-3.5 items-center justify-center rounded-full transition",
           "focus-visible:outline-none focus-visible:ring-1",
           isDark
             ? "text-neutral-500 hover:text-white focus-visible:ring-white/30"
@@ -681,8 +661,8 @@ function Ring({
   isDark,
   progress,
   children,
-  size = 90,
-  stroke = 5,
+  size = 60,
+  stroke = 4,
 }: {
   isDark: boolean;
   progress: number;
@@ -762,7 +742,7 @@ function Trend({ isDark, change }: { isDark: boolean; change: number }) {
 
   return (
     <span className={["inline-flex items-center gap-1", strongClass(isDark)].join(" ")}>
-      <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+      <Icon className="h-3 w-3" aria-hidden="true" />
       <span className="sr-only">{up ? "Up " : "Down "}</span>
       {up ? "+" : ""}
       {change}%
@@ -785,18 +765,18 @@ function GoalItem({
   subtitle: ReactNode;
 }) {
   return (
-    <div className="flex min-w-0 flex-col items-start gap-3">
+    <div className="flex min-w-0 flex-col items-start gap-2">
       {ring}
       <div className="min-w-0">
         <div className="flex items-center gap-1.5">
-          <p className={["text-[14px] font-semibold", strongClass(isDark)].join(" ")}>
+          <p className={["text-[12px] font-semibold", strongClass(isDark)].join(" ")}>
             {title}
           </p>
           <InfoHint isDark={isDark} text={hint} />
         </div>
         <p
           className={[
-            "mt-0.5 flex items-center gap-1 text-[13px]",
+            "mt-0.5 flex items-center gap-1 text-[11px]",
             softClass(isDark),
           ].join(" ")}
         >
@@ -824,21 +804,21 @@ function PulseCard({
   return (
     <div
       className={[
-        "rounded-2xl border px-4 py-3.5",
+        "rounded-xl border px-3.5 py-2.5",
         panelSurfaceClass(isDark),
       ].join(" ")}
     >
       <div className="flex items-center justify-between gap-2">
-        <p className={["text-[12px] font-medium", softClass(isDark)].join(" ")}>
+        <p className={["text-[11px] font-medium", softClass(isDark)].join(" ")}>
           {label}
         </p>
         <InfoHint isDark={isDark} text={hint} />
       </div>
 
-      <div className="mt-2 flex items-baseline gap-2">
+      <div className="mt-1 flex items-baseline gap-1.5">
         <span
           className={[
-            "text-[24px] font-semibold leading-none tracking-tight tabular-nums",
+            "text-[18px] font-semibold leading-none tracking-tight tabular-nums",
             strongClass(isDark),
           ].join(" ")}
         >
@@ -846,7 +826,7 @@ function PulseCard({
         </span>
 
         {change !== undefined && (
-          <span className={["text-[12px]", softClass(isDark)].join(" ")}>
+          <span className={["text-[10.5px]", softClass(isDark)].join(" ")}>
             <Trend isDark={isDark} change={change} />
             <span className={["ml-1.5", isDark ? "text-neutral-500" : "text-neutral-400"].join(" ")}>
               · vs last week
@@ -887,11 +867,11 @@ function HomeOverview({
     postingGoal.target > 0 && postingGoal.done >= postingGoal.target;
 
   return (
-    <section className="mt-7 shrink-0">
+    <section className="mt-6 shrink-0">
       {/* Bandeau : Streak / Goals / Score */}
       <div
         className={[
-          "grid grid-cols-1 gap-6 rounded-2xl border p-5",
+          "grid grid-cols-1 gap-4 rounded-2xl border p-4",
           "sm:grid-cols-3",
           panelSurfaceClass(isDark),
         ].join(" ")}
@@ -907,7 +887,7 @@ function HomeOverview({
           }
           ring={
             <Ring isDark={isDark} progress={weekStreak > 0 ? 1 : 0}>
-              <span className="text-[26px] font-semibold tabular-nums">
+              <span className="text-[18px] font-semibold tabular-nums">
                 {weekStreak}
               </span>
             </Ring>
@@ -925,9 +905,9 @@ function HomeOverview({
           }
           ring={
             <Ring isDark={isDark} progress={goalRatio}>
-              <span className="text-[24px] font-bold tabular-nums">
+              <span className="text-[16px] font-bold tabular-nums">
                 {Math.round(goalRatio * 100)}
-                <span className="text-[12px] font-semibold">%</span>
+                <span className="text-[9px] font-semibold">%</span>
               </span>
             </Ring>
           }
@@ -947,7 +927,7 @@ function HomeOverview({
             <Ring isDark={isDark} progress={commentScore.value / 100}>
               <span
                 className={[
-                  "text-[26px] font-semibold tabular-nums",
+                  "text-[18px] font-semibold tabular-nums",
                   softClass(isDark),
                 ].join(" ")}
               >
@@ -961,13 +941,13 @@ function HomeOverview({
       {/* Weekly Pulse */}
       <p
         className={[
-          "mb-3 mt-6 text-[15px] font-semibold tracking-[-0.01em]",
+          "mb-2.5 mt-5 text-[13px] font-semibold tracking-[-0.01em]",
           strongClass(isDark),
         ].join(" ")}
       >
         Weekly Pulse
         <span
-          className={["ml-1.5 text-[12px] font-normal", softClass(isDark)].join(" ")}
+          className={["ml-1.5 text-[11px] font-normal", softClass(isDark)].join(" ")}
         >
           · {rangeLabel} · Compared to previous week
         </span>
@@ -1319,18 +1299,8 @@ function Panel({
   );
 }
 
-/* Logo YouTube Shorts (pastille rouge + triangle de lecture) */
-function YouTubeShortsIcon({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" className={className} aria-hidden="true">
-      <rect x="5.5" y="1.5" width="13" height="21" rx="6.5" fill="#FF0000" />
-      <path d="M10.2 8.6v6.8l5.4-3.4-5.4-3.4Z" fill="#fff" />
-    </svg>
-  );
-}
-
-/* Photo de profil de la personne qui a écrit le commentaire,
-   avec le badge YouTube Shorts (ou l'icône du réseau). */
+/* Avatar de l'auteur du commentaire, avec la pastille du réseau en bas à droite
+   (YouTube : rond rouge + logo blanc). */
 function CommentAvatar({
   src,
   name,
@@ -1349,11 +1319,10 @@ function CommentAvatar({
   }, [src]);
 
   const initial = name.replace(/^@/, "").charAt(0).toUpperCase() || "?";
-  const NetworkIcon =
-    network === "youtube" ? YouTubeShortsIcon : NETWORK_ICONS[network];
+  const NetworkIcon = NETWORK_ICONS[network];
 
   return (
-    <div className="relative h-8 w-8 shrink-0">
+    <div className="relative h-9 w-9 shrink-0">
       {src && !failed ? (
         <img
           src={src}
@@ -1361,12 +1330,12 @@ function CommentAvatar({
           draggable={false}
           referrerPolicy="no-referrer"
           onError={() => setFailed(true)}
-          className="h-full w-full rounded-full object-cover"
+          className="h-full w-full rounded-xl object-cover"
         />
       ) : (
         <div
           className={[
-            "flex h-full w-full items-center justify-center rounded-full",
+            "flex h-full w-full items-center justify-center rounded-xl",
             "text-[13px] font-semibold",
             isDark ? "bg-[#29292c] text-white" : "bg-neutral-900 text-white",
           ].join(" ")}
@@ -1375,15 +1344,22 @@ function CommentAvatar({
         </div>
       )}
 
-      {/* L'anneau reprend la couleur de la carte (= celle du panneau Comments vide) */}
       <span
         className={[
-          "absolute -bottom-1 -right-1 flex h-4 w-4 items-center",
-          "justify-center rounded-full bg-white text-black ring-2",
+          "absolute -bottom-1 -right-1 flex h-[18px] w-[18px] items-center",
+          "justify-center rounded-full ring-2",
+          network === "youtube" ? "bg-[#ff0000]" : "bg-white text-black",
           panelRingClass(isDark),
         ].join(" ")}
       >
-        <NetworkIcon className="h-2.5 w-2.5" />
+        {network === "youtube" ? (
+          <svg viewBox="0 0 24 24" className="h-3 w-3" aria-hidden="true">
+            <rect x="2" y="5" width="20" height="14" rx="4.5" fill="#fff" />
+            <path d="M10 9v6l5-3-5-3Z" fill="#ff0000" />
+          </svg>
+        ) : (
+          <NetworkIcon className="h-2.5 w-2.5" />
+        )}
       </span>
     </div>
   );
@@ -1393,42 +1369,20 @@ function CommentAvatar({
    COMMENTS PANEL
 ============================================================ */
 
-/* Pile de cartes compactes, de bas en haut : même hauteur que le panneau
-   « Up Next » (190 px), sans fond visible autour. Le commentaire le plus
-   récent est devant (en bas), les suivants dépassent au-dessus avec leur
-   en-tête et la première ligne de leur texte bien lisibles. */
-const DECK_HEIGHT = 190;
-const DECK_PEEK = 44;
-const DECK_FRONT_MAX = 120;
-const DECK_INSET = 8;
-
+/* Une carte par commentaire : avatar + pseudo, puis le texte en dessous. */
 function CommentsPanel({
   isDark,
   comments,
   unanswered,
-  now,
   onOpen,
   onViewMore,
 }: {
   isDark: boolean;
   comments: HomeComment[];
   unanswered: number;
-  now: Date;
   onOpen: (channelKey: string) => void;
   onViewMore: () => void;
 }) {
-  const stack = comments.slice(0, 3);
-  const frontHeight = Math.min(
-    DECK_FRONT_MAX,
-    DECK_HEIGHT - (stack.length - 1) * DECK_PEEK
-  );
-
-  /* Fond opaque (équivalent du fond du panneau vide) : les cartes se
-     recouvrent, elles ne doivent pas se voir à travers. */
-  const deckSurface = isDark
-    ? "border-white/[0.07] bg-[#151517]"
-    : "border-black/[0.06] bg-[#f6f4f0]";
-
   return (
     <section className="min-w-0">
       <div className="mb-3 flex items-center justify-between">
@@ -1460,130 +1414,60 @@ function CommentsPanel({
         </button>
       </div>
 
-      <div className="relative" style={{ height: DECK_HEIGHT }}>
-        {stack.map((c, index) => {
-          const isFront = index === 0;
-          const time = timeAgo(c.publishedAt, now);
-
-          return (
+      <ul className="flex flex-col gap-2">
+        {comments.map((c) => (
+          <li key={c.id}>
             <button
-              key={c.id}
               type="button"
               onClick={() => onOpen(c.channel.key)}
               className={[
-                "group absolute flex items-start gap-3 overflow-hidden rounded-2xl border px-3.5 pt-3 text-left",
+                "flex w-full flex-col gap-2.5 rounded-2xl border px-3.5 py-3 text-left",
                 "transition-colors duration-200 motion-reduce:transition-none",
                 focusRingClass(isDark),
-                deckSurface,
-                isDark
-                  ? "hover:border-white/[0.14] hover:bg-[#19191c]"
-                  : "hover:border-black/[0.12] hover:bg-[#f1eee9]",
+                panelSurfaceClass(isDark),
+                isDark ? "hover:bg-white/[0.06]" : "hover:bg-[#f1eee9]",
               ].join(" ")}
-              style={{
-                height: frontHeight,
-                bottom: 0,
-                left: index * DECK_INSET,
-                right: index * DECK_INSET,
-                /* index 0 = devant, bas ; les suivants remontent derrière */
-                transform: `translateY(${-index * DECK_PEEK}px)`,
-                zIndex: 10 - index,
-              }}
             >
-              <CommentAvatar
-                src={c.authorAvatar}
-                name={c.author}
-                network={c.network}
-                isDark={isDark}
-              />
-
-              <span className="sr-only">
-                {c.channel.handle || c.channel.name} on {c.network}.
-              </span>
-
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-1.5">
-                  {!c.isRead && (
-                    <span
-                      role="img"
-                      aria-label="Unread"
-                      className="h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500"
-                    />
-                  )}
-                  <span
-                    className={[
-                      "truncate text-[12px] font-semibold",
-                      strongClass(isDark),
-                    ].join(" ")}
-                  >
-                    {c.author}
-                  </span>
-                  {time && (
-                    <span
-                      className={["shrink-0 text-[10.5px]", mutedClass(isDark)].join(" ")}
-                    >
-                      · {time}
-                    </span>
-                  )}
-
-                  {isFront && (
-                    <span
-                      className={[
-                        "ml-auto inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5",
-                        "text-[9.5px] font-semibold",
-                        c.answered
-                          ? isDark
-                            ? "bg-emerald-500/10 text-emerald-400"
-                            : "bg-emerald-500/10 text-emerald-600"
-                          : isDark
-                            ? "bg-blue-500/10 text-blue-400"
-                            : "bg-blue-500/10 text-blue-600",
-                      ].join(" ")}
-                    >
-                      {c.answered ? (
-                        <Check className="h-2.5 w-2.5" aria-hidden="true" />
-                      ) : (
-                        <span
-                          aria-hidden="true"
-                          className="h-1.5 w-1.5 rounded-full bg-current"
-                        />
-                      )}
-                      {c.answered ? "Answered" : "Needs a reply"}
-                    </span>
-                  )}
-                </div>
-
-                <p
+              <div className="flex items-center gap-2.5">
+                <CommentAvatar
+                  src={c.authorAvatar}
+                  name={c.author}
+                  network={c.network}
+                  isDark={isDark}
+                />
+                <span
                   className={[
-                    "mt-0.5 break-words text-[12.5px] leading-snug",
-                    isDark ? "text-neutral-200" : "text-neutral-800",
+                    "min-w-0 truncate text-[12px]",
+                    isDark ? "text-neutral-400" : "text-neutral-500",
                   ].join(" ")}
-                  style={{
-                    display: "-webkit-box",
-                    WebkitLineClamp: isFront ? 2 : 1,
-                    WebkitBoxOrient: "vertical",
-                    overflow: "hidden",
-                  }}
                 >
-                  {c.text}
-                </p>
-
-                {isFront && c.videoTitle && (
-                  <p
-                    className={[
-                      "mt-1.5 truncate text-[10.5px]",
-                      isDark ? "text-neutral-500" : "text-neutral-400",
-                    ].join(" ")}
-                    title={c.videoTitle}
-                  >
-                    <span className="sr-only">On video: </span>
-                    {c.videoTitle}
-                  </p>
-                )}
+                  {c.author}
+                </span>
+                <span className="sr-only">
+                  {c.isRead ? "" : "Unread. "}
+                  {c.answered ? "Answered. " : "Needs a reply. "}
+                  On {c.channel.handle || c.channel.name} ({c.network}).
+                </span>
               </div>
+
+              <p
+                className={[
+                  "break-words text-[13px] leading-snug",
+                  strongClass(isDark),
+                ].join(" ")}
+                style={{
+                  display: "-webkit-box",
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: "vertical",
+                  overflow: "hidden",
+                }}
+              >
+                {c.text}
+              </p>
             </button>
-          );
-        })}
-      </div>
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }
@@ -2148,7 +2032,6 @@ export default function Home() {
                   unanswered={
                     latestComments.comments.filter((c) => !c.answered).length
                   }
-                  now={now}
                   onOpen={(key) =>
                     navigate(`community?channel=${encodeURIComponent(key)}`)
                   }
