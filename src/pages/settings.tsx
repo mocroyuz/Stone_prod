@@ -11,6 +11,11 @@
 import { navigate } from "../hooks/useHashRoute";
 import { useTheme, type Theme } from "../hooks/useTheme";
 import Modal from "../components/Modal";
+import ChannelsSection, {
+  ChannelsIcon,
+  clearChannelsSectionRequest,
+  shouldOpenChannelsSection,
+} from "../components/ChannelsSection";
 
 import {
   getCurrentUser,
@@ -543,6 +548,7 @@ type SectionKey =
   | "billing"
   | "tags"
   | "savedReplies"
+  | "channels"
   | "danger";
 
 const SIDEBAR_GROUPS: {
@@ -565,6 +571,7 @@ const SIDEBAR_GROUPS: {
   {
     label: "Utils",
     items: [
+      { key: "channels", label: "Channels", icon: <ChannelsIcon /> },
       { key: "tags", label: "Tags", icon: <TagIcon /> },
       { key: "savedReplies", label: "Saved replies", icon: <ClipboardIcon /> },
     ],
@@ -587,6 +594,7 @@ const SECTION_TITLES: Record<SectionKey, string> = {
   billing: "Billing",
   tags: "Tags",
   savedReplies: "Saved Replies",
+  channels: "Channels",
   danger: "Danger zone",
 };
 
@@ -698,22 +706,32 @@ function SettingsSidebar({
 type SettingsProps = {
   theme?: Theme;
   onToggleTheme?: () => void;
+  /** Section à ouvrir au chargement (par défaut : profile, ou channels après un retour OAuth). */
+  initialSection?: SectionKey;
 };
 
 type Notify = (message: string, kind?: "success" | "error") => void;
 
-export default function Settings(_props: SettingsProps) {
+export default function Settings({ initialSection }: SettingsProps) {
   const { theme, toggle } = useTheme();
   const isDark = theme === "dark";
   const tokens = useMemo<Tokens>(() => (isDark ? DARK : LIGHT), [isDark]);
 
-  const [active, setActive] = useState<SectionKey>("profile");
+  const [active, setActive] = useState<SectionKey>(
+    () =>
+      initialSection ?? (shouldOpenChannelsSection() ? "channels" : "profile")
+  );
   const [toast, setToast] = useState<{
     message: string;
     kind: "success" | "error";
   } | null>(null);
   const toastTimer = useRef<number | null>(null);
   const titleRef = useRef<HTMLHeadingElement | null>(null);
+
+  // La demande d'ouverture (ex. ancienne route /channels) est consommée une fois montée.
+  useEffect(() => {
+    clearChannelsSectionRequest();
+  }, []);
 
   const notify = useCallback<Notify>((message, kind) => {
     const resolved =
@@ -807,6 +825,13 @@ export default function Settings(_props: SettingsProps) {
             )}
             {active === "billing" && (
               <BillingSection tokens={tokens} notify={notify} />
+            )}
+            {active === "channels" && (
+              <ChannelsSection
+                tokens={tokens}
+                notify={notify}
+                isDark={isDark}
+              />
             )}
             {active === "tags" && (
               <TagsSection tokens={tokens} notify={notify} isDark={isDark} />
