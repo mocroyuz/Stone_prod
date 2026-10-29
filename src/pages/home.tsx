@@ -1202,7 +1202,7 @@ function Channels({
 }
 
 /* ============================================================
-   PANEL (Up Next / Calendar) — remplit la hauteur de la grille
+   PANEL (Up Next / Calendar) — hauteur réduite, alignée sur Comments
 ============================================================ */
 
 function Panel({
@@ -1264,14 +1264,14 @@ function Panel({
 
       <div
         className={[
-          "flex flex-1 min-h-[150px] flex-col items-center justify-center",
-          "gap-1 rounded-3xl border px-4 py-4 text-center",
+          "flex flex-1 min-h-[130px] flex-col items-center justify-center",
+          "gap-1 rounded-3xl border px-4 py-3 text-center",
           panelSurfaceClass(isDark),
         ].join(" ")}
       >
         <div
           className={[
-            "mb-2 flex h-11 w-11 items-center justify-center rounded-full",
+            "mb-1.5 flex h-10 w-10 items-center justify-center rounded-full",
             isDark
               ? "bg-white/[0.07] text-neutral-300"
               : "bg-neutral-200/70 text-neutral-600",
@@ -1292,7 +1292,7 @@ function Panel({
             type="button"
             onClick={action.onClick}
             className={[
-              "mt-3 flex items-center gap-1.5 rounded-full border px-3.5 py-1.5",
+              "mt-2.5 flex items-center gap-1.5 rounded-full border px-3.5 py-1.5",
               "text-[11px] font-semibold transition",
               focusRingClass(isDark),
               isDark
@@ -1378,7 +1378,7 @@ function CommentAvatar({
 }
 
 /* ============================================================
-   COMMENTS PANEL — même hauteur que Panel + bouton pleine largeur
+   COMMENTS PANEL — hauteur réduite, bouton pleine largeur
 ============================================================ */
 
 function formatCommentTime(value: string | null): string {
@@ -1430,8 +1430,8 @@ function CommentsPanel({
       className="min-w-0 h-full flex flex-col"
       aria-labelledby="home-comments-title"
     >
-      {/* Header (shrink-0 : garde sa hauteur naturelle) */}
-      <div className="mb-2.5 shrink-0">
+      {/* Header */}
+      <div className="mb-2 shrink-0">
         <div className="flex flex-wrap items-center gap-2">
           <h2
             id="home-comments-title"
@@ -1462,13 +1462,13 @@ function CommentsPanel({
       {loading && visibleComments.length === 0 ? (
         <div
           className={[
-            "flex flex-1 min-h-[150px] flex-col justify-center gap-2.5 rounded-2xl border p-3",
+            "flex flex-1 min-h-[130px] flex-col justify-center gap-2 rounded-2xl border p-3",
             panelSurfaceClass(isDark),
           ].join(" ")}
           aria-label="Loading comments"
           aria-live="polite"
         >
-          {[0, 1, 2].map((item) => (
+          {[0, 1].map((item) => (
             <div key={item} className="flex animate-pulse items-start gap-2.5" aria-hidden="true">
               <div className={["h-8 w-8 shrink-0 rounded-lg", isDark ? "bg-white/10" : "bg-black/[0.07]"].join(" ")} />
               <div className="min-w-0 flex-1 space-y-1.5 pt-0.5">
@@ -1481,13 +1481,13 @@ function CommentsPanel({
       ) : visibleComments.length === 0 ? (
         <div
           className={[
-            "flex flex-1 min-h-[150px] flex-col items-center justify-center rounded-2xl border px-5 py-4 text-center",
+            "flex flex-1 min-h-[130px] flex-col items-center justify-center rounded-2xl border px-5 py-3 text-center",
             panelSurfaceClass(isDark),
           ].join(" ")}
         >
           <div
             className={[
-              "mb-2 flex h-10 w-10 items-center justify-center rounded-2xl",
+              "mb-1.5 flex h-9 w-9 items-center justify-center rounded-2xl",
               isDark
                 ? "bg-white/[0.07] text-neutral-300"
                 : "bg-white text-neutral-600 shadow-sm ring-1 ring-black/[0.04]",
@@ -1514,7 +1514,7 @@ function CommentsPanel({
               type="button"
               onClick={onConnect}
               className={[
-                "mt-3 inline-flex min-h-8 items-center gap-2 rounded-xl px-3 text-[11px] font-semibold transition",
+                "mt-2.5 inline-flex min-h-8 items-center gap-2 rounded-xl px-3 text-[11px] font-semibold transition",
                 focusRingClass(isDark),
                 isDark
                   ? "bg-white text-black hover:bg-neutral-200"
@@ -1542,12 +1542,11 @@ function CommentsPanel({
             </p>
           )}
 
-          {/* Zone de contenu : flex-1 = remplit la hauteur restante pour
-              s'aligner exactement sur la hauteur du panneau Up Next. */}
-          <div className="relative flex-1 min-h-[240px]">
-            {/* Liste clippée + fondu (le 3ᵉ commentaire est coupé ici) */}
+          {/* Zone de contenu — hauteur réduite (200px) */}
+          <div className="relative flex-1 min-h-[200px]">
+            {/* Liste clippée + fondu */}
             <div className="absolute inset-0 overflow-hidden">
-              <div className="flex flex-col gap-2 pb-16">
+              <div className="flex flex-col gap-2 pb-12">
                 {visibleComments.map((comment) => (
                   <button
                     key={comment.id}
@@ -1664,24 +1663,24 @@ function CommentsPanel({
                 ))}
               </div>
 
-              {/* Fondu : le bas du 3ᵉ commentaire se fond dans le panneau */}
+              {/* Fondu */}
               <div
                 aria-hidden="true"
                 className={[
-                  "pointer-events-none absolute inset-x-0 bottom-0 h-24",
+                  "pointer-events-none absolute inset-x-0 bottom-0 h-20",
                   "bg-gradient-to-t to-transparent",
                   mainBgFadeClass(isDark),
                 ].join(" ")}
               />
             </div>
 
-            {/* Bouton pleine largeur, ancré en bas : recouvre le 3ᵉ commentaire */}
+            {/* Bouton pleine largeur en bas */}
             <div className="absolute inset-x-0 bottom-0 z-10">
               <button
                 type="button"
                 onClick={onViewMore}
                 className={[
-                  "flex w-full items-center justify-center gap-1 rounded-full border px-3.5 py-2",
+                  "flex w-full items-center justify-center gap-1 rounded-full border px-3.5 py-1.5",
                   "text-[11px] font-semibold transition",
                   focusRingClass(isDark),
                   panelSolidClass(isDark),
