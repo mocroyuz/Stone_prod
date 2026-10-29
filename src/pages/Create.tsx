@@ -2,7 +2,13 @@
 // Page Create (routes "create", "create/ideas", "create/templates").
 // Shell visuel aligné sur Home : fond de page + panneau arrondi à la jointure de la sidebar.
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import type { PointerEvent as RPointerEvent, ReactNode } from "react";
 import { useTheme } from "../hooks/useTheme";
 import { navigate } from "../hooks/useHashRoute";
@@ -76,28 +82,82 @@ function writeTabToHash(tab: Tab) {
   if (current !== next) history.replaceState(null, "", next);
 }
 
+/* ───────── Cache module-level des tags ─────────
+ *
+ * Les tags sont chargés depuis Supabase UNE SEULE FOIS par session.
+ *
+ * - `tagsCache` est `null` tant que le premier fetch n'a pas abouti.
+ * - Une fois rempli, il survit à tous les unmount/remount (navigation hash)
+ *   et n'est réinitialisé que par un reload complet de la page.
+ * - `tagsLoadPromise` évite les fetch concurrents si deux montages se
+ *   chevauchent.
+ * - Un setter dédié (`setTags`) met à jour le cache EN MÊME TEMPS que l'état
+ *   React, pour que toutes les mutations (création, renommage, suppression,
+ *   réordonnancement) restent persistées d'une visite à l'autre.
+ */
+
+let tagsCache: Tag[] | null = null;
+let tagsLoadPromise: Promise<Tag[]> | null = null;
+
+async function fetchTagsOnce(): Promise<Tag[]> {
+  if (tagsCache) return tagsCache;
+  if (tagsLoadPromise) return tagsLoadPromise;
+
+  tagsLoadPromise = (async () => {
+    await ensureDefaultTags();
+    const server = await listTags();
+    const rank = (t: Tag) => {
+      const i = DEFAULT_ORDER.indexOf(t.label.trim().toLowerCase());
+      return i === -1 ? DEFAULT_ORDER.length : i;
+    };
+    const sorted = [...server].sort((a, b) => rank(a) - rank(b));
+    // Si une mutation a déjà rempli le cache pendant le fetch (cas très rare),
+    // on respecte le cache existant plutôt que de l'écraser.
+    if (!tagsCache) tagsCache = [UNASSIGNED_TAG, ...sorted];
+    return tagsCache;
+  })();
+
+  try {
+    return await tagsLoadPromise;
+  } finally {
+    tagsLoadPromise = null;
+  }
+}
+
 /* ───────── Données (persistées côté backend via services/supabase) ───────── */
 
 function useBoard() {
-  const [tags, setTags] = useState<Tag[]>([UNASSIGNED_TAG]);
+  // Initialisation SYNCHRONE depuis le cache s'il existe : pas de flash de
+  // la colonne « Unassigned » seule quand on revient sur la page.
+  const [tags, setTagsState] = useState<Tag[]>(
+    () => tagsCache ?? [UNASSIGNED_TAG]
+  );
   const [ideas, setIdeas] = useState<Idea[]>([]);
 
+  // Setter qui maintient `tagsCache` synchronisé avec l'état React.
+  // Toutes les mutations passent par lui → le cache reste à jour.
+  const setTags = useCallback(
+    (updater: Tag[] | ((prev: Tag[]) => Tag[])) => {
+      const prev = tagsCache ?? [UNASSIGNED_TAG];
+      const next =
+        typeof updater === "function"
+          ? (updater as (p: Tag[]) => Tag[])(prev)
+          : updater;
+      tagsCache = next;
+      setTagsState(next);
+    },
+    []
+  );
+
   useEffect(() => {
+    // Cache déjà rempli (visite précédente) : on NE refetch PAS.
+    if (tagsCache) return;
     let mounted = true;
-    (async () => {
-      try {
-        await ensureDefaultTags();
-        const server = await listTags();
-        const rank = (t: Tag) => {
-          const i = DEFAULT_ORDER.indexOf(t.label.trim().toLowerCase());
-          return i === -1 ? DEFAULT_ORDER.length : i;
-        };
-        const sorted = [...server].sort((a, b) => rank(a) - rank(b));
-        if (mounted) setTags([UNASSIGNED_TAG, ...sorted]);
-      } catch (e) {
-        console.error("Error loading tags:", e);
-      }
-    })();
+    fetchTagsOnce()
+      .then((loaded) => {
+        if (mounted) setTagsState(loaded);
+      })
+      .catch((e) => console.error("Error loading tags:", e));
     return () => {
       mounted = false;
     };
