@@ -87,11 +87,9 @@ import {
    LAYOUT
 ============================================================ */
 
-/* Fond de la page (visible autour du panneau arrondi + derrière la sidebar) */
 const pageBgClass = (isDark: boolean) =>
   isDark ? "bg-[#09090a]" : "bg-[#f5f3ef]";
 
-/* Grand panneau arrondi qui contient toute la page */
 const mainPanelClass = (isDark: boolean) =>
   isDark
     ? "border-white/[0.07] bg-[#0f0f11]"
@@ -102,14 +100,19 @@ const cardClass = (isDark: boolean) =>
     ? "border-white/[0.07] bg-[#141416]"
     : "border-black/[0.06] bg-white";
 
-/* Fond partagé : panneaux Comments / Up Next, Overview, Channels.
-   Sur le panneau blanc, ils prennent la teinte beige du fond de page. */
 const panelSurfaceClass = (isDark: boolean) =>
   isDark
     ? "border-white/[0.07] bg-white/[0.03]"
     : "border-black/[0.06] bg-[#f6f4f0]";
 
-/* Couleur des anneaux d'avatar = couleur effective du fond panelSurfaceClass */
+/* Fond solide équivalent à panelSurfaceClass (pour bouton posé dessus) */
+const panelSolidClass = (isDark: boolean) =>
+  isDark ? "bg-[#161618]" : "bg-[#f6f4f0]";
+
+/* Pour les dégradés de fondu (à assortir au fond du panneau) */
+const panelFadeFromClass = (isDark: boolean) =>
+  isDark ? "from-[#161618]" : "from-[#f6f4f0]";
+
 const panelRingClass = (isDark: boolean) =>
   isDark ? "ring-[#151517]" : "ring-[#f6f4f0]";
 
@@ -122,7 +125,6 @@ const strongClass = (isDark: boolean) =>
 const softClass = (isDark: boolean) =>
   isDark ? "text-neutral-400" : "text-neutral-500";
 
-/* Anneau de focus clavier commun à tous les boutons / liens */
 const focusRingClass = (isDark: boolean) =>
   isDark
     ? "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
@@ -137,7 +139,7 @@ const userProfileCache = {
 };
 
 /* ============================================================
-   CHANNEL CONNECTIONS (même logique que la page Channels)
+   CHANNEL CONNECTIONS
 ============================================================ */
 
 type StatusResponse = {
@@ -161,7 +163,6 @@ const initialConnections: ConnectionState = {
   threads: { connected: false },
 };
 
-/* Réseaux branchés sur un vrai OAuth */
 const OAUTH_PROVIDERS: Record<
   CacheProvider,
   {
@@ -260,7 +261,7 @@ function getNetworkId(channel: ConnectedChannel): SocialNetworkKey | null {
 }
 
 /* ============================================================
-   LATEST COMMENTS (tous les canaux mélangés)
+   LATEST COMMENTS
 ============================================================ */
 
 type RawComment = {
@@ -281,8 +282,6 @@ type HomeComment = RawComment & {
   network: SocialNetworkKey;
 };
 
-/* Titres / miniatures des vidéos : mis en cache pour ne pas coûter
-   de quota YouTube à chaque actualisation des commentaires. */
 type VideoInfo = { title: string; thumbnail: string | null };
 
 const VIDEO_CACHE_MS = 5 * 60_000;
@@ -301,7 +300,6 @@ async function getYouTubeVideoMap(): Promise<Map<string, VideoInfo>> {
     youtubeVideoCache = { at: Date.now(), map };
     return map;
   } catch {
-    // Les commentaires restent affichés même si la liste des vidéos échoue.
     return youtubeVideoCache?.map ?? new Map<string, VideoInfo>();
   }
 }
@@ -309,9 +307,6 @@ async function getYouTubeVideoMap(): Promise<Map<string, VideoInfo>> {
 const youtubeThumbnail = (videoId: string) =>
   `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`;
 
-/* Réseaux dont les commentaires sont branchés côté serveur.
-   Pour en ajouter un : une entrée ici suffit, ses commentaires seront
-   mélangés aux autres automatiquement. */
 const COMMENT_SOURCES: Partial<
   Record<SocialNetworkKey, () => Promise<RawComment[]>>
 > = {
@@ -354,7 +349,6 @@ function useLatestComments(channels: ConnectedChannel[]) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  /* Un canal par réseau : le serveur gère un compte par réseau. */
   const sources = useMemo(() => {
     const seen = new Set<SocialNetworkKey>();
     const list: { channel: ConnectedChannel; network: SocialNetworkKey }[] = [];
@@ -370,7 +364,6 @@ function useLatestComments(channels: ConnectedChannel[]) {
     return list;
   }, [channels]);
 
-  /* Signature stable : évite de relancer l'effet si le tableau change de référence. */
   const sourceKey = sources.map((s) => `${s.network}:${s.channel.key}`).join("|");
   const sourcesRef = useRef(sources);
   sourcesRef.current = sources;
@@ -420,8 +413,6 @@ function useLatestComments(channels: ConnectedChannel[]) {
         }
 
         const allFailed = errors.length === results.length;
-
-        // Échec d'une actualisation automatique : on garde ce qui est affiché.
         if (allFailed && !initial) return;
 
         merged.sort((a, b) => commentTime(b) - commentTime(a));
@@ -496,7 +487,6 @@ const BLOG_POSTS: BlogPost[] = [
   },
 ];
 
-/* Ouvre un nouvel onglet uniquement pour une vraie URL externe */
 const linkProps = (url: string) =>
   /^https?:\/\//.test(url) ? { target: "_blank", rel: "noreferrer" } : {};
 
@@ -534,7 +524,6 @@ function GreetingAvatar({
     setFailed(false);
   }, [avatarUrl]);
 
-  /* Évite le flash « U » avant l'arrivée du vrai profil. */
   if (loading) {
     return (
       <div
@@ -607,13 +596,9 @@ function ClockDisplay({ isDark, now }: { isDark: boolean; now: Date }) {
 }
 
 /* ============================================================
-   OVERVIEW (Streak / Goals / Score)
-   Noir & blanc uniquement : en thème sombre l'accent est blanc,
-   en thème clair l'accent est noir (inversion des couleurs).
+   OVERVIEW
 ============================================================ */
 
-/* Petit « i » cerclé : explique en infobulle ce que montre la statistique.
-   Visible au survol ET au focus clavier. */
 function GoalInfoHint({ isDark, text }: { isDark: boolean; text: string }) {
   return (
     <span className="group relative flex shrink-0 items-center">
@@ -660,7 +645,6 @@ function GoalInfoHint({ isDark, text }: { isDark: boolean; text: string }) {
   );
 }
 
-/* Anneau de progression (SVG) — progress : 0 → 1 */
 function Ring({
   isDark,
   progress,
@@ -685,7 +669,6 @@ function Ring({
       role="img"
       aria-label={`${Math.round(clamped * 100)}% complete`}
     >
-      {/* Disque intérieur : contraste inversé par rapport à l'anneau */}
       <div
         className={[
           "absolute rounded-full",
@@ -701,7 +684,6 @@ function Ring({
         className="absolute inset-0 -rotate-90"
         aria-hidden="true"
       >
-        {/* Piste */}
         <circle
           cx={size / 2}
           cy={size / 2}
@@ -710,7 +692,6 @@ function Ring({
           strokeWidth={stroke}
           className={isDark ? "stroke-white/[0.14]" : "stroke-black/[0.10]"}
         />
-        {/* Progression */}
         <circle
           cx={size / 2}
           cy={size / 2}
@@ -739,7 +720,6 @@ function Ring({
   );
 }
 
-/* Tendance : flèche + pourcentage. Pas de couleur : la flèche porte l'info. */
 function Trend({ isDark, change }: { isDark: boolean; change: number }) {
   const up = change >= 0;
   const Icon = up ? TrendingUp : TrendingDown;
@@ -754,7 +734,6 @@ function Trend({ isDark, change }: { isDark: boolean; change: number }) {
   );
 }
 
-/* Une colonne du bandeau du haut : anneau + titre + sous-titre */
 function GoalItem({
   isDark,
   ring,
@@ -791,12 +770,6 @@ function GoalItem({
   );
 }
 
-/* ------------------------------------------------------------
-   STAT (code d'origine)
------------------------------------------------------------- */
-
-/* Petit « ! » cerclé : explique en infobulle ce que montre la statistique.
-   Visible au survol ET au focus clavier. */
 function InfoHint({ isDark, text }: { isDark: boolean; text: string }) {
   return (
     <span className="group relative flex shrink-0 items-center">
@@ -864,7 +837,6 @@ function Stat({
     <div
       className={[
         "flex min-w-0 items-center gap-3",
-        /* Mobile : séparateur horizontal ; desktop : séparateur vertical. */
         "border-b pb-3 last:border-b-0 last:pb-0 sm:border-b-0 sm:pb-0",
         "sm:border-r sm:last:border-r-0 sm:pr-5 sm:last:pr-0",
         isDark ? "border-white/[0.07]" : "border-black/[0.07]",
@@ -881,7 +853,6 @@ function Stat({
         {icon}
       </div>
       <div className="min-w-0">
-        {/* L'infobulle est hors du <p> tronqué pour ne pas être coupée. */}
         <div className="flex items-center gap-1">
           <p
             className={[
@@ -902,7 +873,6 @@ function Stat({
           >
             {value}
           </span>
-          {/* Pastille + flèche : la tendance ne repose plus uniquement sur la couleur. */}
           <span
             className={[
               "flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[9px] font-semibold",
@@ -949,7 +919,6 @@ function HomeOverview({
 
   return (
     <section className="mt-6 shrink-0">
-      {/* Bandeau : Streak / Goals / Score */}
       <div
         className={[
           "grid grid-cols-1 gap-3 rounded-2xl border px-4 py-3",
@@ -1113,7 +1082,6 @@ function Channels({
     >
       {channels.length === 0 ? (
         <div className="flex items-center gap-3">
-          {/* + : ouvre ConnectChannelModal */}
           <button
             type="button"
             aria-label="Connect a channel"
@@ -1161,7 +1129,6 @@ function Channels({
               />
             ))}
 
-            {/* Canaux au-delà des 6 premiers avatars */}
             {channels.length > 6 && (
               <span
                 title={`${channels.length - 6} more ${
@@ -1178,7 +1145,6 @@ function Channels({
               </span>
             )}
 
-            {/* + : même forme que les avatars, légèrement imbriqué */}
             <button
               type="button"
               aria-label="Connect another channel"
@@ -1343,9 +1309,10 @@ function Panel({
   );
 }
 
-/* Avatar de l'auteur du commentaire, avec la pastille du réseau en bas à droite
-   (YouTube : rond rouge + logo blanc). Plus compact pour réduire la hauteur
-   des cartes de commentaires. */
+/* ============================================================
+   COMMENT AVATAR
+============================================================ */
+
 function CommentAvatar({
   src,
   name,
@@ -1411,7 +1378,7 @@ function CommentAvatar({
 }
 
 /* ============================================================
-   COMMENTS PANEL — version plus compacte
+   COMMENTS PANEL — 2 commentaires + début du 3ᵉ sous "View all"
 ============================================================ */
 
 function formatCommentTime(value: string | null): string {
@@ -1458,52 +1425,38 @@ function CommentsPanel({
     ? "border-white/[0.08] bg-[#171719] hover:border-white/[0.15] hover:bg-[#1b1b1e]"
     : "border-black/[0.07] bg-white hover:border-black/[0.12] hover:bg-[#fcfbf9]";
 
+  /* Au-delà de 2 commentaires on active le clipping + fondu + bouton qui chevauche */
+  const hasOverflow = visibleComments.length > 2;
+
   return (
     <section className="min-w-0" aria-labelledby="home-comments-title">
-      <div className="mb-2.5 flex items-center justify-between gap-3">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <h2
-              id="home-comments-title"
-              className={["text-[12px] font-semibold", strongClass(isDark)].join(" ")}
-            >
-              Comments
-            </h2>
-            <span
-              className={[
-                "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold tabular-nums",
-                unanswered > 0
-                  ? isDark
-                    ? "bg-amber-300/10 text-amber-200"
-                    : "bg-amber-50 text-amber-800"
-                  : isDark
-                    ? "bg-white/[0.06] text-neutral-400"
-                    : "bg-black/[0.04] text-neutral-500",
-              ].join(" ")}
-            >
-              {unanswered} to reply
-            </span>
-          </div>
-          <p className={["mt-0.5 text-[11px]", softClass(isDark)].join(" ")}>
-            Keep up with your community
-          </p>
+      {/* Header (sans bouton View all : déplacé sous les commentaires) */}
+      <div className="mb-2.5">
+        <div className="flex flex-wrap items-center gap-2">
+          <h2
+            id="home-comments-title"
+            className={["text-[12px] font-semibold", strongClass(isDark)].join(" ")}
+          >
+            Comments
+          </h2>
+          <span
+            className={[
+              "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold tabular-nums",
+              unanswered > 0
+                ? isDark
+                  ? "bg-amber-300/10 text-amber-200"
+                  : "bg-amber-50 text-amber-800"
+                : isDark
+                  ? "bg-white/[0.06] text-neutral-400"
+                  : "bg-black/[0.04] text-neutral-500",
+            ].join(" ")}
+          >
+            {unanswered} to reply
+          </span>
         </div>
-
-        <button
-          type="button"
-          onClick={onViewMore}
-          className={[
-            "inline-flex shrink-0 items-center gap-1 rounded-lg px-2 py-1.5",
-            "text-[11px] font-semibold transition-colors",
-            focusRingClass(isDark),
-            isDark
-              ? "text-neutral-400 hover:bg-white/[0.06] hover:text-white"
-              : "text-neutral-500 hover:bg-black/[0.04] hover:text-neutral-900",
-          ].join(" ")}
-        >
-          View all
-          <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
-        </button>
+        <p className={["mt-0.5 text-[11px]", softClass(isDark)].join(" ")}>
+          Keep up with your community
+        </p>
       </div>
 
       <div className="flex min-h-[150px] flex-col gap-2">
@@ -1556,72 +1509,122 @@ function CommentsPanel({
                 Some comments may be missing because a source couldn't be reached.
               </p>
             )}
-            {visibleComments.map((comment) => (
-              <button
-                key={comment.id}
-                type="button"
-                onClick={() => onOpen(comment.channel.key)}
-                aria-label={`Open conversation with ${comment.author}`}
+
+            {/* Liste des commentaires : 2 visibles + début du 3ᵉ clippé + fondu */}
+            <div className="relative">
+              <div
                 className={[
-                  "group w-full rounded-xl border px-2.5 py-2 text-left",
-                  "transition duration-200 motion-reduce:transition-none",
-                  "focus-visible:outline-none focus-visible:ring-2",
-                  isDark ? "focus-visible:ring-white/30" : "focus-visible:ring-black/25",
-                  cardSurface,
+                  "relative",
+                  hasOverflow ? "max-h-[260px] overflow-hidden" : "",
                 ].join(" ")}
               >
-                <div className="flex items-start gap-2.5">
-                  <CommentAvatar
-                    src={comment.authorAvatar}
-                    name={comment.author}
-                    network={comment.network}
-                    isDark={isDark}
-                  />
-
-                  <div className="min-w-0 flex-1">
-                    <div className="flex min-w-0 items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className={["truncate text-[12px] font-semibold", strongClass(isDark)].join(" ")}>
-                          {comment.author}
-                        </p>
-                        <p className={["truncate text-[10px]", softClass(isDark)].join(" ")}>
-                          {comment.channel.handle || comment.channel.name || comment.network}
-                          {comment.videoTitle ? ` · ${comment.videoTitle}` : ""}
-                        </p>
-                      </div>
-                      <span className={["inline-flex shrink-0 items-center gap-1 text-[10px]", mutedClass(isDark)].join(" ")}>
-                        <Clock3 className="h-3 w-3" aria-hidden="true" />
-                        {formatCommentTime(comment.publishedAt)}
-                      </span>
-                    </div>
-
-                    <p
-                      className={["mt-1 text-[12px] leading-[1.35]", isDark ? "text-neutral-300" : "text-neutral-700"].join(" ")}
-                      style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", overflowWrap: "anywhere" }}
+                <div className="flex flex-col gap-2">
+                  {visibleComments.map((comment) => (
+                    <button
+                      key={comment.id}
+                      type="button"
+                      onClick={() => onOpen(comment.channel.key)}
+                      aria-label={`Open conversation with ${comment.author}`}
+                      className={[
+                        "group w-full rounded-xl border px-2.5 py-2 text-left",
+                        "transition duration-200 motion-reduce:transition-none",
+                        "focus-visible:outline-none focus-visible:ring-2",
+                        isDark ? "focus-visible:ring-white/30" : "focus-visible:ring-black/25",
+                        cardSurface,
+                      ].join(" ")}
                     >
-                      {comment.text || "This comment has no text."}
-                    </p>
+                      <div className="flex items-start gap-2.5">
+                        <CommentAvatar
+                          src={comment.authorAvatar}
+                          name={comment.author}
+                          network={comment.network}
+                          isDark={isDark}
+                        />
 
-                    <div className="mt-1.5 flex items-center justify-between gap-2">
-                      <span className={["inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium", comment.answered
-                        ? isDark ? "bg-emerald-400/10 text-emerald-300" : "bg-emerald-50 text-emerald-700"
-                        : isDark ? "bg-amber-300/10 text-amber-200" : "bg-amber-50 text-amber-800"].join(" ")}>
-                        {comment.answered ? <CheckCheck className="h-2.5 w-2.5" aria-hidden="true" /> : <MessageCircle className="h-2.5 w-2.5" aria-hidden="true" />}
-                        {comment.answered ? "Replied" : "Needs a reply"}
+                        <div className="min-w-0 flex-1">
+                          <div className="flex min-w-0 items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className={["truncate text-[12px] font-semibold", strongClass(isDark)].join(" ")}>
+                                {comment.author}
+                              </p>
+                              <p className={["truncate text-[10px]", softClass(isDark)].join(" ")}>
+                                {comment.channel.handle || comment.channel.name || comment.network}
+                                {comment.videoTitle ? ` · ${comment.videoTitle}` : ""}
+                              </p>
+                            </div>
+                            <span className={["inline-flex shrink-0 items-center gap-1 text-[10px]", mutedClass(isDark)].join(" ")}>
+                              <Clock3 className="h-3 w-3" aria-hidden="true" />
+                              {formatCommentTime(comment.publishedAt)}
+                            </span>
+                          </div>
+
+                          <p
+                            className={["mt-1 text-[12px] leading-[1.35]", isDark ? "text-neutral-300" : "text-neutral-700"].join(" ")}
+                            style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", overflowWrap: "anywhere" }}
+                          >
+                            {comment.text || "This comment has no text."}
+                          </p>
+
+                          <div className="mt-1.5 flex items-center justify-between gap-2">
+                            <span className={["inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium", comment.answered
+                              ? isDark ? "bg-emerald-400/10 text-emerald-300" : "bg-emerald-50 text-emerald-700"
+                              : isDark ? "bg-amber-300/10 text-amber-200" : "bg-amber-50 text-amber-800"].join(" ")}>
+                              {comment.answered ? <CheckCheck className="h-2.5 w-2.5" aria-hidden="true" /> : <MessageCircle className="h-2.5 w-2.5" aria-hidden="true" />}
+                              {comment.answered ? "Replied" : "Needs a reply"}
+                            </span>
+                            <span className={["inline-flex items-center gap-1 text-[10px] font-semibold opacity-80 transition group-hover:translate-x-0.5 group-hover:opacity-100", strongClass(isDark)].join(" ")}>
+                              Open conversation
+                              <ArrowUpRight className="h-3 w-3" aria-hidden="true" />
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <span className="sr-only">
+                        {comment.isRead ? "Read. " : "Unread. "}
+                        {comment.answered ? "Answered." : "Needs a reply."}
                       </span>
-                      <span className={["inline-flex items-center gap-1 text-[10px] font-semibold opacity-80 transition group-hover:translate-x-0.5 group-hover:opacity-100", strongClass(isDark)].join(" ")}>
-                        Open conversation
-                        <ArrowUpRight className="h-3 w-3" aria-hidden="true" />
-                      </span>
-                    </div>
-                  </div>
+                    </button>
+                  ))}
                 </div>
-                <span className="sr-only">
-                  {comment.isRead ? "Read. " : "Unread. "}
-                  {comment.answered ? "Answered." : "Needs a reply."}
-                </span>
-              </button>
-            ))}
+
+                {/* Dégradé de fondu : le 3ᵉ commentaire s'estompe dans le fond du panneau */}
+                {hasOverflow && (
+                  <div
+                    aria-hidden="true"
+                    className={[
+                      "pointer-events-none absolute inset-x-0 bottom-0 h-24",
+                      "bg-gradient-to-t to-transparent",
+                      panelFadeFromClass(isDark),
+                    ].join(" ")}
+                  />
+                )}
+              </div>
+
+              {/* Bouton View all — chevauche le bas quand il y a du contenu caché */}
+              <div
+                className={[
+                  "relative flex justify-center",
+                  hasOverflow ? "-mt-4" : "mt-3",
+                ].join(" ")}
+              >
+                <button
+                  type="button"
+                  onClick={onViewMore}
+                  className={[
+                    "relative z-10 flex items-center gap-1 rounded-full border px-3.5 py-1.5",
+                    "text-[11px] font-semibold transition",
+                    focusRingClass(isDark),
+                    panelSolidClass(isDark),
+                    isDark
+                      ? "border-white/10 text-white hover:bg-[#1b1b1e] hover:border-white/20"
+                      : "border-black/10 text-neutral-900 hover:bg-white hover:border-black/20",
+                  ].join(" ")}
+                >
+                  View all comments
+                  <ChevronRight className="h-3 w-3" aria-hidden="true" />
+                </button>
+              </div>
+            </div>
           </>
         )}
       </div>
@@ -1783,10 +1786,6 @@ export default function Home() {
   const connectedChannels = useConnectedChannels();
   const latestComments = useLatestComments(connectedChannels);
 
-  /* ----------------------------------------------------------
-     CONNECT CHANNEL MODAL (état identique à la page Channels)
-  ---------------------------------------------------------- */
-
   const [showConnectModal, setShowConnectModal] = useState(false);
   const [pendingKey, setPendingKey] = useState<ChannelKey | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -1804,7 +1803,6 @@ export default function Home() {
     return { ...initialConnections, ...fromCache };
   });
 
-  // Empêche un double clic de lancer deux OAuth en parallèle.
   const busy = useRef<Set<ChannelKey>>(new Set());
 
   const connectedCount = useMemo(
@@ -1815,8 +1813,6 @@ export default function Home() {
 
   const limitReached = connectedCount >= PLAN.maxChannels;
 
-  /* Statut des comptes : cache affiché tout de suite, rechargement
-     silencieux si le cache est ancien. */
   useEffect(() => {
     if (!userId) return;
 
@@ -1862,7 +1858,6 @@ export default function Home() {
     };
   }, [userId]);
 
-  /* Connexion / déconnexion d'un réseau avec vrai OAuth */
   const toggleOAuth = async (provider: CacheProvider) => {
     if (busy.current.has(provider)) return;
     busy.current.add(provider);
@@ -1884,12 +1879,11 @@ export default function Home() {
         provider === "pinterest" &&
         import.meta.env.VITE_PINTEREST_MANUAL_TOKEN === "true"
       ) {
-        // Mode dev : pas de redirect URI tant que l'app n'est pas approuvée.
         const token = window.prompt(
           "Pinterest access token (généré dans le portail développeur) :"
         );
 
-        if (!token?.trim()) return; // le finally réinitialise l'état
+        if (!token?.trim()) return;
 
         const account = await connectPinterestWithToken(token.trim());
 
@@ -1905,7 +1899,6 @@ export default function Home() {
           pinterest: connection,
         }));
       } else {
-        // POST /api/<provider>/auth/url puis window.location.assign(url).
         await login();
         redirecting = true;
       }
@@ -1920,7 +1913,6 @@ export default function Home() {
     }
   };
 
-  /* Les réseaux sans OAuth ne doivent pas être marqués comme connectés fictivement. */
   const togglePlaceholder = (key: ChannelKey) => {
     const channel = CHANNELS.find((item) => item.key === key);
     const label = channel?.name ?? key;
@@ -1933,7 +1925,6 @@ export default function Home() {
   const handleToggleChannel = (key: ChannelKey) => {
     setErrorMessage(null);
 
-    // Limite du plan : on bloque uniquement les NOUVELLES connexions.
     if (!connections[key].connected && limitReached) {
       setErrorMessage(
         `Your ${PLAN.name} plan allows up to ${PLAN.maxChannels} channels. Upgrade to connect more.`
@@ -1956,18 +1947,10 @@ export default function Home() {
 
   const closeConnectModal = () => setShowConnectModal(false);
 
-  /* ----------------------------------------------------------
-     CLOCK
-  ---------------------------------------------------------- */
-
   useEffect(() => {
     const interval = setInterval(() => setNow(new Date()), 15000);
     return () => clearInterval(interval);
   }, []);
-
-  /* ----------------------------------------------------------
-     USER
-  ---------------------------------------------------------- */
 
   useEffect(() => {
     let mounted = true;
@@ -2003,19 +1986,13 @@ export default function Home() {
 
   const greeting = getGreeting(now);
 
-  /* Formatage de la date : "Wed, Oct 14 2026" */
   const formattedDate = `${now.toLocaleDateString("en-US", {
     weekday: "short",
   })}, ${now.toLocaleDateString("en-US", {
     month: "short",
   })} ${now.getDate()} ${now.getFullYear()}`;
 
-  /* Nom affiché : on utilise le nom complet, ou un fallback */
   const displayName = fullName || "adamnolke";
-
-  /* ----------------------------------------------------------
-     CREATE POST
-  ---------------------------------------------------------- */
 
   const handleCreatePost = async (payload: NewPostPayload) => {
     if (payload.scheduleMode === "later") {
@@ -2025,10 +2002,6 @@ export default function Home() {
 
     throw new Error(unavailablePostActionMessage(payload));
   };
-
-  /* ----------------------------------------------------------
-     COMMUNITY
-  ---------------------------------------------------------- */
 
   const handleViewAllComments = (channelKey?: string) => {
     const channel =
@@ -2040,10 +2013,6 @@ export default function Home() {
         : "community"
     );
   };
-
-  /* ----------------------------------------------------------
-     BOTTOM BAR
-  ---------------------------------------------------------- */
 
   const handleBottomBarChange = (id: BottomBarTab) => {
     switch (id) {
@@ -2059,10 +2028,6 @@ export default function Home() {
     }
   };
 
-  /* ==========================================================
-     RENDER
-  ========================================================== */
-
   return (
     <main
       className={[
@@ -2073,8 +2038,6 @@ export default function Home() {
     >
       <DashboardSidebar theme={theme} />
 
-      {/* Zone à droite de la sidebar : laisse une marge autour du panneau
-          (haut / droite / bas) pour faire ressortir ses coins arrondis. */}
       <div
         className={[
           "h-full py-3 pr-3",
@@ -2084,7 +2047,6 @@ export default function Home() {
         ].join(" ")}
         style={{ paddingLeft: sidebarOffset }}
       >
-        {/* PANNEAU ARRONDI : c'est lui qui scrolle */}
         <div
           className={[
             "h-full overflow-y-auto overflow-x-hidden",
@@ -2132,8 +2094,6 @@ export default function Home() {
               <ClockDisplay isDark={isDark} now={now} />
             </header>
 
-            {/* STREAK / GOALS / SCORE
-                (valeurs d'exemple : à brancher sur les vraies données) */}
             <HomeOverview
               isDark={isDark}
               weekStreak={1}
@@ -2141,7 +2101,6 @@ export default function Home() {
               commentScore={{ value: 13, changePct: 100 }}
             />
 
-            {/* OVERVIEW */}
             <section className="mt-7 shrink-0">
               <div className="mb-3">
                 <p
@@ -2196,7 +2155,6 @@ export default function Home() {
               </div>
             </section>
 
-            {/* CHANNELS */}
             <section className="mt-5 shrink-0">
               <div className="mb-3 flex items-center justify-between">
                 <div>
@@ -2226,7 +2184,6 @@ export default function Home() {
               />
             </section>
 
-            {/* COMMENTS + UP NEXT */}
             <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
               <CommentsPanel
                 isDark={isDark}
@@ -2258,7 +2215,6 @@ export default function Home() {
               />
             </div>
 
-            {/* BLOG */}
             <div className="mt-8">
               <BlogSection isDark={isDark} />
             </div>
@@ -2266,7 +2222,6 @@ export default function Home() {
         </div>
       </div>
 
-      {/* FOLDER */}
       <Folder
         isOpen={isFolderOpen}
         onClose={() => setIsFolderOpen(false)}
@@ -2274,7 +2229,6 @@ export default function Home() {
         offsetLeft={sidebarOffset}
       />
 
-      {/* BOTTOM BAR */}
       <BottomBar
         isDark={isDark}
         offsetLeft={sidebarOffset}
@@ -2285,7 +2239,6 @@ export default function Home() {
         onQueryChange={setQuery}
       />
 
-      {/* NEW POST */}
       <NewPostModal
         isOpen={isNewPostOpen}
         onClose={() => setIsNewPostOpen(false)}
@@ -2294,7 +2247,6 @@ export default function Home() {
         onRequestOpen={() => setIsNewPostOpen(true)}
       />
 
-      {/* CONNECT CHANNEL */}
       {showConnectModal && (
         <ConnectChannelModal
           channels={CHANNELS}
@@ -2310,7 +2262,6 @@ export default function Home() {
         />
       )}
 
-      {/* HELP */}
       <HelpChatButton isDark={isDark} />
     </main>
   );
