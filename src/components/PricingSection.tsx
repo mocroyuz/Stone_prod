@@ -20,7 +20,7 @@ import {
 } from "../services/stripe";
 
 /* ============================================================
-   REVEAL
+   REVEAL (Conservé pour les animations)
    ============================================================ */
 
 function Reveal({
@@ -76,70 +76,102 @@ function Reveal({
 }
 
 /* ============================================================
-   PLANS
+   ICONS
+   ============================================================ */
+
+const StarterIcon = () => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M8.5 8.5H7.5C6.94772 8.5 6.5 8.94772 6.5 9.5V10.5C6.5 11.0523 6.94772 11.5 7.5 11.5H8.5C9.05228 11.5 9.5 11.0523 9.5 10.5V9.5C9.5 8.94772 9.05228 8.5 8.5 8.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M16.5 8.5H15.5C14.9477 8.5 14.5 8.94772 14.5 9.5V10.5C14.5 11.0523 14.9477 11.5 15.5 11.5H16.5C17.0523 11.5 17.5 11.0523 17.5 10.5V9.5C17.5 8.94772 17.0523 8.5 16.5 8.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M8.5 16.5H7.5C6.94772 16.5 6.5 16.9477 6.5 17.5V18.5C6.5 19.0523 6.94772 19.5 7.5 19.5H8.5C9.05228 19.5 9.5 19.0523 9.5 18.5V17.5C9.5 16.9477 9.05228 16.5 8.5 16.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M16.5 16.5H15.5C14.9477 16.5 14.5 16.9477 14.5 17.5V18.5C14.5 19.0523 14.9477 19.5 15.5 19.5H16.5C17.0523 19.5 17.5 19.0523 17.5 18.5V17.5C17.5 16.9477 17.0523 16.5 16.5 16.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
+
+const ProfessionalIcon = () => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M12 3L21 12L12 21L3 12L12 3Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M12 8L16 12L12 16L8 12L12 8Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
+
+const GeniusIcon = () => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M12 21C16.9706 21 21 16.9706 21 12C21 7.02944 16.9706 3 12 3C7.02944 3 3 7.02944 3 12C3 16.9706 7.02944 21 12 21Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M12 15C13.6569 15 15 13.6569 15 12C15 10.3431 13.6569 9 12 9C10.3431 9 9 10.3431 9 12C9 13.6569 10.3431 15 12 15Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M12 3V9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M12 15V21" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M3 12H9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M15 12H21" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
+
+const CheckIcon = () => (
+  <div className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[#dce4f5] text-[#4a6c9e]">
+    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="20 6 9 17 4 12"></polyline>
+    </svg>
+  </div>
+);
+
+/* ============================================================
+   PLANS DATA
    ============================================================ */
 
 const plans = [
   {
     key: "starter",
-    badge: "STARTER",
-    monthly: 19,
-    annual: 15,
-    description: "Everything you need to get started.",
-    cta: "Get started",
+    name: "Starter",
+    icon: <StarterIcon />,
+    monthly: 0,
+    annual: 0,
+    description: "Ideal for new investors or those with smaller portfolios. Offers essential features and tools to get started.",
+    cta: "Register For Free!",
     features: [
-      "Up to 3 channels",
-      "10 posts per channel",
-      "Basic insights",
-      "Content calendar",
-      "Up to 100 ideas",
-      "Up to 50 tags",
-      "Web extension included",
+      "Market data and news",
+      "Basic portfolio tracking",
+      "Access to educational resources",
+      "Limited customer support",
     ],
   },
   {
     key: "pro",
-    badge: "PRO",
-    monthly: 49,
-    annual: 39,
-    description: "More freedom to create and grow.",
-    cta: "Get started",
-    featured: true,
+    name: "Professional",
+    icon: <ProfessionalIcon />,
+    monthly: 59,
+    annual: 49,
+    description: "A comprehensive plan for investors seeking more advanced features and Ollier AI Assistant.",
+    cta: "Get Started",
     features: [
-      "All channels",
-      "Unlimited publications",
-      "Advanced insights",
-      "Content calendar",
-      "Unlimited ideas",
-      "Up to 250 tags",
-      "Web extension included",
+      "All features from the Starter plan",
+      "Advanced portfolio analysis",
+      "Personalized investment recommendations",
+      "Priority customer support",
+      "Access to a community of investors",
+      "Ollier AI Assistant",
     ],
   },
   {
     key: "enterprise",
-    badge: "ENTERPRISE",
-    monthly: 99,
-    annual: 79,
-    description: "Advanced solutions for large organizations.",
-    cta: "Contact sales",
-    salesOnly: true,
+    name: "Genius",
+    icon: <GeniusIcon />,
+    monthly: 299,
+    annual: 249,
+    description: "Tailored for experienced investors and companies with complex portfolios and high-level needs.",
+    cta: "Get Started",
     features: [
-      "Everything in Pro",
-      "Custom channel limits",
-      "Unlimited publications",
-      "Advanced insights",
-      "Content calendar",
-      "Unlimited ideas and tags",
-      "Priority support",
-      "Dedicated assistance",
+      "All features from the Professional plan",
+      "Exclusive access to investment research & analysis",
+      "Private personal letter news",
+      "Personalized wealth management services",
+      "Dedicated account manager",
+      "Access to exclusive investment opportunities",
+      "Exclusive company investing Account",
     ],
   },
 ] as const;
 
 type Plan = (typeof plans)[number];
-
-const ENTERPRISE_MAILTO =
-  "mailto:sales@stone.app?subject=Enterprise%20plan";
 
 /* ============================================================
    HELPERS
@@ -147,26 +179,18 @@ const ENTERPRISE_MAILTO =
 
 function readPeriodFromUrl(): BillingPeriod | null {
   if (typeof window === "undefined") return null;
-
-  const sources: URLSearchParams[] = [
-    new URLSearchParams(window.location.search),
-  ];
-
+  const sources: URLSearchParams[] = [new URLSearchParams(window.location.search)];
   const hash = window.location.hash || "";
   const qIdx = hash.indexOf("?");
-
   if (qIdx !== -1) {
     sources.push(new URLSearchParams(hash.slice(qIdx + 1)));
   }
-
   for (const params of sources) {
     const value = params.get("period");
-
     if (value === "annual" || value === "monthly") {
       return value;
     }
   }
-
   return null;
 }
 
@@ -176,37 +200,22 @@ function readPeriodFromUrl(): BillingPeriod | null {
 
 export default function PricingSection() {
   const { user, loading: userLoading } = useUser();
-
-  const {
-    hasActive: hasActiveSubscription,
-    refresh: refreshSubscription,
-  } = useSubscription();
+  const { hasActive: hasActiveSubscription, refresh: refreshSubscription } = useSubscription();
 
   const isLoggedIn = Boolean(user);
 
   const [period, setPeriod] = useState<BillingPeriod>("monthly");
   const [loadingPlan, setLoadingPlan] = useState<PlanKey | null>(null);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
-
-  const [returnBanner, setReturnBanner] = useState<
-    "success" | "cancel" | null
-  >(null);
-
-  /* Billing period from URL */
+  const [returnBanner, setReturnBanner] = useState<"success" | "cancel" | null>(null);
 
   useEffect(() => {
     const urlPeriod = readPeriodFromUrl();
-
-    if (urlPeriod) {
-      setPeriod(urlPeriod);
-    }
+    if (urlPeriod) setPeriod(urlPeriod);
   }, []);
-
-  /* Stripe checkout return */
 
   useEffect(() => {
     const ret = readCheckoutReturn();
-
     if (!ret.status) return;
 
     setReturnBanner(ret.status);
@@ -214,53 +223,28 @@ export default function PricingSection() {
 
     if (ret.status === "success" && isLoggedIn) {
       let cancelled = false;
-
       const poll = async () => {
         for (let i = 0; i < 8; i++) {
           if (cancelled) return;
-
           try {
             const sub = await refreshSubscription();
-
-            if (
-              sub &&
-              (sub.status === "active" || sub.status === "trialing")
-            ) {
-              return;
-            }
+            if (sub && (sub.status === "active" || sub.status === "trialing")) return;
           } catch (error) {
-            console.error(
-              "[pricing] Subscription refresh failed:",
-              error,
-            );
+            console.error("[pricing] Subscription refresh failed:", error);
           }
-
           await new Promise((resolve) => setTimeout(resolve, 1200));
         }
       };
-
       void poll();
-
-      return () => {
-        cancelled = true;
-      };
+      return () => { cancelled = true; };
     }
   }, [isLoggedIn, refreshSubscription]);
-
-  /* Plan selection */
 
   const handlePlanClick = useCallback(
     async (plan: Plan) => {
       setCheckoutError(null);
       setReturnBanner(null);
 
-      // Enterprise: contact the sales team.
-      if ("salesOnly" in plan && plan.salesOnly) {
-        window.location.href = ENTERPRISE_MAILTO;
-        return;
-      }
-
-      // Redirect unauthenticated users to signup.
       if (!isLoggedIn) {
         navigate("signup");
         return;
@@ -276,14 +260,7 @@ export default function PricingSection() {
         }
       } catch (err) {
         console.error("[pricing] Stripe error:", err);
-
-        const message =
-          err instanceof StripeServiceError
-            ? err.message
-            : err instanceof Error
-              ? err.message
-              : "An unexpected error occurred.";
-
+        const message = err instanceof StripeServiceError ? err.message : err instanceof Error ? err.message : "An unexpected error occurred.";
         setCheckoutError(message);
         setLoadingPlan(null);
       }
@@ -292,354 +269,225 @@ export default function PricingSection() {
   );
 
   const getButtonText = (plan: Plan): string => {
-    if ("salesOnly" in plan && plan.salesOnly) {
-      return plan.cta;
-    }
-
-    if (isLoggedIn && hasActiveSubscription) {
-      return "Manage subscription";
-    }
-
+    if (isLoggedIn && hasActiveSubscription) return "Manage subscription";
     return plan.cta;
   };
+
+  const starterPlan = plans.find(p => p.key === "starter")!;
+  const proPlan = plans.find(p => p.key === "pro")!;
+  const geniusPlan = plans.find(p => p.key === "enterprise")!;
 
   return (
     <section
       id="pricing"
-      className="relative z-10 w-full overflow-hidden bg-white py-16 text-neutral-950 dark:bg-[#050505] dark:text-white"
+      className="relative z-10 w-full overflow-hidden bg-[#F4F5F9] py-20 text-neutral-950"
     >
       <style>{`
         .pricing-reveal {
           opacity: 0;
           transform: translate3d(0, 18px, 0);
-          transition:
-            opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1),
-            transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+          transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1), transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
         }
-
         .pricing-reveal-visible {
           opacity: 1;
           transform: translate3d(0, 0, 0);
         }
-
-        .pricing-panel-pro {
-          background: linear-gradient(
-            120deg,
-            #dcdaf0 0%,
-            #d6dcee 50%,
-            #cfe0f0 100%
-          );
-        }
-
-        .dark .pricing-panel-pro {
-          background: linear-gradient(
-            120deg,
-            #26244a 0%,
-            #20284a 50%,
-            #1a3048 100%
-          );
-        }
-
-        .pricing-cta {
-          background: linear-gradient(
-            180deg,
-            #2b2b2d 0%,
-            #141414 100%
-          );
-          box-shadow:
-            inset 0 1px 0 rgba(255, 255, 255, 0.14),
-            inset 0 -3px 6px rgba(0, 0, 0, 0.5),
-            0 6px 14px -4px rgba(0, 0, 0, 0.35);
-        }
-
-        .pricing-cta:hover:not(:disabled) {
-          background: linear-gradient(
-            180deg,
-            #38383b 0%,
-            #1c1c1c 100%
-          );
-        }
-
-        .pricing-cta:focus-visible {
-          outline: 2px solid #6d7bd6;
-          outline-offset: 3px;
-        }
-
-        .dark .pricing-cta {
-          background: #ffffff;
-          color: #0a0a0a;
-          box-shadow: none;
-        }
-
-        .dark .pricing-cta:hover:not(:disabled) {
-          background: #e5e5e5;
-        }
-
-        .price-change {
-          animation: price-change 280ms cubic-bezier(0.22, 1, 0.36, 1);
-        }
-
-        @keyframes price-change {
-          from {
-            opacity: 0;
-            transform: translateY(6px) scale(0.96);
-          }
-
-          to {
-            opacity: 1;
-            transform: translateY(0) scale(1);
-          }
-        }
-
         @media (prefers-reduced-motion: reduce) {
-          .price-change {
-            animation: none;
-          }
-
-          .pricing-reveal {
-            opacity: 1;
-            transform: none;
-            transition: none;
-          }
+          .pricing-reveal { opacity: 1; transform: none; transition: none; }
         }
       `}</style>
 
-      <div className="mx-auto max-w-[1100px] px-4 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-[1200px] px-4 sm:px-6 lg:px-8">
         <Reveal>
           {/* Header */}
-
-          <div className="text-center">
-            <p className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-neutral-500 dark:text-neutral-400">
-              Simple, transparent pricing
-            </p>
-
-            <h2 className="font-display text-[clamp(30px,3.4vw,42px)] font-bold leading-tight tracking-[-0.045em]">
-              Choose your plan
+          <div className="text-center mb-10">
+            <h2 className="font-sans text-[clamp(28px,4vw,42px)] font-normal leading-tight tracking-tight text-[#111827]">
+              Choose <span className="font-bold">The Plan</span> That's Right For<br className="hidden sm:block"/> Your Investment Goals!
             </h2>
-
-            <p className="mx-auto mt-3 max-w-md text-sm text-neutral-600 dark:text-neutral-300">
-              Everything you need to plan, organize and publish your content.
-            </p>
           </div>
 
-          {/* Billing period */}
-
-          <div className="mt-7 flex justify-center">
-            <div
-              className="inline-flex rounded-full bg-neutral-100 p-1 dark:bg-white/[0.06]"
-              aria-label="Billing period"
-            >
-              {(["monthly", "annual"] as const).map((value) => {
-                const isActive = period === value;
-
-                return (
-                  <button
-                    key={value}
-                    type="button"
-                    aria-pressed={isActive}
-                    onClick={() => setPeriod(value)}
-                    className={[
-                      "inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-colors",
-                      "focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#6d7bd6]",
-                      isActive
-                        ? "bg-neutral-900 text-white dark:bg-white dark:text-neutral-900"
-                        : "text-neutral-600 hover:text-neutral-900 dark:text-neutral-300 dark:hover:text-white",
-                    ].join(" ")}
-                  >
-                    {value === "monthly" ? "Monthly" : "Yearly"}
-
-                    {value === "annual" && (
-                      <span className="rounded-full bg-[#dcdaf0] px-2 py-0.5 text-[10px] font-bold text-neutral-800">
-                        SAVE 20%
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
+          {/* Toggle */}
+          <div className="mb-12 flex justify-center">
+            <div className="inline-flex items-center rounded-full bg-white p-1.5 shadow-[0_2px_10px_rgba(0,0,0,0.05)]">
+              <button
+                type="button"
+                onClick={() => setPeriod("monthly")}
+                className={`flex items-center gap-2 rounded-full px-6 py-2.5 text-sm font-medium transition-all ${
+                  period === "monthly" ? "text-[#111827]" : "text-neutral-500 hover:text-neutral-900"
+                }`}
+              >
+                Monthly
+                <div className={`h-4 w-7 rounded-full p-0.5 transition-colors ${period === "monthly" ? "bg-[#0a1128]" : "bg-neutral-200"}`}>
+                  <div className={`h-3 w-3 rounded-full bg-white transition-transform ${period === "monthly" ? "translate-x-3" : "translate-x-0"}`} />
+                </div>
+              </button>
+              <button
+                type="button"
+                onClick={() => setPeriod("annual")}
+                className={`rounded-full px-6 py-2.5 text-sm font-medium transition-all ${
+                  period === "annual" ? "text-[#111827]" : "text-neutral-500 hover:text-neutral-900"
+                }`}
+              >
+                Annually
+              </button>
             </div>
           </div>
 
-          {/* Stripe return messages */}
-
+          {/* Messages */}
           {returnBanner === "success" && (
-            <p
-              role="status"
-              className="mt-6 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-center text-sm text-emerald-800 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-300"
-            >
+            <p className="mb-8 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-center text-sm text-emerald-800">
               Payment confirmed — your subscription is being activated.
             </p>
           )}
-
           {returnBanner === "cancel" && (
-            <p
-              role="status"
-              className="mt-6 rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-center text-sm text-neutral-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-neutral-300"
-            >
+            <p className="mb-8 rounded-xl border border-neutral-200 bg-white px-4 py-3 text-center text-sm text-neutral-700">
               Checkout canceled. You have not been charged.
             </p>
           )}
 
-          {/* Pricing cards */}
-
-          <div className="mt-10 grid items-stretch gap-5 md:grid-cols-3">
-            {plans.map((plan) => {
-              const isFeatured =
-                "featured" in plan && plan.featured;
-
-              const isEnterprise =
-                "salesOnly" in plan && plan.salesOnly;
-
-              const price =
-                period === "monthly" ? plan.monthly : plan.annual;
-
-              const isLoading = loadingPlan === plan.key;
-
-              return (
-                <div
-                  key={plan.key}
-                  data-plan={plan.key}
-                  className={[
-                    "relative flex flex-col rounded-[28px] bg-white p-2.5 dark:bg-[#0b0b0d]",
-                    isFeatured
-                      ? "border border-neutral-200 shadow-[0_24px_60px_-24px_rgba(0,0,0,0.22)] dark:border-white/[0.08] dark:shadow-[0_24px_60px_-24px_rgba(0,0,0,0.6)]"
-                      : "border border-neutral-200 shadow-[0_16px_40px_-28px_rgba(0,0,0,0.2)] dark:border-white/[0.08]",
-                  ].join(" ")}
-                >
-                  {/* Plan header */}
-
-                  <div
-                    className={[
-                      "flex min-h-[150px] flex-col justify-between rounded-[20px] p-4",
-                      isFeatured
-                        ? "pricing-panel-pro"
-                        : "bg-[#f1f1f1] dark:bg-white/[0.04]",
-                    ].join(" ")}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="w-fit rounded-full bg-white/80 px-3 py-1.5 text-[11px] font-semibold tracking-wide text-neutral-900 dark:bg-white/10 dark:text-white">
-                        {plan.badge}
-                      </span>
-
-                      {isFeatured && (
-                        <span className="text-[10px] font-semibold uppercase tracking-wide text-neutral-700 dark:text-neutral-200">
-                          Recommended
-                        </span>
-                      )}
-                    </div>
-
-                    <div>
-                      <div className="flex items-baseline gap-1 text-neutral-950 dark:text-white">
-                        <span
-                          key={`${plan.key}-${period}`}
-                          className="price-change font-display text-[38px] font-semibold leading-none tracking-[-0.05em]"
-                        >
-                          ${price}
-                        </span>
-
-                        <span className="text-sm text-neutral-600 dark:text-neutral-300">
-                          / month
-                        </span>
-                      </div>
-
-                      {period === "annual" && (
-                        <p className="mt-2 text-xs text-neutral-600 dark:text-neutral-300">
-                          ${price * 12} billed annually
-                        </p>
-                      )}
-                    </div>
+          {/* Pricing Layout */}
+          <div className="flex flex-col lg:flex-row gap-6 items-stretch">
+            
+            {/* STARTER CARD (Left) */}
+            <div className="lg:w-[32%] rounded-[32px] bg-[#E8ECF5] p-8 flex flex-col justify-between">
+              <div>
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-neutral-900 shadow-sm">
+                    {starterPlan.icon}
                   </div>
+                  <h3 className="text-xl font-medium text-[#111827]">{starterPlan.name}</h3>
+                </div>
 
-                  {/* Description */}
-
-                  <div className="px-3 pb-4 pt-5">
-                    <h3 className="text-lg font-semibold tracking-tight">
-                      {plan.key === "starter"
-                        ? "Start creating"
-                        : plan.key === "pro"
-                          ? "Scale your content"
-                          : "Grow without limits"}
-                    </h3>
-
-                    <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-300">
-                      {plan.description}
-                    </p>
-                  </div>
-
-                  {/* CTA */}
-
-                  <div className="px-3">
-                    <button
-                      type="button"
-                      onClick={() => handlePlanClick(plan)}
-                      disabled={loadingPlan !== null || userLoading}
-                      className={[
-                        "inline-flex h-11 w-full cursor-pointer items-center justify-center rounded-full text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60",
-                        isEnterprise
-                          ? "border border-neutral-300 bg-white text-neutral-900 hover:bg-neutral-100 dark:border-white/15 dark:bg-white/[0.06] dark:text-white dark:hover:bg-white/10"
-                          : "pricing-cta text-white",
-                      ].join(" ")}
-                    >
-                      {isLoading
-                        ? "Redirecting..."
-                        : getButtonText(plan)}
-                    </button>
-                  </div>
-
-                  {/* Features */}
-
-                  <div className="px-3 pb-5 pt-6">
-                    <p className="mb-4 text-xs font-semibold uppercase tracking-[0.12em] text-neutral-500 dark:text-neutral-400">
-                      What's included
-                    </p>
-
-                    <ul className="space-y-3.5">
-                      {plan.features.map((feature) => (
-                        <li
-                          key={feature}
-                          className="flex items-start gap-2.5 text-sm text-neutral-800 dark:text-neutral-200"
-                        >
-                          <svg
-                            viewBox="0 0 16 16"
-                            className={[
-                              "mt-0.5 h-4 w-4 shrink-0",
-                              isFeatured
-                                ? "text-indigo-500 dark:text-indigo-300"
-                                : "text-neutral-400 dark:text-neutral-500",
-                            ].join(" ")}
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="1.8"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            aria-hidden="true"
-                          >
-                            <path d="M3 8.5 6.3 11.8 13 4.5" />
-                          </svg>
-
-                          <span>{feature}</span>
-                        </li>
-                      ))}
-                    </ul>
+                <div className="mb-4">
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-4xl font-medium tracking-tight text-[#111827]">
+                      ${period === "monthly" ? starterPlan.monthly : starterPlan.annual}
+                    </span>
+                    <span className="text-sm text-neutral-500">/Month</span>
                   </div>
                 </div>
-              );
-            })}
+
+                <p className="text-[13px] leading-relaxed text-neutral-600 mb-8">
+                  {starterPlan.description}
+                </p>
+
+                <ul className="space-y-3.5 mb-8">
+                  {starterPlan.features.map((feature) => (
+                    <li key={feature} className="flex items-center gap-3 text-[13px] text-neutral-700">
+                      <CheckIcon />
+                      <span>{feature}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => handlePlanClick(starterPlan)}
+                disabled={loadingPlan !== null || userLoading}
+                className="w-full rounded-full bg-[#0a1128] py-3.5 text-sm font-medium text-white transition-colors hover:bg-[#1a2542] disabled:opacity-70 shadow-lg shadow-black/10"
+              >
+                {loadingPlan === starterPlan.key ? "Redirecting..." : getButtonText(starterPlan)}
+              </button>
+            </div>
+
+            {/* PROFESSIONAL & GENIUS CARD (Right) */}
+            <div className="lg:w-[68%] rounded-[32px] bg-white p-8 shadow-[0_4px_30px_rgba(0,0,0,0.03)] border border-neutral-100 flex flex-col md:flex-row gap-8">
+              
+              {/* Professional Column */}
+              <div className="flex-1 flex flex-col justify-between border-b md:border-b-0 md:border-r border-neutral-100 pb-8 md:pb-0 md:pr-8">
+                <div>
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white border border-neutral-200 text-neutral-900">
+                      {proPlan.icon}
+                    </div>
+                    <h3 className="text-xl font-medium text-[#111827]">{proPlan.name}</h3>
+                  </div>
+
+                  <div className="mb-4">
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-4xl font-medium tracking-tight text-[#111827]">
+                        ${period === "monthly" ? proPlan.monthly : proPlan.annual}
+                      </span>
+                      <span className="text-sm text-neutral-500">/Month</span>
+                    </div>
+                  </div>
+
+                  <p className="text-[13px] leading-relaxed text-neutral-500 mb-8">
+                    {proPlan.description}
+                  </p>
+
+                  <ul className="space-y-3.5 mb-8">
+                    {proPlan.features.map((feature) => (
+                      <li key={feature} className="flex items-center gap-3 text-[13px] text-neutral-700">
+                        <CheckIcon />
+                        <span>{feature}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => handlePlanClick(proPlan)}
+                  disabled={loadingPlan !== null || userLoading}
+                  className="inline-flex w-fit items-center gap-2 rounded-full border border-neutral-200 bg-white px-6 py-2.5 text-sm font-medium text-[#111827] transition-colors hover:bg-neutral-50 disabled:opacity-70"
+                >
+                  {loadingPlan === proPlan.key ? "Redirecting..." : getButtonText(proPlan)}
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+                </button>
+              </div>
+
+              {/* Genius Column */}
+              <div className="flex-1 flex flex-col justify-between pt-8 md:pt-0 md:pl-0">
+                <div>
+                  <div className="flex items-center gap-3 mb-6">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white border border-neutral-200 text-neutral-900">
+                      {geniusPlan.icon}
+                    </div>
+                    <h3 className="text-xl font-medium text-[#111827]">{geniusPlan.name}</h3>
+                  </div>
+
+                  <div className="mb-4">
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-4xl font-medium tracking-tight text-[#111827]">
+                        ${period === "monthly" ? geniusPlan.monthly : geniusPlan.annual}
+                      </span>
+                      <span className="text-sm text-neutral-500">/Month</span>
+                    </div>
+                  </div>
+
+                  <p className="text-[13px] leading-relaxed text-neutral-500 mb-8">
+                    {geniusPlan.description}
+                  </p>
+
+                  <ul className="space-y-3.5 mb-8">
+                    {geniusPlan.features.map((feature) => (
+                      <li key={feature} className="flex items-start gap-3 text-[13px] text-neutral-700">
+                        <div className="mt-0.5"><CheckIcon /></div>
+                        <span>{feature}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => handlePlanClick(geniusPlan)}
+                  disabled={loadingPlan !== null || userLoading}
+                  className="inline-flex w-fit items-center gap-2 rounded-full border border-neutral-200 bg-white px-6 py-2.5 text-sm font-medium text-[#111827] transition-colors hover:bg-neutral-50 disabled:opacity-70"
+                >
+                  {loadingPlan === geniusPlan.key ? "Redirecting..." : getButtonText(geniusPlan)}
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+                </button>
+              </div>
+
+            </div>
           </div>
 
-          {/* Checkout errors */}
-
           {checkoutError && (
-            <p
-              role="alert"
-              className="mt-8 text-center text-sm text-red-600 dark:text-red-400"
-            >
-              {checkoutError}
-            </p>
+            <p className="mt-8 text-center text-sm text-red-600">{checkoutError}</p>
           )}
-
-          <p className="mt-6 text-center text-xs text-neutral-500 dark:text-neutral-400">
-            Upgrade your plan whenever your needs grow.
-          </p>
         </Reveal>
       </div>
     </section>
