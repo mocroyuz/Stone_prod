@@ -344,25 +344,6 @@ const HOME_COMMENTS_LIMIT = 3;
 const commentTime = (c: { publishedAt: string | null }) =>
   c.publishedAt ? new Date(c.publishedAt).getTime() || 0 : 0;
 
-function timeAgo(iso: string | null, now: Date): string {
-  if (!iso) return "";
-
-  const then = new Date(iso);
-  if (Number.isNaN(then.getTime())) return "";
-
-  const minutes = Math.floor(Math.max(0, now.getTime() - then.getTime()) / 60000);
-  if (minutes < 1) return "now";
-  if (minutes < 60) return `${minutes}m`;
-
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h`;
-
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d`;
-
-  return then.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
-}
-
 function useLatestComments(channels: ConnectedChannel[]) {
   const [comments, setComments] = useState<HomeComment[]>([]);
   const [loading, setLoading] = useState(false);
@@ -1079,6 +1060,11 @@ function Panel({
   );
 }
 
+/* Couleur de fond du badge réseau (le logo reste lisible sur sa couleur de marque) */
+const NETWORK_BADGE_BG: Partial<Record<SocialNetworkKey, string>> = {
+  youtube: "bg-[#ff0000] text-white",
+};
+
 /* Photo de profil de la personne qui a écrit le commentaire,
    avec l'icône du réseau en badge. */
 function CommentAvatar({
@@ -1102,10 +1088,10 @@ function CommentAvatar({
   const NetworkIcon = NETWORK_ICONS[network];
 
   /* L'anneau du badge reprend la couleur de la carte */
-  const badgeRing = isDark ? "ring-[#18181b]" : "ring-white";
+  const badgeRing = isDark ? "ring-[#1d1d20]" : "ring-[#f6f4f0]";
 
   return (
-    <div className="relative h-10 w-10 shrink-0">
+    <div className="relative h-9 w-9 shrink-0">
       {src && !failed ? (
         <img
           src={src}
@@ -1113,12 +1099,12 @@ function CommentAvatar({
           draggable={false}
           referrerPolicy="no-referrer"
           onError={() => setFailed(true)}
-          className="h-full w-full rounded-full object-cover"
+          className="h-full w-full rounded-[10px] object-cover"
         />
       ) : (
         <div
           className={[
-            "flex h-full w-full items-center justify-center rounded-full",
+            "flex h-full w-full items-center justify-center rounded-[10px]",
             "text-[13px] font-semibold",
             isDark ? "bg-[#29292c] text-white" : "bg-neutral-900 text-white",
           ].join(" ")}
@@ -1129,55 +1115,15 @@ function CommentAvatar({
 
       <span
         className={[
-          "absolute -bottom-1 -right-1 flex h-[18px] w-[18px] items-center",
-          "justify-center rounded-full bg-white text-black shadow-sm ring-2",
+          "absolute -bottom-1.5 -right-1.5 flex h-[18px] w-[18px] items-center",
+          "justify-center rounded-full ring-2",
+          NETWORK_BADGE_BG[network] ?? "bg-white text-black",
           badgeRing,
         ].join(" ")}
       >
         <NetworkIcon className="h-2.5 w-2.5" />
       </span>
     </div>
-  );
-}
-
-/* Petit avatar du canal qui a reçu le commentaire. */
-function ChannelMini({
-  channel,
-  isDark,
-}: {
-  channel: ConnectedChannel;
-  isDark: boolean;
-}) {
-  const [failed, setFailed] = useState(false);
-
-  useEffect(() => {
-    setFailed(false);
-  }, [channel.avatarUrl]);
-
-  const label = channel.handle || channel.name || "Channel";
-  const initial = label.replace(/^@/, "").charAt(0).toUpperCase() || "?";
-
-  return (
-    <span className="ml-auto flex shrink-0 items-center" title={label}>
-      {channel.avatarUrl && !failed ? (
-        <img
-          src={channel.avatarUrl}
-          alt={label}
-          referrerPolicy="no-referrer"
-          onError={() => setFailed(true)}
-          className="h-4 w-4 rounded-full object-cover"
-        />
-      ) : (
-        <span
-          className={[
-            "flex h-4 w-4 items-center justify-center rounded-full text-[8px] font-semibold",
-            isDark ? "bg-[#29292c] text-white" : "bg-neutral-900 text-white",
-          ].join(" ")}
-        >
-          {initial}
-        </span>
-      )}
-    </span>
   );
 }
 
@@ -1189,14 +1135,12 @@ function CommentsPanel({
   isDark,
   comments,
   unanswered,
-  now,
   onOpen,
   onViewMore,
 }: {
   isDark: boolean;
   comments: HomeComment[];
   unanswered: number;
-  now: Date;
   onOpen: (channelKey: string) => void;
   onViewMore: () => void;
 }) {
@@ -1214,30 +1158,40 @@ function CommentsPanel({
             · {unanswered} unanswered
           </span>
         </p>
+
+        <button
+          type="button"
+          onClick={onViewMore}
+          className={[
+            "flex items-center gap-0.5 rounded-md text-[11px] font-semibold transition",
+            focusRingClass(isDark),
+            isDark
+              ? "text-neutral-400 hover:text-white"
+              : "text-neutral-500 hover:text-neutral-900",
+          ].join(" ")}
+        >
+          View All
+          <ChevronRight className="h-3.5 w-3.5" />
+        </button>
       </div>
 
-      {/* Panneau : coins très arrondis, les commentaires sont des cartes à l'intérieur */}
-      <div
-        className={[
-          "flex min-h-[190px] flex-col gap-1.5 rounded-3xl border p-2",
-          panelSurfaceClass(isDark),
-        ].join(" ")}
-      >
-        <ul className="flex flex-1 flex-col gap-1.5">
-          {comments.map((c) => (
-            <li key={c.id}>
-              <button
-                type="button"
-                onClick={() => onOpen(c.channel.key)}
-                className={[
-                  "group flex w-full items-start gap-3 rounded-2xl border p-3 text-left",
-                  "transition-all duration-200 motion-reduce:transition-none",
-                  focusRingClass(isDark),
-                  isDark
-                    ? "border-white/[0.06] bg-[#18181b] hover:border-white/[0.12] hover:bg-[#1d1d21]"
-                    : "border-black/[0.05] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.03)] hover:border-black/[0.10] hover:shadow-[0_4px_14px_rgba(0,0,0,0.06)]",
-                ].join(" ")}
-              >
+      {/* Pas de panneau autour : chaque commentaire est une carte arrondie posée sur le fond */}
+      <ul className="flex flex-col gap-2.5">
+        {comments.map((c) => (
+          <li key={c.id}>
+            <button
+              type="button"
+              onClick={() => onOpen(c.channel.key)}
+              className={[
+                "flex w-full flex-col gap-3 rounded-2xl border p-3.5 text-left",
+                "transition-all duration-200 motion-reduce:transition-none",
+                focusRingClass(isDark),
+                isDark
+                  ? "border-white/[0.06] bg-white/[0.06] shadow-[0_6px_24px_rgba(0,0,0,0.35)] hover:bg-white/[0.08]"
+                  : "border-black/[0.05] bg-[#f6f4f0] shadow-[0_4px_16px_rgba(0,0,0,0.06)] hover:bg-[#f1eee9]",
+              ].join(" ")}
+            >
+              <div className="flex items-center gap-3">
                 <CommentAvatar
                   src={c.authorAvatar}
                   name={c.author}
@@ -1245,107 +1199,45 @@ function CommentsPanel({
                   isDark={isDark}
                 />
 
-                <div className="min-w-0 flex-1">
-                  <span className="sr-only">
-                    {c.channel.handle || c.channel.name} on {c.network}.
-                  </span>
+                <span className="sr-only">
+                  {c.channel.handle || c.channel.name} on {c.network}.
+                </span>
 
-                  <div className="flex items-center gap-1.5">
-                    {!c.isRead && (
-                      <span
-                        role="img"
-                        aria-label="Unread"
-                        className="h-2 w-2 shrink-0 rounded-full bg-blue-500"
-                      />
-                    )}
-                    <span
-                      className={[
-                        "truncate text-[12.5px] font-semibold",
-                        strongClass(isDark),
-                      ].join(" ")}
-                    >
-                      {c.author}
-                    </span>
-                    <span
-                      className={["shrink-0 text-[10.5px]", mutedClass(isDark)].join(" ")}
-                    >
-                      · {timeAgo(c.publishedAt, now)}
-                    </span>
-                    <ChannelMini channel={c.channel} isDark={isDark} />
-                  </div>
-
-                  <p
-                    className={[
-                      "mt-1 break-words text-[12px] leading-snug",
-                      c.isRead
-                        ? "text-neutral-500"
-                        : isDark
-                          ? "text-neutral-200"
-                          : "text-neutral-800",
-                    ].join(" ")}
-                    style={{
-                      display: "-webkit-box",
-                      WebkitLineClamp: 2,
-                      WebkitBoxOrient: "vertical",
-                      overflow: "hidden",
-                    }}
-                  >
-                    {c.text}
-                  </p>
-
-                  {c.videoTitle && (
-                    <p
-                      className={[
-                        "mt-2 inline-flex max-w-full items-center rounded-full px-2 py-0.5",
-                        "text-[10px] font-medium",
-                        isDark
-                          ? "bg-white/[0.05] text-neutral-400"
-                          : "bg-black/[0.04] text-neutral-500",
-                      ].join(" ")}
-                      title={c.videoTitle}
-                    >
-                      <span className="sr-only">On video: </span>
-                      <span className="truncate">{c.videoTitle}</span>
-                    </p>
-                  )}
-                </div>
-
-                {c.videoThumbnail && (
-                  <img
-                    src={c.videoThumbnail}
-                    alt={c.videoTitle ? `Video: ${c.videoTitle}` : ""}
-                    loading="lazy"
-                    draggable={false}
-                    referrerPolicy="no-referrer"
-                    className={[
-                      "aspect-video w-[76px] shrink-0 rounded-xl object-cover ring-1",
-                      "transition-transform duration-200 group-hover:scale-[1.03]",
-                      "motion-reduce:transition-none",
-                      isDark ? "ring-white/[0.08]" : "ring-black/[0.06]",
-                    ].join(" ")}
+                {!c.isRead && (
+                  <span
+                    role="img"
+                    aria-label="Unread"
+                    className="h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500"
                   />
                 )}
-              </button>
-            </li>
-          ))}
-        </ul>
+                <span
+                  className={[
+                    "min-w-0 truncate text-[12px] font-medium",
+                    isDark ? "text-neutral-400" : "text-neutral-500",
+                  ].join(" ")}
+                >
+                  {c.author}
+                </span>
+              </div>
 
-        <button
-          type="button"
-          onClick={onViewMore}
-          className={[
-            "flex w-full items-center justify-center gap-0.5 rounded-2xl px-3.5 py-2.5",
-            "text-[11px] font-semibold transition-colors motion-reduce:transition-none",
-            focusRingClass(isDark),
-            isDark
-              ? "text-neutral-400 hover:bg-white/[0.05] hover:text-white"
-              : "text-neutral-500 hover:bg-black/[0.04] hover:text-neutral-900",
-          ].join(" ")}
-        >
-          View more
-          <ChevronRight className="h-3.5 w-3.5" />
-        </button>
-      </div>
+              <p
+                className={[
+                  "break-words text-[13.5px] leading-snug",
+                  strongClass(isDark),
+                ].join(" ")}
+                style={{
+                  display: "-webkit-box",
+                  WebkitLineClamp: 3,
+                  WebkitBoxOrient: "vertical",
+                  overflow: "hidden",
+                }}
+              >
+                {c.text}
+              </p>
+            </button>
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }
@@ -1947,7 +1839,6 @@ export default function Home() {
                   unanswered={
                     latestComments.comments.filter((c) => !c.answered).length
                   }
-                  now={now}
                   onOpen={(key) =>
                     navigate(`community?channel=${encodeURIComponent(key)}`)
                   }
