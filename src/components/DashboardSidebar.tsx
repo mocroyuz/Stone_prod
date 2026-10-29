@@ -965,13 +965,6 @@ function getNetworkId(channel: ConnectedChannel): NetworkKey | null {
   return null;
 }
 
-/**
- * ✅ FIX : lit le paramètre `channel` depuis le HASH (routing hash de l'app)
- * puis, en fallback, depuis `window.location.search` pour les liens directs.
- *
- * Avant : on ne lisait que `window.location.search`, ce qui renvoyait toujours
- * `null` avec du hash routing → seul `channels[0]` apparaissait sélectionné.
- */
 function getHashChannel(): string | null {
   if (typeof window === "undefined") return null;
 
@@ -1009,7 +1002,8 @@ const STANDALONE_LINKS: ChannelLink[] = [
   { label: "Insights", route: "insights", icon: InsightsIcon, badge: "New" },
 ];
 
-const CHANNEL_ROUTES = new Set(["insights", "community"]);
+// ✅ FIX : Ajout de "schedule" pour que l'onglet Publish sache quel canal est actif
+const CHANNEL_ROUTES = new Set(["insights", "community", "schedule"]);
 
 /** Plafond d'affichage : "9+" au-delà de 9 non-lus. */
 const formatUnread = (count: number) => (count > 9 ? "9+" : String(count));
