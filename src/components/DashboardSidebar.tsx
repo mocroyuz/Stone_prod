@@ -143,57 +143,85 @@ export const SIDEBAR_COLLAPSED_OFFSET = 64;
 export const SIDEBAR_EXPANDED_OFFSET = 240;
 
 /* ============================================================================ 
-   Global Unread State (Pour connecter Community.tsx et la Sidebar)
+   Notifications : commentaires non lus par canal
+   (Home.tsx et Community.tsx envoient les nombres, la sidebar les affiche)
 ============================================================================ */
 
-const UNREAD_STORAGE_KEY = "stone.unread-channels";
+const UNREAD_STORAGE_KEY = "stone.unread-counts";
 const UNREAD_EVENT = "stone:unread-changed";
 
-function getStoredUnread(): string[] {
-  if (typeof window === "undefined") return [];
+type UnreadCounts = Record<string, number>;
+
+function getStoredUnread(): UnreadCounts {
+  if (typeof window === "undefined") return {};
+
   try {
     const raw = window.localStorage.getItem(UNREAD_STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
+    const parsed: unknown = raw ? JSON.parse(raw) : {};
+
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return {};
+    }
+
+    const result: UnreadCounts = {};
+
+    Object.entries(parsed as Record<string, unknown>).forEach(([key, value]) => {
+      if (typeof value === "number" && value > 0) {
+        result[key] = Math.floor(value);
+      }
+    });
+
+    return result;
   } catch {
-    return [];
+    return {};
   }
 }
 
 /**
- * À appeler depuis Community.tsx (ou n'importe où) pour dire à la sidebar
- * qu'un canal a des commentaires non lus.
+ * À appeler depuis n'importe quelle page : nombre de commentaires non lus
+ * d'un canal. 0 supprime la notification.
  */
-export function setChannelUnread(channelKey: string, hasUnread: boolean) {
+export function setChannelUnreadCount(channelKey: string, count: number) {
   if (typeof window === "undefined") return;
+
+  const next = Math.max(0, Math.floor(count) || 0);
   const current = getStoredUnread();
-  let next: string[];
 
-  if (hasUnread) {
-    next = current.includes(channelKey) ? current : [...current, channelKey];
-  } else {
-    next = current.filter((k) => k !== channelKey);
-  }
+  if ((current[channelKey] ?? 0) === next) return;
 
-  if (JSON.stringify(current) !== JSON.stringify(next)) {
-    window.localStorage.setItem(UNREAD_STORAGE_KEY, JSON.stringify(next));
-    window.dispatchEvent(new Event(UNREAD_EVENT));
-  }
+  const updated = { ...current };
+
+  if (next > 0) updated[channelKey] = next;
+  else delete updated[channelKey];
+
+  try {
+    window.localStorage.setItem(UNREAD_STORAGE_KEY, JSON.stringify(updated));
+  } catch {}
+
+  window.dispatchEvent(new Event(UNREAD_EVENT));
 }
 
-function useUnreadChannels() {
-  const [unread, setUnread] = useState<string[]>(getStoredUnread);
+/** Ancienne API, gardée pour compatibilité. */
+export function setChannelUnread(channelKey: string, hasUnread: boolean) {
+  const existing = getStoredUnread()[channelKey] ?? 0;
+  setChannelUnreadCount(channelKey, hasUnread ? Math.max(existing, 1) : 0);
+}
+
+function useUnreadCounts(): UnreadCounts {
+  const [counts, setCounts] = useState<UnreadCounts>(getStoredUnread);
 
   useEffect(() => {
-    const sync = () => setUnread(getStoredUnread());
+    const sync = () => setCounts(getStoredUnread());
     window.addEventListener(UNREAD_EVENT, sync);
     window.addEventListener("storage", sync);
+
     return () => {
       window.removeEventListener(UNREAD_EVENT, sync);
       window.removeEventListener("storage", sync);
     };
   }, []);
 
-  return unread;
+  return counts;
 }
 
 /* ============================================================================ 
@@ -950,15 +978,17 @@ function getHashChannel(): string | null {
   return new URLSearchParams(window.location.search).get("channel");
 }
 
-const CHANNEL_LINKS: {
+type ChannelLink = {
   label: string;
   route: string;
   icon: IconComponent;
   badge?: string;
   perChannel?: boolean;
-}[] = [
+};
+
+const CHANNEL_LINKS: ChannelLink[] = [
   { label: "Publish", route: "schedule", icon: PublishIcon, perChannel: true },
-  { label: "Community", route: "community", icon: CommunityIcon, perChannel: true, badge: "1" },
+  { label: "Community", route: "community", icon: CommunityIcon, perChannel: true },
   {
     label: "Insights",
     route: "insights",
@@ -968,12 +998,23 @@ const CHANNEL_LINKS: {
   },
 ];
 
-const STANDALONE_LINKS = [
+const STANDALONE_LINKS: ChannelLink[] = [
   { label: "Insights", route: "insights", icon: InsightsIcon, badge: "New" },
-  { label: "Community", route: "community", icon: CommunityIcon, badge: "1" },
+  { label: "Community", route: "community", icon: CommunityIcon },
 ];
 
 const CHANNEL_ROUTES = new Set(["insights", "community"]);
+
+const formatUnread = (count: number) => (count > 99 ? "99+" : String(count));
+
+/** Le badge de « Community » = nombre de commentaires non lus (rien s'il n'y en a pas). */
+function withUnreadBadge<T extends { route: string; badge?: string }>(
+  link: T,
+  unread: number
+): T {
+  if (link.route !== "community") return link;
+  return { ...link, badge: unread > 0 ? formatUnread(unread) : undefined };
+}
 
 const ORDER_STORAGE_PREFIX = "stone.channels.order";
 
@@ -1022,12 +1063,14 @@ function ChannelAvatar({
   channel,
   NetworkIcon,
   dotRing,
+  unreadDot,
   size = "md",
   hasUnread = false,
 }: {
   channel: ConnectedChannel;
   NetworkIcon?: IconComponent;
   dotRing: string;
+  unreadDot: string;
   size?: "md" | "lg";
   hasUnread?: boolean;
 }) {
@@ -1065,12 +1108,13 @@ function ChannelAvatar({
         </span>
       )}
 
-      {/* 🔴 Boule de notification : blanche en mode sombre, noire en mode clair */}
+      {/* Notification : boule blanche en mode sombre, noire en mode clair */}
       {hasUnread && (
         <span
+          aria-hidden="true"
           className={[
-            "absolute -left-0.5 -top-0.5 flex h-2.5 w-2.5 rounded-full ring-2",
-            "bg-black dark:bg-white", 
+            "absolute -left-0.5 -top-0.5 h-2.5 w-2.5 rounded-full ring-2",
+            unreadDot,
             dotRing,
           ].join(" ")}
         />
@@ -1099,6 +1143,7 @@ function ChannelHoverCard({
   channel,
   label,
   NetworkIcon,
+  links,
   currentRoute,
   hashChannel,
   firstChannelKey,
@@ -1113,6 +1158,7 @@ function ChannelHoverCard({
   channel: ConnectedChannel;
   label: string;
   NetworkIcon?: IconComponent;
+  links: ChannelLink[];
   currentRoute: string;
   hashChannel: string | null;
   firstChannelKey?: string;
@@ -1267,6 +1313,7 @@ function ChannelHoverCard({
                 channel={channel}
                 NetworkIcon={NetworkIcon}
                 dotRing={t.dotRing}
+                unreadDot={t.accent}
                 hasUnread={hasUnread}
               />
               <span
@@ -1301,7 +1348,7 @@ function ChannelHoverCard({
                 <span className="flex-1">New post</span>
               </button>
 
-              {CHANNEL_LINKS.map((link) => {
+              {links.map((link) => {
                 const Icon = link.icon;
 
                 const target = link.perChannel
@@ -1705,7 +1752,11 @@ function SidebarChannelsImpl({
     });
   }, []);
 
-  const unreadChannels = useUnreadChannels();
+  const unreadCounts = useUnreadCounts();
+  const totalUnread = Object.values(unreadCounts).reduce(
+    (sum, count) => sum + count,
+    0
+  );
 
   const [order, setOrder] = useState<string[]>(() => readStoredOrder(userId));
   const [dragKey, setDragKey] = useState<string | null>(null);
@@ -2055,7 +2106,8 @@ function SidebarChannelsImpl({
       )}
 
       {channels.length === 0 &&
-        STANDALONE_LINKS.map((link) => {
+        STANDALONE_LINKS.map((rawLink) => {
+          const link = withUnreadBadge(rawLink, totalUnread);
           const Icon = link.icon;
           const isActive = link.route === currentRoute;
 
@@ -2184,9 +2236,13 @@ function SidebarChannelsImpl({
             : hashChannel === channel.key);
 
         const isDragging = dragKey === channel.key;
-        
-        // 👇 C'est ici que l'on vérifie si le canal a des non-lus !
-        const hasUnread = unreadChannels.includes(channel.key);
+
+        /* Notifications de ce canal : boule sur l'avatar + nombre dans « Community » */
+        const unreadCount = unreadCounts[channel.key] ?? 0;
+        const hasUnread = unreadCount > 0;
+        const channelLinks = CHANNEL_LINKS.map((link) =>
+          withUnreadBadge(link, unreadCount)
+        );
 
         return (
           <div
@@ -2255,6 +2311,7 @@ function SidebarChannelsImpl({
                 channel={channel}
                 label={label}
                 NetworkIcon={NetworkIcon}
+                links={channelLinks}
                 currentRoute={currentRoute}
                 hashChannel={hashChannel}
                 firstChannelKey={channels[0]?.key}
@@ -2269,7 +2326,13 @@ function SidebarChannelsImpl({
                   type="button"
                   aria-expanded={isOpen}
                   aria-haspopup={compact ? "menu" : undefined}
-                  aria-label={cleanLabel}
+                  aria-label={
+                    hasUnread
+                      ? `${cleanLabel}, ${unreadCount} unread ${
+                          unreadCount === 1 ? "comment" : "comments"
+                        }`
+                      : cleanLabel
+                  }
                   aria-keyshortcuts={canReorder ? "Alt+ArrowUp Alt+ArrowDown" : undefined}
                   onKeyDown={(event) => {
                     if (!canReorder || !event.altKey) return;
@@ -2305,6 +2368,7 @@ function SidebarChannelsImpl({
                     channel={channel}
                     NetworkIcon={NetworkIcon}
                     dotRing={t.dotRing}
+                    unreadDot={t.accent}
                     size={compact ? "lg" : "md"}
                     hasUnread={hasUnread}
                   />
@@ -2342,7 +2406,7 @@ function SidebarChannelsImpl({
                       t.rail,
                     ].join(" ")}
                   >
-                    {CHANNEL_LINKS.map((link) => {
+                    {channelLinks.map((link) => {
                       const Icon = link.icon;
 
                       const target = link.perChannel
