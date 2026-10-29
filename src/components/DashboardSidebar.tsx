@@ -38,7 +38,6 @@ import {
   type MonoTone,
 } from "./IntegrationIcons";
 import { PLAN } from "../data/channelConfig";
-import { navigateToSettingsSection } from "../utils/settingsNavigation";
 import { requestNewPost } from "../services/Newpostbus";
 
 /* ============================================================================ 
@@ -2871,7 +2870,7 @@ export default function DashboardSidebar({
     setMenuOpen(false);
     setMobileOpen(false);
     if (route === "channels") {
-      navigateToSettingsSection("channels");
+      navigate("settings/channels");
       return;
     }
     navigate(route);

@@ -15,7 +15,7 @@ import ForgotPassword from "./pages/forgotpassword";
 import ResetPassword from "./pages/ResetPassword";
 import DashboardHome from "./pages/home";
 import IntegrationsPage from "./pages/integration";
-import Settings from "./pages/settings";
+import Settings, { sectionFromSlug } from "./pages/settings";
 import CheckoutReturnModal from "./components/CheckoutReturnModal";
 import Schedule from "./pages/schedule";
 import Pricing from "./pages/pricing";
@@ -449,6 +449,18 @@ function NotFound() {
 }
 
 /* ──────────────────────────────────────────────────────────────
+   NAVIGATE HELPER
+   ────────────────────────────────────────────────────────────── */
+
+function Navigate({ to }: { to: string }) {
+  useEffect(() => {
+    navigate(to, { replace: true });
+  }, [to]);
+
+  return null;
+}
+
+/* ──────────────────────────────────────────────────────────────
    ROUTES
    ────────────────────────────────────────────────────────────── */
 
@@ -506,7 +518,15 @@ const PUBLIC_ROUTES = new Set([
 ]);
 
 function normalizeRoute(route: string | null | undefined): string {
-  return (route ?? "").replace(/^\/+|\/+$/g, "").toLowerCase();
+  const clean = (route ?? "").replace(/^\/+|\/+$/g, "").toLowerCase();
+  return clean.startsWith("settings/") ? "settings" : clean;
+}
+
+function settingsSlug(route: string | null | undefined): string | undefined {
+  const clean = (route ?? "").replace(/^\/+|\/+$/g, "").toLowerCase();
+  return clean.startsWith("settings/")
+    ? clean.slice("settings/".length)
+    : undefined;
 }
 
 /* ──────────────────────────────────────────────────────────────
@@ -938,9 +958,14 @@ function AppContentInner({
   if (route === "settings") {
     return (
       <div className="relative h-screen w-screen overflow-hidden font-sans">
-        <Settings />
+        <Settings initialSection={sectionFromSlug(settingsSlug(rawRoute))} />
       </div>
     );
+  }
+
+  if (route === "channels") {
+    // ancienne URL : redirige vers la nouvelle
+    return <Navigate to="settings/channels" />;
   }
 
   if (route === "schedule" || route === "calendar") {
@@ -971,14 +996,6 @@ function AppContentInner({
     return (
       <div className="relative h-screen w-screen overflow-hidden font-sans">
         <Create />
-      </div>
-    );
-  }
-
-  if (route === "channels") {
-    return (
-      <div className="relative h-screen w-screen overflow-hidden font-sans">
-        <Settings initialSection="channels" />
       </div>
     );
   }

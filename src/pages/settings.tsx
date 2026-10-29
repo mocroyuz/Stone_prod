@@ -671,6 +671,28 @@ const SECTION_TITLES: Record<SectionKey, string> = {
   danger: "Danger zone",
 };
 
+const SECTION_SLUGS: Record<SectionKey, string> = {
+  profile: "profile",
+  account: "security",
+  mfa: "two-factor",
+  appearance: "appearance",
+  notifications: "notifications",
+  billing: "billing",
+  channels: "channels",
+  tags: "tags",
+  savedReplies: "saved-replies",
+  danger: "danger-zone",
+};
+
+export const settingsPath = (key: SectionKey) =>
+  `settings/${SECTION_SLUGS[key]}`;
+
+export function sectionFromSlug(slug?: string | null): SectionKey | undefined {
+  return (Object.keys(SECTION_SLUGS) as SectionKey[]).find(
+    (key) => SECTION_SLUGS[key] === slug
+  );
+}
+
 function SettingsSidebar({
   active,
   onSelect,
@@ -784,10 +806,35 @@ type SettingsProps = {
 
 type Notify = (message: string, kind?: "success" | "error") => void;
 
-/** Ouvre directement « Channels » au retour d'un OAuth (TikTok / Pinterest / YouTube). */
-function initialSection(requested?: SectionKey): SectionKey {
-  if (requested) return requested;
+/**
+ * Fallback pour `/settings` (sans slug) :
+ * - retour OAuth (TikTok / Pinterest / YouTube) → Channels
+ * - sinon → Profile
+ *
+ * Si l'URL contient un slug valide (`/settings/tags`, `#/settings/tags`…),
+ * c'est lui qui prime.
+ */
+function initialSection(): SectionKey {
+  // 1. Slug dans l'URL (hash ou path)
+  try {
+    const hash = window.location.hash.replace(/^#\/?/, "");
+    const hashParts = hash.split("/").filter(Boolean);
+    if (hashParts[0] === "settings" && hashParts[1]) {
+      const fromSlug = sectionFromSlug(hashParts[1]);
+      if (fromSlug) return fromSlug;
+    }
 
+    const pathParts = window.location.pathname.split("/").filter(Boolean);
+    const idx = pathParts.lastIndexOf("settings");
+    if (idx >= 0 && pathParts[idx + 1]) {
+      const fromSlug = sectionFromSlug(pathParts[idx + 1]);
+      if (fromSlug) return fromSlug;
+    }
+  } catch {
+    /* ignore */
+  }
+
+  // 2. Retour OAuth → Channels
   try {
     const params = new URLSearchParams(window.location.search);
     if (params.get("section") === "channels") return "channels";
@@ -805,6 +852,8 @@ function initialSection(requested?: SectionKey): SectionKey {
   } catch {
     /* ignore */
   }
+
+  // 3. Défaut
   return "profile";
 }
 
@@ -813,26 +862,16 @@ export default function Settings(_props: SettingsProps) {
   const isDark = theme === "dark";
   const tokens = useMemo<Tokens>(() => (isDark ? DARK : LIGHT), [isDark]);
 
-  const [active, setActive] = useState<SectionKey>(() =>
-    initialSection(_props.initialSection)
-  );
-  const requestedSection = new URLSearchParams(window.location.search).get(
-    "section"
-  );
+  // La section active vient de l'URL : soit passée par le routeur,
+  // soit déduite du slug / des query params OAuth.
+  const active: SectionKey = _props.initialSection ?? initialSection();
+
   const [toast, setToast] = useState<{
     message: string;
     kind: "success" | "error";
   } | null>(null);
   const toastTimer = useRef<number | null>(null);
   const titleRef = useRef<HTMLHeadingElement | null>(null);
-
-  useEffect(() => {
-    if (_props.initialSection) {
-      setActive(_props.initialSection);
-    } else if (requestedSection === "channels") {
-      setActive("channels");
-    }
-  }, [_props.initialSection, requestedSection]);
 
   const notify = useCallback<Notify>((message, kind) => {
     const resolved =
@@ -866,7 +905,7 @@ export default function Settings(_props: SettingsProps) {
   );
 
   const handleSelect = useCallback((key: SectionKey) => {
-    setActive(key);
+    navigate(settingsPath(key));
     window.scrollTo({ top: 0 });
     titleRef.current?.focus();
   }, []);
