@@ -139,9 +139,62 @@ type StatusResponse = {
    Dimensions 
 ============================================================================ */
 
-// 64px : 12px de marge de chaque côté des boutons de 40px en mode réduit.
 export const SIDEBAR_COLLAPSED_OFFSET = 64;
 export const SIDEBAR_EXPANDED_OFFSET = 240;
+
+/* ============================================================================ 
+   Global Unread State (Pour connecter Community.tsx et la Sidebar)
+============================================================================ */
+
+const UNREAD_STORAGE_KEY = "stone.unread-channels";
+const UNREAD_EVENT = "stone:unread-changed";
+
+function getStoredUnread(): string[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(UNREAD_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * À appeler depuis Community.tsx (ou n'importe où) pour dire à la sidebar
+ * qu'un canal a des commentaires non lus.
+ */
+export function setChannelUnread(channelKey: string, hasUnread: boolean) {
+  if (typeof window === "undefined") return;
+  const current = getStoredUnread();
+  let next: string[];
+
+  if (hasUnread) {
+    next = current.includes(channelKey) ? current : [...current, channelKey];
+  } else {
+    next = current.filter((k) => k !== channelKey);
+  }
+
+  if (JSON.stringify(current) !== JSON.stringify(next)) {
+    window.localStorage.setItem(UNREAD_STORAGE_KEY, JSON.stringify(next));
+    window.dispatchEvent(new Event(UNREAD_EVENT));
+  }
+}
+
+function useUnreadChannels() {
+  const [unread, setUnread] = useState<string[]>(getStoredUnread);
+
+  useEffect(() => {
+    const sync = () => setUnread(getStoredUnread());
+    window.addEventListener(UNREAD_EVENT, sync);
+    window.addEventListener("storage", sync);
+    return () => {
+      window.removeEventListener(UNREAD_EVENT, sync);
+      window.removeEventListener("storage", sync);
+    };
+  }, []);
+
+  return unread;
+}
 
 /* ============================================================================ 
    Keyframes 
@@ -244,7 +297,7 @@ function Kbd({ children, className }: { children: ReactNode; className?: string 
 }
 
 /* ============================================================================ 
-   Responsive : sous 768 px la sidebar devient un tiroir 
+   Responsive 
 ============================================================================ */
 
 const MOBILE_QUERY = "(max-width: 767px)";
@@ -412,7 +465,6 @@ const InsightsIcon = (p: IconProps) => (
   </Svg>
 );
 
-/** Poignée de glisser-déposer : 2 colonnes × 3 points (6 points). */
 function GripIcon({ className = "h-4 w-2.5" }: IconProps) {
   return (
     <svg
@@ -454,7 +506,7 @@ function SidebarToggleIcon({ className, open }: IconProps & { open: boolean }) {
 }
 
 /* ============================================================================ 
-   Tooltip flottant (portal) 
+   Tooltip 
 ============================================================================ */
 
 const TIP_DELAY_MS = 280;
@@ -542,14 +594,6 @@ const navItems: NavItem[] = [
   { label: "Create", icon: LightbulbIcon, route: "create", badge: "New" },
 ];
 
-/**
- * Pages additionnelles qui peuvent être ajoutées à la section « Favorite »
- * sans faire partie de la navigation principale (`navItems`).
- *
- * Ex. : « Channels » et « Community » disposent de leur propre bouton
- * marque-page dans leur header, et doivent donc pouvoir être enregistrées
- * et affichées dans la sidebar.
- */
 const EXTRA_FAVORITABLE_ITEMS: NavItem[] = [
   { label: "Channels", icon: ChannelsIcon, route: "channels" },
   { label: "Community", icon: CommunityIcon, route: "community" },
@@ -557,7 +601,6 @@ const EXTRA_FAVORITABLE_ITEMS: NavItem[] = [
   { label: "Integrations", icon: AppsIcon, route: "integrations" },
 ];
 
-/** Liste complète utilisée pour hydrater / filtrer / afficher les favoris. */
 const FAVORITABLE_ITEMS: NavItem[] = [
   ...navItems,
   ...EXTRA_FAVORITABLE_ITEMS,
@@ -591,9 +634,7 @@ function readStoredFavorites(userId: string | null): string[] {
 function writeStoredFavorites(userId: string | null, routes: string[]) {
   try {
     window.localStorage.setItem(favoritesStorageKey(userId), JSON.stringify(routes));
-  } catch {
-    // Les favoris restent disponibles en mémoire si le stockage est indisponible.
-  }
+  } catch {}
 }
 
 const FAVORITE_NAMES_STORAGE_PREFIX = "stone.sidebar.favorites.names";
@@ -639,16 +680,13 @@ function writeStoredFavoriteNames(
       favoriteNamesStorageKey(userId),
       JSON.stringify(names)
     );
-  } catch {
-    // Les noms restent disponibles en mémoire si le stockage est indisponible.
-  }
+  } catch {}
 }
 
 const FAVORITES_OPEN_KEY = "stone.sidebar.favorites.open";
 
 function readFavoritesOpen(): boolean {
   if (typeof window === "undefined") return true;
-
   try {
     return window.localStorage.getItem(FAVORITES_OPEN_KEY) !== "false";
   } catch {
@@ -659,23 +697,11 @@ function readFavoritesOpen(): boolean {
 function writeFavoritesOpen(open: boolean) {
   try {
     window.localStorage.setItem(FAVORITES_OPEN_KEY, String(open));
-  } catch {
-    /* stockage indisponible : état en mémoire uniquement */
-  }
+  } catch {}
 }
 
 const FAVORITES_EVENT = "stone:favorites-changed";
 
-/**
- * Favoris partagés : la sidebar ET n'importe quelle page (ex. Community.tsx)
- * lisent / modifient la même liste (localStorage) et restent synchronisées
- * grâce à un évènement window.
- *
- * - routes : routes enregistrées en favori
- * - names  : noms personnalisés (route → nom) ; absent = nom par défaut
- * - toggle : ajoute / retire une page des favoris
- * - rename : renomme un favori (nom vide = retour au nom par défaut)
- */
 export function useFavorites() {
   const { user } = useUser();
   const userId = user?.id ?? null;
@@ -711,10 +737,8 @@ export function useFavorites() {
       writeStoredFavorites(userId, next);
       setRoutes(next);
 
-      // Un favori retiré perd aussi son nom personnalisé.
       if (removing) {
         const currentNames = readStoredFavoriteNames(userId);
-
         if (route in currentNames) {
           const { [route]: _removed, ...rest } = currentNames;
           writeStoredFavoriteNames(userId, rest);
@@ -757,10 +781,6 @@ const defaultAccount = {
   avatarUrl: undefined as string | undefined,
 };
 
-/**
- * On aligne les labels sur la page de tarification.
- * "pro" et "professional" deviennent "Professional".
- */
 function formatPlanLabel(name: string | null | undefined): string | null {
   const normalized = name?.trim().toLowerCase();
   if (!normalized) return null;
@@ -927,7 +947,6 @@ function getNetworkId(channel: ConnectedChannel): NetworkKey | null {
 
 function getHashChannel(): string | null {
   if (typeof window === "undefined") return null;
-
   return new URLSearchParams(window.location.search).get("channel");
 }
 
@@ -939,7 +958,6 @@ const CHANNEL_LINKS: {
   perChannel?: boolean;
 }[] = [
   { label: "Publish", route: "schedule", icon: PublishIcon, perChannel: true },
-  // Ajout du badge "1" pour la notification de commentaire sur Community
   { label: "Community", route: "community", icon: CommunityIcon, perChannel: true, badge: "1" },
   {
     label: "Insights",
@@ -952,15 +970,10 @@ const CHANNEL_LINKS: {
 
 const STANDALONE_LINKS = [
   { label: "Insights", route: "insights", icon: InsightsIcon, badge: "New" },
-  // Ajout du badge "1" ici aussi pour le mode sans chaîne connectée
   { label: "Community", route: "community", icon: CommunityIcon, badge: "1" },
 ];
 
 const CHANNEL_ROUTES = new Set(["insights", "community"]);
-
-/* ----------------------------------------------------------------------------
-   Ordre des canaux (glisser-déposer) — mémorisé par utilisateur
----------------------------------------------------------------------------- */
 
 const ORDER_STORAGE_PREFIX = "stone.channels.order";
 
@@ -970,11 +983,9 @@ function orderStorageKey(userId: string | null): string {
 
 function readStoredOrder(userId: string | null): string[] {
   if (typeof window === "undefined") return [];
-
   try {
     const raw = window.localStorage.getItem(orderStorageKey(userId));
     const parsed: unknown = raw ? JSON.parse(raw) : [];
-
     return Array.isArray(parsed)
       ? parsed.filter((key): key is string => typeof key === "string")
       : [];
@@ -986,12 +997,9 @@ function readStoredOrder(userId: string | null): string[] {
 function writeStoredOrder(userId: string | null, order: string[]) {
   try {
     window.localStorage.setItem(orderStorageKey(userId), JSON.stringify(order));
-  } catch {
-    /* stockage indisponible : l'ordre reste en mémoire pour la session */
-  }
+  } catch {}
 }
 
-/** Trie les canaux selon l'ordre mémorisé ; les nouveaux canaux vont à la fin. */
 function applyOrder(
   channels: ConnectedChannel[],
   order: string[]
@@ -1010,11 +1018,6 @@ function applyOrder(
     .map(({ channel }) => channel);
 }
 
-/**
- * Avatar d'un canal connecté.
- * Taille : lg = 32px (h-8 w-8), md = 24px (h-6 w-6).
- * Style carré arrondi (rounded-lg).
- */
 function ChannelAvatar({
   channel,
   NetworkIcon,
@@ -1048,10 +1051,7 @@ function ChannelAvatar({
           draggable={false}
           referrerPolicy="no-referrer"
           onError={() => setFailed(true)}
-          className={[
-            "h-full w-full select-none object-cover",
-            radius,
-          ].join(" ")}
+          className={["h-full w-full select-none object-cover", radius].join(" ")}
         />
       ) : (
         <span
@@ -1065,18 +1065,18 @@ function ChannelAvatar({
         </span>
       )}
 
-      {/* Notification de commentaire non lu : boule blanche ou noire */}
+      {/* 🔴 Boule de notification : blanche en mode sombre, noire en mode clair */}
       {hasUnread && (
         <span
           className={[
             "absolute -left-0.5 -top-0.5 flex h-2.5 w-2.5 rounded-full ring-2",
-            "bg-black dark:bg-white", // Noire en mode clair, blanche en mode sombre
+            "bg-black dark:bg-white", 
             dotRing,
           ].join(" ")}
         />
       )}
 
-      {/* Badge réseau : 14px (h-3.5 w-3.5), icône 10px */}
+      {/* Badge réseau */}
       {NetworkIcon && (
         <span
           className={[
@@ -1091,10 +1091,6 @@ function ChannelAvatar({
     </span>
   );
 }
-
-/* ============================================================================ 
-   Popover d'une ligne de canal (sidebar réduite uniquement) 
-============================================================================ */
 
 const HOVER_CARD_SHOW_MS = 200;
 const HOVER_CARD_HIDE_MS = 120;
@@ -1286,7 +1282,6 @@ function ChannelHoverCard({
             <div className={["border-t pt-1", t.menuDivider].join(" ")} />
 
             <div className="flex flex-col gap-0.5">
-              {/* Poster directement avec ce compte */}
               <button
                 type="button"
                 role="menuitem"
@@ -1362,7 +1357,7 @@ function ChannelHoverCard({
 }
 
 /* ============================================================================ 
-   Favoris : ligne avec icône « enregistré » + menu trois points
+   Favoris 
 ============================================================================ */
 
 const MoreIcon = (p: IconProps) => (
@@ -1434,11 +1429,7 @@ function FavoriteRowImpl({
 
     const onPointerDown = (event: PointerEvent) => {
       const target = event.target as Node;
-
-      if (menuRef.current?.contains(target) || triggerRef.current?.contains(target)) {
-        return;
-      }
-
+      if (menuRef.current?.contains(target) || triggerRef.current?.contains(target)) return;
       setMenuPos(null);
     };
 
@@ -1458,9 +1449,7 @@ function FavoriteRowImpl({
     window.addEventListener("scroll", dismiss, true);
 
     const id = requestAnimationFrame(() => {
-      menuRef.current
-        ?.querySelector<HTMLElement>('[role="menuitem"]')
-        ?.focus({ preventScroll: true });
+      menuRef.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus({ preventScroll: true });
     });
 
     return () => {
@@ -1473,15 +1462,12 @@ function FavoriteRowImpl({
   }, [menuOpen]);
 
   const onMenuKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
-    const items = Array.from(
-      event.currentTarget.querySelectorAll<HTMLElement>('[role="menuitem"]')
-    );
+    const items = Array.from(event.currentTarget.querySelectorAll<HTMLElement>('[role="menuitem"]'));
     const current = items.indexOf(document.activeElement as HTMLElement);
     let next = -1;
 
     if (event.key === "ArrowDown") next = (current + 1) % items.length;
-    else if (event.key === "ArrowUp")
-      next = (current - 1 + items.length) % items.length;
+    else if (event.key === "ArrowUp") next = (current - 1 + items.length) % items.length;
     else if (event.key === "Home") next = 0;
     else if (event.key === "End") next = items.length - 1;
 
@@ -1499,22 +1485,14 @@ function FavoriteRowImpl({
 
   const commitRename = (value: string) => {
     setEditing(false);
-
     const next = value.trim();
-
-    // Nom vide ou identique au nom d'origine → retour au nom par défaut
     onRename(item.route, next === item.label ? "" : next);
   };
 
   return (
     <div className="group/fav relative rounded-xl">
       {editing ? (
-        <div
-          className={[
-            "flex h-9 w-full items-center gap-2.5 rounded-xl px-2.5",
-            t.navActive,
-          ].join(" ")}
-        >
+        <div className={["flex h-9 w-full items-center gap-2.5 rounded-xl px-2.5", t.navActive].join(" ")}>
           <BookmarkIcon className="h-[18px] w-[18px] shrink-0" filled />
           <input
             autoFocus
@@ -1527,7 +1505,6 @@ function FavoriteRowImpl({
                 cancelRef.current = false;
                 return;
               }
-
               commitRename(event.currentTarget.value);
             }}
             onKeyDown={(event) => {
@@ -1558,7 +1535,6 @@ function FavoriteRowImpl({
               isActive ? t.navActive : t.navIdle,
             ].join(" ")}
           >
-            {/* Icône « enregistré » à la place de l'icône de la page */}
             <BookmarkIcon className="h-[18px] w-[18px] shrink-0" filled />
             <span className="sb-fade min-w-0 flex-1 truncate text-left">{label}</span>
           </button>
@@ -1611,9 +1587,7 @@ function FavoriteRowImpl({
                 t.menuItem,
               ].join(" ")}
             >
-              <PencilIcon
-                className={["h-4 w-4 shrink-0 opacity-70 group-hover:opacity-100", t.menuIcon].join(" ")}
-              />
+              <PencilIcon className={["h-4 w-4 shrink-0 opacity-70 group-hover:opacity-100", t.menuIcon].join(" ")} />
               <span className="flex-1 truncate">Rename</span>
             </button>
 
@@ -1645,10 +1619,6 @@ function FavoriteRowImpl({
 
 const FavoriteRow = memo(FavoriteRowImpl);
 
-/**
- * Favori en mode réduit : simple icône « enregistré » avec infobulle
- * (le nom complet s'affiche au survol).
- */
 function CompactFavoriteImpl({
   item,
   label,
@@ -1726,7 +1696,6 @@ function SidebarChannelsImpl({
     channelsMemory.open = openKeys;
   }, [openKeys]);
 
-  // Section « Favorite » repliable (état mémorisé)
   const [favOpen, setFavOpen] = useState<boolean>(readFavoritesOpen);
 
   const toggleFav = useCallback(() => {
@@ -1736,14 +1705,13 @@ function SidebarChannelsImpl({
     });
   }, []);
 
-  /* ---------------------------- Ordre + drag & drop --------------------------- */
+  const unreadChannels = useUnreadChannels();
 
   const [order, setOrder] = useState<string[]>(() => readStoredOrder(userId));
   const [dragKey, setDragKey] = useState<string | null>(null);
 
   const listRef = useRef<HTMLDivElement>(null);
   const focusKeyRef = useRef<string | null>(null);
-  // Refs synchrones : évitent les états périmés pendant le drag
   const dragKeyRef = useRef<string | null>(null);
   const liveOrderRef = useRef<string[] | null>(null);
 
@@ -1759,7 +1727,6 @@ function SidebarChannelsImpl({
   const channelsRef = useRef(channels);
   channelsRef.current = channels;
 
-  // Réordonner n'a de sens qu'avec au moins 2 canaux et la barre développée.
   const canReorder = !compact && channels.length > 1;
 
   const commitOrder = useCallback(
@@ -1785,7 +1752,6 @@ function SidebarChannelsImpl({
     [channels, commitOrder]
   );
 
-  // Redonne le focus au canal déplacé au clavier (le DOM a été réordonné).
   useEffect(() => {
     const key = focusKeyRef.current;
     if (!key) return;
@@ -1799,11 +1765,8 @@ function SidebarChannelsImpl({
       ?.focus({ preventScroll: true });
   }, [order]);
 
-  /* ── Drag façon Create.tsx : fantôme flottant + emplacement vide + décalage fluide ── */
-
   const dragCleanupRef = useRef<((cancel?: boolean) => void) | null>(null);
 
-  // Réordonne EN DIRECT : dès que le curseur passe la moitié d'une autre ligne.
   const moveLive = useCallback((clientY: number) => {
     const fromKey = dragKeyRef.current;
     const list = listRef.current;
@@ -1812,8 +1775,6 @@ function SidebarChannelsImpl({
     const currentKeys = channelsRef.current.map((channel) => channel.key);
     const others = currentKeys.filter((key) => key !== fromKey);
 
-    // La liste est `relative` : offsetTop des lignes est relatif à elle,
-    // indépendamment des animations (transform) et du scroll.
     const y = clientY - list.getBoundingClientRect().top;
 
     let insertAt = others.length;
@@ -1865,7 +1826,6 @@ function SidebarChannelsImpl({
 
     const onMove = (ev: PointerEvent) => {
       if (!ghost) {
-        // Seuil de 5 px : un simple clic ne déclenche pas de drag
         if (Math.hypot(ev.clientX - startX, ev.clientY - startY) < 5) return;
 
         ghost = row.cloneNode(true) as HTMLElement;
@@ -1899,7 +1859,6 @@ function SidebarChannelsImpl({
           grip.style.transition = "none";
         }
 
-        // Le bouton « + » n'a pas à apparaître sur le fantôme
         const plus = ghost.querySelector<HTMLElement>("[data-new-post]");
         if (plus) plus.style.display = "none";
 
@@ -1912,10 +1871,8 @@ function SidebarChannelsImpl({
         setDragKey(key);
       }
 
-      // Le fantôme suit le curseur verticalement
       ghost.style.top = `${ev.clientY - offY}px`;
 
-      // Auto-scroll de la navigation près des bords
       const nav = listRef.current?.closest("nav");
       if (nav) {
         const nr = nav.getBoundingClientRect();
@@ -1964,14 +1921,12 @@ function SidebarChannelsImpl({
     dragCleanupRef.current = finish;
   };
 
-  // Annule le drag si la barre est réduite ou démontée
   useEffect(() => {
     if (!canReorder) dragCleanupRef.current?.(true);
   }, [canReorder]);
 
   useEffect(() => () => dragCleanupRef.current?.(true), []);
 
-  /** FLIP : les réseaux qui changent de place glissent au lieu de sauter. */
   const prevTops = useRef(new Map<string, number>());
   const prevOrderKey = useRef("");
 
@@ -1991,11 +1946,10 @@ function SidebarChannelsImpl({
 
       const prev = prevTops.current.get(key);
 
-      // On n'anime que si l'ordre a changé (pas à l'ouverture d'un sous-menu)
       if (!reduce && orderChanged && prev !== undefined && prev !== top) {
         el.style.transition = "none";
         el.style.transform = `translateY(${prev - top}px)`;
-        el.getBoundingClientRect(); // force le reflow
+        el.getBoundingClientRect();
         el.style.transition = "transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1)";
         el.style.transform = "";
         el.addEventListener("transitionend", () => (el.style.transition = ""), {
@@ -2007,8 +1961,6 @@ function SidebarChannelsImpl({
     prevTops.current = next;
     prevOrderKey.current = orderKey;
   });
-
-  /* ------------------------------------------------------------------------- */
 
   const hashChannel = CHANNEL_ROUTES.has(currentRoute) ? getHashChannel() : null;
 
@@ -2025,13 +1977,9 @@ function SidebarChannelsImpl({
       ref={listRef}
       className={[
         "relative flex flex-col gap-1",
-        // Mode réduit : les éléments restent centrés dans la barre
         compact ? "w-full items-center" : "",
       ].join(" ")}
     >
-      {/* Section Favorite : visible uniquement s'il y a au moins un favori.
-          - barre développée : titre « Favorite » + lignes complètes
-          - barre réduite : séparateur + icônes marque-page avec infobulle */}
       {favorites.length > 0 && (
         <>
           {compact ? (
@@ -2168,7 +2116,6 @@ function SidebarChannelsImpl({
           );
         })}
 
-      {/* Séparateur horizontal (mode réduit uniquement) */}
       {compact && (
         <div className={["my-2 h-px w-8 mx-auto", t.divider].join(" ")} />
       )}
@@ -2238,9 +2185,8 @@ function SidebarChannelsImpl({
 
         const isDragging = dragKey === channel.key;
         
-        // Simulation : indique qu'il y a un commentaire non lu sur ce canal
-        // Vous pouvez remplacer cette condition par vos vraies données (ex: channel.hasUnread)
-        const hasUnread = channel.key === channels[0]?.key; 
+        // 👇 C'est ici que l'on vérifie si le canal a des non-lus !
+        const hasUnread = unreadChannels.includes(channel.key);
 
         return (
           <div
@@ -2248,7 +2194,6 @@ function SidebarChannelsImpl({
             data-channel-key={channel.key}
             className="flex w-full flex-col"
           >
-            {/* Ligne du canal = zone de survol + zone de dépôt */}
             <div
               className={[
                 "group/row relative rounded-xl",
@@ -2257,17 +2202,14 @@ function SidebarChannelsImpl({
                 isDragging ? `${t.rowOpen} [&>*]:invisible` : "",
               ].join(" ")}
             >
-              {/* Poignée de glisser-déposer (6 points) — DANS la zone de survol */}
               {canReorder && (
                 <span
                   aria-hidden="true"
                   data-grip
                   onPointerDown={(event) => onHandlePointerDown(event, channel.key)}
                   className={[
-                    // À l'intérieur de la ligne (plus de décalage négatif)
                     "absolute left-[1px] top-1/2 z-10 flex h-7 w-3 -translate-y-1/2",
                     "touch-none cursor-grab items-center justify-center rounded active:cursor-grabbing",
-                    // Animation : glisse depuis la gauche + léger zoom
                     "transition-[opacity,transform,color] duration-200 ease-out motion-reduce:transition-none",
                     "hover:scale-125 active:scale-110",
                     isDragging
@@ -2284,9 +2226,6 @@ function SidebarChannelsImpl({
                 </span>
               )}
 
-              {/* Bouton « + » : poster directement avec ce compte.
-                  Frère du bouton principal (pas imbriqué : un <button> dans un <button> est invalide).
-                  Visible au survol / focus, toujours visible sur écran tactile. */}
               {!compact && (
                 <button
                   type="button"
@@ -2333,7 +2272,6 @@ function SidebarChannelsImpl({
                   aria-label={cleanLabel}
                   aria-keyshortcuts={canReorder ? "Alt+ArrowUp Alt+ArrowDown" : undefined}
                   onKeyDown={(event) => {
-                    // Alt + ↑ / ↓ : déplacer le canal au clavier
                     if (!canReorder || !event.altKey) return;
                     if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
 
@@ -2353,7 +2291,6 @@ function SidebarChannelsImpl({
                     "transition-[background-color,color,transform,padding] duration-200",
                     "active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:scale-100",
                     compact ? "h-10 w-10 justify-center" : "h-9 w-full gap-2.5 px-2.5",
-                    // L'avatar se décale légèrement pour laisser place à la poignée
                     canReorder
                       ? isDragging
                         ? "pl-3.5"
@@ -2374,7 +2311,6 @@ function SidebarChannelsImpl({
 
                   {!compact && (
                     <>
-                      {/* pr-7 au survol : le texte s'arrête avant le bouton « + » */}
                       <span className="sb-fade min-w-0 flex-1 truncate pr-0 text-left group-hover/row:pr-7 group-focus-within/row:pr-7">
                         {cleanLabel}
                       </span>
@@ -2471,7 +2407,6 @@ const SIDEBAR_STORAGE_KEY = "stone.sidebar.collapsed";
 
 function readStoredCollapsed(): boolean {
   if (typeof window === "undefined") return true;
-
   try {
     const value = window.localStorage.getItem(SIDEBAR_STORAGE_KEY);
     return value === null ? true : value === "true";
@@ -2492,15 +2427,10 @@ const sidebarListeners = new Set<() => void>();
 
 function setSidebarCollapsed(value: boolean) {
   if (sidebarMemory.collapsed === value) return;
-
   sidebarMemory.collapsed = value;
-
   try {
     window.localStorage.setItem(SIDEBAR_STORAGE_KEY, String(value));
-  } catch {
-    /* stockage indisponible : état en mémoire uniquement */
-  }
-
+  } catch {}
   sidebarListeners.forEach((listener) => listener());
 }
 
@@ -2526,7 +2456,6 @@ export function useSidebarOffset(): number {
   const isMobile = useIsMobile();
 
   if (isMobile) return 0;
-
   return collapsed ? SIDEBAR_COLLAPSED_OFFSET : SIDEBAR_EXPANDED_OFFSET;
 }
 
@@ -2628,8 +2557,6 @@ export default function DashboardSidebar({
     rename: renameFavorite,
   } = useFavorites();
 
-  // Utilise FAVORITABLE_ITEMS (navItems + Channels + Community) pour pouvoir
-  // afficher les pages ajoutées via leur propre bouton marque-page.
   const favoriteItems = useMemo(
     () => FAVORITABLE_ITEMS.filter((item) => favoriteRoutes.includes(item.route)),
     [favoriteRoutes]
@@ -2895,13 +2822,6 @@ export default function DashboardSidebar({
     []
   );
 
-  /* --------------------------------------------------------------------------
-     Thème.
-     La sidebar a EXACTEMENT le même fond que la page (Home → pageBgClass) :
-       sombre  #09090a
-       clair   #f5f3ef
-     Le panneau de contenu arrondi (blanc / #0f0f11) se détache dessus.
-  -------------------------------------------------------------------------- */
   const t = useMemo<ThemeTokens>(
     () =>
       isDark
@@ -3003,18 +2923,10 @@ export default function DashboardSidebar({
     navigate(route);
   }, []);
 
-  /**
-   * Poster directement avec un canal : on demande au modal de s'ouvrir avec ce
-   * canal présélectionné. Si aucun modal n'est monté sur la page courante,
-   * on va sur « schedule » : le modal s'y monte et reprend la demande en attente.
-   */
   const handleNewPost = useCallback((channelKey: string) => {
-    // Le focus ne doit pas rester dans le tiroir au moment où il se cache
     (document.activeElement as HTMLElement | null)?.blur();
-
     setMenuOpen(false);
     setMobileOpen(false);
-
     const handled = requestNewPost(channelKey);
     if (!handled) navigate("schedule");
   }, []);
@@ -3196,8 +3108,6 @@ export default function DashboardSidebar({
 
   let menuItemIndex = 0;
 
-  // Le plan n'est affiché que si l'abonnement est vivant (active, trialing
-  // ou past_due). Un abonnement annulé / impayé / expiré retombe sur "Free plan".
   const hasLivePlan =
     hasActiveSubscription || subscription?.status === "past_due";
 
@@ -3259,7 +3169,6 @@ export default function DashboardSidebar({
     <>
       <style>{SIDEBAR_KEYFRAMES}</style>
 
-      {/* Bouton menu mobile : bordure visible car la sidebar se fond dans le fond de page */}
       {isMobile && !mobileOpen && (
         <button
           type="button"
@@ -3296,8 +3205,6 @@ export default function DashboardSidebar({
           "transition-[width,transform] duration-[380ms]",
           "ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
           t.aside,
-          // Desktop : aucune séparation visible (fond identique à la page).
-          // Mobile (tiroir) : bordure visible pour détacher le tiroir du fond assombri.
           isMobile ? t.rail : "border-transparent",
           drawerHidden ? "pointer-events-none -translate-x-full" : "translate-x-0",
           compact
@@ -3307,7 +3214,6 @@ export default function DashboardSidebar({
               : "w-[240px]",
         ].join(" ")}
       >
-        {/* Logo → Home */}
         <button
           type="button"
           aria-label="Stone, go to Home"
@@ -3337,12 +3243,10 @@ export default function DashboardSidebar({
           )}
         </button>
 
-        {/* Navigation */}
         <nav
           aria-label="Main"
           className={[
             "flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto overflow-x-hidden pb-3 pt-4",
-            // Mode réduit : 12px de marge de chaque côté (64px - 40px) / 2
             compact ? "items-center px-3" : "px-2",
             "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
           ].join(" ")}
@@ -3378,8 +3282,6 @@ export default function DashboardSidebar({
           />
         </nav>
 
-        {/* Bas : toggle + profil
-            (plus de border-t / t.rail : aucune barre au-dessus du profil) */}
         <div
           ref={profileRef}
           className={[
@@ -3573,7 +3475,6 @@ export default function DashboardSidebar({
             </div>
           )}
 
-          {/* Profil */}
           <div className={compact ? "" : "min-w-0 flex-1"}>
             <Tip
               label={account.name}
@@ -3607,7 +3508,6 @@ export default function DashboardSidebar({
                       src={account.avatarUrl}
                       alt="Profile"
                       draggable={false}
-                      // Photo de profil : h-8 w-8 (32px), rounded-lg
                       className="h-8 w-8 shrink-0 select-none rounded-lg object-cover"
                       onError={() => setAvatarLoadFailed(true)}
                     />
