@@ -722,13 +722,15 @@ export default function Community() {
 
   // ✅ SYNCHRO SIDEBAR : pousse le nombre de commentaires non lus vers le
   //    localStorage (lu par DashboardSidebar → badge + pastille sur l'avatar).
+  //    Les messages du créateur (is_own) sont exclus du compteur, cohérent
+  //    avec l'UI qui ne les affiche pas.
   useEffect(() => {
     if (!channel?.key) return;
     // On attend la fin du chargement initial pour ne pas écraser un badge
     // existant avec "0" avant que la 1ʳᵉ page n'arrive.
     if (loading) return;
 
-    const unread = comments.filter((c) => !c.is_read).length;
+    const unread = comments.filter((c) => !c.is_read && !c.is_own).length;
     setChannelUnreadCount(channel.key, unread);
   }, [channel?.key, comments, loading]);
 
@@ -741,13 +743,19 @@ export default function Community() {
     ? postById.get(selectedPostId) ?? null
     : null;
 
-  // Dans la vue « Unread », un commentaire marqué lu disparaît tout de suite
+  // ✅ On cache systématiquement les messages du créateur (is_own).
+  //    Dans la vue « Unread », un commentaire marqué lu disparaît tout de suite.
   const shownComments = useMemo(
-    () => (filter === "unread" ? comments.filter((c) => !c.is_read) : comments),
+    () =>
+      (filter === "unread" ? comments.filter((c) => !c.is_read) : comments)
+        .filter((c) => !c.is_own),
     [comments, filter]
   );
+
+  // ✅ Les messages du créateur ne comptent pas dans les non-lus (ni pour
+  //    le badge d'onglet, ni pour « mark all as read », ni pour la sidebar).
   const unreadIds = useMemo(
-    () => comments.filter((c) => !c.is_read).map((c) => c.id),
+    () => comments.filter((c) => !c.is_read && !c.is_own).map((c) => c.id),
     [comments]
   );
 
@@ -1268,6 +1276,8 @@ export default function Community() {
                       const replies = c.replies ?? [];
                       const isReplying = replyingId === c.id;
                       const youtubeUrl = `https://www.youtube.com/watch?v=${c.video_id}&lc=${c.id}`;
+                      // ✅ Couleur du texte : gris si lu, contrasté sinon.
+                      const bodyColor = c.is_read ? muted : strongClass(isDark);
 
                       return (
                         <li key={c.id}>
@@ -1304,7 +1314,7 @@ export default function Community() {
                                   <span
                                     className={[
                                       "truncate text-[13px] font-semibold",
-                                      strongClass(isDark),
+                                      bodyColor,
                                     ].join(" ")}
                                   >
                                     {c.author_name}
@@ -1338,7 +1348,7 @@ export default function Community() {
                                 <p
                                   className={[
                                     "mt-1 whitespace-pre-wrap break-words text-[13.5px] leading-relaxed",
-                                    strongClass(isDark),
+                                    bodyColor,
                                   ].join(" ")}
                                 >
                                   {c.text}
@@ -1373,7 +1383,7 @@ export default function Community() {
                                             <span
                                               className={[
                                                 "text-[12px] font-semibold",
-                                                strongClass(isDark),
+                                                bodyColor,
                                               ].join(" ")}
                                             >
                                               {r.author_name}
@@ -1394,7 +1404,7 @@ export default function Community() {
                                           <p
                                             className={[
                                               "whitespace-pre-wrap break-words text-[12.5px] leading-relaxed",
-                                              strongClass(isDark),
+                                              bodyColor,
                                             ].join(" ")}
                                           >
                                             {r.text}
