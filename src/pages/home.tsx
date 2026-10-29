@@ -109,9 +109,9 @@ const panelSurfaceClass = (isDark: boolean) =>
 const panelSolidClass = (isDark: boolean) =>
   isDark ? "bg-[#161618]" : "bg-[#f6f4f0]";
 
-/* Pour les dégradés de fondu (à assortir au fond du panneau) */
-const panelFadeFromClass = (isDark: boolean) =>
-  isDark ? "from-[#161618]" : "from-[#f6f4f0]";
+/* Fondu vers le fond principal (là où sont dessinées les cartes commentaires) */
+const mainBgFadeClass = (isDark: boolean) =>
+  isDark ? "from-[#0f0f11]" : "from-white";
 
 const panelRingClass = (isDark: boolean) =>
   isDark ? "ring-[#151517]" : "ring-[#f6f4f0]";
@@ -1202,7 +1202,7 @@ function Channels({
 }
 
 /* ============================================================
-   PANEL
+   PANEL (Up Next / Calendar) — remplit la hauteur de la grille
 ============================================================ */
 
 function Panel({
@@ -1228,8 +1228,8 @@ function Panel({
   };
 }) {
   return (
-    <section className="min-w-0">
-      <div className="mb-3 flex items-center justify-between">
+    <section className="min-w-0 h-full flex flex-col">
+      <div className="mb-3 flex items-center justify-between shrink-0">
         <p
           className={[
             "text-[12px] font-semibold",
@@ -1264,7 +1264,7 @@ function Panel({
 
       <div
         className={[
-          "flex min-h-[150px] flex-col items-center justify-center",
+          "flex flex-1 min-h-[150px] flex-col items-center justify-center",
           "gap-1 rounded-3xl border px-4 py-4 text-center",
           panelSurfaceClass(isDark),
         ].join(" ")}
@@ -1378,7 +1378,7 @@ function CommentAvatar({
 }
 
 /* ============================================================
-   COMMENTS PANEL — 2 commentaires + début du 3ᵉ sous "View all"
+   COMMENTS PANEL — même hauteur que Panel + bouton pleine largeur
 ============================================================ */
 
 function formatCommentTime(value: string | null): string {
@@ -1425,13 +1425,13 @@ function CommentsPanel({
     ? "border-white/[0.08] bg-[#171719] hover:border-white/[0.15] hover:bg-[#1b1b1e]"
     : "border-black/[0.07] bg-white hover:border-black/[0.12] hover:bg-[#fcfbf9]";
 
-  /* Au-delà de 2 commentaires on active le clipping + fondu + bouton qui chevauche */
-  const hasOverflow = visibleComments.length > 2;
-
   return (
-    <section className="min-w-0" aria-labelledby="home-comments-title">
-      {/* Header (sans bouton View all : déplacé sous les commentaires) */}
-      <div className="mb-2.5">
+    <section
+      className="min-w-0 h-full flex flex-col"
+      aria-labelledby="home-comments-title"
+    >
+      {/* Header (shrink-0 : garde sa hauteur naturelle) */}
+      <div className="mb-2.5 shrink-0">
         <div className="flex flex-wrap items-center gap-2">
           <h2
             id="home-comments-title"
@@ -1459,175 +1459,244 @@ function CommentsPanel({
         </p>
       </div>
 
-      <div className="flex min-h-[150px] flex-col gap-2">
-        {loading && visibleComments.length === 0 ? (
-          <div
-            className={["flex min-h-[150px] flex-col justify-center gap-2.5 rounded-2xl border p-3", panelSurfaceClass(isDark)].join(" ")}
-            aria-label="Loading comments"
-            aria-live="polite"
-          >
-            {[0, 1, 2].map((item) => (
-              <div key={item} className="flex animate-pulse items-start gap-2.5" aria-hidden="true">
-                <div className={["h-8 w-8 shrink-0 rounded-lg", isDark ? "bg-white/10" : "bg-black/[0.07]"].join(" ")} />
-                <div className="min-w-0 flex-1 space-y-1.5 pt-0.5">
-                  <div className={["h-2.5 w-1/3 rounded", isDark ? "bg-white/10" : "bg-black/[0.07]"].join(" ")} />
-                  <div className={["h-2.5 w-full rounded", isDark ? "bg-white/[0.07]" : "bg-black/[0.05]"].join(" ")} />
-                </div>
+      {loading && visibleComments.length === 0 ? (
+        <div
+          className={[
+            "flex flex-1 min-h-[150px] flex-col justify-center gap-2.5 rounded-2xl border p-3",
+            panelSurfaceClass(isDark),
+          ].join(" ")}
+          aria-label="Loading comments"
+          aria-live="polite"
+        >
+          {[0, 1, 2].map((item) => (
+            <div key={item} className="flex animate-pulse items-start gap-2.5" aria-hidden="true">
+              <div className={["h-8 w-8 shrink-0 rounded-lg", isDark ? "bg-white/10" : "bg-black/[0.07]"].join(" ")} />
+              <div className="min-w-0 flex-1 space-y-1.5 pt-0.5">
+                <div className={["h-2.5 w-1/3 rounded", isDark ? "bg-white/10" : "bg-black/[0.07]"].join(" ")} />
+                <div className={["h-2.5 w-full rounded", isDark ? "bg-white/[0.07]" : "bg-black/[0.05]"].join(" ")} />
               </div>
-            ))}
-          </div>
-        ) : visibleComments.length === 0 ? (
-          <div className={["flex min-h-[150px] flex-col items-center justify-center rounded-2xl border px-5 py-4 text-center", panelSurfaceClass(isDark)].join(" ")}>
-            <div className={["mb-2 flex h-10 w-10 items-center justify-center rounded-2xl", isDark ? "bg-white/[0.07] text-neutral-300" : "bg-white text-neutral-600 shadow-sm ring-1 ring-black/[0.04]"].join(" ")}>
-              <MessageCircle className="h-4 w-4" aria-hidden="true" />
             </div>
-            <p className={["text-[12px] font-semibold", strongClass(isDark)].join(" ")}>
-              {error ? "Comments couldn't be loaded" : connectedChannelsCount === 0 ? "Connect a channel to get started" : "You're all caught up"}
-            </p>
-            <p className={["mt-1 max-w-[280px] text-[11px] leading-snug", softClass(isDark)].join(" ")}>
-              {error
-                ? "We couldn't retrieve your latest comments. Please check your connection and try again later."
-                : connectedChannelsCount === 0
-                  ? "Connect your YouTube account to see and manage comments from your audience here."
-                  : "When new comments arrive, they'll appear here so you can respond quickly."}
-            </p>
-            {connectedChannelsCount === 0 && !error && (
-              <button
-                type="button"
-                onClick={onConnect}
-                className={["mt-3 inline-flex min-h-8 items-center gap-2 rounded-xl px-3 text-[11px] font-semibold transition", focusRingClass(isDark), isDark ? "bg-white text-black hover:bg-neutral-200" : "bg-neutral-900 text-white hover:bg-neutral-700"].join(" ")}
-              >
-                <Plus className="h-3.5 w-3.5" aria-hidden="true" />
-                Connect a channel
-              </button>
-            )}
+          ))}
+        </div>
+      ) : visibleComments.length === 0 ? (
+        <div
+          className={[
+            "flex flex-1 min-h-[150px] flex-col items-center justify-center rounded-2xl border px-5 py-4 text-center",
+            panelSurfaceClass(isDark),
+          ].join(" ")}
+        >
+          <div
+            className={[
+              "mb-2 flex h-10 w-10 items-center justify-center rounded-2xl",
+              isDark
+                ? "bg-white/[0.07] text-neutral-300"
+                : "bg-white text-neutral-600 shadow-sm ring-1 ring-black/[0.04]",
+            ].join(" ")}
+          >
+            <MessageCircle className="h-4 w-4" aria-hidden="true" />
           </div>
-        ) : (
-          <>
-            {error && (
-              <p className={["rounded-xl border px-2.5 py-1.5 text-[11px]", isDark ? "border-amber-200/10 bg-amber-200/[0.05] text-amber-100/80" : "border-amber-700/10 bg-amber-50 text-amber-800"].join(" ")} role="status">
-                Some comments may be missing because a source couldn't be reached.
-              </p>
-            )}
+          <p className={["text-[12px] font-semibold", strongClass(isDark)].join(" ")}>
+            {error
+              ? "Comments couldn't be loaded"
+              : connectedChannelsCount === 0
+                ? "Connect a channel to get started"
+                : "You're all caught up"}
+          </p>
+          <p className={["mt-1 max-w-[280px] text-[11px] leading-snug", softClass(isDark)].join(" ")}>
+            {error
+              ? "We couldn't retrieve your latest comments. Please check your connection and try again later."
+              : connectedChannelsCount === 0
+                ? "Connect your YouTube account to see and manage comments from your audience here."
+                : "When new comments arrive, they'll appear here so you can respond quickly."}
+          </p>
+          {connectedChannelsCount === 0 && !error && (
+            <button
+              type="button"
+              onClick={onConnect}
+              className={[
+                "mt-3 inline-flex min-h-8 items-center gap-2 rounded-xl px-3 text-[11px] font-semibold transition",
+                focusRingClass(isDark),
+                isDark
+                  ? "bg-white text-black hover:bg-neutral-200"
+                  : "bg-neutral-900 text-white hover:bg-neutral-700",
+              ].join(" ")}
+            >
+              <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+              Connect a channel
+            </button>
+          )}
+        </div>
+      ) : (
+        <>
+          {error && (
+            <p
+              className={[
+                "shrink-0 rounded-xl border px-2.5 py-1.5 text-[11px]",
+                isDark
+                  ? "border-amber-200/10 bg-amber-200/[0.05] text-amber-100/80"
+                  : "border-amber-700/10 bg-amber-50 text-amber-800",
+              ].join(" ")}
+              role="status"
+            >
+              Some comments may be missing because a source couldn't be reached.
+            </p>
+          )}
 
-            {/* Liste des commentaires : 2 visibles + début du 3ᵉ clippé + fondu */}
-            <div className="relative">
-              <div
-                className={[
-                  "relative",
-                  hasOverflow ? "max-h-[260px] overflow-hidden" : "",
-                ].join(" ")}
-              >
-                <div className="flex flex-col gap-2">
-                  {visibleComments.map((comment) => (
-                    <button
-                      key={comment.id}
-                      type="button"
-                      onClick={() => onOpen(comment.channel.key)}
-                      aria-label={`Open conversation with ${comment.author}`}
-                      className={[
-                        "group w-full rounded-xl border px-2.5 py-2 text-left",
-                        "transition duration-200 motion-reduce:transition-none",
-                        "focus-visible:outline-none focus-visible:ring-2",
-                        isDark ? "focus-visible:ring-white/30" : "focus-visible:ring-black/25",
-                        cardSurface,
-                      ].join(" ")}
-                    >
-                      <div className="flex items-start gap-2.5">
-                        <CommentAvatar
-                          src={comment.authorAvatar}
-                          name={comment.author}
-                          network={comment.network}
-                          isDark={isDark}
-                        />
+          {/* Zone de contenu : flex-1 = remplit la hauteur restante pour
+              s'aligner exactement sur la hauteur du panneau Up Next. */}
+          <div className="relative flex-1 min-h-[240px]">
+            {/* Liste clippée + fondu (le 3ᵉ commentaire est coupé ici) */}
+            <div className="absolute inset-0 overflow-hidden">
+              <div className="flex flex-col gap-2 pb-16">
+                {visibleComments.map((comment) => (
+                  <button
+                    key={comment.id}
+                    type="button"
+                    onClick={() => onOpen(comment.channel.key)}
+                    aria-label={`Open conversation with ${comment.author}`}
+                    className={[
+                      "group w-full rounded-xl border px-2.5 py-2 text-left",
+                      "transition duration-200 motion-reduce:transition-none",
+                      "focus-visible:outline-none focus-visible:ring-2",
+                      isDark
+                        ? "focus-visible:ring-white/30"
+                        : "focus-visible:ring-black/25",
+                      cardSurface,
+                    ].join(" ")}
+                  >
+                    <div className="flex items-start gap-2.5">
+                      <CommentAvatar
+                        src={comment.authorAvatar}
+                        name={comment.author}
+                        network={comment.network}
+                        isDark={isDark}
+                      />
 
-                        <div className="min-w-0 flex-1">
-                          <div className="flex min-w-0 items-start justify-between gap-2">
-                            <div className="min-w-0">
-                              <p className={["truncate text-[12px] font-semibold", strongClass(isDark)].join(" ")}>
-                                {comment.author}
-                              </p>
-                              <p className={["truncate text-[10px]", softClass(isDark)].join(" ")}>
-                                {comment.channel.handle || comment.channel.name || comment.network}
-                                {comment.videoTitle ? ` · ${comment.videoTitle}` : ""}
-                              </p>
-                            </div>
-                            <span className={["inline-flex shrink-0 items-center gap-1 text-[10px]", mutedClass(isDark)].join(" ")}>
-                              <Clock3 className="h-3 w-3" aria-hidden="true" />
-                              {formatCommentTime(comment.publishedAt)}
-                            </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex min-w-0 items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p
+                              className={[
+                                "truncate text-[12px] font-semibold",
+                                strongClass(isDark),
+                              ].join(" ")}
+                            >
+                              {comment.author}
+                            </p>
+                            <p
+                              className={[
+                                "truncate text-[10px]",
+                                softClass(isDark),
+                              ].join(" ")}
+                            >
+                              {comment.channel.handle ||
+                                comment.channel.name ||
+                                comment.network}
+                              {comment.videoTitle
+                                ? ` · ${comment.videoTitle}`
+                                : ""}
+                            </p>
                           </div>
-
-                          <p
-                            className={["mt-1 text-[12px] leading-[1.35]", isDark ? "text-neutral-300" : "text-neutral-700"].join(" ")}
-                            style={{ display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", overflowWrap: "anywhere" }}
+                          <span
+                            className={[
+                              "inline-flex shrink-0 items-center gap-1 text-[10px]",
+                              mutedClass(isDark),
+                            ].join(" ")}
                           >
-                            {comment.text || "This comment has no text."}
-                          </p>
+                            <Clock3 className="h-3 w-3" aria-hidden="true" />
+                            {formatCommentTime(comment.publishedAt)}
+                          </span>
+                        </div>
 
-                          <div className="mt-1.5 flex items-center justify-between gap-2">
-                            <span className={["inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium", comment.answered
-                              ? isDark ? "bg-emerald-400/10 text-emerald-300" : "bg-emerald-50 text-emerald-700"
-                              : isDark ? "bg-amber-300/10 text-amber-200" : "bg-amber-50 text-amber-800"].join(" ")}>
-                              {comment.answered ? <CheckCheck className="h-2.5 w-2.5" aria-hidden="true" /> : <MessageCircle className="h-2.5 w-2.5" aria-hidden="true" />}
-                              {comment.answered ? "Replied" : "Needs a reply"}
-                            </span>
-                            <span className={["inline-flex items-center gap-1 text-[10px] font-semibold opacity-80 transition group-hover:translate-x-0.5 group-hover:opacity-100", strongClass(isDark)].join(" ")}>
-                              Open conversation
-                              <ArrowUpRight className="h-3 w-3" aria-hidden="true" />
-                            </span>
-                          </div>
+                        <p
+                          className={[
+                            "mt-1 text-[12px] leading-[1.35]",
+                            isDark ? "text-neutral-300" : "text-neutral-700",
+                          ].join(" ")}
+                          style={{
+                            display: "-webkit-box",
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: "vertical",
+                            overflow: "hidden",
+                            overflowWrap: "anywhere",
+                          }}
+                        >
+                          {comment.text || "This comment has no text."}
+                        </p>
+
+                        <div className="mt-1.5 flex items-center justify-between gap-2">
+                          <span
+                            className={[
+                              "inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium",
+                              comment.answered
+                                ? isDark
+                                  ? "bg-emerald-400/10 text-emerald-300"
+                                  : "bg-emerald-50 text-emerald-700"
+                                : isDark
+                                  ? "bg-amber-300/10 text-amber-200"
+                                  : "bg-amber-50 text-amber-800",
+                            ].join(" ")}
+                          >
+                            {comment.answered ? (
+                              <CheckCheck className="h-2.5 w-2.5" aria-hidden="true" />
+                            ) : (
+                              <MessageCircle className="h-2.5 w-2.5" aria-hidden="true" />
+                            )}
+                            {comment.answered ? "Replied" : "Needs a reply"}
+                          </span>
+                          <span
+                            className={[
+                              "inline-flex items-center gap-1 text-[10px] font-semibold opacity-80 transition group-hover:translate-x-0.5 group-hover:opacity-100",
+                              strongClass(isDark),
+                            ].join(" ")}
+                          >
+                            Open conversation
+                            <ArrowUpRight className="h-3 w-3" aria-hidden="true" />
+                          </span>
                         </div>
                       </div>
-                      <span className="sr-only">
-                        {comment.isRead ? "Read. " : "Unread. "}
-                        {comment.answered ? "Answered." : "Needs a reply."}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-
-                {/* Dégradé de fondu : le 3ᵉ commentaire s'estompe dans le fond du panneau */}
-                {hasOverflow && (
-                  <div
-                    aria-hidden="true"
-                    className={[
-                      "pointer-events-none absolute inset-x-0 bottom-0 h-24",
-                      "bg-gradient-to-t to-transparent",
-                      panelFadeFromClass(isDark),
-                    ].join(" ")}
-                  />
-                )}
+                    </div>
+                    <span className="sr-only">
+                      {comment.isRead ? "Read. " : "Unread. "}
+                      {comment.answered ? "Answered." : "Needs a reply."}
+                    </span>
+                  </button>
+                ))}
               </div>
 
-              {/* Bouton View all — chevauche le bas quand il y a du contenu caché */}
+              {/* Fondu : le bas du 3ᵉ commentaire se fond dans le panneau */}
               <div
+                aria-hidden="true"
                 className={[
-                  "relative flex justify-center",
-                  hasOverflow ? "-mt-4" : "mt-3",
+                  "pointer-events-none absolute inset-x-0 bottom-0 h-24",
+                  "bg-gradient-to-t to-transparent",
+                  mainBgFadeClass(isDark),
+                ].join(" ")}
+              />
+            </div>
+
+            {/* Bouton pleine largeur, ancré en bas : recouvre le 3ᵉ commentaire */}
+            <div className="absolute inset-x-0 bottom-0 z-10">
+              <button
+                type="button"
+                onClick={onViewMore}
+                className={[
+                  "flex w-full items-center justify-center gap-1 rounded-full border px-3.5 py-2",
+                  "text-[11px] font-semibold transition",
+                  focusRingClass(isDark),
+                  panelSolidClass(isDark),
+                  isDark
+                    ? "border-white/10 text-white hover:bg-[#1b1b1e] hover:border-white/20"
+                    : "border-black/10 text-neutral-900 hover:bg-white hover:border-black/20",
                 ].join(" ")}
               >
-                <button
-                  type="button"
-                  onClick={onViewMore}
-                  className={[
-                    "relative z-10 flex items-center gap-1 rounded-full border px-3.5 py-1.5",
-                    "text-[11px] font-semibold transition",
-                    focusRingClass(isDark),
-                    panelSolidClass(isDark),
-                    isDark
-                      ? "border-white/10 text-white hover:bg-[#1b1b1e] hover:border-white/20"
-                      : "border-black/10 text-neutral-900 hover:bg-white hover:border-black/20",
-                  ].join(" ")}
-                >
-                  View all comments
-                  <ChevronRight className="h-3 w-3" aria-hidden="true" />
-                </button>
-              </div>
+                View all comments
+                <ChevronRight className="h-3 w-3" aria-hidden="true" />
+              </button>
             </div>
-          </>
-        )}
-      </div>
+          </div>
+        </>
+      )}
     </section>
   );
 }
