@@ -663,8 +663,8 @@ function Ring({
   isDark,
   progress,
   children,
-  size = 60,
-  stroke = 4,
+  size = 44,
+  stroke = 3,
 }: {
   isDark: boolean;
   progress: number;
@@ -767,7 +767,7 @@ function GoalItem({
   subtitle: ReactNode;
 }) {
   return (
-    <div className="flex min-w-0 flex-col items-start gap-2">
+    <div className="flex min-w-0 items-center gap-3">
       {ring}
       <div className="min-w-0">
         <div className="flex items-center gap-1.5">
@@ -950,7 +950,7 @@ function HomeOverview({
       {/* Bandeau : Streak / Goals / Score */}
       <div
         className={[
-          "grid w-full max-w-[480px] grid-cols-1 gap-4 rounded-2xl border p-4",
+          "grid grid-cols-1 gap-3 rounded-2xl border px-4 py-3",
           "sm:grid-cols-3",
           panelSurfaceClass(isDark),
         ].join(" ")}
@@ -966,7 +966,7 @@ function HomeOverview({
           }
           ring={
             <Ring isDark={isDark} progress={weekStreak > 0 ? 1 : 0}>
-              <span className="text-[18px] font-semibold tabular-nums">
+              <span className="text-[14px] font-semibold tabular-nums">
                 {weekStreak}
               </span>
             </Ring>
@@ -984,9 +984,9 @@ function HomeOverview({
           }
           ring={
             <Ring isDark={isDark} progress={goalRatio}>
-              <span className="text-[16px] font-bold tabular-nums">
+              <span className="text-[12px] font-bold tabular-nums">
                 {Math.round(goalRatio * 100)}
-                <span className="text-[9px] font-semibold">%</span>
+                <span className="text-[7px] font-semibold">%</span>
               </span>
             </Ring>
           }
@@ -1006,7 +1006,7 @@ function HomeOverview({
             <Ring isDark={isDark} progress={commentScore.value / 100}>
               <span
                 className={[
-                  "text-[18px] font-semibold tabular-nums",
+                  "text-[14px] font-semibold tabular-nums",
                   softClass(isDark),
                 ].join(" ")}
               >
