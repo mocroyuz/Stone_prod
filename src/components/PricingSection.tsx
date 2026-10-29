@@ -20,7 +20,7 @@ import {
 } from "../services/stripe";
 
 /* ============================================================
-   REVEAL (Conservé pour les animations)
+   REVEAL
    ============================================================ */
 
 function Reveal({
@@ -280,7 +280,7 @@ export default function PricingSection() {
   return (
     <section
       id="pricing"
-      className="relative z-10 w-full overflow-hidden bg-[#F4F5F9] py-20 text-neutral-950"
+      className="relative z-10 w-full overflow-hidden bg-[#F8F9FC] py-20 text-neutral-950"
     >
       <style>{`
         .pricing-reveal {
@@ -345,80 +345,35 @@ export default function PricingSection() {
             </p>
           )}
 
-          {/* Pricing Layout */}
-          <div className="flex flex-col lg:flex-row gap-6 items-stretch">
-            
-            {/* STARTER CARD (Left) */}
-            <div className="lg:w-[32%] rounded-[32px] bg-[#E8ECF5] p-8 flex flex-col justify-between">
-              <div>
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-neutral-900 shadow-sm">
-                    {starterPlan.icon}
-                  </div>
-                  <h3 className="text-xl font-medium text-[#111827]">{starterPlan.name}</h3>
-                </div>
-
-                <div className="mb-4">
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-4xl font-medium tracking-tight text-[#111827]">
-                      ${period === "monthly" ? starterPlan.monthly : starterPlan.annual}
-                    </span>
-                    <span className="text-sm text-neutral-500">/Month</span>
-                  </div>
-                </div>
-
-                <p className="text-[13px] leading-relaxed text-neutral-600 mb-8">
-                  {starterPlan.description}
-                </p>
-
-                <ul className="space-y-3.5 mb-8">
-                  {starterPlan.features.map((feature) => (
-                    <li key={feature} className="flex items-center gap-3 text-[13px] text-neutral-700">
-                      <CheckIcon />
-                      <span>{feature}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => handlePlanClick(starterPlan)}
-                disabled={loadingPlan !== null || userLoading}
-                className="w-full rounded-full bg-[#0a1128] py-3.5 text-sm font-medium text-white transition-colors hover:bg-[#1a2542] disabled:opacity-70 shadow-lg shadow-black/10"
-              >
-                {loadingPlan === starterPlan.key ? "Redirecting..." : getButtonText(starterPlan)}
-              </button>
-            </div>
-
-            {/* PROFESSIONAL & GENIUS CARD (Right) */}
-            <div className="lg:w-[68%] rounded-[32px] bg-white p-8 shadow-[0_4px_30px_rgba(0,0,0,0.03)] border border-neutral-100 flex flex-col md:flex-row gap-8">
+          {/* Wrapper global avec la couleur de fond */}
+          <div className="rounded-[40px] bg-[#E8ECF5] p-3 md:p-4 lg:p-6">
+            <div className="flex flex-col lg:flex-row gap-6 lg:gap-8 items-stretch">
               
-              {/* Professional Column */}
-              <div className="flex-1 flex flex-col justify-between border-b md:border-b-0 md:border-r border-neutral-100 pb-8 md:pb-0 md:pr-8">
+              {/* STARTER CARD (Left) - No background, transparent to show the wrapper color */}
+              <div className="lg:w-[32%] flex flex-col justify-between p-5 md:p-6 lg:p-8">
                 <div>
                   <div className="flex items-center gap-3 mb-6">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white border border-neutral-200 text-neutral-900">
-                      {proPlan.icon}
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-neutral-900 shadow-sm">
+                      {starterPlan.icon}
                     </div>
-                    <h3 className="text-xl font-medium text-[#111827]">{proPlan.name}</h3>
+                    <h3 className="text-xl font-medium text-[#111827]">{starterPlan.name}</h3>
                   </div>
 
                   <div className="mb-4">
                     <div className="flex items-baseline gap-1">
                       <span className="text-4xl font-medium tracking-tight text-[#111827]">
-                        ${period === "monthly" ? proPlan.monthly : proPlan.annual}
+                        ${period === "monthly" ? starterPlan.monthly : starterPlan.annual}
                       </span>
                       <span className="text-sm text-neutral-500">/Month</span>
                     </div>
                   </div>
 
-                  <p className="text-[13px] leading-relaxed text-neutral-500 mb-8">
-                    {proPlan.description}
+                  <p className="text-[13px] leading-relaxed text-neutral-600 mb-8">
+                    {starterPlan.description}
                   </p>
 
                   <ul className="space-y-3.5 mb-8">
-                    {proPlan.features.map((feature) => (
+                    {starterPlan.features.map((feature) => (
                       <li key={feature} className="flex items-center gap-3 text-[13px] text-neutral-700">
                         <CheckIcon />
                         <span>{feature}</span>
@@ -429,59 +384,106 @@ export default function PricingSection() {
 
                 <button
                   type="button"
-                  onClick={() => handlePlanClick(proPlan)}
+                  onClick={() => handlePlanClick(starterPlan)}
                   disabled={loadingPlan !== null || userLoading}
-                  className="inline-flex w-fit items-center gap-2 rounded-full border border-neutral-200 bg-white px-6 py-2.5 text-sm font-medium text-[#111827] transition-colors hover:bg-neutral-50 disabled:opacity-70"
+                  className="w-full rounded-full bg-[#0a1128] py-3.5 text-sm font-medium text-white transition-colors hover:bg-[#1a2542] disabled:opacity-70 shadow-lg shadow-black/10"
                 >
-                  {loadingPlan === proPlan.key ? "Redirecting..." : getButtonText(proPlan)}
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+                  {loadingPlan === starterPlan.key ? "Redirecting..." : getButtonText(starterPlan)}
                 </button>
               </div>
 
-              {/* Genius Column */}
-              <div className="flex-1 flex flex-col justify-between pt-8 md:pt-0 md:pl-0">
-                <div>
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white border border-neutral-200 text-neutral-900">
-                      {geniusPlan.icon}
+              {/* PROFESSIONAL & GENIUS CARD (Right) - White card over the background */}
+              <div className="lg:w-[68%] rounded-[32px] bg-white p-6 md:p-8 shadow-[0_4px_30px_rgba(0,0,0,0.03)] flex flex-col md:flex-row gap-8">
+                
+                {/* Professional Column */}
+                <div className="flex-1 flex flex-col justify-between border-b md:border-b-0 md:border-r border-neutral-100 pb-8 md:pb-0 md:pr-8">
+                  <div>
+                    <div className="flex items-center gap-3 mb-6">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white border border-neutral-200 text-neutral-900">
+                        {proPlan.icon}
+                      </div>
+                      <h3 className="text-xl font-medium text-[#111827]">{proPlan.name}</h3>
                     </div>
-                    <h3 className="text-xl font-medium text-[#111827]">{geniusPlan.name}</h3>
+
+                    <div className="mb-4">
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-4xl font-medium tracking-tight text-[#111827]">
+                          ${period === "monthly" ? proPlan.monthly : proPlan.annual}
+                        </span>
+                        <span className="text-sm text-neutral-500">/Month</span>
+                      </div>
+                    </div>
+
+                    <p className="text-[13px] leading-relaxed text-neutral-500 mb-8">
+                      {proPlan.description}
+                    </p>
+
+                    <ul className="space-y-3.5 mb-8">
+                      {proPlan.features.map((feature) => (
+                        <li key={feature} className="flex items-center gap-3 text-[13px] text-neutral-700">
+                          <CheckIcon />
+                          <span>{feature}</span>
+                        </li>
+                      ))}
+                    </ul>
                   </div>
 
-                  <div className="mb-4">
-                    <div className="flex items-baseline gap-1">
-                      <span className="text-4xl font-medium tracking-tight text-[#111827]">
-                        ${period === "monthly" ? geniusPlan.monthly : geniusPlan.annual}
-                      </span>
-                      <span className="text-sm text-neutral-500">/Month</span>
-                    </div>
-                  </div>
-
-                  <p className="text-[13px] leading-relaxed text-neutral-500 mb-8">
-                    {geniusPlan.description}
-                  </p>
-
-                  <ul className="space-y-3.5 mb-8">
-                    {geniusPlan.features.map((feature) => (
-                      <li key={feature} className="flex items-start gap-3 text-[13px] text-neutral-700">
-                        <div className="mt-0.5"><CheckIcon /></div>
-                        <span>{feature}</span>
-                      </li>
-                    ))}
-                  </ul>
+                  <button
+                    type="button"
+                    onClick={() => handlePlanClick(proPlan)}
+                    disabled={loadingPlan !== null || userLoading}
+                    className="inline-flex w-fit items-center gap-2 rounded-full border border-neutral-200 bg-white px-6 py-2.5 text-sm font-medium text-[#111827] transition-colors hover:bg-neutral-50 disabled:opacity-70"
+                  >
+                    {loadingPlan === proPlan.key ? "Redirecting..." : getButtonText(proPlan)}
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+                  </button>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => handlePlanClick(geniusPlan)}
-                  disabled={loadingPlan !== null || userLoading}
-                  className="inline-flex w-fit items-center gap-2 rounded-full border border-neutral-200 bg-white px-6 py-2.5 text-sm font-medium text-[#111827] transition-colors hover:bg-neutral-50 disabled:opacity-70"
-                >
-                  {loadingPlan === geniusPlan.key ? "Redirecting..." : getButtonText(geniusPlan)}
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
-                </button>
-              </div>
+                {/* Genius Column */}
+                <div className="flex-1 flex flex-col justify-between pt-8 md:pt-0 md:pl-0">
+                  <div>
+                    <div className="flex items-center gap-3 mb-6">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white border border-neutral-200 text-neutral-900">
+                        {geniusPlan.icon}
+                      </div>
+                      <h3 className="text-xl font-medium text-[#111827]">{geniusPlan.name}</h3>
+                    </div>
 
+                    <div className="mb-4">
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-4xl font-medium tracking-tight text-[#111827]">
+                          ${period === "monthly" ? geniusPlan.monthly : geniusPlan.annual}
+                        </span>
+                        <span className="text-sm text-neutral-500">/Month</span>
+                      </div>
+                    </div>
+
+                    <p className="text-[13px] leading-relaxed text-neutral-500 mb-8">
+                      {geniusPlan.description}
+                    </p>
+
+                    <ul className="space-y-3.5 mb-8">
+                      {geniusPlan.features.map((feature) => (
+                        <li key={feature} className="flex items-start gap-3 text-[13px] text-neutral-700">
+                          <div className="mt-0.5"><CheckIcon /></div>
+                          <span>{feature}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => handlePlanClick(geniusPlan)}
+                    disabled={loadingPlan !== null || userLoading}
+                    className="inline-flex w-fit items-center gap-2 rounded-full border border-neutral-200 bg-white px-6 py-2.5 text-sm font-medium text-[#111827] transition-colors hover:bg-neutral-50 disabled:opacity-70"
+                  >
+                    {loadingPlan === geniusPlan.key ? "Redirecting..." : getButtonText(geniusPlan)}
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+                  </button>
+                </div>
+
+              </div>
             </div>
           </div>
 
