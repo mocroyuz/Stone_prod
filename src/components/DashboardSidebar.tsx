@@ -853,7 +853,7 @@ function NavItemViewImpl({
               {item.badge && (
                 <span
                   className={[
-                    "rounded-full px-2 py-0.5 text-[10px] font-semibold",
+                    "flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1.5 text-[10px] font-semibold leading-none",
                     t.badge,
                   ].join(" ")}
                 >
@@ -939,7 +939,8 @@ const CHANNEL_LINKS: {
   perChannel?: boolean;
 }[] = [
   { label: "Publish", route: "schedule", icon: PublishIcon, perChannel: true },
-  { label: "Community", route: "community", icon: CommunityIcon, perChannel: true },
+  // Ajout du badge "1" pour la notification de commentaire sur Community
+  { label: "Community", route: "community", icon: CommunityIcon, perChannel: true, badge: "1" },
   {
     label: "Insights",
     route: "insights",
@@ -951,7 +952,8 @@ const CHANNEL_LINKS: {
 
 const STANDALONE_LINKS = [
   { label: "Insights", route: "insights", icon: InsightsIcon, badge: "New" },
-  { label: "Community", route: "community", icon: CommunityIcon },
+  // Ajout du badge "1" ici aussi pour le mode sans chaîne connectée
+  { label: "Community", route: "community", icon: CommunityIcon, badge: "1" },
 ];
 
 const CHANNEL_ROUTES = new Set(["insights", "community"]);
@@ -1325,7 +1327,7 @@ function ChannelHoverCard({
                     {link.badge && (
                       <span
                         className={[
-                          "rounded-full px-2 py-0.5 text-[10.5px] font-semibold",
+                          "flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1.5 text-[10px] font-semibold leading-none",
                           t.badge,
                         ].join(" ")}
                       >
@@ -2125,7 +2127,7 @@ function SidebarChannelsImpl({
                     {link.badge && (
                       <span
                         className={[
-                          "rounded-full px-2 py-0.5 text-[10px] font-semibold",
+                          "flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1.5 text-[10px] font-semibold leading-none",
                           t.badge,
                         ].join(" ")}
                       >
@@ -2416,7 +2418,7 @@ function SidebarChannelsImpl({
                           {link.badge && (
                             <span
                               className={[
-                                "rounded-full px-2 py-0.5 text-[10.5px] font-semibold",
+                                "flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1.5 text-[10px] font-semibold leading-none",
                                 t.badge,
                               ].join(" ")}
                             >
