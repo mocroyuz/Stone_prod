@@ -1035,7 +1035,7 @@ function Panel({
       <div
         className={[
           "flex min-h-[190px] flex-col items-center justify-center",
-          "gap-1 rounded-2xl border px-4 py-6 text-center",
+          "gap-1 rounded-3xl border px-4 py-6 text-center",
           panelSurfaceClass(isDark),
         ].join(" ")}
       >
@@ -1062,7 +1062,7 @@ function Panel({
             type="button"
             onClick={action.onClick}
             className={[
-              "mt-3 flex items-center gap-1.5 rounded-lg border px-3 py-1.5",
+              "mt-3 flex items-center gap-1.5 rounded-full border px-3.5 py-1.5",
               "text-[11px] font-semibold transition",
               focusRingClass(isDark),
               isDark
@@ -1101,8 +1101,11 @@ function CommentAvatar({
   const initial = name.replace(/^@/, "").charAt(0).toUpperCase() || "?";
   const NetworkIcon = NETWORK_ICONS[network];
 
+  /* L'anneau du badge reprend la couleur de la carte */
+  const badgeRing = isDark ? "ring-[#18181b]" : "ring-white";
+
   return (
-    <div className="relative h-9 w-9 shrink-0">
+    <div className="relative h-10 w-10 shrink-0">
       {src && !failed ? (
         <img
           src={src}
@@ -1116,7 +1119,7 @@ function CommentAvatar({
         <div
           className={[
             "flex h-full w-full items-center justify-center rounded-full",
-            "text-[12px] font-semibold",
+            "text-[13px] font-semibold",
             isDark ? "bg-[#29292c] text-white" : "bg-neutral-900 text-white",
           ].join(" ")}
         >
@@ -1126,9 +1129,9 @@ function CommentAvatar({
 
       <span
         className={[
-          "absolute -bottom-1 -right-1 flex h-4 w-4 items-center",
-          "justify-center rounded-full bg-white text-black ring-2",
-          panelRingClass(isDark),
+          "absolute -bottom-1 -right-1 flex h-[18px] w-[18px] items-center",
+          "justify-center rounded-full bg-white text-black shadow-sm ring-2",
+          badgeRing,
         ].join(" ")}
       >
         <NetworkIcon className="h-2.5 w-2.5" />
@@ -1213,30 +1216,28 @@ function CommentsPanel({
         </p>
       </div>
 
+      {/* Panneau : coins très arrondis, les commentaires sont des cartes à l'intérieur */}
       <div
         className={[
-          "flex min-h-[190px] flex-col overflow-hidden rounded-2xl border",
+          "flex min-h-[190px] flex-col gap-1.5 rounded-3xl border p-2",
           panelSurfaceClass(isDark),
         ].join(" ")}
       >
-        <ul
-          className={[
-            "flex-1 divide-y",
-            isDark ? "divide-white/[0.06]" : "divide-black/[0.06]",
-          ].join(" ")}
-        >
+        <ul className="flex flex-1 flex-col gap-1.5">
           {comments.map((c) => (
             <li key={c.id}>
               <button
                 type="button"
                 onClick={() => onOpen(c.channel.key)}
                 className={[
-                  "flex w-full items-start gap-3 px-3.5 py-3 text-left transition-colors",
+                  "group flex w-full items-start gap-3 rounded-2xl border p-3 text-left",
+                  "transition-all duration-200 motion-reduce:transition-none",
                   focusRingClass(isDark),
-                  isDark ? "hover:bg-white/[0.04]" : "hover:bg-black/[0.03]",
+                  isDark
+                    ? "border-white/[0.06] bg-[#18181b] hover:border-white/[0.12] hover:bg-[#1d1d21]"
+                    : "border-black/[0.05] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.03)] hover:border-black/[0.10] hover:shadow-[0_4px_14px_rgba(0,0,0,0.06)]",
                 ].join(" ")}
               >
-                {/* Photo de la personne + icône du réseau */}
                 <CommentAvatar
                   src={c.authorAvatar}
                   name={c.author}
@@ -1254,15 +1255,12 @@ function CommentsPanel({
                       <span
                         role="img"
                         aria-label="Unread"
-                        className={[
-                          "h-1.5 w-1.5 shrink-0 rounded-full",
-                          isDark ? "bg-white" : "bg-neutral-900",
-                        ].join(" ")}
+                        className="h-2 w-2 shrink-0 rounded-full bg-blue-500"
                       />
                     )}
                     <span
                       className={[
-                        "truncate text-[12px] font-semibold",
+                        "truncate text-[12.5px] font-semibold",
                         strongClass(isDark),
                       ].join(" ")}
                     >
@@ -1278,8 +1276,12 @@ function CommentsPanel({
 
                   <p
                     className={[
-                      "mt-0.5 break-words text-[12px] leading-snug",
-                      isDark ? "text-neutral-400" : "text-neutral-600",
+                      "mt-1 break-words text-[12px] leading-snug",
+                      c.isRead
+                        ? "text-neutral-500"
+                        : isDark
+                          ? "text-neutral-200"
+                          : "text-neutral-800",
                     ].join(" ")}
                     style={{
                       display: "-webkit-box",
@@ -1293,16 +1295,21 @@ function CommentsPanel({
 
                   {c.videoTitle && (
                     <p
-                      className={["mt-1 truncate text-[10.5px]", mutedClass(isDark)].join(" ")}
+                      className={[
+                        "mt-2 inline-flex max-w-full items-center rounded-full px-2 py-0.5",
+                        "text-[10px] font-medium",
+                        isDark
+                          ? "bg-white/[0.05] text-neutral-400"
+                          : "bg-black/[0.04] text-neutral-500",
+                      ].join(" ")}
                       title={c.videoTitle}
                     >
                       <span className="sr-only">On video: </span>
-                      {c.videoTitle}
+                      <span className="truncate">{c.videoTitle}</span>
                     </p>
                   )}
                 </div>
 
-                {/* Affiche de la vidéo d'où vient le commentaire */}
                 {c.videoThumbnail && (
                   <img
                     src={c.videoThumbnail}
@@ -1310,7 +1317,12 @@ function CommentsPanel({
                     loading="lazy"
                     draggable={false}
                     referrerPolicy="no-referrer"
-                    className="aspect-video w-[68px] shrink-0 rounded-md object-cover"
+                    className={[
+                      "aspect-video w-[76px] shrink-0 rounded-xl object-cover ring-1",
+                      "transition-transform duration-200 group-hover:scale-[1.03]",
+                      "motion-reduce:transition-none",
+                      isDark ? "ring-white/[0.08]" : "ring-black/[0.06]",
+                    ].join(" ")}
                   />
                 )}
               </button>
@@ -1322,12 +1334,12 @@ function CommentsPanel({
           type="button"
           onClick={onViewMore}
           className={[
-            "flex w-full items-center justify-center gap-0.5 border-t px-3.5 py-2.5",
-            "text-[11px] font-semibold transition-colors",
+            "flex w-full items-center justify-center gap-0.5 rounded-2xl px-3.5 py-2.5",
+            "text-[11px] font-semibold transition-colors motion-reduce:transition-none",
             focusRingClass(isDark),
             isDark
-              ? "border-white/[0.07] text-neutral-400 hover:bg-white/[0.04] hover:text-white"
-              : "border-black/[0.06] text-neutral-500 hover:bg-black/[0.03] hover:text-neutral-900",
+              ? "text-neutral-400 hover:bg-white/[0.05] hover:text-white"
+              : "text-neutral-500 hover:bg-black/[0.04] hover:text-neutral-900",
           ].join(" ")}
         >
           View more
@@ -1739,10 +1751,14 @@ export default function Home() {
      COMMUNITY
   ---------------------------------------------------------- */
 
-  const handleViewAllComments = () => {
-    const first = connectedChannels[0];
+  const handleViewAllComments = (channelKey?: string) => {
+    const channel =
+      connectedChannels.find((item) => item.key === channelKey) ??
+      connectedChannels.find((item) => item.platform === "youtube");
     navigate(
-      first ? `community?channel=${encodeURIComponent(first.key)}` : "community"
+      channel
+        ? `community?channel=${encodeURIComponent(channel.key)}`
+        : "community"
     );
   };
 
@@ -1935,7 +1951,9 @@ export default function Home() {
                   onOpen={(key) =>
                     navigate(`community?channel=${encodeURIComponent(key)}`)
                   }
-                  onViewMore={handleViewAllComments}
+                  onViewMore={() =>
+                    handleViewAllComments(latestComments.comments[0]?.channel.key)
+                  }
                 />
               ) : (
                 <Panel

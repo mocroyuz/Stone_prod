@@ -684,7 +684,10 @@ export default function Community() {
     if (hashChannel) setSelectedKey(hashChannel);
   }, [hashChannel]);
 
-  const channel = channels.find((c) => c.key === selectedKey) ?? channels[0];
+  const channel =
+    channels.find((c) => c.key === selectedKey) ??
+    channels.find((c) => c.platform === "youtube") ??
+    channels[0];
 
   const [tab, setTab] = useState<Tab>("comments");
   const [layout, setLayout] = useState<Layout>("post");
