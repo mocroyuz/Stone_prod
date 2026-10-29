@@ -853,7 +853,7 @@ function NavItemViewImpl({
               {item.badge && (
                 <span
                   className={[
-                    "flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1.5 text-[10px] font-semibold leading-none",
+                    "flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1.5 text-[10px] font-semibold leading-none opacity-80",
                     t.badge,
                   ].join(" ")}
                 >
@@ -1327,7 +1327,7 @@ function ChannelHoverCard({
                     {link.badge && (
                       <span
                         className={[
-                          "flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1.5 text-[10px] font-semibold leading-none",
+                          "flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1.5 text-[10px] font-semibold leading-none opacity-80",
                           t.badge,
                         ].join(" ")}
                       >
@@ -2127,7 +2127,7 @@ function SidebarChannelsImpl({
                     {link.badge && (
                       <span
                         className={[
-                          "flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1.5 text-[10px] font-semibold leading-none",
+                          "flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1.5 text-[10px] font-semibold leading-none opacity-80",
                           t.badge,
                         ].join(" ")}
                       >
@@ -2418,7 +2418,7 @@ function SidebarChannelsImpl({
                           {link.badge && (
                             <span
                               className={[
-                                "flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1.5 text-[10px] font-semibold leading-none",
+                                "flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1.5 text-[10px] font-semibold leading-none opacity-80",
                                 t.badge,
                               ].join(" ")}
                             >
@@ -3536,7 +3536,7 @@ export default function DashboardSidebar({
                         {item.badge && (
                           <span
                             className={[
-                              "rounded-full px-2 py-0.5 text-[10px] font-semibold",
+                              "rounded-full px-2 py-0.5 text-[10px] font-semibold opacity-80",
                               t.badge,
                             ].join(" ")}
                           >
@@ -3578,27 +3578,36 @@ export default function DashboardSidebar({
                   menuOpen ? t.rowOpen : t.row,
                 ].join(" ")}
               >
-                {showAvatarImage ? (
-                  <img
-                    key={account.avatarUrl}
-                    src={account.avatarUrl}
-                    alt="Profile"
-                    draggable={false}
-                    // Photo de profil : h-8 w-8 (32px), rounded-lg
-                    className="h-8 w-8 shrink-0 select-none rounded-lg object-cover"
-                    onError={() => setAvatarLoadFailed(true)}
-                  />
-                ) : (
+                <span className="relative flex shrink-0">
+                  {showAvatarImage ? (
+                    <img
+                      key={account.avatarUrl}
+                      src={account.avatarUrl}
+                      alt="Profile"
+                      draggable={false}
+                      // Photo de profil : h-8 w-8 (32px), rounded-lg
+                      className="h-8 w-8 shrink-0 select-none rounded-lg object-cover"
+                      onError={() => setAvatarLoadFailed(true)}
+                    />
+                  ) : (
+                    <span
+                      className={[
+                        "flex h-8 w-8 shrink-0 select-none items-center justify-center rounded-lg",
+                        "text-[11px] font-semibold",
+                        t.avatar,
+                      ].join(" ")}
+                    >
+                      {account.initials}
+                    </span>
+                  )}
+                  {/* Point de notification sans chiffre */}
                   <span
                     className={[
-                      "flex h-8 w-8 shrink-0 select-none items-center justify-center rounded-lg",
-                      "text-[11px] font-semibold",
-                      t.avatar,
+                      "absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-rose-500 ring-2",
+                      isDark ? "ring-[#09090a]" : "ring-[#f5f3ef]",
                     ].join(" ")}
-                  >
-                    {account.initials}
-                  </span>
-                )}
+                  />
+                </span>
 
                 {!compact && (
                   <span

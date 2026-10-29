@@ -1154,6 +1154,13 @@ function CommentAvatar({
    COMMENTS PANEL
 ============================================================ */
 
+/* Pile de cartes : même hauteur que le panneau « Up Next » (190 px),
+   sans fond visible autour. Le commentaire le plus récent est devant,
+   les suivants dépassent derrière. */
+const DECK_HEIGHT = 190;
+const DECK_PEEK = 14;
+const DECK_CARD_HEIGHT = DECK_HEIGHT - DECK_PEEK * 2;
+
 function CommentsPanel({
   isDark,
   comments,
@@ -1169,6 +1176,17 @@ function CommentsPanel({
   onOpen: (channelKey: string) => void;
   onViewMore: () => void;
 }) {
+  const front = comments[0];
+  const behind = comments.slice(1, 3);
+
+  /* Fond opaque (équivalent du fond du panneau vide) : les cartes se
+     recouvrent, elles ne doivent pas se voir à travers. */
+  const deckSurface = isDark
+    ? "border-white/[0.07] bg-[#151517]"
+    : "border-black/[0.06] bg-[#f6f4f0]";
+
+  const time = front ? timeAgo(front.publishedAt, now) : "";
+
   return (
     <section className="min-w-0">
       <div className="mb-3 flex items-center justify-between">
@@ -1200,141 +1218,164 @@ function CommentsPanel({
         </button>
       </div>
 
-      <ul className="flex flex-col gap-2.5">
-        {comments.map((c) => {
-          const time = timeAgo(c.publishedAt, now);
+      {front && (
+        <div className="relative" style={{ height: DECK_HEIGHT }}>
+          {/* Cartes derrière : seul leur bord dépasse sous la carte de devant */}
+          {behind.map((c, index) => {
+            const depth = index + 1;
 
-          return (
-            <li key={c.id}>
-              <button
-                type="button"
-                onClick={() => onOpen(c.channel.key)}
+            return (
+              <div
+                key={c.id}
+                aria-hidden="true"
                 className={[
-                  "group flex w-full flex-col gap-3 rounded-2xl border p-4 text-left",
-                  "transition-colors duration-200 motion-reduce:transition-none",
-                  focusRingClass(isDark),
-                  panelSurfaceClass(isDark),
-                  isDark
-                    ? "hover:border-white/[0.14] hover:bg-white/[0.05]"
-                    : "hover:border-black/[0.12] hover:bg-[#f1eee9]",
+                  "pointer-events-none absolute inset-x-0 top-0 rounded-2xl border",
+                  deckSurface,
                 ].join(" ")}
-              >
-                {/* Qui a écrit, sur quelle vidéo, et quand */}
-                <div className="flex items-center gap-3">
-                  <CommentAvatar
-                    src={c.authorAvatar}
-                    name={c.author}
-                    network={c.network}
-                    isDark={isDark}
-                  />
+                style={{
+                  height: DECK_CARD_HEIGHT,
+                  zIndex: 10 - depth,
+                  transformOrigin: "bottom center",
+                  transform: `translateY(${depth * DECK_PEEK}px) scale(${1 - depth * 0.05})`,
+                  opacity: 1 - depth * 0.18,
+                }}
+              />
+            );
+          })}
 
-                  <span className="sr-only">
-                    {c.channel.handle || c.channel.name} on {c.network}.
-                  </span>
+          {/* Carte de devant : le commentaire le plus récent */}
+          <button
+            type="button"
+            onClick={() => onOpen(front.channel.key)}
+            className={[
+              "group absolute inset-x-0 top-0 z-20 flex flex-col justify-between",
+              "rounded-2xl border p-4 text-left",
+              "transition-colors duration-200 motion-reduce:transition-none",
+              focusRingClass(isDark),
+              deckSurface,
+              isDark
+                ? "hover:border-white/[0.14] hover:bg-[#19191c]"
+                : "hover:border-black/[0.12] hover:bg-[#f1eee9]",
+            ].join(" ")}
+            style={{ height: DECK_CARD_HEIGHT }}
+          >
+            <div className="flex items-center gap-3">
+              <CommentAvatar
+                src={front.authorAvatar}
+                name={front.author}
+                network={front.network}
+                isDark={isDark}
+              />
 
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5">
-                      {!c.isRead && (
-                        <span
-                          role="img"
-                          aria-label="Unread"
-                          className="h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500"
-                        />
-                      )}
-                      <span
-                        className={[
-                          "truncate text-[12.5px] font-semibold",
-                          strongClass(isDark),
-                        ].join(" ")}
-                      >
-                        {c.author}
-                      </span>
-                      {time && (
-                        <span
-                          className={["shrink-0 text-[11px]", mutedClass(isDark)].join(" ")}
-                        >
-                          · {time}
-                        </span>
-                      )}
-                    </div>
+              <span className="sr-only">
+                {front.channel.handle || front.channel.name} on {front.network}.
+              </span>
 
-                    {c.videoTitle && (
-                      <p
-                        className={[
-                          "mt-0.5 truncate text-[11px]",
-                          isDark ? "text-neutral-500" : "text-neutral-400",
-                        ].join(" ")}
-                        title={c.videoTitle}
-                      >
-                        <span className="sr-only">On video: </span>
-                        {c.videoTitle}
-                      </p>
-                    )}
-                  </div>
-
-                  <ArrowUpRight
-                    aria-hidden="true"
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5">
+                  {!front.isRead && (
+                    <span
+                      role="img"
+                      aria-label="Unread"
+                      className="h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500"
+                    />
+                  )}
+                  <span
                     className={[
-                      "h-4 w-4 shrink-0 opacity-0 transition-opacity duration-200",
-                      "group-hover:opacity-100 group-focus-visible:opacity-100",
-                      "motion-reduce:transition-none",
-                      isDark ? "text-neutral-400" : "text-neutral-500",
+                      "truncate text-[12.5px] font-semibold",
+                      strongClass(isDark),
                     ].join(" ")}
-                  />
+                  >
+                    {front.author}
+                  </span>
+                  {time && (
+                    <span
+                      className={["shrink-0 text-[11px]", mutedClass(isDark)].join(" ")}
+                    >
+                      · {time}
+                    </span>
+                  )}
                 </div>
 
-                {/* Le commentaire */}
-                <p
-                  className={[
-                    "break-words text-[13.5px] leading-relaxed",
-                    isDark ? "text-neutral-100" : "text-neutral-800",
-                  ].join(" ")}
-                  style={{
-                    display: "-webkit-box",
-                    WebkitLineClamp: 3,
-                    WebkitBoxOrient: "vertical",
-                    overflow: "hidden",
-                  }}
-                >
-                  {c.text}
-                </p>
-
-                {/* Statut : à traiter / déjà répondu */}
-                {c.answered ? (
-                  <span
+                {front.videoTitle && (
+                  <p
                     className={[
-                      "inline-flex w-fit items-center gap-1 rounded-full px-2 py-0.5",
-                      "text-[10px] font-semibold",
-                      isDark
-                        ? "bg-emerald-500/10 text-emerald-400"
-                        : "bg-emerald-500/10 text-emerald-600",
+                      "mt-0.5 truncate text-[11px]",
+                      isDark ? "text-neutral-500" : "text-neutral-400",
                     ].join(" ")}
+                    title={front.videoTitle}
                   >
-                    <Check className="h-3 w-3" aria-hidden="true" />
-                    Answered
-                  </span>
-                ) : (
-                  <span
-                    className={[
-                      "inline-flex w-fit items-center gap-1.5 rounded-full px-2 py-0.5",
-                      "text-[10px] font-semibold",
-                      isDark
-                        ? "bg-blue-500/10 text-blue-400"
-                        : "bg-blue-500/10 text-blue-600",
-                    ].join(" ")}
-                  >
-                    <span
-                      aria-hidden="true"
-                      className="h-1.5 w-1.5 rounded-full bg-current"
-                    />
-                    Needs a reply
-                  </span>
+                    <span className="sr-only">On video: </span>
+                    {front.videoTitle}
+                  </p>
                 )}
-              </button>
-            </li>
-          );
-        })}
-      </ul>
+              </div>
+
+              <ArrowUpRight
+                aria-hidden="true"
+                className={[
+                  "h-4 w-4 shrink-0 opacity-0 transition-opacity duration-200",
+                  "group-hover:opacity-100 group-focus-visible:opacity-100",
+                  "motion-reduce:transition-none",
+                  isDark ? "text-neutral-400" : "text-neutral-500",
+                ].join(" ")}
+              />
+            </div>
+
+            <p
+              className={[
+                "break-words text-[13.5px] leading-relaxed",
+                isDark ? "text-neutral-100" : "text-neutral-800",
+              ].join(" ")}
+              style={{
+                display: "-webkit-box",
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: "vertical",
+                overflow: "hidden",
+              }}
+            >
+              {front.text}
+            </p>
+
+            <div className="flex items-center justify-between gap-2">
+              {front.answered ? (
+                <span
+                  className={[
+                    "inline-flex items-center gap-1 rounded-full px-2 py-0.5",
+                    "text-[10px] font-semibold",
+                    "bg-emerald-500/10",
+                    isDark ? "text-emerald-400" : "text-emerald-600",
+                  ].join(" ")}
+                >
+                  <Check className="h-3 w-3" aria-hidden="true" />
+                  Answered
+                </span>
+              ) : (
+                <span
+                  className={[
+                    "inline-flex items-center gap-1.5 rounded-full px-2 py-0.5",
+                    "text-[10px] font-semibold",
+                    "bg-blue-500/10",
+                    isDark ? "text-blue-400" : "text-blue-600",
+                  ].join(" ")}
+                >
+                  <span
+                    aria-hidden="true"
+                    className="h-1.5 w-1.5 rounded-full bg-current"
+                  />
+                  Needs a reply
+                </span>
+              )}
+
+              {behind.length > 0 && (
+                <span className={["text-[10px] font-medium", mutedClass(isDark)].join(" ")}>
+                  +{behind.length} more
+                </span>
+              )}
+            </div>
+          </button>
+        </div>
+      )}
     </section>
   );
 }
