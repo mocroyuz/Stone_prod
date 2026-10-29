@@ -107,33 +107,6 @@ function Reveal({
    ICONS
    ============================================================ */
 
-const StarterIcon = () => (
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M8.5 8.5H7.5C6.94772 8.5 6.5 8.94772 6.5 9.5V10.5C6.5 11.0523 6.94772 11.5 7.5 11.5H8.5C9.05228 11.5 9.5 11.0523 9.5 10.5V9.5C9.5 8.94772 9.05228 8.5 8.5 8.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M16.5 8.5H15.5C14.9477 8.5 14.5 8.94772 14.5 9.5V10.5C14.5 11.0523 14.9477 11.5 15.5 11.5H16.5C17.0523 11.5 17.5 11.0523 17.5 10.5V9.5C17.5 8.94772 17.0523 8.5 16.5 8.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M8.5 16.5H7.5C6.94772 16.5 6.5 16.9477 6.5 17.5V18.5C6.5 19.0523 6.94772 19.5 7.5 19.5H8.5C9.05228 19.5 9.5 19.0523 9.5 18.5V17.5C9.5 16.9477 9.05228 16.5 8.5 16.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M16.5 16.5H15.5C14.9477 16.5 14.5 16.9477 14.5 17.5V18.5C14.5 19.0523 14.9477 19.5 15.5 19.5H16.5C17.0523 19.5 17.5 19.0523 17.5 18.5V17.5C17.5 16.9477 17.0523 16.5 16.5 16.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-  </svg>
-);
-
-const ProfessionalIcon = () => (
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M12 3L21 12L12 21L3 12L12 3Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M12 8L16 12L12 16L8 12L12 8Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-  </svg>
-);
-
-const EnterpriseIcon = () => (
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M12 21C16.9706 21 21 16.9706 21 12C21 7.02944 16.9706 3 12 3C7.02944 3 3 7.02944 3 12C3 16.9706 7.02944 21 12 21Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M12 15C13.6569 15 15 13.6569 15 12C15 10.3431 13.6569 9 12 9C10.3431 9 9 10.3431 9 12C9 13.6569 10.3431 15 12 15Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M12 3V9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M12 15V21" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M3 12H9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M15 12H21" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-  </svg>
-);
-
 const CheckIcon = ({ isDark }: { isDark: boolean }) => (
   <div
     className={[
@@ -155,7 +128,6 @@ const plans = [
   {
     key: "starter",
     badge: "STARTER",
-    icon: <StarterIcon />,
     monthly: 19,
     annual: 15,
     description: "Everything you need to get started.",
@@ -173,7 +145,6 @@ const plans = [
   {
     key: "pro",
     badge: "PRO",
-    icon: <ProfessionalIcon />,
     monthly: 49,
     annual: 39,
     description: "More freedom to create and grow.",
@@ -192,7 +163,6 @@ const plans = [
   {
     key: "enterprise",
     badge: "ENTERPRISE",
-    icon: <EnterpriseIcon />,
     monthly: 99,
     annual: 79,
     description: "Advanced solutions for large organizations.",
@@ -361,7 +331,6 @@ export default function PricingSection() {
         }
       `}</style>
 
-      {/* Container principal : centré + large, et compacté en hauteur */}
       <div className="mx-auto w-full max-w-[1440px] px-4 sm:px-6 lg:px-8">
         <Reveal>
 
@@ -439,16 +408,10 @@ export default function PricingSection() {
           <div className={["w-full rounded-[32px] border p-[clamp(8px,1.2vh,16px)]", starterBgClass(isDark)].join(" ")}>
             <div className="flex w-full flex-col items-stretch justify-center gap-[clamp(12px,1.8vh,24px)] lg:flex-row">
 
-              {/* STARTER CARD */}
+              {/* STARTER CARD — icône supprimée */}
               <div className="flex flex-col justify-between p-[clamp(12px,2vh,24px)] lg:w-[30%]">
                 <div>
-                  <div className="mb-[clamp(8px,1.2vh,16px)] flex items-center gap-3">
-                    <div className={[
-                      "flex h-10 w-10 items-center justify-center rounded-xl shadow-sm",
-                      isDark ? "bg-white/[0.08] text-neutral-100 border border-white/10" : "bg-[#f6f6f6] text-neutral-900 border border-black/5"
-                    ].join(" ")}>
-                      {starterPlan.icon}
-                    </div>
+                  <div className="mb-[clamp(8px,1.2vh,16px)] flex items-center">
                     <h3 className={["text-xl font-medium capitalize", strongClass(isDark)].join(" ")}>{starterPlan.key}</h3>
                   </div>
 
@@ -496,7 +459,7 @@ export default function PricingSection() {
                 </button>
               </div>
 
-              {/* PRO & ENTERPRISE CARDS */}
+              {/* PRO & ENTERPRISE CARDS — icônes supprimées */}
               <div className={[
                 "flex flex-col gap-[clamp(16px,2.5vh,32px)] rounded-[28px] border p-[clamp(16px,2.5vh,36px)] shadow-sm md:flex-row lg:w-[70%]",
                 innerCardClass(isDark)
@@ -508,13 +471,7 @@ export default function PricingSection() {
                   isDark ? "border-white/[0.08]" : "border-black/[0.08]"
                 ].join(" ")}>
                   <div>
-                    <div className="mb-[clamp(8px,1.2vh,16px)] flex items-center gap-3">
-                      <div className={[
-                        "flex h-11 w-11 items-center justify-center rounded-xl border",
-                        isDark ? "bg-white/[0.05] border-white/10 text-neutral-100" : "bg-white border-neutral-300 text-neutral-900"
-                      ].join(" ")}>
-                        {proPlan.icon}
-                      </div>
+                    <div className="mb-[clamp(8px,1.2vh,16px)] flex items-center">
                       <h3 className={["text-2xl font-medium capitalize", strongClass(isDark)].join(" ")}>{proPlan.key}</h3>
                     </div>
 
@@ -566,13 +523,7 @@ export default function PricingSection() {
                 {/* Enterprise Column */}
                 <div className="flex flex-1 flex-col justify-between">
                   <div>
-                    <div className="mb-[clamp(8px,1.2vh,16px)] flex items-center gap-3">
-                      <div className={[
-                        "flex h-11 w-11 items-center justify-center rounded-xl border",
-                        isDark ? "bg-white/[0.05] border-white/10 text-neutral-100" : "bg-white border-neutral-300 text-neutral-900"
-                      ].join(" ")}>
-                        {enterprisePlan.icon}
-                      </div>
+                    <div className="mb-[clamp(8px,1.2vh,16px)] flex items-center">
                       <h3 className={["text-2xl font-medium capitalize", strongClass(isDark)].join(" ")}>{enterprisePlan.key}</h3>
                     </div>
 
