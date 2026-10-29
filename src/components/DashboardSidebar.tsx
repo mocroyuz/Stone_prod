@@ -143,6 +143,30 @@ export const SIDEBAR_COLLAPSED_OFFSET = 64;
 export const SIDEBAR_EXPANDED_OFFSET = 240;
 
 /* ============================================================================ 
+   Routing helpers 
+============================================================================ */
+
+/** "community?channel=xxx" → "community". */
+function baseRoute(route: string): string {
+  const q = route.indexOf("?");
+  return q === -1 ? route : route.slice(0, q);
+}
+
+/** Lit `channel` en priorité dans le hash (#route?channel=xxx), puis dans le search. */
+function getHashChannel(): string | null {
+  if (typeof window === "undefined") return null;
+
+  const hash = window.location.hash.slice(1);
+  const q = hash.indexOf("?");
+  if (q !== -1) {
+    const ch = new URLSearchParams(hash.slice(q + 1)).get("channel");
+    if (ch) return ch;
+  }
+
+  return new URLSearchParams(window.location.search).get("channel");
+}
+
+/* ============================================================================ 
    Notifications : commentaires non lus par canal
 ============================================================================ */
 
@@ -608,7 +632,6 @@ function Tip({
 
 /* ============================================================================ 
    Navigation data 
-   → Community est maintenant un item de PREMIER niveau (avec badge dynamique)
 ============================================================================ */
 
 const navItems: NavItem[] = [
@@ -966,11 +989,6 @@ function getNetworkId(channel: ConnectedChannel): NetworkKey | null {
   return null;
 }
 
-function getHashChannel(): string | null {
-  if (typeof window === "undefined") return null;
-  return new URLSearchParams(window.location.search).get("channel");
-}
-
 type ChannelLink = {
   label: string;
   route: string;
@@ -991,14 +1009,12 @@ const CHANNEL_LINKS: ChannelLink[] = [
   },
 ];
 
-// Community est désormais au top-level → retiré des standalone
 const STANDALONE_LINKS: ChannelLink[] = [
   { label: "Insights", route: "insights", icon: InsightsIcon, badge: "New" },
 ];
 
 const CHANNEL_ROUTES = new Set(["insights", "community"]);
 
-/** Plafond d'affichage : "9+" au-delà de 9 non-lus. */
 const formatUnread = (count: number) => (count > 9 ? "9+" : String(count));
 
 function withUnreadBadge<T extends { route: string; badge?: string }>(
@@ -1729,6 +1745,7 @@ function SidebarChannelsImpl({
   isDark,
   compact,
   currentRoute,
+  hashChannel,
   focus,
   t,
   onNavigate,
@@ -1745,6 +1762,7 @@ function SidebarChannelsImpl({
   isDark: boolean;
   compact: boolean;
   currentRoute: string;
+  hashChannel: string | null;
   focus: string;
   t: ThemeTokens;
   onNavigate: (route: string) => void;
@@ -2028,8 +2046,6 @@ function SidebarChannelsImpl({
     prevTops.current = next;
     prevOrderKey.current = orderKey;
   });
-
-  const hashChannel = CHANNEL_ROUTES.has(currentRoute) ? getHashChannel() : null;
 
   const toggleKey = (key: string) =>
     setOpenKeys((prev) =>
@@ -2624,11 +2640,15 @@ export default function DashboardSidebar({
   const theme = themeProp ?? themeContext.theme;
   const isDark = theme === "dark";
 
-  const currentRoute = useHashRoute();
+  const rawRoute = useHashRoute();
+  const currentRoute = baseRoute(rawRoute);
+  const currentHashChannel = CHANNEL_ROUTES.has(currentRoute)
+    ? getHashChannel()
+    : null;
+
   const connectedChannels = useConnectedChannels();
   const isMobile = useIsMobile();
 
-  // ✅ Calcul du badge "Community" au niveau top-level
   const unreadCounts = useUnreadCounts();
   const totalUnread = Object.values(unreadCounts).reduce(
     (sum, count) => sum + count,
@@ -3375,6 +3395,7 @@ export default function DashboardSidebar({
             isDark={isDark}
             compact={compact}
             currentRoute={currentRoute}
+            hashChannel={currentHashChannel}
             focus={focus}
             t={t}
             onNavigate={handleNavigate}
