@@ -144,7 +144,6 @@ export const SIDEBAR_EXPANDED_OFFSET = 240;
 
 /* ============================================================================ 
    Notifications : commentaires non lus par canal
-   (Home.tsx et Community.tsx envoient les nombres, la sidebar les affiche)
 ============================================================================ */
 
 const UNREAD_STORAGE_KEY = "stone.unread-counts";
@@ -177,10 +176,6 @@ function getStoredUnread(): UnreadCounts {
   }
 }
 
-/**
- * À appeler depuis n'importe quelle page : nombre de commentaires non lus
- * d'un canal. 0 supprime la notification.
- */
 export function setChannelUnreadCount(channelKey: string, count: number) {
   if (typeof window === "undefined") return;
 
@@ -201,7 +196,6 @@ export function setChannelUnreadCount(channelKey: string, count: number) {
   window.dispatchEvent(new Event(UNREAD_EVENT));
 }
 
-/** Ancienne API, gardée pour compatibilité. */
 export function setChannelUnread(channelKey: string, hasUnread: boolean) {
   const existing = getStoredUnread()[channelKey] ?? 0;
   setChannelUnreadCount(channelKey, hasUnread ? Math.max(existing, 1) : 0);
@@ -614,12 +608,14 @@ function Tip({
 
 /* ============================================================================ 
    Navigation data 
+   → Community est maintenant un item de PREMIER niveau (avec badge dynamique)
 ============================================================================ */
 
 const navItems: NavItem[] = [
   { label: "Home", icon: HomeIcon, route: "home" },
   { label: "Publish", icon: CalendarIcon, route: "schedule" },
   { label: "Create", icon: LightbulbIcon, route: "create", badge: "New" },
+  { label: "Community", icon: CommunityIcon, route: "community" },
 ];
 
 const EXTRA_FAVORITABLE_ITEMS: NavItem[] = [
@@ -629,10 +625,7 @@ const EXTRA_FAVORITABLE_ITEMS: NavItem[] = [
   { label: "Integrations", icon: AppsIcon, route: "integrations" },
 ];
 
-const FAVORITABLE_ITEMS: NavItem[] = [
-  ...navItems,
-  ...EXTRA_FAVORITABLE_ITEMS,
-];
+const FAVORITABLE_ITEMS: NavItem[] = [...navItems, ...EXTRA_FAVORITABLE_ITEMS];
 
 const FAVORITES_STORAGE_PREFIX = "stone.sidebar.favorites";
 
@@ -998,9 +991,9 @@ const CHANNEL_LINKS: ChannelLink[] = [
   },
 ];
 
+// Community est désormais au top-level → retiré des standalone
 const STANDALONE_LINKS: ChannelLink[] = [
   { label: "Insights", route: "insights", icon: InsightsIcon, badge: "New" },
-  { label: "Community", route: "community", icon: CommunityIcon },
 ];
 
 const CHANNEL_ROUTES = new Set(["insights", "community"]);
@@ -1008,7 +1001,6 @@ const CHANNEL_ROUTES = new Set(["insights", "community"]);
 /** Plafond d'affichage : "9+" au-delà de 9 non-lus. */
 const formatUnread = (count: number) => (count > 9 ? "9+" : String(count));
 
-/** Le badge de « Community » = nombre de commentaires non lus (rien s'il n'y en a pas). */
 function withUnreadBadge<T extends { route: string; badge?: string }>(
   link: T,
   unread: number
@@ -1109,7 +1101,6 @@ function ChannelAvatar({
         </span>
       )}
 
-      {/* Notification : boule blanche en mode sombre, noire en mode clair */}
       {hasUnread && (
         <span
           aria-hidden="true"
@@ -1121,7 +1112,6 @@ function ChannelAvatar({
         />
       )}
 
-      {/* Badge réseau */}
       {NetworkIcon && (
         <span
           className={[
@@ -2271,7 +2261,6 @@ function SidebarChannelsImpl({
 
         const isDragging = dragKey === channel.key;
 
-        /* Notifications de ce canal : boule sur l'avatar + nombre dans « Community » */
         const unreadCount = unreadCounts[channel.key] ?? 0;
         const hasUnread = unreadCount > 0;
         const channelLinks = CHANNEL_LINKS.map((link) =>
@@ -2639,11 +2628,26 @@ export default function DashboardSidebar({
   const connectedChannels = useConnectedChannels();
   const isMobile = useIsMobile();
 
-  const hasChannels = connectedChannels.length > 0;
-  const visibleNavItems = useMemo(
-    () => (hasChannels ? navItems.filter((item) => item.route !== "schedule") : navItems),
-    [hasChannels]
+  // ✅ Calcul du badge "Community" au niveau top-level
+  const unreadCounts = useUnreadCounts();
+  const totalUnread = Object.values(unreadCounts).reduce(
+    (sum, count) => sum + count,
+    0
   );
+  const communityNavBadge = totalUnread > 0 ? formatUnread(totalUnread) : undefined;
+
+  const hasChannels = connectedChannels.length > 0;
+  const visibleNavItems = useMemo(() => {
+    const base = hasChannels
+      ? navItems.filter((item) => item.route !== "schedule")
+      : navItems;
+
+    return base.map((item) =>
+      item.route === "community"
+        ? { ...item, badge: communityNavBadge }
+        : item
+    );
+  }, [hasChannels, communityNavBadge]);
 
   const { user } = useUser();
   const { subscription, hasActive: hasActiveSubscription } = useSubscription();

@@ -6,6 +6,7 @@ import { navigate, useHashRoute } from "../hooks/useHashRoute";
 import DashboardSidebar, {
   useSidebarOffset,
   useFavorites,
+  setChannelUnreadCount, // ✅ AJOUT — synchronise les non-lus vers la sidebar
 } from "../components/DashboardSidebar";
 import BottomBar, { type BottomBarTab } from "../components/Bottombar";
 import Folder from "../components/Folder";
@@ -718,6 +719,18 @@ export default function Community() {
     markRead,
     addReply,
   } = useCommunity(channel?.key, tab, filter, selectedPostId, reloadKey);
+
+  // ✅ SYNCHRO SIDEBAR : pousse le nombre de commentaires non lus vers le
+  //    localStorage (lu par DashboardSidebar → badge + pastille sur l'avatar).
+  useEffect(() => {
+    if (!channel?.key) return;
+    // On attend la fin du chargement initial pour ne pas écraser un badge
+    // existant avec "0" avant que la 1ʳᵉ page n'arrive.
+    if (loading) return;
+
+    const unread = comments.filter((c) => !c.is_read).length;
+    setChannelUnreadCount(channel.key, unread);
+  }, [channel?.key, comments, loading]);
 
   // Index des vidéos par id : sert aux miniatures / titres dans les commentaires
   const postById = useMemo(
