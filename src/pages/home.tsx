@@ -1156,7 +1156,7 @@ function CommentAvatar({
 
 /* Pile de cartes : même hauteur que le panneau « Up Next » (190 px),
    sans fond visible autour. Le commentaire le plus récent est devant,
-   les suivants dépassent derrière. */
+   les suivants dépassent au-dessus, la pile monte vers le haut. */
 const DECK_HEIGHT = 190;
 const DECK_PEEK = 14;
 const DECK_CARD_HEIGHT = DECK_HEIGHT - DECK_PEEK * 2;
@@ -1220,7 +1220,7 @@ function CommentsPanel({
 
       {front && (
         <div className="relative" style={{ height: DECK_HEIGHT }}>
-          {/* Cartes derrière : seul leur bord dépasse sous la carte de devant */}
+          {/* Cartes derrière : seul leur bord dépasse au-dessus de la carte de devant */}
           {behind.map((c, index) => {
             const depth = index + 1;
 
@@ -1229,14 +1229,14 @@ function CommentsPanel({
                 key={c.id}
                 aria-hidden="true"
                 className={[
-                  "pointer-events-none absolute inset-x-0 top-0 rounded-2xl border",
+                  "pointer-events-none absolute inset-x-0 bottom-0 rounded-2xl border",
                   deckSurface,
                 ].join(" ")}
                 style={{
                   height: DECK_CARD_HEIGHT,
                   zIndex: 10 - depth,
-                  transformOrigin: "bottom center",
-                  transform: `translateY(${depth * DECK_PEEK}px) scale(${1 - depth * 0.05})`,
+                  transformOrigin: "top center",
+                  transform: `translateY(${-depth * DECK_PEEK}px) scale(${1 - depth * 0.05})`,
                   opacity: 1 - depth * 0.18,
                 }}
               />
@@ -1248,7 +1248,7 @@ function CommentsPanel({
             type="button"
             onClick={() => onOpen(front.channel.key)}
             className={[
-              "group absolute inset-x-0 top-0 z-20 flex flex-col justify-between",
+              "group absolute inset-x-0 bottom-0 z-20 flex flex-col justify-between",
               "rounded-2xl border p-4 text-left",
               "transition-colors duration-200 motion-reduce:transition-none",
               focusRingClass(isDark),
