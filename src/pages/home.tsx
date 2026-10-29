@@ -1364,7 +1364,7 @@ function CommentAvatar({
   const NetworkIcon = NETWORK_ICONS[network];
 
   return (
-    <div className="relative h-9 w-9 shrink-0">
+    <div className="relative h-7 w-7 shrink-0">
       {src && !failed ? (
         <img
           src={src}
@@ -1378,7 +1378,7 @@ function CommentAvatar({
         <div
           className={[
             "flex h-full w-full items-center justify-center rounded-xl",
-            "text-[13px] font-semibold",
+            "text-[11px] font-semibold",
             isDark ? "bg-[#29292c] text-white" : "bg-neutral-900 text-white",
           ].join(" ")}
         >
@@ -1388,19 +1388,19 @@ function CommentAvatar({
 
       <span
         className={[
-          "absolute -bottom-1 -right-1 flex h-[18px] w-[18px] items-center",
+          "absolute -bottom-1 -right-1 flex h-4 w-4 items-center",
           "justify-center rounded-full ring-2",
           network === "youtube" ? "bg-[#ff0000]" : "bg-white text-black",
           panelRingClass(isDark),
         ].join(" ")}
       >
         {network === "youtube" ? (
-          <svg viewBox="0 0 24 24" className="h-3 w-3" aria-hidden="true">
+          <svg viewBox="0 0 24 24" className="h-2.5 w-2.5" aria-hidden="true">
             <rect x="2" y="5" width="20" height="14" rx="4.5" fill="#fff" />
             <path d="M10 9v6l5-3-5-3Z" fill="#ff0000" />
           </svg>
         ) : (
-          <NetworkIcon className="h-2.5 w-2.5" />
+          <NetworkIcon className="h-2 w-2" />
         )}
       </span>
     </div>
@@ -1410,6 +1410,14 @@ function CommentAvatar({
 /* ============================================================
    COMMENTS PANEL
 ============================================================ */
+
+/* Pile de cartes : même hauteur que le panneau « Up Next » (190 px).
+   Le commentaire le plus récent est devant (en bas), les suivants dépassent
+   au-dessus avec leur en-tête (avatar + pseudo). */
+const DECK_HEIGHT = 190;
+const DECK_PEEK = 42;
+const DECK_FRONT_MAX = 110;
+const DECK_INSET = 8;
 
 /* Une carte par commentaire : avatar + pseudo, puis le texte en dessous. */
 function CommentsPanel({
@@ -1425,6 +1433,17 @@ function CommentsPanel({
   onOpen: (channelKey: string) => void;
   onViewMore: () => void;
 }) {
+  const stack = comments.slice(0, 3);
+  const frontHeight = Math.min(
+    DECK_FRONT_MAX,
+    DECK_HEIGHT - (stack.length - 1) * DECK_PEEK
+  );
+
+  /* Fond opaque : les cartes se recouvrent, elles ne doivent pas se voir à travers. */
+  const deckSurface = isDark
+    ? "border-white/[0.07] bg-[#151517]"
+    : "border-black/[0.06] bg-[#f6f4f0]";
+
   return (
     <section className="min-w-0">
       <div className="mb-3 flex items-center justify-between">
@@ -1456,19 +1475,32 @@ function CommentsPanel({
         </button>
       </div>
 
-      <ul className="flex flex-col gap-2">
-        {comments.map((c) => (
-          <li key={c.id}>
+      <div className="relative" style={{ height: DECK_HEIGHT }}>
+        {stack.map((c, index) => {
+          const isFront = index === 0;
+
+          return (
             <button
+              key={c.id}
               type="button"
               onClick={() => onOpen(c.channel.key)}
               className={[
-                "flex w-full flex-col gap-2.5 rounded-2xl border px-3.5 py-3 text-left",
+                "absolute flex flex-col gap-2 overflow-hidden rounded-2xl border px-3.5 py-2.5 text-left",
                 "transition-colors duration-200 motion-reduce:transition-none",
                 focusRingClass(isDark),
-                panelSurfaceClass(isDark),
-                isDark ? "hover:bg-white/[0.06]" : "hover:bg-[#f1eee9]",
+                deckSurface,
+                isDark
+                  ? "hover:border-white/[0.14] hover:bg-[#19191c]"
+                  : "hover:border-black/[0.12] hover:bg-[#f1eee9]",
               ].join(" ")}
+              style={{
+                height: frontHeight,
+                /* index 0 = devant (en bas) ; les suivants remontent derrière */
+                top: (stack.length - 1 - index) * DECK_PEEK,
+                left: index * DECK_INSET,
+                right: index * DECK_INSET,
+                zIndex: 10 - index,
+              }}
             >
               <div className="flex items-center gap-2.5">
                 <CommentAvatar
@@ -1499,7 +1531,7 @@ function CommentsPanel({
                 ].join(" ")}
                 style={{
                   display: "-webkit-box",
-                  WebkitLineClamp: 2,
+                  WebkitLineClamp: isFront ? 2 : 1,
                   WebkitBoxOrient: "vertical",
                   overflow: "hidden",
                 }}
@@ -1507,9 +1539,9 @@ function CommentsPanel({
                 {c.text}
               </p>
             </button>
-          </li>
-        ))}
-      </ul>
+          );
+        })}
+      </div>
     </section>
   );
 }
