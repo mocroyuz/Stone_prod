@@ -665,7 +665,7 @@ function Ring({
   isDark,
   progress,
   children,
-  size = 44,
+  size = 48,
   stroke = 3,
 }: {
   isDark: boolean;
@@ -968,7 +968,7 @@ function HomeOverview({
           }
           ring={
             <Ring isDark={isDark} progress={weekStreak > 0 ? 1 : 0}>
-              <span className="text-[14px] font-semibold tabular-nums">
+              <span className="text-[17px] font-semibold tabular-nums leading-none">
                 {weekStreak}
               </span>
             </Ring>
@@ -986,9 +986,9 @@ function HomeOverview({
           }
           ring={
             <Ring isDark={isDark} progress={goalRatio}>
-              <span className="text-[12px] font-bold tabular-nums">
+              <span className="text-[15px] font-bold tabular-nums leading-none">
                 {Math.round(goalRatio * 100)}
-                <span className="text-[7px] font-semibold">%</span>
+                <span className="text-[9px] font-semibold">%</span>
               </span>
             </Ring>
           }
@@ -1008,7 +1008,7 @@ function HomeOverview({
             <Ring isDark={isDark} progress={commentScore.value / 100}>
               <span
                 className={[
-                  "text-[14px] font-semibold tabular-nums",
+                  "text-[17px] font-semibold tabular-nums leading-none",
                   softClass(isDark),
                 ].join(" ")}
               >
