@@ -463,7 +463,7 @@ const END_HOUR = 24;
 const SPAN = END_HOUR - START_HOUR;
 
 /** ⬇️ Modifié : les cartes de post font maintenant ~1 h de haut. */
-const HOUR_HEIGHT = 112;   // était 72
+const HOUR_HEIGHT = 128;   // était 112
 const POST_SPAN = 1;       // une carte de post occupe 1 h dans la grille
 
 const TOTAL_HEIGHT = SPAN * HOUR_HEIGHT;
@@ -630,8 +630,8 @@ function PostCard({
       onFocus={() => setExpanded(true)}
       onBlur={() => setExpanded(false)}
       className={[
-        "absolute flex flex-col justify-between gap-2 rounded-2xl border p-3 outline-none transition-[box-shadow,opacity,filter]",
-        isDark ? "border-white/[0.08] bg-[#17171a]" : "border-black/[0.08] bg-white",
+        "absolute flex flex-col justify-between gap-2 rounded-2xl border p-3.5 outline-none transition-[box-shadow,opacity,filter]",
+        isDark ? "border-white/[0.08] bg-[#1c1c1e]" : "border-black/[0.08] bg-white",
         expanded ? "shadow-xl" : "overflow-hidden",
         posted ? "opacity-60 grayscale" : "",
       ].join(" ")}
@@ -640,20 +640,19 @@ function PostCard({
         left: `calc(${col * width}% + 4px)`,
         width: `calc(${width}% - 8px)`,
         zIndex: expanded ? 50 : 2,
-        // Survol : la carte s'agrandit pour montrer TOUS les tags.
         ...(expanded ? { minHeight: height } : { height }),
       }}
     >
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-3">
         <span
           className={[
-            "flex h-7 w-7 shrink-0 items-center justify-center rounded-lg",
+            "flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px]",
             isDark ? "bg-[#e4e4e7] text-[#111]" : "bg-neutral-900 text-white",
           ].join(" ")}
         >
-          <Icon className="h-4 w-4" />
+          <Icon className="h-5 w-5" />
         </span>
-        <span className={["truncate text-[15px] font-bold tracking-[-0.02em]", isDark ? "text-neutral-200" : "text-neutral-800"].join(" ")}>
+        <span className={["truncate text-[17px] font-bold tracking-[-0.02em]", isDark ? "text-neutral-100" : "text-neutral-800"].join(" ")}>
           {time}
         </span>
       </div>
@@ -690,7 +689,7 @@ function PostCard({
         </div>
 
         {cover && (
-          <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-xl">
+          <div className="relative h-[56px] w-[56px] shrink-0 overflow-hidden rounded-xl shadow-sm">
             {cover.kind === "image" ? (
               <img src={cover.url} alt="" loading="lazy" className="h-full w-full object-cover" />
             ) : (
