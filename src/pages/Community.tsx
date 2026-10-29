@@ -726,6 +726,8 @@ export default function Community() {
   //    avec l'UI qui ne les affiche pas.
   useEffect(() => {
     if (!channel?.key) return;
+    // On attend la fin du chargement initial pour ne pas écraser un badge
+    // existant avec "0" avant que la 1ʳᵉ page n'arrive.
     if (loading) return;
 
     const unread = comments.filter((c) => !c.is_read && !c.is_own).length;
@@ -901,20 +903,14 @@ export default function Community() {
                 >
                   <ChatsIcon />
                 </span>
-                <div className="flex min-w-0 items-baseline gap-2">
-                  <h1
-                    className={[
-                      "truncate text-[20px] font-semibold tracking-[-0.03em]",
-                      strongClass(isDark),
-                    ].join(" ")}
-                  >
-                    Community
-                  </h1>
-                  {/* ✅ Sous-titre muted (même style que Channels / Connected) */}
-                  <span className={["truncate text-[13px]", muted].join(" ")}>
-                    Keep up with your community
-                  </span>
-                </div>
+                <h1
+                  className={[
+                    "truncate text-[20px] font-semibold tracking-[-0.03em]",
+                    strongClass(isDark),
+                  ].join(" ")}
+                >
+                  Community
+                </h1>
               </div>
 
               <div className="flex flex-wrap items-center gap-2.5">
@@ -1027,17 +1023,11 @@ export default function Community() {
                     className={[
                       "-mb-px flex items-center gap-2 border-b-2 px-1 pb-3 pt-2 text-[14px] font-medium transition-colors motion-reduce:transition-none",
                       focusRingClass(isDark),
-                      // ✅ Label toujours muted ; l'état actif se signale par la bordure
-                      muted,
                       tab === t.key
                         ? isDark
-                          ? "border-white/50"
-                          : "border-neutral-900/40"
-                        : `border-transparent ${
-                            isDark
-                              ? "hover:text-neutral-300"
-                              : "hover:text-neutral-600"
-                          }`,
+                          ? "border-white text-white"
+                          : "border-neutral-900 text-neutral-900"
+                        : `border-transparent ${muted} ${isDark ? "hover:text-white" : "hover:text-neutral-900"}`,
                     ].join(" ")}
                   >
                     {t.label}
@@ -1045,9 +1035,7 @@ export default function Community() {
                       <span
                         className={[
                           "rounded-full px-1.5 py-0.5 text-[10px] font-semibold leading-none",
-                          isDark
-                            ? "bg-white text-black"
-                            : "bg-neutral-900 text-white",
+                          isDark ? "bg-white text-black" : "bg-neutral-900 text-white",
                         ].join(" ")}
                       >
                         {unreadIds.length > 99 ? "99+" : unreadIds.length}
@@ -1102,9 +1090,7 @@ export default function Community() {
                   ].join(" ")}
                 >
                   <div className="flex items-center justify-between">
-                    <h2
-                      className={["text-[14px] font-medium", muted].join(" ")}
-                    >
+                    <h2 className={["text-[14px] font-medium", muted].join(" ")}>
                       Posts
                     </h2>
                     <div className="flex items-center">
@@ -1117,9 +1103,7 @@ export default function Community() {
                         <BringToTopIcon className="h-[18px] w-[18px]" />
                       </IconButton>
                       <IconButton
-                        label={
-                          showAll ? "Only posts with comments" : "Show all posts"
-                        }
+                        label={showAll ? "Only posts with comments" : "Show all posts"}
                         onClick={() => setShowAll((v) => !v)}
                         ghost={ghost}
                         isDark={isDark}
@@ -1159,11 +1143,7 @@ export default function Community() {
                       >
                         {postsError ? "Videos unavailable" : "No posts found"}
                       </h3>
-                      <p
-                        className={["text-[13px] leading-relaxed", muted].join(
-                          " "
-                        )}
-                      >
+                      <p className={["text-[13px] leading-relaxed", muted].join(" ")}>
                         {postsError
                           ? "We couldn't load your videos. Try refreshing."
                           : "When your posts receive comments, they\u2019ll appear here. Want to see all your posts?"}
@@ -1189,9 +1169,7 @@ export default function Community() {
                           <button
                             type="button"
                             onClick={() =>
-                              setSelectedPostId((cur) =>
-                                cur === p.id ? null : p.id
-                              )
+                              setSelectedPostId((cur) => (cur === p.id ? null : p.id))
                             }
                             aria-pressed={selectedPostId === p.id}
                             className={[
@@ -1211,9 +1189,7 @@ export default function Community() {
                               referrerPolicy="no-referrer"
                               className="aspect-video w-[72px] shrink-0 rounded-md object-cover"
                             />
-                            <span className="min-w-0 flex-1 truncate">
-                              {p.title}
-                            </span>
+                            <span className="min-w-0 flex-1 truncate">{p.title}</span>
                             <span className={["tabular-nums", muted].join(" ")}>
                               {p.commentCount}
                             </span>
@@ -1275,20 +1251,14 @@ export default function Community() {
 
                 {/* Erreur de chargement des COMMENTAIRES */}
                 {error && (
-                  <p
-                    className="px-6 pt-4 text-[13px] text-red-500"
-                    role="alert"
-                  >
+                  <p className="px-6 pt-4 text-[13px] text-red-500" role="alert">
                     {error}
                   </p>
                 )}
 
                 {/* Erreur d'une action (marquer comme lu) */}
                 {actionError && (
-                  <p
-                    className="px-6 pt-4 text-[13px] text-red-500"
-                    role="alert"
-                  >
+                  <p className="px-6 pt-4 text-[13px] text-red-500" role="alert">
                     {actionError}
                   </p>
                 )}
@@ -1302,16 +1272,12 @@ export default function Community() {
                 ) : tab === "comments" && shownComments.length > 0 ? (
                   <ul className="flex flex-col gap-2 px-6 py-4">
                     {shownComments.map((c) => {
-                      const video = c.video_id
-                        ? postById.get(c.video_id)
-                        : undefined;
+                      const video = c.video_id ? postById.get(c.video_id) : undefined;
                       const replies = c.replies ?? [];
                       const isReplying = replyingId === c.id;
                       const youtubeUrl = `https://www.youtube.com/watch?v=${c.video_id}&lc=${c.id}`;
                       // ✅ Couleur du texte : gris si lu, contrasté sinon.
-                      const bodyColor = c.is_read
-                        ? muted
-                        : strongClass(isDark);
+                      const bodyColor = c.is_read ? muted : strongClass(isDark);
 
                       return (
                         <li key={c.id}>
@@ -1366,22 +1332,13 @@ export default function Community() {
                                     </span>
                                   )}
                                   {c.published_at && (
-                                    <span
-                                      className={["text-[12px]", muted].join(
-                                        " "
-                                      )}
-                                    >
-                                      {new Date(
-                                        c.published_at
-                                      ).toLocaleDateString()}
+                                    <span className={["text-[12px]", muted].join(" ")}>
+                                      {new Date(c.published_at).toLocaleDateString()}
                                     </span>
                                   )}
                                   {c.answered && (
                                     <span
-                                      className={[
-                                        "text-[11px] font-medium",
-                                        muted,
-                                      ].join(" ")}
+                                      className={["text-[11px] font-medium", muted].join(" ")}
                                     >
                                       · Answered
                                     </span>
@@ -1397,11 +1354,7 @@ export default function Community() {
                                   {c.text}
                                 </p>
 
-                                <p
-                                  className={["mt-1 text-[12px]", muted].join(
-                                    " "
-                                  )}
-                                >
+                                <p className={["mt-1 text-[12px]", muted].join(" ")}>
                                   {c.like_count} likes · {c.reply_count} replies
                                 </p>
 
@@ -1414,10 +1367,7 @@ export default function Community() {
                                     ].join(" ")}
                                   >
                                     {replies.map((r) => (
-                                      <li
-                                        key={r.id}
-                                        className="flex items-start gap-2.5"
-                                      >
+                                      <li key={r.id} className="flex items-start gap-2.5">
                                         {r.author_avatar ? (
                                           <img
                                             src={r.author_avatar}
@@ -1480,14 +1430,8 @@ export default function Community() {
 
                                   {!c.is_own && (
                                     <ActionIcon
-                                      label={
-                                        c.is_read
-                                          ? "Mark as unread"
-                                          : "Mark as read"
-                                      }
-                                      onClick={() =>
-                                        void handleMarkRead([c.id], !c.is_read)
-                                      }
+                                      label={c.is_read ? "Mark as unread" : "Mark as read"}
+                                      onClick={() => void handleMarkRead([c.id], !c.is_read)}
                                       active={c.is_read}
                                       isDark={isDark}
                                     >
@@ -1513,16 +1457,11 @@ export default function Community() {
                                       autoFocus
                                       value={replyText}
                                       onChange={(e) =>
-                                        setReplyText(
-                                          e.target.value.slice(0, REPLY_MAX)
-                                        )
+                                        setReplyText(e.target.value.slice(0, REPLY_MAX))
                                       }
                                       onKeyDown={(e) => {
                                         if (e.key === "Escape") closeReply();
-                                        if (
-                                          e.key === "Enter" &&
-                                          (e.metaKey || e.ctrlKey)
-                                        ) {
+                                        if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
                                           e.preventDefault();
                                           void submitReply(c.id);
                                         }
@@ -1538,21 +1477,13 @@ export default function Community() {
                                     />
 
                                     {replyError && (
-                                      <p
-                                        className="text-[12px] text-red-500"
-                                        role="alert"
-                                      >
+                                      <p className="text-[12px] text-red-500" role="alert">
                                         {replyError}
                                       </p>
                                     )}
 
                                     <div className="flex items-center justify-between gap-3">
-                                      <span
-                                        className={[
-                                          "text-[11px]",
-                                          muted,
-                                        ].join(" ")}
-                                      >
+                                      <span className={["text-[11px]", muted].join(" ")}>
                                         Ctrl/⌘ + Enter to send
                                       </span>
                                       <div className="flex items-center gap-2">
@@ -1571,10 +1502,7 @@ export default function Community() {
                                         <button
                                           type="button"
                                           onClick={() => void submitReply(c.id)}
-                                          disabled={
-                                            sendingReply ||
-                                            replyText.trim().length === 0
-                                          }
+                                          disabled={sendingReply || replyText.trim().length === 0}
                                           className={[
                                             "rounded-lg px-3 py-1.5 text-[12px] font-semibold transition-opacity disabled:cursor-not-allowed disabled:opacity-40",
                                             focusRingClass(isDark),
@@ -1583,9 +1511,7 @@ export default function Community() {
                                               : "bg-neutral-900 text-white",
                                           ].join(" ")}
                                         >
-                                          {sendingReply
-                                            ? "Sending…"
-                                            : "Send reply"}
+                                          {sendingReply ? "Sending…" : "Send reply"}
                                         </button>
                                       </div>
                                     </div>
@@ -1597,10 +1523,7 @@ export default function Community() {
                               {c.video_id && (
                                 <span className="hidden w-[120px] shrink-0 flex-col gap-1.5 sm:flex">
                                   <img
-                                    src={
-                                      video?.thumbnail ??
-                                      thumbnailFor(c.video_id)
-                                    }
+                                    src={video?.thumbnail ?? thumbnailFor(c.video_id)}
                                     alt=""
                                     loading="lazy"
                                     referrerPolicy="no-referrer"
@@ -1678,12 +1601,7 @@ export default function Community() {
                       </div>
 
                       <div className="flex w-full flex-col gap-3">
-                        <p
-                          className={[
-                            "text-center text-[13px]",
-                            muted,
-                          ].join(" ")}
-                        >
+                        <p className={["text-center text-[13px]", muted].join(" ")}>
                           In the meantime, keep exploring:
                         </p>
 
@@ -1697,10 +1615,7 @@ export default function Community() {
                           ].join(" ")}
                         >
                           <EditIcon
-                            className={[
-                              "mt-0.5 h-5 w-5 shrink-0",
-                              muted,
-                            ].join(" ")}
+                            className={["mt-0.5 h-5 w-5 shrink-0", muted].join(" ")}
                           />
                           <span>
                             <span
@@ -1717,8 +1632,8 @@ export default function Community() {
                                 muted,
                               ].join(" ")}
                             >
-                              Use templates to create content that starts
-                              conversations. Pro tip: ask a question.
+                              Use templates to create content that starts conversations.
+                              Pro tip: ask a question.
                             </span>
                           </span>
                         </button>
@@ -1733,10 +1648,7 @@ export default function Community() {
                           ].join(" ")}
                         >
                           <PlusIcon
-                            className={[
-                              "mt-0.5 h-5 w-5 shrink-0",
-                              muted,
-                            ].join(" ")}
+                            className={["mt-0.5 h-5 w-5 shrink-0", muted].join(" ")}
                           />
                           <span>
                             <span
@@ -1753,8 +1665,8 @@ export default function Community() {
                                 muted,
                               ].join(" ")}
                             >
-                              Manage conversations from all your channels in a
-                              single, distraction-free inbox.
+                              Manage conversations from all your channels in a single,
+                              distraction-free inbox.
                             </span>
                           </span>
                         </button>

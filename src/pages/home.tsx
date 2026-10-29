@@ -125,6 +125,21 @@ const strongClass = (isDark: boolean) =>
 const softClass = (isDark: boolean) =>
   isDark ? "text-neutral-400" : "text-neutral-500";
 
+/**
+ * ✅ Couleur discrète alignée sur les titres "Channels" / "Overview".
+ *    Utilisée pour "Comments", "Up Next" et le sous-titre
+ *    "Keep up with your community".
+ */
+const subtleTitleClass = (isDark: boolean) =>
+  isDark ? "text-neutral-500" : "text-neutral-400";
+
+/**
+ * ✅ Couleur encore plus discrète alignée sur "Your connected accounts".
+ *    Utilisée pour le sous-titre "Keep up with your community".
+ */
+const verySubtleClass = (isDark: boolean) =>
+  isDark ? "text-neutral-700" : "text-neutral-400";
+
 const focusRingClass = (isDark: boolean) =>
   isDark
     ? "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
@@ -1230,10 +1245,11 @@ function Panel({
   return (
     <section className="min-w-0 h-full flex flex-col">
       <div className="mb-3 flex items-center justify-between shrink-0">
+        {/* ✅ Titre "Up Next" aligné sur le gris de "Channels" */}
         <p
           className={[
             "text-[12px] font-semibold",
-            isDark ? "text-neutral-300" : "text-neutral-700",
+            subtleTitleClass(isDark),
           ].join(" ")}
         >
           {title}
@@ -1433,9 +1449,13 @@ function CommentsPanel({
       {/* Header */}
       <div className="mb-2 shrink-0">
         <div className="flex flex-wrap items-center gap-2">
+          {/* ✅ Titre "Comments" aligné sur le gris de "Channels" */}
           <h2
             id="home-comments-title"
-            className={["text-[12px] font-semibold", strongClass(isDark)].join(" ")}
+            className={[
+              "text-[12px] font-semibold",
+              subtleTitleClass(isDark),
+            ].join(" ")}
           >
             Comments
           </h2>
@@ -1454,7 +1474,13 @@ function CommentsPanel({
             {unanswered} to reply
           </span>
         </div>
-        <p className={["mt-0.5 text-[11px]", softClass(isDark)].join(" ")}>
+        {/* ✅ Sous-titre très discret, aligné sur "Your connected accounts" */}
+        <p
+          className={[
+            "mt-0.5 text-[11px]",
+            verySubtleClass(isDark),
+          ].join(" ")}
+        >
           Keep up with your community
         </p>
       </div>
