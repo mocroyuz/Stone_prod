@@ -2713,17 +2713,19 @@ export default function NewPostModal({
   const brandedChosen =
     tiktokMode === "direct" && tiktokCommercial.on && tiktokCommercial.branded;
 
-    const tiktokBlockingReason: string | null = !tiktokSelected
+  // ⬇️ MODIFICATION 1 : Suppression du blocage pour schedule
+  const tiktokBlockingReason: string | null = !tiktokSelected
     ? null
     : scheduleAction === "save_in_folder"
     ? null
     : !tiktokPostType
     ? "TikTok needs a video or at least one photo."
-    : tiktokMode === "direct" && !tiktokOptions.privacy_level
+    : scheduleAction !== "set_date" && tiktokMode === "direct" && !tiktokOptions.privacy_level
     ? tiktokPrivacyOptions.length === 0 && !tiktokInfoError
       ? "Loading TikTok settings…"
       : "Choose who can view your TikTok."
-    : tiktokMode === "direct" &&
+    : scheduleAction !== "set_date" &&
+      tiktokMode === "direct" &&
       tiktokCommercial.on &&
       !tiktokCommercial.yourBrand &&
       !tiktokCommercial.branded
@@ -3835,7 +3837,8 @@ export default function NewPostModal({
                           )}
 
                           {/* TikTok */}
-                         {networkId === "tiktok" && scheduleAction !== "save_in_folder" && scheduleAction !== "set_date" && (
+                          {/* ⬇️ MODIFICATION 2 : Masquer les options TikTok lors de la programmation */}
+                          {networkId === "tiktok" && scheduleAction !== "save_in_folder" && scheduleAction !== "set_date" && (
                             <SettingsBlock
                               title={`TikTok settings${tiktokInfo?.creator_nickname ? ` · ${tiktokInfo.creator_nickname}` : ""}`}
                               subtitle={tiktokTypeLabel}
