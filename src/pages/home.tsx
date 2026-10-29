@@ -243,14 +243,27 @@ const COMMENT_SOURCES: Partial<
 const COMMENTS_POLL_MS = 60_000;
 const HOME_COMMENTS_LIMIT = 3;
 
+/* ───────── Cache module-level des commentaires ─────────
+ *
+ * - Survit aux unmount/remount (navigation hash).
+ * - Clé = sourceKey (combinaison des channels connectés).
+ * - Au mount :
+ *     • cache absent       → fetch avec loading (1ʳᵉ visite)
+ *     • cache frais (<60s) → utilisé tel quel, aucun fetch
+ *     • cache périmé (>60s)→ utilisé puis refresh silencieux en arrière-plan
+ * - Le polling (60s) + visibilitychange mettent le cache à jour en continu.
+ */
+type CommentsCacheEntry = {
+  comments: HomeComment[];
+  error: string | null;
+  at: number;
+};
+const commentsCache = new Map<string, CommentsCacheEntry>();
+
 const commentTime = (c: { publishedAt: string | null }) =>
   c.publishedAt ? new Date(c.publishedAt).getTime() || 0 : 0;
 
 function useLatestComments(channels: ConnectedChannel[]) {
-  const [comments, setComments] = useState<HomeComment[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
   const sources = useMemo(() => {
     const seen = new Set<SocialNetworkKey>();
     const list: { channel: ConnectedChannel; network: SocialNetworkKey }[] = [];
@@ -270,6 +283,18 @@ function useLatestComments(channels: ConnectedChannel[]) {
   const sourcesRef = useRef(sources);
   sourcesRef.current = sources;
 
+  // Initial state SYNCHRONE depuis le cache s'il existe : pas de flash
+  // "loading" quand on revient sur la page.
+  const [comments, setComments] = useState<HomeComment[]>(
+    () => commentsCache.get(sourceKey)?.comments ?? []
+  );
+  const [loading, setLoading] = useState<boolean>(
+    () => !commentsCache.has(sourceKey) && channels.length > 0
+  );
+  const [error, setError] = useState<string | null>(
+    () => commentsCache.get(sourceKey)?.error ?? null
+  );
+
   useEffect(() => {
     const list = sourcesRef.current;
 
@@ -279,6 +304,13 @@ function useLatestComments(channels: ConnectedChannel[]) {
       setLoading(false);
       return;
     }
+
+    // Sync l'état avec le cache pour ce sourceKey.
+    // Nécessaire si sourceKey a changé (les useState init ne rejouent pas).
+    const cacheEntry = commentsCache.get(sourceKey);
+    setComments(cacheEntry?.comments ?? []);
+    setError(cacheEntry?.error ?? null);
+    setLoading(!cacheEntry);
 
     let cancelled = false;
     let busy = false;
@@ -318,15 +350,31 @@ function useLatestComments(channels: ConnectedChannel[]) {
         if (allFailed && !initial) return;
 
         merged.sort((a, b) => commentTime(b) - commentTime(a));
+
         setComments(merged);
         setError(allFailed ? errors[0] : null);
+
+        // Met à jour le cache pour les prochains mounts
+        commentsCache.set(sourceKey, {
+          comments: merged,
+          error: allFailed ? errors[0] : null,
+          at: Date.now(),
+        });
       } finally {
         busy = false;
         if (initial && !cancelled) setLoading(false);
       }
     };
 
-    void load(true);
+    // Au mount :
+    //  - pas de cache       → load(true) : loading visible
+    //  - cache périmé (>60s)→ load(false) : refresh silencieux
+    //  - cache frais        → aucun fetch, le polling prend le relais
+    const cacheFresh =
+      cacheEntry && Date.now() - cacheEntry.at < COMMENTS_POLL_MS;
+    if (!cacheFresh) {
+      void load(!cacheEntry);
+    }
 
     const timer = window.setInterval(() => void load(false), COMMENTS_POLL_MS);
     const onVisible = () => {
