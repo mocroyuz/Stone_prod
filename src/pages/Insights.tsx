@@ -40,6 +40,7 @@ import {
   Zap,
 } from "lucide-react";
 import { navigate, useHashRoute } from "../hooks/useHashRoute";
+import { navigateToSettingsSection } from "../utils/settingsNavigation";
 import { useTheme } from "../hooks/useTheme";
 import DashboardSidebar, {
   useSidebarOffset,
@@ -826,7 +827,7 @@ function ChannelMenu({
           <button
             type="button"
             role="menuitem"
-            onClick={() => navigate("channels")}
+            onClick={() => navigateToSettingsSection("channels")}
             className={`flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left text-[12px] font-semibold transition-colors ${t.ring} ${t.hover} ${t.soft}`}
           >
             <span className="flex h-7 w-7 items-center justify-center rounded-full border border-dashed border-current opacity-60">
@@ -1327,7 +1328,7 @@ export default function Insights() {
                 </p>
                 <button
                   type="button"
-                  onClick={() => navigate("channels")}
+                  onClick={() => navigateToSettingsSection("channels")}
                   className={`mt-2 flex items-center gap-1.5 rounded-lg px-4 py-2 text-[11px] font-semibold ${t.ring} ${t.primaryBtn}`}
                 >
                   <Plus className="h-3.5 w-3.5" aria-hidden="true" />

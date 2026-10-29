@@ -16,7 +16,7 @@ import {
 import { CalendarPicker } from "./CalendarPicker";
 import { TimePicker } from "./TimePicker";
 import EditMediaModal from "./EditMediaModal";
-import { navigate } from "../hooks/useHashRoute";
+import { navigateToSettingsSection } from "../utils/settingsNavigation";
 import {
   useConnectedChannels,
   type ConnectedChannel,
@@ -2131,7 +2131,7 @@ export default function NewPostModal({
 
   const handleConnectChannel = () => {
     closeWithDraft();
-    navigate("channels");
+    navigateToSettingsSection("channels");
   };
 
   const toggleCollapse = (id: string) => {

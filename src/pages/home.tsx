@@ -8,7 +8,6 @@
 } from "react";
 import { navigate } from "../hooks/useHashRoute";
 import { useTheme } from "../hooks/useTheme";
-import { useUser } from "../contexts/UserContext";
 import {
   useConnectedChannels,
   type ConnectedChannel,
@@ -18,7 +17,6 @@ import NewPostModal, {
   type NewPostPayload,
   unavailablePostActionMessage,
 } from "../components/Newpostmodal";
-import ConnectChannelModal from "../components/ConnectChannelModal";
 import HelpChatButton from "../components/Helpchatbutton";
 import BottomBar, { type BottomBarTab } from "../components/Bottombar";
 import Folder from "../components/Folder";
@@ -28,37 +26,7 @@ import {
   fetchYouTubeComments,
   fetchYouTubeVideos,
 } from "../services/youtubeComments";
-import {
-  CHANNELS,
-  PLAN,
-  REAL_OAUTH,
-  type ChannelKey,
-  type ConnectionState,
-} from "./channels";
-import {
-  getTikTokStatus,
-  startTikTokLogin,
-  disconnectTikTok,
-} from "../services/tiktok";
-import {
-  getPinterestStatus,
-  startPinterestLogin,
-  disconnectPinterest,
-  connectPinterestWithToken,
-} from "../services/pinterest";
-import {
-  getYouTubeStatus,
-  startYouTubeLogin,
-  disconnectYouTube,
-} from "../services/youtube";
-import {
-  CACHE_MAX_AGE_MS,
-  clearCache,
-  readCache,
-  writeCache,
-  type CacheProvider,
-  type Connection,
-} from "../services/channelsCache";
+import { navigateToSettingsSection } from "../utils/settingsNavigation";
 import {
   ArrowRight,
   ArrowUpRight,
@@ -151,86 +119,6 @@ const focusRingClass = (isDark: boolean) =>
 const userProfileCache = {
   profile: null as UserProfile | null,
 };
-
-/* ============================================================
-   CHANNEL CONNECTIONS
-============================================================ */
-
-type StatusResponse = {
-  connected: boolean;
-  account:
-    | {
-        display_name?: string | null;
-        avatar_url?: string | null;
-        avatarUrl?: string | null;
-      }
-    | null
-    | undefined;
-};
-
-const initialConnections: ConnectionState = {
-  instagram: { connected: false },
-  tiktok: { connected: false },
-  youtube: { connected: false },
-  facebook: { connected: false },
-  pinterest: { connected: false },
-  threads: { connected: false },
-};
-
-const OAUTH_PROVIDERS: Record<
-  CacheProvider,
-  {
-    label: string;
-    getStatus: () => Promise<StatusResponse>;
-    login: () => Promise<unknown>;
-    disconnect: () => Promise<unknown>;
-  }
-> = {
-  tiktok: {
-    label: "TikTok",
-    getStatus: getTikTokStatus,
-    login: startTikTokLogin,
-    disconnect: disconnectTikTok,
-  },
-  pinterest: {
-    label: "Pinterest",
-    getStatus: getPinterestStatus,
-    login: startPinterestLogin,
-    disconnect: disconnectPinterest,
-  },
-  youtube: {
-    label: "YouTube Shorts",
-    getStatus: getYouTubeStatus,
-    login: startYouTubeLogin,
-    disconnect: disconnectYouTube,
-  },
-};
-
-const PROVIDER_KEYS = Object.keys(OAUTH_PROVIDERS) as CacheProvider[];
-
-function formatOAuthError(provider: string, error: unknown): string {
-  const raw = error instanceof Error ? error.message : "";
-
-  if (/failed to fetch|networkerror|load failed/i.test(raw)) {
-    return "Unable to reach the server (network or CORS error). Check that the backend is running and that VITE_API_URL is correct.";
-  }
-
-  return raw
-    ? `Unable to connect to ${provider}. ${raw}`
-    : `Unable to connect to ${provider}.`;
-}
-
-function toConnection(status: StatusResponse): Connection {
-  if (!status.connected) return { connected: false };
-
-  const account = status.account;
-
-  return {
-    connected: true,
-    handle: account?.display_name ?? undefined,
-    avatarUrl: account?.avatar_url ?? account?.avatarUrl ?? undefined,
-  };
-}
 
 /* ============================================================
    NETWORKS
@@ -1198,7 +1086,11 @@ function Channels({
 
       <button
         type="button"
-        onClick={() => (channels.length === 0 ? onAdd() : navigate("channels"))}
+        onClick={() =>
+          channels.length === 0
+            ? onAdd()
+            : navigateToSettingsSection("channels")
+        }
         className={[
           "flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-2",
           "text-[10px] font-semibold transition",
@@ -1847,9 +1739,6 @@ export default function Home() {
   const isDark = theme === "dark";
   const sidebarOffset = useSidebarOffset();
 
-  const { user: authUser } = useUser();
-  const userId = authUser?.id ?? null;
-
   const [query, setQuery] = useState("");
   const [isNewPostOpen, setIsNewPostOpen] = useState(false);
   const [isFolderOpen, setIsFolderOpen] = useState(false);
@@ -1860,167 +1749,6 @@ export default function Home() {
   const [now, setNow] = useState(() => new Date());
   const connectedChannels = useConnectedChannels();
   const latestComments = useLatestComments(connectedChannels);
-
-  const [showConnectModal, setShowConnectModal] = useState(false);
-  const [pendingKey, setPendingKey] = useState<ChannelKey | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-
-  const [connections, setConnections] = useState<ConnectionState>(() => {
-    if (!userId) return initialConnections;
-
-    const fromCache: Partial<ConnectionState> = {};
-
-    PROVIDER_KEYS.forEach((provider) => {
-      const cached = readCache(userId, provider);
-      if (cached) fromCache[provider] = cached.connection;
-    });
-
-    return { ...initialConnections, ...fromCache };
-  });
-
-  const busy = useRef<Set<ChannelKey>>(new Set());
-
-  const connectedCount = useMemo(
-    () =>
-      CHANNELS.filter((channel) => connections[channel.key].connected).length,
-    [connections]
-  );
-
-  const limitReached = connectedCount >= PLAN.maxChannels;
-
-  useEffect(() => {
-    if (!userId) return;
-
-    let cancelled = false;
-
-    PROVIDER_KEYS.forEach((provider) => {
-      const cached = readCache(userId, provider);
-
-      if (cached) {
-        setConnections((current) => ({
-          ...current,
-          [provider]: cached.connection,
-        }));
-
-        if (Date.now() - cached.savedAt < CACHE_MAX_AGE_MS) return;
-      }
-
-      void (async () => {
-        try {
-          const status = await OAUTH_PROVIDERS[provider].getStatus();
-          if (cancelled) return;
-
-          const connection = toConnection(status);
-
-          if (connection.connected) {
-            writeCache(userId, connection, provider);
-          } else {
-            clearCache(userId, provider);
-          }
-
-          setConnections((current) => ({
-            ...current,
-            [provider]: connection,
-          }));
-        } catch (error) {
-          console.warn(`[Stone] Could not load ${provider} status:`, error);
-        }
-      })();
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [userId]);
-
-  const toggleOAuth = async (provider: CacheProvider) => {
-    if (busy.current.has(provider)) return;
-    busy.current.add(provider);
-
-    const { label, login, disconnect } = OAUTH_PROVIDERS[provider];
-
-    setPendingKey(provider);
-    let redirecting = false;
-
-    try {
-      if (connections[provider].connected) {
-        await disconnect();
-        if (userId) clearCache(userId, provider);
-        setConnections((current) => ({
-          ...current,
-          [provider]: { connected: false },
-        }));
-      } else if (
-        provider === "pinterest" &&
-        import.meta.env.VITE_PINTEREST_MANUAL_TOKEN === "true"
-      ) {
-        const token = window.prompt(
-          "Pinterest access token (généré dans le portail développeur) :"
-        );
-
-        if (!token?.trim()) return;
-
-        const account = await connectPinterestWithToken(token.trim());
-
-        const connection: Connection = {
-          connected: true,
-          handle: account?.display_name ?? undefined,
-          avatarUrl: account?.avatar_url ?? undefined,
-        };
-
-        if (userId) writeCache(userId, connection, "pinterest");
-        setConnections((current) => ({
-          ...current,
-          pinterest: connection,
-        }));
-      } else {
-        await login();
-        redirecting = true;
-      }
-    } catch (error) {
-      console.error(`[Stone] ${label} OAuth error:`, error);
-      setErrorMessage(formatOAuthError(label, error));
-    } finally {
-      if (!redirecting) {
-        setPendingKey(null);
-        busy.current.delete(provider);
-      }
-    }
-  };
-
-  const togglePlaceholder = (key: ChannelKey) => {
-    const channel = CHANNELS.find((item) => item.key === key);
-    const label = channel?.name ?? key;
-
-    setErrorMessage(
-      `${label} is not available yet. Its official authentication flow must be implemented first.`
-    );
-  };
-
-  const handleToggleChannel = (key: ChannelKey) => {
-    setErrorMessage(null);
-
-    if (!connections[key].connected && limitReached) {
-      setErrorMessage(
-        `Your ${PLAN.name} plan allows up to ${PLAN.maxChannels} channels. Upgrade to connect more.`
-      );
-      return;
-    }
-
-    if ((REAL_OAUTH as ChannelKey[]).includes(key)) {
-      void toggleOAuth(key as CacheProvider);
-      return;
-    }
-
-    togglePlaceholder(key);
-  };
-
-  const openConnectModal = () => {
-    setErrorMessage(null);
-    setShowConnectModal(true);
-  };
-
-  const closeConnectModal = () => setShowConnectModal(false);
 
   useEffect(() => {
     const interval = setInterval(() => setNow(new Date()), 15000);
@@ -2255,7 +1983,7 @@ export default function Home() {
               <Channels
                 isDark={isDark}
                 channels={connectedChannels}
-                onAdd={openConnectModal}
+                onAdd={() => navigateToSettingsSection("channels")}
               />
             </section>
 
@@ -2272,7 +2000,7 @@ export default function Home() {
                 onViewMore={() =>
                   handleViewAllComments(latestComments.comments[0]?.channel.key)
                 }
-                onConnect={openConnectModal}
+                onConnect={() => navigateToSettingsSection("channels")}
               />
               <Panel
                 isDark={isDark}
@@ -2320,21 +2048,6 @@ export default function Home() {
         onSubmit={handleCreatePost}
         onRequestOpen={() => setIsNewPostOpen(true)}
       />
-
-      {showConnectModal && (
-        <ConnectChannelModal
-          channels={CHANNELS}
-          connections={connections}
-          pendingKey={pendingKey}
-          limitReached={limitReached}
-          planName={PLAN.name}
-          realOAuthKeys={REAL_OAUTH}
-          errorMessage={errorMessage}
-          isDark={isDark}
-          onToggle={handleToggleChannel}
-          onClose={closeConnectModal}
-        />
-      )}
 
       <HelpChatButton isDark={isDark} />
     </main>

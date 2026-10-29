@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useTheme } from "../hooks/useTheme";
 import { navigate, useHashRoute } from "../hooks/useHashRoute";
+import { navigateToSettingsSection } from "../utils/settingsNavigation";
 import DashboardSidebar, {
   useSidebarOffset,
   useFavorites,
@@ -1743,7 +1744,7 @@ export default function Community() {
 
                         <button
                           type="button"
-                          onClick={() => navigate("channels")}
+                          onClick={() => navigateToSettingsSection("channels")}
                           className={[
                             "flex items-start gap-4 rounded-2xl border p-5 text-left transition-colors motion-reduce:transition-none",
                             focusRingClass(isDark),

@@ -293,7 +293,7 @@ export function clearChannelsSectionRequest() {
 
 /**
  * Vrai si Settings doit s'ouvrir sur « Channels » :
- * - demande explicite (ancienne route /channels, lien, etc.)
+ * - demande explicite depuis les liens vers Settings > Channels
  * - retour d'un OAuth (paramètres d'URL ou connexion en attente)
  * Fonction pure (aucun effet de bord) : sûre dans un initialiseur de state.
  */

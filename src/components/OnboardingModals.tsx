@@ -1,7 +1,7 @@
 // src/components/OnboardingModals.tsx
 //
 // Onboarding en 2 étapes après la connexion d'un canal :
-//   1. <ConfirmAccountModal />   -> sur /channels  ("Confirm your Account")
+//   1. <ConfirmAccountModal />   -> dans Settings > Channels
 //   2. <FrequencyOnboarding />   -> sur /insights  (objectif de publication)
 //
 // Les deux sont reliés par sessionStorage (queueFrequencyOnboarding).

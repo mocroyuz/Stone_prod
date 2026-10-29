@@ -5,7 +5,7 @@
 //     ↓ App.tsx intercepte (avant React), range les params dans sessionStorage
 //   /pinterest-callback
 //     ↓ useHashRoute()
-//   PinterestCallback.tsx → backend → /channels
+//   PinterestCallback.tsx → backend → settings/channels
 
 import { useEffect } from "react";
 
@@ -46,7 +46,7 @@ function clearStoredParams() {
 function goToChannels(query = "") {
   clearStoredParams();
   // replace : le callback ne reste pas dans l'historique.
-  window.location.replace(`/channels${query}`);
+  window.location.replace(`/settings?section=channels${query}`);
 }
 
 export default function PinterestCallback() {

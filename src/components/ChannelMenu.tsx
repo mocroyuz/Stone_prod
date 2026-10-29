@@ -4,7 +4,7 @@
 
 import { useEffect, useRef, useState, type ComponentType } from "react";
 import { Check, ChevronDown, Plus } from "lucide-react";
-import { navigate } from "../hooks/useHashRoute";
+import { navigateToSettingsSection } from "../utils/settingsNavigation";
 import type { ConnectedChannel } from "../hooks/useConnectedChannels";
 import {
   XIcon,
@@ -201,7 +201,7 @@ export default function ChannelMenu({
             role="menuitem"
             onClick={() => {
               setOpen(false);
-              navigate("channels");
+              navigateToSettingsSection("channels");
             }}
             className={`flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left text-[12px] font-semibold transition-colors ${ring} ${hover} ${soft}`}
           >

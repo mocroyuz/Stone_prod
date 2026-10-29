@@ -22,7 +22,6 @@ import Pricing from "./pages/pricing";
 import Insights from "./pages/Insights";
 import Community from "./pages/Community";
 import Create from "./pages/Create";
-import Channels from "./pages/channels";
 import Faq from "./pages/Faq";
 import Tos from "./pages/tos";
 import Privacy from "./pages/Privacy";
@@ -979,7 +978,7 @@ function AppContentInner({
   if (route === "channels") {
     return (
       <div className="relative h-screen w-screen overflow-hidden font-sans">
-        <Channels />
+        <Settings initialSection="channels" />
       </div>
     );
   }
