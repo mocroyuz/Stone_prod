@@ -127,8 +127,7 @@ const softClass = (isDark: boolean) =>
 
 /**
  * ✅ Couleur discrète alignée sur les titres "Channels" / "Overview".
- *    Utilisée pour "Comments", "Up Next" et le sous-titre
- *    "Keep up with your community".
+ *    Utilisée pour "Comments" et "Up Next".
  */
 const subtleTitleClass = (isDark: boolean) =>
   isDark ? "text-neutral-500" : "text-neutral-400";
@@ -1418,7 +1417,6 @@ function formatCommentTime(value: string | null): string {
 function CommentsPanel({
   isDark,
   comments,
-  unanswered,
   loading,
   error,
   connectedChannelsCount,
@@ -1428,7 +1426,6 @@ function CommentsPanel({
 }: {
   isDark: boolean;
   comments: HomeComment[];
-  unanswered: number;
   loading: boolean;
   error: string | null;
   connectedChannelsCount: number;
@@ -1459,20 +1456,7 @@ function CommentsPanel({
           >
             Comments
           </h2>
-          <span
-            className={[
-              "inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold tabular-nums",
-              unanswered > 0
-                ? isDark
-                  ? "bg-amber-300/10 text-amber-200"
-                  : "bg-amber-50 text-amber-800"
-                : isDark
-                  ? "bg-white/[0.06] text-neutral-400"
-                  : "bg-black/[0.04] text-neutral-500",
-            ].join(" ")}
-          >
-            {unanswered} to reply
-          </span>
+          {/* ✅ Badge "X to reply" supprimé */}
         </div>
         {/* ✅ Sous-titre très discret, aligné sur "Your connected accounts" */}
         <p
@@ -1650,25 +1634,22 @@ function CommentsPanel({
                         </p>
 
                         <div className="mt-1.5 flex items-center justify-between gap-2">
-                          <span
-                            className={[
-                              "inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium",
-                              comment.answered
-                                ? isDark
+                          {/* ✅ Pill "Replied" conservée, "Needs a reply" supprimée */}
+                          {comment.answered ? (
+                            <span
+                              className={[
+                                "inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium",
+                                isDark
                                   ? "bg-emerald-400/10 text-emerald-300"
-                                  : "bg-emerald-50 text-emerald-700"
-                                : isDark
-                                  ? "bg-amber-300/10 text-amber-200"
-                                  : "bg-amber-50 text-amber-800",
-                            ].join(" ")}
-                          >
-                            {comment.answered ? (
+                                  : "bg-emerald-50 text-emerald-700",
+                              ].join(" ")}
+                            >
                               <CheckCheck className="h-2.5 w-2.5" aria-hidden="true" />
-                            ) : (
-                              <MessageCircle className="h-2.5 w-2.5" aria-hidden="true" />
-                            )}
-                            {comment.answered ? "Replied" : "Needs a reply"}
-                          </span>
+                              Replied
+                            </span>
+                          ) : (
+                            <span />
+                          )}
                           <span
                             className={[
                               "inline-flex items-center gap-1 text-[10px] font-semibold opacity-80 transition group-hover:translate-x-0.5 group-hover:opacity-100",
@@ -1681,9 +1662,9 @@ function CommentsPanel({
                         </div>
                       </div>
                     </div>
+                    {/* ✅ sr-only simplifié : plus de mention "Needs a reply" */}
                     <span className="sr-only">
-                      {comment.isRead ? "Read. " : "Unread. "}
-                      {comment.answered ? "Answered." : "Needs a reply."}
+                      {comment.isRead ? "Read." : "Unread."}
                     </span>
                   </button>
                 ))}
@@ -2282,7 +2263,6 @@ export default function Home() {
               <CommentsPanel
                 isDark={isDark}
                 comments={latestComments.comments}
-                unanswered={latestComments.comments.filter((comment) => !comment.answered).length}
                 loading={latestComments.loading}
                 error={latestComments.error}
                 connectedChannelsCount={connectedChannels.length}
