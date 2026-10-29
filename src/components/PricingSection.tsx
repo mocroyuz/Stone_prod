@@ -21,35 +21,6 @@ import {
 } from "../services/stripe";
 
 /* ============================================================
-   THEME HELPERS
-   ============================================================ */
-
-const pageBgClass = (isDark: boolean) =>
-  isDark ? "bg-[#09090a]" : "bg-[#f5f3ef]";
-
-// Fond de la carte Starter : un peu plus sombre que le fond principal
-const starterBgClass = (isDark: boolean) =>
-  isDark ? "bg-[#141416] border-white/[0.07]" : "bg-[#e6e1d8] border-black/[0.06]";
-
-// Fond de la carte Pro/Enterprise : contraste avec la carte Starter
-const innerCardClass = (isDark: boolean) =>
-  isDark ? "bg-[#1a1a1d] border-white/[0.08]" : "bg-white border-black/[0.06]";
-
-const strongClass = (isDark: boolean) =>
-  isDark ? "text-white" : "text-neutral-900";
-
-const softClass = (isDark: boolean) =>
-  isDark ? "text-neutral-400" : "text-neutral-500";
-
-const mutedClass = (isDark: boolean) =>
-  isDark ? "text-neutral-600" : "text-neutral-400";
-
-const focusRingClass = (isDark: boolean) =>
-  isDark
-    ? "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
-    : "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/25";
-
-/* ============================================================
    REVEAL
    ============================================================ */
 
@@ -96,9 +67,7 @@ function Reveal({
     <div
       ref={ref}
       style={visible ? { transitionDelay: `${delay}ms` } : undefined}
-      className={`pricing-reveal ${
-        visible ? "pricing-reveal-visible" : ""
-      } ${className}`}
+      className={`pricing-reveal ${visible ? "pricing-reveal-visible" : ""} ${className}`}
     >
       {children}
     </div>
@@ -106,47 +75,60 @@ function Reveal({
 }
 
 /* ============================================================
-   ICONS
+   ICONS (monochrome, currentColor)
    ============================================================ */
 
+const svgProps = {
+  width: 22,
+  height: 22,
+  viewBox: "0 0 24 24",
+  fill: "none",
+  stroke: "currentColor",
+  strokeWidth: 1.5,
+  strokeLinecap: "round" as const,
+  strokeLinejoin: "round" as const,
+  "aria-hidden": true,
+};
+
 const StarterIcon = () => (
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M8.5 8.5H7.5C6.94772 8.5 6.5 8.94772 6.5 9.5V10.5C6.5 11.0523 6.94772 11.5 7.5 11.5H8.5C9.05228 11.5 9.5 11.0523 9.5 10.5V9.5C9.5 8.94772 9.05228 8.5 8.5 8.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M16.5 8.5H15.5C14.9477 8.5 14.5 8.94772 14.5 9.5V10.5C14.5 11.0523 14.9477 11.5 15.5 11.5H16.5C17.0523 11.5 17.5 11.0523 17.5 10.5V9.5C17.5 8.94772 17.0523 8.5 16.5 8.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M8.5 16.5H7.5C6.94772 16.5 6.5 16.9477 6.5 17.5V18.5C6.5 19.0523 6.94772 19.5 7.5 19.5H8.5C9.05228 19.5 9.5 19.0523 9.5 18.5V17.5C9.5 16.9477 9.05228 16.5 8.5 16.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M16.5 16.5H15.5C14.9477 16.5 14.5 16.9477 14.5 17.5V18.5C14.5 19.0523 14.9477 19.5 15.5 19.5H16.5C17.0523 19.5 17.5 19.0523 17.5 18.5V17.5C17.5 16.9477 17.0523 16.5 16.5 16.5Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+  <svg {...svgProps}>
+    <rect x="4" y="4" width="6" height="6" rx="1.5" />
+    <rect x="14" y="4" width="6" height="6" rx="1.5" />
+    <rect x="4" y="14" width="6" height="6" rx="1.5" />
+    <rect x="14" y="14" width="6" height="6" rx="1.5" />
   </svg>
 );
 
 const ProfessionalIcon = () => (
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M12 3L21 12L12 21L3 12L12 3Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M12 8L16 12L12 16L8 12L12 8Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+  <svg {...svgProps}>
+    <path d="M12 3L21 12L12 21L3 12L12 3Z" />
+    <path d="M12 8L16 12L12 16L8 12L12 8Z" />
   </svg>
 );
 
 const EnterpriseIcon = () => (
-  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M12 21C16.9706 21 21 16.9706 21 12C21 7.02944 16.9706 3 12 3C7.02944 3 3 7.02944 3 12C3 16.9706 7.02944 21 12 21Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M12 15C13.6569 15 15 13.6569 15 12C15 10.3431 13.6569 9 12 9C10.3431 9 9 10.3431 9 12C9 13.6569 10.3431 15 12 15Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M12 3V9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M12 15V21" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M3 12H9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-    <path d="M15 12H21" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+  <svg {...svgProps}>
+    <circle cx="12" cy="12" r="9" />
+    <circle cx="12" cy="12" r="3" />
+    <path d="M12 3V9M12 15V21M3 12H9M15 12H21" />
   </svg>
 );
 
-const CheckIcon = ({ isDark }: { isDark: boolean }) => (
-  <div
-    className={[
-      "flex h-4 w-4 shrink-0 items-center justify-center rounded-full",
-      isDark ? "bg-indigo-500/20 text-indigo-300" : "bg-[#dce4f5] text-[#4a6c9e]",
-    ].join(" ")}
+const CheckIcon = () => (
+  <svg
+    width="16"
+    height="16"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2.5"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className="mt-[1px] shrink-0"
+    aria-hidden
   >
-    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="20 6 9 17 4 12"></polyline>
-    </svg>
-  </div>
+    <polyline points="20 6 9 17 4 12" />
+  </svg>
 );
 
 /* ============================================================
@@ -156,7 +138,7 @@ const CheckIcon = ({ isDark }: { isDark: boolean }) => (
 const plans = [
   {
     key: "starter",
-    badge: "STARTER",
+    name: "Starter",
     icon: <StarterIcon />,
     monthly: 19,
     annual: 15,
@@ -174,7 +156,7 @@ const plans = [
   },
   {
     key: "pro",
-    badge: "PRO",
+    name: "Pro",
     icon: <ProfessionalIcon />,
     monthly: 49,
     annual: 39,
@@ -193,7 +175,7 @@ const plans = [
   },
   {
     key: "enterprise",
-    badge: "ENTERPRISE",
+    name: "Enterprise",
     icon: <EnterpriseIcon />,
     monthly: 99,
     annual: 79,
@@ -215,8 +197,7 @@ const plans = [
 
 type Plan = (typeof plans)[number];
 
-const ENTERPRISE_MAILTO =
-  "mailto:sales@stone.app?subject=Enterprise%20plan";
+const ENTERPRISE_MAILTO = "mailto:sales@stone.app?subject=Enterprise%20plan";
 
 /* ============================================================
    HELPERS
@@ -231,20 +212,178 @@ function readPeriodFromUrl(): BillingPeriod | null {
 
   const hash = window.location.hash || "";
   const qIdx = hash.indexOf("?");
-
-  if (qIdx !== -1) {
-    sources.push(new URLSearchParams(hash.slice(qIdx + 1)));
-  }
+  if (qIdx !== -1) sources.push(new URLSearchParams(hash.slice(qIdx + 1)));
 
   for (const params of sources) {
     const value = params.get("period");
-
-    if (value === "annual" || value === "monthly") {
-      return value;
-    }
+    if (value === "annual" || value === "monthly") return value;
   }
-
   return null;
+}
+
+/* ============================================================
+   PLAN CARD
+   ============================================================ */
+
+function PlanCard({
+  plan,
+  period,
+  isDark,
+  buttonText,
+  loading,
+  disabled,
+  onClick,
+}: {
+  plan: Plan;
+  period: BillingPeriod;
+  isDark: boolean;
+  buttonText: string;
+  loading: boolean;
+  disabled: boolean;
+  onClick: () => void;
+}) {
+  const featured = "featured" in plan && plan.featured;
+  const price = period === "monthly" ? plan.monthly : plan.annual;
+  const yearlySaving = (plan.monthly - plan.annual) * 12;
+
+  // Featured card = inverted colors (the only "loud" element on the page)
+  const tone = featured
+    ? isDark
+      ? {
+          card: "bg-white text-neutral-950 border-white",
+          soft: "text-neutral-600",
+          rule: "border-black/10",
+          badge: "bg-neutral-950 text-white",
+          btn: "bg-neutral-950 text-white hover:bg-neutral-800 focus-visible:ring-black/40",
+          icon: "border-black/15 text-neutral-950",
+        }
+      : {
+          card: "bg-neutral-950 text-white border-neutral-950",
+          soft: "text-neutral-400",
+          rule: "border-white/15",
+          badge: "bg-white text-neutral-950",
+          btn: "bg-white text-neutral-950 hover:bg-neutral-200 focus-visible:ring-white/50",
+          icon: "border-white/20 text-white",
+        }
+    : isDark
+      ? {
+          card: "bg-black text-white border-white/15 hover:border-white/40",
+          soft: "text-neutral-400",
+          rule: "border-white/10",
+          badge: "",
+          btn: "border border-white/25 text-white hover:bg-white hover:text-black focus-visible:ring-white/40",
+          icon: "border-white/15 text-white",
+        }
+      : {
+          card: "bg-white text-neutral-950 border-black/15 hover:border-black/60",
+          soft: "text-neutral-500",
+          rule: "border-black/10",
+          badge: "",
+          btn: "border border-black/25 text-neutral-950 hover:bg-neutral-950 hover:text-white focus-visible:ring-black/30",
+          icon: "border-black/15 text-neutral-950",
+        };
+
+  return (
+    <article
+      aria-label={`${plan.name} plan`}
+      className={[
+        "relative flex h-full flex-col rounded-3xl border p-7 transition-colors duration-200 sm:p-8",
+        tone.card,
+      ].join(" ")}
+    >
+      {featured && (
+        <span
+          className={[
+            "absolute right-6 top-6 rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em]",
+            tone.badge,
+          ].join(" ")}
+        >
+          Most popular
+        </span>
+      )}
+
+      <div
+        className={[
+          "mb-6 flex h-11 w-11 items-center justify-center rounded-xl border",
+          tone.icon,
+        ].join(" ")}
+      >
+        {plan.icon}
+      </div>
+
+      <h3 className="text-lg font-semibold tracking-tight">{plan.name}</h3>
+      <p className={["mt-1 text-sm", tone.soft].join(" ")}>{plan.description}</p>
+
+      {/* Price */}
+      <div className="mt-6" aria-live="polite">
+        <div className="flex items-baseline gap-1.5">
+          <span className="text-5xl font-semibold tracking-[-0.04em] tabular-nums">
+            ${price}
+          </span>
+          <span className={["text-sm", tone.soft].join(" ")}>/ month</span>
+        </div>
+        <p className={["mt-2 h-4 text-xs", tone.soft].join(" ")}>
+          {period === "annual"
+            ? `$${plan.annual * 12} billed yearly · save $${yearlySaving}`
+            : "Billed monthly"}
+        </p>
+      </div>
+
+      {/* CTA */}
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={disabled}
+        aria-busy={loading}
+        className={[
+          "mt-6 inline-flex w-full items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-medium",
+          "transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
+          isDark ? "focus-visible:ring-offset-black" : "focus-visible:ring-offset-white",
+          "disabled:cursor-not-allowed disabled:opacity-60",
+          tone.btn,
+        ].join(" ")}
+      >
+        {loading ? (
+          <>
+            <span
+              className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent"
+              aria-hidden
+            />
+            Redirecting…
+          </>
+        ) : (
+          <>
+            {buttonText}
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden
+            >
+              <path d="M5 12h14M13 6l6 6-6 6" />
+            </svg>
+          </>
+        )}
+      </button>
+
+      {/* Features */}
+      <div className={["mt-7 border-t pt-6", tone.rule].join(" ")}>
+        <ul className="space-y-3">
+          {plan.features.map((feature) => (
+            <li key={feature} className="flex items-start gap-3 text-[13.5px] leading-snug">
+              <CheckIcon />
+              <span>{feature}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </article>
+  );
 }
 
 /* ============================================================
@@ -256,7 +395,8 @@ export default function PricingSection() {
   const isDark = theme === "dark";
 
   const { user, loading: userLoading } = useUser();
-  const { hasActive: hasActiveSubscription, refresh: refreshSubscription } = useSubscription();
+  const { hasActive: hasActiveSubscription, refresh: refreshSubscription } =
+    useSubscription();
 
   const isLoggedIn = Boolean(user);
 
@@ -292,7 +432,9 @@ export default function PricingSection() {
         }
       };
       void poll();
-      return () => { cancelled = true; };
+      return () => {
+        cancelled = true;
+      };
     }
   }, [isLoggedIn, refreshSubscription]);
 
@@ -321,7 +463,12 @@ export default function PricingSection() {
         }
       } catch (err) {
         console.error("[pricing] Stripe error:", err);
-        const message = err instanceof StripeServiceError ? err.message : err instanceof Error ? err.message : "An unexpected error occurred.";
+        const message =
+          err instanceof StripeServiceError
+            ? err.message
+            : err instanceof Error
+              ? err.message
+              : "An unexpected error occurred.";
         setCheckoutError(message);
         setLoadingPlan(null);
       }
@@ -335,17 +482,19 @@ export default function PricingSection() {
     return plan.cta;
   };
 
-  const starterPlan = plans[0];
-  const proPlan = plans[1];
-  const enterprisePlan = plans[2];
+  const strong = isDark ? "text-white" : "text-neutral-950";
+  const soft = isDark ? "text-neutral-400" : "text-neutral-500";
+  const noticeClass = isDark
+    ? "border-white/20 bg-white/[0.04] text-neutral-200"
+    : "border-black/15 bg-neutral-50 text-neutral-800";
 
   return (
     <section
       id="pricing"
       className={[
-        "relative z-10 w-full overflow-hidden py-20 transition-colors duration-300",
-        pageBgClass(isDark),
-        strongClass(isDark),
+        "relative z-10 w-full overflow-hidden py-24 transition-colors duration-300",
+        isDark ? "bg-black" : "bg-white",
+        strong,
       ].join(" ")}
     >
       <style>{`
@@ -354,62 +503,73 @@ export default function PricingSection() {
           transform: translate3d(0, 18px, 0);
           transition: opacity 0.7s cubic-bezier(0.16, 1, 0.3, 1), transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
         }
-        .pricing-reveal-visible {
-          opacity: 1;
-          transform: translate3d(0, 0, 0);
-        }
+        .pricing-reveal-visible { opacity: 1; transform: translate3d(0, 0, 0); }
         @media (prefers-reduced-motion: reduce) {
           .pricing-reveal { opacity: 1; transform: none; transition: none; }
         }
       `}</style>
 
-      <div className="mx-auto max-w-[1200px] px-4 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-[1160px] px-4 sm:px-6 lg:px-8">
         <Reveal>
-          
           {/* Header */}
-          <div className="text-center mb-10">
-            <p className={["mb-3 text-xs font-semibold uppercase tracking-[0.18em]", softClass(isDark)].join(" ")}>
-              Simple, transparent pricing
+          <div className="mb-10 text-center">
+            <p className={["mb-3 text-xs font-semibold uppercase tracking-[0.2em]", soft].join(" ")}>
+              Pricing
             </p>
-            <h2 className={["font-display text-[clamp(30px,3.4vw,42px)] font-bold leading-tight tracking-[-0.045em]", strongClass(isDark)].join(" ")}>
+            <h2 className="font-display text-[clamp(32px,4vw,48px)] font-semibold leading-[1.05] tracking-[-0.045em]">
               Choose your plan
             </h2>
-            <p className={["mx-auto mt-3 max-w-md text-sm", softClass(isDark)].join(" ")}>
+            <p className={["mx-auto mt-4 max-w-md text-[15px]", soft].join(" ")}>
               Everything you need to plan, organize and publish your content.
             </p>
           </div>
 
-          {/* Toggle */}
-          <div className="mt-7 flex justify-center mb-12">
+          {/* Billing toggle */}
+          <div className="mb-12 flex justify-center">
             <div
-              className={["inline-flex rounded-full p-1", isDark ? "bg-white/[0.06]" : "bg-neutral-100"].join(" ")}
+              role="group"
               aria-label="Billing period"
+              className={[
+                "inline-flex rounded-full border p-1",
+                isDark ? "border-white/20" : "border-black/15",
+              ].join(" ")}
             >
               {(["monthly", "annual"] as const).map((value) => {
-                const isActive = period === value;
-
+                const active = period === value;
                 return (
                   <button
                     key={value}
                     type="button"
-                    aria-pressed={isActive}
+                    aria-pressed={active}
                     onClick={() => setPeriod(value)}
                     className={[
-                      "inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition-colors",
-                      focusRingClass(isDark),
-                      isActive
-                        ? isDark ? "bg-white text-neutral-900" : "bg-neutral-900 text-white"
-                        : isDark ? "text-neutral-400 hover:text-white" : "text-neutral-600 hover:text-neutral-900",
+                      "inline-flex items-center gap-2 rounded-full px-5 py-2 text-sm font-medium transition-colors",
+                      "focus-visible:outline-none focus-visible:ring-2",
+                      isDark ? "focus-visible:ring-white/40" : "focus-visible:ring-black/30",
+                      active
+                        ? isDark
+                          ? "bg-white text-black"
+                          : "bg-neutral-950 text-white"
+                        : isDark
+                          ? "text-neutral-400 hover:text-white"
+                          : "text-neutral-500 hover:text-neutral-950",
                     ].join(" ")}
                   >
                     {value === "monthly" ? "Monthly" : "Yearly"}
-
                     {value === "annual" && (
-                      <span className={[
-                        "rounded-full px-2 py-0.5 text-[10px] font-bold",
-                        isDark ? "bg-indigo-500/20 text-indigo-300" : "bg-[#dcdaf0] text-neutral-800"
-                      ].join(" ")}>
-                        SAVE 20%
+                      <span
+                        className={[
+                          "rounded-full border px-2 py-0.5 text-[10px] font-semibold tracking-wide",
+                          active
+                            ? isDark
+                              ? "border-black/30"
+                              : "border-white/40"
+                            : isDark
+                              ? "border-white/30"
+                              : "border-black/25",
+                        ].join(" ")}
+                      >
+                        −20%
                       </span>
                     )}
                   </button>
@@ -418,219 +578,51 @@ export default function PricingSection() {
             </div>
           </div>
 
-          {/* Messages */}
-          {returnBanner === "success" && (
-            <p className={[
-              "mb-8 rounded-xl border px-4 py-3 text-center text-sm",
-              isDark ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-300" : "border-emerald-200 bg-emerald-50 text-emerald-800"
-            ].join(" ")}>
-              Payment confirmed — your subscription is being activated.
-            </p>
-          )}
-          {returnBanner === "cancel" && (
-            <p className={[
-              "mb-8 rounded-xl border px-4 py-3 text-center text-sm",
-              isDark ? "border-white/10 bg-white/[0.04] text-neutral-300" : "border-neutral-200 bg-white text-neutral-700"
-            ].join(" ")}>
-              Checkout canceled. You have not been charged.
-            </p>
-          )}
+          {/* Notices */}
+          <div role="status" aria-live="polite">
+            {returnBanner === "success" && (
+              <p className={["mx-auto mb-8 max-w-xl rounded-2xl border px-4 py-3 text-center text-sm", noticeClass].join(" ")}>
+                Payment confirmed — your subscription is being activated.
+              </p>
+            )}
+            {returnBanner === "cancel" && (
+              <p className={["mx-auto mb-8 max-w-xl rounded-2xl border px-4 py-3 text-center text-sm", noticeClass].join(" ")}>
+                Checkout canceled. You have not been charged.
+              </p>
+            )}
+          </div>
 
-          {/* Wrapper global (Zone Starter) */}
-          <div className={["rounded-[40px] border p-3 md:p-4 lg:p-6", starterBgClass(isDark)].join(" ")}>
-            <div className="flex flex-col lg:flex-row gap-6 lg:gap-8 items-stretch">
-              
-              {/* STARTER CARD (Left) - Fond transparent pour laisser voir le wrapper */}
-              <div className="lg:w-[32%] flex flex-col justify-between p-5 md:p-6 lg:p-8">
-                <div>
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className={[
-                      "flex h-10 w-10 items-center justify-center rounded-xl shadow-sm",
-                      isDark ? "bg-white/[0.08] text-white border border-white/10" : "bg-white text-neutral-900 border border-black/5"
-                    ].join(" ")}>
-                      {starterPlan.icon}
-                    </div>
-                    <h3 className={["text-xl font-medium capitalize", strongClass(isDark)].join(" ")}>{starterPlan.key}</h3>
-                  </div>
-
-                  <div className="mb-4">
-                    <div className="flex items-baseline gap-1">
-                      <span className={["text-4xl font-medium tracking-tight", strongClass(isDark)].join(" ")}>
-                        ${period === "monthly" ? starterPlan.monthly : starterPlan.annual}
-                      </span>
-                      <span className={["text-sm", softClass(isDark)].join(" ")}>/Month</span>
-                    </div>
-                    {period === "annual" && (
-                      <p className={["mt-2 text-xs", softClass(isDark)].join(" ")}>
-                        ${(period === "monthly" ? starterPlan.monthly : starterPlan.annual) * 12} billed annually
-                      </p>
-                    )}
-                  </div>
-
-                  <p className={["text-[13px] leading-relaxed mb-8", isDark ? "text-neutral-300" : "text-neutral-600"].join(" ")}>
-                    {starterPlan.description}
-                  </p>
-
-                  <ul className="space-y-3.5 mb-8">
-                    {starterPlan.features.map((feature) => (
-                      <li key={feature} className={["flex items-center gap-3 text-[13px]", isDark ? "text-neutral-300" : "text-neutral-700"].join(" ")}>
-                        <CheckIcon isDark={isDark} />
-                        <span>{feature}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => handlePlanClick(starterPlan)}
+          {/* Cards */}
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-3 md:items-stretch">
+            {plans.map((plan, index) => (
+              <Reveal key={plan.key} delay={index * 80} className="h-full">
+                <PlanCard
+                  plan={plan}
+                  period={period}
+                  isDark={isDark}
+                  buttonText={getButtonText(plan)}
+                  loading={loadingPlan === plan.key}
                   disabled={loadingPlan !== null || userLoading}
-                  className={[
-                    "w-full rounded-full py-3.5 text-sm font-medium transition-colors disabled:opacity-70 shadow-lg",
-                    isDark 
-                      ? "bg-white text-black hover:bg-neutral-200 shadow-none" 
-                      : "bg-[#0a1128] text-white hover:bg-[#1a2542] shadow-black/10"
-                  ].join(" ")}
-                >
-                  {loadingPlan === starterPlan.key ? "Redirecting..." : getButtonText(starterPlan)}
-                </button>
-              </div>
-
-              {/* PRO & ENTERPRISE CARDS (Right) */}
-              <div className={[
-                "lg:w-[68%] rounded-[32px] border p-6 md:p-8 flex flex-col md:flex-row gap-8 shadow-sm",
-                innerCardClass(isDark)
-              ].join(" ")}>
-                
-                {/* Pro Column */}
-                <div className={[
-                  "flex-1 flex flex-col justify-between border-b md:border-b-0 md:border-r pb-8 md:pb-0 md:pr-8",
-                  isDark ? "border-white/[0.07]" : "border-black/[0.06]"
-                ].join(" ")}>
-                  <div>
-                    <div className="flex items-center gap-3 mb-6">
-                      <div className={[
-                        "flex h-10 w-10 items-center justify-center rounded-xl border",
-                        isDark ? "bg-white/[0.04] border-white/10 text-white" : "bg-white border-neutral-200 text-neutral-900"
-                      ].join(" ")}>
-                        {proPlan.icon}
-                      </div>
-                      <h3 className={["text-xl font-medium capitalize", strongClass(isDark)].join(" ")}>{proPlan.key}</h3>
-                    </div>
-
-                    <div className="mb-4">
-                      <div className="flex items-baseline gap-1">
-                        <span className={["text-4xl font-medium tracking-tight", strongClass(isDark)].join(" ")}>
-                          ${period === "monthly" ? proPlan.monthly : proPlan.annual}
-                        </span>
-                        <span className={["text-sm", softClass(isDark)].join(" ")}>/Month</span>
-                      </div>
-                      {period === "annual" && (
-                        <p className={["mt-2 text-xs", softClass(isDark)].join(" ")}>
-                          ${(period === "monthly" ? proPlan.monthly : proPlan.annual) * 12} billed annually
-                        </p>
-                      )}
-                    </div>
-
-                    <p className={["text-[13px] leading-relaxed mb-8", softClass(isDark)].join(" ")}>
-                      {proPlan.description}
-                    </p>
-
-                    <ul className="space-y-3.5 mb-8">
-                      {proPlan.features.map((feature) => (
-                        <li key={feature} className={["flex items-center gap-3 text-[13px]", isDark ? "text-neutral-300" : "text-neutral-700"].join(" ")}>
-                          <CheckIcon isDark={isDark} />
-                          <span>{feature}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => handlePlanClick(proPlan)}
-                    disabled={loadingPlan !== null || userLoading}
-                    className={[
-                      "inline-flex w-fit items-center gap-2 rounded-full border px-6 py-2.5 text-sm font-medium transition-colors disabled:opacity-70",
-                      focusRingClass(isDark),
-                      isDark 
-                        ? "border-white/10 text-white hover:bg-white/[0.07]" 
-                        : "border-black/10 text-neutral-900 hover:bg-black/[0.04]"
-                    ].join(" ")}
-                  >
-                    {loadingPlan === proPlan.key ? "Redirecting..." : getButtonText(proPlan)}
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
-                  </button>
-                </div>
-
-                {/* Enterprise Column */}
-                <div className="flex-1 flex flex-col justify-between pt-8 md:pt-0 md:pl-0">
-                  <div>
-                    <div className="flex items-center gap-3 mb-6">
-                      <div className={[
-                        "flex h-10 w-10 items-center justify-center rounded-xl border",
-                        isDark ? "bg-white/[0.04] border-white/10 text-white" : "bg-white border-neutral-200 text-neutral-900"
-                      ].join(" ")}>
-                        {enterprisePlan.icon}
-                      </div>
-                      <h3 className={["text-xl font-medium capitalize", strongClass(isDark)].join(" ")}>{enterprisePlan.key}</h3>
-                    </div>
-
-                    <div className="mb-4">
-                      <div className="flex items-baseline gap-1">
-                        <span className={["text-4xl font-medium tracking-tight", strongClass(isDark)].join(" ")}>
-                          ${period === "monthly" ? enterprisePlan.monthly : enterprisePlan.annual}
-                        </span>
-                        <span className={["text-sm", softClass(isDark)].join(" ")}>/Month</span>
-                      </div>
-                      {period === "annual" && (
-                        <p className={["mt-2 text-xs", softClass(isDark)].join(" ")}>
-                          ${(period === "monthly" ? enterprisePlan.monthly : enterprisePlan.annual) * 12} billed annually
-                        </p>
-                      )}
-                    </div>
-
-                    <p className={["text-[13px] leading-relaxed mb-8", softClass(isDark)].join(" ")}>
-                      {enterprisePlan.description}
-                    </p>
-
-                    <ul className="space-y-3.5 mb-8">
-                      {enterprisePlan.features.map((feature) => (
-                        <li key={feature} className={["flex items-start gap-3 text-[13px]", isDark ? "text-neutral-300" : "text-neutral-700"].join(" ")}>
-                          <div className="mt-0.5"><CheckIcon isDark={isDark} /></div>
-                          <span>{feature}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => handlePlanClick(enterprisePlan)}
-                    disabled={loadingPlan !== null || userLoading}
-                    className={[
-                      "inline-flex w-fit items-center gap-2 rounded-full border px-6 py-2.5 text-sm font-medium transition-colors disabled:opacity-70",
-                      focusRingClass(isDark),
-                      isDark 
-                        ? "border-white/10 text-white hover:bg-white/[0.07]" 
-                        : "border-black/10 text-neutral-900 hover:bg-black/[0.04]"
-                    ].join(" ")}
-                  >
-                    {loadingPlan === enterprisePlan.key ? "Redirecting..." : getButtonText(enterprisePlan)}
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
-                  </button>
-                </div>
-
-              </div>
-            </div>
+                  onClick={() => handlePlanClick(plan)}
+                />
+              </Reveal>
+            ))}
           </div>
 
           {checkoutError && (
-            <p className={["mt-8 text-center text-sm", isDark ? "text-rose-400" : "text-red-600"].join(" ")}>{checkoutError}</p>
+            <p
+              role="alert"
+              className={[
+                "mx-auto mt-8 max-w-xl rounded-2xl border px-4 py-3 text-center text-sm font-medium",
+                isDark ? "border-white/40 text-white" : "border-black/60 text-neutral-950",
+              ].join(" ")}
+            >
+              {checkoutError}
+            </p>
           )}
 
-          <p className={["mt-6 text-center text-xs", mutedClass(isDark)].join(" ")}>
-            Upgrade your plan whenever your needs grow.
+          <p className={["mt-8 text-center text-xs", soft].join(" ")}>
+            Upgrade, downgrade or cancel anytime.
           </p>
         </Reveal>
       </div>
