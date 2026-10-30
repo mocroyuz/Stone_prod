@@ -834,12 +834,16 @@ export default function Community() {
     addReply,
   } = useCommunity(channel?.key, tab, filter, selectedPostId, reloadKey);
 
+  // ⚠️ Ne mettre à jour le badge global QUE depuis la vue complète
+  // (filtre "all" et aucune vidéo sélectionnée). Sinon le compteur
+  // refléterait seulement la sous-liste visible et deviendrait faux.
   useEffect(() => {
     if (!channel?.key) return;
     if (loading) return;
+    if (filter !== "all" || selectedPostId) return; // vue partielle : ne pas toucher au badge
     const unread = comments.filter((c) => !c.is_read && !c.is_own).length;
     setChannelUnreadCount(channel.key, unread);
-  }, [channel?.key, comments, loading]);
+  }, [channel?.key, comments, loading, filter, selectedPostId]);
 
   const postById = useMemo(
     () => new Map(posts.map((p) => [p.id, p])),

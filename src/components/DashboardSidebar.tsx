@@ -39,6 +39,7 @@ import {
 } from "./IntegrationIcons";
 import { PLAN } from "../data/channelConfig";
 import { requestNewPost } from "../services/Newpostbus";
+import { fetchYouTubeComments } from "../services/youtubeComments";
 
 /* ============================================================================ 
    Types 
@@ -100,8 +101,51 @@ export const SIDEBAR_EXPANDED_OFFSET = 240;
    Notifications : commentaires non lus par canal
 ============================================================================ */
 
-const UNREAD_STORAGE_KEY = "stone.unread-counts";
-const UNREAD_EVENT = "stone:unread-changed";
+/* Compteurs en mémoire uniquement : recalculés à chaque ouverture du site */
+type UnreadCounts = Record<string, number>;
+
+const EMPTY_UNREAD: UnreadCounts = Object.freeze({}) as UnreadCounts;
+const LEGACY_UNREAD_KEY = "stone.unread-counts";
+
+let unreadStore: UnreadCounts = EMPTY_UNREAD;
+const unreadListeners = new Set<() => void>();
+
+// Nettoyage de l'ancienne valeur persistée
+try {
+  if (typeof window !== "undefined") window.localStorage.removeItem(LEGACY_UNREAD_KEY);
+} catch {}
+
+function emitUnread() {
+  unreadListeners.forEach((listener) => listener());
+}
+
+export function setChannelUnreadCount(channelKey: string, count: number) {
+  const next = Math.max(0, Math.floor(count) || 0);
+  if ((unreadStore[channelKey] ?? 0) === next) return;
+
+  const updated = { ...unreadStore };
+  if (next > 0) updated[channelKey] = next;
+  else delete updated[channelKey];
+
+  unreadStore = updated;
+  emitUnread();
+}
+
+export function setChannelUnread(channelKey: string, hasUnread: boolean) {
+  const existing = unreadStore[channelKey] ?? 0;
+  setChannelUnreadCount(channelKey, hasUnread ? Math.max(existing, 1) : 0);
+}
+
+function readUnreadSnapshot(): UnreadCounts {
+  return unreadStore;
+}
+
+function subscribeUnread(listener: () => void) {
+  unreadListeners.add(listener);
+  return () => {
+    unreadListeners.delete(listener);
+  };
+}
 
 /**
  * Quand un compteur BAISSE, on attend ce délai avant de l'afficher.
@@ -110,98 +154,6 @@ const UNREAD_EVENT = "stone:unread-changed";
  * n'est jamais rendu. Les hausses sont affichées immédiatement.
  */
 const UNREAD_SETTLE_MS = 350;
-
-type UnreadCounts = Record<string, number>;
-
-const EMPTY_UNREAD: UnreadCounts = Object.freeze({}) as UnreadCounts;
-
-function parseUnread(raw: string | null): UnreadCounts {
-  if (!raw) return EMPTY_UNREAD;
-
-  try {
-    const parsed: unknown = JSON.parse(raw);
-
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-      return EMPTY_UNREAD;
-    }
-
-    const result: UnreadCounts = {};
-
-    Object.entries(parsed as Record<string, unknown>).forEach(([key, value]) => {
-      if (typeof value === "number" && value > 0) {
-        result[key] = Math.floor(value);
-      }
-    });
-
-    return result;
-  } catch {
-    return EMPTY_UNREAD;
-  }
-}
-
-function getStoredUnread(): UnreadCounts {
-  if (typeof window === "undefined") return EMPTY_UNREAD;
-
-  try {
-    return parseUnread(window.localStorage.getItem(UNREAD_STORAGE_KEY));
-  } catch {
-    return EMPTY_UNREAD;
-  }
-}
-
-export function setChannelUnreadCount(channelKey: string, count: number) {
-  if (typeof window === "undefined") return;
-
-  const next = Math.max(0, Math.floor(count) || 0);
-  const current = getStoredUnread();
-
-  if ((current[channelKey] ?? 0) === next) return;
-
-  const updated = { ...current };
-
-  if (next > 0) updated[channelKey] = next;
-  else delete updated[channelKey];
-
-  try {
-    window.localStorage.setItem(UNREAD_STORAGE_KEY, JSON.stringify(updated));
-  } catch {}
-
-  window.dispatchEvent(new Event(UNREAD_EVENT));
-}
-
-export function setChannelUnread(channelKey: string, hasUnread: boolean) {
-  const existing = getStoredUnread()[channelKey] ?? 0;
-  setChannelUnreadCount(channelKey, hasUnread ? Math.max(existing, 1) : 0);
-}
-
-/* Snapshot stable (même référence tant que le contenu stocké ne change pas) */
-let unreadRawCache: string | null | undefined;
-let unreadSnapshotCache: UnreadCounts = EMPTY_UNREAD;
-
-function readUnreadSnapshot(): UnreadCounts {
-  if (typeof window === "undefined") return EMPTY_UNREAD;
-
-  let raw: string | null = null;
-  try {
-    raw = window.localStorage.getItem(UNREAD_STORAGE_KEY);
-  } catch {}
-
-  if (raw === unreadRawCache) return unreadSnapshotCache;
-
-  unreadRawCache = raw;
-  unreadSnapshotCache = parseUnread(raw);
-  return unreadSnapshotCache;
-}
-
-function subscribeUnread(listener: () => void) {
-  window.addEventListener(UNREAD_EVENT, listener);
-  window.addEventListener("storage", listener);
-
-  return () => {
-    window.removeEventListener(UNREAD_EVENT, listener);
-    window.removeEventListener("storage", listener);
-  };
-}
 
 function useUnreadCounts(): UnreadCounts {
   const live = useSyncExternalStore(
@@ -2562,6 +2514,8 @@ function resetSidebarModuleState() {
   userProfileCache.profile = null;
   setSidebarCollapsed(true);
   channelsMemory.open = [];
+  unreadStore = EMPTY_UNREAD;
+  emitUnread();
 }
 
 export function useSidebarOffset(): number {
@@ -2578,6 +2532,72 @@ export function useSidebarOffset(): number {
 
 function pluralizeChannels(count: number): string {
   return `${count} channel${count === 1 ? "" : "s"}`;
+}
+
+/* ============================================================================ 
+   Recalcul des non-lus à l'ouverture, quelle que soit la page
+============================================================================ */
+
+const UNREAD_POLL_MS = 60_000;
+const UNREAD_MAX_PAGES = 3;
+
+function useUnreadSync(channels: ConnectedChannel[]) {
+  const youtubeKey = useMemo(
+    () => channels.find((c) => c.key.toLowerCase().startsWith("youtube"))?.key ?? null,
+    [channels]
+  );
+
+  useEffect(() => {
+    if (!youtubeKey) return;
+
+    let cancelled = false;
+    let busy = false;
+
+    const refresh = async () => {
+      if (busy || document.hidden) return;
+      busy = true;
+
+      try {
+        let total = 0;
+        let pageToken: string | null = null;
+
+        for (let page = 0; page < UNREAD_MAX_PAGES; page++) {
+          const r = await fetchYouTubeComments({
+            filter: "unread",
+            videoId: null,
+            ...(pageToken ? { pageToken } : {}),
+          });
+          if (cancelled) return;
+
+          const list = Array.isArray(r?.comments) ? r.comments : [];
+          total += list.filter((c) => !c.is_read && !c.is_own).length;
+
+          pageToken = r?.next_page_token ?? null;
+          if (!pageToken) break;
+        }
+
+        setChannelUnreadCount(youtubeKey, total);
+      } catch {
+        /* silencieux */
+      } finally {
+        busy = false;
+      }
+    };
+
+    void refresh();
+
+    const timer = window.setInterval(refresh, UNREAD_POLL_MS);
+    const onVisible = () => {
+      if (!document.hidden) void refresh();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [youtubeKey]);
 }
 
 /* ============================================================================ 
@@ -2598,6 +2618,9 @@ export default function DashboardSidebar({
 
   const currentRoute = useHashRoute();
   const connectedChannels = useConnectedChannels();
+
+  useUnreadSync(connectedChannels);
+
   const isMobile = useIsMobile();
 
   const unreadCounts = useUnreadCounts();
