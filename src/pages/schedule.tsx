@@ -25,7 +25,14 @@ import {
   isPostPosted,
   type CalendarPost,
 } from "../services/posts";
-import { listTags, type Tag as ApiTag } from "../services/supabase";
+import {
+  ensureDefaultTags,
+  listTags,
+  createTag as apiCreateTag,
+  updateTag as apiUpdateTag,
+  deleteTag as apiDeleteTag,
+  type Tag as ApiTag,
+} from "../services/supabase";
 import {
   XIcon,
   FacebookIcon,
@@ -71,6 +78,36 @@ function useHashChannel(): string | null {
   useHashRoute();
   return new URLSearchParams(window.location.search).get("channel");
 }
+
+/* ------------------------------------------------------------------ */
+/* Tags (mêmes tags Supabase que Create.tsx)                           */
+/* ------------------------------------------------------------------ */
+
+const UNASSIGNED = "unassigned";
+
+const UNASSIGNED_TAG: ApiTag = {
+  id: UNASSIGNED,
+  label: "Unassigned",
+  color: "bg-neutral-400",
+};
+
+const UNASSIGNED_HEX = "#a3a3a3";
+
+const DEFAULT_ORDER = ["to do", "in progress"];
+
+const NEW_TAG_COLORS = [
+  "bg-[#6366f1]", "bg-[#ec4899]", "bg-[#14b8a6]",
+  "bg-[#eab308]", "bg-[#84cc16]", "bg-[#0ea5e9]",
+];
+
+/** Couleur hexadécimale d'un tag (gère le tag « Unassigned »). */
+const hexOf = (t: ApiTag) => (t.id === UNASSIGNED ? UNASSIGNED_HEX : tagHex(t.color));
+
+/** Un élément sans tag est traité comme « Unassigned ». */
+const passesTagFilter = (ids: string[], hidden: string[]) => {
+  const list = ids.length ? ids : [UNASSIGNED];
+  return list.some((id) => !hidden.includes(id));
+};
 
 /* ------------------------------------------------------------------ */
 /* Icons                                                               */
@@ -437,21 +474,14 @@ function dateToHour(d: Date): number {
 /* Data                                                                */
 /* ------------------------------------------------------------------ */
 
-type Tone = "purple" | "sky" | "indigo" | "amber" | "green" | "rose";
-
-type Category = {
-  id: string;
-  name: string;
-  tone: Tone;
-};
-
 type CalendarEvent = {
   id: string;
   day: number;
   start: number;
   end: number;
   title: string;
-  categoryId?: string;
+  /** Id d'un tag Supabase (absent = Unassigned). */
+  tagId?: string;
   /** Channel auquel l'événement appartient (absent = visible sur tous). */
   channelKey?: string;
   confirmed?: boolean;
@@ -462,9 +492,9 @@ const START_HOUR = 0;
 const END_HOUR = 24;
 const SPAN = END_HOUR - START_HOUR;
 
-/** ⬇️ Modifié : les cartes de post font maintenant ~1 h de haut. */
-const HOUR_HEIGHT = 128;   // était 112
-const POST_SPAN = 1;       // une carte de post occupe 1 h dans la grille
+/** Les cartes de post font ~1 h de haut. */
+const HOUR_HEIGHT = 128;
+const POST_SPAN = 1; // une carte de post occupe 1 h dans la grille
 
 const TOTAL_HEIGHT = SPAN * HOUR_HEIGHT;
 
@@ -488,34 +518,12 @@ const TIMEZONES = ["Paris", "London", "New York", "Tokyo"];
 const SCOPE_OPTIONS = ["All", "Publié", "À publier"];
 
 /* ------------------------------------------------------------------ */
-/* Tone styling                                                        */
+/* Style neutre (événement sans tag)                                   */
 /* ------------------------------------------------------------------ */
 
-type ToneStyle = {
-  bgLight: string;
-  bgDark: string;
-  textLight: string;
-  textDark: string;
-  borderLight: string;
-  borderDark: string;
-};
-
-const TONE_STYLES: Record<Tone, ToneStyle> = {
-  purple: { bgLight: "bg-[#ECE6FB]", bgDark: "bg-[#2a2440]", textLight: "text-[#5B3FC4]", textDark: "text-[#C9B8FA]", borderLight: "border-[#DED2F7]", borderDark: "border-[#3c3457]" },
-  sky: { bgLight: "bg-[#E3F1FC]", bgDark: "bg-[#1f2f3e]", textLight: "text-[#1E76B8]", textDark: "text-[#8FC7F0]", borderLight: "border-[#CFE6F8]", borderDark: "border-[#2c4356]" },
-  indigo: { bgLight: "bg-[#E6E9FC]", bgDark: "bg-[#222642]", textLight: "text-[#4C55C9]", textDark: "text-[#B2B9F5]", borderLight: "border-[#D5D9F8]", borderDark: "border-[#31365a]" },
-  amber: { bgLight: "bg-[#FBEFD8]", bgDark: "bg-[#332a1a]", textLight: "text-[#9A6B15]", textDark: "text-[#E9C77C]", borderLight: "border-[#F3E1B8]", borderDark: "border-[#4a3c24]" },
-  green: { bgLight: "bg-[#E1F4E6]", bgDark: "bg-[#1c2e21]", textLight: "text-[#2E8A4C]", textDark: "text-[#8FD6A5]", borderLight: "border-[#CBEBD3]", borderDark: "border-[#2a4530]" },
-  rose: { bgLight: "bg-[#FBE3E1]", bgDark: "bg-[#332021]", textLight: "text-[#C24B41]", textDark: "text-[#F0A79E]", borderLight: "border-[#F5CFCB]", borderDark: "border-[#4a2c2c]" },
-};
-
-const TONE_KEYS: Tone[] = ["purple", "sky", "indigo", "amber", "green", "rose"];
-
-const NEUTRAL_STYLE: ToneStyle = {
+const NEUTRAL_STYLE = {
   bgLight: "bg-neutral-100",
   bgDark: "bg-neutral-800",
-  textLight: "text-neutral-700",
-  textDark: "text-neutral-200",
   borderLight: "border-neutral-200",
   borderDark: "border-neutral-700",
 };
@@ -721,106 +729,58 @@ function fieldClass(isDark: boolean) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Category editor popover                                             */
+/* Champ « créer un tag » (comme Create)                               */
 /* ------------------------------------------------------------------ */
 
-function CategoryEditorPopover({
+function CreateTagInput({
+  onCreate,
   isDark,
-  title,
-  initial,
-  submitLabel,
-  onCancel,
-  onSave,
+  placeholder = "Create a tag…",
 }: {
+  onCreate: (label: string) => void;
   isDark: boolean;
-  title: string;
-  initial: { name: string; tone: Tone } | null;
-  submitLabel: string;
-  onCancel: () => void;
-  onSave: (data: { name: string; tone: Tone }) => void;
+  placeholder?: string;
 }) {
-  const [name, setName] = useState(initial?.name ?? "");
-  const [tone, setTone] = useState<Tone>(initial?.tone ?? "purple");
-  const canSave = name.trim().length > 0;
+  const [value, setValue] = useState("");
 
   const submit = () => {
-    if (!canSave) return;
-    onSave({ name: name.trim(), tone });
+    if (!value.trim()) return;
+    onCreate(value);
+    setValue("");
   };
 
   return (
     <div
-      className={[
-        "absolute left-0 top-full z-30 mt-2 w-60 rounded-xl border p-3 shadow-lg",
-        isDark ? "border-white/[0.08] bg-[#16161a]" : "border-black/[0.06] bg-white",
-      ].join(" ")}
+      className={`flex items-center gap-1 rounded-lg border px-2 ${
+        isDark ? "border-white/[0.10]" : "border-black/[0.10]"
+      }`}
     >
-      <p className={["mb-2 text-[11px] font-medium", isDark ? "text-neutral-500" : "text-neutral-400"].join(" ")}>
-        {title}
-      </p>
       <input
-        autoFocus
-        value={name}
-        onChange={(e) => setName(e.target.value)}
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
         onKeyDown={(e) => {
-          if (e.key === "Enter") submit();
+          if (e.key === "Enter") {
+            e.preventDefault();
+            submit();
+          }
         }}
-        placeholder="Nom de la catégorie"
-        className={fieldClass(isDark)}
+        placeholder={placeholder}
+        maxLength={30}
+        className={`min-w-0 flex-1 bg-transparent py-2 text-[13px] outline-none ${
+          isDark ? "placeholder:text-neutral-600" : "placeholder:text-neutral-400"
+        }`}
       />
-
-      <div className="mt-2.5 flex items-center gap-1.5">
-        {TONE_KEYS.map((t) => {
-          const ts = TONE_STYLES[t];
-          const selected = tone === t;
-          return (
-            <button
-              key={t}
-              type="button"
-              aria-label={t}
-              onClick={() => setTone(t)}
-              className={[
-                "flex h-6 w-6 items-center justify-center rounded-full border-2 transition",
-                isDark ? ts.bgDark : ts.bgLight,
-                selected
-                  ? isDark
-                    ? "border-white"
-                    : "border-neutral-900"
-                  : "border-transparent",
-                isDark ? ts.textDark : ts.textLight,
-              ].join(" ")}
-            >
-              {selected && <CheckIcon className="h-[10px] w-[10px]" />}
-            </button>
-          );
-        })}
-      </div>
-
-      <div className="mt-3 flex items-center justify-end gap-2">
-        <button
-          type="button"
-          onClick={onCancel}
-          className={[
-            "rounded-full px-3 py-1.5 text-[12px] font-medium transition",
-            isDark ? "text-neutral-300 hover:bg-white/[0.05]" : "text-neutral-600 hover:bg-black/[0.05]",
-          ].join(" ")}
-        >
-          Annuler
-        </button>
-        <button
-          type="button"
-          onClick={submit}
-          disabled={!canSave}
-          className={[
-            "rounded-full px-3.5 py-1.5 text-[12px] font-semibold transition disabled:cursor-not-allowed disabled:opacity-40",
-            isDark
-              ? "bg-white text-neutral-900 hover:bg-neutral-200"
-              : "bg-neutral-900 text-white hover:bg-neutral-800",
-          ].join(" ")}
-        >
-          {submitLabel}
-        </button>
-      </div>
+      <button
+        type="button"
+        aria-label="Create tag"
+        onClick={submit}
+        disabled={!value.trim()}
+        className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md transition disabled:opacity-30 ${
+          isDark ? "hover:bg-white/[0.06]" : "hover:bg-black/[0.04]"
+        }`}
+      >
+        <PlusIcon />
+      </button>
     </div>
   );
 }
@@ -831,7 +791,7 @@ function CategoryEditorPopover({
 
 type EventCardProps = {
   event: CalendarEvent;
-  category?: Category;
+  tag?: ApiTag;
   depth: number;
   isDark: boolean;
   menuOpen: boolean;
@@ -843,7 +803,7 @@ type EventCardProps = {
 
 function EventCard({
   event,
-  category,
+  tag,
   depth,
   isDark,
   menuOpen,
@@ -852,7 +812,7 @@ function EventCard({
   onEdit,
   onDelete,
 }: EventCardProps) {
-  const tone = category ? TONE_STYLES[category.tone] : NEUTRAL_STYLE;
+  const hex = tag ? hexOf(tag) : null;
   const top = (event.start - START_HOUR) * HOUR_HEIGHT;
   const height = (event.end - event.start) * HOUR_HEIGHT - 6;
 
@@ -876,14 +836,27 @@ function EventCard({
       className={[
         "absolute inset-x-1 flex flex-col gap-2 rounded-xl border px-3 py-2.5 transition-[box-shadow]",
         isFront ? "shadow-lg" : "",
-        isDark ? tone.bgDark : tone.bgLight,
-        isDark ? tone.borderDark : tone.borderLight,
-      ].join(" ")}
-      style={{ top, height, minHeight: 44, zIndex }}
+        !tag && (isDark ? NEUTRAL_STYLE.bgDark : NEUTRAL_STYLE.bgLight),
+        !tag && (isDark ? NEUTRAL_STYLE.borderDark : NEUTRAL_STYLE.borderLight),
+      ]
+        .filter(Boolean)
+        .join(" ")}
+      style={{
+        top,
+        height,
+        minHeight: 44,
+        zIndex,
+        ...(hex
+          ? {
+              backgroundColor: `${hex}${isDark ? "33" : "26"}`,
+              borderColor: `${hex}66`,
+            }
+          : {}),
+      }}
     >
       <div className="flex items-start justify-between gap-1.5">
         <div className="min-w-0">
-          <p className={["truncate text-[12.5px] font-semibold", isDark ? tone.textDark : tone.textLight].join(" ")}>
+          <p className={["truncate text-[12.5px] font-semibold", isDark ? "text-neutral-100" : "text-neutral-800"].join(" ")}>
             {event.title}
           </p>
           <p className={["mt-0.5 truncate text-[10.5px]", isDark ? "text-neutral-400" : "text-neutral-500"].join(" ")}>
@@ -944,6 +917,19 @@ function EventCard({
         </div>
       </div>
 
+      {tag && (
+        <span
+          className={[
+            "inline-flex w-fit max-w-full items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium",
+            isDark ? "text-neutral-200" : "text-neutral-700",
+          ].join(" ")}
+          style={{ backgroundColor: `${hex}26` }}
+        >
+          <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: hex ?? undefined }} />
+          <span className="truncate">{tag.label}</span>
+        </span>
+      )}
+
       {event.confirmed && (
         <span
           className={[
@@ -968,19 +954,19 @@ type EventFormData = {
   day: number;
   start: number;
   end: number;
-  categoryId?: string;
+  tagId?: string;
 };
 
 function EventFormModal({
   isDark,
-  categories,
+  tags,
   weekStart,
   initial,
   onCancel,
   onSave,
 }: {
   isDark: boolean;
-  categories: Category[];
+  tags: ApiTag[];
   weekStart: Date;
   initial: EventFormData | null;
   onCancel: () => void;
@@ -993,7 +979,7 @@ function EventFormModal({
   );
   const [startDate, setStartDate] = useState<Date>(() => hourToDate(initial?.start ?? 9));
   const [endDate, setEndDate] = useState<Date>(() => hourToDate(initial?.end ?? 10));
-  const [categoryId, setCategoryId] = useState<string>(initial?.categoryId ?? "");
+  const [tagId, setTagId] = useState<string>(initial?.tagId ?? "");
 
   const start = dateToHour(startDate);
   const end = dateToHour(endDate);
@@ -1015,7 +1001,7 @@ function EventFormModal({
       day,
       start,
       end,
-      categoryId: categoryId || undefined,
+      tagId: tagId || undefined,
     });
   };
 
@@ -1073,18 +1059,18 @@ function EventFormModal({
 
           <div>
             <label className={["mb-1 block text-[11px] font-medium", isDark ? "text-neutral-500" : "text-neutral-400"].join(" ")}>
-              Catégorie
+              Tag
             </label>
             <select
-              value={categoryId}
-              onChange={(e) => setCategoryId(e.target.value)}
+              value={tagId}
+              onChange={(e) => setTagId(e.target.value)}
               style={{ colorScheme: isDark ? "dark" : "light" }}
               className={fieldClass(isDark)}
             >
-              <option value="">Aucune catégorie</option>
-              {categories.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
+              <option value="">Unassigned</option>
+              {tags.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.label}
                 </option>
               ))}
             </select>
@@ -1160,16 +1146,20 @@ export default function Schedule() {
     );
   };
 
-  const [categories, setCategories] = useState<Category[]>([]);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
 
-  // ⬇️ État lié aux posts (chargés depuis Supabase)
+  // État lié aux posts et aux tags (chargés depuis Supabase)
   const [posts, setPosts] = useState<CalendarPost[]>([]);
   const [apiTags, setApiTags] = useState<ApiTag[]>([]);
   const [postsTick, setPostsTick] = useState(0);
+
+  const allTags = useMemo(() => [UNASSIGNED_TAG, ...apiTags], [apiTags]);
   const tagsById = useMemo(() => new Map(apiTags.map((t) => [t.id, t])), [apiTags]);
 
-  const [activeCategory, setActiveCategory] = useState<string | "All">("All");
+  // Tags masqués (filtre du menu Tags, comme Create)
+  const [hiddenTags, setHiddenTags] = useState<string[]>([]);
+  const [editingTagId, setEditingTagId] = useState<string | null>(null);
+
   const [weekOffset, setWeekOffset] = useState(0);
   const [openPanel, setOpenPanel] = useState<ToolbarPanel | null>(null);
   const [view, setView] = useState("Week");
@@ -1178,9 +1168,6 @@ export default function Schedule() {
   const [scope, setScope] = useState("All");
 
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
-
-  const [catCreatorOpen, setCatCreatorOpen] = useState(false);
-  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
 
   const [eventFormOpen, setEventFormOpen] = useState(false);
   const [editingEventId, setEditingEventId] = useState<string | null>(null);
@@ -1213,12 +1200,11 @@ export default function Schedule() {
   }, [openMenuId]);
 
   useEffect(() => {
-    if (!openPanel && !catCreatorOpen && !editingCategoryId) return;
+    if (!openPanel) return;
 
     const closeAll = () => {
       setOpenPanel(null);
-      setCatCreatorOpen(false);
-      setEditingCategoryId(null);
+      setEditingTagId(null);
     };
     const onPointerDown = (e: MouseEvent) => {
       if (!(e.target as HTMLElement).closest("[data-toolbar-menu]")) closeAll();
@@ -1233,7 +1219,7 @@ export default function Schedule() {
       document.removeEventListener("mousedown", onPointerDown);
       document.removeEventListener("keydown", onKeyDown);
     };
-  }, [openPanel, catCreatorOpen, editingCategoryId]);
+  }, [openPanel]);
 
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
@@ -1284,7 +1270,7 @@ export default function Schedule() {
     [now.toDateString(), weekOffset],
   );
 
-  // ⬇️ Chargement des posts pour la semaine courante
+  // Chargement des posts pour la semaine courante
   useEffect(() => {
     let cancelled = false;
     listPosts(weekStart, addDays(weekStart, 7))
@@ -1297,12 +1283,24 @@ export default function Schedule() {
     };
   }, [weekStart, postsTick]);
 
-  // ⬇️ Chargement des tags (couleurs / labels)
+  // Chargement des tags (mêmes tags par défaut et même ordre que Create)
   useEffect(() => {
-    listTags().then(setApiTags).catch(() => {});
+    let cancelled = false;
+    (async () => {
+      await ensureDefaultTags();
+      const server = await listTags();
+      const rank = (t: ApiTag) => {
+        const i = DEFAULT_ORDER.indexOf(t.label.trim().toLowerCase());
+        return i === -1 ? DEFAULT_ORDER.length : i;
+      };
+      if (!cancelled) setApiTags([...server].sort((a, b) => rank(a) - rank(b)));
+    })().catch((e) => console.error("Could not load tags:", e));
+    return () => {
+      cancelled = true;
+    };
   }, [postsTick]);
 
-  // ⬇️ Resynchronise quand on revient sur l'onglet
+  // Resynchronise quand on revient sur l'onglet
   useEffect(() => {
     const onFocus = () => setPostsTick((n) => n + 1);
     window.addEventListener("focus", onFocus);
@@ -1326,8 +1324,7 @@ export default function Schedule() {
   const monthLabel = days[3].date.toLocaleDateString(LOCALE, { month: "long", year: "numeric" });
 
   const togglePanel = (panel: ToolbarPanel) => {
-    setCatCreatorOpen(false);
-    setEditingCategoryId(null);
+    setEditingTagId(null);
     setOpenPanel((cur) => (cur === panel ? null : panel));
   };
 
@@ -1338,24 +1335,18 @@ export default function Schedule() {
   const todayStart = new Date(now);
   todayStart.setHours(0, 0, 0, 0);
 
-  const categoryById = useMemo(() => {
-    const m = new Map<string, Category>();
-    categories.forEach((c) => m.set(c.id, c));
-    return m;
-  }, [categories]);
-
   const visibleEvents = useMemo(
     () =>
       events.filter((e) => {
         const matchChannel = !e.channelKey || !channelKey || e.channelKey === channelKey;
-        const matchCategory = activeCategory === "All" || e.categoryId === activeCategory;
+        const matchTag = passesTagFilter(e.tagId ? [e.tagId] : [], hiddenTags);
         const matchScope =
           scope === "All" ||
           (scope === "Publié" && e.published) ||
           (scope === "À publier" && !e.published);
-        return matchChannel && matchCategory && matchScope;
+        return matchChannel && matchTag && matchScope;
       }),
-    [events, activeCategory, scope, channelKey],
+    [events, hiddenTags, scope, channelKey],
   );
 
   const layoutByDay = useMemo(() => {
@@ -1369,7 +1360,7 @@ export default function Schedule() {
     return map;
   }, [visibleEvents]);
 
-  // ⬇️ Regroupement des posts par jour (avec layout côte-à-côte)
+  // Regroupement des posts par jour (avec layout côte-à-côte)
   const postsByDay = useMemo(() => {
     const raw = new Map<number, { post: CalendarPost; start: number }[]>();
     for (let i = 0; i < 7; i++) raw.set(i, []);
@@ -1379,6 +1370,7 @@ export default function Schedule() {
       const posted = isPostPosted(post, now);
       if (scope === "Publié" && !posted) continue;
       if (scope === "À publier" && posted) continue;
+      if (!passesTagFilter(post.tagIds, hiddenTags)) continue;
 
       const d = new Date(post.scheduledAt);
       const dayStart = new Date(d.getFullYear(), d.getMonth(), d.getDate());
@@ -1390,9 +1382,9 @@ export default function Schedule() {
     const map = new Map<number, PositionedPost[]>();
     for (const [day, list] of raw) map.set(day, layoutPosts(list));
     return map;
-  }, [posts, channelKey, scope, now, weekStart]);
+  }, [posts, channelKey, scope, now, weekStart, hiddenTags]);
 
-  // ⬇️ Items "scroll" unifiés (événements + posts) pour les flèches haut/bas
+  // Items "scroll" unifiés (événements + posts) pour les flèches haut/bas
   const scrollItems = useMemo(
     () => [
       ...visibleEvents.map((e) => ({ start: e.start, end: e.end })),
@@ -1439,27 +1431,63 @@ export default function Schedule() {
     }
   };
 
-  const handleCreateCategory = (data: { name: string; tone: Tone }) => {
-    const id = `cat-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-    setCategories((prev) => [...prev, { id, name: data.name, tone: data.tone }]);
-    setCatCreatorOpen(false);
-  };
+  /* ---------------- Tags (Supabase) ---------------- */
 
-  const handleUpdateCategory = (id: string, data: { name: string; tone: Tone }) => {
-    setCategories((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, name: data.name, tone: data.tone } : c)),
+  const toggleHiddenTag = (id: string) =>
+    setHiddenTags((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
     );
-    setEditingCategoryId(null);
+
+  const handleCreateTag = async (label: string) => {
+    const l = label.trim();
+    if (!l) return;
+    const existing = apiTags.find((t) => t.label.toLowerCase() === l.toLowerCase());
+    if (existing) {
+      setHiddenTags((prev) => prev.filter((x) => x !== existing.id));
+      return;
+    }
+    try {
+      const color = NEW_TAG_COLORS[apiTags.length % NEW_TAG_COLORS.length];
+      const created = await apiCreateTag(l, color);
+      setApiTags((prev) => [...prev, created]);
+    } catch (e) {
+      console.error("Error creating tag:", e);
+    }
   };
 
-  const handleDeleteCategory = (id: string) => {
-    setCategories((prev) => prev.filter((c) => c.id !== id));
-    setActiveCategory((cur) => (cur === id ? "All" : cur));
+  const handleRenameTag = async (id: string, label: string) => {
+    const l = label.trim();
+    const tag = apiTags.find((t) => t.id === id);
+    if (!l || !tag || l === tag.label) return;
+    setApiTags((prev) => prev.map((t) => (t.id === id ? { ...t, label: l } : t)));
+    try {
+      await apiUpdateTag(id, { label: l, color: tag.color });
+    } catch (e) {
+      console.error("Error renaming tag:", e);
+      setApiTags((prev) => prev.map((t) => (t.id === id ? tag : t)));
+    }
+  };
+
+  const handleDeleteTag = async (id: string) => {
+    if (id === UNASSIGNED) return;
+    const prevTags = apiTags;
+    const prevEvents = events;
+    setApiTags((prev) => prev.filter((t) => t.id !== id));
+    setHiddenTags((prev) => prev.filter((x) => x !== id));
     setEvents((prev) =>
-      prev.map((e) => (e.categoryId === id ? { ...e, categoryId: undefined } : e)),
+      prev.map((e) => (e.tagId === id ? { ...e, tagId: undefined } : e)),
     );
-    if (editingCategoryId === id) setEditingCategoryId(null);
+    try {
+      await apiDeleteTag(id);
+      setPostsTick((n) => n + 1); // les posts perdent ce tag
+    } catch (e) {
+      console.error("Error deleting tag:", e);
+      setApiTags(prevTags);
+      setEvents(prevEvents);
+    }
   };
+
+  /* ---------------- Événements ---------------- */
 
   const handleDeleteEvent = (id: string) => {
     setEvents((prev) => prev.filter((e) => e.id !== id));
@@ -1524,7 +1552,7 @@ export default function Schedule() {
     setIsNewPostOpen(true);
   };
 
-  // ⬇️ Création réelle d'un post via le service
+  // Création réelle d'un post via le service
   const handleCreatePost = async (payload: NewPostPayload) => {
     await createPosts(payload);
     setPostsTick((n) => n + 1);
@@ -1568,7 +1596,7 @@ export default function Schedule() {
               "pb-4 pt-[clamp(18px,3vw,30px)]",
             ].join(" ")}
           >
-            {/* HEADER COMPACT (remplace PageHeader) */}
+            {/* HEADER COMPACT */}
             <div className="relative z-40 mb-3 flex shrink-0 flex-wrap items-center justify-between gap-3">
               <div className="flex min-w-0 items-center gap-2.5">
                 <span
@@ -1703,7 +1731,7 @@ export default function Schedule() {
                   )}
                 </div>
 
-                {/* Tags (catégories) */}
+                {/* Tags (Supabase, comme Create) */}
                 <div className="relative" data-toolbar-menu>
                   <ToolbarButton
                     isDark={isDark}
@@ -1712,105 +1740,121 @@ export default function Schedule() {
                     onClick={() => togglePanel("tags")}
                   >
                     Tags
+                    {hiddenTags.length > 0 && (
+                      <span
+                        className={`rounded-full px-1.5 text-[11px] tabular-nums ${
+                          isDark ? "bg-white text-black" : "bg-black text-white"
+                        }`}
+                      >
+                        {allTags.length - hiddenTags.length}/{allTags.length}
+                      </span>
+                    )}
                   </ToolbarButton>
 
-                  {openPanel === "tags" && !catCreatorOpen && !editingCategoryId && (
-                    <MenuPanel isDark={isDark} align="right" width="w-60">
-                      <MenuItem
-                        isDark={isDark}
-                        selected={activeCategory === "All"}
-                        onClick={() => setActiveCategory("All")}
+                  {openPanel === "tags" && (
+                    <MenuPanel isDark={isDark} align="right" width="w-64">
+                      <ul className="max-h-[260px] overflow-y-auto">
+                        {allTags.map((t) => {
+                          const on = !hiddenTags.includes(t.id);
+                          const fixed = t.id === UNASSIGNED;
+                          return (
+                            <li key={t.id} className="group flex items-center">
+                              {editingTagId === t.id ? (
+                                <input
+                                  autoFocus
+                                  defaultValue={t.label}
+                                  maxLength={30}
+                                  onBlur={(e) => {
+                                    void handleRenameTag(t.id, e.target.value);
+                                    setEditingTagId(null);
+                                  }}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter") e.currentTarget.blur();
+                                    if (e.key === "Escape") setEditingTagId(null);
+                                  }}
+                                  className={`mx-3 my-1 w-full rounded-md border bg-transparent px-2 py-1 text-[12.5px] outline-none ${
+                                    isDark ? "border-white/30 text-white" : "border-black/30 text-neutral-900"
+                                  }`}
+                                />
+                              ) : (
+                                <button
+                                  type="button"
+                                  role="menuitemcheckbox"
+                                  aria-checked={on}
+                                  onClick={() => toggleHiddenTag(t.id)}
+                                  className={`flex min-w-0 flex-1 items-center justify-between gap-3 py-2 pl-4 pr-2 text-left text-[12.5px] transition ${
+                                    isDark
+                                      ? "text-neutral-300 hover:bg-white/[0.05]"
+                                      : "text-neutral-600 hover:bg-black/[0.03]"
+                                  }`}
+                                >
+                                  <span className="flex min-w-0 items-center gap-2">
+                                    <span
+                                      className="h-2.5 w-2.5 shrink-0 rounded-full"
+                                      style={{ backgroundColor: hexOf(t) }}
+                                    />
+                                    <span className="truncate">{t.label}</span>
+                                  </span>
+                                  <span
+                                    className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[10px] ${
+                                      on
+                                        ? isDark
+                                          ? "border-white bg-white text-black"
+                                          : "border-black bg-black text-white"
+                                        : isDark
+                                          ? "border-white/25"
+                                          : "border-black/25"
+                                    }`}
+                                  >
+                                    {on ? "✓" : ""}
+                                  </span>
+                                </button>
+                              )}
+
+                              {!fixed && editingTagId !== t.id && (
+                                <>
+                                  <button
+                                    type="button"
+                                    aria-label={`Rename ${t.label}`}
+                                    onClick={() => setEditingTagId(t.id)}
+                                    className={`rounded-md p-1 opacity-0 transition focus-visible:opacity-100 group-hover:opacity-100 ${
+                                      isDark
+                                        ? "text-neutral-400 hover:bg-white/[0.06] hover:text-white"
+                                        : "text-neutral-400 hover:bg-black/[0.05] hover:text-neutral-900"
+                                    }`}
+                                  >
+                                    <PencilIcon />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    aria-label={`Delete ${t.label}`}
+                                    onClick={() => void handleDeleteTag(t.id)}
+                                    className={`mr-2 rounded-md p-1 opacity-0 transition focus-visible:opacity-100 group-hover:opacity-100 ${
+                                      isDark
+                                        ? "text-rose-300 hover:bg-white/[0.06]"
+                                        : "text-rose-600 hover:bg-black/[0.05]"
+                                    }`}
+                                  >
+                                    <TrashIcon />
+                                  </button>
+                                </>
+                              )}
+                            </li>
+                          );
+                        })}
+                      </ul>
+
+                      <div
+                        className={`mt-1.5 border-t p-2 ${
+                          isDark ? "border-white/[0.07]" : "border-black/[0.06]"
+                        }`}
                       >
-                        All tags
-                      </MenuItem>
-
-                      {categories.map((cat) => {
-                        const tone = TONE_STYLES[cat.tone];
-                        const isActive = activeCategory === cat.id;
-                        return (
-                          <div key={cat.id} className="group flex items-center">
-                            <button
-                              type="button"
-                              role="menuitem"
-                              onClick={() => setActiveCategory(cat.id)}
-                              className={[
-                                "flex min-w-0 flex-1 items-center gap-2 py-2 pl-4 pr-2 text-left text-[12.5px] transition",
-                                isActive
-                                  ? isDark
-                                    ? "font-semibold text-white"
-                                    : "font-semibold text-neutral-900"
-                                  : isDark
-                                    ? "text-neutral-300 hover:bg-white/[0.05]"
-                                    : "text-neutral-600 hover:bg-black/[0.03]",
-                              ].join(" ")}
-                            >
-                              <span
-                                className={[
-                                  "h-2 w-2 shrink-0 rounded-full bg-current",
-                                  isDark ? tone.textDark : tone.textLight,
-                                ].join(" ")}
-                              />
-                              <span className="flex-1 truncate">{cat.name}</span>
-                              {isActive && <CheckIcon />}
-                            </button>
-                            <button
-                              type="button"
-                              aria-label={`Modifier ${cat.name}`}
-                              onClick={() => setEditingCategoryId(cat.id)}
-                              className={[
-                                "rounded-md p-1 opacity-0 transition focus-visible:opacity-100 group-hover:opacity-100",
-                                isDark ? "text-neutral-400 hover:bg-white/[0.06] hover:text-white" : "text-neutral-400 hover:bg-black/[0.05] hover:text-neutral-900",
-                              ].join(" ")}
-                            >
-                              <PencilIcon />
-                            </button>
-                            <button
-                              type="button"
-                              aria-label={`Supprimer ${cat.name}`}
-                              onClick={() => handleDeleteCategory(cat.id)}
-                              className={[
-                                "mr-2 rounded-md p-1 opacity-0 transition focus-visible:opacity-100 group-hover:opacity-100",
-                                isDark ? "text-rose-300 hover:bg-white/[0.06]" : "text-rose-600 hover:bg-black/[0.05]",
-                              ].join(" ")}
-                            >
-                              <TrashIcon />
-                            </button>
-                          </div>
-                        );
-                      })}
-
-                      <div className={["mt-1.5 border-t pt-1.5", isDark ? "border-white/[0.07]" : "border-black/[0.06]"].join(" ")}>
-                        <MenuItem isDark={isDark} icon={<PlusIcon />} onClick={() => setCatCreatorOpen(true)}>
-                          New tag
-                        </MenuItem>
+                        <CreateTagInput
+                          isDark={isDark}
+                          onCreate={(l) => void handleCreateTag(l)}
+                        />
                       </div>
                     </MenuPanel>
-                  )}
-
-                  {openPanel === "tags" && (catCreatorOpen || editingCategoryId) && (
-                    <CategoryEditorPopover
-                      key={editingCategoryId ?? "new"}
-                      isDark={isDark}
-                      title={editingCategoryId ? "Modifier la catégorie" : "Nouvelle catégorie"}
-                      initial={
-                        editingCategoryId && categoryById.get(editingCategoryId)
-                          ? {
-                              name: categoryById.get(editingCategoryId)!.name,
-                              tone: categoryById.get(editingCategoryId)!.tone,
-                            }
-                          : null
-                      }
-                      submitLabel={editingCategoryId ? "Enregistrer" : "Créer"}
-                      onCancel={() => {
-                        setCatCreatorOpen(false);
-                        setEditingCategoryId(null);
-                      }}
-                      onSave={(data) =>
-                        editingCategoryId
-                          ? handleUpdateCategory(editingCategoryId, data)
-                          : handleCreateCategory(data)
-                      }
-                    />
                   )}
                 </div>
 
@@ -2013,7 +2057,7 @@ export default function Schedule() {
                           <EventCard
                             key={event.id}
                             event={event}
-                            category={event.categoryId ? categoryById.get(event.categoryId) : undefined}
+                            tag={event.tagId ? tagsById.get(event.tagId) : undefined}
                             depth={depth}
                             isDark={isDark}
                             menuOpen={openMenuId === event.id}
@@ -2024,7 +2068,7 @@ export default function Schedule() {
                           />
                         ))}
 
-                        {/* ⬇️ Posts planifiés (nouveaux) */}
+                        {/* Posts planifiés */}
                         {postsByDay.get(dayIndex)?.map((item) => (
                           <PostCard
                             key={item.post.id}
@@ -2100,7 +2144,7 @@ export default function Schedule() {
       {eventFormOpen && (
         <EventFormModal
           isDark={isDark}
-          categories={categories}
+          tags={apiTags}
           weekStart={weekStart}
           initial={
             editingEvent
@@ -2109,7 +2153,7 @@ export default function Schedule() {
                   day: editingEvent.day,
                   start: editingEvent.start,
                   end: editingEvent.end,
-                  categoryId: editingEvent.categoryId,
+                  tagId: editingEvent.tagId,
                 }
               : null
           }
