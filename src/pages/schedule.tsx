@@ -29,8 +29,6 @@ import {
   ensureDefaultTags,
   listTags,
   createTag as apiCreateTag,
-  updateTag as apiUpdateTag,
-  deleteTag as apiDeleteTag,
   type Tag as ApiTag,
 } from "../services/supabase";
 import {
@@ -1158,7 +1156,6 @@ export default function Schedule() {
 
   // Tags masqués (filtre du menu Tags, comme Create)
   const [hiddenTags, setHiddenTags] = useState<string[]>([]);
-  const [editingTagId, setEditingTagId] = useState<string | null>(null);
 
   const [weekOffset, setWeekOffset] = useState(0);
   const [openPanel, setOpenPanel] = useState<ToolbarPanel | null>(null);
@@ -1204,7 +1201,6 @@ export default function Schedule() {
 
     const closeAll = () => {
       setOpenPanel(null);
-      setEditingTagId(null);
     };
     const onPointerDown = (e: MouseEvent) => {
       if (!(e.target as HTMLElement).closest("[data-toolbar-menu]")) closeAll();
@@ -1324,7 +1320,6 @@ export default function Schedule() {
   const monthLabel = days[3].date.toLocaleDateString(LOCALE, { month: "long", year: "numeric" });
 
   const togglePanel = (panel: ToolbarPanel) => {
-    setEditingTagId(null);
     setOpenPanel((cur) => (cur === panel ? null : panel));
   };
 
@@ -1452,38 +1447,6 @@ export default function Schedule() {
       setApiTags((prev) => [...prev, created]);
     } catch (e) {
       console.error("Error creating tag:", e);
-    }
-  };
-
-  const handleRenameTag = async (id: string, label: string) => {
-    const l = label.trim();
-    const tag = apiTags.find((t) => t.id === id);
-    if (!l || !tag || l === tag.label) return;
-    setApiTags((prev) => prev.map((t) => (t.id === id ? { ...t, label: l } : t)));
-    try {
-      await apiUpdateTag(id, { label: l, color: tag.color });
-    } catch (e) {
-      console.error("Error renaming tag:", e);
-      setApiTags((prev) => prev.map((t) => (t.id === id ? tag : t)));
-    }
-  };
-
-  const handleDeleteTag = async (id: string) => {
-    if (id === UNASSIGNED) return;
-    const prevTags = apiTags;
-    const prevEvents = events;
-    setApiTags((prev) => prev.filter((t) => t.id !== id));
-    setHiddenTags((prev) => prev.filter((x) => x !== id));
-    setEvents((prev) =>
-      prev.map((e) => (e.tagId === id ? { ...e, tagId: undefined } : e)),
-    );
-    try {
-      await apiDeleteTag(id);
-      setPostsTick((n) => n + 1); // les posts perdent ce tag
-    } catch (e) {
-      console.error("Error deleting tag:", e);
-      setApiTags(prevTags);
-      setEvents(prevEvents);
     }
   };
 
@@ -1756,89 +1719,40 @@ export default function Schedule() {
                       <ul className="max-h-[260px] overflow-y-auto">
                         {allTags.map((t) => {
                           const on = !hiddenTags.includes(t.id);
-                          const fixed = t.id === UNASSIGNED;
                           return (
-                            <li key={t.id} className="group flex items-center">
-                              {editingTagId === t.id ? (
-                                <input
-                                  autoFocus
-                                  defaultValue={t.label}
-                                  maxLength={30}
-                                  onBlur={(e) => {
-                                    void handleRenameTag(t.id, e.target.value);
-                                    setEditingTagId(null);
-                                  }}
-                                  onKeyDown={(e) => {
-                                    if (e.key === "Enter") e.currentTarget.blur();
-                                    if (e.key === "Escape") setEditingTagId(null);
-                                  }}
-                                  className={`mx-3 my-1 w-full rounded-md border bg-transparent px-2 py-1 text-[12.5px] outline-none ${
-                                    isDark ? "border-white/30 text-white" : "border-black/30 text-neutral-900"
-                                  }`}
-                                />
-                              ) : (
-                                <button
-                                  type="button"
-                                  role="menuitemcheckbox"
-                                  aria-checked={on}
-                                  onClick={() => toggleHiddenTag(t.id)}
-                                  className={`flex min-w-0 flex-1 items-center justify-between gap-3 py-2 pl-4 pr-2 text-left text-[12.5px] transition ${
-                                    isDark
-                                      ? "text-neutral-300 hover:bg-white/[0.05]"
-                                      : "text-neutral-600 hover:bg-black/[0.03]"
+                            <li key={t.id} className="flex items-center">
+                              <button
+                                type="button"
+                                role="menuitemcheckbox"
+                                aria-checked={on}
+                                onClick={() => toggleHiddenTag(t.id)}
+                                className={`flex min-w-0 flex-1 items-center justify-between gap-3 px-4 py-2 text-left text-[12.5px] transition ${
+                                  isDark
+                                    ? "text-neutral-300 hover:bg-white/[0.05]"
+                                    : "text-neutral-600 hover:bg-black/[0.03]"
+                                }`}
+                              >
+                                <span className="flex min-w-0 items-center gap-2">
+                                  <span
+                                    className="h-2.5 w-2.5 shrink-0 rounded-full"
+                                    style={{ backgroundColor: hexOf(t) }}
+                                  />
+                                  <span className="truncate">{t.label}</span>
+                                </span>
+                                <span
+                                  className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[10px] ${
+                                    on
+                                      ? isDark
+                                        ? "border-white bg-white text-black"
+                                        : "border-black bg-black text-white"
+                                      : isDark
+                                        ? "border-white/25"
+                                        : "border-black/25"
                                   }`}
                                 >
-                                  <span className="flex min-w-0 items-center gap-2">
-                                    <span
-                                      className="h-2.5 w-2.5 shrink-0 rounded-full"
-                                      style={{ backgroundColor: hexOf(t) }}
-                                    />
-                                    <span className="truncate">{t.label}</span>
-                                  </span>
-                                  <span
-                                    className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[10px] ${
-                                      on
-                                        ? isDark
-                                          ? "border-white bg-white text-black"
-                                          : "border-black bg-black text-white"
-                                        : isDark
-                                          ? "border-white/25"
-                                          : "border-black/25"
-                                    }`}
-                                  >
-                                    {on ? "✓" : ""}
-                                  </span>
-                                </button>
-                              )}
-
-                              {!fixed && editingTagId !== t.id && (
-                                <>
-                                  <button
-                                    type="button"
-                                    aria-label={`Rename ${t.label}`}
-                                    onClick={() => setEditingTagId(t.id)}
-                                    className={`rounded-md p-1 opacity-0 transition focus-visible:opacity-100 group-hover:opacity-100 ${
-                                      isDark
-                                        ? "text-neutral-400 hover:bg-white/[0.06] hover:text-white"
-                                        : "text-neutral-400 hover:bg-black/[0.05] hover:text-neutral-900"
-                                    }`}
-                                  >
-                                    <PencilIcon />
-                                  </button>
-                                  <button
-                                    type="button"
-                                    aria-label={`Delete ${t.label}`}
-                                    onClick={() => void handleDeleteTag(t.id)}
-                                    className={`mr-2 rounded-md p-1 opacity-0 transition focus-visible:opacity-100 group-hover:opacity-100 ${
-                                      isDark
-                                        ? "text-rose-300 hover:bg-white/[0.06]"
-                                        : "text-rose-600 hover:bg-black/[0.05]"
-                                    }`}
-                                  >
-                                    <TrashIcon />
-                                  </button>
-                                </>
-                              )}
+                                  {on ? "✓" : ""}
+                                </span>
+                              </button>
                             </li>
                           );
                         })}
