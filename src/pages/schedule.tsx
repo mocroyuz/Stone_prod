@@ -431,10 +431,11 @@ function MenuItem({
 
 const LOCALE = "en-US";
 
+/** La semaine commence le Dimanche (0) */
 function startOfWeek(date: Date) {
   const d = new Date(date);
   d.setHours(0, 0, 0, 0);
-  d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+  d.setDate(d.getDate() - d.getDay());
   return d;
 }
 
@@ -449,7 +450,7 @@ function addMonths(date: Date, months: number) {
   const day = d.getDate();
   d.setMonth(d.getMonth() + months);
   if (d.getDate() < day) {
-    d.setDate(0); // dernier jour du mois précédent (qui est le bon dernier jour du mois cible)
+    d.setDate(0);
   }
   return d;
 }
@@ -478,7 +479,7 @@ function dateToHour(d: Date): number {
 
 type CalendarEvent = {
   id: string;
-  day: number; // 0-6 (Lundi-Dimanche)
+  day: number; // 0-6 (Dimanche-Samedi)
   dateStr?: string; // Date exacte (ex: "Mon Mar 25 2024") pour la vue Mois
   start: number;
   end: number;
@@ -495,7 +496,7 @@ const SPAN = END_HOUR - START_HOUR;
 
 /** Les cartes de post font ~1 h de haut. */
 const HOUR_HEIGHT = 128;
-const POST_SPAN = 1; // une carte de post occupe 1 h dans la grille
+const POST_SPAN = 1;
 
 const TOTAL_HEIGHT = SPAN * HOUR_HEIGHT;
 
@@ -941,7 +942,7 @@ function EventFormModal({
 
   const submit = () => {
     if (!canSave) return;
-    const day = (date.getDay() + 6) % 7;
+    const day = date.getDay();
     onSave({
       title: title.trim(),
       day,
@@ -1077,8 +1078,6 @@ export default function Schedule() {
   const sidebarOffset = useSidebarOffset();
   const channels = useConnectedChannels();
 
-  // Favoris partagés avec la sidebar : le marque-page du header ajoute /
-  // retire cette page de la section « Favorite ».
   const { isFavorite, toggle: toggleFavorite } = useFavorites();
   const saved = isFavorite(PAGE_ROUTE);
 
@@ -1103,7 +1102,6 @@ export default function Schedule() {
 
   const [events, setEvents] = useState<CalendarEvent[]>([]);
 
-  // État lié aux posts et aux tags (chargés depuis Supabase)
   const [posts, setPosts] = useState<CalendarPost[]>([]);
   const [apiTags, setApiTags] = useState<ApiTag[]>([]);
   const [postsTick, setPostsTick] = useState(0);
@@ -1111,7 +1109,6 @@ export default function Schedule() {
   const allTags = useMemo(() => [UNASSIGNED_TAG, ...apiTags], [apiTags]);
   const tagsById = useMemo(() => new Map(apiTags.map((t) => [t.id, t])), [apiTags]);
 
-  // Tags masqués (filtre du menu Tags, comme Create)
   const [hiddenTags, setHiddenTags] = useState<string[]>([]);
 
   const [viewDate, setViewDate] = useState(() => new Date());
@@ -1228,7 +1225,6 @@ export default function Schedule() {
     setScrollTop(e.currentTarget.scrollTop);
   };
 
-  // Chargement des posts pour la plage courante
   useEffect(() => {
     let cancelled = false;
     listPosts(rangeStart, rangeEnd)
@@ -1241,7 +1237,6 @@ export default function Schedule() {
     };
   }, [rangeStart, rangeEnd, postsTick]);
 
-  // Chargement des tags (mêmes tags par défaut et même ordre que Create)
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -1258,14 +1253,13 @@ export default function Schedule() {
     };
   }, [postsTick]);
 
-  // Resynchronise quand on revient sur l'onglet
   useEffect(() => {
     const onFocus = () => setPostsTick((n) => n + 1);
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
   }, []);
 
-  // Génération des jours à afficher
+  // Génération des jours à afficher (Dimanche en premier)
   const days = useMemo((): (CalendarDay | null)[] => {
     if (view === "Week") {
       return Array.from({ length: 7 }, (_, i) => {
@@ -1284,15 +1278,15 @@ export default function Schedule() {
     const month = viewDate.getMonth();
     const firstDay = new Date(year, month, 1);
     const lastDay = new Date(year, month + 1, 0);
-    const startPad = (firstDay.getDay() + 6) % 7; 
+    const startPad = firstDay.getDay(); // 0 = Dimanche
     const numDays = lastDay.getDate();
 
     const res: (CalendarDay | null)[] = [];
     
-    // Jours du mois précédent (cases vides)
+    // Cases vides au début du mois
     for (let i = 0; i < startPad; i++) res.push(null);
     
-    // Jours du mois en cours
+    // Jours du mois
     for (let i = 1; i <= numDays; i++) {
       const date = new Date(year, month, i);
       res.push({
@@ -1304,11 +1298,10 @@ export default function Schedule() {
       });
     }
     
-    // Cases vides pour compléter la dernière semaine
-    const endPad = 7 - ((startPad + numDays) % 7);
-    if (endPad < 7) {
-      for (let i = 0; i < endPad; i++) res.push(null);
-    }
+    // Cases vides à la fin du mois
+    const endPad = (7 - (res.length % 7)) % 7;
+    for (let i = 0; i < endPad; i++) res.push(null);
+    
     return res;
   }, [view, viewDate, now]);
 
@@ -1357,7 +1350,7 @@ export default function Schedule() {
       if (!day) return;
       const key = day.date.toDateString();
       const dayEvents = visibleEvents.filter((e) => 
-        e.dateStr ? e.dateStr === key : e.day === (day.date.getDay() + 6) % 7
+        e.dateStr ? e.dateStr === key : e.day === day.date.getDay()
       );
       if (dayEvents.length) {
         map.set(key, dayEvents.sort((a, b) => a.start - b.start));
@@ -1411,7 +1404,6 @@ export default function Schedule() {
     return map;
   }, [posts, channelKey, scope, now, hiddenTags]);
 
-  // Items "scroll" unifiés (événements + posts) pour les flèches haut/bas
   const scrollItems = useMemo(
     () => [
       ...visibleEvents.map((e) => ({ start: e.start, end: e.end })),
@@ -1458,14 +1450,10 @@ export default function Schedule() {
     }
   };
 
-  /* ---------------- Tags (Supabase) ---------------- */
-
   const toggleHiddenTag = (id: string) =>
     setHiddenTags((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
     );
-
-  /* ---------------- Événements ---------------- */
 
   const handleDeleteEvent = (id: string) => {
     setEvents((prev) => prev.filter((e) => e.id !== id));
@@ -1530,7 +1518,6 @@ export default function Schedule() {
     setIsNewPostOpen(true);
   };
 
-  // Création réelle d'un post via le service
   const handleCreatePost = async (payload: NewPostPayload) => {
     await createPosts(payload);
     setPostsTick((n) => n + 1);
@@ -1573,7 +1560,6 @@ export default function Schedule() {
               "pb-4 pt-[clamp(18px,3vw,30px)]",
             ].join(" ")}
           >
-            {/* HEADER COMPACT */}
             <div className="relative z-40 mb-3 flex shrink-0 flex-wrap items-center justify-between gap-3">
               <div className="flex min-w-0 items-center gap-2.5">
                 <span
@@ -1620,7 +1606,6 @@ export default function Schedule() {
               </div>
             </div>
 
-            {/* TOOLBAR */}
             <div className="flex shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-2">
               <div className="flex items-center gap-1">
                 <ToolbarIconButton
@@ -1686,7 +1671,6 @@ export default function Schedule() {
               </div>
 
               <div className="flex flex-wrap items-center gap-1">
-                {/* All Posts */}
                 <div className="relative" data-toolbar-menu>
                   <ToolbarButton
                     isDark={isDark}
@@ -1715,7 +1699,6 @@ export default function Schedule() {
                   )}
                 </div>
 
-                {/* Tags */}
                 <div className="relative" data-toolbar-menu>
                   <ToolbarButton
                     isDark={isDark}
@@ -1782,7 +1765,6 @@ export default function Schedule() {
                   )}
                 </div>
 
-                {/* No Date */}
                 <ToolbarButton
                   isDark={isDark}
                   icon={<NoDateIcon />}
@@ -1795,7 +1777,6 @@ export default function Schedule() {
 
                 <span className={["mx-1 h-5 w-px", isDark ? "bg-white/[0.08]" : "bg-black/[0.08]"].join(" ")} />
 
-                {/* Fuseau horaire */}
                 <div className="relative" data-toolbar-menu>
                   <ToolbarButton
                     isDark={isDark}
@@ -1824,7 +1805,6 @@ export default function Schedule() {
                   )}
                 </div>
 
-                {/* Plus */}
                 <div className="relative" data-toolbar-menu>
                   <ToolbarIconButton
                     isDark={isDark}
@@ -1852,7 +1832,6 @@ export default function Schedule() {
               </div>
             </div>
 
-            {/* CALENDAR */}
             <div
               className={[
                 "mt-4 flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border",
@@ -2070,7 +2049,7 @@ export default function Schedule() {
               ) : (
                 <>
                   <div className="grid shrink-0 grid-cols-7">
-                    {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => (
+                    {["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"].map((d) => (
                       <div
                         key={d}
                         className={[
