@@ -28,7 +28,6 @@ import {
 import {
   ensureDefaultTags,
   listTags,
-  createTag as apiCreateTag,
   type Tag as ApiTag,
 } from "../services/supabase";
 import {
@@ -92,11 +91,6 @@ const UNASSIGNED_TAG: ApiTag = {
 const UNASSIGNED_HEX = "#a3a3a3";
 
 const DEFAULT_ORDER = ["to do", "in progress"];
-
-const NEW_TAG_COLORS = [
-  "bg-[#6366f1]", "bg-[#ec4899]", "bg-[#14b8a6]",
-  "bg-[#eab308]", "bg-[#84cc16]", "bg-[#0ea5e9]",
-];
 
 /** Couleur hexadécimale d'un tag (gère le tag « Unassigned »). */
 const hexOf = (t: ApiTag) => (t.id === UNASSIGNED ? UNASSIGNED_HEX : tagHex(t.color));
@@ -724,63 +718,6 @@ function fieldClass(isDark: boolean) {
       ? "border-white/[0.08] bg-white/[0.04] text-white placeholder:text-neutral-500 focus:border-white/25"
       : "border-black/[0.08] bg-neutral-50 text-neutral-900 placeholder:text-neutral-400 focus:border-black/20",
   ].join(" ");
-}
-
-/* ------------------------------------------------------------------ */
-/* Champ « créer un tag » (comme Create)                               */
-/* ------------------------------------------------------------------ */
-
-function CreateTagInput({
-  onCreate,
-  isDark,
-  placeholder = "Create a tag…",
-}: {
-  onCreate: (label: string) => void;
-  isDark: boolean;
-  placeholder?: string;
-}) {
-  const [value, setValue] = useState("");
-
-  const submit = () => {
-    if (!value.trim()) return;
-    onCreate(value);
-    setValue("");
-  };
-
-  return (
-    <div
-      className={`flex items-center gap-1 rounded-lg border px-2 ${
-        isDark ? "border-white/[0.10]" : "border-black/[0.10]"
-      }`}
-    >
-      <input
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") {
-            e.preventDefault();
-            submit();
-          }
-        }}
-        placeholder={placeholder}
-        maxLength={30}
-        className={`min-w-0 flex-1 bg-transparent py-2 text-[13px] outline-none ${
-          isDark ? "placeholder:text-neutral-600" : "placeholder:text-neutral-400"
-        }`}
-      />
-      <button
-        type="button"
-        aria-label="Create tag"
-        onClick={submit}
-        disabled={!value.trim()}
-        className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md transition disabled:opacity-30 ${
-          isDark ? "hover:bg-white/[0.06]" : "hover:bg-black/[0.04]"
-        }`}
-      >
-        <PlusIcon />
-      </button>
-    </div>
-  );
 }
 
 /* ------------------------------------------------------------------ */
@@ -1433,23 +1370,6 @@ export default function Schedule() {
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
     );
 
-  const handleCreateTag = async (label: string) => {
-    const l = label.trim();
-    if (!l) return;
-    const existing = apiTags.find((t) => t.label.toLowerCase() === l.toLowerCase());
-    if (existing) {
-      setHiddenTags((prev) => prev.filter((x) => x !== existing.id));
-      return;
-    }
-    try {
-      const color = NEW_TAG_COLORS[apiTags.length % NEW_TAG_COLORS.length];
-      const created = await apiCreateTag(l, color);
-      setApiTags((prev) => [...prev, created]);
-    } catch (e) {
-      console.error("Error creating tag:", e);
-    }
-  };
-
   /* ---------------- Événements ---------------- */
 
   const handleDeleteEvent = (id: string) => {
@@ -1757,17 +1677,6 @@ export default function Schedule() {
                           );
                         })}
                       </ul>
-
-                      <div
-                        className={`mt-1.5 border-t p-2 ${
-                          isDark ? "border-white/[0.07]" : "border-black/[0.06]"
-                        }`}
-                      >
-                        <CreateTagInput
-                          isDark={isDark}
-                          onCreate={(l) => void handleCreateTag(l)}
-                        />
-                      </div>
                     </MenuPanel>
                   )}
                 </div>
