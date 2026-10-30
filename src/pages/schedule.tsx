@@ -444,6 +444,16 @@ function addDays(date: Date, days: number) {
   return d;
 }
 
+function addMonths(date: Date, months: number) {
+  const d = new Date(date);
+  const day = d.getDate();
+  d.setMonth(d.getMonth() + months);
+  if (d.getDate() < day) {
+    d.setDate(0); // dernier jour du mois précédent (qui est le bon dernier jour du mois cible)
+  }
+  return d;
+}
+
 /* ------------------------------------------------------------------ */
 /* Time <-> decimal hour helpers                                       */
 /* ------------------------------------------------------------------ */
@@ -505,7 +515,7 @@ function formatEventTime(start: number, end: number) {
   return `${formatTime(start)} - ${formatTime(end)}`;
 }
 
-const VIEW_OPTIONS = ["Week"];
+const VIEW_OPTIONS = ["Week", "Month"];
 const TIMEZONES = ["Paris", "London", "New York", "Tokyo"];
 const SCOPE_OPTIONS = ["All", "Publié", "À publier"];
 
@@ -1094,9 +1104,9 @@ export default function Schedule() {
   // Tags masqués (filtre du menu Tags, comme Create)
   const [hiddenTags, setHiddenTags] = useState<string[]>([]);
 
-  const [weekOffset, setWeekOffset] = useState(0);
+  const [viewDate, setViewDate] = useState(() => new Date());
   const [openPanel, setOpenPanel] = useState<ToolbarPanel | null>(null);
-  const [view, setView] = useState("Week");
+  const [view, setView] = useState<"Week" | "Month">("Week");
   const [timezone, setTimezone] = useState("Paris");
   const [showNoDate, setShowNoDate] = useState(false);
   const [scope, setScope] = useState("All");
@@ -1160,20 +1170,32 @@ export default function Schedule() {
     return () => window.clearInterval(id);
   }, []);
 
+  // Calcul de la plage de dates affichée
+  const rangeStart = useMemo(() => {
+    if (view === "Week") return startOfWeek(viewDate);
+    return startOfWeek(new Date(viewDate.getFullYear(), viewDate.getMonth(), 1));
+  }, [view, viewDate]);
+
+  const rangeEnd = useMemo(() => {
+    if (view === "Week") return addDays(rangeStart, 7);
+    const monthEnd = new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 0);
+    return addDays(startOfWeek(monthEnd), 7);
+  }, [view, viewDate, rangeStart]);
+
+  const weekStart = useMemo(() => startOfWeek(viewDate), [viewDate]);
+
   useEffect(() => {
     const el = scrollRef.current;
-    if (!el) return;
+    if (!el || view !== "Week") return;
 
-    const n = new Date();
-    const hour = n.getHours() + n.getMinutes() / 60;
-    const target =
-      weekOffset === 0
-        ? Math.max(0, (hour - NOW_CONTEXT_HOURS - START_HOUR) * HOUR_HEIGHT)
-        : (DEFAULT_SCROLL_HOUR - START_HOUR) * HOUR_HEIGHT;
+    const isCurrentWeek = now >= weekStart && now < addDays(weekStart, 7);
+    const target = isCurrentWeek
+      ? Math.max(0, (now.getHours() + now.getMinutes() / 60 - NOW_CONTEXT_HOURS - START_HOUR) * HOUR_HEIGHT)
+      : (DEFAULT_SCROLL_HOUR - START_HOUR) * HOUR_HEIGHT;
 
     el.scrollTop = target;
     setScrollTop(el.scrollTop);
-  }, [weekOffset]);
+  }, [weekStart, view, now]);
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -1197,16 +1219,10 @@ export default function Schedule() {
     setScrollTop(e.currentTarget.scrollTop);
   };
 
-  const weekStart = useMemo(
-    () => addDays(startOfWeek(now), weekOffset * 7),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [now.toDateString(), weekOffset],
-  );
-
-  // Chargement des posts pour la semaine courante
+  // Chargement des posts pour la plage courante
   useEffect(() => {
     let cancelled = false;
-    listPosts(weekStart, addDays(weekStart, 7))
+    listPosts(rangeStart, rangeEnd)
       .then((p) => {
         if (!cancelled) setPosts(p);
       })
@@ -1214,7 +1230,7 @@ export default function Schedule() {
     return () => {
       cancelled = true;
     };
-  }, [weekStart, postsTick]);
+  }, [rangeStart, rangeEnd, postsTick]);
 
   // Chargement des tags (mêmes tags par défaut et même ordre que Create)
   useEffect(() => {
@@ -1240,21 +1256,22 @@ export default function Schedule() {
     return () => window.removeEventListener("focus", onFocus);
   }, []);
 
-  const days = useMemo(
-    () =>
-      Array.from({ length: 7 }, (_, i) => {
-        const date = addDays(weekStart, i);
-        return {
-          date,
-          n: date.getDate(),
-          label: date.toLocaleDateString(LOCALE, { weekday: "short" }),
-          isToday: date.toDateString() === now.toDateString(),
-        };
-      }),
-    [weekStart, now],
-  );
+  // Génération des jours à afficher (7 pour la semaine, ~35-42 pour le mois)
+  const days = useMemo(() => {
+    const totalDays = Math.round((rangeEnd.getTime() - rangeStart.getTime()) / 86400000);
+    return Array.from({ length: totalDays }, (_, i) => {
+      const date = addDays(rangeStart, i);
+      return {
+        date,
+        n: date.getDate(),
+        label: date.toLocaleDateString(LOCALE, { weekday: "short" }),
+        isToday: date.toDateString() === now.toDateString(),
+        isCurrentMonth: view === "Week" || date.getMonth() === viewDate.getMonth(),
+      };
+    });
+  }, [rangeStart, rangeEnd, now, view, viewDate]);
 
-  const monthLabel = days[3].date.toLocaleDateString(LOCALE, { month: "long", year: "numeric" });
+  const monthLabel = viewDate.toLocaleDateString(LOCALE, { month: "long", year: "numeric" });
 
   const togglePanel = (panel: ToolbarPanel) => {
     setOpenPanel((cur) => (cur === panel ? null : panel));
@@ -1292,6 +1309,19 @@ export default function Schedule() {
     return map;
   }, [visibleEvents]);
 
+  // Vue Mois : Événements regroupés par date
+  const monthEventsByDate = useMemo(() => {
+    const map = new Map<string, CalendarEvent[]>();
+    days.forEach((day) => {
+      const dayIdx = (day.date.getDay() + 6) % 7;
+      const dayEvents = visibleEvents.filter((e) => e.day === dayIdx);
+      if (dayEvents.length) {
+        map.set(day.date.toDateString(), dayEvents.sort((a, b) => a.start - b.start));
+      }
+    });
+    return map;
+  }, [days, visibleEvents]);
+
   // Regroupement des posts par jour (avec layout côte-à-côte)
   const postsByDay = useMemo(() => {
     const raw = new Map<number, { post: CalendarPost; start: number }[]>();
@@ -1315,6 +1345,27 @@ export default function Schedule() {
     for (const [day, list] of raw) map.set(day, layoutPosts(list));
     return map;
   }, [posts, channelKey, scope, now, weekStart, hiddenTags]);
+
+  // Vue Mois : Posts regroupés par date
+  const monthPostsByDate = useMemo(() => {
+    const map = new Map<string, CalendarPost[]>();
+    posts.forEach((post) => {
+      if (post.channelKey && channelKey && post.channelKey !== channelKey) return;
+      const posted = isPostPosted(post, now);
+      if (scope === "Publié" && !posted) return;
+      if (scope === "À publier" && posted) return;
+      if (!passesTagFilter(post.tagIds, hiddenTags)) return;
+
+      const d = new Date(post.scheduledAt);
+      const key = d.toDateString();
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(post);
+    });
+    map.forEach((arr) =>
+      arr.sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime())
+    );
+    return map;
+  }, [posts, channelKey, scope, now, hiddenTags]);
 
   // Items "scroll" unifiés (événements + posts) pour les flèches haut/bas
   const scrollItems = useMemo(
@@ -1463,7 +1514,6 @@ export default function Schedule() {
         ].join(" ")}
         style={{ paddingLeft: sidebarOffset }}
       >
-        {/* PANNEAU ARRONDI (flex column car le calendrier doit remplir la hauteur) */}
         <div
           className={[
             "flex h-full flex-col overflow-hidden",
@@ -1509,7 +1559,6 @@ export default function Schedule() {
                   onSelect={goChannel}
                 />
 
-                {/* Marque-page : ajoute / retire cette page des favoris de la sidebar */}
                 <button
                   type="button"
                   aria-label={saved ? "Remove from favorites" : "Add to favorites"}
@@ -1530,10 +1579,18 @@ export default function Schedule() {
             {/* TOOLBAR */}
             <div className="flex shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-2">
               <div className="flex items-center gap-1">
-                <ToolbarIconButton isDark={isDark} label="Previous week" onClick={() => setWeekOffset((o) => o - 1)}>
+                <ToolbarIconButton
+                  isDark={isDark}
+                  label={view === "Week" ? "Previous week" : "Previous month"}
+                  onClick={() => setViewDate((d) => (view === "Week" ? addDays(d, -7) : addMonths(d, -1)))}
+                >
                   <ChevronLeftIcon />
                 </ToolbarIconButton>
-                <ToolbarIconButton isDark={isDark} label="Next week" onClick={() => setWeekOffset((o) => o + 1)}>
+                <ToolbarIconButton
+                  isDark={isDark}
+                  label={view === "Week" ? "Next week" : "Next month"}
+                  onClick={() => setViewDate((d) => (view === "Week" ? addDays(d, 7) : addMonths(d, 1)))}
+                >
                   <ChevronRightIcon />
                 </ToolbarIconButton>
 
@@ -1548,7 +1605,7 @@ export default function Schedule() {
 
                 <button
                   type="button"
-                  onClick={() => setWeekOffset(0)}
+                  onClick={() => setViewDate(new Date())}
                   className={[
                     "rounded-lg border px-4 py-1.5 text-[13px] font-medium transition",
                     focusRingClass(isDark),
@@ -1572,7 +1629,7 @@ export default function Schedule() {
                           isDark={isDark}
                           selected={view === option}
                           onClick={() => {
-                            setView(option);
+                            setView(option as "Week" | "Month");
                             setOpenPanel(null);
                           }}
                         >
@@ -1614,7 +1671,7 @@ export default function Schedule() {
                   )}
                 </div>
 
-                {/* Tags (Supabase, comme Create) */}
+                {/* Tags */}
                 <div className="relative" data-toolbar-menu>
                   <ToolbarButton
                     isDark={isDark}
@@ -1759,206 +1816,300 @@ export default function Schedule() {
                 isDark ? "bg-white/[0.02]" : "bg-white",
               ].join(" ")}
             >
-              <div className="grid shrink-0 grid-cols-[56px_repeat(7,minmax(0,1fr))]">
-                <div className={["border-b", calendarHead].join(" ")} />
-                {days.map((day) => (
-                  <div
-                    key={day.date.toISOString()}
-                    className={[
-                      "flex items-center justify-center gap-2 border-b border-l py-3 text-[12.5px]",
-                      calendarHead,
-                      day.isToday
-                        ? isDark
-                          ? "font-semibold text-white"
-                          : "font-semibold text-neutral-900"
-                        : isDark
-                          ? "font-medium text-neutral-400"
-                          : "font-medium text-neutral-500",
-                    ].join(" ")}
-                  >
-                    <span>{day.label}</span>
-                    <span
-                      className={[
-                        "flex h-6 min-w-6 items-center justify-center rounded-full px-1.5 text-[12px]",
-                        day.isToday
-                          ? isDark
-                            ? "bg-white text-neutral-900"
-                            : "bg-neutral-900 text-white"
-                          : "",
-                      ].join(" ")}
-                    >
-                      {day.n}
-                    </span>
-                  </div>
-                ))}
-              </div>
-
-              <div className="relative min-h-0 flex-1">
-                <div
-                  ref={scrollRef}
-                  onScroll={handleScroll}
-                  className="h-full overflow-y-auto overscroll-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-                >
-                  <div
-                    className="grid grid-cols-[56px_repeat(7,minmax(0,1fr))]"
-                    style={{ height: TOTAL_HEIGHT }}
-                  >
-                    <div className="relative">
-                      {HOURS.map((h, i) => (
-                        <div
-                          key={h}
-                          className={[
-                            "absolute inset-x-0 px-2 text-right text-[11px] leading-none",
-                            mutedClass(isDark),
-                          ].join(" ")}
-                          style={{
-                            top: i * HOUR_HEIGHT,
-                            transform: i === 0 ? "translateY(6px)" : "translateY(-50%)",
-                          }}
-                        >
-                          {String(h).padStart(2, "0")}:00
-                        </div>
-                      ))}
-                    </div>
-
-                    {days.map((day, dayIndex) => (
+              {view === "Week" ? (
+                <>
+                  <div className="grid shrink-0 grid-cols-[56px_repeat(7,minmax(0,1fr))]">
+                    <div className={["border-b", calendarHead].join(" ")} />
+                    {days.map((day) => (
                       <div
                         key={day.date.toISOString()}
                         className={[
-                          "relative border-l",
-                          calendarBorder,
-                          day.isToday ? (isDark ? "bg-white/[0.02]" : "bg-black/[0.015]") : "",
+                          "flex items-center justify-center gap-2 border-b border-l py-3 text-[12.5px]",
+                          calendarHead,
+                          day.isToday
+                            ? isDark
+                              ? "font-semibold text-white"
+                              : "font-semibold text-neutral-900"
+                            : isDark
+                              ? "font-medium text-neutral-400"
+                              : "font-medium text-neutral-500",
                         ].join(" ")}
                       >
-                        {HOURS.slice(0, -1).map((h, i) => (
-                          <div
-                            key={h}
-                            className={["absolute inset-x-0 border-b", isDark ? "border-white/[0.05]" : "border-black/[0.04]"].join(" ")}
-                            style={{ top: (i + 1) * HOUR_HEIGHT }}
-                          />
-                        ))}
-
-                        {day.date.getTime() >= todayStart.getTime() &&
-                          HOURS.slice(0, -1).map((h) => {
-                            const slotEnd = new Date(day.date);
-                            slotEnd.setHours(h + 1, 0, 0, 0);
-                            if (slotEnd.getTime() <= now.getTime()) return null;
-
-                            return (
-                              <div
-                                key={`add-${h}`}
-                                className="group absolute inset-x-0"
-                                style={{ top: (h - START_HOUR) * HOUR_HEIGHT, height: HOUR_HEIGHT }}
-                              >
-                                <button
-                                  type="button"
-                                  aria-label="Add a post"
-                                  onClick={() => openNewPostAt(day.date, h)}
-                                  className={[
-                                    "absolute left-1/2 top-1/2 flex h-8 w-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-lg border opacity-0 transition group-hover:opacity-100 focus-visible:opacity-100",
-                                    isDark
-                                      ? "border-white/[0.08] bg-white/[0.06] text-neutral-300 hover:bg-white/[0.10] hover:text-white"
-                                      : "border-black/[0.06] bg-white text-neutral-500 shadow-sm hover:bg-neutral-50 hover:text-neutral-900",
-                                  ].join(" ")}
-                                >
-                                  <PlusIcon />
-                                  <span
-                                    className={[
-                                      "pointer-events-none absolute bottom-full mb-2 hidden whitespace-nowrap rounded-lg px-2.5 py-1 text-[12px] font-medium shadow-lg group-hover:block",
-                                      isDark ? "bg-[#2e2e31] text-white" : "bg-neutral-900 text-white",
-                                    ].join(" ")}
-                                  >
-                                    Add a post
-                                  </span>
-                                </button>
-                              </div>
-                            );
-                          })}
-
-                        {/* Événements du calendrier */}
-                        {layoutByDay.get(dayIndex)?.map(({ event, depth }) => (
-                          <EventCard
-                            key={event.id}
-                            event={event}
-                            tag={event.tagId ? tagsById.get(event.tagId) : undefined}
-                            depth={depth}
-                            isDark={isDark}
-                            menuOpen={openMenuId === event.id}
-                            onToggleMenu={() => setOpenMenuId((current) => (current === event.id ? null : event.id))}
-                            onCloseMenu={() => setOpenMenuId(null)}
-                            onEdit={() => handleEditEvent(event.id)}
-                            onDelete={() => handleDeleteEvent(event.id)}
-                          />
-                        ))}
-
-                        {/* Posts planifiés */}
-                        {postsByDay.get(dayIndex)?.map((item) => (
-                          <PostCard
-                            key={item.post.id}
-                            item={item}
-                            tagsById={tagsById}
-                            isDark={isDark}
-                            posted={isPostPosted(item.post, now)}
-                          />
-                        ))}
-
-                        {day.isToday && showNowLine && (
-                          <div
-                            className="pointer-events-none absolute inset-x-0 z-10 flex items-center"
-                            style={{ top: (nowHour - START_HOUR) * HOUR_HEIGHT }}
-                          >
-                            <span
-                              className={[
-                                "-ml-[38px] rounded-full px-2 py-1 text-[10px] font-semibold",
-                                isDark ? "bg-white text-neutral-900" : "bg-neutral-900 text-white",
-                              ].join(" ")}
-                            >
-                              {nowLabel}
-                            </span>
-                            <span className={["h-px flex-1", isDark ? "bg-white/40" : "bg-neutral-900/70"].join(" ")} />
-                          </div>
-                        )}
+                        <span>{day.label}</span>
+                        <span
+                          className={[
+                            "flex h-6 min-w-6 items-center justify-center rounded-full px-1.5 text-[12px]",
+                            day.isToday
+                              ? isDark
+                                ? "bg-white text-neutral-900"
+                                : "bg-neutral-900 text-white"
+                              : "",
+                          ].join(" ")}
+                        >
+                          {day.n}
+                        </span>
                       </div>
                     ))}
                   </div>
-                </div>
 
-                {hiddenAbove && (
-                  <button
-                    type="button"
-                    onClick={() => scrollToNextHidden("up")}
-                    aria-label="Événements au-dessus"
-                    className={[
-                      "absolute left-1/2 top-3 z-30 flex h-9 w-9 -translate-x-1/2 items-center justify-center rounded-full border shadow-lg transition hover:scale-105",
-                      focusRingClass(isDark),
-                      isDark
-                        ? "border-white/[0.10] bg-[#16161a] text-white"
-                        : "border-black/[0.06] bg-white text-neutral-800",
-                    ].join(" ")}
-                  >
-                    <ArrowUpIcon />
-                    <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-[#EF4444] ring-2 ring-white dark:ring-[#16161a]" />
-                  </button>
-                )}
+                  <div className="relative min-h-0 flex-1">
+                    <div
+                      ref={scrollRef}
+                      onScroll={handleScroll}
+                      className="h-full overflow-y-auto overscroll-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                    >
+                      <div
+                        className="grid grid-cols-[56px_repeat(7,minmax(0,1fr))]"
+                        style={{ height: TOTAL_HEIGHT }}
+                      >
+                        <div className="relative">
+                          {HOURS.map((h, i) => (
+                            <div
+                              key={h}
+                              className={[
+                                "absolute inset-x-0 px-2 text-right text-[11px] leading-none",
+                                mutedClass(isDark),
+                              ].join(" ")}
+                              style={{
+                                top: i * HOUR_HEIGHT,
+                                transform: i === 0 ? "translateY(6px)" : "translateY(-50%)",
+                              }}
+                            >
+                              {String(h).padStart(2, "0")}:00
+                            </div>
+                          ))}
+                        </div>
 
-                {hiddenBelow && (
-                  <button
-                    type="button"
-                    onClick={() => scrollToNextHidden("down")}
-                    aria-label="Événements en-dessous"
-                    className={[
-                      "absolute bottom-3 left-1/2 z-30 flex h-9 w-9 -translate-x-1/2 items-center justify-center rounded-full border shadow-lg transition hover:scale-105",
-                      focusRingClass(isDark),
-                      isDark
-                        ? "border-white/[0.10] bg-[#16161a] text-white"
-                        : "border-black/[0.06] bg-white text-neutral-800",
-                    ].join(" ")}
-                  >
-                    <ArrowDownIcon />
-                    <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-[#EF4444] ring-2 ring-white dark:ring-[#16161a]" />
-                  </button>
-                )}
-              </div>
+                        {days.map((day, dayIndex) => (
+                          <div
+                            key={day.date.toISOString()}
+                            className={[
+                              "relative border-l",
+                              calendarBorder,
+                              day.isToday ? (isDark ? "bg-white/[0.02]" : "bg-black/[0.015]") : "",
+                            ].join(" ")}
+                          >
+                            {HOURS.slice(0, -1).map((h, i) => (
+                              <div
+                                key={h}
+                                className={["absolute inset-x-0 border-b", isDark ? "border-white/[0.05]" : "border-black/[0.04]"].join(" ")}
+                                style={{ top: (i + 1) * HOUR_HEIGHT }}
+                              />
+                            ))}
+
+                            {day.date.getTime() >= todayStart.getTime() &&
+                              HOURS.slice(0, -1).map((h) => {
+                                const slotEnd = new Date(day.date);
+                                slotEnd.setHours(h + 1, 0, 0, 0);
+                                if (slotEnd.getTime() <= now.getTime()) return null;
+
+                                return (
+                                  <div
+                                    key={`add-${h}`}
+                                    className="group absolute inset-x-0"
+                                    style={{ top: (h - START_HOUR) * HOUR_HEIGHT, height: HOUR_HEIGHT }}
+                                  >
+                                    <button
+                                      type="button"
+                                      aria-label="Add a post"
+                                      onClick={() => openNewPostAt(day.date, h)}
+                                      className={[
+                                        "absolute left-1/2 top-1/2 flex h-8 w-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-lg border opacity-0 transition group-hover:opacity-100 focus-visible:opacity-100",
+                                        isDark
+                                          ? "border-white/[0.08] bg-white/[0.06] text-neutral-300 hover:bg-white/[0.10] hover:text-white"
+                                          : "border-black/[0.06] bg-white text-neutral-500 shadow-sm hover:bg-neutral-50 hover:text-neutral-900",
+                                      ].join(" ")}
+                                    >
+                                      <PlusIcon />
+                                      <span
+                                        className={[
+                                          "pointer-events-none absolute bottom-full mb-2 hidden whitespace-nowrap rounded-lg px-2.5 py-1 text-[12px] font-medium shadow-lg group-hover:block",
+                                          isDark ? "bg-[#2e2e31] text-white" : "bg-neutral-900 text-white",
+                                        ].join(" ")}
+                                      >
+                                        Add a post
+                                      </span>
+                                    </button>
+                                  </div>
+                                );
+                              })}
+
+                            {layoutByDay.get(dayIndex)?.map(({ event, depth }) => (
+                              <EventCard
+                                key={event.id}
+                                event={event}
+                                tag={event.tagId ? tagsById.get(event.tagId) : undefined}
+                                depth={depth}
+                                isDark={isDark}
+                                menuOpen={openMenuId === event.id}
+                                onToggleMenu={() => setOpenMenuId((current) => (current === event.id ? null : event.id))}
+                                onCloseMenu={() => setOpenMenuId(null)}
+                                onEdit={() => handleEditEvent(event.id)}
+                                onDelete={() => handleDeleteEvent(event.id)}
+                              />
+                            ))}
+
+                            {postsByDay.get(dayIndex)?.map((item) => (
+                              <PostCard
+                                key={item.post.id}
+                                item={item}
+                                tagsById={tagsById}
+                                isDark={isDark}
+                                posted={isPostPosted(item.post, now)}
+                              />
+                            ))}
+
+                            {day.isToday && showNowLine && (
+                              <div
+                                className="pointer-events-none absolute inset-x-0 z-10 flex items-center"
+                                style={{ top: (nowHour - START_HOUR) * HOUR_HEIGHT }}
+                              >
+                                <span
+                                  className={[
+                                    "-ml-[38px] rounded-full px-2 py-1 text-[10px] font-semibold",
+                                    isDark ? "bg-white text-neutral-900" : "bg-neutral-900 text-white",
+                                  ].join(" ")}
+                                >
+                                  {nowLabel}
+                                </span>
+                                <span className={["h-px flex-1", isDark ? "bg-white/40" : "bg-neutral-900/70"].join(" ")} />
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {hiddenAbove && (
+                      <button
+                        type="button"
+                        onClick={() => scrollToNextHidden("up")}
+                        aria-label="Événements au-dessus"
+                        className={[
+                          "absolute left-1/2 top-3 z-30 flex h-9 w-9 -translate-x-1/2 items-center justify-center rounded-full border shadow-lg transition hover:scale-105",
+                          focusRingClass(isDark),
+                          isDark
+                            ? "border-white/[0.10] bg-[#16161a] text-white"
+                            : "border-black/[0.06] bg-white text-neutral-800",
+                        ].join(" ")}
+                      >
+                        <ArrowUpIcon />
+                        <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-[#EF4444] ring-2 ring-white dark:ring-[#16161a]" />
+                      </button>
+                    )}
+
+                    {hiddenBelow && (
+                      <button
+                        type="button"
+                        onClick={() => scrollToNextHidden("down")}
+                        aria-label="Événements en-dessous"
+                        className={[
+                          "absolute bottom-3 left-1/2 z-30 flex h-9 w-9 -translate-x-1/2 items-center justify-center rounded-full border shadow-lg transition hover:scale-105",
+                          focusRingClass(isDark),
+                          isDark
+                            ? "border-white/[0.10] bg-[#16161a] text-white"
+                            : "border-black/[0.06] bg-white text-neutral-800",
+                        ].join(" ")}
+                      >
+                        <ArrowDownIcon />
+                        <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-[#EF4444] ring-2 ring-white dark:ring-[#16161a]" />
+                      </button>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="grid shrink-0 grid-cols-7">
+                    {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => (
+                      <div
+                        key={d}
+                        className={[
+                          "py-3 text-center text-[12.5px] border-b",
+                          calendarHead,
+                          isDark ? "font-medium text-neutral-400" : "font-medium text-neutral-500",
+                        ].join(" ")}
+                      >
+                        {d}
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="flex-1 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                    <div className="grid grid-cols-7 auto-rows-fr h-full">
+                      {days.map((day) => {
+                        const dayEvents = monthEventsByDate.get(day.date.toDateString()) || [];
+                        const dayPosts = monthPostsByDate.get(day.date.toDateString()) || [];
+
+                        return (
+                          <div
+                            key={day.date.toISOString()}
+                            className={[
+                              "border-r border-b flex flex-col p-1.5 gap-1 transition-colors",
+                              calendarBorder,
+                              !day.isCurrentMonth ? (isDark ? "opacity-40" : "opacity-40") : "",
+                              day.isToday ? (isDark ? "bg-white/[0.04]" : "bg-black/[0.02]") : "",
+                            ].join(" ")}
+                          >
+                            <div className="flex items-center justify-between">
+                              <span
+                                className={[
+                                  "flex h-6 w-6 items-center justify-center rounded-full text-[12px] font-semibold",
+                                  day.isToday
+                                    ? isDark
+                                      ? "bg-white text-neutral-900"
+                                      : "bg-neutral-900 text-white"
+                                    : isDark
+                                      ? "text-neutral-400"
+                                      : "text-neutral-500",
+                                ].join(" ")}
+                              >
+                                {day.n}
+                              </span>
+                            </div>
+                            
+                            <div className="flex flex-col gap-1 overflow-y-auto min-h-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                              {dayEvents.map((e) => {
+                                const tag = e.tagId ? tagsById.get(e.tagId) : undefined;
+                                const hex = tag ? hexOf(tag) : (isDark ? "#525252" : "#a3a3a3");
+                                return (
+                                  <div
+                                    key={e.id}
+                                    className={[
+                                      "text-[10px] px-1.5 py-1 rounded border-l-[3px] truncate cursor-pointer hover:opacity-80 transition-opacity flex flex-col gap-0.5",
+                                      !tag && (isDark ? "bg-neutral-800 border-neutral-600 text-neutral-300" : "bg-neutral-100 border-neutral-300 text-neutral-700"),
+                                    ].join(" ")}
+                                    style={tag ? { backgroundColor: `${hex}15`, borderColor: hex, color: isDark ? "#fff" : "#000" } : {}}
+                                  >
+                                    <span className="font-semibold truncate">{e.title}</span>
+                                    <span className="opacity-70 text-[9px]">{formatTime(e.start)}</span>
+                                  </div>
+                                );
+                              })}
+
+                              {dayPosts.map((p) => {
+                                const Icon = NETWORK_ICONS[p.network];
+                                const time = new Date(p.scheduledAt).toLocaleTimeString(LOCALE, { hour: "numeric", minute: "2-digit", hour12: true });
+                                return (
+                                  <div
+                                    key={p.id}
+                                    className={[
+                                      "text-[10px] px-1.5 py-1 rounded truncate cursor-pointer hover:opacity-80 transition-opacity flex items-center gap-1",
+                                      isDark ? "bg-white/10 text-neutral-200" : "bg-black/5 text-neutral-700",
+                                    ].join(" ")}
+                                  >
+                                    <Icon className="h-3 w-3 shrink-0" />
+                                    <span className="truncate">{time}</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -1968,7 +2119,7 @@ export default function Schedule() {
         <EventFormModal
           isDark={isDark}
           tags={apiTags}
-          weekStart={weekStart}
+          weekStart={rangeStart}
           initial={
             editingEvent
               ? {
@@ -2021,7 +2172,6 @@ export default function Schedule() {
         onRequestOpen={() => setIsNewPostOpen(true)}
       />
 
-      {/* HELP — même bouton que sur Home */}
       <HelpChatButton isDark={isDark} />
     </main>
   );
