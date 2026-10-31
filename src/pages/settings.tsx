@@ -864,7 +864,20 @@ export default function Settings(_props: SettingsProps) {
 
   // La section active vient de l'URL : soit passée par le routeur,
   // soit déduite du slug / des query params OAuth.
-  const active: SectionKey = _props.initialSection ?? initialSection();
+const returning =
+  typeof window !== "undefined" &&
+  (() => {
+    try {
+      const parsed = JSON.parse(sessionStorage.getItem(RETURN_KEY) ?? "[]");
+      return Array.isArray(parsed) && parsed.length > 0;
+    } catch {
+      return false;
+    }
+  })();
+
+const active: SectionKey = returning
+  ? "channels"
+  : _props.initialSection ?? initialSection();
 
   const [toast, setToast] = useState<{
     message: string;
@@ -2956,7 +2969,7 @@ type ChannelTokens = {
   avatarBadgeBg: string;
 };
 
-export const INSIGHT_ROUTE = "/insights";
+export const INSIGHT_ROUTE = "insights";
 
 const initialConnections: ConnectionState = {
   instagram: { connected: false },
@@ -3258,6 +3271,16 @@ function ChannelRow({
   );
 }
 
+/* ── Utils · Channels ──
+ *
+ * À COLLER dans Settings.tsx en remplaçant l'ancienne fonction ChannelsSection
+ * (de "function ChannelsSection({" jusqu'à son "}" de fermeture, juste avant
+ * "/* ── Utils · Tags ── *\/").
+ *
+ * N'oublie pas de changer aussi, plus haut dans le fichier :
+ *   export const INSIGHT_ROUTE = "insights";   // sans le "/" au début
+ */
+
 function ChannelsSection({
   tokens,
   notify,
@@ -3296,14 +3319,17 @@ function ChannelsSection({
 
   /* ---- Onboarding ---- */
 
+  // Ouvre l'étape 1 (ConfirmAccountModal). Appelée après chaque connexion réussie.
   const startOnboarding = (key: ChannelKey, connection: Connection) => {
     const channel = CHANNELS.find((c) => c.key === key);
+    console.log("[Stone] startOnboarding", key, { channel, connection });
     if (!channel) return;
     setConfirming(false);
     setOnboardingAccount(buildAccount(channel, connection));
     notify(`${channel.name} connected successfully!`, "success");
   };
 
+  // Bouton "Finish Connection" : ferme l'étape 1, va sur /insights, ouvre l'étape 2.
   const handleConfirmAccount = () => {
     if (!onboardingAccount || confirming) return;
     const account = onboardingAccount;
@@ -3338,10 +3364,14 @@ function ChannelsSection({
   const limitReached = connectedCount >= PLAN.maxChannels;
   const slotsLeft = Math.max(0, PLAN.maxChannels - connectedCount);
 
-  /* ---- Sync OAuth ---- */
+  /* ---- Sync OAuth (retour de TikTok / Pinterest / YouTube) ---- */
 
   useEffect(() => {
-    if (!userId) return;
+    if (!userId) {
+      console.log("[Stone] sync ignoré : userId absent");
+      return;
+    }
+
     const basePath = window.location.pathname;
     const params = new URLSearchParams(window.location.search);
 
@@ -3373,6 +3403,8 @@ function ChannelsSection({
       pinterest: pendingReturn.has("pinterest"),
       youtube: pendingReturn.has("youtube"),
     };
+
+    console.log("[Stone] sync démarré", { fromUrl, returned });
 
     if (tiktokError)
       setErrorMessage(`Unable to connect to TikTok. ${tiktokError}`);
@@ -3421,13 +3453,17 @@ function ChannelsSection({
       void (async () => {
         try {
           const status = await fetchStatus();
+          console.log("[Stone] status", provider, { justReturned, status });
           if (cancelled) return;
+
           if (justReturned) {
             writeReturned(readReturned().filter((p) => p !== provider));
           }
+
           const connection = toConnection(status);
           if (connection.connected) writeCache(userId, connection, provider);
           else clearCache(userId, provider);
+
           setConnections((current) => ({
             ...current,
             [provider]: connection,
@@ -3435,9 +3471,18 @@ function ChannelsSection({
 
           if (justReturned && connection.connected) {
             startOnboarding(provider, connection);
+          } else if (justReturned) {
+            console.warn(
+              `[Stone] Retour OAuth ${provider} mais le backend dit connected=false`
+            );
           }
         } catch (error) {
           console.warn(`[Stone] Could not load ${provider} status:`, error);
+          if (justReturned && !cancelled) {
+            setErrorMessage(
+              `Impossible de vérifier la connexion ${provider}. Réessaie.`
+            );
+          }
         }
       })();
     };
@@ -3587,6 +3632,8 @@ function ChannelsSection({
     }
   };
 
+  /* ---- Canaux simulés (Instagram / Facebook / Threads) ---- */
+
   const handlePlaceholderToggle = (key: ChannelKey) => {
     const wasConnected = connections[key].connected;
     const name = CHANNELS.find((c) => c.key === key)?.name ?? key;
@@ -3734,6 +3781,7 @@ function ChannelsSection({
         <span>Secure OAuth connections</span>
       </div>
 
+      {/* Étape 1 de l'onboarding : s'ouvre après chaque connexion réussie */}
       {onboardingAccount && (
         <ConfirmAccountModal
           account={onboardingAccount}
