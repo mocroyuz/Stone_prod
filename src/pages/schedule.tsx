@@ -626,7 +626,7 @@ function NetworkBadge({
 function PostThumb({
   post,
   isDark,
-  size = 16,
+  size = 12,
 }: {
   post: CalendarPost;
   isDark: boolean;
@@ -637,7 +637,7 @@ function PostThumb({
   return (
     <div
       className={[
-        "relative shrink-0 overflow-hidden rounded-[5px]",
+        "relative shrink-0 overflow-hidden rounded-[3px]",
         isDark ? "bg-white/[0.14]" : "bg-neutral-300",
       ].join(" ")}
       style={{ width: size, height: size }}
@@ -653,12 +653,10 @@ function PostThumb({
             playsInline
             className="h-full w-full object-cover"
           />
-          <span className="absolute inset-0 flex items-center justify-center">
-            <span className="flex h-[10px] w-[10px] items-center justify-center rounded-full bg-black/60 text-white">
-              <svg viewBox="0 0 24 24" className="ml-[0.5px] h-[5px] w-[5px]" fill="currentColor">
-                <path d="M8 5v14l11-7z" />
-              </svg>
-            </span>
+          <span className="absolute inset-0 flex items-center justify-center bg-black/25">
+            <svg viewBox="0 0 24 24" className="h-[5px] w-[5px] text-white" fill="currentColor">
+              <path d="M7 4v16l13-8z" />
+            </svg>
           </span>
         </>
       )}
@@ -758,7 +756,7 @@ function PostCard({
             Posted
           </span>
         )}
-        <PostThumb post={post} isDark={isDark} size={18} />
+        <PostThumb post={post} isDark={isDark} size={12} />
       </span>
     </div>
   );
@@ -803,7 +801,7 @@ function MonthPostChip({
         {formatPostTime(post.scheduledAt)}
       </span>
       <span className="ml-auto flex shrink-0">
-        <PostThumb post={post} isDark={isDark} size={16} />
+        <PostThumb post={post} isDark={isDark} size={12} />
       </span>
     </div>
   );
