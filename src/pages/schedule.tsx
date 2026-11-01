@@ -93,7 +93,6 @@ const DEFAULT_ORDER = ["to do", "in progress"];
 
 const hexOf = (t: ApiTag) => (t.id === UNASSIGNED ? UNASSIGNED_HEX : tagHex(t.color));
 
-/** Version ultra-sécurisée qui gère TOUS les cas */
 const passesTagFilter = (ids: string[] | undefined | null, hidden: string[]) => {
   if (!ids || !Array.isArray(ids) || ids.length === 0) {
     return !hidden.includes(UNASSIGNED);
@@ -105,9 +104,9 @@ const passesTagFilter = (ids: string[] | undefined | null, hidden: string[]) => 
 /* Icons                                                               */
 /* ------------------------------------------------------------------ */
 
-function ChevronDownIcon() {
+function ChevronDownIcon({ className = "h-[13px] w-[13px]" }: { className?: string }) {
   return (
-    <svg viewBox="0 0 24 24" className="h-[13px] w-[13px]" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="m6 9 6 6 6-6" />
     </svg>
   );
@@ -244,6 +243,14 @@ function MoreVerticalIcon() {
       <circle cx="12" cy="5" r="1.6" />
       <circle cx="12" cy="12" r="1.6" />
       <circle cx="12" cy="19" r="1.6" />
+    </svg>
+  );
+}
+
+function CloseIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-[15px] w-[15px]" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M6 6l12 12M18 6 6 18" />
     </svg>
   );
 }
@@ -498,6 +505,12 @@ const DEFAULT_SCROLL_HOUR = 8;
 const NOW_CONTEXT_HOURS = 2;
 const HOURS = Array.from({ length: SPAN + 1 }, (_, i) => START_HOUR + i);
 
+/* Month view : dimensions fixes pour calculer combien d'éléments rentrent */
+const MONTH_ITEM_H = 30;
+const MONTH_GAP = 4;
+const MONTH_CELL_PAD = 6;
+const MONTH_CELL_HEADER = 24;
+
 function formatTime(h: number) {
   const hh = Math.floor(h);
   const mm = Math.round((h - hh) * 60);
@@ -506,6 +519,18 @@ function formatTime(h: number) {
 
 function formatEventTime(start: number, end: number) {
   return `${formatTime(start)} - ${formatTime(end)}`;
+}
+
+function formatPostTime(iso: string) {
+  try {
+    return new Date(iso).toLocaleTimeString(LOCALE, {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    });
+  } catch {
+    return "--:--";
+  }
 }
 
 const VIEW_OPTIONS = ["Week", "Month"];
@@ -545,7 +570,7 @@ function layoutDayEvents(events: CalendarEvent[]): PositionedEvent[] {
 }
 
 /* ------------------------------------------------------------------ */
-/* Posts : Version compacte avec Drag & Drop                           */
+/* Posts                                                               */
 /* ------------------------------------------------------------------ */
 
 type NetIcon = (props: { className?: string }) => ReactNode;
@@ -560,6 +585,96 @@ const NETWORK_ICONS: Record<SocialNetworkId, NetIcon> = {
   pinterest: PinterestIcon,
   threads: ThreadsIcon as unknown as NetIcon,
 };
+
+/** Couleur de marque du badge de réseau (clair / sombre). */
+const NETWORK_COLORS: Record<SocialNetworkId, { light: string; dark: string }> = {
+  x: { light: "#111111", dark: "#3f3f46" },
+  facebook: { light: "#1877F2", dark: "#1877F2" },
+  instagram: { light: "#E1306C", dark: "#E1306C" },
+  linkedin: { light: "#0A66C2", dark: "#0A66C2" },
+  tiktok: { light: "#111111", dark: "#3f3f46" },
+  youtube: { light: "#FF0000", dark: "#E00000" },
+  pinterest: { light: "#E60023", dark: "#E60023" },
+  threads: { light: "#111111", dark: "#3f3f46" },
+};
+
+function networkOf(post: CalendarPost): SocialNetworkId {
+  const key = post.network as SocialNetworkId;
+  return key && NETWORK_ICONS[key] ? key : "x";
+}
+
+/** Fond des chips de posts : se distingue du fond du calendrier sans bordure. */
+const postChipBg = (isDark: boolean, posted: boolean) =>
+  [
+    isDark
+      ? "bg-white/[0.09] hover:bg-white/[0.14]"
+      : "bg-neutral-100 hover:bg-neutral-200/70",
+    posted ? "opacity-60 grayscale" : "",
+  ].join(" ");
+
+function NetworkBadge({
+  network,
+  isDark,
+  size = 20,
+}: {
+  network: SocialNetworkId;
+  isDark: boolean;
+  size?: number;
+}) {
+  const Icon = NETWORK_ICONS[network] || XIcon;
+  const bg = NETWORK_COLORS[network]?.[isDark ? "dark" : "light"] ?? "#111";
+  return (
+    <span
+      className="flex shrink-0 items-center justify-center rounded-md text-white"
+      style={{ width: size, height: size, backgroundColor: bg }}
+    >
+      <Icon className="h-3 w-3" />
+    </span>
+  );
+}
+
+function PostThumb({
+  post,
+  isDark,
+  size = 22,
+}: {
+  post: CalendarPost;
+  isDark: boolean;
+  size?: number;
+}) {
+  const cover = post.media?.[0];
+  if (!cover) return null;
+  return (
+    <div
+      className={[
+        "relative shrink-0 overflow-hidden rounded-md",
+        isDark ? "bg-white/[0.12]" : "bg-neutral-300",
+      ].join(" ")}
+      style={{ width: size, height: size }}
+    >
+      {cover.kind === "image" ? (
+        <img src={cover.url} alt="" loading="lazy" className="h-full w-full object-cover" />
+      ) : (
+        <>
+          <video
+            src={`${cover.url}#t=0.1`}
+            preload="metadata"
+            muted
+            playsInline
+            className="h-full w-full object-cover"
+          />
+          <span className="absolute inset-0 flex items-center justify-center">
+            <span className="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-black/55 text-white">
+              <svg viewBox="0 0 24 24" className="h-2 w-2" fill="currentColor">
+                <path d="M8 5v14l11-7z" />
+              </svg>
+            </span>
+          </span>
+        </>
+      )}
+    </div>
+  );
+}
 
 type PositionedPost = { post: CalendarPost; start: number; col: number; cols: number };
 
@@ -594,32 +709,23 @@ function layoutPosts(list: { post: CalendarPost; start: number }[]): PositionedP
   return out;
 }
 
-/** PostCard compact avec Drag & Drop - ULTRA SÉCURISÉ */
+/** Carte de post (vue semaine) */
 function PostCard({
-  item, tagsById, isDark, posted, onDragStart,
+  item,
+  isDark,
+  posted,
+  onDragStart,
+  onDragEnd,
 }: {
   item: PositionedPost;
-  tagsById: Map<string, ApiTag>;
   isDark: boolean;
   posted: boolean;
   onDragStart: (e: React.DragEvent, postId: string) => void;
+  onDragEnd: () => void;
 }) {
   const { post, start, col, cols } = item;
-  // Sécurité : fallback sur 'x' si network est undefined/invalid
-  const networkKey = (post.network as SocialNetworkId) || "x";
-  const Icon = NETWORK_ICONS[networkKey] || XIcon;
-  // Sécurité : media peut être undefined
-  const cover = post.media?.[0];
-  
-  // Sécurité : scheduledAt peut être invalide
-  let time = "--:--";
-  try {
-    time = new Date(post.scheduledAt).toLocaleTimeString(LOCALE, {
-      hour: "numeric", minute: "2-digit", hour12: true,
-    });
-  } catch {
-    // ignore
-  }
+  const network = networkOf(post);
+  const time = formatPostTime(post.scheduledAt);
 
   const height = Math.max(32, HOUR_HEIGHT * POST_SPAN - 8);
   const width = cols > 0 ? 100 / cols : 100;
@@ -628,49 +734,214 @@ function PostCard({
     <div
       draggable={!posted}
       onDragStart={(e) => onDragStart(e, post.id)}
+      onDragEnd={onDragEnd}
       tabIndex={0}
       className={[
-        "absolute flex items-center gap-1.5 rounded-lg border cursor-grab active:cursor-grabbing transition-shadow outline-none",
-        isDark ? "border-white/[0.08] bg-[#1c1c1e] hover:bg-[#252528]" : "border-black/[0.08] bg-white hover:bg-neutral-50",
-        posted ? "opacity-60 grayscale cursor-not-allowed" : "",
+        "absolute flex items-center gap-1.5 rounded-lg outline-none transition-colors",
+        postChipBg(isDark, posted),
+        posted ? "cursor-not-allowed" : "cursor-grab active:cursor-grabbing",
+        focusRingClass(isDark),
       ].join(" ")}
       style={{
         top: start * HOUR_HEIGHT + 2,
         left: `calc(${col * width}% + 2px)`,
         width: `calc(${width}% - 4px)`,
-        height: height,
+        height,
         zIndex: 2,
         padding: "4px 8px",
       }}
     >
+      <NetworkBadge network={network} isDark={isDark} />
+
       <span
         className={[
-          "flex h-5 w-5 shrink-0 items-center justify-center rounded-md",
-          isDark ? "bg-[#e4e4e7] text-[#111]" : "bg-neutral-900 text-white",
+          "text-[11px] font-semibold tabular-nums",
+          isDark ? "text-neutral-200" : "text-neutral-700",
         ].join(" ")}
       >
-        <Icon className="h-3 w-3" />
-      </span>
-
-      <span className={["text-[10px] font-semibold tabular-nums", isDark ? "text-neutral-200" : "text-neutral-700"].join(" ")}>
         {time}
       </span>
 
-      {cover && (
-        <div className="relative h-5 w-5 shrink-0 overflow-hidden rounded-md ml-auto">
-          {cover.kind === "image" ? (
-            <img src={cover.url} alt="" loading="lazy" className="h-full w-full object-cover" />
-          ) : (
-            <video src={`${cover.url}#t=0.1`} preload="metadata" muted playsInline className="h-full w-full object-cover" />
-          )}
-        </div>
-      )}
+      <span className="ml-auto flex items-center gap-1.5">
+        {posted && (
+          <span className={["text-[9px] font-medium", isDark ? "text-neutral-500" : "text-neutral-400"].join(" ")}>
+            Posted
+          </span>
+        )}
+        <PostThumb post={post} isDark={isDark} />
+      </span>
+    </div>
+  );
+}
 
-      {posted && (
-        <span className={["text-[9px] font-medium ml-1", isDark ? "text-neutral-500" : "text-neutral-400"].join(" ")}>
-          Posted
-        </span>
-      )}
+/* ------------------------------------------------------------------ */
+/* Month view chips                                                    */
+/* ------------------------------------------------------------------ */
+
+function MonthPostChip({
+  post,
+  isDark,
+  posted,
+  onDragStart,
+  onDragEnd,
+}: {
+  post: CalendarPost;
+  isDark: boolean;
+  posted: boolean;
+  onDragStart: (e: React.DragEvent, postId: string) => void;
+  onDragEnd: () => void;
+}) {
+  return (
+    <div
+      draggable={!posted}
+      onDragStart={(e) => onDragStart(e, post.id)}
+      onDragEnd={onDragEnd}
+      className={[
+        "flex shrink-0 items-center gap-2 rounded-lg px-1.5 transition-colors",
+        postChipBg(isDark, posted),
+        posted ? "cursor-not-allowed" : "cursor-grab active:cursor-grabbing",
+      ].join(" ")}
+      style={{ height: MONTH_ITEM_H }}
+    >
+      <NetworkBadge network={networkOf(post)} isDark={isDark} />
+      <span
+        className={[
+          "min-w-0 truncate text-[12px] font-semibold tabular-nums",
+          isDark ? "text-neutral-200" : "text-neutral-700",
+        ].join(" ")}
+      >
+        {formatPostTime(post.scheduledAt)}
+      </span>
+      <span className="ml-auto flex shrink-0">
+        <PostThumb post={post} isDark={isDark} size={22} />
+      </span>
+    </div>
+  );
+}
+
+function MonthEventChip({
+  event,
+  tag,
+  isDark,
+}: {
+  event: CalendarEvent;
+  tag?: ApiTag;
+  isDark: boolean;
+}) {
+  const hex = tag ? hexOf(tag) : isDark ? "#525252" : "#a3a3a3";
+  return (
+    <div
+      className={[
+        "flex shrink-0 flex-col justify-center overflow-hidden rounded-lg border-l-[3px] px-2 leading-tight",
+        !tag && (isDark ? "bg-neutral-800 text-neutral-200" : "bg-neutral-100 text-neutral-700"),
+      ]
+        .filter(Boolean)
+        .join(" ")}
+      style={{
+        height: MONTH_ITEM_H,
+        borderColor: hex,
+        ...(tag
+          ? { backgroundColor: `${hex}${isDark ? "26" : "1f"}`, color: isDark ? "#fff" : "#171717" }
+          : {}),
+      }}
+    >
+      <span className="truncate text-[11px] font-semibold">{event.title || "Sans titre"}</span>
+      <span className="truncate text-[9.5px] opacity-70">{formatTime(event.start)}</span>
+    </div>
+  );
+}
+
+function MoreRow({
+  count,
+  isDark,
+  onClick,
+}: {
+  count: number;
+  isDark: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={[
+        "flex shrink-0 items-center justify-end gap-1.5 rounded-lg px-1.5 text-[12.5px] font-semibold transition-colors",
+        focusRingClass(isDark),
+        isDark
+          ? "text-neutral-300 hover:bg-white/[0.06] hover:text-white"
+          : "text-neutral-600 hover:bg-black/[0.04] hover:text-neutral-900",
+      ].join(" ")}
+      style={{ height: MONTH_ITEM_H }}
+    >
+      <ChevronDownIcon className="h-[14px] w-[14px]" />
+      {count} More
+    </button>
+  );
+}
+
+type MonthItem =
+  | { kind: "event"; id: string; start: number; event: CalendarEvent }
+  | { kind: "post"; id: string; start: number; post: CalendarPost };
+
+function DayDetailModal({
+  isDark,
+  date,
+  items,
+  renderItem,
+  onClose,
+}: {
+  isDark: boolean;
+  date: Date;
+  items: MonthItem[];
+  renderItem: (item: MonthItem) => ReactNode;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [onClose]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div
+        role="dialog"
+        aria-modal="true"
+        className={[
+          "relative z-10 flex max-h-[80vh] w-full max-w-sm flex-col rounded-2xl border p-4 shadow-2xl",
+          isDark ? "border-white/[0.08] bg-[#16161a]" : "border-black/[0.06] bg-white",
+        ].join(" ")}
+      >
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <h2 className={["text-[15px] font-semibold tracking-[-0.02em]", strongClass(isDark)].join(" ")}>
+            {date.toLocaleDateString(LOCALE, { weekday: "long", month: "long", day: "numeric" })}
+          </h2>
+          <button
+            type="button"
+            aria-label="Close"
+            onClick={onClose}
+            className={[
+              "flex h-8 w-8 items-center justify-center rounded-lg transition",
+              focusRingClass(isDark),
+              isDark
+                ? "text-neutral-400 hover:bg-white/[0.06] hover:text-white"
+                : "text-neutral-500 hover:bg-black/[0.04] hover:text-neutral-900",
+            ].join(" ")}
+          >
+            <CloseIcon />
+          </button>
+        </div>
+        <div className="flex flex-col gap-1 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {items.map((item) => (
+            <div key={item.id} className="flex flex-col">
+              {renderItem(item)}
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
@@ -1089,10 +1360,15 @@ export default function Schedule() {
   const [scrollTop, setScrollTop] = useState(0);
   const [viewportHeight, setViewportHeight] = useState(0);
 
-  // Drag and drop state
+  // Month view : mesure de la grille + modale "N More"
+  const monthGridRef = useRef<HTMLDivElement>(null);
+  const [monthGridHeight, setMonthGridHeight] = useState(0);
+  const [moreDay, setMoreDay] = useState<Date | null>(null);
+
+  // Drag and drop
   const [draggedPostId, setDraggedPostId] = useState<string | null>(null);
-  const [dragOverDay, setDragOverDay] = useState<number | null>(null);
-  const dragOverTimer = useRef<NodeJS.Timeout | null>(null);
+  const [dragOverKey, setDragOverKey] = useState<string | null>(null);
+  const dragThrottle = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (openMenuId === null) return;
@@ -1115,9 +1391,7 @@ export default function Schedule() {
   useEffect(() => {
     if (!openPanel) return;
 
-    const closeAll = () => {
-      setOpenPanel(null);
-    };
+    const closeAll = () => setOpenPanel(null);
     const onPointerDown = (e: MouseEvent) => {
       if (!(e.target as HTMLElement).closest("[data-toolbar-menu]")) closeAll();
     };
@@ -1162,15 +1436,14 @@ export default function Schedule() {
 
     el.scrollTop = target;
     setScrollTop(el.scrollTop);
-  }, [weekStart, view, now]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [weekStart, view]);
 
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
 
-    const update = () => {
-      setViewportHeight(el.clientHeight);
-    };
+    const update = () => setViewportHeight(el.clientHeight);
 
     update();
     const ro = new ResizeObserver(update);
@@ -1180,7 +1453,20 @@ export default function Schedule() {
       ro.disconnect();
       window.removeEventListener("resize", update);
     };
-  }, []);
+  }, [view]);
+
+  // Mesure la hauteur de la grille du mois
+  useEffect(() => {
+    if (view !== "Month") return;
+    const el = monthGridRef.current;
+    if (!el) return;
+
+    const update = () => setMonthGridHeight(el.clientHeight);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [view]);
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     setScrollTop(e.currentTarget.scrollTop);
@@ -1248,7 +1534,7 @@ export default function Schedule() {
         };
       });
     }
-    
+
     const year = viewDate.getFullYear();
     const month = viewDate.getMonth();
     const firstDay = new Date(year, month, 1);
@@ -1257,9 +1543,9 @@ export default function Schedule() {
     const numDays = lastDay.getDate();
 
     const res: (CalendarDay | null)[] = [];
-    
+
     for (let i = 0; i < startPad; i++) res.push(null);
-    
+
     for (let i = 1; i <= numDays; i++) {
       const date = new Date(year, month, i);
       res.push({
@@ -1270,10 +1556,10 @@ export default function Schedule() {
         isCurrentMonth: true,
       });
     }
-    
+
     const endPad = (7 - (res.length % 7)) % 7;
     for (let i = 0; i < endPad; i++) res.push(null);
-    
+
     return res;
   }, [view, viewDate, now]);
 
@@ -1306,25 +1592,21 @@ export default function Schedule() {
 
   const layoutByDay = useMemo(() => {
     const map = new Map<number, PositionedEvent[]>();
-    const raw = new Map<number, CalendarEvent[]>();
-    for (let i = 0; i < 7; i++) raw.set(i, []);
-    visibleEvents.forEach((e) => {
-      const dayList = raw.get(e.day);
-      if (dayList) dayList.push(e);
-    });
-    for (const [day, list] of raw) {
-      map.set(day, layoutDayEvents(list));
+    for (let i = 0; i < 7; i++) {
+      const key = addDays(weekStart, i).toDateString();
+      const list = visibleEvents.filter((e) => (e.dateStr ? e.dateStr === key : e.day === i));
+      map.set(i, layoutDayEvents(list));
     }
     return map;
-  }, [visibleEvents]);
+  }, [visibleEvents, weekStart]);
 
   const monthEventsByDate = useMemo(() => {
     const map = new Map<string, CalendarEvent[]>();
     (days || []).forEach((day) => {
       if (!day) return;
       const key = day.date.toDateString();
-      const dayEvents = visibleEvents.filter((e) => 
-        e.dateStr ? e.dateStr === key : e.day === day.date.getDay()
+      const dayEvents = visibleEvents.filter((e) =>
+        e.dateStr ? e.dateStr === key : e.day === day.date.getDay(),
       );
       if (dayEvents.length) {
         map.set(key, dayEvents.sort((a, b) => a.start - b.start));
@@ -1333,51 +1615,39 @@ export default function Schedule() {
     return map;
   }, [days, visibleEvents]);
 
-  // ✅ ULTRA SÉCURISÉ - CORRIGE TOUS LES PROBLÈMES
+  /** Filtre commun (canal, scope, tags) pour un post. */
+  const postVisible = (post: CalendarPost | null | undefined): boolean => {
+    if (!post) return false;
+    if (post.channelKey && channelKey && post.channelKey !== channelKey) return false;
+
+    let posted = false;
+    try {
+      posted = isPostPosted(post, now);
+    } catch {
+      posted = false;
+    }
+
+    if (scope === "Publié" && !posted) return false;
+    if (scope === "À publier" && posted) return false;
+    if (!passesTagFilter(post.tagIds, hiddenTags)) return false;
+    return true;
+  };
+
   const postsByDay = useMemo(() => {
     const raw = new Map<number, { post: CalendarPost; start: number }[]>();
     for (let i = 0; i < 7; i++) raw.set(i, []);
 
-    if (!posts || posts.length === 0) {
-      const map = new Map<number, PositionedPost[]>();
-      for (let i = 0; i < 7; i++) map.set(i, []);
-      return map;
-    }
+    for (const post of posts || []) {
+      if (!postVisible(post)) continue;
 
-    for (const post of posts) {
-      if (!post) continue;
-      if (post.channelKey && channelKey && post.channelKey !== channelKey) continue;
-      
-      let posted = false;
-      try {
-        posted = isPostPosted(post, now);
-      } catch {
-        posted = false;
-      }
-      
-      if (scope === "Publié" && !posted) continue;
-      if (scope === "À publier" && posted) continue;
-      if (!passesTagFilter(post.tagIds, hiddenTags)) continue;
-
-      let d: Date;
-      try {
-        d = new Date(post.scheduledAt);
-        if (isNaN(d.getTime())) continue;
-      } catch {
-        continue;
-      }
+      const d = new Date(post.scheduledAt);
+      if (isNaN(d.getTime())) continue;
 
       const dayStart = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-      const diffTime = dayStart.getTime() - weekStart.getTime();
-      const idx = Math.round(diffTime / 86_400_000);
-      
-      // ✅ FIX PRINCIPAL : vérification stricte au lieu du !
+      const idx = Math.round((dayStart.getTime() - weekStart.getTime()) / 86_400_000);
       if (idx < 0 || idx > 6) continue;
-      
-      const dayList = raw.get(idx);
-      if (dayList) {
-        dayList.push({ post, start: d.getHours() + d.getMinutes() / 60 });
-      }
+
+      raw.get(idx)?.push({ post, start: d.getHours() + d.getMinutes() / 60 });
     }
 
     const map = new Map<number, PositionedPost[]>();
@@ -1385,87 +1655,118 @@ export default function Schedule() {
       map.set(day, layoutPosts(list));
     }
     return map;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [posts, channelKey, scope, now, weekStart, hiddenTags]);
 
   const monthPostsByDate = useMemo(() => {
     const map = new Map<string, CalendarPost[]>();
-    if (!posts || posts.length === 0) return map;
-    
-    posts.forEach((post) => {
-      if (!post) return;
-      if (post.channelKey && channelKey && post.channelKey !== channelKey) return;
-      
-      let posted = false;
-      try {
-        posted = isPostPosted(post, now);
-      } catch {
-        posted = false;
-      }
-      
-      if (scope === "Publié" && !posted) return;
-      if (scope === "À publier" && posted) return;
-      if (!passesTagFilter(post.tagIds, hiddenTags)) return;
 
-      let d: Date;
-      try {
-        d = new Date(post.scheduledAt);
-        if (isNaN(d.getTime())) return;
-      } catch {
-        return;
-      }
+    for (const post of posts || []) {
+      if (!postVisible(post)) continue;
+      const d = new Date(post.scheduledAt);
+      if (isNaN(d.getTime())) continue;
 
       const key = d.toDateString();
-      const existing = map.get(key) || [];
-      existing.push(post);
-      map.set(key, existing);
-    });
-    
+      const list = map.get(key) ?? [];
+      list.push(post);
+      map.set(key, list);
+    }
+
     map.forEach((arr) =>
-      arr.sort((a, b) => {
-        try {
-          return new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime();
-        } catch {
-          return 0;
-        }
-      })
+      arr.sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime()),
     );
     return map;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [posts, channelKey, scope, now, hiddenTags]);
 
-  // Drag and drop handlers
+  /** Événements + posts d'une journée, triés par heure. */
+  const monthItemsByDate = useMemo(() => {
+    const map = new Map<string, MonthItem[]>();
+    const keys = new Set([...monthEventsByDate.keys(), ...monthPostsByDate.keys()]);
+
+    keys.forEach((key) => {
+      const items: MonthItem[] = [];
+      (monthEventsByDate.get(key) ?? []).forEach((event) =>
+        items.push({ kind: "event", id: `e-${event.id}`, start: event.start, event }),
+      );
+      (monthPostsByDate.get(key) ?? []).forEach((post) => {
+        const d = new Date(post.scheduledAt);
+        items.push({
+          kind: "post",
+          id: `p-${post.id}`,
+          start: d.getHours() + d.getMinutes() / 60,
+          post,
+        });
+      });
+      items.sort((a, b) => a.start - b.start);
+      map.set(key, items);
+    });
+    return map;
+  }, [monthEventsByDate, monthPostsByDate]);
+
+  /* ---------------- Month view capacity ---------------- */
+
+  const monthRowCount = Math.max(1, Math.ceil(days.length / 7));
+  const monthCellHeight = monthGridHeight / monthRowCount;
+
+  /** Nombre d'éléments affichables dans une case (la ligne "N More" prend une place). */
+  const visibleCountFor = (total: number) => {
+    if (monthGridHeight === 0) return total;
+    const avail = monthCellHeight - MONTH_CELL_PAD * 2 - MONTH_CELL_HEADER - MONTH_GAP;
+    const fit = Math.max(0, Math.floor((avail + MONTH_GAP) / (MONTH_ITEM_H + MONTH_GAP)));
+    if (total <= fit) return total;
+    return Math.max(0, fit - 1);
+  };
+
+  /* ---------------- Drag and drop ---------------- */
+
   const handleDragStart = (e: React.DragEvent, postId: string) => {
     setDraggedPostId(postId);
     e.dataTransfer.effectAllowed = "move";
     e.dataTransfer.setData("text/plain", postId);
   };
 
-  const handleDragOver = (e: React.DragEvent, dayIndex: number) => {
+  const handleDragEnd = () => {
+    setDraggedPostId(null);
+    setDragOverKey(null);
+  };
+
+  const handleDragOver = (e: React.DragEvent, date: Date) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = "move";
-    if (dragOverTimer.current) return;
-    setDragOverDay(dayIndex);
-    dragOverTimer.current = setTimeout(() => {
-      dragOverTimer.current = null;
+    if (dragThrottle.current) return;
+    setDragOverKey(date.toDateString());
+    dragThrottle.current = setTimeout(() => {
+      dragThrottle.current = null;
     }, 16);
   };
 
-  const handleDragLeave = () => {
-    setDragOverDay(null);
-  };
+  const handleDragLeave = () => setDragOverKey(null);
 
-  const handleDrop = async (e: React.DragEvent, dayIndex: number, hour?: number) => {
+  /**
+   * Déplace un post vers `date`. Si `fromPointer` est vrai (colonne de la vue
+   * semaine), l'heure est déduite de la position verticale du curseur.
+   */
+  const handleDrop = async (e: React.DragEvent, date: Date, fromPointer = false) => {
     e.preventDefault();
-    setDragOverDay(null);
-    
+    setDragOverKey(null);
+
     const postId = draggedPostId || e.dataTransfer.getData("text/plain");
+    setDraggedPostId(null);
     if (!postId) return;
 
     const post = posts.find((p) => p && p.id === postId);
     if (!post) return;
 
     const oldDate = new Date(post.scheduledAt);
-    const newDate = addDays(weekStart, dayIndex);
-    newDate.setHours(hour ?? oldDate.getHours(), oldDate.getMinutes(), 0, 0);
+    const newDate = new Date(date);
+    newDate.setHours(oldDate.getHours(), oldDate.getMinutes(), 0, 0);
+
+    if (fromPointer) {
+      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+      const hour = Math.min(23, Math.max(0, Math.floor((e.clientY - rect.top) / HOUR_HEIGHT)));
+      newDate.setHours(hour, oldDate.getMinutes(), 0, 0);
+    }
 
     try {
       await updatePostSchedule(postId, newDate.toISOString());
@@ -1473,35 +1774,27 @@ export default function Schedule() {
     } catch (error) {
       console.error("Erreur lors du déplacement du post:", error);
     }
-
-    setDraggedPostId(null);
   };
+
+  /* ---------------- Week scroll hints ---------------- */
 
   const scrollItems = useMemo(
     () => [
       ...(visibleEvents || []).map((e) => ({ start: e.start, end: e.end })),
-      ...[...(postsByDay || []).values()]
-        .flat()
-        .map((p) => ({ start: p.start, end: p.start + POST_SPAN })),
+      ...[...postsByDay.values()].flat().map((p) => ({ start: p.start, end: p.start + POST_SPAN })),
     ],
     [visibleEvents, postsByDay],
   );
 
   const hiddenAbove = useMemo(() => {
     if (viewportHeight === 0) return false;
-    return scrollItems.some((item) => {
-      const bottom = (item.end - START_HOUR) * HOUR_HEIGHT;
-      return bottom <= scrollTop;
-    });
+    return scrollItems.some((item) => (item.end - START_HOUR) * HOUR_HEIGHT <= scrollTop);
   }, [scrollItems, scrollTop, viewportHeight]);
 
   const hiddenBelow = useMemo(() => {
     if (viewportHeight === 0) return false;
     const viewportBottom = scrollTop + viewportHeight;
-    return scrollItems.some((item) => {
-      const top = (item.start - START_HOUR) * HOUR_HEIGHT;
-      return top >= viewportBottom;
-    });
+    return scrollItems.some((item) => (item.start - START_HOUR) * HOUR_HEIGHT >= viewportBottom);
   }, [scrollItems, scrollTop, viewportHeight]);
 
   const scrollToNextHidden = (direction: "up" | "down") => {
@@ -1527,6 +1820,8 @@ export default function Schedule() {
     setHiddenTags((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
     );
+
+  /* ---------------- Events CRUD ---------------- */
 
   const handleDeleteEvent = (id: string) => {
     setEvents((prev) => prev.filter((e) => e.id !== id));
@@ -1596,8 +1891,31 @@ export default function Schedule() {
     setPostsTick((n) => n + 1);
   };
 
+  const renderMonthItem = (item: MonthItem): ReactNode => {
+    if (item.kind === "event") {
+      return (
+        <MonthEventChip
+          event={item.event}
+          tag={item.event.tagId ? tagsById.get(item.event.tagId) : undefined}
+          isDark={isDark}
+        />
+      );
+    }
+    return (
+      <MonthPostChip
+        post={item.post}
+        isDark={isDark}
+        posted={isPostPosted(item.post, now)}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+      />
+    );
+  };
+
   const calendarBorder = isDark ? "border-white/[0.07]" : "border-black/[0.06]";
   const calendarHead = isDark ? "border-white/[0.07]" : "border-black/[0.06]";
+
+  const moreDayItems = moreDay ? monthItemsByDate.get(moreDay.toDateString()) ?? [] : [];
 
   return (
     <main
@@ -1931,15 +2249,15 @@ export default function Schedule() {
                               : isDark
                                 ? "font-medium text-neutral-400"
                                 : "font-medium text-neutral-500",
-                            dragOverDay === days.indexOf(day)
+                            dragOverKey === day.date.toDateString()
                               ? isDark
                                 ? "bg-white/[0.08]"
                                 : "bg-black/[0.04]"
                               : "",
                           ].join(" ")}
-                          onDragOver={(e) => handleDragOver(e, days.indexOf(day))}
+                          onDragOver={(e) => handleDragOver(e, day.date)}
                           onDragLeave={handleDragLeave}
-                          onDrop={(e) => handleDrop(e, days.indexOf(day))}
+                          onDrop={(e) => handleDrop(e, day.date)}
                         >
                           <span>{day.label}</span>
                           <span
@@ -1996,19 +2314,21 @@ export default function Schedule() {
                                 "relative border-l",
                                 calendarBorder,
                                 day.isToday ? (isDark ? "bg-white/[0.02]" : "bg-black/[0.015]") : "",
-                                dragOverDay === dayIndex ? (isDark ? "bg-white/[0.05]" : "bg-black/[0.02]") : "",
+                                dragOverKey === day.date.toDateString()
+                                  ? isDark
+                                    ? "bg-white/[0.05]"
+                                    : "bg-black/[0.02]"
+                                  : "",
                               ].join(" ")}
-                              onDragOver={(e) => handleDragOver(e, dayIndex)}
+                              onDragOver={(e) => handleDragOver(e, day.date)}
                               onDragLeave={handleDragLeave}
-                              onDrop={(e) => handleDrop(e, dayIndex)}
+                              onDrop={(e) => handleDrop(e, day.date, true)}
                             >
                               {HOURS.slice(0, -1).map((h, i) => (
                                 <div
                                   key={h}
-                                  className={["absolute inset-x-0 border-b", isDark ? "border-white/[0.05]" : "border-black/[0.04]"].join(" ")}
+                                  className={["pointer-events-none absolute inset-x-0 border-b", isDark ? "border-white/[0.05]" : "border-black/[0.04]"].join(" ")}
                                   style={{ top: (i + 1) * HOUR_HEIGHT }}
-                                  onDragOver={(e) => handleDragOver(e, dayIndex)}
-                                  onDrop={(e) => handleDrop(e, dayIndex, h)}
                                 />
                               ))}
 
@@ -2068,10 +2388,10 @@ export default function Schedule() {
                                 <PostCard
                                   key={item.post.id}
                                   item={item}
-                                  tagsById={tagsById}
                                   isDark={isDark}
                                   posted={isPostPosted(item.post, now)}
                                   onDragStart={handleDragStart}
+                                  onDragEnd={handleDragEnd}
                                 />
                               ))}
 
@@ -2141,7 +2461,7 @@ export default function Schedule() {
                       <div
                         key={d}
                         className={[
-                          "py-3 text-center text-[12.5px] border-b",
+                          "border-b py-3 text-center text-[12.5px]",
                           calendarHead,
                           isDark ? "font-medium text-neutral-400" : "font-medium text-neutral-500",
                         ].join(" ")}
@@ -2151,41 +2471,49 @@ export default function Schedule() {
                     ))}
                   </div>
 
-                  <div className="flex-1 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                    <div className="grid grid-cols-7 auto-rows-fr h-full">
+                  {/* Grille à hauteur fixe : les cases ne grandissent jamais */}
+                  <div ref={monthGridRef} className="min-h-0 flex-1 overflow-hidden">
+                    <div
+                      className="grid h-full grid-cols-7"
+                      style={{ gridTemplateRows: `repeat(${monthRowCount}, minmax(0, 1fr))` }}
+                    >
                       {days.map((day, i) => {
                         if (!day) {
                           return (
                             <div
                               key={`empty-${i}`}
                               className={[
-                                "border-r border-b",
+                                "min-h-0 border-b border-r",
                                 calendarBorder,
                                 isDark ? "bg-white/[0.01]" : "bg-black/[0.01]",
                               ].join(" ")}
                             />
                           );
                         }
-                        const dayEvents = monthEventsByDate.get(day.date.toDateString()) || [];
-                        const dayPosts = monthPostsByDate.get(day.date.toDateString()) || [];
+
+                        const key = day.date.toDateString();
+                        const items = monthItemsByDate.get(key) ?? [];
+                        const shown = visibleCountFor(items.length);
+                        const hiddenCount = items.length - shown;
 
                         return (
                           <div
                             key={day.date.toISOString()}
                             className={[
-                              "border-r border-b flex flex-col p-1.5 gap-1 transition-colors min-h-[100px]",
+                              "flex min-h-0 min-w-0 flex-col overflow-hidden border-b border-r transition-colors",
                               calendarBorder,
                               day.isToday ? (isDark ? "bg-white/[0.04]" : "bg-black/[0.02]") : "",
-                              dragOverDay === i ? (isDark ? "bg-white/[0.08]" : "bg-black/[0.04]") : "",
+                              dragOverKey === key ? (isDark ? "bg-white/[0.08]" : "bg-black/[0.04]") : "",
                             ].join(" ")}
-                            onDragOver={(e) => handleDragOver(e, i)}
+                            style={{ padding: MONTH_CELL_PAD, gap: MONTH_GAP }}
+                            onDragOver={(e) => handleDragOver(e, day.date)}
                             onDragLeave={handleDragLeave}
-                            onDrop={(e) => handleDrop(e, i)}
+                            onDrop={(e) => handleDrop(e, day.date)}
                           >
-                            <div className="flex items-center justify-between">
+                            <div className="flex shrink-0 items-center" style={{ height: MONTH_CELL_HEADER }}>
                               <span
                                 className={[
-                                  "flex h-6 w-6 items-center justify-center rounded-full text-[12px] font-semibold",
+                                  "flex h-6 min-w-6 items-center justify-center rounded-full px-1 text-[13px] font-semibold",
                                   day.isToday
                                     ? isDark
                                       ? "bg-white text-neutral-900"
@@ -2198,53 +2526,20 @@ export default function Schedule() {
                                 {day.n}
                               </span>
                             </div>
-                            
-                            <div className="flex flex-col gap-1 overflow-y-auto min-h-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                              {dayEvents.map((e) => {
-                                const tag = e.tagId ? tagsById.get(e.tagId) : undefined;
-                                const hex = tag ? hexOf(tag) : (isDark ? "#525252" : "#a3a3a3");
-                                return (
-                                  <div
-                                    key={e.id}
-                                    className={[
-                                      "text-[10px] px-1.5 py-1 rounded border-l-[3px] truncate cursor-pointer hover:opacity-80 transition-opacity flex flex-col gap-0.5",
-                                      !tag && (isDark ? "bg-neutral-800 border-neutral-600 text-neutral-300" : "bg-neutral-100 border-neutral-300 text-neutral-700"),
-                                    ].join(" ")}
-                                    style={tag ? { backgroundColor: `${hex}15`, borderColor: hex, color: isDark ? "#fff" : "#000" } : {}}
-                                  >
-                                    <span className="font-semibold truncate">{e.title}</span>
-                                    <span className="opacity-70 text-[9px]">{formatTime(e.start)}</span>
-                                  </div>
-                                );
-                              })}
 
-                              {dayPosts.map((p) => {
-                                const networkKey = (p.network as SocialNetworkId) || "x";
-                                const Icon = NETWORK_ICONS[networkKey] || XIcon;
-                                let time = "--:--";
-                                try {
-                                  time = new Date(p.scheduledAt).toLocaleTimeString(LOCALE, { hour: "numeric", minute: "2-digit", hour12: true });
-                                } catch {
-                                  // ignore
-                                }
-                                const posted = isPostPosted(p, now);
-                                return (
-                                  <div
-                                    key={p.id}
-                                    draggable={!posted}
-                                    onDragStart={(e) => handleDragStart(e, p.id)}
-                                    className={[
-                                      "text-[10px] px-1.5 py-1 rounded truncate cursor-grab hover:opacity-80 transition-opacity flex items-center gap-1",
-                                      isDark ? "bg-white/10 text-neutral-200" : "bg-black/5 text-neutral-700",
-                                      posted ? "opacity-50 cursor-not-allowed" : "",
-                                    ].join(" ")}
-                                  >
-                                    <Icon className="h-3 w-3 shrink-0" />
-                                    <span className="truncate">{time}</span>
-                                  </div>
-                                );
-                              })}
-                            </div>
+                            {items.slice(0, shown).map((item) => (
+                              <div key={item.id} className="flex flex-col">
+                                {renderMonthItem(item)}
+                              </div>
+                            ))}
+
+                            {hiddenCount > 0 && (
+                              <MoreRow
+                                count={hiddenCount}
+                                isDark={isDark}
+                                onClick={() => setMoreDay(day.date)}
+                              />
+                            )}
                           </div>
                         );
                       })}
@@ -2256,6 +2551,16 @@ export default function Schedule() {
           </div>
         </div>
       </div>
+
+      {moreDay && (
+        <DayDetailModal
+          isDark={isDark}
+          date={moreDay}
+          items={moreDayItems}
+          renderItem={renderMonthItem}
+          onClose={() => setMoreDay(null)}
+        />
+      )}
 
       {eventFormOpen && (
         <EventFormModal
