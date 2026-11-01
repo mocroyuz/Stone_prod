@@ -75,6 +75,7 @@ import {
 export type SocialNetworkId =
   | "x" | "facebook" | "instagram" | "linkedin"
   | "tiktok" | "youtube" | "pinterest" | "threads";
+
 type NetworkIconComponent = (props: { className?: string }) => JSX.Element;
 type MediaKind = "image" | "video";
 type MediaItem = {
@@ -237,6 +238,7 @@ const TIKTOK_PRIVACY_LABELS: Record<string, string> = {
   FOLLOWER_OF_CREATOR: "Followers",
   SELF_ONLY: "Only me",
 };
+
 const TIKTOK_FALLBACK_PRIVACY: string[] = ["SELF_ONLY"];
 const TIKTOK_MUSIC_URL =
   "https://www.tiktok.com/legal/page/global/music-usage-confirmation/en";
@@ -248,12 +250,14 @@ const TIKTOK_DEFAULT_OPTIONS: TikTokPostOptions = {
   disable_duet: false,
   disable_stitch: false,
 };
+
 type TikTokAllow = { comment: boolean; duet: boolean; stitch: boolean };
 const TIKTOK_DEFAULT_ALLOW: TikTokAllow = {
   comment: false,
   duet: false,
   stitch: false,
 };
+
 type TikTokCommercial = { on: boolean; yourBrand: boolean; branded: boolean };
 const TIKTOK_DEFAULT_COMMERCIAL: TikTokCommercial = {
   on: false,
@@ -280,15 +284,18 @@ const YOUTUBE_CATEGORIES: { id: string; label: string }[] = [
   { id: "28", label: "Science & Technology" },
   { id: "29", label: "Nonprofits & Activism" },
 ];
+
 const YOUTUBE_VISIBILITY: { id: YouTubeVisibility; label: string }[] = [
   { id: "public", label: "Public" },
   { id: "unlisted", label: "Unlisted" },
   { id: "private", label: "Private" },
 ];
+
 const YOUTUBE_LICENSES: { id: YouTubeLicense; label: string }[] = [
   { id: "youtube", label: "Standard YouTube License" },
   { id: "creativeCommon", label: "Creative Commons - Attribution" },
 ];
+
 const YOUTUBE_DEFAULT_OPTIONS: YouTubeOptions = {
   title: "",
   categoryId: YOUTUBE_CATEGORIES[0].id,
@@ -315,6 +322,7 @@ type DraftData = {
   channelFiles?: Record<string, File[]>;
   youtubeOptions?: YouTubeOptions;
 };
+
 let savedDraft: DraftData | null = null;
 
 /* ──────────────────────────────────────────────────────────────
@@ -327,6 +335,7 @@ après avoir quitté puis rouvert le site.
 const DRAFT_META_KEY = "newpost:draft:v1";
 const DRAFT_DB_NAME = "newpost-drafts";
 const DRAFT_DB_STORE = "files";
+
 type SerializedDraft = {
   title: string;
   masterContent: string;
@@ -475,13 +484,13 @@ async function loadDraftFromStorage(): Promise<DraftData | null> {
       .filter(Boolean) as File[];
     const channelFiles = serialized.channelFileIds
       ? Object.fromEntries(
-        Object.entries(serialized.channelFileIds)
-          .map(([key, ids]) => [
-            key,
-            ids.map((id) => filesById[id]).filter(Boolean) as File[],
-          ])
-          .filter(([, list]) => list.length > 0)
-      )
+          Object.entries(serialized.channelFileIds)
+            .map(([key, ids]) => [
+              key,
+              ids.map((id) => filesById[id]).filter(Boolean) as File[],
+            ])
+            .filter(([, list]) => list.length > 0)
+        )
       : undefined;
     return {
       title: serialized.title,
@@ -898,8 +907,8 @@ function Checkbox({
               ? "border-white bg-white text-[#141416]"
               : "border-neutral-900 bg-neutral-900 text-white"
             : isDark
-              ? "border-white/30 bg-transparent hover:border-white/60"
-              : "border-black/30 bg-transparent hover:border-black/60",
+            ? "border-white/30 bg-transparent hover:border-white/60"
+            : "border-black/30 bg-transparent hover:border-black/60",
         ].join(" ")}
       >
         {checked && <Check className="h-3.5 w-3.5" strokeWidth={3.5} />}
@@ -992,6 +1001,7 @@ function GooglePhotosIcon({ className }: SourceIconProps) {
 type MediaSourceId =
   | "canva" | "dropbox" | "google_drive"
   | "google_photos";
+
 const MEDIA_SOURCES: {
   id: MediaSourceId;
   label: string;
@@ -1101,6 +1111,7 @@ function MediaSourceMenu({
 
 const EMOJI_FONT =
   '"Noto Emoji", "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif';
+
 function EmojiPickerPanel({
   isDark,
   onPick,
@@ -1402,9 +1413,7 @@ function PostPreview({
 /* ──────────────────────────────────────────────────────────────
 Composant principal
 ────────────────────────────────────────────────────────────── */
-
 const FOCUS_DATE_KEY = "schedule:focusDate";
-
 /** Ouvre le calendrier sur la semaine du post programmé. */
 function goToCalendar(date: Date) {
   try {
@@ -1525,7 +1534,6 @@ export default function NewPostModal({
   const [tiktokCommercial, setTiktokCommercial] = useState<TikTokCommercial>(
     TIKTOK_DEFAULT_COMMERCIAL
   );
-
   const tiktokSelected = networks.includes("tiktok");
   const youtubeSelected = networks.includes("youtube");
   const tiktokPrivacyOptions = useMemo<string[]>(() => {
@@ -1539,14 +1547,11 @@ export default function NewPostModal({
   const tiktokDraftOnly = tiktokInfo?.capabilities
     ? !tiktokInfo.capabilities.can_direct_post
     : true;
-
   useEffect(() => {
     if (tiktokDraftOnly && tiktokMode !== "draft") setTiktokMode("draft");
   }, [tiktokDraftOnly, tiktokMode]);
-
   const connectedChannels = useConnectedChannels();
   useNewPostShortcut(() => onRequestOpen?.(), !isOpen && Boolean(onRequestOpen));
-
   const fileInputRef = useRef<HTMLInputElement>(null);
   const canvaPopupMonitorRef = useRef<number | null>(null);
   const mediaRef = useRef<MediaItem[]>(media);
@@ -1567,7 +1572,6 @@ export default function NewPostModal({
   // quand un brouillon persisté est chargé de façon asynchrone.
   const hasFormContentRef = useRef(false);
   const preselectRef = useRef<SocialNetworkId | null>(null);
-
   useEffect(
     () => () => {
       if (canvaPopupMonitorRef.current !== null) {
@@ -1576,14 +1580,11 @@ export default function NewPostModal({
     },
     []
   );
-
   const timeMin = useMemo(() => {
     const now = new Date();
     return isSameCalendarDay(scheduledAt, now) ? now : undefined;
   }, [scheduledAt]);
-
   const timezone = useMemo(() => getLocalTimezone(), []);
-
   const channelTiles = useMemo<ChannelTileData[]>(() => {
     const tiles: ChannelTileData[] = [];
     for (const channel of connectedChannels) {
@@ -1595,7 +1596,6 @@ export default function NewPostModal({
     }
     return tiles.sort((a, b) => a.order - b.order);
   }, [connectedChannels]);
-
   useEffect(() => {
     const handle = () => {
       if (!peekNewPostRequest()) return;
@@ -1606,7 +1606,6 @@ export default function NewPostModal({
     handle();
     return unsubscribe;
   }, []);
-
   useEffect(() => {
     if (!isOpen) return;
     const request = peekNewPostRequest();
@@ -1617,7 +1616,6 @@ export default function NewPostModal({
     preselectRef.current = tile.network.id;
     setNetworks([tile.network.id]);
   }, [isOpen, requestTick, channelTiles]);
-
   // ── Tags : chargement à l'ouverture ──
   useEffect(() => {
     if (!isOpen) return;
@@ -1631,7 +1629,6 @@ export default function NewPostModal({
       cancelled = true;
     };
   }, [isOpen]);
-
   // ── Tags : fermeture du menu au clic extérieur ──
   useEffect(() => {
     if (!tagMenuOpen) return;
@@ -1643,7 +1640,6 @@ export default function NewPostModal({
     document.addEventListener("mousedown", onDown);
     return () => document.removeEventListener("mousedown", onDown);
   }, [tagMenuOpen]);
-
   useEffect(() => {
     if (!isOpen) return;
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -1673,21 +1669,18 @@ export default function NewPostModal({
       document.body.style.overflow = previousOverflow;
     };
   }, [isOpen, showActionMenu, showDateTimePanel, activeEmojiNetwork, showSourceMenu, tagMenuOpen]);
-
   // Focus le champ principal à l'ouverture (sauf si un brouillon est proposé)
   useEffect(() => {
     if (!isOpen || savedDraft) return;
     const id = requestAnimationFrame(() => textareaRefs.current.master?.focus());
     return () => cancelAnimationFrame(id);
   }, [isOpen]);
-
   useEffect(() => {
     return () => {
       mediaRef.current.forEach((item) => URL.revokeObjectURL(item.url));
       Object.values(channelMediaRef.current).flat().forEach((item) => URL.revokeObjectURL(item.url));
     };
   }, []);
-
   // Restaure un éventuel brouillon persisté (refresh, retour sur le site…)
   useEffect(() => {
     if (savedDraft) return; // déjà en mémoire (même session)
@@ -1706,22 +1699,18 @@ export default function NewPostModal({
       cancelled = true;
     };
   }, []);
-
   useEffect(() => {
     setPendingDraft(isOpen ? savedDraft : null);
   }, [isOpen]);
-
   const initialScheduledTime = initialScheduledAt
     ? initialScheduledAt.getTime()
     : null;
-
   useEffect(() => {
     if (isOpen && initialScheduledTime !== null) {
       setScheduleAction("set_date");
       setScheduledAt(new Date(initialScheduledTime));
     }
   }, [isOpen, initialScheduledTime]);
-
   useEffect(() => {
     if (!showActionMenu && !showDateTimePanel) return;
     const onPointerDown = (e: MouseEvent) => {
@@ -1735,7 +1724,6 @@ export default function NewPostModal({
       document.removeEventListener("mousedown", onPointerDown);
     };
   }, [showActionMenu, showDateTimePanel]);
-
   useEffect(() => {
     if (!activeEmojiNetwork) return;
     const onPointerDown = (e: MouseEvent) => {
@@ -1749,7 +1737,6 @@ export default function NewPostModal({
       document.removeEventListener("mousedown", onPointerDown);
     };
   }, [activeEmojiNetwork]);
-
   useEffect(() => {
     if (!showSourceMenu) return;
     const onPointerDown = (e: MouseEvent) => {
@@ -1762,7 +1749,6 @@ export default function NewPostModal({
       document.removeEventListener("mousedown", onPointerDown);
     };
   }, [showSourceMenu]);
-
   useEffect(() => {
     if (!isOpen || !tiktokSelected || tiktokInfo) return;
     let cancelled = false;
@@ -1782,9 +1768,7 @@ export default function NewPostModal({
       cancelled = true;
     };
   }, [isOpen, tiktokSelected, tiktokInfo, tiktokInfoAttempt]);
-
   if (!isOpen) return null;
-
   /* ── Contenu : le texte principal est la source, chaque réseau peut le surcharger ── */
   const isDragging = draggingTarget === "master";
   const mediaFor = (id: string): MediaItem[] => channelMedia[id] ?? media;
@@ -1807,7 +1791,6 @@ export default function NewPostModal({
     media.length > 0 ||
     Object.keys(channelMedia).length > 0;
   hasFormContentRef.current = hasDraftContent;
-
   const clearForm = () => {
     media.forEach((item) => URL.revokeObjectURL(item.url));
     Object.values(channelMedia).flat().forEach((item) => URL.revokeObjectURL(item.url));
@@ -1876,7 +1859,6 @@ export default function NewPostModal({
     setTagIds([]);
     setTagMenuOpen(false);
   };
-
   /** Ferme toujours le modal, même si le nettoyage du formulaire échoue. */
   const discardAndClose = () => {
     savedDraft = null;
@@ -1887,7 +1869,6 @@ export default function NewPostModal({
       onClose();
     }
   };
-
   const closeWithDraft = () => {
     if (isSubmitting) return;
     // Le post vient d'être envoyé : inutile d'en garder un brouillon.
@@ -1928,7 +1909,6 @@ export default function NewPostModal({
     onClose();
   };
   closeWithDraftRef.current = closeWithDraft;
-
   const resumeDraft = () => {
     if (!pendingDraft) return;
     setTitle(pendingDraft.title);
@@ -1965,17 +1945,14 @@ export default function NewPostModal({
     savedDraft = null;
     setPendingDraft(null);
   };
-
   const ignoreDraft = () => {
     savedDraft = null;
     setPendingDraft(null);
     void clearDraftFromStorage(); // l'utilisateur refuse le brouillon
   };
-
   const updateCaret = (target: string, el: HTMLTextAreaElement) => {
     caretRefs.current[target] = { start: el.selectionStart, end: el.selectionEnd };
   };
-
   const handleMasterChange = (val: string) => {
     const previous = masterContent;
     setMasterContent(val);
@@ -1989,7 +1966,6 @@ export default function NewPostModal({
       return next;
     });
   };
-
   const handleNetworkChange = (networkId: string, val: string) => {
     setContents((prev) => {
       const next = { ...prev };
@@ -1998,7 +1974,6 @@ export default function NewPostModal({
       return next;
     });
   };
-
   const resetToMaster = (networkId: string) => {
     setContents((prev) => {
       const next = { ...prev };
@@ -2006,7 +1981,6 @@ export default function NewPostModal({
       return next;
     });
   };
-
   const insertAtCursor = (target: string, text: string) => {
     const current = target === "master" ? masterContent : contentFor(target);
     const caret = caretRefs.current[target] ?? {
@@ -2028,7 +2002,6 @@ export default function NewPostModal({
       el.setSelectionRange(position, position);
     });
   };
-
   const toggleNetwork = (id: SocialNetworkId) => {
     if (id === "tiktok" && networks.includes("tiktok")) {
       setTiktokInfo(null);
@@ -2038,11 +2011,9 @@ export default function NewPostModal({
       prev.includes(id) ? prev.filter((n) => n !== id) : [...prev, id]
     );
   };
-
   const allSelected =
     channelTiles.length > 0 &&
     channelTiles.every((t) => networks.includes(t.network.id));
-
   const toggleAllNetworks = () => {
     if (allSelected) {
       setNetworks([]);
@@ -2052,16 +2023,13 @@ export default function NewPostModal({
       setNetworks(Array.from(new Set(channelTiles.map((t) => t.network.id))));
     }
   };
-
   const handleConnectChannel = () => {
     closeWithDraft();
     navigateToSettingsSection("channels");
   };
-
   const toggleCollapse = (id: string) => {
     setCollapsedCards((prev) => ({ ...prev, [id]: !prev[id] }));
   };
-
   const addFiles = (fileList: FileList | File[], target: string = "master") => {
     const all = Array.from(fileList);
     const incoming = all.filter(
@@ -2094,7 +2062,6 @@ export default function NewPostModal({
       }));
     }
   };
-
   const loadDropboxFolder = async (
     path: string,
     cursor?: string,
@@ -2118,7 +2085,6 @@ export default function NewPostModal({
       setDropboxLoading(false);
     }
   };
-
   const openDropboxPicker = async (target: string) => {
     setDropboxTarget(target);
     setDropboxPickerOpen(true);
@@ -2142,7 +2108,6 @@ export default function NewPostModal({
       setDropboxLoading(false);
     }
   };
-
   const handleDropboxConnect = async () => {
     setDropboxError(null);
     setDropboxLoading(true);
@@ -2164,7 +2129,6 @@ export default function NewPostModal({
       setDropboxLoading(false);
     }
   };
-
   const handleDropboxImport = async (entry: DropboxFileEntry) => {
     const current =
       dropboxTarget === "master"
@@ -2193,7 +2157,6 @@ export default function NewPostModal({
       setDropboxImporting(null);
     }
   };
-
   const loadGoogleDriveFolder = async (
     folderId: string,
     cursor?: string,
@@ -2218,7 +2181,6 @@ export default function NewPostModal({
       setGoogleDriveLoading(false);
     }
   };
-
   const openGoogleDrivePicker = async (target: string) => {
     setGoogleDriveTarget(target);
     setGoogleDrivePickerOpen(true);
@@ -2244,7 +2206,6 @@ export default function NewPostModal({
       setGoogleDriveLoading(false);
     }
   };
-
   const handleGoogleDriveConnect = async () => {
     setGoogleDriveError(null);
     setGoogleDriveLoading(true);
@@ -2269,7 +2230,6 @@ export default function NewPostModal({
       setGoogleDriveLoading(false);
     }
   };
-
   const handleGoogleDriveImport = async (entry: GoogleDriveFileEntry) => {
     const current =
       googleDriveTarget === "master"
@@ -2300,7 +2260,6 @@ export default function NewPostModal({
       setGoogleDriveImporting(null);
     }
   };
-
   const openGooglePhotosPicker = async (target: string) => {
     setGooglePhotosTarget(target);
     setGooglePhotosPickerOpen(true);
@@ -2324,7 +2283,6 @@ export default function NewPostModal({
       setGooglePhotosLoading(false);
     }
   };
-
   const handleGooglePhotosConnect = async () => {
     setGooglePhotosError(null);
     setGooglePhotosLoading(true);
@@ -2349,7 +2307,6 @@ export default function NewPostModal({
       setGooglePhotosLoading(false);
     }
   };
-
   const handleGooglePhotosPick = async () => {
     const current =
       googlePhotosTarget === "master"
@@ -2398,7 +2355,6 @@ export default function NewPostModal({
       setGooglePhotosLoading(false);
     }
   };
-
   const handleSourcePick = (id: MediaSourceId) => {
     const source = MEDIA_SOURCES.find((m) => m.id === id);
     const target = showSourceMenu ?? "master";
@@ -2421,7 +2377,6 @@ export default function NewPostModal({
       message: `${source?.label ?? "This source"} import isn't connected yet.`,
     });
   };
-
   /* ── Canva ──
   1. L'utilisateur choisit une taille dans le sous-menu.
   2. Une fenêtre est ouverte tout de suite (dans le clic, sinon le navigateur
@@ -2511,7 +2466,6 @@ export default function NewPostModal({
       setCanvaBusy(null);
     }
   };
-
   const handleCanvaImport = async (designId: string) => {
     const item = canvaDesigns.find((d) => d.designId === designId);
     if (!item || item.importing) return;
@@ -2536,11 +2490,9 @@ export default function NewPostModal({
       );
     }
   };
-
   const dismissCanvaDesign = (designId: string) => {
     setCanvaDesigns((prev) => prev.filter((d) => d.designId !== designId));
   };
-
   const removeMedia = (id: string) => {
     const all = [...mediaRef.current, ...Object.values(channelMediaRef.current).flat()];
     const found = all.find((item) => item.id === id);
@@ -2557,7 +2509,6 @@ export default function NewPostModal({
     });
     setMediaError(null);
   };
-
   const resetChannelMedia = (target: string) => {
     (channelMediaRef.current[target] ?? []).forEach((item) => URL.revokeObjectURL(item.url));
     setChannelMedia((prev) => {
@@ -2567,7 +2518,6 @@ export default function NewPostModal({
     });
     setMediaError(null);
   };
-
   const handleApplyMediaEdit = (id: string, newFile: File, newUrl: string) => {
     const apply = (list: MediaItem[]) =>
       list.map((item) => {
@@ -2581,7 +2531,6 @@ export default function NewPostModal({
     );
     setEditingItem(null);
   };
-
   /* ── TikTok ── */
   const tiktokMedia = mediaFor("tiktok");
   const tiktokVideo = tiktokMedia.find((m) => m.kind === "video")?.file ?? null;
@@ -2589,39 +2538,38 @@ export default function NewPostModal({
   const tiktokPostType: "video" | "photo" | null = tiktokVideo
     ? "video"
     : tiktokImages.length > 0
-      ? "photo"
-      : null;
+    ? "photo"
+    : null;
   const tiktokTypeLabel =
     tiktokPostType === "photo"
       ? tiktokImages.length > 1
         ? `Carousel of ${tiktokImages.length} photos`
         : "Photo post"
       : tiktokPostType === "video"
-        ? tiktokImages.length > 0
-          ? "Video post (photos are ignored)"
-          : "Video post"
-        : "Add a video, or one or more photos.";
+      ? tiktokImages.length > 0
+        ? "Video post (photos are ignored)"
+        : "Video post"
+      : "Add a video, or one or more photos.";
   const brandedChosen =
     tiktokMode === "direct" && tiktokCommercial.on && tiktokCommercial.branded;
   // ⬇️ MODIFICATION 1 : Suppression du blocage pour schedule
   const tiktokBlockingReason: string | null = !tiktokSelected
     ? null
     : scheduleAction === "save_in_folder"
-      ? null
-      : !tiktokPostType
-        ? "TikTok needs a video or at least one photo."
-        : scheduleAction !== "set_date" && tiktokMode === "direct" && !tiktokOptions.privacy_level
-          ? tiktokPrivacyOptions.length === 0 && !tiktokInfoError
-            ? "Loading TikTok settings…"
-            : "Choose who can view your TikTok."
-          : scheduleAction !== "set_date" &&
-            tiktokMode === "direct" &&
-            tiktokCommercial.on &&
-            !tiktokCommercial.yourBrand &&
-            !tiktokCommercial.branded
-            ? "Say whether your TikTok promotes yourself, a third party, or both."
-            : null;
-
+    ? null
+    : !tiktokPostType
+    ? "TikTok needs a video or at least one photo."
+    : scheduleAction !== "set_date" && tiktokMode === "direct" && !tiktokOptions.privacy_level
+    ? tiktokPrivacyOptions.length === 0 && !tiktokInfoError
+      ? "Loading TikTok settings…"
+      : "Choose who can view your TikTok."
+    : scheduleAction !== "set_date" &&
+      tiktokMode === "direct" &&
+      tiktokCommercial.on &&
+      !tiktokCommercial.yourBrand &&
+      !tiktokCommercial.branded
+    ? "Say whether your TikTok promotes yourself, a third party, or both."
+    : null;
   /* ── YouTube ── */
   const primaryContent = masterContent || (networks[0] ? contentFor(networks[0]) : "");
   const youtubeFallbackTitle = (
@@ -2636,18 +2584,16 @@ export default function NewPostModal({
   const youtubeBlockingReason: string | null = !youtubeSelected
     ? null
     : scheduleAction === "save_in_folder"
-      ? null
-      : !youtubeHasVideo
-        ? "YouTube Shorts needs a video."
-        : !youtubeEffectiveTitle
-          ? "Add a title for your YouTube Shorts video."
-          : null;
-
+    ? null
+    : !youtubeHasVideo
+    ? "YouTube Shorts needs a video."
+    : !youtubeEffectiveTitle
+    ? "Add a title for your YouTube Shorts video."
+    : null;
   const updateYoutube = <K extends keyof YouTubeOptions>(
     key: K,
     value: YouTubeOptions[K]
   ) => setYoutubeOptions((o) => ({ ...o, [key]: value }));
-
   /* ── Validation : une seule raison lisible, affichée dans le footer ── */
   const labelOf = (id: SocialNetworkId) =>
     SOCIAL_NETWORKS.find((n) => n.id === id)?.label ?? id;
@@ -2655,81 +2601,81 @@ export default function NewPostModal({
     networks.length === 0
       ? "Select at least one channel."
       : !hasContent && !networks.some((n) => mediaFor(n).length > 0)
-        ? "Write something or add media."
-        : scheduleAction === "set_date" && scheduledAt.getTime() <= Date.now()
-          ? "Pick a date and time in the future."
-          : overLimitNetworks.length > 0
-            ? `Too long for ${overLimitNetworks.map(labelOf).join(", ")}.`
-            : tiktokBlockingReason || youtubeBlockingReason || null;
-
+      ? "Write something or add media."
+      : scheduleAction === "set_date" && scheduledAt.getTime() <= Date.now()
+      ? "Pick a date and time in the future."
+      : overLimitNetworks.length > 0
+      ? `Too long for ${overLimitNetworks.map(labelOf).join(", ")}.`
+      : tiktokBlockingReason || youtubeBlockingReason || null;
   const canSubmit = !blockingReason && !isSubmitting;
   const showTikTokDeclaration = tiktokSelected && scheduleAction === "now";
-
   
+  // ⬇️ MODIFICATION PRINCIPALE : handleSubmit corrigé
   const handleSubmit = async () => {
-  if (!canSubmit) return;
-  
-  // ... (garder toute la logique précédente de récupération des textes, hashtags, etc.) ...
-  
-  const resolved: Record<string, string> = {};
-  networks.forEach((n) => {
-    resolved[n] = contentFor(n);
-  });
-  const allTexts = Object.values(resolved).join(" ");
-  const extractedHashtags = Array.from(
-    new Set(
-      (allTexts.match(/#[\p{L}\p{N}_]+/gu) ?? []).map((h) => h.slice(1))
-    )
-  );
-
-  // MODIFICATION ICI : Ne pas filtrer les réseaux. On envoie TOUS les réseaux sélectionnés.
-  // Le backend décidera quoi faire selon le scheduleMode et les externalNetworks.
-  const tiktokNow = tiktokSelected && scheduleAction === "now";
-  const youtubeNow = youtubeSelected && scheduleAction !== "save_in_folder";
-  
-  // On garde la logique pour savoir quels réseaux sont "externes" (déjà publiés par le frontend)
-  const externallyScheduled: SocialNetworkId[] =
-    youtubeNow && scheduleAction === "set_date" ? ["youtube"] : [];
-
-  const mediaByNetwork: Partial<Record<SocialNetworkId, File[]>> = {};
-  // On prépare les médias pour TOUS les réseaux
-  networks.forEach((n) => {
-    const own = channelMedia[n];
-    if (own) mediaByNetwork[n] = own.map((item) => item.file);
-  });
-
-  const channelKeys: Partial<Record<SocialNetworkId, string>> = {};
-  networks.forEach((n) => {
-    const key = channelTiles.find((t) => t.network.id === n)?.channel.key;
-    if (key) channelKeys[n] = key;
-  });
-
-  const payload: NewPostPayload = {
-    title: title.trim(),
-    content: resolved[networks[0]]?.trim() || masterContent.trim() || "",
-    contents: resolved,
-    hashtags: extractedHashtags,
-    // MODIFICATION ICI : On envoie TOUS les réseaux sélectionnés
-    networks: networks, 
-    scheduleMode: scheduleAction === "set_date" ? "later" : scheduleAction,
-    scheduledAt:
-      scheduleAction === "set_date" ? scheduledAt.toISOString() : null,
-    media: media.map((item) => item.file),
-    ...(Object.keys(mediaByNetwork).length > 0 ? { mediaByNetwork } : {}),
-    ...(networks.includes("youtube") || externallyScheduled.includes("youtube")
-      ? { youtube: { ...youtubeOptions, title: youtubeEffectiveTitle } }
-      : {}),
-    tagIds,
-    // On indique explicitement quels réseaux ne doivent PAS être republiés par le backend
-    externalNetworks: externallyScheduled,
-    channelKeys,
-  };
-
-  try {
-    setIsSubmitting(true);
-    setSubmitError(null);
-    setSubmitProgress(null);
-
+    if (!canSubmit) return;
+    const resolved: Record<string, string> = {};
+    networks.forEach((n) => {
+      resolved[n] = contentFor(n);
+    });
+    const allTexts = Object.values(resolved).join(" ");
+    const extractedHashtags = Array.from(
+      new Set(
+        (allTexts.match(/#[\p{L}\p{N}_]+/gu) ?? []).map((h) => h.slice(1))
+      )
+    );
+    const tiktokNow = tiktokSelected && scheduleAction === "now";
+    const youtubeNow = youtubeSelected && scheduleAction !== "save_in_folder";
+    
+    // On garde remainingNetworks pour la logique interne (ex: ne pas re-publier TikTok si déjà fait)
+    // mais on n'utilise PLUS cette variable pour construire le payload envoyé au backend.
+    const remainingNetworks = networks.filter(
+      (n) => !(n === "tiktok" && tiktokNow) && !(n === "youtube" && youtubeNow)
+    );
+    
+    // YouTube programmé : déjà envoyé à Google, mais il doit apparaître dans le calendrier.
+    const externallyScheduled: SocialNetworkId[] =
+      youtubeNow && scheduleAction === "set_date" ? ["youtube"] : [];
+      
+    const mediaByNetwork: Partial<Record<SocialNetworkId, File[]>> = {};
+    // On prépare les médias pour TOUS les réseaux sélectionnés initialement
+    networks.forEach((n) => {
+      const own = channelMedia[n];
+      if (own) mediaByNetwork[n] = own.map((item) => item.file);
+    });
+    
+    const channelKeys: Partial<Record<SocialNetworkId, string>> = {};
+    networks.forEach((n) => {
+      const key = channelTiles.find((t) => t.network.id === n)?.channel.key;
+      if (key) channelKeys[n] = key;
+    });
+    
+    // CORRECTION CRITIQUE : On envoie TOUS les réseaux (networks) au lieu de remainingNetworks.
+    // Le backend décidera quoi faire selon scheduleMode et externalNetworks.
+    const payload: NewPostPayload = {
+      title: title.trim(),
+      content: resolved[networks[0]]?.trim() || masterContent.trim() || "",
+      contents: resolved,
+      hashtags: extractedHashtags,
+      networks: networks, // <-- Changement ici : on envoie la liste complète
+      scheduleMode: scheduleAction === "set_date" ? "later" : scheduleAction,
+      scheduledAt:
+        scheduleAction === "set_date" ? scheduledAt.toISOString() : null,
+      media: media.map((item) => item.file),
+      ...(Object.keys(mediaByNetwork).length > 0 ? { mediaByNetwork } : {}),
+      ...(networks.includes("youtube") || externallyScheduled.includes("youtube")
+        ? { youtube: { ...youtubeOptions, title: youtubeEffectiveTitle } }
+        : {}),
+      tagIds,
+      externalNetworks: externallyScheduled,
+      channelKeys,
+    };
+    
+    try {
+      setIsSubmitting(true);
+      setSubmitError(null);
+      setSubmitProgress(null);
+      
+      // 1. Publication TikTok Directe
       if (tiktokNow && tiktokPostType) {
         const tiktokCaption = resolved["tiktok"]?.trim() || "";
         const isPhoto = tiktokPostType === "photo";
@@ -2796,17 +2742,15 @@ export default function NewPostModal({
               : "Finalizing…"
           );
         });
-        // TikTok est déjà parti : on le retire pour ne pas le renvoyer en cas de nouvel essai.
-        setNetworks((prev) => prev.filter((n) => n !== "tiktok"));
+        // TikTok est parti, mais on le laisse dans la liste 'networks' du payload
+        // pour que le backend l'enregistre comme 'published' ou 'external'.
       }
-
+      
+      // 2. Publication YouTube Directe
       let youtubeOutcome: { url: string; message: string; warning: boolean } | null = null;
       if (youtubeNow) {
         const youtubeVideo = mediaFor("youtube").find((m) => m.kind === "video")?.file;
         if (!youtubeVideo) throw new Error("YouTube Shorts needs a video.");
-        // YouTube n'a pas de champ « Short » : il classe la vidéo en Short
-        // seulement si elle est verticale ou carrée ET dure 3 minutes maximum.
-        // On bloque donc tout ce qui serait publié comme une vidéo normale.
         const { duration, width, height } = await getVideoInfo(youtubeVideo);
         if (!width || !height) {
           throw new Error("Could not read the video size. Try another file.");
@@ -2821,7 +2765,6 @@ export default function NewPostModal({
             "This video is longer than 3 minutes, so YouTube would publish it as a regular video. A Short must be 3 minutes or less."
           );
         }
-        // `#Shorts` aide YouTube à classer la vidéo dans les Shorts.
         let description = (resolved["youtube"] ?? "").trim();
         if (!/#shorts\b/i.test(`${youtubeEffectiveTitle} ${description}`)) {
           description = `${description}\n#Shorts`.trim();
@@ -2848,41 +2791,33 @@ export default function NewPostModal({
           message: result.privacy_locked
             ? "Video uploaded to YouTube, but YouTube forced it to private (your API project hasn't passed the YouTube audit yet)."
             : scheduleAction === "set_date"
-              ? "Video uploaded and scheduled on YouTube."
-              : "Video uploaded to YouTube. It can take a few minutes to appear as a Short.",
+            ? "Video uploaded and scheduled on YouTube."
+            : "Video uploaded to YouTube. It can take a few minutes to appear as a Short.",
         };
       }
-
-      if (
-        remainingNetworks.length > 0 ||
-        externallyScheduled.length > 0 ||
-        scheduleAction === "save_in_folder"
-      ) {
-        await onSubmit(payload);
-      }
-
+      
+      // 3. Envoi au Backend (pour enregistrer l'état dans le calendrier)
+      // On appelle toujours onSubmit sauf si tout a échoué avant (ce qui est géré par le catch)
+      await onSubmit(payload);
+      
       const scheduledHasVideo = networks.some((n) =>
         mediaFor(n).some((m) => m.kind === "video")
       );
-
       if (scheduleAction === "set_date") {
         setScheduledResult({ at: new Date(scheduledAt), hasVideo: scheduledHasVideo });
       }
-
       if (youtubeOutcome) {
         setYoutubeResult(youtubeOutcome);
         setSubmitProgress(null);
         setIsSubmitting(false);
         return;
       }
-
-      // Programmation : on reste ouvert pour proposer d'aller voir le post
+      // Si c'est une programmation, on reste ouvert pour montrer le résultat
       if (scheduleAction === "set_date") {
         setSubmitProgress(null);
         setIsSubmitting(false);
         return;
       }
-
       discardAndClose();
     } catch (error) {
       console.error("Error while creating the post:", error);
@@ -2895,14 +2830,13 @@ export default function NewPostModal({
       setIsSubmitting(false);
     }
   };
+  
   submitRef.current = handleSubmit;
-
   const selectAction = (action: ScheduleAction) => {
     setScheduleAction(action);
     setShowActionMenu(false);
     setShowDateTimePanel(action === "set_date");
   };
-
   const applyPostingSlot = (hour: number, minute: number) => {
     setScheduledAt((prev) => {
       const next = new Date(prev);
@@ -2910,28 +2844,25 @@ export default function NewPostModal({
       return next;
     });
   };
-
   const footerLabel =
     scheduleAction === "set_date"
       ? formatShortDateTime(scheduledAt)
       : scheduleAction === "save_in_folder"
-        ? "Save in folder"
-        : "Now";
-
+      ? "Save in folder"
+      : "Now";
   const submitLabel = isSubmitting
     ? scheduleAction === "save_in_folder"
       ? "Saving…"
       : scheduleAction === "set_date"
-        ? "Scheduling…"
-        : "Publishing…"
+      ? "Scheduling…"
+      : "Publishing…"
     : scheduleAction === "now"
-      ? tiktokSelected && tiktokMode === "draft"
-        ? "Send to TikTok"
-        : "Post now"
-      : scheduleAction === "save_in_folder"
-        ? "Save post"
-        : "Schedule post";
-
+    ? tiktokSelected && tiktokMode === "draft"
+      ? "Send to TikTok"
+      : "Post now"
+    : scheduleAction === "save_in_folder"
+    ? "Save post"
+    : "Schedule post";
   // ── Thèmes ──
   const bgModal = isDark ? "bg-[#141416]" : "bg-white";
   const bgPanel = isDark ? "bg-[#1c1c1e]" : "bg-neutral-50";
@@ -2945,7 +2876,6 @@ export default function NewPostModal({
   const accentCheck = isDark ? "text-white" : "text-neutral-900";
   const accentSolid = isDark ? "bg-white/5" : "bg-neutral-100";
   const accentBorder = isDark ? "border-white/15" : "border-black/10";
-
   const allowRows: {
     key: keyof TikTokAllow;
     label: string;
@@ -2955,18 +2885,16 @@ export default function NewPostModal({
     ...(tiktokPostType === "photo"
       ? []
       : [
-        { key: "duet" as const, label: "Allow duet", forced: Boolean(tiktokInfo?.duet_disabled) },
-        { key: "stitch" as const, label: "Allow stitch", forced: Boolean(tiktokInfo?.stitch_disabled) },
-      ]),
+          { key: "duet" as const, label: "Allow duet", forced: Boolean(tiktokInfo?.duet_disabled) },
+          { key: "stitch" as const, label: "Allow stitch", forced: Boolean(tiktokInfo?.stitch_disabled) },
+        ]),
   ];
-
   const linkClass = "underline underline-offset-2 hover:opacity-80";
   const textareaClass = [
     "w-full resize-none bg-transparent text-[15px] leading-relaxed outline-none",
     textPrimary,
     isDark ? "placeholder:text-neutral-600" : "placeholder:text-neutral-400",
   ].join(" ");
-
   // Aperçu : réseau actif (onglet), sinon le premier sélectionné
   const activePreviewId =
     previewNetwork && networks.includes(previewNetwork)
@@ -2982,7 +2910,6 @@ export default function NewPostModal({
   const previewMedia = activePreviewId ? mediaFor(activePreviewId) : media;
   const previewHasSomething = previewText.trim().length > 0 || previewMedia.length > 0;
   const avatarRing = isDark ? "ring-[#1c1c1e]" : "ring-neutral-50";
-
   // Zone média (miniatures + tuile « Drag & drop ») : une pour le texte principal,
   // une par canal. Un canal sans média propre affiche les médias partagés
   // (badge « Shared ») — les boutons supprimer/éditer n'apparaissent que sur
@@ -2996,7 +2923,6 @@ export default function NewPostModal({
     const items = usingShared ? media : ownItems;
     const error = mediaError?.target === target ? mediaError.message : null;
     const pendingCanva = canvaDesigns.filter((d) => d.target === target);
-
     return (
       <>
         {usingShared && (
@@ -3163,7 +3089,6 @@ export default function NewPostModal({
       </>
     );
   };
-
   // Bouton « + » (sources de médias) : un par zone de texte, un seul menu ouvert à la fois.
   // Les médias restent partagés par tous les canaux.
   const renderSourceButton = (target: string) => {
@@ -3199,7 +3124,6 @@ export default function NewPostModal({
       </div>
     );
   };
-
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-3 backdrop-blur-md"
@@ -3327,7 +3251,6 @@ export default function NewPostModal({
             </button>
           </div>
         </div>
-
         {/* ── Body ── */}
         <div className="flex min-h-0 flex-1 overflow-hidden">
           {/* Colonne gauche */}
@@ -3385,7 +3308,6 @@ export default function NewPostModal({
                 </p>
               )}
             </section>
-
             {/* Zone d'écriture principale */}
             <section
               aria-label="Post text and media"
@@ -3482,7 +3404,6 @@ export default function NewPostModal({
                 leading={renderSourceButton("master")}
               />
             </section>
-
             {/* Cartes par réseau */}
             {networks.length > 0 ? (
               <section aria-label="Customize per channel" className="flex flex-col gap-4">
@@ -3844,7 +3765,6 @@ export default function NewPostModal({
               )
             )}
           </div>
-
           {/* Colonne droite : aperçu */}
           <aside
             aria-label="Post preview"
@@ -3902,7 +3822,6 @@ export default function NewPostModal({
             </div>
           </aside>
         </div>
-
         {/* ── Résultat de la programmation ── */}
         {scheduledResult && !youtubeResult && (
           <div
@@ -3941,7 +3860,6 @@ export default function NewPostModal({
             </button>
           </div>
         )}
-
         {/* ── Résultat YouTube ── */}
         {youtubeResult && (
           <div
@@ -3977,7 +3895,6 @@ export default function NewPostModal({
             </button>
           </div>
         )}
-
         {/* ── Statut de publication ── */}
         {(submitProgress || submitError) && (
           <div
@@ -3998,7 +3915,6 @@ export default function NewPostModal({
             <span className="min-w-0">{submitError ?? submitProgress}</span>
           </div>
         )}
-
         {/* ── Footer ── */}
         <div className={["relative flex shrink-0 items-center justify-end gap-4 border-t px-6 py-4", border].join(" ")}>
           <div className="mr-auto flex min-w-0 flex-1 flex-col gap-1">
@@ -4136,7 +4052,6 @@ export default function NewPostModal({
             )}
           </div>
         </div>
-
         {/* ── Dialogue : reprendre le brouillon ou l'ignorer ── */}
         {pendingDraft && (
           <div className="absolute inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-[2px]">
@@ -4161,7 +4076,6 @@ export default function NewPostModal({
             </div>
           </div>
         )}
-
         {dropboxPickerOpen && (
           <div
             className="absolute inset-0 z-[70] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
@@ -4322,7 +4236,6 @@ export default function NewPostModal({
             </section>
           </div>
         )}
-
         {googleDrivePickerOpen && (
           <div
             className="absolute inset-0 z-[70] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
@@ -4516,7 +4429,6 @@ export default function NewPostModal({
             </section>
           </div>
         )}
-
         {googlePhotosPickerOpen && (
           <div
             className="absolute inset-0 z-[70] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"

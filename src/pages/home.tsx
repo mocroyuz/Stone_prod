@@ -56,33 +56,33 @@ import {
 ============================================================ */
 
 const pageBgClass = (isDark: boolean) =>
-  isDark ? "bg-[#09090a]" : "bg-[#f5f3ef]";
+  isDark ? "bg-[#050505]" : "bg-[#f5f3ef]";
 
 const mainPanelClass = (isDark: boolean) =>
   isDark
-    ? "border-white/[0.07] bg-[#0f0f11]"
+    ? "border-white/[0.07] bg-[#0a0a0c]"
     : "border-black/[0.06] bg-white";
 
 const cardClass = (isDark: boolean) =>
   isDark
-    ? "border-white/[0.07] bg-[#141416]"
+    ? "border-white/[0.07] bg-[#0f0f11]"
     : "border-black/[0.06] bg-white";
 
 const panelSurfaceClass = (isDark: boolean) =>
   isDark
-    ? "border-white/[0.07] bg-white/[0.03]"
+    ? "border-white/[0.07] bg-white/[0.025]"
     : "border-black/[0.06] bg-[#f6f4f0]";
 
 /* Fond solide équivalent à panelSurfaceClass (pour bouton posé dessus) */
 const panelSolidClass = (isDark: boolean) =>
-  isDark ? "bg-[#161618]" : "bg-[#f6f4f0]";
+  isDark ? "bg-[#101012]" : "bg-[#f6f4f0]";
 
 /* Fondu vers le fond principal (là où sont dessinées les cartes commentaires) */
 const mainBgFadeClass = (isDark: boolean) =>
-  isDark ? "from-[#0f0f11]" : "from-white";
+  isDark ? "from-[#0a0a0c]" : "from-white";
 
 const panelRingClass = (isDark: boolean) =>
-  isDark ? "ring-[#151517]" : "ring-[#f6f4f0]";
+  isDark ? "ring-[#101012]" : "ring-[#f6f4f0]";
 
 const mutedClass = (isDark: boolean) =>
   isDark ? "text-neutral-600" : "text-neutral-400";
@@ -987,7 +987,7 @@ function ChannelAvatar({
           className={[
             "flex h-full w-full items-center justify-center rounded-full",
             "text-[11px] font-semibold ring-2",
-            isDark ? "bg-[#29292c] text-white" : "bg-neutral-900 text-white",
+            isDark ? "bg-[#242428] text-white" : "bg-neutral-900 text-white",
             panelRingClass(isDark),
           ].join(" ")}
         >
@@ -1087,7 +1087,7 @@ function Channels({
                 className={[
                   "-ml-2 flex h-9 w-9 shrink-0 items-center justify-center rounded-full",
                   "text-[10px] font-semibold ring-2",
-                  isDark ? "bg-[#29292c] text-white" : "bg-neutral-200 text-neutral-700",
+                  isDark ? "bg-[#242428] text-white" : "bg-neutral-200 text-neutral-700",
                   panelRingClass(isDark),
                 ].join(" ")}
               >
@@ -1107,7 +1107,7 @@ function Channels({
                 "ring-2",
                 panelRingClass(isDark),
                 isDark
-                  ? "border-white/[0.14] bg-[#1b1b1e] text-white hover:bg-[#242428] hover:border-white/25"
+                  ? "border-white/[0.14] bg-[#161618] text-white hover:bg-[#1f1f22] hover:border-white/25"
                   : "border-black/[0.10] bg-white text-neutral-700 shadow-sm hover:bg-neutral-50 hover:border-black/20",
               ].join(" ")}
             >
@@ -1304,7 +1304,7 @@ function CommentAvatar({
           className={[
             "flex h-full w-full items-center justify-center rounded-lg",
             "text-[10px] font-semibold",
-            isDark ? "bg-[#29292c] text-white" : "bg-neutral-900 text-white",
+            isDark ? "bg-[#242428] text-white" : "bg-neutral-900 text-white",
           ].join(" ")}
         >
           {initial}
@@ -1375,7 +1375,7 @@ function CommentsPanel({
 }) {
   const visibleComments = comments.slice(0, HOME_COMMENTS_LIMIT);
   const cardSurface = isDark
-    ? "border-white/[0.08] bg-[#171719] hover:border-white/[0.15] hover:bg-[#1b1b1e]"
+    ? "border-white/[0.08] bg-[#101012] hover:border-white/[0.15] hover:bg-[#141417]"
     : "border-black/[0.07] bg-white hover:border-black/[0.12] hover:bg-[#fcfbf9]";
 
   return (
@@ -1632,7 +1632,7 @@ function CommentsPanel({
                   focusRingClass(isDark),
                   panelSolidClass(isDark),
                   isDark
-                    ? "border-white/10 text-white hover:bg-[#1b1b1e] hover:border-white/20"
+                    ? "border-white/10 text-white hover:bg-[#161618] hover:border-white/20"
                     : "border-black/10 text-neutral-900 hover:bg-white hover:border-black/20",
                 ].join(" ")}
               >
@@ -1724,7 +1724,7 @@ function BlogSection({ isDark }: { isDark: boolean }) {
               "group flex flex-col rounded-2xl border p-3.5 transition",
               focusRingClass(isDark),
               cardClass(isDark),
-              isDark ? "hover:bg-[#1a1a1d]" : "hover:bg-[#f6f4f0]",
+              isDark ? "hover:bg-[#141416]" : "hover:bg-[#f6f4f0]",
             ].join(" ")}
           >
             <BlogImage src={post.image} isDark={isDark} />
