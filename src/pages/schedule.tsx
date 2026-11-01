@@ -1400,6 +1400,9 @@ type CalendarDay = {
   isCurrentMonth: boolean;
 };
 
+/** Marge laissée au-dessus du créneau visé par « View in calendar ». */
+const FOCUS_TOP_MARGIN = 100;
+
 export default function Schedule() {
   const { theme } = useTheme();
   const isDark = theme === "dark";
@@ -1459,6 +1462,15 @@ export default function Schedule() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [scrollTop, setScrollTop] = useState(0);
   const [viewportHeight, setViewportHeight] = useState(0);
+
+  /**
+   * Cible de scroll « View in calendar ».
+   * Quand on arrive depuis le modal de création de post, on pose ici le
+   * timestamp exact du post programmé ; l'effet de scroll ci-dessous le
+   * consomme en priorité (au lieu de se caler sur l'heure actuelle).
+   */
+  const pendingFocusRef = useRef<number | null>(null);
+  const [focusNonce, setFocusNonce] = useState(0);
 
   // Month view : mesure de la grille + modale "N More"
   const monthGridRef = useRef<HTMLDivElement>(null);
@@ -1525,19 +1537,35 @@ export default function Schedule() {
 
   const weekStart = useMemo(() => startOfWeek(viewDate), [viewDate]);
 
+  /**
+   * Positionnement vertical de la vue semaine.
+   * - Si `pendingFocusRef` contient une cible (View in calendar), on scrolle
+   *   dessus, en laissant `FOCUS_TOP_MARGIN` px au-dessus pour que le post
+   *   soit bien visible.
+   * - Sinon : heure actuelle (si semaine courante) ou `DEFAULT_SCROLL_HOUR`.
+   */
   useEffect(() => {
     const el = scrollRef.current;
     if (!el || view !== "Week") return;
 
     const isCurrentWeek = now >= weekStart && now < addDays(weekStart, 7);
-    const target = isCurrentWeek
+    const defaultTarget = isCurrentWeek
       ? Math.max(0, (now.getHours() + now.getMinutes() / 60 - NOW_CONTEXT_HOURS - START_HOUR) * HOUR_HEIGHT)
       : (DEFAULT_SCROLL_HOUR - START_HOUR) * HOUR_HEIGHT;
+
+    let target = defaultTarget;
+    const pendingFocus = pendingFocusRef.current;
+    if (pendingFocus !== null) {
+      const d = new Date(pendingFocus);
+      const hour = d.getHours() + d.getMinutes() / 60;
+      target = Math.max(0, (hour - START_HOUR) * HOUR_HEIGHT - FOCUS_TOP_MARGIN);
+      pendingFocusRef.current = null;
+    }
 
     el.scrollTop = target;
     setScrollTop(el.scrollTop);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [weekStart, view]);
+  }, [weekStart, view, focusNonce]);
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -1606,6 +1634,11 @@ export default function Schedule() {
     return () => window.removeEventListener("focus", onFocus);
   }, []);
 
+  /**
+   * Au montage : si le modal a posé `schedule:focusDate` en sessionStorage
+   * (cas refresh de page après « View in calendar »), on l'utilise pour
+   * cadrer la semaine et faire scroller l'effet ci-dessus sur le créneau.
+   */
   useEffect(() => {
     try {
       const raw = sessionStorage.getItem("schedule:focusDate");
@@ -1613,8 +1646,10 @@ export default function Schedule() {
       sessionStorage.removeItem("schedule:focusDate");
       const d = new Date(Number(raw));
       if (!Number.isNaN(d.getTime())) {
+        pendingFocusRef.current = d.getTime();
         setView("Week");
         setViewDate(d);
+        setFocusNonce((n) => n + 1);
       }
     } catch {
       /* ignore */
@@ -2805,9 +2840,13 @@ export default function Schedule() {
         initialScheduledAt={newPostDate}
         onRequestOpen={() => setIsNewPostOpen(true)}
         onViewInCalendar={(d) => {
+          // Pose la cible AVANT de changer la vue pour que l'effet de scroll
+          // la consomme en priorité au prochain rendu.
+          pendingFocusRef.current = d.getTime();
           setView("Week");
           setViewDate(d);
           setPostsTick((n) => n + 1);
+          setFocusNonce((n) => n + 1);
         }}
       />
 
