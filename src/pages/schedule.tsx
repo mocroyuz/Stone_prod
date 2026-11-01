@@ -744,6 +744,97 @@ function PostSlot({
 }
 
 /* ------------------------------------------------------------------ */
+/* Off-screen posts (pastilles flottantes)                             */
+/* ------------------------------------------------------------------ */
+
+type OffScreenPost = {
+  post: CalendarPost;
+  dayIndex: number;
+  top: number;
+};
+
+/**
+ * Empilement de pastilles flottantes qui montre les vraies miniatures des
+ * posts hors-écran (au-dessus ou en-dessous de la zone visible). Un clic
+ * remonte/descend jusqu'au créneau du post.
+ */
+function OffScreenPostStack({
+  items,
+  direction,
+  isDark,
+  onSelect,
+}: {
+  items: OffScreenPost[];
+  direction: "up" | "down";
+  isDark: boolean;
+  onSelect: (item: OffScreenPost) => void;
+}) {
+  if (items.length === 0) return null;
+
+  const shown = items.slice(0, 2);
+  const remaining = items.length - shown.length;
+
+  return (
+    <div
+      className={[
+        "pointer-events-none absolute left-1/2 z-30 flex -translate-x-1/2 flex-col items-center gap-1.5",
+        direction === "up" ? "top-2" : "bottom-2",
+      ].join(" ")}
+    >
+      {shown.map((item) => {
+        const time = formatPostTime(item.post.scheduledAt);
+        const title = postTitle(item.post);
+        const hasMedia = Boolean(item.post.media?.[0]);
+        return (
+          <button
+            key={item.post.id}
+            type="button"
+            onClick={() => onSelect(item)}
+            title={title ? `${time} · ${title}` : time}
+            aria-label={
+              direction === "up"
+                ? `Post au-dessus à ${time} — cliquer pour y aller`
+                : `Post en-dessous à ${time} — cliquer pour y aller`
+            }
+            className={[
+              "pointer-events-auto flex items-center gap-2 rounded-full border py-1 pl-1 pr-2.5 shadow-lg backdrop-blur-md transition hover:scale-[1.03] active:scale-100",
+              focusRingClass(isDark),
+              isDark
+                ? "border-white/[0.10] bg-[#101012]/90 text-white"
+                : "border-black/[0.06] bg-white/95 text-neutral-800",
+            ].join(" ")}
+          >
+            {hasMedia ? (
+              <PostThumb post={item.post} isDark={isDark} size={28} />
+            ) : (
+              <NetworkBadge network={networkOf(item.post)} isDark={isDark} size={28} />
+            )}
+            <span className="text-[11.5px] font-semibold tabular-nums">{time}</span>
+            <span className={isDark ? "text-neutral-400" : "text-neutral-500"}>
+              {direction === "up" ? (
+                <ArrowUpIcon className="h-3 w-3" />
+              ) : (
+                <ArrowDownIcon className="h-3 w-3" />
+              )}
+            </span>
+          </button>
+        );
+      })}
+      {remaining > 0 && (
+        <span
+          className={[
+            "rounded-full px-2 py-0.5 text-[10.5px] font-semibold",
+            isDark ? "bg-white/15 text-white" : "bg-black/10 text-neutral-700",
+          ].join(" ")}
+        >
+          +{remaining}
+        </span>
+      )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /* Month view chips                                                    */
 /* ------------------------------------------------------------------ */
 
@@ -1831,44 +1922,52 @@ export default function Schedule() {
     }
   };
 
-  /* ---------------- Week scroll hints ---------------- */
+  /* ---------------- Off-screen posts (pastilles flottantes) ---------------- */
 
-  const scrollItems = useMemo(
-    () => [
-      ...(visibleEvents || []).map((e) => ({ start: e.start, end: e.end })),
-      ...[...postSlotsByDay.values()].flat().map((s) => ({ start: s.hour, end: s.hour + 1 })),
-    ],
-    [visibleEvents, postSlotsByDay],
-  );
+  /**
+   * Liste des posts hors-écran (au-dessus et en-dessous de la zone visible),
+   * triés du plus proche au plus loin. Sert à afficher les pastilles flottantes
+   * avec la vraie miniature, plutôt qu'une simple flèche.
+   */
+  const offScreenPosts = useMemo(() => {
+    const above: OffScreenPost[] = [];
+    const below: OffScreenPost[] = [];
+    if (viewportHeight === 0) return { above, below };
 
-  const hiddenAbove = useMemo(() => {
-    if (viewportHeight === 0) return false;
-    return scrollItems.some((item) => (item.end - START_HOUR) * HOUR_HEIGHT <= scrollTop);
-  }, [scrollItems, scrollTop, viewportHeight]);
+    const viewTop = scrollTop;
+    const viewBottom = scrollTop + viewportHeight;
 
-  const hiddenBelow = useMemo(() => {
-    if (viewportHeight === 0) return false;
-    const viewportBottom = scrollTop + viewportHeight;
-    return scrollItems.some((item) => (item.start - START_HOUR) * HOUR_HEIGHT >= viewportBottom);
-  }, [scrollItems, scrollTop, viewportHeight]);
+    postSlotsByDay.forEach((slots, dayIndex) => {
+      for (const slot of slots) {
+        const top = (slot.hour - START_HOUR) * HOUR_HEIGHT;
+        const bottom = top + HOUR_HEIGHT;
+        for (const post of slot.posts) {
+          if (bottom <= viewTop) {
+            above.push({ post, dayIndex, top });
+          } else if (top >= viewBottom) {
+            below.push({ post, dayIndex, top });
+          }
+        }
+      }
+    });
 
-  const scrollToNextHidden = (direction: "up" | "down") => {
+    // Tri croissant par `top` : avec un stack en flex-col, l'élément le plus
+    // proche de la vue se retrouve du bon côté (haut du stack vers le contenu
+    // pour "up", bas du stack vers le contenu pour "down").
+    above.sort((a, b) => a.top - b.top);
+    below.sort((a, b) => a.top - b.top);
+
+    return { above, below };
+  }, [postSlotsByDay, scrollTop, viewportHeight]);
+
+  /** Fait défiler la vue semaine jusqu'au créneau du post (centré verticalement). */
+  const scrollToOffScreenPost = (item: OffScreenPost) => {
     const el = scrollRef.current;
     if (!el) return;
-
-    const tops = scrollItems.map((item) => (item.start - START_HOUR) * HOUR_HEIGHT);
-    if (tops.length === 0) return;
-
-    if (direction === "up") {
-      const candidates = tops.filter((t) => t < scrollTop);
-      const target = candidates.length ? Math.max(...candidates) : 0;
-      el.scrollTo({ top: Math.max(0, target - HOUR_HEIGHT / 2), behavior: "smooth" });
-    } else {
-      const viewportBottom = scrollTop + viewportHeight;
-      const candidates = tops.filter((t) => t >= viewportBottom);
-      const target = candidates.length ? Math.min(...candidates) : 0;
-      el.scrollTo({ top: Math.max(0, target - HOUR_HEIGHT / 2), behavior: "smooth" });
-    }
+    el.scrollTo({
+      top: Math.max(0, item.top - HOUR_HEIGHT / 2),
+      behavior: "smooth",
+    });
   };
 
   const toggleHiddenTag = (id: string) =>
@@ -2524,51 +2623,19 @@ export default function Schedule() {
                       </div>
                     </div>
 
-                    {hiddenAbove && (
-                      <button
-                        type="button"
-                        onClick={() => scrollToNextHidden("up")}
-                        aria-label="Événements au-dessus"
-                        className={[
-                          "absolute left-1/2 top-3 z-30 flex h-9 w-9 -translate-x-1/2 items-center justify-center rounded-full border shadow-lg transition hover:scale-105",
-                          focusRingClass(isDark),
-                          isDark
-                            ? "border-white/[0.10] bg-[#101012] text-white"
-                            : "border-black/[0.06] bg-white text-neutral-800",
-                        ].join(" ")}
-                      >
-                        <ArrowUpIcon />
-                        <span
-                          className={[
-                            "absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-[#EF4444] ring-2",
-                            isDark ? "ring-[#101012]" : "ring-white",
-                          ].join(" ")}
-                        />
-                      </button>
-                    )}
-
-                    {hiddenBelow && (
-                      <button
-                        type="button"
-                        onClick={() => scrollToNextHidden("down")}
-                        aria-label="Événements en-dessous"
-                        className={[
-                          "absolute bottom-3 left-1/2 z-30 flex h-9 w-9 -translate-x-1/2 items-center justify-center rounded-full border shadow-lg transition hover:scale-105",
-                          focusRingClass(isDark),
-                          isDark
-                            ? "border-white/[0.10] bg-[#101012] text-white"
-                            : "border-black/[0.06] bg-white text-neutral-800",
-                        ].join(" ")}
-                      >
-                        <ArrowDownIcon />
-                        <span
-                          className={[
-                            "absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-[#EF4444] ring-2",
-                            isDark ? "ring-[#101012]" : "ring-white",
-                          ].join(" ")}
-                        />
-                      </button>
-                    )}
+                    {/* Pastilles flottantes : vraies miniatures des posts hors-écran */}
+                    <OffScreenPostStack
+                      items={offScreenPosts.above}
+                      direction="up"
+                      isDark={isDark}
+                      onSelect={scrollToOffScreenPost}
+                    />
+                    <OffScreenPostStack
+                      items={offScreenPosts.below}
+                      direction="down"
+                      isDark={isDark}
+                      onSelect={scrollToOffScreenPost}
+                    />
                   </div>
                 </>
               ) : (
