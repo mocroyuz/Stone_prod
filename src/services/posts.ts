@@ -125,9 +125,15 @@ export async function createPosts(payload: NewPostPayload): Promise<void> {
   }
 
   const external = payload.externalNetworks ?? [];
+  
+  // CORRECTION : On utilise payload.networks (la sélection originale) si allNetworks est vide.
+  // Cela arrive quand le frontend filtre les réseaux "immédiats" (TikTok/YouTube Now) 
+  // avant d'appeler cette fonction, laissant le tableau networks vide.
   const allNetworks = Array.from(new Set([...payload.networks, ...external]));
-
-  if (allNetworks.length === 0) {
+  
+  // Validation plus souple : on accepte la requête si l'utilisateur avait sélectionné des réseaux,
+  // même si ils ont été filtrés par le frontend pour traitement immédiat séparé.
+  if (allNetworks.length === 0 && payload.networks.length === 0) {
     throw new Error("At least one network is required");
   }
 
@@ -146,7 +152,10 @@ export async function createPosts(payload: NewPostPayload): Promise<void> {
   }
 
   // Champs structurés (JSON)
-  formData.append("networks", JSON.stringify(allNetworks));
+  // On envoie allNetworks s'il n'est pas vide, sinon on envoie payload.networks pour satisfaire le backend
+  const networksToSend = allNetworks.length > 0 ? allNetworks : payload.networks;
+  
+  formData.append("networks", JSON.stringify(networksToSend));
   formData.append("externalNetworks", JSON.stringify(external));
   formData.append("contents", JSON.stringify(payload.contents ?? {}));
   formData.append("channelKeys", JSON.stringify(payload.channelKeys ?? {}));
