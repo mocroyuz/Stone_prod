@@ -506,8 +506,8 @@ const NOW_CONTEXT_HOURS = 2;
 const HOURS = Array.from({ length: SPAN + 1 }, (_, i) => START_HOUR + i);
 
 /* Month view : dimensions fixes pour calculer combien d'éléments rentrent */
-const MONTH_ITEM_H = 30;
-const MONTH_GAP = 4;
+const MONTH_ITEM_H = 26;
+const MONTH_GAP = 3;
 const MONTH_CELL_PAD = 6;
 const MONTH_CELL_HEADER = 24;
 
@@ -586,18 +586,6 @@ const NETWORK_ICONS: Record<SocialNetworkId, NetIcon> = {
   threads: ThreadsIcon as unknown as NetIcon,
 };
 
-/** Couleur de marque du badge de réseau (clair / sombre). */
-const NETWORK_COLORS: Record<SocialNetworkId, { light: string; dark: string }> = {
-  x: { light: "#111111", dark: "#3f3f46" },
-  facebook: { light: "#1877F2", dark: "#1877F2" },
-  instagram: { light: "#E1306C", dark: "#E1306C" },
-  linkedin: { light: "#0A66C2", dark: "#0A66C2" },
-  tiktok: { light: "#111111", dark: "#3f3f46" },
-  youtube: { light: "#FF0000", dark: "#E00000" },
-  pinterest: { light: "#E60023", dark: "#E60023" },
-  threads: { light: "#111111", dark: "#3f3f46" },
-};
-
 function networkOf(post: CalendarPost): SocialNetworkId {
   const key = post.network as SocialNetworkId;
   return key && NETWORK_ICONS[key] ? key : "x";
@@ -622,13 +610,15 @@ function NetworkBadge({
   size?: number;
 }) {
   const Icon = NETWORK_ICONS[network] || XIcon;
-  const bg = NETWORK_COLORS[network]?.[isDark ? "dark" : "light"] ?? "#111";
   return (
     <span
-      className="flex shrink-0 items-center justify-center rounded-md text-white"
-      style={{ width: size, height: size, backgroundColor: bg }}
+      className={[
+        "flex shrink-0 items-center justify-center rounded-md",
+        isDark ? "bg-[#e4e4e7] text-[#111]" : "bg-neutral-900 text-white",
+      ].join(" ")}
+      style={{ width: size, height: size }}
     >
-      <Icon className="h-3 w-3" />
+      <Icon className={size <= 18 ? "h-[11px] w-[11px]" : "h-3 w-3"} />
     </span>
   );
 }
@@ -636,7 +626,7 @@ function NetworkBadge({
 function PostThumb({
   post,
   isDark,
-  size = 22,
+  size = 16,
 }: {
   post: CalendarPost;
   isDark: boolean;
@@ -647,8 +637,8 @@ function PostThumb({
   return (
     <div
       className={[
-        "relative shrink-0 overflow-hidden rounded-md",
-        isDark ? "bg-white/[0.12]" : "bg-neutral-300",
+        "relative shrink-0 overflow-hidden rounded-[5px]",
+        isDark ? "bg-white/[0.14]" : "bg-neutral-300",
       ].join(" ")}
       style={{ width: size, height: size }}
     >
@@ -664,8 +654,8 @@ function PostThumb({
             className="h-full w-full object-cover"
           />
           <span className="absolute inset-0 flex items-center justify-center">
-            <span className="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-black/55 text-white">
-              <svg viewBox="0 0 24 24" className="h-2 w-2" fill="currentColor">
+            <span className="flex h-[10px] w-[10px] items-center justify-center rounded-full bg-black/60 text-white">
+              <svg viewBox="0 0 24 24" className="ml-[0.5px] h-[5px] w-[5px]" fill="currentColor">
                 <path d="M8 5v14l11-7z" />
               </svg>
             </span>
@@ -768,7 +758,7 @@ function PostCard({
             Posted
           </span>
         )}
-        <PostThumb post={post} isDark={isDark} />
+        <PostThumb post={post} isDark={isDark} size={18} />
       </span>
     </div>
   );
@@ -797,23 +787,23 @@ function MonthPostChip({
       onDragStart={(e) => onDragStart(e, post.id)}
       onDragEnd={onDragEnd}
       className={[
-        "flex shrink-0 items-center gap-2 rounded-lg px-1.5 transition-colors",
+        "flex shrink-0 items-center gap-1.5 rounded-md px-1.5 transition-colors",
         postChipBg(isDark, posted),
         posted ? "cursor-not-allowed" : "cursor-grab active:cursor-grabbing",
       ].join(" ")}
       style={{ height: MONTH_ITEM_H }}
     >
-      <NetworkBadge network={networkOf(post)} isDark={isDark} />
+      <NetworkBadge network={networkOf(post)} isDark={isDark} size={18} />
       <span
         className={[
-          "min-w-0 truncate text-[12px] font-semibold tabular-nums",
+          "min-w-0 truncate text-[11px] font-semibold tabular-nums leading-none",
           isDark ? "text-neutral-200" : "text-neutral-700",
         ].join(" ")}
       >
         {formatPostTime(post.scheduledAt)}
       </span>
       <span className="ml-auto flex shrink-0">
-        <PostThumb post={post} isDark={isDark} size={22} />
+        <PostThumb post={post} isDark={isDark} size={16} />
       </span>
     </div>
   );
@@ -832,7 +822,7 @@ function MonthEventChip({
   return (
     <div
       className={[
-        "flex shrink-0 flex-col justify-center overflow-hidden rounded-lg border-l-[3px] px-2 leading-tight",
+        "flex shrink-0 flex-col justify-center overflow-hidden rounded-md border-l-[3px] px-1.5 leading-tight",
         !tag && (isDark ? "bg-neutral-800 text-neutral-200" : "bg-neutral-100 text-neutral-700"),
       ]
         .filter(Boolean)
@@ -845,8 +835,8 @@ function MonthEventChip({
           : {}),
       }}
     >
-      <span className="truncate text-[11px] font-semibold">{event.title || "Sans titre"}</span>
-      <span className="truncate text-[9.5px] opacity-70">{formatTime(event.start)}</span>
+      <span className="truncate text-[10.5px] font-semibold">{event.title || "Sans titre"}</span>
+      <span className="truncate text-[9px] tabular-nums opacity-70">{formatTime(event.start)}</span>
     </div>
   );
 }
@@ -865,7 +855,7 @@ function MoreRow({
       type="button"
       onClick={onClick}
       className={[
-        "flex shrink-0 items-center justify-end gap-1.5 rounded-lg px-1.5 text-[12.5px] font-semibold transition-colors",
+        "flex shrink-0 items-center justify-end gap-1 rounded-md px-1.5 text-[11.5px] font-semibold transition-colors",
         focusRingClass(isDark),
         isDark
           ? "text-neutral-300 hover:bg-white/[0.06] hover:text-white"
@@ -873,7 +863,7 @@ function MoreRow({
       ].join(" ")}
       style={{ height: MONTH_ITEM_H }}
     >
-      <ChevronDownIcon className="h-[14px] w-[14px]" />
+      <ChevronDownIcon className="h-[12px] w-[12px]" />
       {count} More
     </button>
   );
@@ -2513,7 +2503,7 @@ export default function Schedule() {
                             <div className="flex shrink-0 items-center" style={{ height: MONTH_CELL_HEADER }}>
                               <span
                                 className={[
-                                  "flex h-6 min-w-6 items-center justify-center rounded-full px-1 text-[13px] font-semibold",
+                                  "flex h-6 min-w-6 items-center justify-center rounded-full px-1 text-[12px] font-semibold tabular-nums",
                                   day.isToday
                                     ? isDark
                                       ? "bg-white text-neutral-900"
