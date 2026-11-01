@@ -46,7 +46,7 @@ function clearStoredParams() {
 function goToChannels(query = "") {
   clearStoredParams();
   // replace : le callback ne reste pas dans l'historique.
-  window.location.replace(`/settings?section=channels${query}`);
+  window.location.replace(`/settings/channels${query}`);
 }
 
 export default function TikTokCallback() {
