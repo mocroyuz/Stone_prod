@@ -1621,13 +1621,13 @@ function CommentsPanel({
               />
             </div>
 
-            {/* Bouton pleine largeur en bas */}
+            {/* Bouton pleine largeur en bas — ✅ plus carré (rounded-md) */}
             <div className="absolute inset-x-0 bottom-0 z-10">
               <button
                 type="button"
                 onClick={onViewMore}
                 className={[
-                  "flex w-full items-center justify-center gap-1 rounded-full border px-3.5 py-1.5",
+                  "flex w-full items-center justify-center gap-1 rounded-md border px-3.5 py-1.5",
                   "text-[11px] font-semibold transition",
                   focusRingClass(isDark),
                   panelSolidClass(isDark),

@@ -1,7 +1,7 @@
 // src/pages/Insights.tsx
 // Page Insights — même shell arrondi que Home (fond de page + panneau rounded-[28px]).
-// Toute la logique métier est conservée : useInsights, Chart, Segmented, RangePicker,
-// useHashChannel, useConnectedChannels, CalendarPicker, DashboardSidebar, HelpChatButton.
+// Données YouTube réelles via useYouTubeInsights (services/youtube.ts).
+// Les autres réseaux conservent les données d'exemple en attendant leur API.
 
 import {
   useEffect,
@@ -33,6 +33,7 @@ import {
   Pencil,
   Play,
   Plus,
+  RefreshCw,
   Repeat2,
   Send,
   Tag,
@@ -56,6 +57,7 @@ import NewPostModal, {
 } from "../components/Newpostmodal";
 import { useConnectedChannels, type ConnectedChannel } from "../hooks/useConnectedChannels";
 import { createPosts } from "../services/posts";
+import { useYouTubeInsights } from "../services/youtube";
 import {
   InstagramIcon,
   FacebookIcon,
@@ -232,12 +234,15 @@ function resolveRange(range: Range, customStart: Date, customEnd: Date) {
 }
 
 /* ============================================================
-   DONNÉES (à remplacer par ton API)
+   DONNÉES D'EXEMPLE (réseaux sans API pour l'instant)
+   `sample = false` renvoie un squelette vide (zéros) : utilisé
+   pour YouTube tant que les vraies données ne sont pas arrivées.
 ============================================================ */
 
 function useInsights(
   start: Date,
-  end: Date
+  end: Date,
+  sample: boolean
 ): {
   current: Point[];
   previous: Point[];
@@ -260,22 +265,24 @@ function useInsights(
         profileViews: 0,
       }));
 
-    const current = build(new Date(s), true);
+    const current = build(new Date(s), sample);
     const previous = build(addDays(new Date(s), -days), false);
 
     const postDate = addDays(new Date(e), -2);
-    const posts: PostRow[] = [
-      {
-        id: "1",
-        label: "Media only",
-        date: postDate < new Date(s) ? new Date(s) : postDate,
-        media: "image",
-        reactions: 0,
-        comments: 0,
-        engRate: 0,
-        videoViews: 0,
-      },
-    ];
+    const posts: PostRow[] = sample
+      ? [
+          {
+            id: "1",
+            label: "Media only",
+            date: postDate < new Date(s) ? new Date(s) : postDate,
+            media: "image",
+            reactions: 0,
+            comments: 0,
+            engRate: 0,
+            videoViews: 0,
+          },
+        ]
+      : [];
 
     return {
       current,
@@ -295,7 +302,7 @@ function useInsights(
       posts,
       previousPosts: [] as PostRow[],
     };
-  }, [s, e]);
+  }, [s, e, sample]);
 }
 
 function useHashChannel(): string | null {
@@ -690,6 +697,12 @@ function channelNetwork(c?: ConnectedChannel): string {
   return String(raw).toLowerCase();
 }
 
+function isYouTubeChannel(c?: ConnectedChannel): boolean {
+  if (!c) return false;
+  const extra = c as ConnectedChannel & { platform?: string };
+  return channelNetwork(c).startsWith("youtube") || extra.platform === "youtube";
+}
+
 function NetworkIcon({ channel, isDark }: { channel?: ConnectedChannel; isDark: boolean }) {
   const key = channelNetwork(channel);
   const Icon = Object.entries(NETWORK_ICONS).find(([k]) => key.includes(k))?.[1];
@@ -1076,6 +1089,7 @@ export default function Insights() {
   const channels = useConnectedChannels();
   const channelKey = useHashChannel();
   const channel = channels.find((c) => c.key === channelKey) ?? channels[0];
+  const isYouTube = isYouTubeChannel(channel);
 
   // Favoris partagés avec la sidebar : le marque-page du header ajoute /
   // retire cette page de la section « Favorite ».
@@ -1092,12 +1106,19 @@ export default function Insights() {
   const [isFolderOpen, setIsFolderOpen] = useState(false);
   const [isNewPostOpen, setIsNewPostOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [reloadKey, setReloadKey] = useState(0);
 
   const { start, end } = useMemo(
     () => resolveRange(range, customStart, customEnd),
     [range, customStart, customEnd]
   );
-  const { current, previous, summary, posts, previousPosts } = useInsights(start, end);
+
+  // YouTube : vraies données. Autres réseaux : données d'exemple.
+  // Pour YouTube, le squelette vide sert d'affichage pendant le chargement.
+  const yt = useYouTubeInsights(start, end, isYouTube && Boolean(channel), reloadKey);
+  const fallback = useInsights(start, end, !isYouTube);
+  const { current, previous, summary, posts, previousPosts } =
+    isYouTube && yt.data ? yt.data : fallback;
 
   const days = current.length;
   const dates = current.map((p) => p.date);
@@ -1131,7 +1152,7 @@ export default function Insights() {
     ],
     growth: [{ key: "followers", label: "Followers", tone: 0, agg: "last" }],
     visibility: [
-      { key: "profileViews", label: "Profile Views", tone: 0, agg: "sum" },
+      { key: "profileViews", label: isYouTube ? "Channel Views" : "Profile Views", tone: 0, agg: "sum" },
       { key: "followers", label: "Followers", tone: 1, agg: "last" },
     ],
   };
@@ -1230,6 +1251,8 @@ export default function Insights() {
   const sectionTitle = `text-[15px] font-semibold tracking-[-0.02em] ${t.text}`;
   const sectionSub = `mt-1 text-[11px] ${t.muted}`;
 
+  const youtubeLoading = isYouTube && yt.loading && !yt.data;
+
   return (
     <main
       className={[
@@ -1283,6 +1306,16 @@ export default function Insights() {
               </div>
               <div className="flex flex-wrap items-center gap-2.5 print:hidden">
                 <ChannelMenu channels={channels} current={channel} t={t} isDark={isDark} />
+
+                {isYouTube && (
+                  <IconBtn label="Refresh insights" t={t} onClick={() => setReloadKey((k) => k + 1)}>
+                    <RefreshCw
+                      className={`h-4 w-4 ${yt.loading ? "animate-spin motion-reduce:animate-none" : ""}`}
+                      aria-hidden="true"
+                    />
+                  </IconBtn>
+                )}
+
                 <button
                   type="button"
                   onClick={exportCsv}
@@ -1337,6 +1370,30 @@ export default function Insights() {
               </section>
             ) : (
               <>
+                {/* ÉTAT YOUTUBE : erreur / chargement */}
+                {isYouTube && yt.error && (
+                  <div
+                    role="alert"
+                    className={`flex flex-wrap items-center justify-between gap-3 rounded-2xl border px-4 py-3 ${t.panel}`}
+                  >
+                    <p className="text-[12.5px] text-red-500">
+                      Could not load YouTube insights: {yt.error}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setReloadKey((k) => k + 1)}
+                      className={`rounded-lg px-3 py-1.5 text-[11px] font-semibold transition-colors ${t.ring} ${t.outlineBtn}`}
+                    >
+                      Retry
+                    </button>
+                  </div>
+                )}
+                {youtubeLoading && (
+                  <p className={`text-[12.5px] ${t.soft}`} role="status" aria-live="polite">
+                    Loading YouTube insights…
+                  </p>
+                )}
+
                 {/* BANNIÈRE */}
                 <section className={`relative overflow-hidden rounded-2xl border ${t.card}`}>
                   <div
@@ -1559,11 +1616,15 @@ export default function Insights() {
                           <span className={`flex h-11 w-11 items-center justify-center rounded-full ${t.iconBox}`}>
                             <Activity className="h-5 w-5" aria-hidden="true" />
                           </span>
-                          <p className={`text-[12px] font-medium ${t.text}`}>No posts in this period</p>
-                          <p className={`max-w-[360px] text-[12px] ${t.soft}`}>
-                            Choose a longer range to see how your earlier posts performed.
+                          <p className={`text-[12px] font-medium ${t.text}`}>
+                            {youtubeLoading ? "Loading videos…" : "No posts in this period"}
                           </p>
-                          {days < 30 && (
+                          {!youtubeLoading && (
+                            <p className={`max-w-[360px] text-[12px] ${t.soft}`}>
+                              Choose a longer range to see how your earlier posts performed.
+                            </p>
+                          )}
+                          {!youtubeLoading && days < 30 && (
                             <button
                               type="button"
                               onClick={() => setRange("30d")}
@@ -1583,13 +1644,24 @@ export default function Insights() {
                               <span className={`w-5 shrink-0 text-[12px] ${t.muted}`}>#{idx + 1}</span>
                               <span className={`flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl ${t.iconBox}`}>
                                 {p.thumbnailUrl ? (
-                                  <img src={p.thumbnailUrl} alt="" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+                                  <img src={p.thumbnailUrl} alt="" referrerPolicy="no-referrer" loading="lazy" className="h-full w-full object-cover" />
                                 ) : (
                                   mediaIcon(p.media)
                                 )}
                               </span>
                               <div className="min-w-0">
-                                <p className={`truncate text-[14px] font-medium ${t.soft}`}>{p.label}</p>
+                                {isYouTube ? (
+                                  <a
+                                    href={`https://www.youtube.com/watch?v=${p.id}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className={`block truncate rounded text-[14px] font-medium hover:underline ${t.soft} ${t.ring}`}
+                                  >
+                                    {p.label}
+                                  </a>
+                                ) : (
+                                  <p className={`truncate text-[14px] font-medium ${t.soft}`}>{p.label}</p>
+                                )}
                                 <p className={`text-[11px] ${t.muted}`}>{fmtFull(p.date)}</p>
                               </div>
                             </div>

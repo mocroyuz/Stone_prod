@@ -27,7 +27,7 @@ import {
   type YouTubeComment,
   type YouTubeFilter,
   type YouTubeReply,
-} from "../services/youtubeComments";
+} from "../services/youtube";
 
 /* ───────── Types ───────── */
 
