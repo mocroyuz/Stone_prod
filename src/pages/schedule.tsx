@@ -22,6 +22,7 @@ import {
   listPosts,
   tagHex,
   isPostPosted,
+  updatePostSchedule,
   type CalendarPost,
 } from "../services/posts";
 import {
@@ -41,7 +42,7 @@ import {
 } from "../components/IntegrationIcons";
 
 /* ------------------------------------------------------------------ */
-/* Shell (identique à Home)                                            */
+/* Shell                                                               */
 /* ------------------------------------------------------------------ */
 
 const pageBgClass = (isDark: boolean) =>
@@ -63,7 +64,6 @@ const focusRingClass = (isDark: boolean) =>
     ? "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
     : "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/25";
 
-/** Route de cette page dans la sidebar (section Favorite). */
 const PAGE_ROUTE = "schedule";
 
 /* ------------------------------------------------------------------ */
@@ -76,7 +76,7 @@ function useHashChannel(): string | null {
 }
 
 /* ------------------------------------------------------------------ */
-/* Tags (mêmes tags Supabase que Create.tsx)                           */
+/* Tags                                                                */
 /* ------------------------------------------------------------------ */
 
 const UNASSIGNED = "unassigned";
@@ -91,10 +91,8 @@ const UNASSIGNED_HEX = "#a3a3a3";
 
 const DEFAULT_ORDER = ["to do", "in progress"];
 
-/** Couleur hexadécimale d'un tag (gère le tag « Unassigned »). */
 const hexOf = (t: ApiTag) => (t.id === UNASSIGNED ? UNASSIGNED_HEX : tagHex(t.color));
 
-/** Un élément sans tag est traité comme « Unassigned ». */
 const passesTagFilter = (ids: string[], hidden: string[]) => {
   const list = ids.length ? ids : [UNASSIGNED];
   return list.some((id) => !hidden.includes(id));
@@ -247,7 +245,6 @@ function MoreVerticalIcon() {
   );
 }
 
-/** Icône marque-page (ajout / retrait des favoris). */
 function BookmarkIcon({
   className,
   filled = false,
@@ -272,7 +269,7 @@ function BookmarkIcon({
 }
 
 /* ------------------------------------------------------------------ */
-/* Toolbar building blocks                                             */
+/* Toolbar                                                             */
 /* ------------------------------------------------------------------ */
 
 type ToolbarPanel = "view" | "posts" | "tags" | "timezone" | "more";
@@ -430,7 +427,6 @@ function MenuItem({
 
 const LOCALE = "en-US";
 
-/** La semaine commence le Dimanche (0) */
 function startOfWeek(date: Date) {
   const d = new Date(date);
   d.setHours(0, 0, 0, 0);
@@ -455,7 +451,7 @@ function addMonths(date: Date, months: number) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Time <-> decimal hour helpers                                       */
+/* Time helpers                                                        */
 /* ------------------------------------------------------------------ */
 
 const TIME_ANCHOR = new Date(2024, 0, 1);
@@ -473,13 +469,13 @@ function dateToHour(d: Date): number {
 }
 
 /* ------------------------------------------------------------------ */
-/* Data                                                                */
+/* Data types                                                          */
 /* ------------------------------------------------------------------ */
 
 type CalendarEvent = {
   id: string;
-  day: number; // 0-6 (Dimanche-Samedi)
-  dateStr?: string; // Date exacte (ex: "Mon Mar 25 2024") pour la vue Mois
+  day: number;
+  dateStr?: string;
   start: number;
   end: number;
   title: string;
@@ -492,16 +488,11 @@ type CalendarEvent = {
 const START_HOUR = 0;
 const END_HOUR = 24;
 const SPAN = END_HOUR - START_HOUR;
-
-/** Les cartes de post font ~1 h de haut. */
 const HOUR_HEIGHT = 128;
 const POST_SPAN = 1;
-
 const TOTAL_HEIGHT = SPAN * HOUR_HEIGHT;
-
 const DEFAULT_SCROLL_HOUR = 8;
 const NOW_CONTEXT_HOURS = 2;
-
 const HOURS = Array.from({ length: SPAN + 1 }, (_, i) => START_HOUR + i);
 
 function formatTime(h: number) {
@@ -518,20 +509,12 @@ const VIEW_OPTIONS = ["Week", "Month"];
 const TIMEZONES = ["Paris", "London", "New York", "Tokyo"];
 const SCOPE_OPTIONS = ["All", "Publié", "À publier"];
 
-/* ------------------------------------------------------------------ */
-/* Style neutre (événement sans tag)                                   */
-/* ------------------------------------------------------------------ */
-
 const NEUTRAL_STYLE = {
   bgLight: "bg-neutral-100",
   bgDark: "bg-neutral-800",
   borderLight: "border-neutral-200",
   borderDark: "border-neutral-700",
 };
-
-/* ------------------------------------------------------------------ */
-/* Layout des événements (calendrier)                                  */
-/* ------------------------------------------------------------------ */
 
 type PositionedEvent = {
   event: CalendarEvent;
@@ -540,9 +523,7 @@ type PositionedEvent = {
 
 function layoutDayEvents(events: CalendarEvent[]): PositionedEvent[] {
   if (events.length === 0) return [];
-
   const sorted = [...events].sort((a, b) => a.start - b.start || b.end - a.end);
-
   const result: PositionedEvent[] = [];
   let i = 0;
   while (i < sorted.length) {
@@ -561,7 +542,7 @@ function layoutDayEvents(events: CalendarEvent[]): PositionedEvent[] {
 }
 
 /* ------------------------------------------------------------------ */
-/* Posts : icônes, layout côte-à-côte, carte                           */
+/* Posts : Version compacte (comme l'image)                            */
 /* ------------------------------------------------------------------ */
 
 type NetIcon = (props: { className?: string }) => ReactNode;
@@ -577,141 +558,72 @@ const NETWORK_ICONS: Record<SocialNetworkId, NetIcon> = {
   threads: ThreadsIcon as unknown as NetIcon,
 };
 
-type PositionedPost = { post: CalendarPost; start: number; col: number; cols: number };
-
-/** Place côte à côte les posts qui se chevauchent (même heure ou à moins d'1 h). */
-function layoutPosts(list: { post: CalendarPost; start: number }[]): PositionedPost[] {
-  const sorted = [...list].sort((a, b) => a.start - b.start);
-  const out: PositionedPost[] = [];
-  let cluster: PositionedPost[] = [];
-  let colEnds: number[] = [];
-  let clusterEnd = -1;
-
-  const flush = () => {
-    cluster.forEach((c) => (c.cols = colEnds.length));
-    out.push(...cluster);
-    cluster = [];
-    colEnds = [];
-    clusterEnd = -1;
-  };
-
-  for (const item of sorted) {
-    if (cluster.length && item.start >= clusterEnd) flush();
-    let col = colEnds.findIndex((end) => end <= item.start);
-    if (col === -1) {
-      col = colEnds.length;
-      colEnds.push(0);
-    }
-    colEnds[col] = item.start + POST_SPAN;
-    cluster.push({ ...item, col, cols: 1 });
-    clusterEnd = Math.max(clusterEnd, item.start + POST_SPAN);
-  }
-  flush();
-  return out;
-}
-
-function PostCard({
-  item, tagsById, isDark, posted,
+/** Petit post compact comme sur l'image */
+function CompactPostCard({
+  post,
+  tagsById,
+  isDark,
+  posted,
+  onDragStart,
 }: {
-  item: PositionedPost;
+  post: CalendarPost;
   tagsById: Map<string, ApiTag>;
   isDark: boolean;
   posted: boolean;
+  onDragStart: (e: React.DragEvent, postId: string) => void;
 }) {
-  const { post, start, col, cols } = item;
-  const [expanded, setExpanded] = useState(false);
-
   const Icon = NETWORK_ICONS[post.network];
   const cover = post.media[0];
-  const tags = post.tagIds.map((id) => tagsById.get(id)).filter(Boolean) as ApiTag[];
   const time = new Date(post.scheduledAt).toLocaleTimeString(LOCALE, {
-    hour: "numeric", minute: "2-digit", hour12: true,
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
   });
-
-  const height = HOUR_HEIGHT * POST_SPAN - 6;
-  const width = 100 / cols;
 
   return (
     <div
-      tabIndex={0}
-      onMouseEnter={() => setExpanded(true)}
-      onMouseLeave={() => setExpanded(false)}
-      onFocus={() => setExpanded(true)}
-      onBlur={() => setExpanded(false)}
+      draggable={!posted}
+      onDragStart={(e) => onDragStart(e, post.id)}
       className={[
-        "absolute flex flex-col justify-between gap-2 rounded-2xl border p-3.5 outline-none transition-[box-shadow,opacity,filter]",
-        isDark ? "border-white/[0.08] bg-[#1c1c1e]" : "border-black/[0.08] bg-white",
-        expanded ? "shadow-xl" : "overflow-hidden",
-        posted ? "opacity-60 grayscale" : "",
+        "group flex items-center gap-2 rounded-lg border p-1.5 cursor-grab active:cursor-grabbing transition-all",
+        isDark
+          ? "border-white/[0.08] bg-[#1c1c1e] hover:bg-[#252528]"
+          : "border-black/[0.08] bg-white hover:bg-neutral-50",
+        posted ? "opacity-50 cursor-not-allowed" : "",
       ].join(" ")}
-      style={{
-        top: start * HOUR_HEIGHT,
-        left: `calc(${col * width}% + 4px)`,
-        width: `calc(${width}% - 8px)`,
-        zIndex: expanded ? 50 : 2,
-        ...(expanded ? { minHeight: height } : { height }),
-      }}
     >
-      <div className="flex items-center gap-3">
-        <span
-          className={[
-            "flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px]",
-            isDark ? "bg-[#e4e4e7] text-[#111]" : "bg-neutral-900 text-white",
-          ].join(" ")}
-        >
-          <Icon className="h-5 w-5" />
-        </span>
-        <span className={["truncate text-[17px] font-bold tracking-[-0.02em]", isDark ? "text-neutral-100" : "text-neutral-800"].join(" ")}>
-          {time}
-        </span>
-      </div>
+      {/* Icône réseau */}
+      <span
+        className={[
+          "flex h-7 w-7 shrink-0 items-center justify-center rounded-md",
+          isDark ? "bg-[#e4e4e7] text-[#111]" : "bg-neutral-900 text-white",
+        ].join(" ")}
+      >
+        <Icon className="h-3.5 w-3.5" />
+      </span>
 
-      <div className="flex items-end justify-between gap-2">
-        <div className="flex min-w-0 flex-1 flex-wrap content-end gap-1">
-          {posted && (
-            <span
-              className={[
-                "inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-semibold",
-                isDark ? "bg-white/10 text-neutral-200" : "bg-black/[0.06] text-neutral-700",
-              ].join(" ")}
-            >
-              <CheckIcon className="h-[9px] w-[9px]" />
-              Posted
-            </span>
+      {/* Heure */}
+      <span className={["text-[11px] font-semibold tabular-nums", isDark ? "text-neutral-200" : "text-neutral-700"].join(" ")}>
+        {time}
+      </span>
+
+      {/* Miniature */}
+      {cover && (
+        <div className="relative h-7 w-7 shrink-0 overflow-hidden rounded-md">
+          {cover.kind === "image" ? (
+            <img src={cover.url} alt="" className="h-full w-full object-cover" />
+          ) : (
+            <video src={`${cover.url}#t=0.1`} className="h-full w-full object-cover" />
           )}
-          {tags.map((tag) => {
-            const hex = tagHex(tag.color);
-            return (
-              <span
-                key={tag.id}
-                className={[
-                  "inline-flex max-w-full items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium",
-                  isDark ? "text-neutral-200" : "text-neutral-700",
-                ].join(" ")}
-                style={{ backgroundColor: `${hex}26` }}
-              >
-                <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: hex }} />
-                <span className="truncate">{tag.label}</span>
-              </span>
-            );
-          })}
         </div>
+      )}
 
-        {cover && (
-          <div className="relative h-[56px] w-[56px] shrink-0 overflow-hidden rounded-xl shadow-sm">
-            {cover.kind === "image" ? (
-              <img src={cover.url} alt="" loading="lazy" className="h-full w-full object-cover" />
-            ) : (
-              <video src={`${cover.url}#t=0.1`} preload="metadata" muted playsInline className="h-full w-full object-cover" />
-            )}
-            {post.media.length > 1 && (
-              <span className="absolute bottom-0.5 right-0.5 rounded bg-black/70 px-1 text-[9px] font-semibold text-white">
-                +{post.media.length - 1}
-              </span>
-            )}
-          </div>
-        )}
-      </div>
+      {/* Badge posted */}
+      {posted && (
+        <span className={["ml-auto text-[9px] font-medium", isDark ? "text-neutral-500" : "text-neutral-400"].join(" ")}>
+          Posted
+        </span>
+      )}
     </div>
   );
 }
@@ -1100,7 +1012,6 @@ export default function Schedule() {
   };
 
   const [events, setEvents] = useState<CalendarEvent[]>([]);
-
   const [posts, setPosts] = useState<CalendarPost[]>([]);
   const [apiTags, setApiTags] = useState<ApiTag[]>([]);
   const [postsTick, setPostsTick] = useState(0);
@@ -1130,6 +1041,10 @@ export default function Schedule() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [scrollTop, setScrollTop] = useState(0);
   const [viewportHeight, setViewportHeight] = useState(0);
+
+  // Drag and drop state
+  const [draggedPostId, setDraggedPostId] = useState<string | null>(null);
+  const [dragOverDay, setDragOverDay] = useState<number | null>(null);
 
   useEffect(() => {
     if (openMenuId === null) return;
@@ -1176,7 +1091,6 @@ export default function Schedule() {
     return () => window.clearInterval(id);
   }, []);
 
-  // Calcul de la plage de dates affichée
   const rangeStart = useMemo(() => {
     if (view === "Week") return startOfWeek(viewDate);
     return new Date(viewDate.getFullYear(), viewDate.getMonth(), 1);
@@ -1184,7 +1098,7 @@ export default function Schedule() {
 
   const rangeEnd = useMemo(() => {
     if (view === "Week") return addDays(rangeStart, 7);
-    return new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 1); 
+    return new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 1);
   }, [view, viewDate, rangeStart]);
 
   const weekStart = useMemo(() => startOfWeek(viewDate), [viewDate]);
@@ -1258,7 +1172,6 @@ export default function Schedule() {
     return () => window.removeEventListener("focus", onFocus);
   }, []);
 
-  // Gestion du focusDate venant d'une autre page (ex: Home, Create)
   useEffect(() => {
     try {
       const raw = sessionStorage.getItem("schedule:focusDate");
@@ -1274,7 +1187,6 @@ export default function Schedule() {
     }
   }, []);
 
-  // Génération des jours à afficher (Dimanche en premier)
   const days = useMemo((): (CalendarDay | null)[] => {
     if (view === "Week") {
       return Array.from({ length: 7 }, (_, i) => {
@@ -1293,15 +1205,13 @@ export default function Schedule() {
     const month = viewDate.getMonth();
     const firstDay = new Date(year, month, 1);
     const lastDay = new Date(year, month + 1, 0);
-    const startPad = firstDay.getDay(); // 0 = Dimanche
+    const startPad = firstDay.getDay();
     const numDays = lastDay.getDate();
 
     const res: (CalendarDay | null)[] = [];
     
-    // Cases vides au début du mois
     for (let i = 0; i < startPad; i++) res.push(null);
     
-    // Jours du mois
     for (let i = 1; i <= numDays; i++) {
       const date = new Date(year, month, i);
       res.push({
@@ -1313,7 +1223,6 @@ export default function Schedule() {
       });
     }
     
-    // Cases vides à la fin du mois
     const endPad = (7 - (res.length % 7)) % 7;
     for (let i = 0; i < endPad; i++) res.push(null);
     
@@ -1358,7 +1267,6 @@ export default function Schedule() {
     return map;
   }, [visibleEvents]);
 
-  // Vue Mois : Événements regroupés par date exacte
   const monthEventsByDate = useMemo(() => {
     const map = new Map<string, CalendarEvent[]>();
     days.forEach((day) => {
@@ -1374,9 +1282,8 @@ export default function Schedule() {
     return map;
   }, [days, visibleEvents]);
 
-  // Regroupement des posts par jour (avec layout côte-à-côte)
   const postsByDay = useMemo(() => {
-    const raw = new Map<number, { post: CalendarPost; start: number }[]>();
+    const raw = new Map<number, CalendarPost[]>();
     for (let i = 0; i < 7; i++) raw.set(i, []);
 
     for (const post of posts) {
@@ -1390,15 +1297,17 @@ export default function Schedule() {
       const dayStart = new Date(d.getFullYear(), d.getMonth(), d.getDate());
       const idx = Math.round((dayStart.getTime() - weekStart.getTime()) / 86_400_000);
       if (idx < 0 || idx > 6) continue;
-      raw.get(idx)!.push({ post, start: d.getHours() + d.getMinutes() / 60 });
+      raw.get(idx)!.push(post);
     }
 
-    const map = new Map<number, PositionedPost[]>();
-    for (const [day, list] of raw) map.set(day, layoutPosts(list));
+    // Trier par heure
+    const map = new Map<number, CalendarPost[]>();
+    for (const [day, list] of raw) {
+      map.set(day, list.sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime()));
+    }
     return map;
   }, [posts, channelKey, scope, now, weekStart, hiddenTags]);
 
-  // Vue Mois : Posts regroupés par date exacte
   const monthPostsByDate = useMemo(() => {
     const map = new Map<string, CalendarPost[]>();
     posts.forEach((post) => {
@@ -1419,12 +1328,55 @@ export default function Schedule() {
     return map;
   }, [posts, channelKey, scope, now, hiddenTags]);
 
+  // Drag and drop handlers
+  const handleDragStart = (e: React.DragEvent, postId: string) => {
+    setDraggedPostId(postId);
+    e.dataTransfer.effectAllowed = "move";
+    // Nécessaire pour Firefox
+    e.dataTransfer.setData("text/plain", postId);
+  };
+
+  const handleDragOver = (e: React.DragEvent, dayIndex: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    setDragOverDay(dayIndex);
+  };
+
+  const handleDragLeave = () => {
+    setDragOverDay(null);
+  };
+
+  const handleDrop = async (e: React.DragEvent, dayIndex: number, hour?: number) => {
+    e.preventDefault();
+    setDragOverDay(null);
+    
+    const postId = draggedPostId || e.dataTransfer.getData("text/plain");
+    if (!postId) return;
+
+    const post = posts.find((p) => p.id === postId);
+    if (!post) return;
+
+    // Calculer la nouvelle date
+    const oldDate = new Date(post.scheduledAt);
+    const newDate = addDays(weekStart, dayIndex);
+    newDate.setHours(hour ?? oldDate.getHours(), oldDate.getMinutes(), 0, 0);
+
+    try {
+      await updatePostSchedule(postId, newDate.toISOString());
+      setPostsTick((n) => n + 1);
+    } catch (error) {
+      console.error("Erreur lors du déplacement du post:", error);
+    }
+
+    setDraggedPostId(null);
+  };
+
   const scrollItems = useMemo(
     () => [
       ...visibleEvents.map((e) => ({ start: e.start, end: e.end })),
       ...[...postsByDay.values()]
         .flat()
-        .map((p) => ({ start: p.start, end: p.start + POST_SPAN })),
+        .map((p) => ({ start: dateToHour(new Date(p.scheduledAt)), end: dateToHour(new Date(p.scheduledAt)) + POST_SPAN })),
     ],
     [visibleEvents, postsByDay],
   );
@@ -1873,7 +1825,15 @@ export default function Schedule() {
                               : isDark
                                 ? "font-medium text-neutral-400"
                                 : "font-medium text-neutral-500",
+                            dragOverDay === days.indexOf(day)
+                              ? isDark
+                                ? "bg-white/[0.08]"
+                                : "bg-black/[0.04]"
+                              : "",
                           ].join(" ")}
+                          onDragOver={(e) => handleDragOver(e, days.indexOf(day))}
+                          onDragLeave={handleDragLeave}
+                          onDrop={(e) => handleDrop(e, days.indexOf(day))}
                         >
                           <span>{day.label}</span>
                           <span
@@ -1930,13 +1890,19 @@ export default function Schedule() {
                                 "relative border-l",
                                 calendarBorder,
                                 day.isToday ? (isDark ? "bg-white/[0.02]" : "bg-black/[0.015]") : "",
+                                dragOverDay === dayIndex ? (isDark ? "bg-white/[0.05]" : "bg-black/[0.02]") : "",
                               ].join(" ")}
+                              onDragOver={(e) => handleDragOver(e, dayIndex)}
+                              onDragLeave={handleDragLeave}
+                              onDrop={(e) => handleDrop(e, dayIndex)}
                             >
                               {HOURS.slice(0, -1).map((h, i) => (
                                 <div
                                   key={h}
                                   className={["absolute inset-x-0 border-b", isDark ? "border-white/[0.05]" : "border-black/[0.04]"].join(" ")}
                                   style={{ top: (i + 1) * HOUR_HEIGHT }}
+                                  onDragOver={(e) => handleDragOver(e, dayIndex, h)}
+                                  onDrop={(e) => handleDrop(e, dayIndex, h)}
                                 />
                               ))}
 
@@ -1992,15 +1958,19 @@ export default function Schedule() {
                                 />
                               ))}
 
-                              {postsByDay.get(dayIndex)?.map((item) => (
-                                <PostCard
-                                  key={item.post.id}
-                                  item={item}
-                                  tagsById={tagsById}
-                                  isDark={isDark}
-                                  posted={isPostPosted(item.post, now)}
-                                />
-                              ))}
+                              {/* Posts compacts */}
+                              <div className="absolute inset-x-1 top-0 flex flex-col gap-1 p-1">
+                                {postsByDay.get(dayIndex)?.map((post) => (
+                                  <CompactPostCard
+                                    key={post.id}
+                                    post={post}
+                                    tagsById={tagsById}
+                                    isDark={isDark}
+                                    posted={isPostPosted(post, now)}
+                                    onDragStart={handleDragStart}
+                                  />
+                                ))}
+                              </div>
 
                               {day.isToday && showNowLine && (
                                 <div
@@ -2100,10 +2070,14 @@ export default function Schedule() {
                           <div
                             key={day.date.toISOString()}
                             className={[
-                              "border-r border-b flex flex-col p-1.5 gap-1 transition-colors",
+                              "border-r border-b flex flex-col p-1.5 gap-1 transition-colors min-h-[100px]",
                               calendarBorder,
                               day.isToday ? (isDark ? "bg-white/[0.04]" : "bg-black/[0.02]") : "",
+                              dragOverDay === i ? (isDark ? "bg-white/[0.08]" : "bg-black/[0.04]") : "",
                             ].join(" ")}
+                            onDragOver={(e) => handleDragOver(e, i)}
+                            onDragLeave={handleDragLeave}
+                            onDrop={(e) => handleDrop(e, i)}
                           >
                             <div className="flex items-center justify-between">
                               <span
@@ -2147,9 +2121,12 @@ export default function Schedule() {
                                 return (
                                   <div
                                     key={p.id}
+                                    draggable={!isPostPosted(p, now)}
+                                    onDragStart={(e) => handleDragStart(e, p.id)}
                                     className={[
-                                      "text-[10px] px-1.5 py-1 rounded truncate cursor-pointer hover:opacity-80 transition-opacity flex items-center gap-1",
+                                      "text-[10px] px-1.5 py-1 rounded truncate cursor-grab hover:opacity-80 transition-opacity flex items-center gap-1",
                                       isDark ? "bg-white/10 text-neutral-200" : "bg-black/5 text-neutral-700",
+                                      isPostPosted(p, now) ? "opacity-50 cursor-not-allowed" : "",
                                     ].join(" ")}
                                   >
                                     <Icon className="h-3 w-3 shrink-0" />
@@ -2229,7 +2206,7 @@ export default function Schedule() {
         onViewInCalendar={(d) => {
           setView("Week");
           setViewDate(d);
-          setPostsTick((n) => n + 1); // recharge les posts
+          setPostsTick((n) => n + 1);
         }}
       />
 
