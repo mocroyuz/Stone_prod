@@ -499,10 +499,8 @@ const START_HOUR = 0;
 const END_HOUR = 24;
 const SPAN = END_HOUR - START_HOUR;
 
-/** Hauteur d'UNE heure dans la vue semaine : une carte de post = un créneau d'1h. */
+/** Hauteur d'UNE heure dans la vue semaine : un créneau d'1h = une "case", comme un jour dans la vue mois. */
 const HOUR_HEIGHT = 128;
-const POST_SPAN = 1;
-const CARD_INSET = 3;
 const TOTAL_HEIGHT = SPAN * HOUR_HEIGHT;
 const DEFAULT_SCROLL_HOUR = 8;
 const NOW_CONTEXT_HOURS = 2;
@@ -513,6 +511,13 @@ const MONTH_ITEM_H = 26;
 const MONTH_GAP = 3;
 const MONTH_CELL_PAD = 6;
 const MONTH_CELL_HEADER = 24;
+
+/** Nombre de puces qui rentrent dans un créneau d'1h (vue semaine) ; la ligne "N More" prend une place. */
+function slotVisibleCount(total: number) {
+  const avail = HOUR_HEIGHT - MONTH_CELL_PAD * 2;
+  const fit = Math.max(1, Math.floor((avail + MONTH_GAP) / (MONTH_ITEM_H + MONTH_GAP)));
+  return total <= fit ? total : Math.max(1, fit - 1);
+}
 
 function formatTime(h: number) {
   const hh = Math.floor(h);
@@ -627,32 +632,24 @@ function NetworkBadge({
   );
 }
 
-/**
- * Vignette du média d'un post.
- * - `size` : petite vignette carrée (vue mois)
- * - `fill` : remplit tout son parent (vue semaine)
- */
 function PostThumb({
   post,
   isDark,
   size = 12,
-  fill = false,
 }: {
   post: CalendarPost;
   isDark: boolean;
   size?: number;
-  fill?: boolean;
 }) {
   const cover = post.media?.[0];
   if (!cover) return null;
   return (
     <div
       className={[
-        "relative overflow-hidden",
-        fill ? "h-full w-full rounded-lg" : "shrink-0 rounded-[3px]",
+        "relative shrink-0 overflow-hidden rounded-[3px]",
         isDark ? "bg-white/[0.14]" : "bg-neutral-300",
       ].join(" ")}
-      style={fill ? undefined : { width: size, height: size }}
+      style={{ width: size, height: size }}
     >
       {cover.kind === "image" ? (
         <img src={cover.url} alt="" loading="lazy" className="h-full w-full object-cover" />
@@ -666,11 +663,7 @@ function PostThumb({
             className="h-full w-full object-cover"
           />
           <span className="absolute inset-0 flex items-center justify-center bg-black/25">
-            <svg
-              viewBox="0 0 24 24"
-              className={fill ? "h-5 w-5 text-white" : "h-[5px] w-[5px] text-white"}
-              fill="currentColor"
-            >
+            <svg viewBox="0 0 24 24" className="h-[5px] w-[5px] text-white" fill="currentColor">
               <path d="M7 4v16l13-8z" />
             </svg>
           </span>
@@ -680,124 +673,46 @@ function PostThumb({
   );
 }
 
-type PositionedPost = { post: CalendarPost; start: number; col: number; cols: number };
-
-function layoutPosts(list: { post: CalendarPost; start: number }[]): PositionedPost[] {
-  if (!list || list.length === 0) return [];
-  const sorted = [...list].sort((a, b) => a.start - b.start);
-  const out: PositionedPost[] = [];
-  let cluster: PositionedPost[] = [];
-  let colEnds: number[] = [];
-  let clusterEnd = -1;
-
-  const flush = () => {
-    cluster.forEach((c) => (c.cols = colEnds.length));
-    out.push(...cluster);
-    cluster = [];
-    colEnds = [];
-    clusterEnd = -1;
-  };
-
-  for (const item of sorted) {
-    if (cluster.length && item.start >= clusterEnd) flush();
-    let col = colEnds.findIndex((end) => end <= item.start);
-    if (col === -1) {
-      col = colEnds.length;
-      colEnds.push(0);
-    }
-    colEnds[col] = item.start + POST_SPAN;
-    cluster.push({ ...item, col, cols: 1 });
-    clusterEnd = Math.max(clusterEnd, item.start + POST_SPAN);
-  }
-  flush();
-  return out;
-}
-
 /**
- * Carte de post (vue semaine).
- * Elle occupe un créneau d'UNE heure : en-tête (réseau, heure, statut, tags)
- * puis le média qui remplit le reste de la carte.
+ * Un créneau d'1h de la vue semaine : les posts y sont empilés comme dans une
+ * case du mois (mêmes puces), avec "N More" quand ils ne rentrent pas.
  */
-function PostCard({
-  item,
+function PostSlot({
+  hour,
+  posts,
+  renderChip,
   isDark,
-  posted,
-  dragging,
-  tagColors,
-  onDragStart,
-  onDragEnd,
+  onMore,
 }: {
-  item: PositionedPost;
+  hour: number;
+  posts: CalendarPost[];
+  renderChip: (post: CalendarPost) => ReactNode;
   isDark: boolean;
-  posted: boolean;
-  dragging: boolean;
-  tagColors: string[];
-  onDragStart: (e: React.DragEvent, postId: string) => void;
-  onDragEnd: () => void;
+  onMore: () => void;
 }) {
-  const { post, start, col, cols } = item;
-  const network = networkOf(post);
-  const time = formatPostTime(post.scheduledAt);
-  const hasMedia = !!post.media?.[0];
-
-  const slotTop = (start - START_HOUR) * HOUR_HEIGHT;
-  // Un post tardif (ex. 23h30) ne doit pas dépasser la fin de la grille
-  const available = Math.min(HOUR_HEIGHT * POST_SPAN, TOTAL_HEIGHT - slotTop);
-  const height = Math.max(40, available - CARD_INSET * 2);
-  const width = cols > 0 ? 100 / cols : 100;
+  const shown = slotVisibleCount(posts.length);
+  const hidden = posts.length - shown;
 
   return (
     <div
-      draggable={!posted}
-      onDragStart={(e) => onDragStart(e, post.id)}
-      onDragEnd={onDragEnd}
-      tabIndex={0}
-      aria-label={`${network} post, ${time}${posted ? ", posted" : ""}`}
-      className={[
-        "absolute flex flex-col gap-2 overflow-hidden rounded-xl p-2 outline-none transition-colors",
-        postChipBg(isDark, posted, dragging),
-        posted ? "cursor-not-allowed" : "cursor-grab active:cursor-grabbing",
-        focusRingClass(isDark),
-      ].join(" ")}
+      className="pointer-events-none absolute inset-x-0 flex flex-col overflow-hidden"
       style={{
-        top: slotTop + CARD_INSET,
-        left: `calc(${col * width}% + ${CARD_INSET}px)`,
-        width: `calc(${width}% - ${CARD_INSET * 2}px)`,
-        height,
+        top: (hour - START_HOUR) * HOUR_HEIGHT,
+        height: HOUR_HEIGHT,
+        padding: MONTH_CELL_PAD,
+        gap: MONTH_GAP,
         zIndex: 2,
       }}
     >
-      <div className="flex shrink-0 flex-wrap items-center gap-x-1.5 gap-y-1">
-        <NetworkBadge network={network} isDark={isDark} />
+      {posts.slice(0, shown).map((post) => (
+        <div key={post.id} className="pointer-events-auto flex flex-col">
+          {renderChip(post)}
+        </div>
+      ))}
 
-        <span
-          className={[
-            "text-[11px] font-semibold tabular-nums",
-            isDark ? "text-neutral-200" : "text-neutral-700",
-          ].join(" ")}
-        >
-          {time}
-        </span>
-
-        <span className="ml-auto flex shrink-0 items-center gap-1.5">
-          {posted && (
-            <span className={["text-[9px] font-medium", isDark ? "text-neutral-500" : "text-neutral-400"].join(" ")}>
-              Posted
-            </span>
-          )}
-          {tagColors.length > 0 && (
-            <span className="flex items-center gap-0.5" aria-hidden="true">
-              {tagColors.slice(0, 3).map((c, i) => (
-                <span key={`${c}-${i}`} className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: c }} />
-              ))}
-            </span>
-          )}
-        </span>
-      </div>
-
-      {hasMedia && (
-        <div className="min-h-0 flex-1">
-          <PostThumb post={post} isDark={isDark} fill />
+      {hidden > 0 && (
+        <div className="pointer-events-auto flex flex-col">
+          <MoreRow count={hidden} isDark={isDark} onClick={onMore} />
         </div>
       )}
     </div>
@@ -808,7 +723,7 @@ function PostCard({
 /* Month view chips                                                    */
 /* ------------------------------------------------------------------ */
 
-function MonthPostChip({
+function PostChip({
   post,
   isDark,
   posted,
@@ -917,13 +832,13 @@ type MonthItem =
 
 function DayDetailModal({
   isDark,
-  date,
+  title,
   items,
   renderItem,
   onClose,
 }: {
   isDark: boolean;
-  date: Date;
+  title: string;
   items: MonthItem[];
   renderItem: (item: MonthItem) => ReactNode;
   onClose: () => void;
@@ -949,7 +864,7 @@ function DayDetailModal({
       >
         <div className="mb-3 flex items-center justify-between gap-3">
           <h2 className={["text-[15px] font-semibold tracking-[-0.02em]", strongClass(isDark)].join(" ")}>
-            {date.toLocaleDateString(LOCALE, { weekday: "long", month: "long", day: "numeric" })}
+            {title}
           </h2>
           <button
             type="button"
@@ -1395,7 +1310,7 @@ export default function Schedule() {
   // Month view : mesure de la grille + modale "N More"
   const monthGridRef = useRef<HTMLDivElement>(null);
   const [monthGridHeight, setMonthGridHeight] = useState(0);
-  const [moreDay, setMoreDay] = useState<Date | null>(null);
+  const [more, setMore] = useState<{ date: Date; hour: number | null } | null>(null);
 
   // Drag and drop
   const [draggedPostId, setDraggedPostId] = useState<string | null>(null);
@@ -1668,19 +1583,10 @@ export default function Schedule() {
     [channelKey, scope, hiddenTags, now],
   );
 
-  /** Couleurs (hex) des tags d'un post, pour les pastilles de la carte semaine. */
-  const postTagColors = useCallback(
-    (post: CalendarPost): string[] =>
-      (post.tagIds ?? [])
-        .map((id) => tagsById.get(id))
-        .filter((t): t is ApiTag => !!t)
-        .map(hexOf),
-    [tagsById],
-  );
-
-  const postsByDay = useMemo(() => {
-    const raw = new Map<number, { post: CalendarPost; start: number }[]>();
-    for (let i = 0; i < 7; i++) raw.set(i, []);
+  /** Vue semaine : posts regroupés par jour puis par créneau d'1h, triés par heure. */
+  const postSlotsByDay = useMemo(() => {
+    const raw = new Map<number, Map<number, CalendarPost[]>>();
+    for (let i = 0; i < 7; i++) raw.set(i, new Map());
 
     for (const post of posts || []) {
       if (!postVisible(post)) continue;
@@ -1692,13 +1598,28 @@ export default function Schedule() {
       const idx = Math.round((dayStart.getTime() - weekStart.getTime()) / 86_400_000);
       if (idx < 0 || idx > 6) continue;
 
-      raw.get(idx)?.push({ post, start: d.getHours() + d.getMinutes() / 60 });
+      const slots = raw.get(idx);
+      if (!slots) continue;
+      const hour = d.getHours();
+      const list = slots.get(hour) ?? [];
+      list.push(post);
+      slots.set(hour, list);
     }
 
-    const map = new Map<number, PositionedPost[]>();
-    for (const [day, list] of raw) {
-      map.set(day, layoutPosts(list));
-    }
+    const map = new Map<number, { hour: number; posts: CalendarPost[] }[]>();
+    raw.forEach((slots, day) => {
+      map.set(
+        day,
+        [...slots.entries()]
+          .sort(([a], [b]) => a - b)
+          .map(([hour, list]) => ({
+            hour,
+            posts: list.sort(
+              (a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime(),
+            ),
+          })),
+      );
+    });
     return map;
   }, [posts, postVisible, weekStart]);
 
@@ -1856,9 +1777,9 @@ export default function Schedule() {
   const scrollItems = useMemo(
     () => [
       ...(visibleEvents || []).map((e) => ({ start: e.start, end: e.end })),
-      ...[...postsByDay.values()].flat().map((p) => ({ start: p.start, end: p.start + POST_SPAN })),
+      ...[...postSlotsByDay.values()].flat().map((s) => ({ start: s.hour, end: s.hour + 1 })),
     ],
-    [visibleEvents, postsByDay],
+    [visibleEvents, postSlotsByDay],
   );
 
   const hiddenAbove = useMemo(() => {
@@ -1966,6 +1887,17 @@ export default function Schedule() {
     setPostsTick((n) => n + 1);
   };
 
+  const renderPostChip = (post: CalendarPost): ReactNode => (
+    <PostChip
+      post={post}
+      isDark={isDark}
+      posted={isPostPosted(post, now)}
+      dragging={draggedPostId === post.id}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+    />
+  );
+
   const renderMonthItem = (item: MonthItem): ReactNode => {
     if (item.kind === "event") {
       return (
@@ -1976,22 +1908,42 @@ export default function Schedule() {
         />
       );
     }
-    return (
-      <MonthPostChip
-        post={item.post}
-        isDark={isDark}
-        posted={isPostPosted(item.post, now)}
-        dragging={draggedPostId === item.post.id}
-        onDragStart={handleDragStart}
-        onDragEnd={handleDragEnd}
-      />
-    );
+    return renderPostChip(item.post);
   };
 
   const calendarBorder = isDark ? "border-white/[0.07]" : "border-black/[0.06]";
   const calendarHead = isDark ? "border-white/[0.07]" : "border-black/[0.06]";
 
-  const moreDayItems = moreDay ? monthItemsByDate.get(moreDay.toDateString()) ?? [] : [];
+  let moreItems: MonthItem[] = [];
+  let moreTitle = "";
+  if (more) {
+    const dateLabel = more.date.toLocaleDateString(LOCALE, {
+      weekday: "long",
+      month: "long",
+      day: "numeric",
+    });
+
+    if (more.hour === null) {
+      moreItems = monthItemsByDate.get(more.date.toDateString()) ?? [];
+      moreTitle = dateLabel;
+    } else {
+      // La semaine commence le dimanche : l'index de colonne = getDay()
+      const slotHour = more.hour;
+      const slot = postSlotsByDay.get(more.date.getDay())?.find((s) => s.hour === slotHour);
+      moreItems = (slot?.posts ?? []).map((post) => {
+        const d = new Date(post.scheduledAt);
+        return {
+          kind: "post" as const,
+          id: `p-${post.id}`,
+          start: d.getHours() + d.getMinutes() / 60,
+          post,
+        };
+      });
+      const slotDate = new Date(more.date);
+      slotDate.setHours(slotHour, 0, 0, 0);
+      moreTitle = `${dateLabel} · ${slotDate.toLocaleTimeString(LOCALE, { hour: "numeric" })}`;
+    }
+  }
 
   return (
     <main
@@ -2384,6 +2336,8 @@ export default function Schedule() {
                         {days.map((day, dayIndex) => {
                           if (!day) return null;
                           const dayKey = day.date.toDateString();
+                          const daySlots = postSlotsByDay.get(dayIndex) ?? [];
+                          const occupied = new Set(daySlots.map((s) => s.hour));
                           return (
                             <div
                               key={day.date.toISOString()}
@@ -2438,7 +2392,10 @@ export default function Schedule() {
                                         aria-label="Add a post"
                                         onClick={() => openNewPostAt(day.date, h)}
                                         className={[
-                                          "absolute left-1/2 top-1/2 flex h-8 w-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-lg border opacity-0 transition group-hover:opacity-100 focus-visible:opacity-100",
+                                          occupied.has(h)
+                                            ? "absolute bottom-1.5 right-1.5"
+                                            : "absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2",
+                                          "flex h-8 w-8 items-center justify-center rounded-lg border opacity-0 transition group-hover:opacity-100 focus-visible:opacity-100",
                                           isDark
                                             ? "border-white/[0.08] bg-white/[0.06] text-neutral-300 hover:bg-white/[0.10] hover:text-white"
                                             : "border-black/[0.06] bg-white text-neutral-500 shadow-sm hover:bg-neutral-50 hover:text-neutral-900",
@@ -2448,6 +2405,7 @@ export default function Schedule() {
                                         <span
                                           className={[
                                             "pointer-events-none absolute bottom-full mb-2 hidden whitespace-nowrap rounded-lg px-2.5 py-1 text-[12px] font-medium shadow-lg group-hover:block",
+                                            occupied.has(h) ? "right-0" : "",
                                             isDark ? "bg-[#2e2e31] text-white" : "bg-neutral-900 text-white",
                                           ].join(" ")}
                                         >
@@ -2473,16 +2431,14 @@ export default function Schedule() {
                                 />
                               ))}
 
-                              {postsByDay.get(dayIndex)?.map((item) => (
-                                <PostCard
-                                  key={item.post.id}
-                                  item={item}
+                              {daySlots.map(({ hour, posts: slotPosts }) => (
+                                <PostSlot
+                                  key={hour}
+                                  hour={hour}
+                                  posts={slotPosts}
+                                  renderChip={renderPostChip}
                                   isDark={isDark}
-                                  posted={isPostPosted(item.post, now)}
-                                  dragging={draggedPostId === item.post.id}
-                                  tagColors={postTagColors(item.post)}
-                                  onDragStart={handleDragStart}
-                                  onDragEnd={handleDragEnd}
+                                  onMore={() => setMore({ date: day.date, hour })}
                                 />
                               ))}
 
@@ -2638,7 +2594,7 @@ export default function Schedule() {
                               <MoreRow
                                 count={hiddenCount}
                                 isDark={isDark}
-                                onClick={() => setMoreDay(day.date)}
+                                onClick={() => setMore({ date: day.date, hour: null })}
                               />
                             )}
                           </div>
@@ -2653,13 +2609,13 @@ export default function Schedule() {
         </div>
       </div>
 
-      {moreDay && (
+      {more && (
         <DayDetailModal
           isDark={isDark}
-          date={moreDay}
-          items={moreDayItems}
+          title={moreTitle}
+          items={moreItems}
           renderItem={renderMonthItem}
-          onClose={() => setMoreDay(null)}
+          onClose={() => setMore(null)}
         />
       )}
 
