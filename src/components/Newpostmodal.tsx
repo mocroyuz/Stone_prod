@@ -2665,62 +2665,70 @@ export default function NewPostModal({
   const canSubmit = !blockingReason && !isSubmitting;
   const showTikTokDeclaration = tiktokSelected && scheduleAction === "now";
 
+  
   const handleSubmit = async () => {
-    if (!canSubmit) return;
-    const resolved: Record<string, string> = {};
-    networks.forEach((n) => {
-      resolved[n] = contentFor(n);
-    });
-    const allTexts = Object.values(resolved).join(" ");
-    const extractedHashtags = Array.from(
-      new Set(
-        (allTexts.match(/#[\p{L}\p{N}_]+/gu) ?? []).map((h) => h.slice(1))
-      )
-    );
-    const tiktokNow = tiktokSelected && scheduleAction === "now";
-    const youtubeNow = youtubeSelected && scheduleAction !== "save_in_folder";
-    const remainingNetworks = networks.filter(
-      (n) => !(n === "tiktok" && tiktokNow) && !(n === "youtube" && youtubeNow)
-    );
-    // YouTube programmé : déjà envoyé à Google, mais il doit apparaître dans le calendrier.
-    const externallyScheduled: SocialNetworkId[] =
-      youtubeNow && scheduleAction === "set_date" ? ["youtube"] : [];
+  if (!canSubmit) return;
+  
+  // ... (garder toute la logique précédente de récupération des textes, hashtags, etc.) ...
+  
+  const resolved: Record<string, string> = {};
+  networks.forEach((n) => {
+    resolved[n] = contentFor(n);
+  });
+  const allTexts = Object.values(resolved).join(" ");
+  const extractedHashtags = Array.from(
+    new Set(
+      (allTexts.match(/#[\p{L}\p{N}_]+/gu) ?? []).map((h) => h.slice(1))
+    )
+  );
 
-    const mediaByNetwork: Partial<Record<SocialNetworkId, File[]>> = {};
-    [...remainingNetworks, ...externallyScheduled].forEach((n) => {
-      const own = channelMedia[n];
-      if (own) mediaByNetwork[n] = own.map((item) => item.file);
-    });
+  // MODIFICATION ICI : Ne pas filtrer les réseaux. On envoie TOUS les réseaux sélectionnés.
+  // Le backend décidera quoi faire selon le scheduleMode et les externalNetworks.
+  const tiktokNow = tiktokSelected && scheduleAction === "now";
+  const youtubeNow = youtubeSelected && scheduleAction !== "save_in_folder";
+  
+  // On garde la logique pour savoir quels réseaux sont "externes" (déjà publiés par le frontend)
+  const externallyScheduled: SocialNetworkId[] =
+    youtubeNow && scheduleAction === "set_date" ? ["youtube"] : [];
 
-    const channelKeys: Partial<Record<SocialNetworkId, string>> = {};
-    networks.forEach((n) => {
-      const key = channelTiles.find((t) => t.network.id === n)?.channel.key;
-      if (key) channelKeys[n] = key;
-    });
+  const mediaByNetwork: Partial<Record<SocialNetworkId, File[]>> = {};
+  // On prépare les médias pour TOUS les réseaux
+  networks.forEach((n) => {
+    const own = channelMedia[n];
+    if (own) mediaByNetwork[n] = own.map((item) => item.file);
+  });
 
-    const payload: NewPostPayload = {
-      title: title.trim(),
-      content: resolved[remainingNetworks[0]]?.trim() || masterContent.trim() || "",
-      contents: resolved,
-      hashtags: extractedHashtags,
-      networks: remainingNetworks,
-      scheduleMode: scheduleAction === "set_date" ? "later" : scheduleAction,
-      scheduledAt:
-        scheduleAction === "set_date" ? scheduledAt.toISOString() : null,
-      media: media.map((item) => item.file),
-      ...(Object.keys(mediaByNetwork).length > 0 ? { mediaByNetwork } : {}),
-      ...(remainingNetworks.includes("youtube") || externallyScheduled.includes("youtube")
-        ? { youtube: { ...youtubeOptions, title: youtubeEffectiveTitle } }
-        : {}),
-      tagIds,
-      externalNetworks: externallyScheduled,
-      channelKeys,
-    };
+  const channelKeys: Partial<Record<SocialNetworkId, string>> = {};
+  networks.forEach((n) => {
+    const key = channelTiles.find((t) => t.network.id === n)?.channel.key;
+    if (key) channelKeys[n] = key;
+  });
 
-    try {
-      setIsSubmitting(true);
-      setSubmitError(null);
-      setSubmitProgress(null);
+  const payload: NewPostPayload = {
+    title: title.trim(),
+    content: resolved[networks[0]]?.trim() || masterContent.trim() || "",
+    contents: resolved,
+    hashtags: extractedHashtags,
+    // MODIFICATION ICI : On envoie TOUS les réseaux sélectionnés
+    networks: networks, 
+    scheduleMode: scheduleAction === "set_date" ? "later" : scheduleAction,
+    scheduledAt:
+      scheduleAction === "set_date" ? scheduledAt.toISOString() : null,
+    media: media.map((item) => item.file),
+    ...(Object.keys(mediaByNetwork).length > 0 ? { mediaByNetwork } : {}),
+    ...(networks.includes("youtube") || externallyScheduled.includes("youtube")
+      ? { youtube: { ...youtubeOptions, title: youtubeEffectiveTitle } }
+      : {}),
+    tagIds,
+    // On indique explicitement quels réseaux ne doivent PAS être republiés par le backend
+    externalNetworks: externallyScheduled,
+    channelKeys,
+  };
+
+  try {
+    setIsSubmitting(true);
+    setSubmitError(null);
+    setSubmitProgress(null);
 
       if (tiktokNow && tiktokPostType) {
         const tiktokCaption = resolved["tiktok"]?.trim() || "";
