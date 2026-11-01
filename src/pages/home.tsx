@@ -56,40 +56,33 @@ import {
 ============================================================ */
 
 const pageBgClass = (isDark: boolean) =>
-  isDark ? "bg-[#070708]" : "bg-[#f1f0ed]";
+  isDark ? "bg-[#09090a]" : "bg-[#f5f3ef]";
 
 const mainPanelClass = (isDark: boolean) =>
   isDark
-    ? "border-white/[0.06] bg-[#0c0c0e]"
-    : "border-black/[0.05] bg-[#fbfaf8]";
+    ? "border-white/[0.07] bg-[#0f0f11]"
+    : "border-black/[0.06] bg-white";
 
 const cardClass = (isDark: boolean) =>
   isDark
-    ? "border-white/[0.06] bg-[#121214]"
-    : "border-black/[0.05] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04),0_12px_28px_-16px_rgba(0,0,0,0.12)]";
+    ? "border-white/[0.07] bg-[#141416]"
+    : "border-black/[0.06] bg-white";
 
 const panelSurfaceClass = (isDark: boolean) =>
   isDark
-    ? "border-white/[0.06] bg-gradient-to-b from-white/[0.05] to-white/[0.015]"
-    : "border-black/[0.05] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04),0_12px_28px_-16px_rgba(0,0,0,0.12)]";
+    ? "border-white/[0.07] bg-white/[0.03]"
+    : "border-black/[0.06] bg-[#f6f4f0]";
 
-/* Fond solide (bouton « View all comments » posé sur le fondu) */
+/* Fond solide équivalent à panelSurfaceClass (pour bouton posé dessus) */
 const panelSolidClass = (isDark: boolean) =>
-  isDark ? "bg-[#161618]" : "bg-white";
+  isDark ? "bg-[#161618]" : "bg-[#f6f4f0]";
 
+/* Fondu vers le fond principal (là où sont dessinées les cartes commentaires) */
 const mainBgFadeClass = (isDark: boolean) =>
-  isDark ? "from-[#0c0c0e]" : "from-[#fbfaf8]";
+  isDark ? "from-[#0f0f11]" : "from-white";
 
 const panelRingClass = (isDark: boolean) =>
-  isDark ? "ring-[#121214]" : "ring-white";
-
-/* Carte « bento » : coins larges, léger lift au survol */
-const bentoClass = (isDark: boolean) =>
-  [
-    "rounded-3xl border transition duration-300 motion-reduce:transition-none",
-    "hover:-translate-y-0.5 motion-reduce:hover:translate-y-0",
-    panelSurfaceClass(isDark),
-  ].join(" ");
+  isDark ? "ring-[#151517]" : "ring-[#f6f4f0]";
 
 const mutedClass = (isDark: boolean) =>
   isDark ? "text-neutral-600" : "text-neutral-400";
@@ -556,36 +549,6 @@ function ClockDisplay({ isDark, now }: { isDark: boolean; now: Date }) {
    OVERVIEW
 ============================================================ */
 
-function SectionTitle({
-  isDark,
-  title,
-  subtitle,
-}: {
-  isDark: boolean;
-  title: string;
-  subtitle?: string;
-}) {
-  return (
-    <div className="mb-3.5 flex items-center gap-2.5">
-      <span
-        aria-hidden="true"
-        className={[
-          "h-4 w-[3px] rounded-full",
-          isDark ? "bg-white/70" : "bg-neutral-900",
-        ].join(" ")}
-      />
-      <div>
-        <p className={["text-[13px] font-semibold tracking-[-0.01em]", strongClass(isDark)].join(" ")}>
-          {title}
-        </p>
-        {subtitle && (
-          <p className={["text-[11px]", softClass(isDark)].join(" ")}>{subtitle}</p>
-        )}
-      </div>
-    </div>
-  );
-}
-
 function GoalInfoHint({ isDark, text }: { isDark: boolean; text: string }) {
   return (
     <span className="group relative flex shrink-0 items-center">
@@ -821,55 +784,67 @@ function Stat({
   const positive = change.startsWith("+");
 
   return (
-    <div className={[bentoClass(isDark), "flex min-w-0 flex-col gap-4 p-5"].join(" ")}>
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <div
+    <div
+      className={[
+        "flex min-w-0 items-center gap-3",
+        "border-b pb-3 last:border-b-0 last:pb-0 sm:border-b-0 sm:pb-0",
+        "sm:border-r sm:last:border-r-0 sm:pr-5 sm:last:pr-0",
+        isDark ? "border-white/[0.07]" : "border-black/[0.07]",
+      ].join(" ")}
+    >
+      <div
+        className={[
+          "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl",
+          isDark
+            ? "bg-white/[0.06] text-white"
+            : "bg-white text-neutral-700 shadow-sm ring-1 ring-black/[0.05]",
+        ].join(" ")}
+      >
+        {icon}
+      </div>
+      <div className="min-w-0">
+        <div className="flex items-center gap-1">
+          <p
             className={[
-              "flex h-9 w-9 items-center justify-center rounded-xl",
-              isDark
-                ? "bg-white/[0.07] text-white"
-                : "bg-neutral-900 text-white",
+              "truncate text-[10px] font-medium",
+              isDark ? "text-neutral-500" : "text-neutral-400",
             ].join(" ")}
           >
-            {icon}
-          </div>
-          <p className={["text-[12px] font-medium", softClass(isDark)].join(" ")}>
             {label}
           </p>
           <InfoHint isDark={isDark} text={hint} />
         </div>
-
-        <span
-          className={[
-            "flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[10px] font-semibold",
-            positive
-              ? isDark
-                ? "bg-emerald-500/10 text-emerald-400"
-                : "bg-emerald-500/10 text-emerald-600"
-              : isDark
-                ? "bg-rose-500/10 text-rose-400"
-                : "bg-rose-500/10 text-rose-600",
-          ].join(" ")}
-        >
-          {positive ? (
-            <TrendingUp className="h-3 w-3" aria-hidden="true" />
-          ) : (
-            <TrendingDown className="h-3 w-3" aria-hidden="true" />
-          )}
-          <span className="sr-only">{positive ? "Up " : "Down "}</span>
-          {change}
-        </span>
+        <div className="mt-0.5 flex items-baseline gap-1.5">
+          <span
+            className={[
+              "text-[17px] font-bold tracking-tight",
+              strongClass(isDark),
+            ].join(" ")}
+          >
+            {value}
+          </span>
+          <span
+            className={[
+              "flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[9px] font-semibold",
+              positive
+                ? isDark
+                  ? "bg-emerald-500/10 text-emerald-400"
+                  : "bg-emerald-500/10 text-emerald-600"
+                : isDark
+                  ? "bg-rose-500/10 text-rose-400"
+                  : "bg-rose-500/10 text-rose-600",
+            ].join(" ")}
+          >
+            {positive ? (
+              <TrendingUp className="h-2.5 w-2.5" aria-hidden="true" />
+            ) : (
+              <TrendingDown className="h-2.5 w-2.5" aria-hidden="true" />
+            )}
+            <span className="sr-only">{positive ? "Up " : "Down "}</span>
+            {change}
+          </span>
+        </div>
       </div>
-
-      <span
-        className={[
-          "text-[34px] font-semibold leading-none tracking-[-0.04em] tabular-nums",
-          strongClass(isDark),
-        ].join(" ")}
-      >
-        {value}
-      </span>
     </div>
   );
 }
@@ -893,74 +868,74 @@ function HomeOverview({
     postingGoal.target > 0 && postingGoal.done >= postingGoal.target;
 
   return (
-    <section className="mt-8 shrink-0">
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <div className={[bentoClass(isDark), "p-5"].join(" ")}>
-          <GoalItem
-            isDark={isDark}
-            title="Week Streak"
-            hint="Consecutive weeks in which you reached your posting goal."
-            subtitle={
-              weekStreak > 0
-                ? "Streak hit, keep going!"
-                : "Hit your goal to start a streak."
-            }
-            ring={
-              <Ring isDark={isDark} progress={weekStreak > 0 ? 1 : 0} size={60} stroke={4}>
-                <span className="text-[22px] font-semibold tabular-nums leading-none">
-                  {weekStreak}
-                </span>
-              </Ring>
-            }
-          />
-        </div>
+    <section className="mt-6 shrink-0">
+      <div
+        className={[
+          "grid grid-cols-1 gap-3 rounded-2xl border px-4 py-3",
+          "sm:grid-cols-3",
+          panelSurfaceClass(isDark),
+        ].join(" ")}
+      >
+        <GoalItem
+          isDark={isDark}
+          title="Week Streak"
+          hint="Consecutive weeks in which you reached your posting goal."
+          subtitle={
+            weekStreak > 0
+              ? "Streak hit, keep going!"
+              : "Hit your goal to start a streak."
+          }
+          ring={
+            <Ring isDark={isDark} progress={weekStreak > 0 ? 1 : 0}>
+              <span className="text-[20px] font-semibold tabular-nums leading-none">
+                {weekStreak}
+              </span>
+            </Ring>
+          }
+        />
 
-        <div className={[bentoClass(isDark), "p-5"].join(" ")}>
-          <GoalItem
-            isDark={isDark}
-            title="Posting Goals"
-            hint="Posts published this week compared to your weekly goal."
-            subtitle={
-              goalReached
-                ? "Goal reached, great work!"
-                : `${postingGoal.done} of ${postingGoal.target}, so close!`
-            }
-            ring={
-              <Ring isDark={isDark} progress={goalRatio} size={60} stroke={4}>
-                <span className="text-[19px] font-bold tabular-nums leading-none">
-                  {Math.round(goalRatio * 100)}
-                  <span className="text-[11px] font-semibold">%</span>
-                </span>
-              </Ring>
-            }
-          />
-        </div>
+        <GoalItem
+          isDark={isDark}
+          title="Posting Goals"
+          hint="Posts published this week compared to your weekly goal."
+          subtitle={
+            goalReached
+              ? "Goal reached, great work!"
+              : `${postingGoal.done} of ${postingGoal.target}, so close!`
+          }
+          ring={
+            <Ring isDark={isDark} progress={goalRatio}>
+              <span className="text-[18px] font-bold tabular-nums leading-none">
+                {Math.round(goalRatio * 100)}
+                <span className="text-[11px] font-semibold">%</span>
+              </span>
+            </Ring>
+          }
+        />
 
-        <div className={[bentoClass(isDark), "p-5"].join(" ")}>
-          <GoalItem
-            isDark={isDark}
-            title="Comment Score"
-            hint="Your engagement score based on the comments you answer."
-            subtitle={
-              <>
-                <Trend isDark={isDark} change={commentScore.changePct} />
-                <span>from last week</span>
-              </>
-            }
-            ring={
-              <Ring isDark={isDark} progress={commentScore.value / 100} size={60} stroke={4}>
-                <span
-                  className={[
-                    "text-[22px] font-semibold tabular-nums leading-none",
-                    softClass(isDark),
-                  ].join(" ")}
-                >
-                  {commentScore.value}
-                </span>
-              </Ring>
-            }
-          />
-        </div>
+        <GoalItem
+          isDark={isDark}
+          title="Comment Score"
+          hint="Your engagement score based on the comments you answer."
+          subtitle={
+            <>
+              <Trend isDark={isDark} change={commentScore.changePct} />
+              <span>from last week</span>
+            </>
+          }
+          ring={
+            <Ring isDark={isDark} progress={commentScore.value / 100}>
+              <span
+                className={[
+                  "text-[20px] font-semibold tabular-nums leading-none",
+                  softClass(isDark),
+                ].join(" ")}
+              >
+                {commentScore.value}
+              </span>
+            </Ring>
+          }
+        />
       </div>
     </section>
   );
@@ -1051,7 +1026,7 @@ function Channels({
   return (
     <div
       className={[
-        "flex min-h-[84px] items-center justify-between gap-4 rounded-3xl border px-5",
+        "flex min-h-[74px] items-center justify-between gap-4 rounded-2xl border px-4",
         panelSurfaceClass(isDark),
       ].join(" ")}
     >
@@ -1245,7 +1220,7 @@ function Panel({
       <div
         className={[
           "flex flex-1 min-h-[130px] flex-col items-center justify-center",
-          "gap-1 rounded-3xl border border-dashed px-4 py-3 text-center",
+          "gap-1 rounded-3xl border px-4 py-3 text-center",
           panelSurfaceClass(isDark),
         ].join(" ")}
       >
@@ -1437,7 +1412,7 @@ function CommentsPanel({
       {loading && visibleComments.length === 0 ? (
         <div
           className={[
-            "flex flex-1 min-h-[130px] flex-col justify-center gap-2 rounded-3xl border p-3",
+            "flex flex-1 min-h-[130px] flex-col justify-center gap-2 rounded-2xl border p-3",
             panelSurfaceClass(isDark),
           ].join(" ")}
           aria-label="Loading comments"
@@ -1456,7 +1431,7 @@ function CommentsPanel({
       ) : visibleComments.length === 0 ? (
         <div
           className={[
-            "flex flex-1 min-h-[130px] flex-col items-center justify-center rounded-3xl border px-5 py-3 text-center",
+            "flex flex-1 min-h-[130px] flex-col items-center justify-center rounded-2xl border px-5 py-3 text-center",
             panelSurfaceClass(isDark),
           ].join(" ")}
         >
@@ -1529,7 +1504,7 @@ function CommentsPanel({
                     onClick={() => onOpen(comment.channel.key)}
                     aria-label={`Open conversation with ${comment.author}`}
                     className={[
-                      "group w-full rounded-2xl border px-3 py-2.5 text-left",
+                      "group w-full rounded-xl border px-2.5 py-2 text-left",
                       "transition duration-200 motion-reduce:transition-none",
                       "focus-visible:outline-none focus-visible:ring-2",
                       isDark
@@ -1687,7 +1662,7 @@ function BlogImage({ src, isDark }: { src?: string; isDark: boolean }) {
     return (
       <div
         className={[
-          "h-[150px] w-full rounded-2xl",
+          "h-[140px] w-full rounded-xl",
           isDark ? "bg-white/[0.06]" : "bg-neutral-200/70",
         ].join(" ")}
       />
@@ -1701,7 +1676,7 @@ function BlogImage({ src, isDark }: { src?: string; isDark: boolean }) {
       loading="lazy"
       draggable={false}
       onError={() => setFailed(true)}
-      className="h-[150px] w-full rounded-2xl object-cover"
+      className="h-[140px] w-full rounded-xl object-cover"
     />
   );
 }
@@ -1714,7 +1689,14 @@ function BlogSection({ isDark }: { isDark: boolean }) {
   return (
     <section>
       <div className="mb-3 flex items-center justify-between">
-        <SectionTitle isDark={isDark} title="From the Blog" />
+        <p
+          className={[
+            "text-[12px] font-semibold",
+            isDark ? "text-neutral-300" : "text-neutral-700",
+          ].join(" ")}
+        >
+          From the Blog
+        </p>
 
         <a
           href={BLOG_URL}
@@ -1739,7 +1721,7 @@ function BlogSection({ isDark }: { isDark: boolean }) {
             href={post.url}
             {...linkProps(post.url)}
             className={[
-              "group flex flex-col rounded-3xl border p-3 transition duration-300 hover:-translate-y-0.5 motion-reduce:hover:translate-y-0",
+              "group flex flex-col rounded-2xl border p-3.5 transition",
               focusRingClass(isDark),
               cardClass(isDark),
               isDark ? "hover:bg-[#1a1a1d]" : "hover:bg-[#f6f4f0]",
@@ -1919,7 +1901,7 @@ export default function Home() {
         <div
           className={[
             "h-full overflow-y-auto overflow-x-hidden",
-            "rounded-[32px] border",
+            "rounded-[28px] border",
             "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
             "transition-colors duration-300",
             mainPanelClass(isDark),
@@ -1932,56 +1914,35 @@ export default function Home() {
               "pb-[120px] pt-[clamp(18px,3vw,30px)]",
             ].join(" ")}
           >
-            <header className="relative flex shrink-0 items-start justify-between">
-              <div
-                aria-hidden="true"
-                className={[
-                  "pointer-events-none absolute -left-20 -top-28 h-64 w-[560px] rounded-full blur-3xl",
-                  isDark ? "bg-white/[0.05]" : "bg-black/[0.05]",
-                ].join(" ")}
-              />
-
-              <div className="relative flex items-center gap-4">
-                <div
-                  className={[
-                    "rounded-full p-[3px] ring-1",
-                    isDark ? "ring-white/15" : "ring-black/10",
-                  ].join(" ")}
-                >
-                  <GreetingAvatar
-                    avatarUrl={user?.avatar_url}
-                    initials={initials}
-                    isDark={isDark}
-                    loading={!userLoaded}
-                  />
-                </div>
-
+            <header className="flex shrink-0 items-start justify-between">
+              <div className="flex items-center gap-4">
+                <GreetingAvatar
+                  avatarUrl={user?.avatar_url}
+                  initials={initials}
+                  isDark={isDark}
+                  loading={!userLoaded}
+                />
                 <div className="flex min-w-0 flex-col">
                   <h1
                     className={[
-                      "truncate text-[clamp(24px,2.4vw,32px)] font-semibold leading-tight tracking-[-0.045em]",
+                      "truncate text-[24px] font-semibold tracking-[-0.035em]",
                       strongClass(isDark),
                     ].join(" ")}
                   >
-                    {greeting},{" "}
-                    <span className={softClass(isDark)}>{displayName}</span>
+                    {greeting.charAt(0).toUpperCase() + greeting.slice(1)},{" "}
+                    {displayName}!
                   </h1>
                   <p
                     className={[
-                      "mt-1 inline-flex w-fit items-center rounded-full border px-2.5 py-0.5 text-[11px] font-medium",
-                      isDark
-                        ? "border-white/10 text-neutral-400"
-                        : "border-black/10 text-neutral-500",
+                      "mt-0.5 text-[13px] font-medium",
+                      mutedClass(isDark),
                     ].join(" ")}
                   >
                     {formattedDate}
                   </p>
                 </div>
               </div>
-
-              <div className="relative">
-                <ClockDisplay isDark={isDark} now={now} />
-              </div>
+              <ClockDisplay isDark={isDark} now={now} />
             </header>
 
             <HomeOverview
@@ -1991,14 +1952,33 @@ export default function Home() {
               commentScore={{ value: 13, changePct: 100 }}
             />
 
-            <section className="mt-9 shrink-0">
-              <SectionTitle
-                isDark={isDark}
-                title="Overview"
-                subtitle="Example metrics · not connected to live channels"
-              />
+            <section className="mt-7 shrink-0">
+              <div className="mb-3">
+                <p
+                  className={[
+                    "text-[11px] font-semibold",
+                    isDark ? "text-neutral-500" : "text-neutral-400",
+                  ].join(" ")}
+                >
+                  Overview
+                </p>
+                <p
+                  className={[
+                    "mt-0.5 text-[11px]",
+                    isDark ? "text-neutral-400" : "text-neutral-500",
+                  ].join(" ")}
+                >
+                  Example metrics · not connected to live channels
+                </p>
+              </div>
 
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <div
+                className={[
+                  "grid grid-cols-1 gap-3 rounded-2xl border p-4",
+                  "sm:grid-cols-3",
+                  panelSurfaceClass(isDark),
+                ].join(" ")}
+              >
                 <Stat
                   isDark={isDark}
                   label="Followers"
@@ -2026,12 +2006,27 @@ export default function Home() {
               </div>
             </section>
 
-            <section className="mt-9 shrink-0">
-              <SectionTitle
-                isDark={isDark}
-                title="Channels"
-                subtitle="Your connected accounts"
-              />
+            <section className="mt-5 shrink-0">
+              <div className="mb-3 flex items-center justify-between">
+                <div>
+                  <p
+                    className={[
+                      "text-[11px] font-semibold",
+                      isDark ? "text-neutral-500" : "text-neutral-400",
+                    ].join(" ")}
+                  >
+                    Channels
+                  </p>
+                  <p
+                    className={[
+                      "mt-0.5 text-[10px]",
+                      isDark ? "text-neutral-700" : "text-neutral-400",
+                    ].join(" ")}
+                  >
+                    Your connected accounts
+                  </p>
+                </div>
+              </div>
 
               <Channels
                 isDark={isDark}
@@ -2040,7 +2035,7 @@ export default function Home() {
               />
             </section>
 
-            <div className="mt-9 grid grid-cols-1 gap-5 md:grid-cols-2">
+            <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
               <CommentsPanel
                 isDark={isDark}
                 comments={latestComments.comments}
@@ -2070,7 +2065,7 @@ export default function Home() {
               />
             </div>
 
-            <div className="mt-12">
+            <div className="mt-8">
               <BlogSection isDark={isDark} />
             </div>
           </div>
