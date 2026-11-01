@@ -125,7 +125,7 @@ const RANGES: { key: Range; label: string }[] = [
 ];
 
 /* ============================================================
-   STYLE — tokens alignés sur le shell Home
+   STYLE — tokens alignés sur le shell Home (dark plus profond)
 ============================================================ */
 
 type Tokens = {
@@ -151,13 +151,13 @@ type Tokens = {
 const tokens = (isDark: boolean): Tokens =>
   isDark
     ? {
-        page: "bg-[#09090a]",
+        page: "bg-[#050505]",
         text: "text-white",
         muted: "text-neutral-600",
         soft: "text-neutral-400",
-        card: "border-white/[0.07] bg-[#141416]",
-        panel: "border-white/[0.07] bg-white/[0.03]",
-        inner: "border-white/[0.07] bg-white/[0.04]",
+        card: "border-white/[0.07] bg-[#0f0f11]",
+        panel: "border-white/[0.07] bg-white/[0.025]",
+        inner: "border-white/[0.07] bg-white/[0.03]",
         border: "border-white/[0.07]",
         head: "bg-white/[0.03]",
         primaryBtn: "bg-white text-black hover:bg-neutral-200",
@@ -167,7 +167,7 @@ const tokens = (isDark: boolean): Tokens =>
         hover: "hover:bg-white/[0.06]",
         sel: "bg-white text-black",
         idle: "text-neutral-400 hover:text-white",
-        popover: "border-white/10 bg-[#1b1b1e]",
+        popover: "border-white/10 bg-[#101012]",
       }
     : {
         page: "bg-[#f5f3ef]",
@@ -537,7 +537,7 @@ function Chart({
                   cx={x(hover)}
                   cy={y(si, s.values[hover])}
                   r="4.5"
-                  fill={isDark ? "#141416" : "#fff"}
+                  fill={isDark ? "#0f0f11" : "#fff"}
                   stroke={s.color}
                   strokeWidth="2.5"
                 />
@@ -549,7 +549,7 @@ function Chart({
       {hover !== null && (
         <div
           className={`pointer-events-none absolute top-1 min-w-[160px] rounded-xl px-3.5 py-2.5 text-[12px] shadow-[0_8px_30px_rgba(0,0,0,0.35)] ${
-            isDark ? "bg-[#1b1b1e] text-white ring-1 ring-white/10" : "bg-white text-neutral-900 ring-1 ring-black/10"
+            isDark ? "bg-[#101012] text-white ring-1 ring-white/10" : "bg-white text-neutral-900 ring-1 ring-black/10"
           }`}
           style={{
             left: `${(x(hover) / W) * 100}%`,
@@ -697,7 +697,7 @@ function NetworkIcon({ channel, isDark }: { channel?: ConnectedChannel; isDark: 
   return (
     <span
       className={`absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-white text-black ring-1 ${
-        isDark ? "ring-[#0f0f11]" : "ring-white"
+        isDark ? "ring-[#0a0a0c]" : "ring-white"
       }`}
     >
       <Icon className="h-2.5 w-2.5" />
@@ -1258,7 +1258,7 @@ export default function Insights() {
             "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
             "transition-colors duration-300",
             isDark
-              ? "border-white/[0.07] bg-[#0f0f11]"
+              ? "border-white/[0.07] bg-[#0a0a0c]"
               : "border-black/[0.06] bg-white",
           ].join(" ")}
         >

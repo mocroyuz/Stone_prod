@@ -64,11 +64,11 @@ const REPLY_MAX = 10_000;
 /* ───────── Shell ───────── */
 
 const pageBgClass = (isDark: boolean) =>
-  isDark ? "bg-[#09090a]" : "bg-[#f5f3ef]";
+  isDark ? "bg-[#050505]" : "bg-[#f5f3ef]";
 
 const mainPanelClass = (isDark: boolean) =>
   isDark
-    ? "border-white/[0.07] bg-[#0f0f11]"
+    ? "border-white/[0.07] bg-[#0a0a0c]"
     : "border-black/[0.06] bg-white";
 
 const strongClass = (isDark: boolean) =>
@@ -637,7 +637,7 @@ function Menu<T extends string>({
             className={[
               "absolute right-0 z-40 mt-2 min-w-[200px] overflow-hidden rounded-xl border p-1 shadow-lg",
               isDark
-                ? "border-white/[0.08] bg-[#16161a]"
+                ? "border-white/[0.08] bg-[#101012]"
                 : "border-black/[0.06] bg-white",
             ].join(" ")}
           >
@@ -874,13 +874,13 @@ export default function Community() {
     ? "border-white/[0.10] hover:bg-white/[0.06]"
     : "border-black/[0.08] hover:bg-black/[0.03]";
   const card = isDark
-    ? "border-white/[0.07] bg-[#141416] hover:bg-[#19191c]"
+    ? "border-white/[0.07] bg-[#0f0f11] hover:bg-[#141417]"
     : "border-black/[0.06] bg-white hover:bg-[#f6f4f0]";
   const cardStatic = isDark
-    ? "border-white/[0.07] bg-[#141416]"
+    ? "border-white/[0.07] bg-[#0f0f11]"
     : "border-black/[0.06] bg-white";
   const fieldClass = isDark
-    ? "border-white/[0.10] bg-[#0f0f11] text-white placeholder:text-neutral-600"
+    ? "border-white/[0.10] bg-[#0a0a0c] text-white placeholder:text-neutral-600"
     : "border-black/[0.10] bg-white text-neutral-900 placeholder:text-neutral-400";
 
   const goChannel = (key: string) => {

@@ -46,11 +46,11 @@ import {
 /* ------------------------------------------------------------------ */
 
 const pageBgClass = (isDark: boolean) =>
-  isDark ? "bg-[#09090a]" : "bg-[#f5f3ef]";
+  isDark ? "bg-[#050505]" : "bg-[#f5f3ef]";
 
 const mainPanelClass = (isDark: boolean) =>
   isDark
-    ? "border-white/[0.07] bg-[#0f0f11]"
+    ? "border-white/[0.07] bg-[#0a0a0c]"
     : "border-black/[0.06] bg-white";
 
 const mutedClass = (isDark: boolean) =>
@@ -385,7 +385,7 @@ function MenuPanel({
         "absolute top-full z-40 mt-2 overflow-hidden rounded-xl border py-1.5 shadow-lg",
         align === "right" ? "right-0" : "left-0",
         width,
-        isDark ? "border-white/[0.08] bg-[#16161a]" : "border-black/[0.06] bg-white",
+        isDark ? "border-white/[0.08] bg-[#101012]" : "border-black/[0.06] bg-white",
       ].join(" ")}
     >
       {children}
@@ -917,7 +917,7 @@ function DayDetailModal({
         aria-modal="true"
         className={[
           "relative z-10 flex max-h-[80vh] w-full max-w-sm flex-col rounded-2xl border p-4 shadow-2xl",
-          isDark ? "border-white/[0.08] bg-[#16161a]" : "border-black/[0.06] bg-white",
+          isDark ? "border-white/[0.08] bg-[#101012]" : "border-black/[0.06] bg-white",
         ].join(" ")}
       >
         <div className="mb-3 flex items-center justify-between gap-3">
@@ -1064,7 +1064,7 @@ function EventCard({
               role="menu"
               className={[
                 "absolute right-0 top-full z-40 mt-1.5 w-36 overflow-hidden rounded-xl border py-1 shadow-lg",
-                isDark ? "border-white/[0.08] bg-[#16161a]" : "border-black/[0.06] bg-white",
+                isDark ? "border-white/[0.08] bg-[#101012]" : "border-black/[0.06] bg-white",
               ].join(" ")}
             >
               <button
@@ -1195,7 +1195,7 @@ function EventFormModal({
         aria-modal="true"
         className={[
           "relative z-10 w-full max-w-md rounded-2xl border p-5 shadow-2xl",
-          isDark ? "border-white/[0.08] bg-[#16161a]" : "border-black/[0.06] bg-white",
+          isDark ? "border-white/[0.08] bg-[#101012]" : "border-black/[0.06] bg-white",
         ].join(" ")}
       >
         <h2
@@ -2533,7 +2533,7 @@ export default function Schedule() {
                           "absolute left-1/2 top-3 z-30 flex h-9 w-9 -translate-x-1/2 items-center justify-center rounded-full border shadow-lg transition hover:scale-105",
                           focusRingClass(isDark),
                           isDark
-                            ? "border-white/[0.10] bg-[#16161a] text-white"
+                            ? "border-white/[0.10] bg-[#101012] text-white"
                             : "border-black/[0.06] bg-white text-neutral-800",
                         ].join(" ")}
                       >
@@ -2541,7 +2541,7 @@ export default function Schedule() {
                         <span
                           className={[
                             "absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-[#EF4444] ring-2",
-                            isDark ? "ring-[#16161a]" : "ring-white",
+                            isDark ? "ring-[#101012]" : "ring-white",
                           ].join(" ")}
                         />
                       </button>
@@ -2556,7 +2556,7 @@ export default function Schedule() {
                           "absolute bottom-3 left-1/2 z-30 flex h-9 w-9 -translate-x-1/2 items-center justify-center rounded-full border shadow-lg transition hover:scale-105",
                           focusRingClass(isDark),
                           isDark
-                            ? "border-white/[0.10] bg-[#16161a] text-white"
+                            ? "border-white/[0.10] bg-[#101012] text-white"
                             : "border-black/[0.06] bg-white text-neutral-800",
                         ].join(" ")}
                       >
@@ -2564,7 +2564,7 @@ export default function Schedule() {
                         <span
                           className={[
                             "absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-[#EF4444] ring-2",
-                            isDark ? "ring-[#16161a]" : "ring-white",
+                            isDark ? "ring-[#101012]" : "ring-white",
                           ].join(" ")}
                         />
                       </button>

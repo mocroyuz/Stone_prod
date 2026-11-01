@@ -514,7 +514,7 @@ function TagsMenu({
           <div
             className={`absolute right-0 z-40 mt-2 w-[240px] rounded-xl border p-1 shadow-lg ${
               isDark
-                ? "border-white/[0.08] bg-[#16161a]"
+                ? "border-white/[0.08] bg-[#101012]"
                 : "border-black/[0.06] bg-white"
             }`}
           >
@@ -615,7 +615,7 @@ function IdeaCard({
         onDragStart={(e) => e.preventDefault()}
         className={`rounded-xl border transition-colors ${
           isDark
-            ? "border-white/[0.07] bg-[#141416] hover:border-white/[0.12]"
+            ? "border-white/[0.07] bg-[#0f0f11] hover:border-white/[0.12]"
             : "border-black/[0.06] bg-white hover:border-black/[0.12]"
         }`}
       >
@@ -665,7 +665,7 @@ function IdeaCard({
                       role="menu"
                       className={`absolute right-0 top-full z-40 mt-1 min-w-[140px] rounded-xl border p-1 shadow-lg ${
                         isDark
-                          ? "border-white/[0.08] bg-[#16161a]"
+                          ? "border-white/[0.08] bg-[#101012]"
                           : "border-black/[0.06] bg-white"
                       }`}
                     >
@@ -807,11 +807,11 @@ export default function Create() {
     return () => window.removeEventListener("hashchange", onHash);
   }, []);
 
-  /* ───────── Shell tokens (alignés sur Home) ───────── */
+  /* ───────── Shell tokens (alignés sur Home — dark plus profond) ───────── */
 
-  const page = isDark ? "bg-[#09090a]" : "bg-[#f5f3ef]";
+  const page = isDark ? "bg-[#050505]" : "bg-[#f5f3ef]";
   const panel = isDark
-    ? "border-white/[0.07] bg-[#0f0f11]"
+    ? "border-white/[0.07] bg-[#0a0a0c]"
     : "border-black/[0.06] bg-white";
   const line = isDark ? "border-white/[0.07]" : "border-black/[0.06]";
   const muted = isDark ? "text-neutral-500" : "text-neutral-400";
@@ -819,7 +819,7 @@ export default function Create() {
   const ring = isDark
     ? "focus-visible:ring-white/30"
     : "focus-visible:ring-black/25";
-  const column = isDark ? "bg-white/[0.03]" : "bg-[#f6f4f0]";
+  const column = isDark ? "bg-white/[0.025]" : "bg-[#f6f4f0]";
   const chip = isDark ? "bg-white/[0.06]" : "bg-black/[0.05]";
   const strong = isDark ? "text-white" : "text-neutral-900";
 
@@ -863,7 +863,7 @@ export default function Create() {
           ghostEl,
           rect,
           isDark,
-          isDark ? "#141416" : "#f6f4f0",
+          isDark ? "#0f0f11" : "#f6f4f0",
           "16px"
         );
         ghostEl.style.color = getComputedStyle(section).color;
@@ -1395,7 +1395,7 @@ export default function Create() {
                                     <div
                                       className={`absolute right-0 top-full z-40 mt-1 min-w-[210px] rounded-xl border p-1 shadow-lg ${
                                         isDark
-                                          ? "border-white/[0.08] bg-[#16161a]"
+                                          ? "border-white/[0.08] bg-[#101012]"
                                           : "border-black/[0.06] bg-white"
                                       }`}
                                     >
