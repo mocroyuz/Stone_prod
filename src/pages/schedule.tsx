@@ -757,17 +757,21 @@ type OffScreenPost = {
  * Empilement de pastilles flottantes qui montre les vraies miniatures des
  * posts hors-écran (au-dessus ou en-dessous de la zone visible). Un clic
  * remonte/descend jusqu'au créneau du post.
+ *
+ * `bottomOffset` permet de décoller le stack du bas de la BottomBar.
  */
 function OffScreenPostStack({
   items,
   direction,
   isDark,
   onSelect,
+  bottomOffset = "bottom-24",
 }: {
   items: OffScreenPost[];
   direction: "up" | "down";
   isDark: boolean;
   onSelect: (item: OffScreenPost) => void;
+  bottomOffset?: string;
 }) {
   if (items.length === 0) return null;
 
@@ -778,7 +782,7 @@ function OffScreenPostStack({
     <div
       className={[
         "pointer-events-none absolute left-1/2 z-30 flex -translate-x-1/2 flex-col items-center gap-1.5",
-        direction === "up" ? "top-2" : "bottom-2",
+        direction === "up" ? "top-2" : bottomOffset,
       ].join(" ")}
     >
       {shown.map((item) => {
@@ -1951,9 +1955,6 @@ export default function Schedule() {
       }
     });
 
-    // Tri croissant par `top` : avec un stack en flex-col, l'élément le plus
-    // proche de la vue se retrouve du bon côté (haut du stack vers le contenu
-    // pour "up", bas du stack vers le contenu pour "down").
     above.sort((a, b) => a.top - b.top);
     below.sort((a, b) => a.top - b.top);
 
@@ -2635,6 +2636,7 @@ export default function Schedule() {
                       direction="down"
                       isDark={isDark}
                       onSelect={scrollToOffScreenPost}
+                      bottomOffset="bottom-24"
                     />
                   </div>
                 </>
