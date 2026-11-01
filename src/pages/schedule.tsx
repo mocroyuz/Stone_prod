@@ -512,11 +512,31 @@ const MONTH_GAP = 3;
 const MONTH_CELL_PAD = 6;
 const MONTH_CELL_HEADER = 24;
 
-/** Nombre de puces qui rentrent dans un créneau d'1h (vue semaine) ; la ligne "N More" prend une place. */
+/** Puce de post : badge + heure + titre + vignette. Plus haute que les puces d'événements. */
+const POST_CHIP_H = 42;
+const POST_THUMB = 34;
+
+/**
+ * Nombre d'éléments (de hauteurs données) qui rentrent dans `avail` px.
+ * Si tout ne rentre pas, une ligne "N More" est réservée.
+ */
+function fitCount(heights: number[], avail: number) {
+  const needed = (n: number) =>
+    heights.slice(0, n).reduce((sum, h) => sum + h, 0) + MONTH_GAP * Math.max(0, n - 1);
+
+  if (needed(heights.length) <= avail) return heights.length;
+
+  let k = 0;
+  while (k < heights.length && needed(k + 1) + MONTH_GAP + MONTH_ITEM_H <= avail) k++;
+  return k;
+}
+
+/** Nombre de puces de post qui rentrent dans un créneau d'1h (vue semaine). */
 function slotVisibleCount(total: number) {
-  const avail = HOUR_HEIGHT - MONTH_CELL_PAD * 2;
-  const fit = Math.max(1, Math.floor((avail + MONTH_GAP) / (MONTH_ITEM_H + MONTH_GAP)));
-  return total <= fit ? total : Math.max(1, fit - 1);
+  return fitCount(
+    Array.from({ length: total }, () => POST_CHIP_H),
+    HOUR_HEIGHT - MONTH_CELL_PAD * 2,
+  );
 }
 
 function formatTime(h: number) {
@@ -646,7 +666,7 @@ function PostThumb({
   return (
     <div
       className={[
-        "relative shrink-0 overflow-hidden rounded-[3px]",
+        "relative shrink-0 overflow-hidden rounded-md",
         isDark ? "bg-white/[0.14]" : "bg-neutral-300",
       ].join(" ")}
       style={{ width: size, height: size }}
@@ -663,7 +683,7 @@ function PostThumb({
             className="h-full w-full object-cover"
           />
           <span className="absolute inset-0 flex items-center justify-center bg-black/25">
-            <svg viewBox="0 0 24 24" className="h-[5px] w-[5px] text-white" fill="currentColor">
+            <svg viewBox="0 0 24 24" className="h-3 w-3 text-white" fill="currentColor">
               <path d="M7 4v16l13-8z" />
             </svg>
           </span>
@@ -723,6 +743,18 @@ function PostSlot({
 /* Month view chips                                                    */
 /* ------------------------------------------------------------------ */
 
+/** Titre affiché sur la puce : premier champ texte trouvé sur le post (1re ligne). */
+const POST_TITLE_KEYS = ["title", "videoTitle", "caption", "content", "text", "description"];
+
+function postTitle(post: CalendarPost): string {
+  const data = post as unknown as Record<string, unknown>;
+  for (const key of POST_TITLE_KEYS) {
+    const value = data[key];
+    if (typeof value === "string" && value.trim()) return value.trim().split("\n")[0];
+  }
+  return "";
+}
+
 function PostChip({
   post,
   isDark,
@@ -738,30 +770,46 @@ function PostChip({
   onDragStart: (e: React.DragEvent, postId: string) => void;
   onDragEnd: () => void;
 }) {
+  const time = formatPostTime(post.scheduledAt);
+  const title = postTitle(post);
+
   return (
     <div
       draggable={!posted}
       onDragStart={(e) => onDragStart(e, post.id)}
       onDragEnd={onDragEnd}
+      title={title ? `${time} · ${title}` : time}
       className={[
-        "flex shrink-0 items-center gap-1.5 rounded-md px-1.5 transition-colors",
+        "flex shrink-0 items-center gap-2 rounded-lg px-2 transition-colors",
         postChipBg(isDark, posted, dragging),
         posted ? "cursor-not-allowed" : "cursor-grab active:cursor-grabbing",
       ].join(" ")}
-      style={{ height: MONTH_ITEM_H }}
+      style={{ height: POST_CHIP_H }}
     >
-      <NetworkBadge network={networkOf(post)} isDark={isDark} size={18} />
-      <span
-        className={[
-          "min-w-0 truncate text-[11px] font-semibold tabular-nums leading-none",
-          isDark ? "text-neutral-200" : "text-neutral-700",
-        ].join(" ")}
-      >
-        {formatPostTime(post.scheduledAt)}
+      <NetworkBadge network={networkOf(post)} isDark={isDark} size={22} />
+
+      <span className="flex min-w-0 flex-1 flex-col justify-center gap-0.5 leading-none">
+        <span
+          className={[
+            "truncate text-[11px] font-semibold tabular-nums",
+            isDark ? "text-neutral-200" : "text-neutral-700",
+          ].join(" ")}
+        >
+          {time}
+        </span>
+        {title && (
+          <span
+            className={[
+              "truncate text-[10.5px] font-medium",
+              isDark ? "text-neutral-400" : "text-neutral-500",
+            ].join(" ")}
+          >
+            {title}
+          </span>
+        )}
       </span>
-      <span className="ml-auto flex shrink-0">
-        <PostThumb post={post} isDark={isDark} size={12} />
-      </span>
+
+      <PostThumb post={post} isDark={isDark} size={POST_THUMB} />
     </div>
   );
 }
@@ -1673,13 +1721,14 @@ export default function Schedule() {
   const monthRowCount = Math.max(1, Math.ceil(days.length / 7));
   const monthCellHeight = monthGridHeight / monthRowCount;
 
-  /** Nombre d'éléments affichables dans une case (la ligne "N More" prend une place). */
-  const visibleCountFor = (total: number) => {
-    if (monthGridHeight === 0) return total;
+  const monthItemHeight = (item: MonthItem) =>
+    item.kind === "post" ? POST_CHIP_H : MONTH_ITEM_H;
+
+  /** Éléments affichables dans une case (la ligne "N More" prend une place). */
+  const visibleCountFor = (items: MonthItem[]) => {
+    if (monthGridHeight === 0) return items.length;
     const avail = monthCellHeight - MONTH_CELL_PAD * 2 - MONTH_CELL_HEADER - MONTH_GAP;
-    const fit = Math.max(0, Math.floor((avail + MONTH_GAP) / (MONTH_ITEM_H + MONTH_GAP)));
-    if (total <= fit) return total;
-    return Math.max(0, fit - 1);
+    return fitCount(items.map(monthItemHeight), avail);
   };
 
   /* ---------------- Drag and drop ---------------- */
@@ -2550,7 +2599,7 @@ export default function Schedule() {
 
                         const key = day.date.toDateString();
                         const items = monthItemsByDate.get(key) ?? [];
-                        const shown = visibleCountFor(items.length);
+                        const shown = visibleCountFor(items);
                         const hiddenCount = items.length - shown;
 
                         return (
