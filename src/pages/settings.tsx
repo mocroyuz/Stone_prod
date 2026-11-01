@@ -3338,7 +3338,7 @@ function ChannelsSection({
     window.setTimeout(() => {
       setOnboardingAccount(null);
       setConfirming(false);
-      navigate(INSIGHT_ROUTE);
+      navigate(`${INSIGHT_ROUTE}?channel=${encodeURIComponent(account.key)}`);
       window.setTimeout(() => openFrequencyOnboarding(account, isDark), 150);
     }, 300);
   };
