@@ -39,7 +39,7 @@ import {
 } from "./IntegrationIcons";
 import { PLAN } from "../data/channelConfig";
 import { requestNewPost } from "../services/Newpostbus";
-import { fetchYouTubeComments } from "../services/youtubeComments";
+import { fetchYouTubeComments } from "../services/youtube";
 
 /* ============================================================================ 
    Types 
