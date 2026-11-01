@@ -500,7 +500,7 @@ const END_HOUR = 24;
 const SPAN = END_HOUR - START_HOUR;
 
 /** Hauteur d'UNE heure dans la vue semaine : un créneau d'1h = une "case", comme un jour dans la vue mois. */
-const HOUR_HEIGHT = 128;
+const HOUR_HEIGHT = 160;
 const TOTAL_HEIGHT = SPAN * HOUR_HEIGHT;
 const DEFAULT_SCROLL_HOUR = 8;
 const NOW_CONTEXT_HOURS = 2;
@@ -515,6 +515,10 @@ const MONTH_CELL_HEADER = 24;
 /** Puce de post : badge + heure + titre + vignette. Plus haute que les puces d'événements. */
 const POST_CHIP_H = 42;
 const POST_THUMB = 34;
+
+/** Version agrandie de la puce pour la vue semaine. */
+const WEEK_CHIP_H = 52;
+const WEEK_THUMB = 42;
 
 /**
  * Nombre d'éléments (de hauteurs données) qui rentrent dans `avail` px.
@@ -534,7 +538,7 @@ function fitCount(heights: number[], avail: number) {
 /** Nombre de puces de post qui rentrent dans un créneau d'1h (vue semaine). */
 function slotVisibleCount(total: number) {
   return fitCount(
-    Array.from({ length: total }, () => POST_CHIP_H),
+    Array.from({ length: total }, () => WEEK_CHIP_H),
     HOUR_HEIGHT - MONTH_CELL_PAD * 2,
   );
 }
@@ -647,7 +651,7 @@ function NetworkBadge({
       ].join(" ")}
       style={{ width: size, height: size }}
     >
-      <Icon className={size <= 18 ? "h-[11px] w-[11px]" : "h-3 w-3"} />
+      <Icon className={size <= 18 ? "h-[11px] w-[11px]" : size >= 26 ? "h-[14px] w-[14px]" : "h-3 w-3"} />
     </span>
   );
 }
@@ -683,7 +687,7 @@ function PostThumb({
             className="h-full w-full object-cover"
           />
           <span className="absolute inset-0 flex items-center justify-center bg-black/25">
-            <svg viewBox="0 0 24 24" className="h-3 w-3 text-white" fill="currentColor">
+            <svg viewBox="0 0 24 24" className={size >= 40 ? "h-4 w-4 text-white" : "h-3 w-3 text-white"} fill="currentColor">
               <path d="M7 4v16l13-8z" />
             </svg>
           </span>
@@ -760,6 +764,7 @@ function PostChip({
   isDark,
   posted,
   dragging,
+  large = false,
   onDragStart,
   onDragEnd,
 }: {
@@ -767,6 +772,8 @@ function PostChip({
   isDark: boolean;
   posted: boolean;
   dragging: boolean;
+  /** Version agrandie (vue semaine). */
+  large?: boolean;
   onDragStart: (e: React.DragEvent, postId: string) => void;
   onDragEnd: () => void;
 }) {
@@ -780,18 +787,20 @@ function PostChip({
       onDragEnd={onDragEnd}
       title={title ? `${time} · ${title}` : time}
       className={[
-        "flex shrink-0 items-center gap-2 rounded-lg px-2 transition-colors",
+        "flex shrink-0 items-center transition-colors",
+        large ? "gap-2.5 rounded-xl px-2.5" : "gap-2 rounded-lg px-2",
         postChipBg(isDark, posted, dragging),
         posted ? "cursor-not-allowed" : "cursor-grab active:cursor-grabbing",
       ].join(" ")}
-      style={{ height: POST_CHIP_H }}
+      style={{ height: large ? WEEK_CHIP_H : POST_CHIP_H }}
     >
-      <NetworkBadge network={networkOf(post)} isDark={isDark} size={22} />
+      <NetworkBadge network={networkOf(post)} isDark={isDark} size={large ? 26 : 22} />
 
-      <span className="flex min-w-0 flex-1 flex-col justify-center gap-0.5 leading-none">
+      <span className="flex min-w-0 flex-1 flex-col justify-center gap-1 leading-none">
         <span
           className={[
-            "truncate text-[11px] font-semibold tabular-nums",
+            "truncate font-semibold tabular-nums",
+            large ? "text-[12.5px]" : "text-[11px]",
             isDark ? "text-neutral-200" : "text-neutral-700",
           ].join(" ")}
         >
@@ -800,7 +809,8 @@ function PostChip({
         {title && (
           <span
             className={[
-              "truncate text-[10.5px] font-medium",
+              "truncate font-medium",
+              large ? "text-[11.5px]" : "text-[10.5px]",
               isDark ? "text-neutral-400" : "text-neutral-500",
             ].join(" ")}
           >
@@ -809,7 +819,7 @@ function PostChip({
         )}
       </span>
 
-      <PostThumb post={post} isDark={isDark} size={POST_THUMB} />
+      <PostThumb post={post} isDark={isDark} size={large ? WEEK_THUMB : POST_THUMB} />
     </div>
   );
 }
@@ -1936,9 +1946,10 @@ export default function Schedule() {
     setPostsTick((n) => n + 1);
   };
 
-  const renderPostChip = (post: CalendarPost): ReactNode => (
+  const renderPostChip = (post: CalendarPost, large = false): ReactNode => (
     <PostChip
       post={post}
+      large={large}
       isDark={isDark}
       posted={isPostPosted(post, now)}
       dragging={draggedPostId === post.id}
@@ -2485,7 +2496,7 @@ export default function Schedule() {
                                   key={hour}
                                   hour={hour}
                                   posts={slotPosts}
-                                  renderChip={renderPostChip}
+                                  renderChip={(p) => renderPostChip(p, true)}
                                   isDark={isDark}
                                   onMore={() => setMore({ date: day.date, hour })}
                                 />
