@@ -93,10 +93,12 @@ const DEFAULT_ORDER = ["to do", "in progress"];
 
 const hexOf = (t: ApiTag) => (t.id === UNASSIGNED ? UNASSIGNED_HEX : tagHex(t.color));
 
-/** Version sécurisée qui gère les ids undefined/null */
+/** Version ultra-sécurisée qui gère TOUS les cas */
 const passesTagFilter = (ids: string[] | undefined | null, hidden: string[]) => {
-  const list = (ids && Array.isArray(ids) && ids.length > 0) ? ids : [UNASSIGNED];
-  return list.some((id) => !hidden.includes(id));
+  if (!ids || !Array.isArray(ids) || ids.length === 0) {
+    return !hidden.includes(UNASSIGNED);
+  }
+  return ids.some((id) => !hidden.includes(id));
 };
 
 /* ------------------------------------------------------------------ */
@@ -523,7 +525,7 @@ type PositionedEvent = {
 };
 
 function layoutDayEvents(events: CalendarEvent[]): PositionedEvent[] {
-  if (events.length === 0) return [];
+  if (!events || events.length === 0) return [];
   const sorted = [...events].sort((a, b) => a.start - b.start || b.end - a.end);
   const result: PositionedEvent[] = [];
   let i = 0;
@@ -562,6 +564,7 @@ const NETWORK_ICONS: Record<SocialNetworkId, NetIcon> = {
 type PositionedPost = { post: CalendarPost; start: number; col: number; cols: number };
 
 function layoutPosts(list: { post: CalendarPost; start: number }[]): PositionedPost[] {
+  if (!list || list.length === 0) return [];
   const sorted = [...list].sort((a, b) => a.start - b.start);
   const out: PositionedPost[] = [];
   let cluster: PositionedPost[] = [];
@@ -591,7 +594,7 @@ function layoutPosts(list: { post: CalendarPost; start: number }[]): PositionedP
   return out;
 }
 
-/** PostCard compact avec Drag & Drop */
+/** PostCard compact avec Drag & Drop - ULTRA SÉCURISÉ */
 function PostCard({
   item, tagsById, isDark, posted, onDragStart,
 }: {
@@ -602,15 +605,24 @@ function PostCard({
   onDragStart: (e: React.DragEvent, postId: string) => void;
 }) {
   const { post, start, col, cols } = item;
-  const Icon = NETWORK_ICONS[post.network as SocialNetworkId] || XIcon;
+  // Sécurité : fallback sur 'x' si network est undefined/invalid
+  const networkKey = (post.network as SocialNetworkId) || "x";
+  const Icon = NETWORK_ICONS[networkKey] || XIcon;
+  // Sécurité : media peut être undefined
   const cover = post.media?.[0];
   
-  const time = new Date(post.scheduledAt).toLocaleTimeString(LOCALE, {
-    hour: "numeric", minute: "2-digit", hour12: true,
-  });
+  // Sécurité : scheduledAt peut être invalide
+  let time = "--:--";
+  try {
+    time = new Date(post.scheduledAt).toLocaleTimeString(LOCALE, {
+      hour: "numeric", minute: "2-digit", hour12: true,
+    });
+  } catch {
+    // ignore
+  }
 
   const height = Math.max(32, HOUR_HEIGHT * POST_SPAN - 8);
-  const width = 100 / cols;
+  const width = cols > 0 ? 100 / cols : 100;
 
   return (
     <div
@@ -705,7 +717,7 @@ function EventCard({
 }: EventCardProps) {
   const hex = tag ? hexOf(tag) : null;
   const top = (event.start - START_HOUR) * HOUR_HEIGHT;
-  const height = (event.end - event.start) * HOUR_HEIGHT - 6;
+  const height = Math.max(44, (event.end - event.start) * HOUR_HEIGHT - 6);
 
   const [hovered, setHovered] = useState(false);
   const isFront = hovered || menuOpen;
@@ -748,7 +760,7 @@ function EventCard({
       <div className="flex items-start justify-between gap-1.5">
         <div className="min-w-0">
           <p className={["truncate text-[12.5px] font-semibold", isDark ? "text-neutral-100" : "text-neutral-800"].join(" ")}>
-            {event.title}
+            {event.title || "Sans titre"}
           </p>
           <p className={["mt-0.5 truncate text-[10.5px]", isDark ? "text-neutral-400" : "text-neutral-500"].join(" ")}>
             {formatEventTime(event.start, event.end)}
@@ -1280,7 +1292,7 @@ export default function Schedule() {
 
   const visibleEvents = useMemo(
     () =>
-      events.filter((e) => {
+      (events || []).filter((e) => {
         const matchChannel = !e.channelKey || !channelKey || e.channelKey === channelKey;
         const matchTag = passesTagFilter(e.tagId ? [e.tagId] : [], hiddenTags);
         const matchScope =
@@ -1296,7 +1308,10 @@ export default function Schedule() {
     const map = new Map<number, PositionedEvent[]>();
     const raw = new Map<number, CalendarEvent[]>();
     for (let i = 0; i < 7; i++) raw.set(i, []);
-    visibleEvents.forEach((e) => raw.get(e.day)?.push(e));
+    visibleEvents.forEach((e) => {
+      const dayList = raw.get(e.day);
+      if (dayList) dayList.push(e);
+    });
     for (const [day, list] of raw) {
       map.set(day, layoutDayEvents(list));
     }
@@ -1305,7 +1320,7 @@ export default function Schedule() {
 
   const monthEventsByDate = useMemo(() => {
     const map = new Map<string, CalendarEvent[]>();
-    days.forEach((day) => {
+    (days || []).forEach((day) => {
       if (!day) return;
       const key = day.date.toDateString();
       const dayEvents = visibleEvents.filter((e) => 
@@ -1318,45 +1333,101 @@ export default function Schedule() {
     return map;
   }, [days, visibleEvents]);
 
+  // ✅ ULTRA SÉCURISÉ - CORRIGE TOUS LES PROBLÈMES
   const postsByDay = useMemo(() => {
     const raw = new Map<number, { post: CalendarPost; start: number }[]>();
     for (let i = 0; i < 7; i++) raw.set(i, []);
 
+    if (!posts || posts.length === 0) {
+      const map = new Map<number, PositionedPost[]>();
+      for (let i = 0; i < 7; i++) map.set(i, []);
+      return map;
+    }
+
     for (const post of posts) {
+      if (!post) continue;
       if (post.channelKey && channelKey && post.channelKey !== channelKey) continue;
-      const posted = isPostPosted(post, now);
+      
+      let posted = false;
+      try {
+        posted = isPostPosted(post, now);
+      } catch {
+        posted = false;
+      }
+      
       if (scope === "Publié" && !posted) continue;
       if (scope === "À publier" && posted) continue;
       if (!passesTagFilter(post.tagIds, hiddenTags)) continue;
 
-      const d = new Date(post.scheduledAt);
+      let d: Date;
+      try {
+        d = new Date(post.scheduledAt);
+        if (isNaN(d.getTime())) continue;
+      } catch {
+        continue;
+      }
+
       const dayStart = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-      const idx = Math.round((dayStart.getTime() - weekStart.getTime()) / 86_400_000);
+      const diffTime = dayStart.getTime() - weekStart.getTime();
+      const idx = Math.round(diffTime / 86_400_000);
+      
+      // ✅ FIX PRINCIPAL : vérification stricte au lieu du !
       if (idx < 0 || idx > 6) continue;
-      raw.get(idx)!.push({ post, start: d.getHours() + d.getMinutes() / 60 });
+      
+      const dayList = raw.get(idx);
+      if (dayList) {
+        dayList.push({ post, start: d.getHours() + d.getMinutes() / 60 });
+      }
     }
 
     const map = new Map<number, PositionedPost[]>();
-    for (const [day, list] of raw) map.set(day, layoutPosts(list));
+    for (const [day, list] of raw) {
+      map.set(day, layoutPosts(list));
+    }
     return map;
   }, [posts, channelKey, scope, now, weekStart, hiddenTags]);
 
   const monthPostsByDate = useMemo(() => {
     const map = new Map<string, CalendarPost[]>();
+    if (!posts || posts.length === 0) return map;
+    
     posts.forEach((post) => {
+      if (!post) return;
       if (post.channelKey && channelKey && post.channelKey !== channelKey) return;
-      const posted = isPostPosted(post, now);
+      
+      let posted = false;
+      try {
+        posted = isPostPosted(post, now);
+      } catch {
+        posted = false;
+      }
+      
       if (scope === "Publié" && !posted) return;
       if (scope === "À publier" && posted) return;
       if (!passesTagFilter(post.tagIds, hiddenTags)) return;
 
-      const d = new Date(post.scheduledAt);
+      let d: Date;
+      try {
+        d = new Date(post.scheduledAt);
+        if (isNaN(d.getTime())) return;
+      } catch {
+        return;
+      }
+
       const key = d.toDateString();
-      if (!map.has(key)) map.set(key, []);
-      map.get(key)!.push(post);
+      const existing = map.get(key) || [];
+      existing.push(post);
+      map.set(key, existing);
     });
+    
     map.forEach((arr) =>
-      arr.sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime())
+      arr.sort((a, b) => {
+        try {
+          return new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime();
+        } catch {
+          return 0;
+        }
+      })
     );
     return map;
   }, [posts, channelKey, scope, now, hiddenTags]);
@@ -1371,7 +1442,6 @@ export default function Schedule() {
   const handleDragOver = (e: React.DragEvent, dayIndex: number) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = "move";
-    // Debounce pour éviter trop de re-renders
     if (dragOverTimer.current) return;
     setDragOverDay(dayIndex);
     dragOverTimer.current = setTimeout(() => {
@@ -1390,7 +1460,7 @@ export default function Schedule() {
     const postId = draggedPostId || e.dataTransfer.getData("text/plain");
     if (!postId) return;
 
-    const post = posts.find((p) => p.id === postId);
+    const post = posts.find((p) => p && p.id === postId);
     if (!post) return;
 
     const oldDate = new Date(post.scheduledAt);
@@ -1409,8 +1479,8 @@ export default function Schedule() {
 
   const scrollItems = useMemo(
     () => [
-      ...visibleEvents.map((e) => ({ start: e.start, end: e.end })),
-      ...[...postsByDay.values()]
+      ...(visibleEvents || []).map((e) => ({ start: e.start, end: e.end })),
+      ...[...(postsByDay || []).values()]
         .flat()
         .map((p) => ({ start: p.start, end: p.start + POST_SPAN })),
     ],
@@ -2149,8 +2219,14 @@ export default function Schedule() {
                               })}
 
                               {dayPosts.map((p) => {
-                                const Icon = NETWORK_ICONS[p.network as SocialNetworkId] || XIcon;
-                                const time = new Date(p.scheduledAt).toLocaleTimeString(LOCALE, { hour: "numeric", minute: "2-digit", hour12: true });
+                                const networkKey = (p.network as SocialNetworkId) || "x";
+                                const Icon = NETWORK_ICONS[networkKey] || XIcon;
+                                let time = "--:--";
+                                try {
+                                  time = new Date(p.scheduledAt).toLocaleTimeString(LOCALE, { hour: "numeric", minute: "2-digit", hour12: true });
+                                } catch {
+                                  // ignore
+                                }
                                 const posted = isPostPosted(p, now);
                                 return (
                                   <div
