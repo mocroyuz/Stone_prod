@@ -75,11 +75,8 @@ import {
 export type SocialNetworkId =
   | "x" | "facebook" | "instagram" | "linkedin"
   | "tiktok" | "youtube" | "pinterest" | "threads";
-
 type NetworkIconComponent = (props: { className?: string }) => JSX.Element;
-
 type MediaKind = "image" | "video";
-
 type MediaItem = {
   id: string;
   file: File;
@@ -123,10 +120,8 @@ type CanvaPendingDesign = {
 export type ScheduleAction = "save_in_folder" | "now" | "set_date";
 
 /* ── YouTube ── */
-
 export type YouTubeVisibility = "public" | "unlisted" | "private";
 export type YouTubeLicense = "youtube" | "creativeCommon";
-
 export type YouTubeOptions = {
   title: string;
   categoryId: string;
@@ -160,7 +155,6 @@ export function unavailablePostActionMessage(payload: NewPostPayload): string {
   if (payload.scheduleMode === "save_in_folder") {
     return "Saving posts to a folder isn't connected yet. This post wasn't saved.";
   }
-
   const channelNames: Record<SocialNetworkId, string> = {
     x: "X",
     facebook: "Facebook",
@@ -174,7 +168,6 @@ export function unavailablePostActionMessage(payload: NewPostPayload): string {
   const channels =
     payload.networks.map((network) => channelNames[network]).join(", ") ||
     "the selected channels";
-
   return payload.scheduleMode === "later"
     ? `Scheduling to ${channels} isn't connected yet. This post wasn't scheduled.`
     : `Publishing to ${channels} isn't connected yet. This post wasn't sent there.`;
@@ -187,10 +180,11 @@ interface NewPostModalProps {
   onSubmit: (payload: NewPostPayload) => void | Promise<void>;
   initialScheduledAt?: Date | null;
   onRequestOpen?: () => void;
+  /** Appelé par « View in calendar ». Par défaut : navigation vers /schedule. */
+  onViewInCalendar?: (date: Date) => void;
 }
 
 const MAX_MEDIA = 20;
-
 const SOCIAL_NETWORKS: {
   id: SocialNetworkId;
   label: string;
@@ -243,28 +237,23 @@ const TIKTOK_PRIVACY_LABELS: Record<string, string> = {
   FOLLOWER_OF_CREATOR: "Followers",
   SELF_ONLY: "Only me",
 };
-
 const TIKTOK_FALLBACK_PRIVACY: string[] = ["SELF_ONLY"];
-
 const TIKTOK_MUSIC_URL =
   "https://www.tiktok.com/legal/page/global/music-usage-confirmation/en";
 const TIKTOK_BRANDED_URL =
   "https://www.tiktok.com/legal/page/global/bc-policy/en";
-
 const TIKTOK_DEFAULT_OPTIONS: TikTokPostOptions = {
   privacy_level: "",
   disable_comment: false,
   disable_duet: false,
   disable_stitch: false,
 };
-
 type TikTokAllow = { comment: boolean; duet: boolean; stitch: boolean };
 const TIKTOK_DEFAULT_ALLOW: TikTokAllow = {
   comment: false,
   duet: false,
   stitch: false,
 };
-
 type TikTokCommercial = { on: boolean; yourBrand: boolean; branded: boolean };
 const TIKTOK_DEFAULT_COMMERCIAL: TikTokCommercial = {
   on: false,
@@ -273,9 +262,7 @@ const TIKTOK_DEFAULT_COMMERCIAL: TikTokCommercial = {
 };
 
 /* ── YouTube ── */
-
 const YOUTUBE_TITLE_MAX = 100;
-
 const YOUTUBE_CATEGORIES: { id: string; label: string }[] = [
   { id: "2", label: "Autos & Vehicles" },
   { id: "1", label: "Film & Animation" },
@@ -293,18 +280,15 @@ const YOUTUBE_CATEGORIES: { id: string; label: string }[] = [
   { id: "28", label: "Science & Technology" },
   { id: "29", label: "Nonprofits & Activism" },
 ];
-
 const YOUTUBE_VISIBILITY: { id: YouTubeVisibility; label: string }[] = [
   { id: "public", label: "Public" },
   { id: "unlisted", label: "Unlisted" },
   { id: "private", label: "Private" },
 ];
-
 const YOUTUBE_LICENSES: { id: YouTubeLicense; label: string }[] = [
   { id: "youtube", label: "Standard YouTube License" },
   { id: "creativeCommon", label: "Creative Commons - Attribution" },
 ];
-
 const YOUTUBE_DEFAULT_OPTIONS: YouTubeOptions = {
   title: "",
   categoryId: YOUTUBE_CATEGORIES[0].id,
@@ -316,11 +300,10 @@ const YOUTUBE_DEFAULT_OPTIONS: YouTubeOptions = {
 };
 
 /* ──────────────────────────────────────────────────────────────
-   Brouillon
-   `contents` ne contient que les textes personnalisés par réseau
-   (ceux qui diffèrent du texte principal).
-   ────────────────────────────────────────────────────────────── */
-
+Brouillon
+`contents` ne contient que les textes personnalisés par réseau
+(ceux qui diffèrent du texte principal).
+────────────────────────────────────────────────────────────── */
 type DraftData = {
   title: string;
   masterContent: string;
@@ -332,21 +315,18 @@ type DraftData = {
   channelFiles?: Record<string, File[]>;
   youtubeOptions?: YouTubeOptions;
 };
-
 let savedDraft: DraftData | null = null;
 
 /* ──────────────────────────────────────────────────────────────
-   Persistance du brouillon (localStorage + IndexedDB)
-   Les métadonnées/textes vont dans localStorage. Les File
-   (non sérialisables) vont dans IndexedDB, ce qui permet de
-   retrouver un brouillon complet après un rafraîchissement ou
-   après avoir quitté puis rouvert le site.
-   ────────────────────────────────────────────────────────────── */
-
+Persistance du brouillon (localStorage + IndexedDB)
+Les métadonnées/textes vont dans localStorage. Les File
+(non sérialisables) vont dans IndexedDB, ce qui permet de
+retrouver un brouillon complet après un rafraîchissement ou
+après avoir quitté puis rouvert le site.
+────────────────────────────────────────────────────────────── */
 const DRAFT_META_KEY = "newpost:draft:v1";
 const DRAFT_DB_NAME = "newpost-drafts";
 const DRAFT_DB_STORE = "files";
-
 type SerializedDraft = {
   title: string;
   masterContent: string;
@@ -447,7 +427,6 @@ async function persistDraftToStorage(draft: DraftData): Promise<void> {
       fileIds.push(id);
       filesById[id] = file;
     }
-
     const channelFileIds: Record<string, string[]> = {};
     for (const [key, files] of Object.entries(draft.channelFiles ?? {})) {
       channelFileIds[key] = [];
@@ -457,9 +436,7 @@ async function persistDraftToStorage(draft: DraftData): Promise<void> {
         filesById[id] = file;
       }
     }
-
     await putDraftFiles(filesById);
-
     const serialized: SerializedDraft = {
       title: draft.title,
       masterContent: draft.masterContent,
@@ -487,29 +464,25 @@ async function loadDraftFromStorage(): Promise<DraftData | null> {
   } catch {
     return null;
   }
-
   try {
     const allIds = [
       ...(serialized.fileIds ?? []),
       ...Object.values(serialized.channelFileIds ?? {}).flat(),
     ];
     const filesById = await readDraftFiles(allIds);
-
     const files = (serialized.fileIds ?? [])
       .map((id) => filesById[id])
       .filter(Boolean) as File[];
-
     const channelFiles = serialized.channelFileIds
       ? Object.fromEntries(
-          Object.entries(serialized.channelFileIds)
-            .map(([key, ids]) => [
-              key,
-              ids.map((id) => filesById[id]).filter(Boolean) as File[],
-            ])
-            .filter(([, list]) => list.length > 0)
-        )
+        Object.entries(serialized.channelFileIds)
+          .map(([key, ids]) => [
+            key,
+            ids.map((id) => filesById[id]).filter(Boolean) as File[],
+          ])
+          .filter(([, list]) => list.length > 0)
+      )
       : undefined;
-
     return {
       title: serialized.title,
       masterContent: serialized.masterContent,
@@ -548,9 +521,8 @@ function draftHasContent(draft: DraftData): boolean {
 }
 
 /* ──────────────────────────────────────────────────────────────
-   Helpers
-   ────────────────────────────────────────────────────────────── */
-
+Helpers
+────────────────────────────────────────────────────────────── */
 function makeId(): string {
   return typeof crypto !== "undefined" && "randomUUID" in crypto
     ? crypto.randomUUID()
@@ -656,26 +628,20 @@ function getVideoInfo(
 
 async function toTikTokImage(file: File): Promise<File> {
   if (file.type === "image/jpeg" || file.type === "image/webp") return file;
-
   const bitmap = await createImageBitmap(file);
   const canvas = document.createElement("canvas");
   canvas.width = bitmap.width;
   canvas.height = bitmap.height;
-
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("Could not convert an image for TikTok.");
-
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   ctx.drawImage(bitmap, 0, 0);
   bitmap.close?.();
-
   const blob = await new Promise<Blob | null>((resolve) =>
     canvas.toBlob(resolve, "image/jpeg", 0.92)
   );
-
   if (!blob) throw new Error("Could not convert an image for TikTok.");
-
   return new File([blob], file.name.replace(/\.[^.]+$/, "") + ".jpg", {
     type: "image/jpeg",
   });
@@ -686,7 +652,6 @@ function getNetworkId(channel: ConnectedChannel): SocialNetworkId | null {
   const raw = String(c.platform ?? c.network ?? c.provider ?? channel.key)
     .toLowerCase()
     .trim();
-
   if (raw.includes("tiktok")) return "tiktok";
   if (raw.includes("insta")) return "instagram";
   if (raw.includes("youtube") || raw === "yt") return "youtube";
@@ -709,11 +674,9 @@ type ChannelTileData = {
 };
 
 /* ──────────────────────────────────────────────────────────────
-   Composants secondaires
-   ────────────────────────────────────────────────────────────── */
-
+Composants secondaires
+────────────────────────────────────────────────────────────── */
 type AvatarSize = "sm" | "md" | "lg";
-
 const AVATAR_SIZES: Record<
   AvatarSize,
   { box: string; badge: string; icon: string; text: string }
@@ -755,11 +718,9 @@ function Avatar({
 }) {
   const [failed, setFailed] = useState(false);
   useEffect(() => setFailed(false), [channel?.avatarUrl]);
-
   const s = AVATAR_SIZES[size];
   const initial = label.replace(/^@/, "").charAt(0).toUpperCase() || "?";
   const showImage = Boolean(channel?.avatarUrl) && !failed;
-
   return (
     <span className={["relative inline-block shrink-0", s.box].join(" ")}>
       {showImage ? (
@@ -809,7 +770,6 @@ function ChannelTile({
   onToggle: () => void;
 }) {
   const label = channelLabel(channel, network.label);
-
   return (
     <button
       type="button"
@@ -938,8 +898,8 @@ function Checkbox({
               ? "border-white bg-white text-[#141416]"
               : "border-neutral-900 bg-neutral-900 text-white"
             : isDark
-            ? "border-white/30 bg-transparent hover:border-white/60"
-            : "border-black/30 bg-transparent hover:border-black/60",
+              ? "border-white/30 bg-transparent hover:border-white/60"
+              : "border-black/30 bg-transparent hover:border-black/60",
         ].join(" ")}
       >
         {checked && <Check className="h-3.5 w-3.5" strokeWidth={3.5} />}
@@ -1017,9 +977,7 @@ function FieldRow({
 }
 
 /* ── Sources de médias ── */
-
 type SourceIconProps = { className?: string };
-
 function GooglePhotosIcon({ className }: SourceIconProps) {
   return (
     <svg viewBox="0 0 24 24" className={className} aria-hidden="true">
@@ -1034,7 +992,6 @@ function GooglePhotosIcon({ className }: SourceIconProps) {
 type MediaSourceId =
   | "canva" | "dropbox" | "google_drive"
   | "google_photos";
-
 const MEDIA_SOURCES: {
   id: MediaSourceId;
   label: string;
@@ -1047,12 +1004,6 @@ const MEDIA_SOURCES: {
   { id: "google_photos", label: "Google Photos", Icon: GooglePhotosIcon },
 ];
 
-/**
- * Menu « + » des sources de médias. Canva ouvre un sous-menu de tailles de
- * design (au survol sur desktop, au clic sur mobile). Le sous-menu est un
- * frère du menu principal (et non un enfant) pour ne pas être rogné par son
- * `overflow-hidden`.
- */
 function MediaSourceMenu({
   isDark,
   onPick,
@@ -1063,12 +1014,10 @@ function MediaSourceMenu({
   onPickCanva: (size: CanvaSize) => void;
 }) {
   const [canvaOpen, setCanvaOpen] = useState(false);
-
   const panel = isDark ? "border-white/10 bg-[#1c1c1e]" : "border-black/10 bg-white";
   const muted = isDark ? "text-neutral-400" : "text-neutral-500";
   const hover = isDark ? "hover:bg-white/5" : "hover:bg-black/[0.04]";
   const active = isDark ? "bg-white/10" : "bg-black/[0.06]";
-
   return (
     <div className="absolute bottom-full left-0 z-50 mb-2">
       <div
@@ -1114,7 +1063,6 @@ function MediaSourceMenu({
           );
         })}
       </div>
-
       {canvaOpen && (
         <div
           role="menu"
@@ -1153,7 +1101,6 @@ function MediaSourceMenu({
 
 const EMOJI_FONT =
   '"Noto Emoji", "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif';
-
 function EmojiPickerPanel({
   isDark,
   onPick,
@@ -1206,7 +1153,6 @@ function EmojiPickerPanel({
     }),
     [isDark]
   );
-
   return (
     <div
       role="dialog"
@@ -1259,7 +1205,6 @@ function EmojiPickerPanel({
   );
 }
 
-/** Textarea qui s'agrandit avec son contenu. */
 function AutoTextarea({
   value,
   onChange,
@@ -1278,14 +1223,12 @@ function AutoTextarea({
   ariaLabel: string;
 }) {
   const innerRef = useRef<HTMLTextAreaElement | null>(null);
-
   useEffect(() => {
     const el = innerRef.current;
     if (!el) return;
     el.style.height = "auto";
     el.style.height = `${Math.min(el.scrollHeight, 420)}px`;
   }, [value]);
-
   return (
     <textarea
       ref={(el) => {
@@ -1333,7 +1276,6 @@ function ComposerToolbar({
   const textSecondary = isDark ? "text-neutral-400" : "text-neutral-500";
   const hover = isDark ? "hover:bg-white/10 hover:text-white" : "hover:bg-black/5 hover:text-neutral-900";
   const active = isDark ? "bg-white/10 text-white" : "bg-black/5 text-neutral-900";
-
   return (
     <div
       className={[
@@ -1402,7 +1344,6 @@ function PostPreview({
   const within = limit !== undefined ? text.slice(0, limit) : text;
   const overflow = limit !== undefined ? text.slice(limit) : "";
   const cover = media[0];
-
   return (
     <div
       className={[
@@ -1428,7 +1369,6 @@ function PostPreview({
           <p className={["text-[11.5px]", textSecondary].join(" ")}>Just now</p>
         </div>
       </div>
-
       {text.trim() ? (
         <p className={["whitespace-pre-wrap break-words text-[13.5px] leading-relaxed", textPrimary].join(" ")}>
           {within}
@@ -1441,7 +1381,6 @@ function PostPreview({
       ) : (
         <p className={["text-[13px] italic", textSecondary].join(" ")}>Your text will appear here.</p>
       )}
-
       {cover && (
         <div className="relative mt-3 overflow-hidden rounded-xl">
           {cover.kind === "image" ? (
@@ -1461,8 +1400,20 @@ function PostPreview({
 }
 
 /* ──────────────────────────────────────────────────────────────
-   Composant principal
-   ────────────────────────────────────────────────────────────── */
+Composant principal
+────────────────────────────────────────────────────────────── */
+
+const FOCUS_DATE_KEY = "schedule:focusDate";
+
+/** Ouvre le calendrier sur la semaine du post programmé. */
+function goToCalendar(date: Date) {
+  try {
+    sessionStorage.setItem(FOCUS_DATE_KEY, String(date.getTime()));
+  } catch {
+    /* ignore */
+  }
+  window.location.assign("/schedule"); // adapte à ton router si besoin
+}
 
 export default function NewPostModal({
   isOpen,
@@ -1471,6 +1422,7 @@ export default function NewPostModal({
   onSubmit,
   initialScheduledAt,
   onRequestOpen,
+  onViewInCalendar,
 }: NewPostModalProps) {
   const [masterContent, setMasterContent] = useState("");
   /** Textes personnalisés par réseau. Absent = suit le texte principal. */
@@ -1498,24 +1450,24 @@ export default function NewPostModal({
     message: string;
     warning: boolean;
   } | null>(null);
-
+  const [scheduledResult, setScheduledResult] = useState<{
+    at: Date;
+    hasVideo: boolean;
+  } | null>(null);
   const [activeEmojiNetwork, setActiveEmojiNetwork] = useState<string | null>(null);
   const [collapsedCards, setCollapsedCards] = useState<Record<string, boolean>>({});
   const [previewNetwork, setPreviewNetwork] = useState<SocialNetworkId | null>(null);
   const [showPreview, setShowPreview] = useState(true);
   const [showSourceMenu, setShowSourceMenu] = useState<string | null>(null);
   const [requestTick, setRequestTick] = useState(0);
-
   // ── Tags ──
   const [tags, setTags] = useState<ApiTag[]>([]);
   const [tagIds, setTagIds] = useState<string[]>([]);
   const [tagMenuOpen, setTagMenuOpen] = useState(false);
-
   // ── Canva ──
   /** Zone de texte (target) pour laquelle un design Canva est en cours de création. */
   const [canvaBusy, setCanvaBusy] = useState<string | null>(null);
   const [canvaDesigns, setCanvaDesigns] = useState<CanvaPendingDesign[]>([]);
-
   // ── Dropbox ──
   const [dropboxPickerOpen, setDropboxPickerOpen] = useState(false);
   const [dropboxNeedsConnection, setDropboxNeedsConnection] = useState(false);
@@ -1527,7 +1479,6 @@ export default function NewPostModal({
   const [dropboxImporting, setDropboxImporting] = useState<string | null>(null);
   const [dropboxError, setDropboxError] = useState<string | null>(null);
   const [dropboxTarget, setDropboxTarget] = useState("master");
-
   // ── Google Drive ──
   const [googleDrivePickerOpen, setGoogleDrivePickerOpen] = useState(false);
   const [googleDriveNeedsConnection, setGoogleDriveNeedsConnection] =
@@ -1548,7 +1499,6 @@ export default function NewPostModal({
   >(null);
   const [googleDriveError, setGoogleDriveError] = useState<string | null>(null);
   const [googleDriveTarget, setGoogleDriveTarget] = useState("master");
-
   // ── Google Photos ──
   const [googlePhotosPickerOpen, setGooglePhotosPickerOpen] = useState(false);
   const [googlePhotosNeedsConnection, setGooglePhotosNeedsConnection] =
@@ -1558,12 +1508,10 @@ export default function NewPostModal({
   const [googlePhotosLoading, setGooglePhotosLoading] = useState(false);
   const [googlePhotosError, setGooglePhotosError] = useState<string | null>(null);
   const [googlePhotosTarget, setGooglePhotosTarget] = useState("master");
-
   // ── YouTube ──
   const [youtubeOptions, setYoutubeOptions] = useState<YouTubeOptions>(
     YOUTUBE_DEFAULT_OPTIONS
   );
-
   // ── TikTok ──
   const [tiktokInfo, setTiktokInfo] = useState<TikTokCreatorInfo | null>(null);
   const [tiktokInfoError, setTiktokInfoError] = useState<string | null>(null);
@@ -1580,14 +1528,12 @@ export default function NewPostModal({
 
   const tiktokSelected = networks.includes("tiktok");
   const youtubeSelected = networks.includes("youtube");
-
   const tiktokPrivacyOptions = useMemo<string[]>(() => {
     const fromInfo = tiktokInfo?.privacy_level_options;
     if (fromInfo && fromInfo.length > 0) return fromInfo as string[];
     if (tiktokInfoError || tiktokInfo) return TIKTOK_FALLBACK_PRIVACY;
     return [];
   }, [tiktokInfo, tiktokInfoError]);
-
   // Tant que le backend n'annonce pas explicitement `can_direct_post`
   // (app auditée + pas de FORCE_DRAFT), on n'autorise que le brouillon.
   const tiktokDraftOnly = tiktokInfo?.capabilities
@@ -1613,7 +1559,6 @@ export default function NewPostModal({
   const submitRef = useRef<() => void>(() => {});
   const textareaRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
   const caretRefs = useRef<Record<string, { start: number; end: number }>>({});
-
   const isOpenRef = useRef(isOpen);
   isOpenRef.current = isOpen;
   const onRequestOpenRef = useRef(onRequestOpen);
@@ -1621,7 +1566,6 @@ export default function NewPostModal({
   // Suivi de l'état du formulaire, pour éviter d'écraser une saisie en cours
   // quand un brouillon persisté est chargé de façon asynchrone.
   const hasFormContentRef = useRef(false);
-
   const preselectRef = useRef<SocialNetworkId | null>(null);
 
   useEffect(
@@ -1642,7 +1586,6 @@ export default function NewPostModal({
 
   const channelTiles = useMemo<ChannelTileData[]>(() => {
     const tiles: ChannelTileData[] = [];
-
     for (const channel of connectedChannels) {
       const networkId = getNetworkId(channel);
       if (!networkId) continue;
@@ -1650,7 +1593,6 @@ export default function NewPostModal({
       if (order === -1) continue;
       tiles.push({ channel, network: SOCIAL_NETWORKS[order], order });
     }
-
     return tiles.sort((a, b) => a.order - b.order);
   }, [connectedChannels]);
 
@@ -1660,7 +1602,6 @@ export default function NewPostModal({
       if (!isOpenRef.current) onRequestOpenRef.current?.();
       setRequestTick((n) => n + 1);
     };
-
     const unsubscribe = subscribeNewPostRequests(handle);
     handle();
     return unsubscribe;
@@ -1672,7 +1613,6 @@ export default function NewPostModal({
     if (!request) return;
     const tile = channelTiles.find((item) => item.channel.key === request.channelKey);
     if (!tile) return;
-
     clearNewPostRequest();
     preselectRef.current = tile.network.id;
     setNetworks([tile.network.id]);
@@ -1826,7 +1766,6 @@ export default function NewPostModal({
   useEffect(() => {
     if (!isOpen || !tiktokSelected || tiktokInfo) return;
     let cancelled = false;
-
     getTikTokCreatorInfo()
       .then((info) => {
         if (cancelled) return;
@@ -1839,7 +1778,6 @@ export default function NewPostModal({
           e instanceof Error ? e.message : "Could not load TikTok settings."
         );
       });
-
     return () => {
       cancelled = true;
     };
@@ -1848,33 +1786,26 @@ export default function NewPostModal({
   if (!isOpen) return null;
 
   /* ── Contenu : le texte principal est la source, chaque réseau peut le surcharger ── */
-
   const isDragging = draggingTarget === "master";
   const mediaFor = (id: string): MediaItem[] => channelMedia[id] ?? media;
-
   const contentFor = (id: string): string => contents[id] ?? masterContent;
   const isCustomized = (id: string): boolean =>
     contents[id] !== undefined && contents[id] !== masterContent;
-
   const strictestLimit = networks.length
     ? Math.min(...networks.map((n) => CHAR_LIMITS[n]))
     : undefined;
-
   const overLimitNetworks = networks.filter(
     (n) => contentFor(n).length > CHAR_LIMITS[n]
   );
-
   const hasContent =
     masterContent.trim().length > 0 ||
     networks.some((n) => contentFor(n).trim().length > 0);
-
   const hasDraftContent =
     hasContent ||
     Object.values(contents).some((c) => c.trim().length > 0) ||
     title.trim().length > 0 ||
     media.length > 0 ||
     Object.keys(channelMedia).length > 0;
-
   hasFormContentRef.current = hasDraftContent;
 
   const clearForm = () => {
@@ -1898,6 +1829,7 @@ export default function NewPostModal({
     setSubmitError(null);
     setSubmitProgress(null);
     setYoutubeResult(null);
+    setScheduledResult(null);
     setActiveEmojiNetwork(null);
     setShowSourceMenu(null);
     setCanvaBusy(null);
@@ -1958,13 +1890,11 @@ export default function NewPostModal({
 
   const closeWithDraft = () => {
     if (isSubmitting) return;
-
     // Le post vient d'être envoyé : inutile d'en garder un brouillon.
-    if (youtubeResult) {
+    if (youtubeResult || scheduledResult) {
       discardAndClose();
       return;
     }
-
     // Si le dialogue « Resume / Start fresh » est encore affiché et que
     // l'utilisateur ferme sans choisir : on conserve le brouillon tel quel.
     if (pendingDraft && !hasDraftContent) {
@@ -1973,7 +1903,6 @@ export default function NewPostModal({
       onClose();
       return;
     }
-
     if (hasDraftContent) {
       const draft: DraftData = {
         title,
@@ -1995,7 +1924,6 @@ export default function NewPostModal({
       savedDraft = null;
       void clearDraftFromStorage();
     }
-
     clearForm();
     onClose();
   };
@@ -2089,13 +2017,10 @@ export default function NewPostModal({
     const end = Math.min(Math.max(caret.end, start), current.length);
     const next = current.slice(0, start) + text + current.slice(end);
     const position = start + text.length;
-
     if (target === "master") handleMasterChange(next);
     else handleNetworkChange(target, next);
-
     caretRefs.current[target] = { start: position, end: position };
     setActiveEmojiNetwork(null);
-
     requestAnimationFrame(() => {
       const el = textareaRefs.current[target];
       if (!el) return;
@@ -2109,7 +2034,6 @@ export default function NewPostModal({
       setTiktokInfo(null);
       setTiktokInfoError(null);
     }
-
     setNetworks((prev) =>
       prev.includes(id) ? prev.filter((n) => n !== id) : [...prev, id]
     );
@@ -2147,7 +2071,6 @@ export default function NewPostModal({
       target === "master" ? mediaRef.current : channelMediaRef.current[target] ?? [];
     const room = Math.max(MAX_MEDIA - current.length, 0);
     const accepted = incoming.slice(0, room);
-
     if (incoming.length > accepted.length) {
       setMediaError({ target, message: `You can add up to ${MAX_MEDIA} files per post.` });
     } else if (incoming.length < all.length) {
@@ -2155,16 +2078,13 @@ export default function NewPostModal({
     } else {
       setMediaError(null);
     }
-
     if (accepted.length === 0) return;
-
     const newItems: MediaItem[] = accepted.map((file) => ({
       id: makeId(),
       file,
       url: URL.createObjectURL(file),
       kind: file.type.startsWith("video/") ? "video" : "image",
     }));
-
     if (target === "master") {
       setMedia((prev) => [...prev, ...newItems]);
     } else {
@@ -2207,7 +2127,6 @@ export default function NewPostModal({
     setDropboxPath("");
     setDropboxError(null);
     setDropboxLoading(true);
-
     try {
       const status = await getDropboxStatus();
       if (!status.connected) {
@@ -2258,7 +2177,6 @@ export default function NewPostModal({
       });
       return;
     }
-
     setDropboxImporting(entry.path_lower);
     setDropboxError(null);
     try {
@@ -2309,7 +2227,6 @@ export default function NewPostModal({
     setGoogleDriveFolders([{ id: "", name: "My Drive" }]);
     setGoogleDriveError(null);
     setGoogleDriveLoading(true);
-
     try {
       const status = await getGoogleDriveStatus();
       if (!status.connected) {
@@ -2365,7 +2282,6 @@ export default function NewPostModal({
       });
       return;
     }
-
     setGoogleDriveImporting(entry.id);
     setGoogleDriveError(null);
     try {
@@ -2393,7 +2309,6 @@ export default function NewPostModal({
     setGooglePhotosError(null);
     setGooglePhotosChecking(true);
     setGooglePhotosLoading(true);
-
     try {
       const status = await getGooglePhotosStatus();
       if (status.connected) setGooglePhotosReady(true);
@@ -2448,7 +2363,6 @@ export default function NewPostModal({
       });
       return;
     }
-
     const popup = window.open("", "_blank", "popup,width=520,height=720");
     if (!popup) {
       setGooglePhotosError(
@@ -2456,7 +2370,6 @@ export default function NewPostModal({
       );
       return;
     }
-
     setGooglePhotosLoading(true);
     setGooglePhotosError(null);
     try {
@@ -2467,7 +2380,6 @@ export default function NewPostModal({
           message: `Only ${remaining} more file${remaining === 1 ? "" : "s"} can be added to this post.`,
         });
       }
-
       for (const item of pickedItems.slice(0, remaining)) {
         const file = await downloadGooglePhotosItem(item);
         if (!file.type.startsWith("image/") && !file.type.startsWith("video/")) {
@@ -2511,22 +2423,19 @@ export default function NewPostModal({
   };
 
   /* ── Canva ──
-     1. L'utilisateur choisit une taille dans le sous-menu.
-     2. Une fenêtre est ouverte tout de suite (dans le clic, sinon le navigateur
-        la bloque), puis le serveur crée un design vide chez Canva.
-     3. Si le compte Canva n'est pas relié, la même fenêtre sert à l'autorisation
-        OAuth ; on attend la connexion puis on crée le design.
-     4. La fenêtre est redirigée vers l'éditeur Canva. Le design apparaît dans
-        la zone média avec un bouton « Import design » : il est exporté en PNG
-        et ajouté aux médias. */
-
+  1. L'utilisateur choisit une taille dans le sous-menu.
+  2. Une fenêtre est ouverte tout de suite (dans le clic, sinon le navigateur
+  la bloque), puis le serveur crée un design vide chez Canva.
+  3. Si le compte Canva n'est pas relié, la même fenêtre sert à l'autorisation
+  OAuth ; on attend la connexion puis on crée le design.
+  4. La fenêtre est redirigée vers l'éditeur Canva. Le design apparaît dans
+  la zone média avec un bouton « Import design » : il est exporté en PNG
+  et ajouté aux médias. */
   const handleCanvaPick = async (size: CanvaSize) => {
     const target = showSourceMenu ?? "master";
     setShowSourceMenu(null);
     setMediaError(null);
-
     if (canvaBusy) return;
-
     const win = openCanvaPopup();
     if (!win) {
       setMediaError({
@@ -2537,32 +2446,23 @@ export default function NewPostModal({
       return;
     }
     win.document.body.innerText = "Opening Canva…";
-
     setCanvaBusy(target);
-
     try {
       let design;
-
       try {
         design = await createCanvaDesign(size);
       } catch (error) {
         if (!(error instanceof CanvaError && error.needsConnection)) throw error;
-
         win.location.href = await getCanvaAuthUrl();
-
         const connected = await waitForCanvaConnection(win);
         if (!connected) throw new Error("The Canva connection wasn't completed.");
-
         design = await createCanvaDesign(size);
       }
-
       if (!win.closed) {
         win.location.href = design.editUrl;
-
         if (canvaPopupMonitorRef.current !== null) {
           window.clearInterval(canvaPopupMonitorRef.current);
         }
-
         let hasLeftStone = false;
         canvaPopupMonitorRef.current = window.setInterval(() => {
           if (win.closed) {
@@ -2572,14 +2472,12 @@ export default function NewPostModal({
             }
             return;
           }
-
           try {
             const returnedToStone = win.location.origin === window.location.origin;
             if (!returnedToStone) {
               hasLeftStone = true;
               return;
             }
-
             if (hasLeftStone) {
               win.close();
               if (canvaPopupMonitorRef.current !== null) {
@@ -2592,7 +2490,6 @@ export default function NewPostModal({
           }
         }, 500);
       }
-
       setCanvaDesigns((prev) => [
         ...prev,
         {
@@ -2618,12 +2515,10 @@ export default function NewPostModal({
   const handleCanvaImport = async (designId: string) => {
     const item = canvaDesigns.find((d) => d.designId === designId);
     if (!item || item.importing) return;
-
     setMediaError(null);
     setCanvaDesigns((prev) =>
       prev.map((d) => (d.designId === designId ? { ...d, importing: true } : d))
     );
-
     try {
       const files = await importCanvaDesign(designId, item.label);
       addFiles(files, item.target);
@@ -2650,7 +2545,6 @@ export default function NewPostModal({
     const all = [...mediaRef.current, ...Object.values(channelMediaRef.current).flat()];
     const found = all.find((item) => item.id === id);
     if (found) URL.revokeObjectURL(found.url);
-
     setMedia((prev) => prev.filter((item) => item.id !== id));
     setChannelMedia((prev) => {
       const next: Record<string, MediaItem[]> = {};
@@ -2689,74 +2583,65 @@ export default function NewPostModal({
   };
 
   /* ── TikTok ── */
-
   const tiktokMedia = mediaFor("tiktok");
   const tiktokVideo = tiktokMedia.find((m) => m.kind === "video")?.file ?? null;
   const tiktokImages = tiktokMedia.filter((m) => m.kind === "image");
   const tiktokPostType: "video" | "photo" | null = tiktokVideo
     ? "video"
     : tiktokImages.length > 0
-    ? "photo"
-    : null;
-
+      ? "photo"
+      : null;
   const tiktokTypeLabel =
     tiktokPostType === "photo"
       ? tiktokImages.length > 1
         ? `Carousel of ${tiktokImages.length} photos`
         : "Photo post"
       : tiktokPostType === "video"
-      ? tiktokImages.length > 0
-        ? "Video post (photos are ignored)"
-        : "Video post"
-      : "Add a video, or one or more photos.";
-
+        ? tiktokImages.length > 0
+          ? "Video post (photos are ignored)"
+          : "Video post"
+        : "Add a video, or one or more photos.";
   const brandedChosen =
     tiktokMode === "direct" && tiktokCommercial.on && tiktokCommercial.branded;
-
   // ⬇️ MODIFICATION 1 : Suppression du blocage pour schedule
   const tiktokBlockingReason: string | null = !tiktokSelected
     ? null
     : scheduleAction === "save_in_folder"
-    ? null
-    : !tiktokPostType
-    ? "TikTok needs a video or at least one photo."
-    : scheduleAction !== "set_date" && tiktokMode === "direct" && !tiktokOptions.privacy_level
-    ? tiktokPrivacyOptions.length === 0 && !tiktokInfoError
-      ? "Loading TikTok settings…"
-      : "Choose who can view your TikTok."
-    : scheduleAction !== "set_date" &&
-      tiktokMode === "direct" &&
-      tiktokCommercial.on &&
-      !tiktokCommercial.yourBrand &&
-      !tiktokCommercial.branded
-    ? "Say whether your TikTok promotes yourself, a third party, or both."
-    : null;
+      ? null
+      : !tiktokPostType
+        ? "TikTok needs a video or at least one photo."
+        : scheduleAction !== "set_date" && tiktokMode === "direct" && !tiktokOptions.privacy_level
+          ? tiktokPrivacyOptions.length === 0 && !tiktokInfoError
+            ? "Loading TikTok settings…"
+            : "Choose who can view your TikTok."
+          : scheduleAction !== "set_date" &&
+            tiktokMode === "direct" &&
+            tiktokCommercial.on &&
+            !tiktokCommercial.yourBrand &&
+            !tiktokCommercial.branded
+            ? "Say whether your TikTok promotes yourself, a third party, or both."
+            : null;
 
   /* ── YouTube ── */
-
   const primaryContent = masterContent || (networks[0] ? contentFor(networks[0]) : "");
-
   const youtubeFallbackTitle = (
     title.trim() ||
     primaryContent.trim().split("\n")[0] ||
     ""
   ).slice(0, YOUTUBE_TITLE_MAX);
-
   const youtubeEffectiveTitle = (
     youtubeOptions.title.trim() || youtubeFallbackTitle
   ).slice(0, YOUTUBE_TITLE_MAX);
-
   const youtubeHasVideo = mediaFor("youtube").some((m) => m.kind === "video");
-
   const youtubeBlockingReason: string | null = !youtubeSelected
     ? null
     : scheduleAction === "save_in_folder"
-    ? null
-    : !youtubeHasVideo
-    ? "YouTube Shorts needs a video."
-    : !youtubeEffectiveTitle
-    ? "Add a title for your YouTube Shorts video."
-    : null;
+      ? null
+      : !youtubeHasVideo
+        ? "YouTube Shorts needs a video."
+        : !youtubeEffectiveTitle
+          ? "Add a title for your YouTube Shorts video."
+          : null;
 
   const updateYoutube = <K extends keyof YouTubeOptions>(
     key: K,
@@ -2764,46 +2649,39 @@ export default function NewPostModal({
   ) => setYoutubeOptions((o) => ({ ...o, [key]: value }));
 
   /* ── Validation : une seule raison lisible, affichée dans le footer ── */
-
   const labelOf = (id: SocialNetworkId) =>
     SOCIAL_NETWORKS.find((n) => n.id === id)?.label ?? id;
-
   const blockingReason: string | null =
     networks.length === 0
       ? "Select at least one channel."
       : !hasContent && !networks.some((n) => mediaFor(n).length > 0)
-      ? "Write something or add media."
-      : scheduleAction === "set_date" && scheduledAt.getTime() <= Date.now()
-      ? "Pick a date and time in the future."
-      : overLimitNetworks.length > 0
-      ? `Too long for ${overLimitNetworks.map(labelOf).join(", ")}.`
-      : tiktokBlockingReason || youtubeBlockingReason || null;
+        ? "Write something or add media."
+        : scheduleAction === "set_date" && scheduledAt.getTime() <= Date.now()
+          ? "Pick a date and time in the future."
+          : overLimitNetworks.length > 0
+            ? `Too long for ${overLimitNetworks.map(labelOf).join(", ")}.`
+            : tiktokBlockingReason || youtubeBlockingReason || null;
 
   const canSubmit = !blockingReason && !isSubmitting;
-
   const showTikTokDeclaration = tiktokSelected && scheduleAction === "now";
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
-
     const resolved: Record<string, string> = {};
     networks.forEach((n) => {
       resolved[n] = contentFor(n);
     });
-
     const allTexts = Object.values(resolved).join(" ");
     const extractedHashtags = Array.from(
       new Set(
         (allTexts.match(/#[\p{L}\p{N}_]+/gu) ?? []).map((h) => h.slice(1))
       )
     );
-
     const tiktokNow = tiktokSelected && scheduleAction === "now";
     const youtubeNow = youtubeSelected && scheduleAction !== "save_in_folder";
     const remainingNetworks = networks.filter(
       (n) => !(n === "tiktok" && tiktokNow) && !(n === "youtube" && youtubeNow)
     );
-
     // YouTube programmé : déjà envoyé à Google, mais il doit apparaître dans le calendrier.
     const externallyScheduled: SocialNetworkId[] =
       youtubeNow && scheduleAction === "set_date" ? ["youtube"] : [];
@@ -2847,12 +2725,10 @@ export default function NewPostModal({
       if (tiktokNow && tiktokPostType) {
         const tiktokCaption = resolved["tiktok"]?.trim() || "";
         const isPhoto = tiktokPostType === "photo";
-
         if (tiktokVideo) {
           const maxDuration = (
             tiktokInfo as unknown as { max_video_post_duration_sec?: number } | null
           )?.max_video_post_duration_sec;
-
           if (maxDuration) {
             const duration = await getVideoDuration(tiktokVideo);
             if (duration > maxDuration) {
@@ -2862,7 +2738,6 @@ export default function NewPostModal({
             }
           }
         }
-
         const options: TikTokPostOptions = {
           ...tiktokOptions,
           disable_comment:
@@ -2880,22 +2755,17 @@ export default function NewPostModal({
             tiktokCommercial.on &&
             tiktokCommercial.yourBrand,
         };
-
         let publishId: string;
-
         if (isPhoto) {
           setSubmitProgress(
             tiktokImages.length > 1
               ? "Preparing your carousel…"
               : "Preparing your photo…"
           );
-
           const photos = await Promise.all(
             tiktokImages.map((item) => toTikTokImage(item.file))
           );
-
           setSubmitProgress("Uploading photos to TikTok…");
-
           publishId = await publishPhotosToTikTok({
             photos,
             caption: tiktokCaption,
@@ -2904,7 +2774,6 @@ export default function NewPostModal({
           });
         } else {
           setSubmitProgress("Uploading video to TikTok…");
-
           publishId = await publishToTikTok({
             video: tiktokVideo as File,
             caption: tiktokCaption,
@@ -2912,7 +2781,6 @@ export default function NewPostModal({
             options,
           });
         }
-
         await waitForTikTokPublish(publishId, (status) => {
           setSubmitProgress(
             status === "PROCESSING_UPLOAD" || status === "PROCESSING_DOWNLOAD"
@@ -2920,17 +2788,14 @@ export default function NewPostModal({
               : "Finalizing…"
           );
         });
-
         // TikTok est déjà parti : on le retire pour ne pas le renvoyer en cas de nouvel essai.
         setNetworks((prev) => prev.filter((n) => n !== "tiktok"));
       }
 
       let youtubeOutcome: { url: string; message: string; warning: boolean } | null = null;
-
       if (youtubeNow) {
         const youtubeVideo = mediaFor("youtube").find((m) => m.kind === "video")?.file;
         if (!youtubeVideo) throw new Error("YouTube Shorts needs a video.");
-
         // YouTube n'a pas de champ « Short » : il classe la vidéo en Short
         // seulement si elle est verticale ou carrée ET dure 3 minutes maximum.
         // On bloque donc tout ce qui serait publié comme une vidéo normale.
@@ -2948,19 +2813,16 @@ export default function NewPostModal({
             "This video is longer than 3 minutes, so YouTube would publish it as a regular video. A Short must be 3 minutes or less."
           );
         }
-
         // `#Shorts` aide YouTube à classer la vidéo dans les Shorts.
         let description = (resolved["youtube"] ?? "").trim();
         if (!/#shorts\b/i.test(`${youtubeEffectiveTitle} ${description}`)) {
-          description = `${description}\n\n#Shorts`.trim();
+          description = `${description}\n#Shorts`.trim();
         }
-
         setSubmitProgress(
           scheduleAction === "set_date"
             ? "Uploading video and scheduling on YouTube…"
             : "Uploading video to YouTube…"
         );
-
         const result = await publishToYouTube({
           video: youtubeVideo,
           title: youtubeEffectiveTitle,
@@ -2972,15 +2834,14 @@ export default function NewPostModal({
           publishAt:
             scheduleAction === "set_date" ? scheduledAt.toISOString() : null,
         });
-
         youtubeOutcome = {
           url: result.url,
           warning: result.privacy_locked,
           message: result.privacy_locked
             ? "Video uploaded to YouTube, but YouTube forced it to private (your API project hasn't passed the YouTube audit yet)."
             : scheduleAction === "set_date"
-            ? "Video uploaded and scheduled on YouTube."
-            : "Video uploaded to YouTube. It can take a few minutes to appear as a Short.",
+              ? "Video uploaded and scheduled on YouTube."
+              : "Video uploaded to YouTube. It can take a few minutes to appear as a Short.",
         };
       }
 
@@ -2992,10 +2853,23 @@ export default function NewPostModal({
         await onSubmit(payload);
       }
 
+      const scheduledHasVideo = networks.some((n) =>
+        mediaFor(n).some((m) => m.kind === "video")
+      );
+
+      if (scheduleAction === "set_date") {
+        setScheduledResult({ at: new Date(scheduledAt), hasVideo: scheduledHasVideo });
+      }
+
       if (youtubeOutcome) {
-        // On reste ouvert pour que l'utilisateur voie le résultat (lien, vidéo privée…).
-        // Le bouton « Done » ferme ensuite tout le modal via `discardAndClose`.
         setYoutubeResult(youtubeOutcome);
+        setSubmitProgress(null);
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Programmation : on reste ouvert pour proposer d'aller voir le post
+      if (scheduleAction === "set_date") {
         setSubmitProgress(null);
         setIsSubmitting(false);
         return;
@@ -3004,12 +2878,10 @@ export default function NewPostModal({
       discardAndClose();
     } catch (error) {
       console.error("Error while creating the post:", error);
-
       const raw = error instanceof Error ? error.message : "";
       const message = /too_many_posts|spam_risk/i.test(raw)
         ? "This TikTok account has reached its posting limit for now. Please try again later."
         : raw || "Something went wrong while publishing.";
-
       setSubmitError(message);
       setSubmitProgress(null);
       setIsSubmitting(false);
@@ -3035,22 +2907,22 @@ export default function NewPostModal({
     scheduleAction === "set_date"
       ? formatShortDateTime(scheduledAt)
       : scheduleAction === "save_in_folder"
-      ? "Save in folder"
-      : "Now";
+        ? "Save in folder"
+        : "Now";
 
   const submitLabel = isSubmitting
     ? scheduleAction === "save_in_folder"
       ? "Saving…"
       : scheduleAction === "set_date"
-      ? "Scheduling…"
-      : "Publishing…"
+        ? "Scheduling…"
+        : "Publishing…"
     : scheduleAction === "now"
-    ? tiktokSelected && tiktokMode === "draft"
-      ? "Send to TikTok"
-      : "Post now"
-    : scheduleAction === "save_in_folder"
-    ? "Save post"
-    : "Schedule post";
+      ? tiktokSelected && tiktokMode === "draft"
+        ? "Send to TikTok"
+        : "Post now"
+      : scheduleAction === "save_in_folder"
+        ? "Save post"
+        : "Schedule post";
 
   // ── Thèmes ──
   const bgModal = isDark ? "bg-[#141416]" : "bg-white";
@@ -3060,7 +2932,6 @@ export default function NewPostModal({
   const textPrimary = isDark ? "text-white" : "text-neutral-900";
   const textSecondary = isDark ? "text-neutral-400" : "text-neutral-500";
   const hoverSoft = isDark ? "hover:bg-white/10 hover:text-white" : "hover:bg-black/5 hover:text-neutral-900";
-
   const accentBg = isDark ? "bg-white/10" : "bg-neutral-200";
   const accentText = isDark ? "text-white" : "text-neutral-900";
   const accentCheck = isDark ? "text-white" : "text-neutral-900";
@@ -3076,13 +2947,12 @@ export default function NewPostModal({
     ...(tiktokPostType === "photo"
       ? []
       : [
-          { key: "duet" as const, label: "Allow duet", forced: Boolean(tiktokInfo?.duet_disabled) },
-          { key: "stitch" as const, label: "Allow stitch", forced: Boolean(tiktokInfo?.stitch_disabled) },
-        ]),
+        { key: "duet" as const, label: "Allow duet", forced: Boolean(tiktokInfo?.duet_disabled) },
+        { key: "stitch" as const, label: "Allow stitch", forced: Boolean(tiktokInfo?.stitch_disabled) },
+      ]),
   ];
 
   const linkClass = "underline underline-offset-2 hover:opacity-80";
-
   const textareaClass = [
     "w-full resize-none bg-transparent text-[15px] leading-relaxed outline-none",
     textPrimary,
@@ -3103,7 +2973,6 @@ export default function NewPostModal({
   const previewText = activePreviewId ? contentFor(activePreviewId) : masterContent;
   const previewMedia = activePreviewId ? mediaFor(activePreviewId) : media;
   const previewHasSomething = previewText.trim().length > 0 || previewMedia.length > 0;
-
   const avatarRing = isDark ? "ring-[#1c1c1e]" : "ring-neutral-50";
 
   // Zone média (miniatures + tuile « Drag & drop ») : une pour le texte principal,
@@ -3127,7 +2996,6 @@ export default function NewPostModal({
             Using the shared media below ({media.length}). Add files here to use different media for this channel.
           </p>
         )}
-
         {canvaBusy === target && (
           <p
             role="status"
@@ -3137,7 +3005,6 @@ export default function NewPostModal({
             Opening Canva…
           </p>
         )}
-
         {pendingCanva.map((design) => (
           <div
             key={design.designId}
@@ -3192,7 +3059,6 @@ export default function NewPostModal({
             </button>
           </div>
         ))}
-
         <div className="mt-4 flex flex-wrap items-end gap-3">
           {items.map((item, index) => {
             const sharedHere = usingShared;
@@ -3246,7 +3112,6 @@ export default function NewPostModal({
               </div>
             );
           })}
-
           {items.length < MAX_MEDIA && (
             <button
               type="button"
@@ -3272,7 +3137,6 @@ export default function NewPostModal({
             </button>
           )}
         </div>
-
         {hasOwn && (
           <button
             type="button"
@@ -3283,7 +3147,6 @@ export default function NewPostModal({
             Use shared media
           </button>
         )}
-
         {error && (
           <p role="alert" className="mt-3 text-[12.5px] text-red-500">
             {error}
@@ -3361,7 +3224,6 @@ export default function NewPostModal({
               <ArrowLeft className="h-4 w-4" />
               Create post
             </button>
-
             {/* ── Tags ── */}
             <div className="relative" data-tag-menu>
               <button
@@ -3379,7 +3241,6 @@ export default function NewPostModal({
                 )}
                 <ChevronDown className="h-3.5 w-3.5" />
               </button>
-
               {tagMenuOpen && (
                 <div
                   role="menu"
@@ -3417,7 +3278,6 @@ export default function NewPostModal({
             </div>
             {/* ────────── */}
           </div>
-
           <div className="flex items-center gap-2">
             <button
               type="button"
@@ -3464,7 +3324,6 @@ export default function NewPostModal({
         <div className="flex min-h-0 flex-1 overflow-hidden">
           {/* Colonne gauche */}
           <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto p-6">
-
             {/* Canaux connectés */}
             <section aria-label="Channels">
               <div className="mb-3 flex items-center justify-between">
@@ -3569,7 +3428,6 @@ export default function NewPostModal({
                   {networks.length > 0 ? "Write once, post everywhere" : "Write your post"}
                 </span>
               </div>
-
               <AutoTextarea
                 value={masterContent}
                 onChange={handleMasterChange}
@@ -3581,9 +3439,7 @@ export default function NewPostModal({
                 placeholder="What do you want to share?"
                 className={[textareaClass, "min-h-[150px]"].join(" ")}
               />
-
               {renderMediaArea("master")}
-
               <input
                 ref={fileInputRef}
                 type="file"
@@ -3595,7 +3451,6 @@ export default function NewPostModal({
                   e.target.value = "";
                 }}
               />
-
               {isDragging && (
                 <div
                   className={[
@@ -3606,7 +3461,6 @@ export default function NewPostModal({
                   Drop to add to your post
                 </div>
               )}
-
               <ComposerToolbar
                 isDark={isDark}
                 emojiOpen={activeEmojiNetwork === "master"}
@@ -3632,7 +3486,6 @@ export default function NewPostModal({
                     Each channel follows your text above until you edit it here.
                   </p>
                 </div>
-
                 {networks.map((networkId) => {
                   const network = SOCIAL_NETWORKS.find((n) => n.id === networkId)!;
                   const channel = channelTiles.find((t) => t.network.id === networkId)?.channel;
@@ -3643,7 +3496,6 @@ export default function NewPostModal({
                   const customized = isCustomized(networkId);
                   const limit = CHAR_LIMITS[networkId];
                   const over = currentContent.length > limit;
-
                   return (
                     <div
                       key={networkId}
@@ -3722,7 +3574,6 @@ export default function NewPostModal({
                           className={["h-4 w-4 shrink-0 transition-transform", textSecondary, isCollapsed ? "" : "rotate-180"].join(" ")}
                         />
                       </button>
-
                       {!isCollapsed && (
                         <div className="mt-4 flex flex-col">
                           <AutoTextarea
@@ -3736,9 +3587,7 @@ export default function NewPostModal({
                             placeholder={`Write your ${network.label} post…`}
                             className={[textareaClass, "min-h-[72px]"].join(" ")}
                           />
-
                           {renderMediaArea(networkId)}
-
                           <ComposerToolbar
                             isDark={isDark}
                             emojiOpen={isEmojiOpen}
@@ -3761,7 +3610,6 @@ export default function NewPostModal({
                               ) : null
                             }
                           />
-
                           {/* YouTube */}
                           {networkId === "youtube" && (
                             <SettingsBlock
@@ -3795,7 +3643,6 @@ export default function NewPostModal({
                                   </span>
                                 </p>
                               </FieldRow>
-
                               <FieldRow label="Category" isDark={isDark}>
                                 <Select
                                   ariaLabel="YouTube category"
@@ -3805,7 +3652,6 @@ export default function NewPostModal({
                                   isDark={isDark}
                                 />
                               </FieldRow>
-
                               <FieldRow label="Visibility" isDark={isDark}>
                                 <Select
                                   ariaLabel="YouTube visibility"
@@ -3815,7 +3661,6 @@ export default function NewPostModal({
                                   isDark={isDark}
                                 />
                               </FieldRow>
-
                               <FieldRow label="License" isDark={isDark}>
                                 <Select
                                   ariaLabel="YouTube license"
@@ -3825,7 +3670,6 @@ export default function NewPostModal({
                                   isDark={isDark}
                                 />
                               </FieldRow>
-
                               <FieldRow label="Options" isDark={isDark}>
                                 <div className="flex flex-wrap items-center gap-x-6 gap-y-2.5">
                                   <Checkbox label="Notify subscribers" checked={youtubeOptions.notifySubscribers} onChange={(v) => updateYoutube("notifySubscribers", v)} isDark={isDark} />
@@ -3835,7 +3679,6 @@ export default function NewPostModal({
                               </FieldRow>
                             </SettingsBlock>
                           )}
-
                           {/* TikTok */}
                           {/* ⬇️ MODIFICATION 2 : Masquer les options TikTok lors de la programmation */}
                           {networkId === "tiktok" && scheduleAction !== "save_in_folder" && scheduleAction !== "set_date" && (
@@ -3859,7 +3702,6 @@ export default function NewPostModal({
                                   </button>
                                 </p>
                               )}
-
                               <div>
                                 <div
                                   role="radiogroup"
@@ -3900,7 +3742,6 @@ export default function NewPostModal({
                                   </p>
                                 )}
                               </div>
-
                               {tiktokMode === "direct" && (
                                 <>
                                   <FieldRow label="Who can view" isDark={isDark}>
@@ -3927,7 +3768,6 @@ export default function NewPostModal({
                                       </p>
                                     )}
                                   </FieldRow>
-
                                   <FieldRow label="Interactions" isDark={isDark}>
                                     <div className="flex flex-wrap gap-x-6 gap-y-2.5">
                                       {allowRows.map(({ key, label: rowLabel, forced }) => (
@@ -3943,7 +3783,6 @@ export default function NewPostModal({
                                       ))}
                                     </div>
                                   </FieldRow>
-
                                   <div className={["border-t pt-3.5", border].join(" ")}>
                                     <Checkbox
                                       label="Content disclosure"
@@ -3977,7 +3816,6 @@ export default function NewPostModal({
                                   </div>
                                 </>
                               )}
-
                               <p className={["flex items-start gap-1.5 text-[12px]", textSecondary].join(" ")}>
                                 <Info className="mt-px h-3.5 w-3.5 shrink-0" />
                                 After publishing, it can take a few minutes for TikTok to process your content.
@@ -4033,7 +3871,6 @@ export default function NewPostModal({
                 </div>
               )}
             </div>
-
             <div className="flex flex-1 items-center justify-center overflow-y-auto p-6">
               {previewHasSomething ? (
                 <PostPreview
@@ -4057,6 +3894,45 @@ export default function NewPostModal({
             </div>
           </aside>
         </div>
+
+        {/* ── Résultat de la programmation ── */}
+        {scheduledResult && !youtubeResult && (
+          <div
+            role="status"
+            className={[
+              "flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-t px-6 py-3 text-[13px]",
+              border, bgPanel, textPrimary,
+            ].join(" ")}
+          >
+            <Check className="h-4 w-4 shrink-0" strokeWidth={3} />
+            <span className="min-w-0 flex-1">
+              {scheduledResult.hasVideo ? "Video" : "Post"} scheduled for{" "}
+              <strong>{formatLongDateTime(scheduledResult.at)}</strong>.
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                const d = scheduledResult.at;
+                discardAndClose();
+                (onViewInCalendar ?? goToCalendar)(d);
+              }}
+              className="flex items-center gap-1.5 font-semibold underline underline-offset-2"
+            >
+              <CalendarClock className="h-3.5 w-3.5" />
+              View in calendar
+            </button>
+            <button
+              type="button"
+              onClick={discardAndClose}
+              className={[
+                "rounded-lg px-3 py-1.5 text-[12.5px] font-semibold transition",
+                isDark ? "bg-white text-[#141416] hover:bg-neutral-200" : "bg-neutral-900 text-white hover:bg-neutral-800",
+              ].join(" ")}
+            >
+              Done
+            </button>
+          </div>
+        )}
 
         {/* ── Résultat YouTube ── */}
         {youtubeResult && (
@@ -4137,7 +4013,6 @@ export default function NewPostModal({
               </p>
             )}
           </div>
-
           <div className="relative shrink-0" ref={dropdownRef}>
             <div className={["flex items-stretch overflow-hidden rounded-xl border", border, isDark ? "bg-white/5" : "bg-neutral-100"].join(" ")}>
               <button
@@ -4158,9 +4033,7 @@ export default function NewPostModal({
                 <span>{footerLabel}</span>
                 <ChevronDown className={["h-3.5 w-3.5 transition", (showActionMenu || showDateTimePanel) ? "rotate-180" : "", textSecondary].join(" ")} />
               </button>
-
               <div className={["w-px", isDark ? "bg-white/10" : "bg-black/10"].join(" ")} />
-
               <button
                 type="button"
                 onClick={handleSubmit}
@@ -4177,7 +4050,6 @@ export default function NewPostModal({
                 {submitLabel}
               </button>
             </div>
-
             {showActionMenu && (
               <div role="menu" className={["absolute bottom-full right-0 z-50 mb-2 w-[340px] overflow-hidden rounded-xl border p-2 shadow-2xl", isDark ? "border-white/10 bg-[#1c1c1e]" : "border-black/10 bg-white"].join(" ")}>
                 {SCHEDULE_ACTIONS.map((action) => {
@@ -4203,7 +4075,6 @@ export default function NewPostModal({
                 })}
               </div>
             )}
-
             {showDateTimePanel && (
               <div className={["absolute bottom-full right-0 z-50 mb-2 w-[280px] overflow-hidden rounded-xl border shadow-2xl", isDark ? "border-white/10 bg-[#1c1c1e]" : "border-black/10 bg-white"].join(" ")}>
                 <div className="w-full p-3">
@@ -4319,7 +4190,6 @@ export default function NewPostModal({
                   <X className="h-4 w-4" />
                 </button>
               </header>
-
               {dropboxNeedsConnection ? (
                 <div className="flex flex-col items-center px-6 py-12 text-center">
                   <IntegrationDropboxIcon className="h-10 w-10 text-[#0061ff]" />
@@ -4359,7 +4229,6 @@ export default function NewPostModal({
                       {dropboxTarget === "master" ? "Shared media" : "Channel media"}
                     </span>
                   </div>
-
                   {dropboxError && (
                     <div className="mx-5 mt-4 flex items-center gap-3 rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-2.5">
                       <p role="alert" className="min-w-0 flex-1 text-[12px] text-red-500">
@@ -4374,7 +4243,6 @@ export default function NewPostModal({
                       </button>
                     </div>
                   )}
-
                   <div className="min-h-[180px] overflow-y-auto px-3 py-2">
                     {dropboxFiles.filter(isDropboxMedia).map((entry) => {
                       const isFolder = entry[".tag"] === "folder";
@@ -4417,21 +4285,18 @@ export default function NewPostModal({
                         </div>
                       );
                     })}
-
                     {dropboxLoading && !dropboxNeedsConnection && (
                       <div className={["flex items-center justify-center gap-2 py-10 text-[12.5px]", textSecondary].join(" ")}>
                         <Loader2 className="h-4 w-4 animate-spin" />
                         Loading Dropbox files…
                       </div>
                     )}
-
                     {!dropboxLoading && !dropboxError && dropboxFiles.filter(isDropboxMedia).length === 0 && (
                       <p className={["py-10 text-center text-[12.5px]", textSecondary].join(" ")}>
                         This folder has no supported image or video files.
                       </p>
                     )}
                   </div>
-
                   {dropboxHasMore && dropboxCursor && (
                     <footer className={["border-t px-5 py-3", border].join(" ")}>
                       <button
@@ -4488,7 +4353,6 @@ export default function NewPostModal({
                   <X className="h-4 w-4" />
                 </button>
               </header>
-
               {googleDriveNeedsConnection ? (
                 <div className="flex flex-col items-center px-6 py-12 text-center">
                   <IntegrationGoogleDriveIcon className="h-10 w-10" />
@@ -4539,7 +4403,6 @@ export default function NewPostModal({
                       {googleDriveTarget === "master" ? "Shared media" : "Channel media"}
                     </span>
                   </div>
-
                   {googleDriveError && (
                     <div className="mx-5 mt-4 flex items-center gap-3 rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-2.5">
                       <p role="alert" className="min-w-0 flex-1 text-[12px] text-red-500">
@@ -4558,7 +4421,6 @@ export default function NewPostModal({
                       </button>
                     </div>
                   )}
-
                   <div className="min-h-[180px] overflow-y-auto px-3 py-2">
                     {googleDriveFiles.filter(isGoogleDriveMedia).map((entry) => {
                       const isFolder =
@@ -4609,14 +4471,12 @@ export default function NewPostModal({
                         </div>
                       );
                     })}
-
                     {googleDriveLoading && !googleDriveNeedsConnection && (
                       <div className={["flex items-center justify-center gap-2 py-10 text-[12.5px]", textSecondary].join(" ")}>
                         <Loader2 className="h-4 w-4 animate-spin" />
                         Loading Google Drive files…
                       </div>
                     )}
-
                     {!googleDriveLoading &&
                       !googleDriveError &&
                       googleDriveFiles.filter(isGoogleDriveMedia).length === 0 && (
@@ -4625,7 +4485,6 @@ export default function NewPostModal({
                         </p>
                       )}
                   </div>
-
                   {googleDriveHasMore && googleDriveCursor && (
                     <footer className={["border-t px-5 py-3", border].join(" ")}>
                       <button
@@ -4689,7 +4548,6 @@ export default function NewPostModal({
                   <X className="h-4 w-4" />
                 </button>
               </header>
-
               <div className="flex flex-col items-center px-6 py-10 text-center">
                 <GooglePhotosIcon className="h-10 w-10" />
                 {googlePhotosLoading ? (
@@ -4759,7 +4617,6 @@ export default function NewPostModal({
           </div>
         )}
       </div>
-
       <EditMediaModal isOpen={editingItem !== null} mediaItem={editingItem} isDark={isDark} onClose={() => setEditingItem(null)} onApply={handleApplyMediaEdit} />
     </div>
   );

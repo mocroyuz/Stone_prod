@@ -1,4 +1,3 @@
-// src/pages/Schedule.tsx
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useTheme } from "../hooks/useTheme";
@@ -1259,6 +1258,22 @@ export default function Schedule() {
     return () => window.removeEventListener("focus", onFocus);
   }, []);
 
+  // Gestion du focusDate venant d'une autre page (ex: Home, Create)
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem("schedule:focusDate");
+      if (!raw) return;
+      sessionStorage.removeItem("schedule:focusDate");
+      const d = new Date(Number(raw));
+      if (!Number.isNaN(d.getTime())) {
+        setView("Week");
+        setViewDate(d);
+      }
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
   // Génération des jours à afficher (Dimanche en premier)
   const days = useMemo((): (CalendarDay | null)[] => {
     if (view === "Week") {
@@ -2211,6 +2226,11 @@ export default function Schedule() {
         onSubmit={handleCreatePost}
         initialScheduledAt={newPostDate}
         onRequestOpen={() => setIsNewPostOpen(true)}
+        onViewInCalendar={(d) => {
+          setView("Week");
+          setViewDate(d);
+          setPostsTick((n) => n + 1); // recharge les posts
+        }}
       />
 
       <HelpChatButton isDark={isDark} />
