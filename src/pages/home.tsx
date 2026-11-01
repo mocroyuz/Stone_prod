@@ -25,7 +25,7 @@ import { createPosts } from "../services/posts";
 import {
   fetchYouTubeComments,
   fetchYouTubeVideos,
-} from "../services/youtubeComments";
+} from "../services/youtube";
 import { navigateToSettingsSection } from "../utils/settingsNavigation";
 import {
   ArrowRight,
