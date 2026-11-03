@@ -55,10 +55,9 @@ import {
 /* ============================================================
    DESIGN TOKENS
    ------------------------------------------------------------
-   Direction : éditoriale. Une seule surface, des filets fins
-   (hairlines) à la place des cartes, un serif pour les titres
-   et les chiffres, un accent cobalt utilisé avec parcimonie
-   (point "non lu", jour courant, objectif atteint).
+   Direction : plus arrondie et conventionnelle. Surfaces
+   arrondies, boutons en pilule, filets fins conservés pour la
+   lisibilité, accent cobalt utilisé avec parcimonie.
 ============================================================ */
 
 const SERIF =
@@ -94,7 +93,7 @@ const focusRingClass = (isDark: boolean) =>
 
 const primaryButtonClass = (isDark: boolean) =>
   [
-    "inline-flex h-9 shrink-0 items-center gap-1.5 rounded-md px-3.5",
+    "inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full px-4",
     "text-[12.5px] font-semibold transition",
     focusRingClass(isDark),
     isDark
@@ -104,7 +103,7 @@ const primaryButtonClass = (isDark: boolean) =>
 
 const secondaryButtonClass = (isDark: boolean) =>
   [
-    "inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md border px-3",
+    "inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border px-3.5",
     "text-[12px] font-semibold transition",
     focusRingClass(isDark),
     isDark
@@ -114,7 +113,7 @@ const secondaryButtonClass = (isDark: boolean) =>
 
 const actionLinkClass = (isDark: boolean) =>
   [
-    "inline-flex shrink-0 items-center gap-0.5 rounded-md px-1 py-0.5",
+    "inline-flex shrink-0 items-center gap-0.5 rounded-lg px-1.5 py-1",
     "text-[12px] font-medium transition",
     focusRingClass(isDark),
     isDark
@@ -583,7 +582,7 @@ function InfoHint({
         role="tooltip"
         className={[
           "pointer-events-none absolute bottom-full z-30 mb-2 w-max max-w-[220px]",
-          "rounded-md px-2.5 py-1.5 text-[11px] font-medium normal-case leading-snug tracking-normal",
+          "rounded-lg px-2.5 py-1.5 text-[11px] font-medium normal-case leading-snug tracking-normal",
           "opacity-0 shadow-lg transition-opacity duration-150",
           "group-hover:opacity-100 group-focus-within:opacity-100",
           align === "end" ? "right-0 text-right" : "left-0 text-left",
@@ -706,7 +705,7 @@ function ClockDisplay({ isDark, now }: { isDark: boolean; now: Date }) {
 }
 
 /* ============================================================
-   WEEK GOALS (ex Overview — sans cercles de progression)
+   WEEK GOALS
 ============================================================ */
 
 function GoalItem({
@@ -807,9 +806,10 @@ function WeekGoals({
     <section aria-label="Weekly goals" className="mt-7 shrink-0">
       <div
         className={[
-          "grid grid-cols-1 divide-y rounded-lg",
+          "grid grid-cols-1 divide-y rounded-2xl border",
           "sm:grid-cols-3 sm:divide-x sm:divide-y-0",
           t.tint,
+          t.rule,
           t.divide,
         ].join(" ")}
       >
@@ -1166,7 +1166,7 @@ function Channels({
 }
 
 /* ============================================================
-   UP NEXT (agenda de la semaine + état vide)
+   UP NEXT
 ============================================================ */
 
 function getWeekDays(now: Date): Date[] {
@@ -1244,7 +1244,7 @@ function UpNext({
               <span
                 aria-current={isToday ? "date" : undefined}
                 className={[
-                  "flex h-8 w-8 items-center justify-center rounded-md",
+                  "flex h-8 w-8 items-center justify-center rounded-lg",
                   "text-[13px] font-medium tabular-nums",
                   isToday ? [t.accentBg, t.accentOn].join(" ") : t.body,
                 ].join(" ")}
@@ -1259,7 +1259,7 @@ function UpNext({
       <div className={["mt-5 flex items-start gap-3.5 border-t pt-5", t.rule].join(" ")}>
         <span
           className={[
-            "flex h-9 w-9 shrink-0 items-center justify-center rounded-md border",
+            "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border",
             t.rule,
             t.soft,
           ].join(" ")}
@@ -1288,7 +1288,7 @@ function UpNext({
 }
 
 /* ============================================================
-   COMMENTS (boîte de réception)
+   COMMENTS
 ============================================================ */
 
 function formatCommentTime(value: string | null): string {
@@ -1392,7 +1392,7 @@ function VideoThumb({ src, isDark }: { src: string | null; isDark: boolean }) {
       referrerPolicy="no-referrer"
       onError={() => setFailed(true)}
       className={[
-        "hidden h-[52px] w-[92px] shrink-0 rounded-md object-cover ring-1 sm:block",
+        "hidden h-[52px] w-[92px] shrink-0 rounded-lg object-cover ring-1 sm:block",
         isDark ? "ring-white/[0.08]" : "ring-black/[0.08]",
       ].join(" ")}
     />
@@ -1418,7 +1418,7 @@ function CommentRow({
       className={[
         "group relative isolate flex w-full items-start gap-3.5 py-4 text-left",
         "before:absolute before:-inset-x-3 before:inset-y-0 before:-z-10",
-        "before:rounded-lg before:transition-colors before:duration-200",
+        "before:rounded-xl before:transition-colors before:duration-200",
         "motion-reduce:before:transition-none",
         "focus-visible:outline-none focus-visible:before:ring-2",
         isDark
@@ -1560,9 +1560,9 @@ function CommentsPanel({
               >
                 <div className={["h-9 w-9 shrink-0 rounded-full", skeletonBar].join(" ")} />
                 <div className="min-w-0 flex-1 space-y-2 pt-1">
-                  <div className={["h-2.5 w-1/4 rounded", skeletonBar].join(" ")} />
-                  <div className={["h-2.5 w-full rounded", skeletonBar].join(" ")} />
-                  <div className={["h-2.5 w-2/3 rounded", skeletonBar].join(" ")} />
+                  <div className={["h-2.5 w-1/4 rounded-full", skeletonBar].join(" ")} />
+                  <div className={["h-2.5 w-full rounded-full", skeletonBar].join(" ")} />
+                  <div className={["h-2.5 w-2/3 rounded-full", skeletonBar].join(" ")} />
                 </div>
               </div>
             ))}
@@ -1617,7 +1617,7 @@ function CommentsPanel({
             {error && (
               <p
                 className={[
-                  "mb-3 border-l-2 px-3 py-2 text-[12px]",
+                  "mb-3 rounded-lg border-l-2 px-3 py-2 text-[12px]",
                   isDark
                     ? "border-amber-400/60 bg-amber-400/[0.06] text-amber-100/80"
                     : "border-amber-600/60 bg-amber-50 text-amber-800",
@@ -1661,7 +1661,7 @@ function CommentsPanel({
 }
 
 /* ============================================================
-   BLOG (sélection éditoriale)
+   BLOG
 ============================================================ */
 
 function BlogImage({
@@ -1743,14 +1743,14 @@ function BlogSection({ isDark }: { isDark: boolean }) {
             href={featured.url}
             {...linkProps(featured.url)}
             className={[
-              "group block rounded-md lg:col-span-7",
+              "group block rounded-xl lg:col-span-7",
               focusRingClass(isDark),
             ].join(" ")}
           >
             <BlogImage
               src={featured.image}
               isDark={isDark}
-              className="aspect-[16/9] w-full rounded-md"
+              className="aspect-[16/9] w-full rounded-xl"
             />
 
             <div className="mt-4 flex items-center justify-between gap-3">
@@ -1784,7 +1784,7 @@ function BlogSection({ isDark }: { isDark: boolean }) {
                 href={post.url}
                 {...linkProps(post.url)}
                 className={[
-                  "group flex items-start gap-4 rounded-md",
+                  "group flex items-start gap-4 rounded-lg",
                   focusRingClass(isDark),
                 ].join(" ")}
               >
@@ -1813,7 +1813,7 @@ function BlogSection({ isDark }: { isDark: boolean }) {
                 <BlogImage
                   src={post.image}
                   isDark={isDark}
-                  className="h-[76px] w-[104px] shrink-0 rounded-md"
+                  className="h-[76px] w-[104px] shrink-0 rounded-xl"
                 />
               </a>
             </li>
@@ -1948,7 +1948,7 @@ export default function Home() {
         <div
           className={[
             "h-full overflow-y-auto overflow-x-hidden",
-            "rounded-2xl border",
+            "rounded-3xl border",
             "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
             "transition-colors duration-300",
             t.panel,
@@ -1987,7 +1987,7 @@ export default function Home() {
                     ].join(" ")}
                   >
                     {greeting.charAt(0).toUpperCase() + greeting.slice(1)},{" "}
-                    <span className="italic">{displayName}</span>
+                    <span>{displayName}</span>
                   </h1>
                 </div>
               </div>
