@@ -27,11 +27,11 @@ import { createPosts } from "../services/posts";
 import { useYouTubeInsights } from "../services/youtube";
 import { navigateToSettingsSection } from "../utils/settingsNavigation";
 import {
+  ArrowLeftRight,
   ArrowRight,
   ArrowUpRight,
   BarChart3,
   CalendarDays,
-  ChevronDown,
   ChevronRight,
   Heart,
   MessageCircle,
@@ -1021,12 +1021,10 @@ function Panel({
 /* ============================================================
    INSIGHTS PANEL (graphique identique à la page Insights)
    - YouTube : vraies données via useYouTubeInsights
-   - Sélecteur de canal (haut gauche) + onglets métrique
+   - Sélecteur de canal (icône swap) + onglets métrique sur la même ligne
 ============================================================ */
 
 const INSIGHTS_DAYS = 30;
-
-const insightsDay = 86_400_000;
 
 const insightsStartOfDay = (d: Date) => {
   const x = new Date(d);
@@ -1302,10 +1300,10 @@ function MiniChannelAvatar({
 type HomeMetricTab = "posts" | "impact" | "growth" | "visibility";
 
 const HOME_METRIC_TABS: { key: HomeMetricTab; label: string }[] = [
-  { key: "visibility", label: "Visibility" },
+  { key: "posts", label: "Posts" },
   { key: "impact", label: "Impact" },
   { key: "growth", label: "Growth" },
-  { key: "posts", label: "Posts" },
+  { key: "visibility", label: "Visibility" },
 ];
 
 function InsightsPanel({
@@ -1431,106 +1429,174 @@ function InsightsPanel({
         Insights
       </h2>
 
-      <div className="mb-2 flex shrink-0 items-start justify-between gap-2">
-        <div className="min-w-0">
-          <div ref={menuRef} className="relative inline-block max-w-full">
-            <button
-              type="button"
-              aria-haspopup="menu"
-              aria-expanded={menuOpen}
-              disabled={!canSwitch}
-              onClick={() => setMenuOpen((o) => !o)}
-              className={[
-                "flex items-center gap-1.5 rounded-lg py-0.5 pl-0.5 pr-1 transition-colors",
-                focusRingClass(isDark),
-                canSwitch
-                  ? isDark
-                    ? "hover:bg-white/[0.06]"
-                    : "hover:bg-black/[0.04]"
-                  : "disabled:cursor-default",
-              ].join(" ")}
-            >
-              <MiniChannelAvatar channel={selectedChannel} isDark={isDark} />
+      {/* En-tête sur une ligne :
+          [Avatar + Nom ⟳] | [Posts][Impact][Growth][Visibility]   [View all ›] */}
+      <div className="mb-2 flex shrink-0 flex-wrap items-center justify-between gap-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+          {selectedChannel ? (
+            <>
+              {/* Sélecteur de canal AVEC icône swap — placé à gauche des onglets */}
+              <div ref={menuRef} className="relative">
+                <button
+                  type="button"
+                  aria-haspopup="menu"
+                  aria-expanded={menuOpen}
+                  disabled={!canSwitch}
+                  title={
+                    canSwitch ? `Switch channel (${channelName})` : channelName
+                  }
+                  onClick={() => setMenuOpen((o) => !o)}
+                  className={[
+                    "flex items-center gap-1.5 rounded-lg py-1 pl-1 pr-2 transition-colors",
+                    focusRingClass(isDark),
+                    canSwitch
+                      ? isDark
+                        ? "hover:bg-white/[0.06]"
+                        : "hover:bg-black/[0.04]"
+                      : "disabled:cursor-default",
+                  ].join(" ")}
+                >
+                  <MiniChannelAvatar
+                    channel={selectedChannel}
+                    isDark={isDark}
+                  />
+                  <span
+                    className={[
+                      "max-w-[110px] truncate text-[11.5px] font-semibold",
+                      subtleTitleClass(isDark),
+                    ].join(" ")}
+                  >
+                    {channelName}
+                  </span>
+                  {canSwitch && (
+                    <ArrowLeftRight
+                      className={["h-3 w-3", mutedClass(isDark)].join(" ")}
+                      aria-hidden="true"
+                    />
+                  )}
+                </button>
+
+                {menuOpen && (
+                  <div
+                    role="menu"
+                    className={[
+                      "absolute left-0 top-full z-30 mt-1 w-56 rounded-xl border p-1 shadow-xl",
+                      isDark
+                        ? "border-white/10 bg-[#101012]"
+                        : "border-black/10 bg-white",
+                    ].join(" ")}
+                  >
+                    {channels.map((c) => {
+                      const active = c.key === selectedChannel?.key;
+                      const name = (c.handle || c.name || "Channel").replace(
+                        /^@/,
+                        ""
+                      );
+                      return (
+                        <button
+                          key={c.key}
+                          type="button"
+                          role="menuitemradio"
+                          aria-checked={active}
+                          onClick={() => {
+                            setSelectedKey(c.key);
+                            setMenuOpen(false);
+                          }}
+                          className={[
+                            "flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left transition-colors",
+                            focusRingClass(isDark),
+                            isDark
+                              ? "hover:bg-white/[0.06]"
+                              : "hover:bg-black/[0.04]",
+                          ].join(" ")}
+                        >
+                          <MiniChannelAvatar
+                            channel={c}
+                            isDark={isDark}
+                            size={20}
+                          />
+                          <span
+                            className={[
+                              "min-w-0 flex-1 truncate text-[11px] font-medium",
+                              strongClass(isDark),
+                            ].join(" ")}
+                          >
+                            {name}
+                          </span>
+                          {active && (
+                            <span
+                              className={[
+                                "h-1.5 w-1.5 rounded-full",
+                                isDark ? "bg-white" : "bg-neutral-900",
+                              ].join(" ")}
+                              aria-hidden="true"
+                            />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Séparateur vertical */}
               <span
                 className={[
-                  "max-w-[140px] truncate text-[12px] font-semibold",
-                  subtleTitleClass(isDark),
+                  "h-4 w-px shrink-0",
+                  isDark ? "bg-white/10" : "bg-black/10",
                 ].join(" ")}
-              >
-                {channelName}
-              </span>
-              {canSwitch && (
-                <ChevronDown
-                  className={["h-3 w-3", mutedClass(isDark)].join(" ")}
-                  aria-hidden="true"
-                />
-              )}
-            </button>
+                aria-hidden="true"
+              />
 
-            {menuOpen && (
+              {/* Onglets de métrique (Posts en premier) */}
               <div
-                role="menu"
-                className={[
-                  "absolute left-0 top-full z-30 mt-1 w-56 rounded-xl border p-1 shadow-xl",
-                  isDark
-                    ? "border-white/10 bg-[#101012]"
-                    : "border-black/10 bg-white",
-                ].join(" ")}
+                role="tablist"
+                aria-label="Insight metric"
+                className="flex min-w-0 gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
               >
-                {channels.map((c) => {
-                  const active = c.key === selectedChannel?.key;
-                  const name = (c.handle || c.name || "Channel").replace(
-                    /^@/,
-                    ""
-                  );
+                {HOME_METRIC_TABS.map((tab) => {
+                  const active = metricTab === tab.key;
                   return (
                     <button
-                      key={c.key}
+                      key={tab.key}
                       type="button"
-                      role="menuitemradio"
-                      aria-checked={active}
-                      onClick={() => {
-                        setSelectedKey(c.key);
-                        setMenuOpen(false);
-                      }}
+                      role="tab"
+                      aria-selected={active}
+                      onClick={() => setMetricTab(tab.key)}
                       className={[
-                        "flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left transition-colors",
+                        "whitespace-nowrap rounded-lg px-2 py-1 text-[10.5px] font-semibold transition-colors",
                         focusRingClass(isDark),
-                        isDark
-                          ? "hover:bg-white/[0.06]"
-                          : "hover:bg-black/[0.04]",
+                        active
+                          ? isDark
+                            ? "bg-white text-black"
+                            : "bg-neutral-900 text-white"
+                          : isDark
+                            ? "text-neutral-400 hover:bg-white/[0.06] hover:text-white"
+                            : "text-neutral-500 hover:bg-black/[0.04] hover:text-neutral-900",
                       ].join(" ")}
                     >
-                      <MiniChannelAvatar channel={c} isDark={isDark} size={20} />
-                      <span
-                        className={[
-                          "min-w-0 flex-1 truncate text-[11px] font-medium",
-                          strongClass(isDark),
-                        ].join(" ")}
-                      >
-                        {name}
-                      </span>
-                      {active && (
-                        <span
-                          className={[
-                            "h-1.5 w-1.5 rounded-full",
-                            isDark ? "bg-white" : "bg-neutral-900",
-                          ].join(" ")}
-                          aria-hidden="true"
-                        />
-                      )}
+                      {tab.label}
                     </button>
                   );
                 })}
               </div>
-            )}
-          </div>
-
-          <p
-            className={["mt-0.5 text-[11px]", verySubtleClass(isDark)].join(" ")}
-          >
-            Last {INSIGHTS_DAYS} days
-          </p>
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={onConnect}
+              className={[
+                "flex items-center gap-1.5 rounded-lg px-2 py-1 text-[11px] font-semibold transition",
+                focusRingClass(isDark),
+                isDark
+                  ? "bg-white text-black hover:bg-neutral-200"
+                  : "bg-neutral-900 text-white hover:bg-neutral-700",
+              ].join(" ")}
+            >
+              <Plus className="h-3 w-3" aria-hidden="true" />
+              Connect a channel
+            </button>
+          )}
         </div>
 
         <button
@@ -1543,7 +1609,7 @@ function InsightsPanel({
             )
           }
           className={[
-            "flex items-center gap-0.5 rounded-md text-[11px] font-semibold transition",
+            "flex shrink-0 items-center gap-0.5 rounded-md text-[11px] font-semibold transition",
             focusRingClass(isDark),
             isDark
               ? "text-neutral-400 hover:text-white"
@@ -1555,40 +1621,7 @@ function InsightsPanel({
         </button>
       </div>
 
-      {selectedChannel && (
-        <div
-          role="tablist"
-          aria-label="Insight metric"
-          className="mb-2 flex shrink-0 gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-        >
-          {HOME_METRIC_TABS.map((tab) => {
-            const active = metricTab === tab.key;
-            return (
-              <button
-                key={tab.key}
-                type="button"
-                role="tab"
-                aria-selected={active}
-                onClick={() => setMetricTab(tab.key)}
-                className={[
-                  "whitespace-nowrap rounded-lg px-2 py-1 text-[10.5px] font-semibold transition-colors",
-                  focusRingClass(isDark),
-                  active
-                    ? isDark
-                      ? "bg-white text-black"
-                      : "bg-neutral-900 text-white"
-                    : isDark
-                      ? "text-neutral-400 hover:bg-white/[0.06] hover:text-white"
-                      : "text-neutral-500 hover:bg-black/[0.04] hover:text-neutral-900",
-                ].join(" ")}
-              >
-                {tab.label}
-              </button>
-            );
-          })}
-        </div>
-      )}
-
+      {/* Contenu : loading / graphique / état vide */}
       {loading ? (
         <div
           className={[
@@ -1610,6 +1643,9 @@ function InsightsPanel({
               className={["text-[10px] font-medium", softClass(isDark)].join(" ")}
             >
               {metricData.label}
+              <span className="ml-1 opacity-60">
+                · Last {INSIGHTS_DAYS} days
+              </span>
             </p>
             <p
               className={[
