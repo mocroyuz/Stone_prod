@@ -62,8 +62,8 @@ const surface = (d: boolean) =>
     : "border-black/[0.06] bg-[#f6f4f0]";
 const inner = (d: boolean) =>
   d
-    ? "border-white/[0.07] bg-[#101012] hover:bg-[#141417]"
-    : "border-black/[0.06] bg-white hover:bg-[#fcfbf9]";
+    ? "border-transparent bg-white/[0.05] hover:bg-white/[0.08]"
+    : "border-transparent bg-white hover:bg-[#fcfbf9]";
 const ring = (d: boolean) => (d ? "ring-[#101012]" : "ring-[#f6f4f0]");
 const muted = (d: boolean) => (d ? "text-neutral-600" : "text-neutral-400");
 const strong = (d: boolean) => (d ? "text-white" : "text-neutral-900");
@@ -674,7 +674,7 @@ function Stat({
   const Trend = positive ? TrendingUp : TrendingDown;
 
   return (
-    <div title={hint} className={cx("flex min-w-0 flex-col gap-3 rounded-xl border p-3", inner(isDark))}>
+    <div title={hint} className={cx("flex min-w-0 flex-col gap-3 rounded-xl border p-3", surface(isDark))}>
       <div
         className={cx(
           "flex h-8 w-8 items-center justify-center rounded-lg",
@@ -1109,7 +1109,7 @@ function Goals({
 
   return (
     <Card isDark={isDark} title="Overview" sub="Your weekly goals">
-      <div className="flex flex-col gap-2">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
         {rows.map((r) => (
           <div key={r.title} title={r.hint} className={cx("flex items-center gap-3 rounded-xl border p-3", inner(isDark))}>
             {r.ring}
@@ -1408,6 +1408,17 @@ export default function Home() {
                   </div>
                 </section>
 
+                <Goals
+                  isDark={isDark}
+                  weekStreak={1}
+                  postingGoal={{ done: 1, target: 2 }}
+                  commentScore={{ value: 13, changePct: 100 }}
+                />
+              </div>
+
+              {/* MIDDLE */}
+              <div className="flex min-w-0 flex-col gap-4">
+                <Channels isDark={isDark} channels={connectedChannels} onAdd={goSettingsChannels} />
                 <CommentsPanel
                   isDark={isDark}
                   comments={latestComments.comments}
@@ -1417,17 +1428,6 @@ export default function Home() {
                   onOpen={(key) => navigate(`community?channel=${encodeURIComponent(key)}`)}
                   onViewMore={() => openCommunity(latestComments.comments[0]?.channel.key)}
                   onConnect={goSettingsChannels}
-                />
-              </div>
-
-              {/* MIDDLE */}
-              <div className="flex min-w-0 flex-col gap-4">
-                <Channels isDark={isDark} channels={connectedChannels} onAdd={goSettingsChannels} />
-                <Goals
-                  isDark={isDark}
-                  weekStreak={1}
-                  postingGoal={{ done: 1, target: 2 }}
-                  commentScore={{ value: 13, changePct: 100 }}
                 />
                 <UpNext
                   isDark={isDark}
