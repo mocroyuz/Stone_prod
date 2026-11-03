@@ -674,13 +674,13 @@ function HomeOverview({
 
   return (
     <section className="mt-7 shrink-0" aria-label="Your activity">
-      <div className={["grid grid-cols-1 gap-0 sm:grid-cols-3 sm:divide-x", isDark ? "divide-white/10" : "divide-black/10"].join(" ")}>
+      <div className={["grid grid-cols-1 gap-0 md:grid-cols-3 md:divide-x", isDark ? "divide-white/10" : "divide-black/10"].join(" ")}>
         {items.map((item, index) => (
           <div
             key={item.label}
             className={[
-              "flex items-center justify-between gap-4 py-3 sm:px-5 sm:first:pl-0 sm:last:pr-0",
-              index > 0 ? "border-t sm:border-t-0" : "",
+              "flex items-center justify-between gap-4 py-3 md:px-5 md:first:pl-0 md:last:pr-0",
+              index > 0 ? "border-t md:border-t-0" : "",
               isDark ? "border-white/10" : "border-black/10",
             ].join(" ")}
           >
@@ -1475,7 +1475,7 @@ function BlogSection({ isDark }: { isDark: boolean }) {
         </a>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 2xl:grid-cols-4">
         {BLOG_POSTS.map((post) => (
           <a
             key={post.title}
@@ -1643,7 +1643,7 @@ export default function Home() {
   return (
     <main
       className={[
-        "relative min-h-screen w-full overflow-hidden",
+        "relative h-screen h-[100dvh] min-h-0 w-full overflow-hidden",
         "transition-colors duration-300",
         pageBgClass(isDark),
       ].join(" ")}
@@ -1652,7 +1652,7 @@ export default function Home() {
 
       <div
         className={[
-          "min-h-screen py-0 pr-0 sm:py-3 sm:pr-3",
+          "h-full min-h-0 py-0 pr-0 sm:py-3 sm:pr-3",
           "transition-[padding-left] duration-[380ms]",
           "ease-[cubic-bezier(0.4,0,0.2,1)]",
           "motion-reduce:transition-none",
@@ -1661,21 +1661,21 @@ export default function Home() {
       >
         <div
           className={[
-            "min-h-screen overflow-y-auto overflow-x-hidden sm:min-h-[calc(100vh-24px)]",
-            "rounded-none border-0 sm:rounded-[24px] sm:border",
-            "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+            "h-full min-h-0 overflow-x-hidden overflow-y-auto overscroll-y-contain",
+            "rounded-none border-0 sm:rounded-[22px] sm:border",
+            "[scrollbar-width:thin]",
             "transition-colors duration-300",
             mainPanelClass(isDark),
           ].join(" ")}
         >
           <div
             className={[
-              "mx-auto flex w-full max-w-[1600px]",
-              "flex-col px-[clamp(18px,3vw,44px)]",
-              "pb-[120px] pt-[clamp(24px,4vw,42px)]",
+              "mx-auto flex min-h-full w-full min-w-0 max-w-[1480px]",
+              "flex-col px-[clamp(16px,2.6vw,38px)]",
+              "pb-[128px] pt-[clamp(22px,3vw,36px)]",
             ].join(" ")}
           >
-            <header className="flex shrink-0 flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+            <header className="flex min-w-0 shrink-0 flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <div className="flex items-center gap-4">
                 <GreetingAvatar
                   avatarUrl={user?.avatar_url}
@@ -1735,8 +1735,8 @@ export default function Home() {
 
               <div
                 className={[
-                  "grid grid-cols-1 gap-3 rounded-2xl border p-4",
-                  "sm:grid-cols-3",
+                  "grid grid-cols-1 gap-3 rounded-xl border p-4",
+                  "md:grid-cols-3",
                   panelSurfaceClass(isDark),
                 ].join(" ")}
               >
@@ -1796,7 +1796,7 @@ export default function Home() {
               />
             </section>
 
-            <div className="mt-9 grid grid-cols-1 gap-7 lg:grid-cols-[1.08fr_0.92fr] lg:gap-9">
+            <div className="mt-8 grid min-w-0 grid-cols-1 gap-7 xl:grid-cols-[minmax(0,1.08fr)_minmax(300px,0.92fr)] xl:gap-8">
               <CommentsPanel
                 isDark={isDark}
                 comments={latestComments.comments}
