@@ -55,16 +55,16 @@ import {
 /* ============================================================
    DESIGN TOKENS
    ------------------------------------------------------------
-   Direction : plus arrondie et conventionnelle. Surfaces
-   arrondies, boutons en pilule, filets fins conservés pour la
-   lisibilité, accent cobalt utilisé avec parcimonie.
+   Direction : police sans-serif normale partout (aucun italique),
+   surfaces arrondies, boutons en pilule, filets fins conservés
+   pour la lisibilité, accent cobalt utilisé avec parcimonie.
 ============================================================ */
 
-const SERIF =
-  'ui-serif, "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, Cambria, "Times New Roman", serif';
+const UI_FONT =
+  'ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
 
-const serif = (fontSize?: string): CSSProperties =>
-  fontSize ? { fontFamily: SERIF, fontSize } : { fontFamily: SERIF };
+const headingFont = (fontSize?: string): CSSProperties =>
+  fontSize ? { fontFamily: UI_FONT, fontSize } : { fontFamily: UI_FONT };
 
 const tone = (isDark: boolean) => ({
   page: isDark ? "bg-[#050505]" : "bg-[#f5f3ef]",
@@ -488,13 +488,16 @@ function SectionHeader({
       <div className="min-w-0">
         <h2
           id={id}
-          style={serif()}
-          className={["text-[20px] leading-tight tracking-[-0.01em]", t.ink].join(" ")}
+          style={headingFont()}
+          className={[
+            "text-[20px] font-semibold leading-tight tracking-[-0.01em]",
+            t.ink,
+          ].join(" ")}
         >
           {title}
           {meta && (
             <span
-              className={["ml-2 font-sans text-[12px] tracking-normal", t.faint].join(
+              className={["ml-2 text-[12px] font-normal tracking-normal", t.faint].join(
                 " "
               )}
             >
@@ -687,8 +690,11 @@ function ClockDisplay({ isDark, now }: { isDark: boolean; now: Date }) {
   return (
     <div className="text-left sm:text-right">
       <p
-        style={serif("28px")}
-        className={["leading-none tracking-[-0.01em] tabular-nums", t.ink].join(" ")}
+        style={headingFont("28px")}
+        className={[
+          "font-semibold leading-none tracking-[-0.01em] tabular-nums",
+          t.ink,
+        ].join(" ")}
       >
         {time}
       </p>
@@ -748,8 +754,11 @@ function GoalItem({
 
       <div className="mt-2.5 flex items-baseline gap-1.5">
         <span
-          style={serif("30px")}
-          className={["leading-none tracking-[-0.02em] tabular-nums", t.ink].join(" ")}
+          style={headingFont("30px")}
+          className={[
+            "font-semibold leading-none tracking-[-0.02em] tabular-nums",
+            t.ink,
+          ].join(" ")}
         >
           {value}
         </span>
@@ -903,8 +912,11 @@ function Stat({
 
       <div className="mt-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <span
-          style={serif("clamp(36px, 4vw, 50px)")}
-          className={["leading-none tracking-[-0.025em] tabular-nums", t.ink].join(" ")}
+          style={headingFont("clamp(36px, 4vw, 50px)")}
+          className={[
+            "font-semibold leading-none tracking-[-0.025em] tabular-nums",
+            t.ink,
+          ].join(" ")}
         >
           {value}
         </span>
@@ -1718,8 +1730,11 @@ function BlogSection({ isDark }: { isDark: boolean }) {
       <div className="flex items-end justify-between gap-4">
         <h2
           id="home-blog-title"
-          style={serif()}
-          className={["text-[20px] leading-tight tracking-[-0.01em]", t.ink].join(" ")}
+          style={headingFont()}
+          className={[
+            "text-[20px] font-semibold leading-tight tracking-[-0.01em]",
+            t.ink,
+          ].join(" ")}
         >
           From the Blog
         </h2>
@@ -1769,8 +1784,11 @@ function BlogSection({ isDark }: { isDark: boolean }) {
             </div>
 
             <h3
-              style={serif("clamp(22px, 2.4vw, 30px)")}
-              className={["mt-2 leading-[1.2] tracking-[-0.015em]", t.ink].join(" ")}
+              style={headingFont("clamp(22px, 2.4vw, 30px)")}
+              className={[
+                "mt-2 font-semibold leading-[1.2] tracking-[-0.015em]",
+                t.ink,
+              ].join(" ")}
             >
               {featured.title}
             </h3>
@@ -1795,14 +1813,14 @@ function BlogSection({ isDark }: { isDark: boolean }) {
                   </p>
                   <h3
                     style={{
-                      ...serif("17px"),
+                      ...headingFont("17px"),
                       display: "-webkit-box",
                       WebkitLineClamp: 3,
                       WebkitBoxOrient: "vertical",
                       overflow: "hidden",
                     }}
                     className={[
-                      "mt-2 leading-snug tracking-[-0.01em] transition-colors",
+                      "mt-2 font-semibold leading-snug tracking-[-0.01em] transition-colors",
                       t.ink,
                     ].join(" ")}
                   >
@@ -1980,9 +1998,9 @@ export default function Home() {
                     {formattedDate}
                   </p>
                   <h1
-                    style={serif("clamp(24px, 3vw, 34px)")}
+                    style={headingFont("clamp(24px, 3vw, 34px)")}
                     className={[
-                      "mt-1 break-words leading-[1.1] tracking-[-0.02em]",
+                      "mt-1 break-words font-semibold leading-[1.15] tracking-[-0.02em]",
                       t.ink,
                     ].join(" ")}
                   >
