@@ -26,18 +26,13 @@ import { fetchYouTubeComments, fetchYouTubeVideos } from "../services/youtube";
 import { navigateToSettingsSection } from "../utils/settingsNavigation";
 import {
   ArrowUpRight,
-  BookOpen,
   CalendarDays,
   CheckCheck,
-  ChevronRight,
-  Clock3,
-  Heart,
   MessageCircle,
   Plus,
   Search,
   TrendingDown,
   TrendingUp,
-  Users,
 } from "lucide-react";
 import {
   XIcon,
@@ -56,20 +51,19 @@ import {
 const pageBg = (d: boolean) => (d ? "bg-[#050505]" : "bg-[#f5f3ef]");
 const mainPanel = (d: boolean) =>
   d ? "border-white/[0.07] bg-[#0a0a0c]" : "border-black/[0.06] bg-white";
-const surface = (d: boolean) =>
+const asideSurface = (d: boolean) =>
   d
     ? "border-white/[0.07] bg-white/[0.025]"
     : "border-black/[0.06] bg-[#f6f4f0]";
-const inner = (d: boolean) =>
-  d
-    ? "border-transparent bg-white/[0.05] hover:bg-white/[0.08]"
-    : "border-transparent bg-white hover:bg-[#fcfbf9]";
-const ring = (d: boolean) => (d ? "ring-[#101012]" : "ring-[#f6f4f0]");
+const hair = (d: boolean) => (d ? "border-white/[0.08]" : "border-black/[0.08]");
+const divide = (d: boolean) => (d ? "divide-white/[0.08]" : "divide-black/[0.08]");
+const rowHover = (d: boolean) => (d ? "hover:bg-white/[0.03]" : "hover:bg-black/[0.025]");
+const track = (d: boolean) => (d ? "bg-white/10" : "bg-black/10");
+const fill = (d: boolean) => (d ? "bg-white" : "bg-neutral-900");
+const ringCls = (d: boolean) => (d ? "ring-[#0a0a0c]" : "ring-white");
 const muted = (d: boolean) => (d ? "text-neutral-600" : "text-neutral-400");
 const strong = (d: boolean) => (d ? "text-white" : "text-neutral-900");
 const soft = (d: boolean) => (d ? "text-neutral-400" : "text-neutral-500");
-const subtle = (d: boolean) => (d ? "text-neutral-500" : "text-neutral-400");
-const faint = (d: boolean) => (d ? "text-neutral-700" : "text-neutral-400");
 const focusRing = (d: boolean) =>
   d
     ? "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
@@ -81,386 +75,22 @@ const primaryBtn = (d: boolean) =>
 const cx = (...c: (string | false | null | undefined)[]) =>
   c.filter(Boolean).join(" ");
 
-/* ============================================================
-   NETWORKS
-============================================================ */
-
-type SocialNetworkKey =
-  | "x"
-  | "facebook"
-  | "instagram"
-  | "linkedin"
-  | "tiktok"
-  | "youtube"
-  | "pinterest";
-
-const NETWORK_ICONS: Record<
-  SocialNetworkKey,
-  (props: { className?: string }) => ReactElement
-> = {
-  x: XIcon,
-  facebook: FacebookIcon,
-  instagram: InstagramIcon,
-  linkedin: LinkedInIcon,
-  tiktok: TikTokIcon,
-  youtube: YouTubeIcon,
-  pinterest: PinterestIcon,
-};
-
-function getNetworkId(channel: ConnectedChannel): SocialNetworkKey | null {
-  const c = channel as unknown as Record<string, unknown>;
-  const raw = String(c.platform ?? c.network ?? c.provider ?? channel.key)
-    .toLowerCase()
-    .trim();
-
-  if (raw.includes("tiktok")) return "tiktok";
-  if (raw.includes("insta")) return "instagram";
-  if (raw.includes("youtube") || raw === "yt") return "youtube";
-  if (raw.includes("facebook") || raw === "fb") return "facebook";
-  if (raw.includes("linkedin")) return "linkedin";
-  if (raw.includes("pinterest")) return "pinterest";
-  if (raw === "x" || raw.includes("twitter")) return "x";
-  return null;
-}
-
-/* ============================================================
-   LATEST COMMENTS (logique inchangée)
-============================================================ */
-
-type RawComment = {
-  id: string;
-  author: string;
-  authorAvatar: string | null;
-  text: string;
-  publishedAt: string | null;
-  answered: boolean;
-  isRead: boolean;
-  videoId: string | null;
-  videoTitle: string | null;
-  videoThumbnail: string | null;
-};
-
-type HomeComment = RawComment & {
-  channel: ConnectedChannel;
-  network: SocialNetworkKey;
-};
-
-type VideoInfo = { title: string; thumbnail: string | null };
-
-const VIDEO_CACHE_MS = 5 * 60_000;
-let youtubeVideoCache: { at: number; map: Map<string, VideoInfo> } | null = null;
-
-async function getYouTubeVideoMap(): Promise<Map<string, VideoInfo>> {
-  if (youtubeVideoCache && Date.now() - youtubeVideoCache.at < VIDEO_CACHE_MS) {
-    return youtubeVideoCache.map;
-  }
-  try {
-    const { videos } = await fetchYouTubeVideos();
-    const map = new Map<string, VideoInfo>(
-      videos.map((v) => [v.id, { title: v.title, thumbnail: v.thumbnail }])
-    );
-    youtubeVideoCache = { at: Date.now(), map };
-    return map;
-  } catch {
-    return youtubeVideoCache?.map ?? new Map<string, VideoInfo>();
-  }
-}
-
-const youtubeThumbnail = (id: string) => `https://i.ytimg.com/vi/${id}/mqdefault.jpg`;
-
-const COMMENT_SOURCES: Partial<
-  Record<SocialNetworkKey, () => Promise<RawComment[]>>
-> = {
-  youtube: async () => {
-    const [{ comments }, videos] = await Promise.all([
-      fetchYouTubeComments({ filter: "all" }),
-      getYouTubeVideoMap(),
-    ]);
-    return comments
-      .filter((c) => !c.is_own)
-      .map((c) => {
-        const video = c.video_id ? videos.get(c.video_id) : undefined;
-        return {
-          id: `youtube:${c.id}`,
-          author: c.author_name,
-          authorAvatar: c.author_avatar,
-          text: c.text,
-          publishedAt: c.published_at,
-          answered: c.answered,
-          isRead: c.is_read,
-          videoId: c.video_id,
-          videoTitle: video?.title ?? null,
-          videoThumbnail:
-            video?.thumbnail ?? (c.video_id ? youtubeThumbnail(c.video_id) : null),
-        };
-      });
-  },
-};
-
-const COMMENTS_POLL_MS = 60_000;
-const HOME_COMMENTS_LIMIT = 3;
-
-type CommentsCacheEntry = { comments: HomeComment[]; error: string | null; at: number };
-const commentsCache = new Map<string, CommentsCacheEntry>();
-
-const commentTime = (c: { publishedAt: string | null }) =>
-  c.publishedAt ? new Date(c.publishedAt).getTime() || 0 : 0;
-
-function useLatestComments(channels: ConnectedChannel[]) {
-  const sources = useMemo(() => {
-    const seen = new Set<SocialNetworkKey>();
-    const list: { channel: ConnectedChannel; network: SocialNetworkKey }[] = [];
-    for (const channel of channels) {
-      const network = getNetworkId(channel);
-      if (!network || !COMMENT_SOURCES[network] || seen.has(network)) continue;
-      seen.add(network);
-      list.push({ channel, network });
-    }
-    return list;
-  }, [channels]);
-
-  const sourceKey = sources.map((s) => `${s.network}:${s.channel.key}`).join("|");
-  const sourcesRef = useRef(sources);
-  sourcesRef.current = sources;
-
-  const [comments, setComments] = useState<HomeComment[]>(
-    () => commentsCache.get(sourceKey)?.comments ?? []
-  );
-  const [loading, setLoading] = useState<boolean>(
-    () => !commentsCache.has(sourceKey) && channels.length > 0
-  );
-  const [error, setError] = useState<string | null>(
-    () => commentsCache.get(sourceKey)?.error ?? null
-  );
-
-  useEffect(() => {
-    const list = sourcesRef.current;
-
-    if (list.length === 0) {
-      setComments([]);
-      setError(null);
-      setLoading(false);
-      return;
-    }
-
-    const cacheEntry = commentsCache.get(sourceKey);
-    setComments(cacheEntry?.comments ?? []);
-    setError(cacheEntry?.error ?? null);
-    setLoading(!cacheEntry);
-
-    let cancelled = false;
-    let busy = false;
-
-    const load = async (initial: boolean) => {
-      if (busy || (!initial && document.hidden)) return;
-      busy = true;
-      if (initial) setLoading(true);
-
-      try {
-        const results = await Promise.allSettled(
-          list.map(async ({ channel, network }) => {
-            const raw = await COMMENT_SOURCES[network]!();
-            return raw.map((c): HomeComment => ({ ...c, channel, network }));
-          })
-        );
-        if (cancelled) return;
-
-        const merged: HomeComment[] = [];
-        const errors: string[] = [];
-        for (const r of results) {
-          if (r.status === "fulfilled") merged.push(...r.value);
-          else
-            errors.push(
-              r.reason instanceof Error ? r.reason.message : "Could not load comments."
-            );
-        }
-
-        const allFailed = errors.length === results.length;
-        if (allFailed && !initial) return;
-
-        merged.sort((a, b) => commentTime(b) - commentTime(a));
-        setComments(merged);
-        setError(allFailed ? errors[0] : null);
-        commentsCache.set(sourceKey, {
-          comments: merged,
-          error: allFailed ? errors[0] : null,
-          at: Date.now(),
-        });
-      } finally {
-        busy = false;
-        if (initial && !cancelled) setLoading(false);
-      }
-    };
-
-    const cacheFresh = cacheEntry && Date.now() - cacheEntry.at < COMMENTS_POLL_MS;
-    if (!cacheFresh) void load(!cacheEntry);
-
-    const timer = window.setInterval(() => void load(false), COMMENTS_POLL_MS);
-    const onVisible = () => {
-      if (!document.hidden) void load(false);
-    };
-    document.addEventListener("visibilitychange", onVisible);
-
-    return () => {
-      cancelled = true;
-      window.clearInterval(timer);
-      document.removeEventListener("visibilitychange", onVisible);
-    };
-  }, [sourceKey]);
-
-  return { comments, loading, error };
-}
-
-/* ============================================================
-   DATA
-============================================================ */
-
-type BlogPost = { title: string; label: string; date: string; image?: string; url: string };
-
-const BLOG_URL = "#";
-const BLOG_POSTS: BlogPost[] = [
-  {
-    title: "The Best Time to Post on TikTok in 2026",
-    label: "Blog post",
-    date: "Jul 20, 2026",
-    image: "/images/blog/best-time-tiktok.jpg",
-    url: BLOG_URL,
-  },
-  {
-    title: "The 11 Best AI Video Editors: I Tested Them All",
-    label: "Blog post",
-    date: "Jul 22, 2026",
-    image: "/images/blog/ai-video-editors.jpg",
-    url: BLOG_URL,
-  },
-  {
-    title: "How to Create a Social Media Content Calendar",
-    label: "Blog post",
-    date: "Jul 24, 2026",
-    image: "/images/blog/content-calendar.jpg",
-    url: BLOG_URL,
-  },
-  {
-    title: "17 Best AI Tools for Social Media Content",
-    label: "Blog post",
-    date: "Aug 3, 2026",
-    image: "/images/blog/ai-tools.jpg",
-    url: BLOG_URL,
-  },
-];
-
-const linkProps = (url: string) =>
-  /^https?:\/\//.test(url) ? { target: "_blank", rel: "noreferrer" } : {};
-
-function getGreeting(date: Date = new Date()): string {
-  const h = date.getHours();
-  if (h >= 5 && h < 12) return "Good morning";
-  if (h >= 12 && h < 18) return "Good afternoon";
-  if (h >= 18 && h < 22) return "Good evening";
-  return "Good night";
-}
-
-function formatCommentTime(value: string | null): string {
-  if (!value) return "Unknown date";
-  const ts = new Date(value).getTime();
-  if (!Number.isFinite(ts)) return "Unknown date";
-
-  const diff = Math.round((ts - Date.now()) / 1000);
-  const abs = Math.abs(diff);
-  const rtf = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
-  if (abs < 60) return rtf.format(diff, "second");
-  if (abs < 3600) return rtf.format(Math.round(diff / 60), "minute");
-  if (abs < 86400) return rtf.format(Math.round(diff / 3600), "hour");
-  if (abs < 604800) return rtf.format(Math.round(diff / 86400), "day");
-  return new Date(ts).toLocaleDateString("en", { month: "short", day: "numeric" });
-}
-
+EOF
+cat > /tmp/tail.tsx <<'EOF'
 /* ============================================================
    PRIMITIVES
 ============================================================ */
-
-function Card({
-  isDark,
-  title,
-  sub,
-  action,
-  className,
-  children,
-}: {
-  isDark: boolean;
-  title?: string;
-  sub?: string;
-  action?: ReactNode;
-  className?: string;
-  children: ReactNode;
-}) {
-  return (
-    <section
-      className={cx(
-        "flex min-w-0 flex-col rounded-2xl border p-4",
-        surface(isDark),
-        className
-      )}
-    >
-      {(title || action) && (
-        <div className="mb-3 flex shrink-0 items-start justify-between gap-2">
-          <div className="min-w-0">
-            <h2 className={cx("text-[12px] font-semibold", subtle(isDark))}>{title}</h2>
-            {sub && <p className={cx("mt-0.5 text-[10px]", faint(isDark))}>{sub}</p>}
-          </div>
-          {action}
-        </div>
-      )}
-      {children}
-    </section>
-  );
-}
-
-function ViewAll({
-  isDark,
-  label = "View all",
-  onClick,
-  href,
-}: {
-  isDark: boolean;
-  label?: string;
-  onClick?: () => void;
-  href?: string;
-}) {
-  const cls = cx(
-    "flex shrink-0 items-center gap-0.5 rounded-md text-[11px] font-semibold transition",
-    focusRing(isDark),
-    isDark ? "text-neutral-400 hover:text-white" : "text-neutral-500 hover:text-neutral-900"
-  );
-  const content = (
-    <>
-      {label}
-      <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
-    </>
-  );
-  return href ? (
-    <a href={href} {...linkProps(href)} className={cls}>
-      {content}
-    </a>
-  ) : (
-    <button type="button" onClick={onClick} className={cls}>
-      {content}
-    </button>
-  );
-}
 
 function Avatar({
   src,
   fallback,
   isDark,
   className,
-  rounded = "rounded-full",
 }: {
   src?: string | null;
   fallback: string;
   isDark: boolean;
   className: string;
-  rounded?: string;
 }) {
   const [failed, setFailed] = useState(false);
   useEffect(() => setFailed(false), [src]);
@@ -473,7 +103,7 @@ function Avatar({
         draggable={false}
         referrerPolicy="no-referrer"
         onError={() => setFailed(true)}
-        className={cx(className, rounded, "object-cover")}
+        className={cx(className, "rounded-full object-cover")}
       />
     );
   }
@@ -481,8 +111,7 @@ function Avatar({
     <div
       className={cx(
         className,
-        rounded,
-        "flex items-center justify-center font-semibold",
+        "flex items-center justify-center rounded-full font-semibold",
         isDark ? "bg-[#242428] text-white" : "bg-neutral-900 text-white"
       )}
     >
@@ -491,74 +120,72 @@ function Avatar({
   );
 }
 
-function ClockDisplay({ isDark, now }: { isDark: boolean; now: Date }) {
+function NetworkBadge({ network, isDark }: { network: SocialNetworkKey; isDark: boolean }) {
+  const Icon = NETWORK_ICONS[network];
   return (
-    <div className="text-right">
-      <p className={cx("text-[16px] font-semibold tabular-nums", strong(isDark))}>
-        {now.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
-      </p>
-      <p className={cx("text-[11px] font-medium", muted(isDark))}>
-        {now.toLocaleDateString("en-GB", {
-          weekday: "short",
-          day: "numeric",
-          month: "short",
-          year: "numeric",
-        })}
-      </p>
+    <span
+      className={cx(
+        "absolute -bottom-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full ring-2",
+        network === "youtube" ? "bg-[#ff0000]" : "bg-white text-black",
+        ringCls(isDark)
+      )}
+    >
+      {network === "youtube" ? (
+        <svg viewBox="0 0 24 24" className="h-2.5 w-2.5" aria-hidden="true">
+          <rect x="2" y="5" width="20" height="14" rx="4.5" fill="#fff" />
+          <path d="M10 9v6l5-3-5-3Z" fill="#ff0000" />
+        </svg>
+      ) : (
+        <Icon className="h-2 w-2" />
+      )}
+    </span>
+  );
+}
+
+function SectionTitle({
+  isDark,
+  children,
+  action,
+}: {
+  isDark: boolean;
+  children: ReactNode;
+  action?: ReactNode;
+}) {
+  return (
+    <div className="mb-3 flex items-center justify-between gap-2">
+      <h2 className={cx("text-[12px] font-semibold", soft(isDark))}>{children}</h2>
+      {action}
     </div>
   );
 }
 
-function Ring({
+function TextButton({
   isDark,
-  progress,
+  onClick,
   children,
-  size = 48,
-  stroke = 3.5,
 }: {
   isDark: boolean;
-  progress: number;
+  onClick: () => void;
   children: ReactNode;
-  size?: number;
-  stroke?: number;
 }) {
-  const p = Math.min(1, Math.max(0, progress));
-  const r = (size - stroke) / 2;
-  const c = 2 * Math.PI * r;
-
   return (
-    <div
-      className="relative shrink-0"
-      style={{ width: size, height: size }}
-      role="img"
-      aria-label={`${Math.round(p * 100)}% complete`}
+    <button
+      type="button"
+      onClick={onClick}
+      className={cx(
+        "inline-flex items-center gap-1 rounded-md text-[11px] font-semibold transition",
+        focusRing(isDark),
+        isDark ? "text-neutral-400 hover:text-white" : "text-neutral-500 hover:text-neutral-900"
+      )}
     >
-      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="absolute inset-0 -rotate-90" aria-hidden="true">
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" strokeWidth={stroke} className={isDark ? "stroke-white/[0.14]" : "stroke-black/[0.10]"} />
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={r}
-          fill="none"
-          strokeWidth={stroke}
-          strokeLinecap="round"
-          strokeDasharray={c}
-          strokeDashoffset={c * (1 - p)}
-          className={cx(
-            isDark ? "stroke-white" : "stroke-neutral-900",
-            "transition-[stroke-dashoffset] duration-700 ease-out motion-reduce:transition-none"
-          )}
-        />
-      </svg>
-      <div className={cx("absolute inset-0 flex items-center justify-center", strong(isDark))}>
-        {children}
-      </div>
-    </div>
+      {children}
+      <ArrowUpRight className="h-3 w-3" aria-hidden="true" />
+    </button>
   );
 }
 
 /* ============================================================
-   LEFT COLUMN
+   HEADER
 ============================================================ */
 
 function SearchBar({
@@ -573,139 +200,83 @@ function SearchBar({
   return (
     <label
       className={cx(
-        "flex h-11 items-center gap-2 rounded-2xl border px-4",
-        surface(isDark),
-        isDark ? "focus-within:border-white/20" : "focus-within:border-black/20"
+        "flex h-10 w-full items-center gap-2 rounded-full border px-4 sm:w-[240px]",
+        hair(isDark),
+        isDark ? "focus-within:border-white/25" : "focus-within:border-black/25"
       )}
     >
+      <Search className={cx("h-3.5 w-3.5 shrink-0", muted(isDark))} aria-hidden="true" />
       <input
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        placeholder="Search..."
+        placeholder="Search"
         aria-label="Search"
         className={cx(
-          "min-w-0 flex-1 bg-transparent text-[13px] outline-none",
+          "min-w-0 flex-1 bg-transparent text-[12px] outline-none",
           strong(isDark),
           isDark ? "placeholder:text-neutral-600" : "placeholder:text-neutral-400"
         )}
       />
-      <Search className={cx("h-4 w-4", muted(isDark))} aria-hidden="true" />
     </label>
   );
 }
 
-function Hero({
-  isDark,
-  greeting,
-  name,
-  avatarUrl,
-  initials,
-  loading,
-  onCreate,
-}: {
-  isDark: boolean;
-  greeting: string;
-  name: string;
-  avatarUrl?: string | null;
-  initials: string;
-  loading: boolean;
-  onCreate: () => void;
-}) {
-  return (
-    <Card isDark={isDark} className="min-h-[170px] justify-center !p-6">
-      <div className="flex items-center justify-between gap-4">
-        <div className="min-w-0">
-          <p className={cx("text-[12px] font-medium", soft(isDark))}>Welcome back</p>
-          <h1
-            className={cx(
-              "mt-1 text-[clamp(22px,2.4vw,30px)] font-semibold leading-tight tracking-[-0.035em]",
-              strong(isDark)
-            )}
-          >
-            {greeting},
-            <br />
-            {name}!
-          </h1>
-          <button
-            type="button"
-            onClick={onCreate}
-            className={cx(
-              "mt-4 inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-[11px] font-semibold transition",
-              focusRing(isDark),
-              primaryBtn(isDark)
-            )}
-          >
-            <Plus className="h-3.5 w-3.5" aria-hidden="true" />
-            Create Post
-          </button>
-        </div>
+/* ============================================================
+   METRICS (exemple)
+============================================================ */
 
-        {loading ? (
-          <div className="h-24 w-24 shrink-0 animate-pulse rounded-full bg-neutral-500/20" aria-hidden="true" />
-        ) : (
-          <Avatar
-            src={avatarUrl}
-            fallback={initials}
-            isDark={isDark}
-            className="h-24 w-24 shrink-0 text-[28px]"
-          />
-        )}
-      </div>
-    </Card>
-  );
-}
-
-function Stat({
+function Metric({
   isDark,
-  icon,
   label,
   value,
   change,
   hint,
 }: {
   isDark: boolean;
-  icon: ReactNode;
   label: string;
   value: string;
   change: string;
   hint: string;
 }) {
-  const positive = change.startsWith("+");
-  const Trend = positive ? TrendingUp : TrendingDown;
+  const up = change.startsWith("+");
+  const Trend = up ? TrendingUp : TrendingDown;
 
   return (
-    <div title={hint} className={cx("flex min-w-0 flex-col gap-3 rounded-xl border p-3", surface(isDark))}>
-      <div
+    <div title={hint} className="min-w-0 px-5 first:pl-0 last:pr-0">
+      <p className={cx("text-[11px] font-medium", soft(isDark))}>{label}</p>
+      <p
         className={cx(
-          "flex h-8 w-8 items-center justify-center rounded-lg",
-          isDark ? "bg-white/[0.06] text-white" : "bg-neutral-100 text-neutral-700"
+          "mt-1 text-[clamp(26px,3vw,36px)] font-semibold leading-none tracking-[-0.04em] tabular-nums",
+          strong(isDark)
         )}
       >
-        {icon}
-      </div>
-      <div className="min-w-0">
-        <p className={cx("truncate text-[11px] font-semibold", strong(isDark))}>{label}</p>
-        <div className="mt-1 flex items-baseline gap-1.5">
-          <span className={cx("text-[17px] font-bold tracking-tight", strong(isDark))}>{value}</span>
-          <span
-            className={cx(
-              "flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[9px] font-semibold",
-              positive
-                ? isDark ? "bg-emerald-500/10 text-emerald-400" : "bg-emerald-500/10 text-emerald-600"
-                : isDark ? "bg-rose-500/10 text-rose-400" : "bg-rose-500/10 text-rose-600"
-            )}
-          >
-            <Trend className="h-2.5 w-2.5" aria-hidden="true" />
-            <span className="sr-only">{positive ? "Up " : "Down "}</span>
-            {change}
-          </span>
-        </div>
-      </div>
+        {value}
+      </p>
+      <p
+        className={cx(
+          "mt-2 inline-flex items-center gap-1 text-[11px] font-semibold",
+          up
+            ? isDark ? "text-emerald-400" : "text-emerald-600"
+            : isDark ? "text-rose-400" : "text-rose-600"
+        )}
+      >
+        <Trend className="h-3 w-3" aria-hidden="true" />
+        <span className="sr-only">{up ? "Up " : "Down "}</span>
+        {change}
+      </p>
     </div>
   );
 }
 
-function CommentsPanel({
+/* ============================================================
+   INBOX (commentaires)
+============================================================ */
+
+function formatDate(value: string | null): string {
+  return formatCommentTime(value);
+}
+
+function CommentsInbox({
   isDark,
   comments,
   loading,
@@ -724,58 +295,88 @@ function CommentsPanel({
   onViewMore: () => void;
   onConnect: () => void;
 }) {
-  const visible = comments.slice(0, HOME_COMMENTS_LIMIT);
+  const [tab, setTab] = useState<"all" | "todo">("all");
+  const todo = comments.filter((c) => !c.answered);
+  const list = (tab === "todo" ? todo : comments).slice(0, HOME_COMMENTS_LIMIT);
+
+  const tabs = [
+    { id: "all" as const, label: "All", count: comments.length },
+    { id: "todo" as const, label: "To reply", count: todo.length },
+  ];
+
+  const message = error
+    ? ["Comments couldn't be loaded", "Please check your connection and try again later."]
+    : connectedChannelsCount === 0
+      ? ["Connect a channel to get started", "Connect your YouTube account to manage comments here."]
+      : tab === "todo"
+        ? ["Nothing left to reply to", "You've answered every recent comment."]
+        : ["You're all caught up", "New comments will appear here."];
 
   return (
-    <Card
-      isDark={isDark}
-      title="Comments"
-      sub="Keep up with your community"
-      className="flex-1"
-      action={visible.length > 0 ? <ViewAll isDark={isDark} onClick={onViewMore} /> : undefined}
-    >
-      {loading && visible.length === 0 ? (
-        <div className="flex flex-col gap-2" aria-label="Loading comments" aria-live="polite">
-          {[0, 1, 2].map((i) => (
-            <div key={i} className={cx("flex animate-pulse gap-2.5 rounded-xl border p-3", inner(isDark))} aria-hidden="true">
-              <div className={cx("h-6 w-6 rounded-lg", isDark ? "bg-white/10" : "bg-black/[0.07]")} />
-              <div className="flex-1 space-y-1.5">
-                <div className={cx("h-2.5 w-1/3 rounded", isDark ? "bg-white/10" : "bg-black/[0.07]")} />
-                <div className={cx("h-2.5 w-full rounded", isDark ? "bg-white/[0.07]" : "bg-black/[0.05]")} />
+    <section aria-labelledby="inbox-title" className="min-w-0">
+      <div className="flex items-end justify-between gap-3">
+        <div>
+          <h2
+            id="inbox-title"
+            className={cx("text-[20px] font-semibold tracking-[-0.03em]", strong(isDark))}
+          >
+            Comments
+          </h2>
+          <p className={cx("mt-0.5 text-[12px]", soft(isDark))}>Keep up with your community</p>
+        </div>
+        <TextButton isDark={isDark} onClick={onViewMore}>
+          Open community
+        </TextButton>
+      </div>
+
+      <div role="tablist" className={cx("mt-4 flex gap-5 border-b", hair(isDark))}>
+        {tabs.map((t) => {
+          const active = tab === t.id;
+          return (
+            <button
+              key={t.id}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              onClick={() => setTab(t.id)}
+              className={cx(
+                "-mb-px border-b-2 pb-2.5 text-[12px] font-semibold transition",
+                focusRing(isDark),
+                active
+                  ? cx(strong(isDark), isDark ? "border-white" : "border-neutral-900")
+                  : cx(soft(isDark), "border-transparent hover:opacity-80")
+              )}
+            >
+              {t.label}
+              <span className={cx("ml-1.5 font-normal tabular-nums", muted(isDark))}>{t.count}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {loading && list.length === 0 ? (
+        <div className={cx("divide-y", divide(isDark))} aria-label="Loading comments" aria-live="polite">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="flex animate-pulse gap-3 py-4" aria-hidden="true">
+              <div className={cx("h-9 w-9 rounded-full", track(isDark))} />
+              <div className="flex-1 space-y-2 pt-1">
+                <div className={cx("h-2.5 w-1/4 rounded", track(isDark))} />
+                <div className={cx("h-2.5 w-4/5 rounded", track(isDark))} />
               </div>
             </div>
           ))}
         </div>
-      ) : visible.length === 0 ? (
-        <div className="flex flex-1 flex-col items-center justify-center py-6 text-center">
-          <div
-            className={cx(
-              "mb-2 flex h-9 w-9 items-center justify-center rounded-2xl",
-              isDark ? "bg-white/[0.07] text-neutral-300" : "bg-white text-neutral-600 shadow-sm ring-1 ring-black/[0.04]"
-            )}
-          >
-            <MessageCircle className="h-4 w-4" aria-hidden="true" />
-          </div>
-          <p className={cx("text-[12px] font-semibold", strong(isDark))}>
-            {error
-              ? "Comments couldn't be loaded"
-              : connectedChannelsCount === 0
-                ? "Connect a channel to get started"
-                : "You're all caught up"}
-          </p>
-          <p className={cx("mt-1 max-w-[280px] text-[11px] leading-snug", soft(isDark))}>
-            {error
-              ? "We couldn't retrieve your latest comments. Please try again later."
-              : connectedChannelsCount === 0
-                ? "Connect your YouTube account to see and manage comments here."
-                : "When new comments arrive, they'll appear here."}
-          </p>
+      ) : list.length === 0 ? (
+        <div className="flex flex-col items-center py-14 text-center">
+          <MessageCircle className={cx("h-5 w-5", muted(isDark))} aria-hidden="true" />
+          <p className={cx("mt-3 text-[13px] font-semibold", strong(isDark))}>{message[0]}</p>
+          <p className={cx("mt-1 max-w-[300px] text-[12px] leading-snug", soft(isDark))}>{message[1]}</p>
           {connectedChannelsCount === 0 && !error && (
             <button
               type="button"
               onClick={onConnect}
               className={cx(
-                "mt-3 inline-flex min-h-8 items-center gap-2 rounded-xl px-3 text-[11px] font-semibold transition",
+                "mt-4 inline-flex h-9 items-center gap-1.5 rounded-full px-4 text-[11px] font-semibold transition",
                 focusRing(isDark),
                 primaryBtn(isDark)
               )}
@@ -786,81 +387,53 @@ function CommentsPanel({
           )}
         </div>
       ) : (
-        <div className="flex flex-col gap-2">
+        <>
           {error && (
-            <p
-              role="status"
-              className={cx(
-                "rounded-xl border px-2.5 py-1.5 text-[11px]",
-                isDark
-                  ? "border-amber-200/10 bg-amber-200/[0.05] text-amber-100/80"
-                  : "border-amber-700/10 bg-amber-50 text-amber-800"
-              )}
-            >
+            <p role="status" className={cx("mt-3 text-[11px]", isDark ? "text-amber-200/80" : "text-amber-700")}>
               Some comments may be missing because a source couldn't be reached.
             </p>
           )}
-
-          {visible.map((c) => {
-            const NetworkIcon = NETWORK_ICONS[c.network];
-            return (
-              <button
-                key={c.id}
-                type="button"
-                onClick={() => onOpen(c.channel.key)}
-                aria-label={`Open conversation with ${c.author}`}
-                className={cx(
-                  "group w-full rounded-xl border px-3 py-2.5 text-left transition duration-200 motion-reduce:transition-none",
-                  focusRing(isDark),
-                  inner(isDark)
-                )}
-              >
-                <div className="flex items-start gap-2.5">
-                  <div className="relative h-7 w-7 shrink-0">
+          <ul className={cx("divide-y", divide(isDark))}>
+            {list.map((c) => (
+              <li key={c.id}>
+                <button
+                  type="button"
+                  onClick={() => onOpen(c.channel.key)}
+                  aria-label={`Open conversation with ${c.author}`}
+                  className={cx(
+                    "group -mx-3 flex w-[calc(100%+1.5rem)] items-start gap-3 rounded-xl px-3 py-3.5 text-left transition motion-reduce:transition-none",
+                    focusRing(isDark),
+                    rowHover(isDark)
+                  )}
+                >
+                  <div className="relative h-9 w-9 shrink-0">
                     <Avatar
                       src={c.authorAvatar}
                       fallback={c.author.replace(/^@/, "").charAt(0).toUpperCase() || "?"}
                       isDark={isDark}
-                      rounded="rounded-lg"
-                      className="h-full w-full text-[10px]"
+                      className="h-full w-full text-[12px]"
                     />
-                    <span
-                      className={cx(
-                        "absolute -bottom-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full ring-2",
-                        c.network === "youtube" ? "bg-[#ff0000]" : "bg-white text-black",
-                        ring(isDark)
-                      )}
-                    >
-                      {c.network === "youtube" ? (
-                        <svg viewBox="0 0 24 24" className="h-2 w-2" aria-hidden="true">
-                          <rect x="2" y="5" width="20" height="14" rx="4.5" fill="#fff" />
-                          <path d="M10 9v6l5-3-5-3Z" fill="#ff0000" />
-                        </svg>
-                      ) : (
-                        <NetworkIcon className="h-1.5 w-1.5" />
-                      )}
-                    </span>
+                    <NetworkBadge network={c.network} isDark={isDark} />
                   </div>
 
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className={cx("truncate text-[12px] font-semibold", strong(isDark))}>
-                          {c.author}
-                        </p>
-                        <p className={cx("truncate text-[10px]", soft(isDark))}>
-                          {c.channel.handle || c.channel.name || c.network}
-                          {c.videoTitle ? ` · ${c.videoTitle}` : ""}
-                        </p>
-                      </div>
-                      <span className={cx("inline-flex shrink-0 items-center gap-1 text-[10px]", muted(isDark))}>
-                        <Clock3 className="h-3 w-3" aria-hidden="true" />
-                        {formatCommentTime(c.publishedAt)}
+                    <div className="flex items-center justify-between gap-3">
+                      <p className={cx("flex min-w-0 items-center gap-1.5 text-[13px] font-semibold", strong(isDark))}>
+                        <span className="truncate">{c.author}</span>
+                        {!c.isRead && (
+                          <span
+                            className={cx("h-1.5 w-1.5 shrink-0 rounded-full", fill(isDark))}
+                            aria-label="Unread"
+                          />
+                        )}
+                      </p>
+                      <span className={cx("shrink-0 text-[11px]", muted(isDark))}>
+                        {formatDate(c.publishedAt)}
                       </span>
                     </div>
 
                     <p
-                      className={cx("mt-1 text-[12px] leading-[1.35]", isDark ? "text-neutral-300" : "text-neutral-700")}
+                      className={cx("mt-0.5 text-[13px] leading-[1.45]", isDark ? "text-neutral-300" : "text-neutral-700")}
                       style={{
                         display: "-webkit-box",
                         WebkitLineClamp: 2,
@@ -872,173 +445,85 @@ function CommentsPanel({
                       {c.text || "This comment has no text."}
                     </p>
 
-                    <div className="mt-1.5 flex items-center justify-between gap-2">
+                    <div className="mt-1.5 flex items-center gap-2">
+                      <span className={cx("truncate text-[11px]", muted(isDark))}>
+                        {c.videoTitle || c.channel.handle || c.channel.name || c.network}
+                      </span>
                       {c.answered ? (
                         <span
                           className={cx(
-                            "inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium",
-                            isDark ? "bg-emerald-400/10 text-emerald-300" : "bg-emerald-50 text-emerald-700"
+                            "inline-flex shrink-0 items-center gap-1 text-[11px] font-medium",
+                            isDark ? "text-emerald-300" : "text-emerald-700"
                           )}
                         >
-                          <CheckCheck className="h-2.5 w-2.5" aria-hidden="true" />
+                          <CheckCheck className="h-3 w-3" aria-hidden="true" />
                           Replied
                         </span>
                       ) : (
-                        <span />
+                        <span
+                          className={cx(
+                            "ml-auto shrink-0 text-[11px] font-semibold opacity-0 transition group-hover:opacity-100 group-focus-visible:opacity-100",
+                            strong(isDark)
+                          )}
+                        >
+                          Reply
+                        </span>
                       )}
-                      <span
-                        className={cx(
-                          "inline-flex items-center gap-1 text-[10px] font-semibold opacity-80 transition group-hover:translate-x-0.5 group-hover:opacity-100",
-                          strong(isDark)
-                        )}
-                      >
-                        Open conversation
-                        <ArrowUpRight className="h-3 w-3" aria-hidden="true" />
-                      </span>
                     </div>
                   </div>
-                </div>
-                <span className="sr-only">{c.isRead ? "Read." : "Unread."}</span>
-              </button>
-            );
-          })}
-        </div>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </>
       )}
-    </Card>
+    </section>
   );
 }
 
 /* ============================================================
-   MIDDLE COLUMN
+   ASIDE
 ============================================================ */
 
-function ChannelAvatar({
-  channel,
+function Meter({
   isDark,
-  overlap,
+  label,
+  valueLabel,
+  progress,
+  note,
 }: {
-  channel: ConnectedChannel;
   isDark: boolean;
-  overlap: boolean;
+  label: string;
+  valueLabel: string;
+  progress: number;
+  note?: ReactNode;
 }) {
-  const label = channel.handle || channel.name || "Channel";
-  const networkId = getNetworkId(channel);
-  const NetworkIcon = networkId ? NETWORK_ICONS[networkId] : null;
-
+  const p = Math.min(1, Math.max(0, progress));
   return (
-    <div className="relative h-9 w-9 shrink-0" style={{ marginLeft: overlap ? -8 : 0 }} title={label}>
-      <Avatar
-        src={channel.avatarUrl}
-        fallback={label.replace(/^@/, "").charAt(0).toUpperCase() || "?"}
-        isDark={isDark}
-        className={cx("h-full w-full text-[11px] ring-2", ring(isDark))}
-      />
-      {NetworkIcon && (
-        <span
-          className={cx(
-            "absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-white text-black ring-1",
-            ring(isDark)
-          )}
-        >
-          <NetworkIcon className="h-2.5 w-2.5" />
-        </span>
-      )}
+    <div>
+      <div className="flex items-baseline justify-between gap-2">
+        <p className={cx("text-[12px] font-semibold", strong(isDark))}>{label}</p>
+        <p className={cx("text-[12px] font-semibold tabular-nums", strong(isDark))}>{valueLabel}</p>
+      </div>
+      <div
+        className={cx("mt-2 h-1.5 overflow-hidden rounded-full", track(isDark))}
+        role="progressbar"
+        aria-label={label}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={Math.round(p * 100)}
+      >
+        <div
+          className={cx("h-full rounded-full transition-[width] duration-700 ease-out motion-reduce:transition-none", fill(isDark))}
+          style={{ width: `${p * 100}%` }}
+        />
+      </div>
+      {note && <p className={cx("mt-1.5 text-[11px]", soft(isDark))}>{note}</p>}
     </div>
   );
 }
 
-function Channels({
-  isDark,
-  channels,
-  onAdd,
-}: {
-  isDark: boolean;
-  channels: ConnectedChannel[];
-  onAdd: () => void;
-}) {
-  const empty = channels.length === 0;
-  const extra = channels.length - 5;
-
-  return (
-    <Card
-      isDark={isDark}
-      title="Channels"
-      sub="Your connected accounts"
-      action={
-        <ViewAll
-          isDark={isDark}
-          label={empty ? "Connect" : "Manage"}
-          onClick={() => (empty ? onAdd() : navigateToSettingsSection("channels"))}
-        />
-      }
-    >
-      <div className={cx("flex items-center gap-3 rounded-xl border p-3", inner(isDark))}>
-        {empty ? (
-          <>
-            <button
-              type="button"
-              aria-label="Connect a channel"
-              onClick={onAdd}
-              className={cx(
-                "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition",
-                focusRing(isDark),
-                isDark ? "bg-white/[0.06] text-white hover:bg-white/[0.12]" : "bg-neutral-100 text-neutral-700 hover:bg-neutral-200"
-              )}
-            >
-              <Plus className="h-4 w-4" />
-            </button>
-            <div>
-              <p className={cx("text-[11px] font-semibold", strong(isDark))}>Connect your first channel</p>
-              <p className={cx("mt-0.5 text-[10px]", muted(isDark))}>Start publishing to social networks.</p>
-            </div>
-          </>
-        ) : (
-          <>
-            <div className="flex shrink-0 items-center pl-1">
-              {channels.slice(0, 5).map((ch, i) => (
-                <ChannelAvatar key={ch.key} channel={ch} isDark={isDark} overlap={i > 0} />
-              ))}
-              {extra > 0 && (
-                <span
-                  className={cx(
-                    "-ml-2 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold ring-2",
-                    isDark ? "bg-[#242428] text-white" : "bg-neutral-200 text-neutral-700",
-                    ring(isDark)
-                  )}
-                >
-                  +{extra}
-                </span>
-              )}
-              <button
-                type="button"
-                aria-label="Connect another channel"
-                onClick={onAdd}
-                className={cx(
-                  "relative z-10 -ml-2 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border ring-2 transition",
-                  focusRing(isDark),
-                  ring(isDark),
-                  isDark
-                    ? "border-white/[0.14] bg-[#161618] text-white hover:bg-[#1f1f22]"
-                    : "border-black/[0.10] bg-white text-neutral-700 hover:bg-neutral-50"
-                )}
-              >
-                <Plus className="h-[15px] w-[15px]" strokeWidth={1.8} />
-              </button>
-            </div>
-            <div className="min-w-0">
-              <p className={cx("text-[11px] font-semibold", strong(isDark))}>
-                {channels.length} {channels.length === 1 ? "channel" : "channels"} connected
-              </p>
-              <p className={cx("text-[10px]", muted(isDark))}>Ready to publish</p>
-            </div>
-          </>
-        )}
-      </div>
-    </Card>
-  );
-}
-
-function Goals({
+function WeekGoals({
   isDark,
   weekStreak,
   postingGoal,
@@ -1052,171 +537,107 @@ function Goals({
   const ratio = postingGoal.target > 0 ? postingGoal.done / postingGoal.target : 0;
   const reached = postingGoal.target > 0 && postingGoal.done >= postingGoal.target;
   const up = commentScore.changePct >= 0;
-  const Trend = up ? TrendingUp : TrendingDown;
-
-  const rows: {
-    title: string;
-    hint: string;
-    ring: ReactNode;
-    sub: ReactNode;
-  }[] = [
-    {
-      title: "Week Streak",
-      hint: "Consecutive weeks in which you reached your posting goal.",
-      ring: (
-        <Ring isDark={isDark} progress={weekStreak > 0 ? 1 : 0}>
-          <span className="text-[17px] font-semibold tabular-nums">{weekStreak}</span>
-        </Ring>
-      ),
-      sub: weekStreak > 0 ? "Streak hit, keep going!" : "Hit your goal to start a streak.",
-    },
-    {
-      title: "Posting Goals",
-      hint: "Posts published this week compared to your weekly goal.",
-      ring: (
-        <Ring isDark={isDark} progress={ratio}>
-          <span className="text-[15px] font-bold tabular-nums">
-            {Math.round(ratio * 100)}
-            <span className="text-[10px]">%</span>
-          </span>
-        </Ring>
-      ),
-      sub: reached ? "Goal reached, great work!" : `${postingGoal.done} of ${postingGoal.target}, so close!`,
-    },
-    {
-      title: "Comment Score",
-      hint: "Your engagement score based on the comments you answer.",
-      ring: (
-        <Ring isDark={isDark} progress={commentScore.value / 100}>
-          <span className={cx("text-[17px] font-semibold tabular-nums", soft(isDark))}>
-            {commentScore.value}
-          </span>
-        </Ring>
-      ),
-      sub: (
-        <>
-          <span className={cx("inline-flex items-center gap-1", strong(isDark))}>
-            <Trend className="h-3 w-3" aria-hidden="true" />
-            <span className="sr-only">{up ? "Up " : "Down "}</span>
-            {up ? "+" : ""}
-            {commentScore.changePct}%
-          </span>
-          <span>from last week</span>
-        </>
-      ),
-    },
-  ];
 
   return (
-    <Card isDark={isDark} title="Overview" sub="Your weekly goals">
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-        {rows.map((r) => (
-          <div key={r.title} title={r.hint} className={cx("flex items-center gap-3 rounded-xl border p-3", inner(isDark))}>
-            {r.ring}
-            <div className="min-w-0">
-              <p className={cx("text-[12px] font-semibold", strong(isDark))}>{r.title}</p>
-              <p className={cx("mt-0.5 flex items-center gap-1 text-[11px]", soft(isDark))}>{r.sub}</p>
-            </div>
-          </div>
-        ))}
+    <div className="space-y-4">
+      <Meter
+        isDark={isDark}
+        label="Posting goal"
+        valueLabel={`${postingGoal.done} / ${postingGoal.target}`}
+        progress={ratio}
+        note={reached ? "Goal reached, great work!" : "Posts published this week."}
+      />
+      <Meter
+        isDark={isDark}
+        label="Comment score"
+        valueLabel={String(commentScore.value)}
+        progress={commentScore.value / 100}
+        note={`${up ? "+" : ""}${commentScore.changePct}% from last week`}
+      />
+      <div className="flex items-baseline justify-between gap-2">
+        <p className={cx("text-[12px] font-semibold", strong(isDark))}>Week streak</p>
+        <p className={cx("text-[12px] font-semibold tabular-nums", strong(isDark))}>
+          {weekStreak} {weekStreak === 1 ? "week" : "weeks"}
+        </p>
       </div>
-    </Card>
+    </div>
   );
 }
 
-function UpNext({
+function ChannelsRow({
   isDark,
-  onViewAll,
-  onCreate,
+  channels,
+  onAdd,
 }: {
   isDark: boolean;
-  onViewAll: () => void;
-  onCreate: () => void;
+  channels: ConnectedChannel[];
+  onAdd: () => void;
 }) {
+  const extra = channels.length - 5;
+
   return (
-    <Card
-      isDark={isDark}
-      title="Up Next"
-      sub="0 posts scheduled"
-      action={<ViewAll isDark={isDark} onClick={onViewAll} />}
-    >
-      <div className={cx("flex items-center gap-3 rounded-xl border p-3", inner(isDark))}>
-        <div
+    <div className="flex items-center gap-3">
+      <div className="flex shrink-0 items-center">
+        {channels.slice(0, 5).map((ch, i) => {
+          const label = ch.handle || ch.name || "Channel";
+          const network = getNetworkId(ch);
+          return (
+            <div
+              key={ch.key}
+              title={label}
+              className="relative h-9 w-9 shrink-0"
+              style={{ marginLeft: i > 0 ? -8 : 0 }}
+            >
+              <Avatar
+                src={ch.avatarUrl}
+                fallback={label.replace(/^@/, "").charAt(0).toUpperCase() || "?"}
+                isDark={isDark}
+                className={cx("h-full w-full text-[11px] ring-2", isDark ? "ring-[#121214]" : "ring-[#f6f4f0]")}
+              />
+              {network && <NetworkBadge network={network} isDark={isDark} />}
+            </div>
+          );
+        })}
+        {extra > 0 && (
+          <span
+            className={cx(
+              "-ml-2 flex h-9 w-9 items-center justify-center rounded-full text-[10px] font-semibold ring-2",
+              isDark ? "bg-[#242428] text-white ring-[#121214]" : "bg-neutral-200 text-neutral-700 ring-[#f6f4f0]"
+            )}
+          >
+            +{extra}
+          </span>
+        )}
+        <button
+          type="button"
+          aria-label="Connect a channel"
+          onClick={onAdd}
           className={cx(
-            "flex h-10 w-10 shrink-0 items-center justify-center rounded-full",
-            isDark ? "bg-white/[0.07] text-neutral-300" : "bg-neutral-200/70 text-neutral-600"
+            "flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-dashed transition",
+            channels.length > 0 && "ml-2",
+            focusRing(isDark),
+            isDark
+              ? "border-white/25 text-white hover:bg-white/[0.07]"
+              : "border-black/25 text-neutral-700 hover:bg-black/[0.04]"
           )}
         >
-          <CalendarDays className="h-5 w-5" aria-hidden="true" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className={cx("text-[12px] font-medium", strong(isDark))}>No posts scheduled yet.</p>
-          <p className="text-[11px] text-neutral-500">You'll see upcoming posts here.</p>
-        </div>
+          <Plus className="h-4 w-4" />
+        </button>
       </div>
-      <button
-        type="button"
-        onClick={onCreate}
-        className={cx(
-          "mt-2 flex w-full items-center justify-center gap-1.5 rounded-xl px-3.5 py-2 text-[11px] font-semibold transition",
-          focusRing(isDark),
-          primaryBtn(isDark)
-        )}
-      >
-        <Plus className="h-3.5 w-3.5" aria-hidden="true" />
-        Create Post
-      </button>
-    </Card>
+      <p className={cx("min-w-0 text-[11px]", soft(isDark))}>
+        {channels.length === 0
+          ? "Connect your first channel to start publishing."
+          : `${channels.length} ${channels.length === 1 ? "channel" : "channels"} ready to publish`}
+      </p>
+    </div>
   );
 }
 
 /* ============================================================
-   RIGHT COLUMN
+   BLOG
 ============================================================ */
 
-function BlogList({ isDark, posts }: { isDark: boolean; posts: BlogPost[] }) {
-  return (
-    <Card
-      isDark={isDark}
-      title="From the Blog"
-      action={<ViewAll isDark={isDark} label="View all" href={BLOG_URL} />}
-    >
-      <div className="flex flex-col gap-2">
-        {posts.map((post) => (
-          <a
-            key={post.title}
-            href={post.url}
-            {...linkProps(post.url)}
-            className={cx(
-              "group flex items-center gap-3 rounded-xl border p-3 transition",
-              focusRing(isDark),
-              inner(isDark)
-            )}
-          >
-            <div
-              className={cx(
-                "flex h-9 w-9 shrink-0 items-center justify-center rounded-full",
-                isDark ? "bg-white/[0.07] text-neutral-300" : "bg-neutral-200/70 text-neutral-600"
-              )}
-            >
-              <BookOpen className="h-4 w-4" aria-hidden="true" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className={cx("truncate text-[12px] font-semibold", strong(isDark))}>{post.title}</p>
-              <p className={cx("text-[10px]", muted(isDark))}>{post.date}</p>
-            </div>
-            <ArrowUpRight
-              className={cx("h-3.5 w-3.5 shrink-0 transition-transform group-hover:translate-x-0.5", soft(isDark))}
-              aria-hidden="true"
-            />
-          </a>
-        ))}
-      </div>
-    </Card>
-  );
-}
-
-function FeaturedBlog({ isDark, post }: { isDark: boolean; post: BlogPost }) {
+function BlogTile({ post }: { post: BlogPost }) {
   const [failed, setFailed] = useState(false);
   useEffect(() => setFailed(false), [post.image]);
 
@@ -1224,29 +645,35 @@ function FeaturedBlog({ isDark, post }: { isDark: boolean; post: BlogPost }) {
     <a
       href={post.url}
       {...linkProps(post.url)}
-      className={cx(
-        "group flex flex-1 flex-col rounded-2xl border p-3 transition",
-        focusRing(isDark),
-        surface(isDark)
-      )}
+      className="group relative flex h-[190px] flex-col justify-end overflow-hidden rounded-2xl bg-neutral-800 p-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
     >
-      {post.image && !failed ? (
+      {post.image && !failed && (
         <img
           src={post.image}
           alt=""
           loading="lazy"
           draggable={false}
           onError={() => setFailed(true)}
-          className="min-h-[180px] w-full flex-1 rounded-xl object-cover"
+          className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03] motion-reduce:transition-none"
         />
-      ) : (
-        <div className={cx("min-h-[180px] w-full flex-1 rounded-xl", isDark ? "bg-white/[0.06]" : "bg-neutral-200/70")} />
       )}
-      <div className="mt-3 px-1">
-        <p className={cx("text-[14px] font-semibold leading-snug tracking-[-0.01em]", strong(isDark))}>
+      <div
+        aria-hidden="true"
+        className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent"
+      />
+      <div className="relative">
+        <p className="text-[10px] font-medium text-white/65">{post.date}</p>
+        <h3
+          className="mt-1 text-[14px] font-semibold leading-snug tracking-[-0.01em] text-white"
+          style={{
+            display: "-webkit-box",
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: "vertical",
+            overflow: "hidden",
+          }}
+        >
           {post.title}
-        </p>
-        <p className={cx("mt-0.5 text-[11px]", muted(isDark))}>Most popular · {post.date}</p>
+        </h3>
       </div>
     </a>
   );
@@ -1273,7 +700,7 @@ export default function Home() {
   const latestComments = useLatestComments(connectedChannels);
 
   useEffect(() => {
-    const i = setInterval(() => setNow(new Date()), 15000);
+    const i = setInterval(() => setNow(new Date()), 60_000);
     return () => clearInterval(i);
   }, []);
 
@@ -1301,6 +728,11 @@ export default function Home() {
   const initials =
     `${(user?.first_name || "")[0] || ""}${(user?.last_name || "")[0] || ""}`.toUpperCase() || "U";
   const displayName = fullName || "adamnolke";
+  const dateLabel = now.toLocaleDateString("en-GB", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
 
   const handleCreatePost = async (payload: NewPostPayload) => {
     if (payload.scheduleMode === "later") {
@@ -1326,7 +758,7 @@ export default function Home() {
     }
   };
 
-  const goSettingsChannels = () => navigateToSettingsSection("channels");
+  const goChannels = () => navigateToSettingsSection("channels");
 
   return (
     <main
@@ -1348,100 +780,194 @@ export default function Home() {
             mainPanel(isDark)
           )}
         >
-          <div className="mx-auto w-full max-w-[1720px] px-[clamp(18px,3vw,40px)] pb-[120px] pt-[clamp(18px,3vw,30px)]">
-            {/* Top bar */}
-            <header className="flex items-center justify-between gap-4">
-              <p className={cx("truncate text-[13px] font-medium tracking-wide", soft(isDark))}>
-                Dashboard / <span className={cx("font-semibold", strong(isDark))}>{displayName}</span>
-              </p>
-              <ClockDisplay isDark={isDark} now={now} />
+          <div className="mx-auto w-full max-w-[1320px] px-[clamp(18px,3.5vw,56px)] pb-[120px] pt-[clamp(20px,3.5vw,44px)]">
+            {/* Header */}
+            <header className="flex flex-wrap items-center justify-between gap-x-6 gap-y-4">
+              <div className="flex min-w-0 items-center gap-4">
+                {userLoaded ? (
+                  <Avatar
+                    src={user?.avatar_url}
+                    fallback={initials}
+                    isDark={isDark}
+                    className="h-14 w-14 shrink-0 text-[18px]"
+                  />
+                ) : (
+                  <div className="h-14 w-14 shrink-0 animate-pulse rounded-full bg-neutral-500/20" aria-hidden="true" />
+                )}
+                <div className="min-w-0">
+                  <p className={cx("text-[12px] font-medium", soft(isDark))}>{dateLabel}</p>
+                  <h1
+                    className={cx(
+                      "truncate text-[clamp(24px,3vw,34px)] font-semibold leading-tight tracking-[-0.04em]",
+                      strong(isDark)
+                    )}
+                  >
+                    {getGreeting(now)}, {displayName}
+                  </h1>
+                </div>
+              </div>
+
+              <div className="flex w-full items-center gap-2 sm:w-auto">
+                <SearchBar isDark={isDark} value={query} onChange={setQuery} />
+                <button
+                  type="button"
+                  onClick={() => setIsNewPostOpen(true)}
+                  className={cx(
+                    "inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full px-4 text-[12px] font-semibold transition",
+                    focusRing(isDark),
+                    primaryBtn(isDark)
+                  )}
+                >
+                  <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+                  Create Post
+                </button>
+              </div>
             </header>
 
-            {/* 3 columns : gauche large / milieu / droite */}
-            <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)_minmax(0,1fr)]">
-              {/* LEFT */}
-              <div className="flex min-w-0 flex-col gap-4 lg:col-span-2 xl:col-span-1">
-                <SearchBar isDark={isDark} value={query} onChange={setQuery} />
-
-                <Hero
+            {/* Metrics */}
+            <section
+              aria-label="Overview"
+              className={cx("mt-8 border-y py-5", hair(isDark))}
+            >
+              <div className={cx("grid grid-cols-3 divide-x", divide(isDark))}>
+                <Metric
                   isDark={isDark}
-                  greeting={getGreeting(now)}
-                  name={displayName}
-                  avatarUrl={user?.avatar_url}
-                  initials={initials}
-                  loading={!userLoaded}
-                  onCreate={() => setIsNewPostOpen(true)}
+                  label="Followers"
+                  value="27K"
+                  change="-2%"
+                  hint="Total followers across all your connected channels, compared to the previous period."
                 />
-
-                <section>
-                  <div className="mb-3 flex items-baseline justify-between">
-                    <h2 className={cx("text-[12px] font-semibold", subtle(isDark))}>Stats</h2>
-                    <p className={cx("text-[10px]", faint(isDark))}>
-                      Example metrics · not connected to live channels
-                    </p>
-                  </div>
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                    <Stat
-                      isDark={isDark}
-                      label="Followers"
-                      value="27K"
-                      change="-2%"
-                      hint="Total followers across all your connected channels, compared to the previous period."
-                      icon={<Users className="h-4 w-4" />}
-                    />
-                    <Stat
-                      isDark={isDark}
-                      label="Likes"
-                      value="12.4K"
-                      change="+16%"
-                      hint="Total likes received on your posts across all channels, compared to the previous period."
-                      icon={<Heart className="h-4 w-4" />}
-                    />
-                    <Stat
-                      isDark={isDark}
-                      label="Comments"
-                      value="342"
-                      change="+5%"
-                      hint="Total comments received on your posts across all channels, compared to the previous period."
-                      icon={<MessageCircle className="h-4 w-4" />}
-                    />
-                  </div>
-                </section>
-
-                <Goals
+                <Metric
                   isDark={isDark}
-                  weekStreak={1}
-                  postingGoal={{ done: 1, target: 2 }}
-                  commentScore={{ value: 13, changePct: 100 }}
+                  label="Likes"
+                  value="12.4K"
+                  change="+16%"
+                  hint="Total likes received on your posts across all channels, compared to the previous period."
+                />
+                <Metric
+                  isDark={isDark}
+                  label="Comments"
+                  value="342"
+                  change="+5%"
+                  hint="Total comments received on your posts across all channels, compared to the previous period."
                 />
               </div>
+              <p className={cx("mt-4 text-[10px]", muted(isDark))}>
+                Example metrics · not connected to live channels
+              </p>
+            </section>
 
-              {/* MIDDLE */}
-              <div className="flex min-w-0 flex-col gap-4">
-                <Channels isDark={isDark} channels={connectedChannels} onAdd={goSettingsChannels} />
-                <CommentsPanel
-                  isDark={isDark}
-                  comments={latestComments.comments}
-                  loading={latestComments.loading}
-                  error={latestComments.error}
-                  connectedChannelsCount={connectedChannels.length}
-                  onOpen={(key) => navigate(`community?channel=${encodeURIComponent(key)}`)}
-                  onViewMore={() => openCommunity(latestComments.comments[0]?.channel.key)}
-                  onConnect={goSettingsChannels}
-                />
-                <UpNext
-                  isDark={isDark}
-                  onViewAll={() => navigate("calendar")}
-                  onCreate={() => setIsNewPostOpen(true)}
-                />
-              </div>
+            {/* Inbox + aside */}
+            <div className="mt-8 grid grid-cols-1 gap-10 xl:grid-cols-[minmax(0,1fr)_340px]">
+              <CommentsInbox
+                isDark={isDark}
+                comments={latestComments.comments}
+                loading={latestComments.loading}
+                error={latestComments.error}
+                connectedChannelsCount={connectedChannels.length}
+                onOpen={(key) => navigate(`community?channel=${encodeURIComponent(key)}`)}
+                onViewMore={() => openCommunity(latestComments.comments[0]?.channel.key)}
+                onConnect={goChannels}
+              />
 
-              {/* RIGHT */}
-              <div className="flex min-w-0 flex-col gap-4">
-                <BlogList isDark={isDark} posts={BLOG_POSTS.slice(1)} />
-                <FeaturedBlog isDark={isDark} post={BLOG_POSTS[0]} />
-              </div>
+              <aside
+                className={cx(
+                  "h-fit self-start rounded-2xl border p-5 xl:sticky xl:top-0",
+                  asideSurface(isDark)
+                )}
+              >
+                <div className={cx("divide-y", divide(isDark))}>
+                  <section className="pb-5">
+                    <SectionTitle isDark={isDark}>This week</SectionTitle>
+                    <WeekGoals
+                      isDark={isDark}
+                      weekStreak={1}
+                      postingGoal={{ done: 1, target: 2 }}
+                      commentScore={{ value: 13, changePct: 100 }}
+                    />
+                  </section>
+
+                  <section className="py-5">
+                    <SectionTitle
+                      isDark={isDark}
+                      action={
+                        <TextButton isDark={isDark} onClick={() => navigate("calendar")}>
+                          Calendar
+                        </TextButton>
+                      }
+                    >
+                      Up next
+                    </SectionTitle>
+                    <div className="flex items-start gap-3">
+                      <CalendarDays className={cx("mt-0.5 h-4 w-4 shrink-0", soft(isDark))} aria-hidden="true" />
+                      <div className="min-w-0">
+                        <p className={cx("text-[12px] font-semibold", strong(isDark))}>
+                          No posts scheduled yet
+                        </p>
+                        <p className={cx("mt-0.5 text-[11px]", soft(isDark))}>
+                          Upcoming posts will appear here.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => setIsNewPostOpen(true)}
+                          className={cx(
+                            "mt-2.5 text-[11px] font-semibold underline underline-offset-4 transition",
+                            focusRing(isDark),
+                            strong(isDark)
+                          )}
+                        >
+                          Schedule a post
+                        </button>
+                      </div>
+                    </div>
+                  </section>
+
+                  <section className="pt-5">
+                    <SectionTitle
+                      isDark={isDark}
+                      action={
+                        connectedChannels.length > 0 ? (
+                          <TextButton isDark={isDark} onClick={goChannels}>
+                            Manage
+                          </TextButton>
+                        ) : undefined
+                      }
+                    >
+                      Channels
+                    </SectionTitle>
+                    <ChannelsRow isDark={isDark} channels={connectedChannels} onAdd={goChannels} />
+                  </section>
+                </div>
+              </aside>
             </div>
+
+            {/* Blog */}
+            <section className="mt-12">
+              <SectionTitle
+                isDark={isDark}
+                action={
+                  <a
+                    href={BLOG_URL}
+                    {...linkProps(BLOG_URL)}
+                    className={cx(
+                      "inline-flex items-center gap-1 rounded-md text-[11px] font-semibold transition",
+                      focusRing(isDark),
+                      isDark ? "text-neutral-400 hover:text-white" : "text-neutral-500 hover:text-neutral-900"
+                    )}
+                  >
+                    All articles
+                    <ArrowUpRight className="h-3 w-3" aria-hidden="true" />
+                  </a>
+                }
+              >
+                From the blog
+              </SectionTitle>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                {BLOG_POSTS.map((post) => (
+                  <BlogTile key={post.title} post={post} />
+                ))}
+              </div>
+            </section>
           </div>
         </div>
       </div>
