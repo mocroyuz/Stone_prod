@@ -499,26 +499,26 @@ const START_HOUR = 0;
 const END_HOUR = 24;
 const SPAN = END_HOUR - START_HOUR;
 
-/** Hauteur d'UNE heure dans la vue semaine : un créneau d'1h = une "case", comme un jour dans la vue mois. */
-const HOUR_HEIGHT = 160;
+/** Hauteur d'UNE heure dans la vue semaine — réduite pour un calendrier plus compact. */
+const HOUR_HEIGHT = 72;
 const TOTAL_HEIGHT = SPAN * HOUR_HEIGHT;
 const DEFAULT_SCROLL_HOUR = 8;
 const NOW_CONTEXT_HOURS = 2;
 const HOURS = Array.from({ length: SPAN + 1 }, (_, i) => START_HOUR + i);
 
 /* Month view : dimensions fixes pour calculer combien d'éléments rentrent */
-const MONTH_ITEM_H = 26;
-const MONTH_GAP = 3;
-const MONTH_CELL_PAD = 6;
-const MONTH_CELL_HEADER = 24;
+const MONTH_ITEM_H = 22;
+const MONTH_GAP = 2;
+const MONTH_CELL_PAD = 4;
+const MONTH_CELL_HEADER = 20;
 
-/** Puce de post : badge + heure + titre + vignette. Plus haute que les puces d'événements. */
-const POST_CHIP_H = 42;
-const POST_THUMB = 34;
+/** Puce de post : badge + heure + titre + vignette. */
+const POST_CHIP_H = 30;
+const POST_THUMB = 22;
 
-/** Version agrandie de la puce pour la vue semaine. */
-const WEEK_CHIP_H = 52;
-const WEEK_THUMB = 42;
+/** Version agrandie de la puce pour la vue semaine (désormais alignée sur la puce compacte). */
+const WEEK_CHIP_H = 30;
+const WEEK_THUMB = 22;
 
 /**
  * Nombre d'éléments (de hauteurs données) qui rentrent dans `avail` px.
@@ -651,7 +651,7 @@ function NetworkBadge({
       ].join(" ")}
       style={{ width: size, height: size }}
     >
-      <Icon className={size <= 18 ? "h-[11px] w-[11px]" : size >= 26 ? "h-[14px] w-[14px]" : "h-3 w-3"} />
+      <Icon className={size <= 16 ? "h-[10px] w-[10px]" : size <= 20 ? "h-[11px] w-[11px]" : size >= 26 ? "h-[14px] w-[14px]" : "h-3 w-3"} />
     </span>
   );
 }
@@ -753,13 +753,6 @@ type OffScreenPost = {
   top: number;
 };
 
-/**
- * Empilement de pastilles flottantes qui montre les vraies miniatures des
- * posts hors-écran (au-dessus ou en-dessous de la zone visible). Un clic
- * remonte/descend jusqu'au créneau du post.
- *
- * `bottomOffset` permet de décoller le stack du bas de la BottomBar.
- */
 function OffScreenPostStack({
   items,
   direction,
@@ -809,9 +802,9 @@ function OffScreenPostStack({
             ].join(" ")}
           >
             {hasMedia ? (
-              <PostThumb post={item.post} isDark={isDark} size={28} />
+              <PostThumb post={item.post} isDark={isDark} size={24} />
             ) : (
-              <NetworkBadge network={networkOf(item.post)} isDark={isDark} size={28} />
+              <NetworkBadge network={networkOf(item.post)} isDark={isDark} size={24} />
             )}
             <span className="text-[11.5px] font-semibold tabular-nums">{time}</span>
             <span className={isDark ? "text-neutral-400" : "text-neutral-500"}>
@@ -883,19 +876,19 @@ function PostChip({
       title={title ? `${time} · ${title}` : time}
       className={[
         "flex shrink-0 items-center transition-colors",
-        large ? "gap-2.5 rounded-xl px-2.5" : "gap-2 rounded-lg px-2",
+        large ? "gap-2 rounded-lg px-2" : "gap-1.5 rounded-md px-1.5",
         postChipBg(isDark, posted, dragging),
         posted ? "cursor-not-allowed" : "cursor-grab active:cursor-grabbing",
       ].join(" ")}
       style={{ height: large ? WEEK_CHIP_H : POST_CHIP_H }}
     >
-      <NetworkBadge network={networkOf(post)} isDark={isDark} size={large ? 26 : 22} />
+      <NetworkBadge network={networkOf(post)} isDark={isDark} size={large ? 22 : 18} />
 
-      <span className="flex min-w-0 flex-1 flex-col justify-center gap-1 leading-none">
+      <span className="flex min-w-0 flex-1 flex-col justify-center gap-0.5 leading-none">
         <span
           className={[
             "truncate font-semibold tabular-nums",
-            large ? "text-[12.5px]" : "text-[11px]",
+            large ? "text-[11.5px]" : "text-[10.5px]",
             isDark ? "text-neutral-200" : "text-neutral-700",
           ].join(" ")}
         >
@@ -905,7 +898,7 @@ function PostChip({
           <span
             className={[
               "truncate font-medium",
-              large ? "text-[11.5px]" : "text-[10.5px]",
+              large ? "text-[10.5px]" : "text-[10px]",
               isDark ? "text-neutral-400" : "text-neutral-500",
             ].join(" ")}
           >
@@ -945,8 +938,8 @@ function MonthEventChip({
           : {}),
       }}
     >
-      <span className="truncate text-[10.5px] font-semibold">{event.title || "Sans titre"}</span>
-      <span className="truncate text-[9px] tabular-nums opacity-70">{formatTime(event.start)}</span>
+      <span className="truncate text-[10px] font-semibold">{event.title || "Sans titre"}</span>
+      <span className="truncate text-[8.5px] tabular-nums opacity-70">{formatTime(event.start)}</span>
     </div>
   );
 }
@@ -965,7 +958,7 @@ function MoreRow({
       type="button"
       onClick={onClick}
       className={[
-        "flex shrink-0 items-center justify-end gap-1 rounded-md px-1.5 text-[11.5px] font-semibold transition-colors",
+        "flex shrink-0 items-center justify-end gap-1 rounded-md px-1.5 text-[11px] font-semibold transition-colors",
         focusRingClass(isDark),
         isDark
           ? "text-neutral-300 hover:bg-white/[0.06] hover:text-white"
@@ -973,7 +966,7 @@ function MoreRow({
       ].join(" ")}
       style={{ height: MONTH_ITEM_H }}
     >
-      <ChevronDownIcon className="h-[12px] w-[12px]" />
+      <ChevronDownIcon className="h-[11px] w-[11px]" />
       {count} More
     </button>
   );
@@ -1088,7 +1081,7 @@ function EventCard({
 }: EventCardProps) {
   const hex = tag ? hexOf(tag) : null;
   const top = (event.start - START_HOUR) * HOUR_HEIGHT;
-  const height = Math.max(44, (event.end - event.start) * HOUR_HEIGHT - 6);
+  const height = Math.max(34, (event.end - event.start) * HOUR_HEIGHT - 4);
 
   const [hovered, setHovered] = useState(false);
   const isFront = hovered || menuOpen;
@@ -1108,7 +1101,7 @@ function EventCard({
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       className={[
-        "absolute inset-x-1 flex flex-col gap-2 rounded-xl border px-3 py-2.5 transition-[box-shadow]",
+        "absolute inset-x-1 flex flex-col gap-1 rounded-lg border px-2 py-1.5 transition-[box-shadow]",
         isFront ? "shadow-lg" : "",
         !tag && (isDark ? NEUTRAL_STYLE.bgDark : NEUTRAL_STYLE.bgLight),
         !tag && (isDark ? NEUTRAL_STYLE.borderDark : NEUTRAL_STYLE.borderLight),
@@ -1118,7 +1111,7 @@ function EventCard({
       style={{
         top,
         height,
-        minHeight: 44,
+        minHeight: 34,
         zIndex,
         ...(hex
           ? {
@@ -1130,10 +1123,10 @@ function EventCard({
     >
       <div className="flex items-start justify-between gap-1.5">
         <div className="min-w-0">
-          <p className={["truncate text-[12.5px] font-semibold", isDark ? "text-neutral-100" : "text-neutral-800"].join(" ")}>
+          <p className={["truncate text-[12px] font-semibold", isDark ? "text-neutral-100" : "text-neutral-800"].join(" ")}>
             {event.title || "Sans titre"}
           </p>
-          <p className={["mt-0.5 truncate text-[10.5px]", isDark ? "text-neutral-400" : "text-neutral-500"].join(" ")}>
+          <p className={["mt-0.5 truncate text-[10px]", isDark ? "text-neutral-400" : "text-neutral-500"].join(" ")}>
             {formatEventTime(event.start, event.end)}
           </p>
         </div>
@@ -1463,12 +1456,6 @@ export default function Schedule() {
   const [scrollTop, setScrollTop] = useState(0);
   const [viewportHeight, setViewportHeight] = useState(0);
 
-  /**
-   * Cible de scroll « View in calendar ».
-   * Quand on arrive depuis le modal de création de post, on pose ici le
-   * timestamp exact du post programmé ; l'effet de scroll ci-dessous le
-   * consomme en priorité (au lieu de se caler sur l'heure actuelle).
-   */
   const pendingFocusRef = useRef<number | null>(null);
   const [focusNonce, setFocusNonce] = useState(0);
 
@@ -1537,13 +1524,6 @@ export default function Schedule() {
 
   const weekStart = useMemo(() => startOfWeek(viewDate), [viewDate]);
 
-  /**
-   * Positionnement vertical de la vue semaine.
-   * - Si `pendingFocusRef` contient une cible (View in calendar), on scrolle
-   *   dessus, en laissant `FOCUS_TOP_MARGIN` px au-dessus pour que le post
-   *   soit bien visible.
-   * - Sinon : heure actuelle (si semaine courante) ou `DEFAULT_SCROLL_HOUR`.
-   */
   useEffect(() => {
     const el = scrollRef.current;
     if (!el || view !== "Week") return;
@@ -1583,7 +1563,6 @@ export default function Schedule() {
     };
   }, [view]);
 
-  // Mesure la hauteur de la grille du mois
   useEffect(() => {
     if (view !== "Month") return;
     const el = monthGridRef.current;
@@ -1634,11 +1613,6 @@ export default function Schedule() {
     return () => window.removeEventListener("focus", onFocus);
   }, []);
 
-  /**
-   * Au montage : si le modal a posé `schedule:focusDate` en sessionStorage
-   * (cas refresh de page après « View in calendar »), on l'utilise pour
-   * cadrer la semaine et faire scroller l'effet ci-dessus sur le créneau.
-   */
   useEffect(() => {
     try {
       const raw = sessionStorage.getItem("schedule:focusDate");
@@ -1750,7 +1724,6 @@ export default function Schedule() {
     return map;
   }, [days, visibleEvents]);
 
-  /** Filtre commun (canal, scope, tags) pour un post. */
   const postVisible = useCallback(
     (post: CalendarPost | null | undefined): boolean => {
       if (!post) return false;
@@ -1771,7 +1744,6 @@ export default function Schedule() {
     [channelKey, scope, hiddenTags, now],
   );
 
-  /** Vue semaine : posts regroupés par jour puis par créneau d'1h, triés par heure. */
   const postSlotsByDay = useMemo(() => {
     const raw = new Map<number, Map<number, CalendarPost[]>>();
     for (let i = 0; i < 7; i++) raw.set(i, new Map());
@@ -1831,7 +1803,6 @@ export default function Schedule() {
     return map;
   }, [posts, postVisible]);
 
-  /** Événements + posts d'une journée, triés par heure. */
   const monthItemsByDate = useMemo(() => {
     const map = new Map<string, MonthItem[]>();
     const keys = new Set([...monthEventsByDate.keys(), ...monthPostsByDate.keys()]);
@@ -1864,7 +1835,6 @@ export default function Schedule() {
   const monthItemHeight = (item: MonthItem) =>
     item.kind === "post" ? POST_CHIP_H : MONTH_ITEM_H;
 
-  /** Éléments affichables dans une case (la ligne "N More" prend une place). */
   const visibleCountFor = (items: MonthItem[]) => {
     if (monthGridHeight === 0) return items.length;
     const avail = monthCellHeight - MONTH_CELL_PAD * 2 - MONTH_CELL_HEADER - MONTH_GAP;
@@ -1873,7 +1843,6 @@ export default function Schedule() {
 
   /* ---------------- Drag and drop ---------------- */
 
-  /** Date de destination : jour = `date`, heure = `hour` (sinon l'heure d'origine), minutes conservées. */
   const dropDateFor = (post: CalendarPost, date: Date, hour?: number) => {
     const old = new Date(post.scheduledAt);
     const next = new Date(date);
@@ -1881,7 +1850,6 @@ export default function Schedule() {
     return next;
   };
 
-  /** Heure visée dans une colonne de la vue semaine, déduite de la position verticale du curseur. */
   const hourFromPointer = (e: React.DragEvent) => {
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const hour = START_HOUR + Math.floor((e.clientY - rect.top) / HOUR_HEIGHT);
@@ -1911,7 +1879,6 @@ export default function Schedule() {
     const hour = byPointer ? hourFromPointer(e) : undefined;
     const target = dropDateFor(post, date, hour);
 
-    // Pas de déplacement dans le passé : le drop est refusé (curseur "interdit")
     if (target.getTime() <= Date.now()) {
       e.dataTransfer.dropEffect = "none";
       clearDragOver();
@@ -1926,11 +1893,6 @@ export default function Schedule() {
 
   const handleDragLeave = () => clearDragOver();
 
-  /**
-   * Déplace un post vers `date`. Si `byPointer` est vrai (colonne de la vue
-   * semaine), l'heure est déduite de la position verticale du curseur.
-   * La mise à jour est optimiste : annulée si le serveur refuse.
-   */
   const handleDrop = async (e: React.DragEvent, date: Date, byPointer = false) => {
     e.preventDefault();
     const hour = byPointer ? hourFromPointer(e) : undefined;
@@ -1961,13 +1923,8 @@ export default function Schedule() {
     }
   };
 
-  /* ---------------- Off-screen posts (pastilles flottantes) ---------------- */
+  /* ---------------- Off-screen posts ---------------- */
 
-  /**
-   * Liste des posts hors-écran (au-dessus et en-dessous de la zone visible),
-   * triés du plus proche au plus loin. Sert à afficher les pastilles flottantes
-   * avec la vraie miniature, plutôt qu'une simple flèche.
-   */
   const offScreenPosts = useMemo(() => {
     const above: OffScreenPost[] = [];
     const below: OffScreenPost[] = [];
@@ -1996,7 +1953,6 @@ export default function Schedule() {
     return { above, below };
   }, [postSlotsByDay, scrollTop, viewportHeight]);
 
-  /** Fait défiler la vue semaine jusqu'au créneau du post (centré verticalement). */
   const scrollToOffScreenPost = (item: OffScreenPost) => {
     const el = scrollRef.current;
     if (!el) return;
@@ -2122,7 +2078,6 @@ export default function Schedule() {
       moreItems = monthItemsByDate.get(more.date.toDateString()) ?? [];
       moreTitle = dateLabel;
     } else {
-      // La semaine commence le dimanche : l'index de colonne = getDay()
       const slotHour = more.hour;
       const slot = postSlotsByDay.get(more.date.getDay())?.find((s) => s.hour === slotHour);
       moreItems = (slot?.posts ?? []).map((post) => {
@@ -2463,7 +2418,7 @@ export default function Schedule() {
                         <div
                           key={day.date.toISOString()}
                           className={[
-                            "flex items-center justify-center gap-2 border-b border-l py-3 text-[12.5px]",
+                            "flex items-center justify-center gap-2 border-b border-l py-2 text-[12px]",
                             calendarHead,
                             day.isToday
                               ? isDark
@@ -2485,7 +2440,7 @@ export default function Schedule() {
                           <span>{day.label}</span>
                           <span
                             className={[
-                              "flex h-6 min-w-6 items-center justify-center rounded-full px-1.5 text-[12px]",
+                              "flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11.5px]",
                               day.isToday
                                 ? isDark
                                   ? "bg-white text-neutral-900"
@@ -2515,7 +2470,7 @@ export default function Schedule() {
                             <div
                               key={h}
                               className={[
-                                "absolute inset-x-0 px-2 text-right text-[11px] leading-none",
+                                "absolute inset-x-0 px-2 text-right text-[10.5px] leading-none",
                                 mutedClass(isDark),
                               ].join(" ")}
                               style={{
@@ -2553,7 +2508,6 @@ export default function Schedule() {
                                 />
                               ))}
 
-                              {/* Créneau d'1h visé pendant un glisser-déposer */}
                               {dragOverKey === dayKey && dragOverHour !== null && (
                                 <div
                                   className={[
@@ -2588,9 +2542,9 @@ export default function Schedule() {
                                         onClick={() => openNewPostAt(day.date, h)}
                                         className={[
                                           occupied.has(h)
-                                            ? "absolute bottom-1.5 right-1.5"
+                                            ? "absolute bottom-1 right-1"
                                             : "absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2",
-                                          "flex h-8 w-8 items-center justify-center rounded-lg border opacity-0 transition group-hover:opacity-100 focus-visible:opacity-100",
+                                          "flex h-7 w-7 items-center justify-center rounded-lg border opacity-0 transition group-hover:opacity-100 focus-visible:opacity-100",
                                           isDark
                                             ? "border-white/[0.08] bg-white/[0.06] text-neutral-300 hover:bg-white/[0.10] hover:text-white"
                                             : "border-black/[0.06] bg-white text-neutral-500 shadow-sm hover:bg-neutral-50 hover:text-neutral-900",
@@ -2659,7 +2613,6 @@ export default function Schedule() {
                       </div>
                     </div>
 
-                    {/* Pastilles flottantes : vraies miniatures des posts hors-écran */}
                     <OffScreenPostStack
                       items={offScreenPosts.above}
                       direction="up"
@@ -2682,7 +2635,7 @@ export default function Schedule() {
                       <div
                         key={d}
                         className={[
-                          "border-b py-3 text-center text-[12.5px]",
+                          "border-b py-2 text-center text-[12px]",
                           calendarHead,
                           isDark ? "font-medium text-neutral-400" : "font-medium text-neutral-500",
                         ].join(" ")}
@@ -2692,7 +2645,6 @@ export default function Schedule() {
                     ))}
                   </div>
 
-                  {/* Grille à hauteur fixe : les cases ne grandissent jamais */}
                   <div ref={monthGridRef} className="min-h-0 flex-1 overflow-hidden">
                     <div
                       className="grid h-full grid-cols-7"
@@ -2734,7 +2686,7 @@ export default function Schedule() {
                             <div className="flex shrink-0 items-center" style={{ height: MONTH_CELL_HEADER }}>
                               <span
                                 className={[
-                                  "flex h-6 min-w-6 items-center justify-center rounded-full px-1 text-[12px] font-semibold tabular-nums",
+                                  "flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[11.5px] font-semibold tabular-nums",
                                   day.isToday
                                     ? isDark
                                       ? "bg-white text-neutral-900"
@@ -2840,8 +2792,6 @@ export default function Schedule() {
         initialScheduledAt={newPostDate}
         onRequestOpen={() => setIsNewPostOpen(true)}
         onViewInCalendar={(d) => {
-          // Pose la cible AVANT de changer la vue pour que l'effet de scroll
-          // la consomme en priorité au prochain rendu.
           pendingFocusRef.current = d.getTime();
           setView("Week");
           setViewDate(d);
