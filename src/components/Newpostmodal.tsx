@@ -306,6 +306,14 @@ const YOUTUBE_DEFAULT_OPTIONS: YouTubeOptions = {
   madeForKids: false,
 };
 
+/* ── Contraintes YouTube Shorts ──
+  Formats acceptés : mp4, mov, mpeg, avi, webm, wmv.
+  Dimensions acceptées : vertical 9:16 (ex. 1080×1920) ou carré 1:1 (ex. 1080×1080).
+  Durée maximale : 3 minutes (180 s). Pas de durée minimale imposée. */
+const YOUTUBE_VIDEO_EXTENSIONS = ["mp4", "mov", "mpeg", "avi", "webm", "wmv"];
+const YOUTUBE_SHORT_ASPECT_TOLERANCE = 0.05; // 5% de tolérance sur le ratio
+const YOUTUBE_SHORT_MAX_DURATION_SEC = 180;
+
 /* ──────────────────────────────────────────────────────────────
 Brouillon
 `contents` ne contient que les textes personnalisés par réseau
@@ -581,7 +589,7 @@ function formatLongDateTime(date: Date): string {
 
 function formatDuration(totalSeconds: number): string {
   const m = Math.floor(totalSeconds / 60);
-  const s = totalSeconds % 60;
+  const s = Math.round(totalSeconds % 60);
   return s ? `${m} min ${s} s` : `${m} min`;
 }
 
@@ -633,6 +641,28 @@ function getVideoInfo(
     };
     video.src = url;
   });
+}
+
+/** Vérifie l'extension du fichier par rapport aux formats acceptés par YouTube.
+ *  On se base sur l'extension (plus fiable que le MIME type, qui varie selon
+ *  le navigateur et le système — ex. .avi et .wmv ont souvent un type vide). */
+function isYouTubeVideoFormat(file: File): boolean {
+  const ext = file.name.toLowerCase().split(".").pop() ?? "";
+  return YOUTUBE_VIDEO_EXTENSIONS.includes(ext);
+}
+
+/** Vérifie que le ratio de la vidéo correspond à un Short :
+ *  - carré 1:1 (ex. 1080×1080)
+ *  - vertical 9:16 (ex. 1080×1920)
+ *  Une tolérance de 5 % est appliquée sur le ratio. */
+function isYouTubeShortAspectRatio(width: number, height: number): boolean {
+  if (width <= 0 || height <= 0) return false;
+  const ratio = width / height;
+  const nineSixteen = 9 / 16;
+  const tol = YOUTUBE_SHORT_ASPECT_TOLERANCE;
+  const isSquare = Math.abs(ratio - 1) <= tol;
+  const isVertical = Math.abs(ratio - nineSixteen) / nineSixteen <= tol;
+  return isSquare || isVertical;
 }
 
 async function toTikTokImage(file: File): Promise<File> {
@@ -2552,7 +2582,6 @@ export default function NewPostModal({
       : "Add a video, or one or more photos.";
   const brandedChosen =
     tiktokMode === "direct" && tiktokCommercial.on && tiktokCommercial.branded;
-  // ⬇️ MODIFICATION 1 : Suppression du blocage pour schedule
   const tiktokBlockingReason: string | null = !tiktokSelected
     ? null
     : scheduleAction === "save_in_folder"
@@ -2580,13 +2609,15 @@ export default function NewPostModal({
   const youtubeEffectiveTitle = (
     youtubeOptions.title.trim() || youtubeFallbackTitle
   ).slice(0, YOUTUBE_TITLE_MAX);
-  const youtubeHasVideo = mediaFor("youtube").some((m) => m.kind === "video");
+  const youtubeVideoFile = mediaFor("youtube").find((m) => m.kind === "video")?.file ?? null;
   const youtubeBlockingReason: string | null = !youtubeSelected
     ? null
     : scheduleAction === "save_in_folder"
     ? null
-    : !youtubeHasVideo
+    : youtubeVideoFile === null
     ? "YouTube Shorts needs a video."
+    : !isYouTubeVideoFormat(youtubeVideoFile)
+    ? "Unsupported video format for YouTube Shorts. Use MP4, MOV, MPEG, AVI, WebM or WMV."
     : !youtubeEffectiveTitle
     ? "Add a title for your YouTube Shorts video."
     : null;
@@ -2609,8 +2640,7 @@ export default function NewPostModal({
       : tiktokBlockingReason || youtubeBlockingReason || null;
   const canSubmit = !blockingReason && !isSubmitting;
   const showTikTokDeclaration = tiktokSelected && scheduleAction === "now";
-  
-  // ⬇️ MODIFICATION PRINCIPALE : handleSubmit corrigé
+
   const handleSubmit = async () => {
     if (!canSubmit) return;
     const resolved: Record<string, string> = {};
@@ -2625,38 +2655,29 @@ export default function NewPostModal({
     );
     const tiktokNow = tiktokSelected && scheduleAction === "now";
     const youtubeNow = youtubeSelected && scheduleAction !== "save_in_folder";
-    
-    // On garde remainingNetworks pour la logique interne (ex: ne pas re-publier TikTok si déjà fait)
-    // mais on n'utilise PLUS cette variable pour construire le payload envoyé au backend.
-    const remainingNetworks = networks.filter(
-      (n) => !(n === "tiktok" && tiktokNow) && !(n === "youtube" && youtubeNow)
-    );
-    
+
     // YouTube programmé : déjà envoyé à Google, mais il doit apparaître dans le calendrier.
     const externallyScheduled: SocialNetworkId[] =
       youtubeNow && scheduleAction === "set_date" ? ["youtube"] : [];
-      
+
     const mediaByNetwork: Partial<Record<SocialNetworkId, File[]>> = {};
-    // On prépare les médias pour TOUS les réseaux sélectionnés initialement
     networks.forEach((n) => {
       const own = channelMedia[n];
       if (own) mediaByNetwork[n] = own.map((item) => item.file);
     });
-    
+
     const channelKeys: Partial<Record<SocialNetworkId, string>> = {};
     networks.forEach((n) => {
       const key = channelTiles.find((t) => t.network.id === n)?.channel.key;
       if (key) channelKeys[n] = key;
     });
-    
-    // CORRECTION CRITIQUE : On envoie TOUS les réseaux (networks) au lieu de remainingNetworks.
-    // Le backend décidera quoi faire selon scheduleMode et externalNetworks.
+
     const payload: NewPostPayload = {
       title: title.trim(),
       content: resolved[networks[0]]?.trim() || masterContent.trim() || "",
       contents: resolved,
       hashtags: extractedHashtags,
-      networks: networks, // <-- Changement ici : on envoie la liste complète
+      networks: networks,
       scheduleMode: scheduleAction === "set_date" ? "later" : scheduleAction,
       scheduledAt:
         scheduleAction === "set_date" ? scheduledAt.toISOString() : null,
@@ -2669,12 +2690,12 @@ export default function NewPostModal({
       externalNetworks: externallyScheduled,
       channelKeys,
     };
-    
+
     try {
       setIsSubmitting(true);
       setSubmitError(null);
       setSubmitProgress(null);
-      
+
       // 1. Publication TikTok Directe
       if (tiktokNow && tiktokPostType) {
         const tiktokCaption = resolved["tiktok"]?.trim() || "";
@@ -2745,26 +2766,39 @@ export default function NewPostModal({
         // TikTok est parti, mais on le laisse dans la liste 'networks' du payload
         // pour que le backend l'enregistre comme 'published' ou 'external'.
       }
-      
+
       // 2. Publication YouTube Directe
       let youtubeOutcome: { url: string; message: string; warning: boolean } | null = null;
       if (youtubeNow) {
         const youtubeVideo = mediaFor("youtube").find((m) => m.kind === "video")?.file;
         if (!youtubeVideo) throw new Error("YouTube Shorts needs a video.");
+
+        // Format du fichier (extension) — mp4, mov, mpeg, avi, webm, wmv
+        if (!isYouTubeVideoFormat(youtubeVideo)) {
+          throw new Error(
+            "This video format isn't supported by YouTube Shorts. Use MP4, MOV, MPEG, AVI, WebM or WMV."
+          );
+        }
+
         const { duration, width, height } = await getVideoInfo(youtubeVideo);
         if (!width || !height) {
           throw new Error("Could not read the video size. Try another file.");
         }
-        if (width > height) {
+
+        // Dimensions : vertical 9:16 ou carré 1:1 uniquement
+        if (!isYouTubeShortAspectRatio(width, height)) {
           throw new Error(
-            "This video is horizontal, so YouTube would publish it as a regular video. A Short must be vertical (9:16) or square."
+            `YouTube Shorts must be vertical (9:16) or square (1:1). Your video is ${width}×${height}. Crop it to 1080×1920 (9:16) or 1080×1080 (1:1) and try again.`
           );
         }
-        if (duration > 180) {
+
+        // Durée maximale : 3 minutes (180 s)
+        if (duration > YOUTUBE_SHORT_MAX_DURATION_SEC) {
           throw new Error(
-            "This video is longer than 3 minutes, so YouTube would publish it as a regular video. A Short must be 3 minutes or less."
+            `This video is too long for a YouTube Short (${formatDuration(duration)}). The maximum is 3 minutes (180 seconds).`
           );
         }
+
         let description = (resolved["youtube"] ?? "").trim();
         if (!/#shorts\b/i.test(`${youtubeEffectiveTitle} ${description}`)) {
           description = `${description}\n#Shorts`.trim();
@@ -2795,11 +2829,10 @@ export default function NewPostModal({
             : "Video uploaded to YouTube. It can take a few minutes to appear as a Short.",
         };
       }
-      
+
       // 3. Envoi au Backend (pour enregistrer l'état dans le calendrier)
-      // On appelle toujours onSubmit sauf si tout a échoué avant (ce qui est géré par le catch)
       await onSubmit(payload);
-      
+
       const scheduledHasVideo = networks.some((n) =>
         mediaFor(n).some((m) => m.kind === "video")
       );
@@ -2830,7 +2863,7 @@ export default function NewPostModal({
       setIsSubmitting(false);
     }
   };
-  
+
   submitRef.current = handleSubmit;
   const selectAction = (action: ScheduleAction) => {
     setScheduleAction(action);
@@ -3609,7 +3642,6 @@ export default function NewPostModal({
                             </SettingsBlock>
                           )}
                           {/* TikTok */}
-                          {/* ⬇️ MODIFICATION 2 : Masquer les options TikTok lors de la programmation */}
                           {networkId === "tiktok" && scheduleAction !== "save_in_folder" && scheduleAction !== "set_date" && (
                             <SettingsBlock
                               title={`TikTok settings${tiktokInfo?.creator_nickname ? ` · ${tiktokInfo.creator_nickname}` : ""}`}
