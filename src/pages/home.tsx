@@ -1,8 +1,9 @@
 ﻿import {
   useEffect,
+  useId,
   useMemo,
-  useRef,
   useState,
+  type PointerEvent as ReactPointerEvent,
   type ReactElement,
   type ReactNode,
 } from "react";
@@ -22,18 +23,14 @@ import BottomBar, { type BottomBarTab } from "../components/Bottombar";
 import Folder from "../components/Folder";
 import { getCurrentUser, type UserProfile } from "../services/supabase";
 import { createPosts } from "../services/posts";
-import {
-  fetchYouTubeComments,
-  fetchYouTubeVideos,
-} from "../services/youtube";
+import { useYouTubeInsights } from "../services/youtube";
 import { navigateToSettingsSection } from "../utils/settingsNavigation";
 import {
   ArrowRight,
   ArrowUpRight,
+  BarChart3,
   CalendarDays,
-  CheckCheck,
   ChevronRight,
-  Clock3,
   Heart,
   MessageCircle,
   Plus,
@@ -73,14 +70,6 @@ const panelSurfaceClass = (isDark: boolean) =>
     ? "border-white/[0.07] bg-white/[0.025]"
     : "border-black/[0.06] bg-[#f6f4f0]";
 
-/* Fond solide équivalent à panelSurfaceClass (pour bouton posé dessus) */
-const panelSolidClass = (isDark: boolean) =>
-  isDark ? "bg-[#101012]" : "bg-[#f6f4f0]";
-
-/* Fondu vers le fond principal (là où sont dessinées les cartes commentaires) */
-const mainBgFadeClass = (isDark: boolean) =>
-  isDark ? "from-[#0a0a0c]" : "from-white";
-
 const panelRingClass = (isDark: boolean) =>
   isDark ? "ring-[#101012]" : "ring-[#f6f4f0]";
 
@@ -93,17 +82,11 @@ const strongClass = (isDark: boolean) =>
 const softClass = (isDark: boolean) =>
   isDark ? "text-neutral-400" : "text-neutral-500";
 
-/**
- * ✅ Couleur discrète alignée sur les titres "Channels" / "Overview".
- *    Utilisée pour "Comments" et "Up Next".
- */
+/** Couleur discrète alignée sur les titres "Channels" / "Overview". */
 const subtleTitleClass = (isDark: boolean) =>
   isDark ? "text-neutral-500" : "text-neutral-400";
 
-/**
- * ✅ Couleur encore plus discrète alignée sur "Your connected accounts".
- *    Utilisée pour le sous-titre "Keep up with your community".
- */
+/** Couleur encore plus discrète alignée sur "Your connected accounts". */
 const verySubtleClass = (isDark: boolean) =>
   isDark ? "text-neutral-700" : "text-neutral-400";
 
@@ -160,236 +143,6 @@ function getNetworkId(channel: ConnectedChannel): SocialNetworkKey | null {
   if (raw.includes("pinterest")) return "pinterest";
   if (raw === "x" || raw.includes("twitter")) return "x";
   return null;
-}
-
-/* ============================================================
-   LATEST COMMENTS
-============================================================ */
-
-type RawComment = {
-  id: string;
-  author: string;
-  authorAvatar: string | null;
-  text: string;
-  publishedAt: string | null;
-  answered: boolean;
-  isRead: boolean;
-  videoId: string | null;
-  videoTitle: string | null;
-  videoThumbnail: string | null;
-};
-
-type HomeComment = RawComment & {
-  channel: ConnectedChannel;
-  network: SocialNetworkKey;
-};
-
-type VideoInfo = { title: string; thumbnail: string | null };
-
-const VIDEO_CACHE_MS = 5 * 60_000;
-let youtubeVideoCache: { at: number; map: Map<string, VideoInfo> } | null = null;
-
-async function getYouTubeVideoMap(): Promise<Map<string, VideoInfo>> {
-  if (youtubeVideoCache && Date.now() - youtubeVideoCache.at < VIDEO_CACHE_MS) {
-    return youtubeVideoCache.map;
-  }
-
-  try {
-    const { videos } = await fetchYouTubeVideos();
-    const map = new Map<string, VideoInfo>(
-      videos.map((v) => [v.id, { title: v.title, thumbnail: v.thumbnail }])
-    );
-    youtubeVideoCache = { at: Date.now(), map };
-    return map;
-  } catch {
-    return youtubeVideoCache?.map ?? new Map<string, VideoInfo>();
-  }
-}
-
-const youtubeThumbnail = (videoId: string) =>
-  `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`;
-
-const COMMENT_SOURCES: Partial<
-  Record<SocialNetworkKey, () => Promise<RawComment[]>>
-> = {
-  youtube: async () => {
-    const [{ comments }, videos] = await Promise.all([
-      fetchYouTubeComments({ filter: "all" }),
-      getYouTubeVideoMap(),
-    ]);
-
-    return comments
-      .filter((c) => !c.is_own)
-      .map((c) => {
-        const video = c.video_id ? videos.get(c.video_id) : undefined;
-
-        return {
-          id: `youtube:${c.id}`,
-          author: c.author_name,
-          authorAvatar: c.author_avatar,
-          text: c.text,
-          publishedAt: c.published_at,
-          answered: c.answered,
-          isRead: c.is_read,
-          videoId: c.video_id,
-          videoTitle: video?.title ?? null,
-          videoThumbnail:
-            video?.thumbnail ?? (c.video_id ? youtubeThumbnail(c.video_id) : null),
-        };
-      });
-  },
-};
-
-const COMMENTS_POLL_MS = 60_000;
-const HOME_COMMENTS_LIMIT = 3;
-
-/* ───────── Cache module-level des commentaires ─────────
- *
- * - Survit aux unmount/remount (navigation hash).
- * - Clé = sourceKey (combinaison des channels connectés).
- * - Au mount :
- *     • cache absent       → fetch avec loading (1ʳᵉ visite)
- *     • cache frais (<60s) → utilisé tel quel, aucun fetch
- *     • cache périmé (>60s)→ utilisé puis refresh silencieux en arrière-plan
- * - Le polling (60s) + visibilitychange mettent le cache à jour en continu.
- */
-type CommentsCacheEntry = {
-  comments: HomeComment[];
-  error: string | null;
-  at: number;
-};
-const commentsCache = new Map<string, CommentsCacheEntry>();
-
-const commentTime = (c: { publishedAt: string | null }) =>
-  c.publishedAt ? new Date(c.publishedAt).getTime() || 0 : 0;
-
-function useLatestComments(channels: ConnectedChannel[]) {
-  const sources = useMemo(() => {
-    const seen = new Set<SocialNetworkKey>();
-    const list: { channel: ConnectedChannel; network: SocialNetworkKey }[] = [];
-
-    for (const channel of channels) {
-      const network = getNetworkId(channel);
-      if (!network || !COMMENT_SOURCES[network] || seen.has(network)) continue;
-
-      seen.add(network);
-      list.push({ channel, network });
-    }
-
-    return list;
-  }, [channels]);
-
-  const sourceKey = sources.map((s) => `${s.network}:${s.channel.key}`).join("|");
-  const sourcesRef = useRef(sources);
-  sourcesRef.current = sources;
-
-  // Initial state SYNCHRONE depuis le cache s'il existe : pas de flash
-  // "loading" quand on revient sur la page.
-  const [comments, setComments] = useState<HomeComment[]>(
-    () => commentsCache.get(sourceKey)?.comments ?? []
-  );
-  const [loading, setLoading] = useState<boolean>(
-    () => !commentsCache.has(sourceKey) && channels.length > 0
-  );
-  const [error, setError] = useState<string | null>(
-    () => commentsCache.get(sourceKey)?.error ?? null
-  );
-
-  useEffect(() => {
-    const list = sourcesRef.current;
-
-    if (list.length === 0) {
-      setComments([]);
-      setError(null);
-      setLoading(false);
-      return;
-    }
-
-    // Sync l'état avec le cache pour ce sourceKey.
-    // Nécessaire si sourceKey a changé (les useState init ne rejouent pas).
-    const cacheEntry = commentsCache.get(sourceKey);
-    setComments(cacheEntry?.comments ?? []);
-    setError(cacheEntry?.error ?? null);
-    setLoading(!cacheEntry);
-
-    let cancelled = false;
-    let busy = false;
-
-    const load = async (initial: boolean) => {
-      if (busy || (!initial && document.hidden)) return;
-      busy = true;
-
-      if (initial) setLoading(true);
-
-      try {
-        const results = await Promise.allSettled(
-          list.map(async ({ channel, network }) => {
-            const raw = await COMMENT_SOURCES[network]!();
-            return raw.map((c): HomeComment => ({ ...c, channel, network }));
-          })
-        );
-
-        if (cancelled) return;
-
-        const merged: HomeComment[] = [];
-        const errors: string[] = [];
-
-        for (const result of results) {
-          if (result.status === "fulfilled") {
-            merged.push(...result.value);
-          } else {
-            errors.push(
-              result.reason instanceof Error
-                ? result.reason.message
-                : "Could not load comments."
-            );
-          }
-        }
-
-        const allFailed = errors.length === results.length;
-        if (allFailed && !initial) return;
-
-        merged.sort((a, b) => commentTime(b) - commentTime(a));
-
-        setComments(merged);
-        setError(allFailed ? errors[0] : null);
-
-        // Met à jour le cache pour les prochains mounts
-        commentsCache.set(sourceKey, {
-          comments: merged,
-          error: allFailed ? errors[0] : null,
-          at: Date.now(),
-        });
-      } finally {
-        busy = false;
-        if (initial && !cancelled) setLoading(false);
-      }
-    };
-
-    // Au mount :
-    //  - pas de cache       → load(true) : loading visible
-    //  - cache périmé (>60s)→ load(false) : refresh silencieux
-    //  - cache frais        → aucun fetch, le polling prend le relais
-    const cacheFresh =
-      cacheEntry && Date.now() - cacheEntry.at < COMMENTS_POLL_MS;
-    if (!cacheFresh) {
-      void load(!cacheEntry);
-    }
-
-    const timer = window.setInterval(() => void load(false), COMMENTS_POLL_MS);
-    const onVisible = () => {
-      if (!document.hidden) void load(false);
-    };
-    document.addEventListener("visibilitychange", onVisible);
-
-    return () => {
-      cancelled = true;
-      window.clearInterval(timer);
-      document.removeEventListener("visibilitychange", onVisible);
-    };
-  }, [sourceKey]);
-
-  return { comments, loading, error };
 }
 
 /* ============================================================
@@ -1156,7 +909,7 @@ function Channels({
 }
 
 /* ============================================================
-   PANEL (Up Next / Calendar) — hauteur réduite, alignée sur Comments
+   PANEL (Up Next / Calendar)
 ============================================================ */
 
 function Panel({
@@ -1184,7 +937,6 @@ function Panel({
   return (
     <section className="min-w-0 h-full flex flex-col">
       <div className="mb-3 flex items-center justify-between shrink-0">
-        {/* ✅ Titre "Up Next" aligné sur le gris de "Channels" */}
         <p
           className={[
             "text-[12px] font-semibold",
@@ -1265,173 +1017,346 @@ function Panel({
 }
 
 /* ============================================================
-   COMMENT AVATAR
+   INSIGHTS PANEL (graphique identique à la page Insights)
+   - YouTube : vraies données via useYouTubeInsights
+   - Aucun réseau connecté / aucune activité : "Nothing connected"
 ============================================================ */
 
-function CommentAvatar({
-  src,
-  name,
-  network,
+const INSIGHTS_DAYS = 30;
+
+const insightsDay = 86_400_000;
+
+const insightsStartOfDay = (d: Date) => {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  return x;
+};
+
+const insightsAddDays = (d: Date, n: number) => {
+  const x = new Date(d);
+  x.setDate(x.getDate() + n);
+  return x;
+};
+
+const insightsFmt = (d: Date) =>
+  d.toLocaleDateString("en-US", { day: "numeric", month: "short" });
+
+const insightsNf = (n: number) => n.toLocaleString("en-US");
+
+function smoothPath(pts: [number, number][]): string {
+  const n = pts.length;
+  if (n === 0) return "";
+  if (n === 1) return `M${pts[0][0]},${pts[0][1]}`;
+
+  const dx: number[] = [];
+  const m: number[] = [];
+  for (let i = 0; i < n - 1; i++) {
+    dx.push(pts[i + 1][0] - pts[i][0]);
+    m.push((pts[i + 1][1] - pts[i][1]) / (dx[i] || 1));
+  }
+
+  const t: number[] = [m[0]];
+  for (let i = 1; i < n - 1; i++) {
+    t.push(m[i - 1] * m[i] <= 0 ? 0 : (m[i - 1] + m[i]) / 2);
+  }
+  t.push(m[n - 2]);
+
+  for (let i = 0; i < n - 1; i++) {
+    if (m[i] === 0) {
+      t[i] = 0;
+      t[i + 1] = 0;
+      continue;
+    }
+    const a = t[i] / m[i];
+    const b = t[i + 1] / m[i];
+    const q = a * a + b * b;
+    if (q > 9) {
+      const k = 3 / Math.sqrt(q);
+      t[i] = k * a * m[i];
+      t[i + 1] = k * b * m[i];
+    }
+  }
+
+  let d = `M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`;
+  for (let i = 0; i < n - 1; i++) {
+    const h = dx[i] / 3;
+    d += ` C${(pts[i][0] + h).toFixed(1)},${(pts[i][1] + t[i] * h).toFixed(1)} ${(
+      pts[i + 1][0] - h
+    ).toFixed(1)},${(pts[i + 1][1] - t[i + 1] * h).toFixed(1)} ${pts[i + 1][0].toFixed(
+      1
+    )},${pts[i + 1][1].toFixed(1)}`;
+  }
+  return d;
+}
+
+function InsightsMiniChart({
+  dates,
+  values,
   isDark,
 }: {
-  src: string | null;
-  name: string;
-  network: SocialNetworkKey;
+  dates: Date[];
+  values: number[];
   isDark: boolean;
 }) {
-  const [failed, setFailed] = useState(false);
+  const [hover, setHover] = useState<number | null>(null);
+  const gradId = useId().replace(/:/g, "");
 
-  useEffect(() => {
-    setFailed(false);
-  }, [src]);
+  const W = 600;
+  const H = 200;
+  const pad = { l: 40, r: 12, t: 12, b: 24 };
+  const iw = W - pad.l - pad.r;
+  const ih = H - pad.t - pad.b;
+  const n = dates.length;
 
-  const initial = name.replace(/^@/, "").charAt(0).toUpperCase() || "?";
-  const NetworkIcon = NETWORK_ICONS[network];
+  const max = Math.max(4, ...values);
+  const color = isDark ? "#ffffff" : "#111111";
+  const axis = isDark ? "#6b6b72" : "#a3a3a3";
+  const grid = isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.07)";
+
+  const x = (i: number) => pad.l + (n === 1 ? iw / 2 : (i / (n - 1)) * iw);
+  const y = (v: number) => pad.t + ih - (v / max) * ih;
+
+  const line = smoothPath(values.map((v, i) => [x(i), y(v)] as [number, number]));
+  const area = `${line} L${x(n - 1).toFixed(1)},${pad.t + ih} L${x(0).toFixed(
+    1
+  )},${pad.t + ih} Z`;
+  const labelIdx = Array.from(
+    new Set([0, 0.5, 1].map((r) => Math.round(r * (n - 1))))
+  );
+
+  const onPointer = (e: ReactPointerEvent<SVGSVGElement>) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    const px = ((e.clientX - r.left) / r.width) * W;
+    const i = n === 1 ? 0 : Math.round(((px - pad.l) / iw) * (n - 1));
+    setHover(Math.max(0, Math.min(n - 1, i)));
+  };
 
   return (
-    <div className="relative h-6 w-6 shrink-0">
-      {src && !failed ? (
-        <img
-          src={src}
-          alt=""
-          draggable={false}
-          referrerPolicy="no-referrer"
-          onError={() => setFailed(true)}
-          className="h-full w-full rounded-lg object-cover"
+    <div className="relative">
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        className="h-auto w-full touch-pan-y"
+        onPointerMove={onPointer}
+        onPointerDown={onPointer}
+        onPointerLeave={() => setHover(null)}
+        role="img"
+        aria-label="Channel views over the last 30 days"
+      >
+        <defs>
+          <linearGradient id={gradId} x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stopColor={color} stopOpacity="0.14" />
+            <stop offset="100%" stopColor={color} stopOpacity="0" />
+          </linearGradient>
+        </defs>
+
+        {[0, 1, 2, 3, 4].map((tk) => {
+          const yy = pad.t + ih - (tk / 4) * ih;
+          return (
+            <g key={tk}>
+              <line x1={pad.l} x2={W - pad.r} y1={yy} y2={yy} stroke={grid} />
+              <text
+                x={pad.l - 8}
+                y={yy + 3.5}
+                fontSize="10"
+                fill={axis}
+                textAnchor="end"
+                className="tabular-nums"
+              >
+                {Math.round((tk / 4) * max)}
+              </text>
+            </g>
+          );
+        })}
+
+        {labelIdx.map((i) => (
+          <text
+            key={i}
+            x={x(i)}
+            y={H - 6}
+            fontSize="10"
+            fill={axis}
+            textAnchor={i === 0 ? "start" : i === n - 1 ? "end" : "middle"}
+          >
+            {insightsFmt(dates[i])}
+          </text>
+        ))}
+
+        <path d={area} fill={`url(#${gradId})`} />
+        <path
+          d={line}
+          fill="none"
+          stroke={color}
+          strokeWidth="2.5"
+          strokeLinejoin="round"
+          strokeLinecap="round"
         />
-      ) : (
+
+        {hover !== null && (
+          <g>
+            <line
+              x1={x(hover)}
+              x2={x(hover)}
+              y1={pad.t}
+              y2={pad.t + ih}
+              stroke={axis}
+              strokeOpacity="0.6"
+              strokeDasharray="3 3"
+            />
+            <circle
+              cx={x(hover)}
+              cy={y(values[hover])}
+              r="4"
+              fill={isDark ? "#0f0f11" : "#fff"}
+              stroke={color}
+              strokeWidth="2.5"
+            />
+          </g>
+        )}
+      </svg>
+
+      {hover !== null && (
         <div
           className={[
-            "flex h-full w-full items-center justify-center rounded-lg",
-            "text-[10px] font-semibold",
-            isDark ? "bg-[#242428] text-white" : "bg-neutral-900 text-white",
+            "pointer-events-none absolute top-1 rounded-lg px-2.5 py-1.5 text-[11px] shadow-lg",
+            isDark
+              ? "bg-[#101012] text-white ring-1 ring-white/10"
+              : "bg-white text-neutral-900 ring-1 ring-black/10",
           ].join(" ")}
+          style={{
+            left: `${(x(hover) / W) * 100}%`,
+            transform: `translateX(${hover > n / 2 ? "-110%" : "10%"})`,
+          }}
         >
-          {initial}
+          <div className="opacity-50">{insightsFmt(dates[hover])}</div>
+          <b className="tabular-nums">{insightsNf(values[hover])}</b> views
         </div>
       )}
-
-      <span
-        className={[
-          "absolute -bottom-0.5 -right-0.5 flex h-3.5 w-3.5 items-center",
-          "justify-center rounded-full ring-2",
-          network === "youtube" ? "bg-[#ff0000]" : "bg-white text-black",
-          panelRingClass(isDark),
-        ].join(" ")}
-      >
-        {network === "youtube" ? (
-          <svg viewBox="0 0 24 24" className="h-2 w-2" aria-hidden="true">
-            <rect x="2" y="5" width="20" height="14" rx="4.5" fill="#fff" />
-            <path d="M10 9v6l5-3-5-3Z" fill="#ff0000" />
-          </svg>
-        ) : (
-          <NetworkIcon className="h-1.5 w-1.5" />
-        )}
-      </span>
     </div>
   );
 }
 
-/* ============================================================
-   COMMENTS PANEL — hauteur réduite, bouton pleine largeur
-============================================================ */
-
-function formatCommentTime(value: string | null): string {
-  if (!value) return "Date inconnue";
-  const timestamp = new Date(value).getTime();
-  if (!Number.isFinite(timestamp)) return "Date inconnue";
-
-  const diffSeconds = Math.round((timestamp - Date.now()) / 1000);
-  const abs = Math.abs(diffSeconds);
-  const rtf = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
-  if (abs < 60) return rtf.format(diffSeconds, "second");
-  if (abs < 3600) return rtf.format(Math.round(diffSeconds / 60), "minute");
-  if (abs < 86400) return rtf.format(Math.round(diffSeconds / 3600), "hour");
-  if (abs < 604800) return rtf.format(Math.round(diffSeconds / 86400), "day");
-  return new Date(timestamp).toLocaleDateString("en", {
-    month: "short",
-    day: "numeric",
-  });
-}
-
-function CommentsPanel({
+function InsightsPanel({
   isDark,
-  comments,
-  loading,
-  error,
-  connectedChannelsCount,
-  onOpen,
-  onViewMore,
+  channels,
   onConnect,
 }: {
   isDark: boolean;
-  comments: HomeComment[];
-  loading: boolean;
-  error: string | null;
-  connectedChannelsCount: number;
-  onOpen: (channelKey: string) => void;
-  onViewMore: () => void;
+  channels: ConnectedChannel[];
   onConnect: () => void;
 }) {
-  const visibleComments = comments.slice(0, HOME_COMMENTS_LIMIT);
-  const cardSurface = isDark
-    ? "border-white/[0.08] bg-[#101012] hover:border-white/[0.15] hover:bg-[#141417]"
-    : "border-black/[0.07] bg-white hover:border-black/[0.12] hover:bg-[#fcfbf9]";
+  // Seul YouTube a de vraies données pour l'instant (comme sur la page Insights).
+  const channel = channels.find((c) => getNetworkId(c) === "youtube");
+
+  const { start, end } = useMemo(() => {
+    const today = insightsStartOfDay(new Date());
+    return { start: insightsAddDays(today, -(INSIGHTS_DAYS - 1)), end: today };
+  }, []);
+
+  const yt = useYouTubeInsights(start, end, Boolean(channel), 0);
+  const data = channel ? yt.data : null;
+
+  const hasActivity = useMemo(() => {
+    if (!data) return false;
+    const { current, summary, posts } = data;
+    return (
+      posts.length > 0 ||
+      summary.posts > 0 ||
+      current.some(
+        (p) =>
+          p.posts > 0 || p.reactions > 0 || p.comments > 0 || p.profileViews > 0
+      )
+    );
+  }, [data]);
+
+  const loading = Boolean(channel) && yt.loading && !yt.data;
+  const showChart = Boolean(data) && hasActivity;
+  const totalViews = data
+    ? data.current.reduce((acc, p) => acc + p.profileViews, 0)
+    : 0;
 
   return (
     <section
-      className="min-w-0 h-full flex flex-col"
-      aria-labelledby="home-comments-title"
+      className="flex h-full min-w-0 flex-col"
+      aria-labelledby="home-insights-title"
     >
-      {/* Header */}
-      <div className="mb-2 shrink-0">
-        <div className="flex flex-wrap items-center gap-2">
-          {/* ✅ Titre "Comments" aligné sur le gris de "Channels" */}
+      <div className="mb-2 flex shrink-0 items-start justify-between">
+        <div>
           <h2
-            id="home-comments-title"
+            id="home-insights-title"
             className={[
               "text-[12px] font-semibold",
               subtleTitleClass(isDark),
             ].join(" ")}
           >
-            Comments
+            Insights
           </h2>
-          {/* ✅ Badge "X to reply" supprimé */}
+          <p className={["mt-0.5 text-[11px]", verySubtleClass(isDark)].join(" ")}>
+            Last {INSIGHTS_DAYS} days
+          </p>
         </div>
-        {/* ✅ Sous-titre très discret, aligné sur "Your connected accounts" */}
-        <p
+
+        <button
+          type="button"
+          onClick={() =>
+            navigate(
+              channel
+                ? `insights?channel=${encodeURIComponent(channel.key)}`
+                : "insights"
+            )
+          }
           className={[
-            "mt-0.5 text-[11px]",
-            verySubtleClass(isDark),
+            "flex items-center gap-0.5 rounded-md text-[11px] font-semibold transition",
+            focusRingClass(isDark),
+            isDark
+              ? "text-neutral-400 hover:text-white"
+              : "text-neutral-500 hover:text-neutral-900",
           ].join(" ")}
         >
-          Keep up with your community
-        </p>
+          View all
+          <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
+        </button>
       </div>
 
-      {loading && visibleComments.length === 0 ? (
+      {loading ? (
         <div
           className={[
-            "flex flex-1 min-h-[130px] flex-col justify-center gap-2 rounded-2xl border p-3",
+            "flex min-h-[200px] flex-1 animate-pulse rounded-2xl border",
             panelSurfaceClass(isDark),
           ].join(" ")}
-          aria-label="Loading comments"
-          aria-live="polite"
-        >
-          {[0, 1].map((item) => (
-            <div key={item} className="flex animate-pulse items-start gap-2.5" aria-hidden="true">
-              <div className={["h-8 w-8 shrink-0 rounded-lg", isDark ? "bg-white/10" : "bg-black/[0.07]"].join(" ")} />
-              <div className="min-w-0 flex-1 space-y-1.5 pt-0.5">
-                <div className={["h-2.5 w-1/3 rounded", isDark ? "bg-white/10" : "bg-black/[0.07]"].join(" ")} />
-                <div className={["h-2.5 w-full rounded", isDark ? "bg-white/[0.07]" : "bg-black/[0.05]"].join(" ")} />
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : visibleComments.length === 0 ? (
+          role="status"
+          aria-label="Loading insights"
+        />
+      ) : showChart && data ? (
         <div
           className={[
-            "flex flex-1 min-h-[130px] flex-col items-center justify-center rounded-2xl border px-5 py-3 text-center",
+            "flex min-h-[200px] flex-1 flex-col rounded-2xl border p-3",
+            panelSurfaceClass(isDark),
+          ].join(" ")}
+        >
+          <div className="mb-2 px-1">
+            <p className={["text-[10px] font-medium", softClass(isDark)].join(" ")}>
+              Channel Views
+            </p>
+            <p
+              className={[
+                "text-[20px] font-bold leading-none tracking-tight tabular-nums",
+                strongClass(isDark),
+              ].join(" ")}
+            >
+              {insightsNf(totalViews)}
+            </p>
+          </div>
+          <InsightsMiniChart
+            dates={data.current.map((p) => p.date)}
+            values={data.current.map((p) => p.profileViews)}
+            isDark={isDark}
+          />
+        </div>
+      ) : (
+        <div
+          className={[
+            "flex min-h-[200px] flex-1 flex-col items-center justify-center",
+            "rounded-2xl border px-5 py-3 text-center",
             panelSurfaceClass(isDark),
           ].join(" ")}
         >
@@ -1443,23 +1368,22 @@ function CommentsPanel({
                 : "bg-white text-neutral-600 shadow-sm ring-1 ring-black/[0.04]",
             ].join(" ")}
           >
-            <MessageCircle className="h-4 w-4" aria-hidden="true" />
+            <BarChart3 className="h-4 w-4" aria-hidden="true" />
           </div>
           <p className={["text-[12px] font-semibold", strongClass(isDark)].join(" ")}>
-            {error
-              ? "Comments couldn't be loaded"
-              : connectedChannelsCount === 0
-                ? "Connect a channel to get started"
-                : "You're all caught up"}
+            Nothing connected
           </p>
-          <p className={["mt-1 max-w-[280px] text-[11px] leading-snug", softClass(isDark)].join(" ")}>
-            {error
-              ? "We couldn't retrieve your latest comments. Please check your connection and try again later."
-              : connectedChannelsCount === 0
-                ? "Connect your YouTube account to see and manage comments from your audience here."
-                : "When new comments arrive, they'll appear here so you can respond quickly."}
+          <p
+            className={[
+              "mt-1 max-w-[280px] text-[11px] leading-snug",
+              softClass(isDark),
+            ].join(" ")}
+          >
+            {channel
+              ? "Publish a post and your insights will appear here."
+              : "Connect a channel to see your insights here."}
           </p>
-          {connectedChannelsCount === 0 && !error && (
+          {!channel && (
             <button
               type="button"
               onClick={onConnect}
@@ -1476,172 +1400,6 @@ function CommentsPanel({
             </button>
           )}
         </div>
-      ) : (
-        <>
-          {error && (
-            <p
-              className={[
-                "shrink-0 rounded-xl border px-2.5 py-1.5 text-[11px]",
-                isDark
-                  ? "border-amber-200/10 bg-amber-200/[0.05] text-amber-100/80"
-                  : "border-amber-700/10 bg-amber-50 text-amber-800",
-              ].join(" ")}
-              role="status"
-            >
-              Some comments may be missing because a source couldn't be reached.
-            </p>
-          )}
-
-          {/* Zone de contenu — hauteur réduite (200px) */}
-          <div className="relative flex-1 min-h-[200px]">
-            {/* Liste clippée + fondu */}
-            <div className="absolute inset-0 overflow-hidden">
-              <div className="flex flex-col gap-2 pb-12">
-                {visibleComments.map((comment) => (
-                  <button
-                    key={comment.id}
-                    type="button"
-                    onClick={() => onOpen(comment.channel.key)}
-                    aria-label={`Open conversation with ${comment.author}`}
-                    className={[
-                      "group w-full rounded-xl border px-2.5 py-2 text-left",
-                      "transition duration-200 motion-reduce:transition-none",
-                      "focus-visible:outline-none focus-visible:ring-2",
-                      isDark
-                        ? "focus-visible:ring-white/30"
-                        : "focus-visible:ring-black/25",
-                      cardSurface,
-                    ].join(" ")}
-                  >
-                    <div className="flex items-start gap-2.5">
-                      <CommentAvatar
-                        src={comment.authorAvatar}
-                        name={comment.author}
-                        network={comment.network}
-                        isDark={isDark}
-                      />
-
-                      <div className="min-w-0 flex-1">
-                        <div className="flex min-w-0 items-start justify-between gap-2">
-                          <div className="min-w-0">
-                            <p
-                              className={[
-                                "truncate text-[12px] font-semibold",
-                                strongClass(isDark),
-                              ].join(" ")}
-                            >
-                              {comment.author}
-                            </p>
-                            <p
-                              className={[
-                                "truncate text-[10px]",
-                                softClass(isDark),
-                              ].join(" ")}
-                            >
-                              {comment.channel.handle ||
-                                comment.channel.name ||
-                                comment.network}
-                              {comment.videoTitle
-                                ? ` · ${comment.videoTitle}`
-                                : ""}
-                            </p>
-                          </div>
-                          <span
-                            className={[
-                              "inline-flex shrink-0 items-center gap-1 text-[10px]",
-                              mutedClass(isDark),
-                            ].join(" ")}
-                          >
-                            <Clock3 className="h-3 w-3" aria-hidden="true" />
-                            {formatCommentTime(comment.publishedAt)}
-                          </span>
-                        </div>
-
-                        <p
-                          className={[
-                            "mt-1 text-[12px] leading-[1.35]",
-                            isDark ? "text-neutral-300" : "text-neutral-700",
-                          ].join(" ")}
-                          style={{
-                            display: "-webkit-box",
-                            WebkitLineClamp: 2,
-                            WebkitBoxOrient: "vertical",
-                            overflow: "hidden",
-                            overflowWrap: "anywhere",
-                          }}
-                        >
-                          {comment.text || "This comment has no text."}
-                        </p>
-
-                        <div className="mt-1.5 flex items-center justify-between gap-2">
-                          {/* ✅ Pill "Replied" conservée, "Needs a reply" supprimée */}
-                          {comment.answered ? (
-                            <span
-                              className={[
-                                "inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium",
-                                isDark
-                                  ? "bg-emerald-400/10 text-emerald-300"
-                                  : "bg-emerald-50 text-emerald-700",
-                              ].join(" ")}
-                            >
-                              <CheckCheck className="h-2.5 w-2.5" aria-hidden="true" />
-                              Replied
-                            </span>
-                          ) : (
-                            <span />
-                          )}
-                          <span
-                            className={[
-                              "inline-flex items-center gap-1 text-[10px] font-semibold opacity-80 transition group-hover:translate-x-0.5 group-hover:opacity-100",
-                              strongClass(isDark),
-                            ].join(" ")}
-                          >
-                            Open conversation
-                            <ArrowUpRight className="h-3 w-3" aria-hidden="true" />
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                    {/* ✅ sr-only simplifié : plus de mention "Needs a reply" */}
-                    <span className="sr-only">
-                      {comment.isRead ? "Read." : "Unread."}
-                    </span>
-                  </button>
-                ))}
-              </div>
-
-              {/* Fondu */}
-              <div
-                aria-hidden="true"
-                className={[
-                  "pointer-events-none absolute inset-x-0 bottom-0 h-20",
-                  "bg-gradient-to-t to-transparent",
-                  mainBgFadeClass(isDark),
-                ].join(" ")}
-              />
-            </div>
-
-            {/* Bouton pleine largeur en bas — ✅ plus carré (rounded-md) */}
-            <div className="absolute inset-x-0 bottom-0 z-10">
-              <button
-                type="button"
-                onClick={onViewMore}
-                className={[
-                  "flex w-full items-center justify-center gap-1 rounded-md border px-3.5 py-1.5",
-                  "text-[11px] font-semibold transition",
-                  focusRingClass(isDark),
-                  panelSolidClass(isDark),
-                  isDark
-                    ? "border-white/10 text-white hover:bg-[#161618] hover:border-white/20"
-                    : "border-black/10 text-neutral-900 hover:bg-white hover:border-black/20",
-                ].join(" ")}
-              >
-                View all comments
-                <ChevronRight className="h-3 w-3" aria-hidden="true" />
-              </button>
-            </div>
-          </div>
-        </>
       )}
     </section>
   );
@@ -1796,7 +1554,6 @@ export default function Home() {
   );
   const [now, setNow] = useState(() => new Date());
   const connectedChannels = useConnectedChannels();
-  const latestComments = useLatestComments(connectedChannels);
 
   useEffect(() => {
     const interval = setInterval(() => setNow(new Date()), 15000);
@@ -1852,17 +1609,6 @@ export default function Home() {
     }
 
     throw new Error(unavailablePostActionMessage(payload));
-  };
-
-  const handleViewAllComments = (channelKey?: string) => {
-    const channel =
-      connectedChannels.find((item) => item.key === channelKey) ??
-      connectedChannels.find((item) => item.platform === "youtube");
-    navigate(
-      channel
-        ? `community?channel=${encodeURIComponent(channel.key)}`
-        : "community"
-    );
   };
 
   const handleBottomBarChange = (id: BottomBarTab) => {
@@ -2036,18 +1782,9 @@ export default function Home() {
             </section>
 
             <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
-              <CommentsPanel
+              <InsightsPanel
                 isDark={isDark}
-                comments={latestComments.comments}
-                loading={latestComments.loading}
-                error={latestComments.error}
-                connectedChannelsCount={connectedChannels.length}
-                onOpen={(key) =>
-                  navigate(`community?channel=${encodeURIComponent(key)}`)
-                }
-                onViewMore={() =>
-                  handleViewAllComments(latestComments.comments[0]?.channel.key)
-                }
+                channels={connectedChannels}
                 onConnect={() => navigateToSettingsSection("channels")}
               />
               <Panel
