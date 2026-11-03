@@ -22,14 +22,11 @@ import BottomBar, { type BottomBarTab } from "../components/Bottombar";
 import Folder from "../components/Folder";
 import { getCurrentUser, type UserProfile } from "../services/supabase";
 import { createPosts } from "../services/posts";
-import {
-  fetchYouTubeComments,
-  fetchYouTubeVideos,
-} from "../services/youtube";
+import { fetchYouTubeComments, fetchYouTubeVideos } from "../services/youtube";
 import { navigateToSettingsSection } from "../utils/settingsNavigation";
 import {
-  ArrowRight,
   ArrowUpRight,
+  BookOpen,
   CalendarDays,
   CheckCheck,
   ChevronRight,
@@ -37,6 +34,7 @@ import {
   Heart,
   MessageCircle,
   Plus,
+  Search,
   TrendingDown,
   TrendingUp,
   Users,
@@ -52,73 +50,36 @@ import {
 } from "../components/IntegrationIcons";
 
 /* ============================================================
-   LAYOUT
+   STYLES
 ============================================================ */
 
-const pageBgClass = (isDark: boolean) =>
-  isDark ? "bg-[#090a0b]" : "bg-[#f3f4f2]";
-
-const mainPanelClass = (isDark: boolean) =>
-  isDark
-    ? "border-white/[0.07] bg-[#0a0a0c]"
-    : "border-black/[0.06] bg-white";
-
-const cardClass = (isDark: boolean) =>
-  isDark
-    ? "border-white/[0.07] bg-[#0f0f11]"
-    : "border-black/[0.06] bg-white";
-
-const panelSurfaceClass = (isDark: boolean) =>
-  isDark
+const pageBg = (d: boolean) => (d ? "bg-[#050505]" : "bg-[#f5f3ef]");
+const mainPanel = (d: boolean) =>
+  d ? "border-white/[0.07] bg-[#0a0a0c]" : "border-black/[0.06] bg-white";
+const surface = (d: boolean) =>
+  d
     ? "border-white/[0.07] bg-white/[0.025]"
     : "border-black/[0.06] bg-[#f6f4f0]";
-
-/* Fond solide équivalent à panelSurfaceClass (pour bouton posé dessus) */
-const panelSolidClass = (isDark: boolean) =>
-  isDark ? "bg-[#111315]" : "bg-[#f5f6f3]";
-
-/* Fondu vers le fond principal (là où sont dessinées les cartes commentaires) */
-const mainBgFadeClass = (isDark: boolean) =>
-  isDark ? "from-[#0a0a0c]" : "from-white";
-
-const panelRingClass = (isDark: boolean) =>
-  isDark ? "ring-[#101012]" : "ring-[#f6f4f0]";
-
-const mutedClass = (isDark: boolean) =>
-  isDark ? "text-neutral-600" : "text-neutral-400";
-
-const strongClass = (isDark: boolean) =>
-  isDark ? "text-white" : "text-neutral-900";
-
-const softClass = (isDark: boolean) =>
-  isDark ? "text-neutral-400" : "text-neutral-500";
-
-/**
- * ✅ Couleur discrète alignée sur les titres "Channels" / "Overview".
- *    Utilisée pour "Comments" et "Up Next".
- */
-const subtleTitleClass = (isDark: boolean) =>
-  isDark ? "text-neutral-500" : "text-neutral-400";
-
-/**
- * ✅ Couleur encore plus discrète alignée sur "Your connected accounts".
- *    Utilisée pour le sous-titre "Keep up with your community".
- */
-const verySubtleClass = (isDark: boolean) =>
-  isDark ? "text-neutral-700" : "text-neutral-400";
-
-const focusRingClass = (isDark: boolean) =>
-  isDark
+const inner = (d: boolean) =>
+  d
+    ? "border-white/[0.07] bg-[#101012] hover:bg-[#141417]"
+    : "border-black/[0.06] bg-white hover:bg-[#fcfbf9]";
+const ring = (d: boolean) => (d ? "ring-[#101012]" : "ring-[#f6f4f0]");
+const muted = (d: boolean) => (d ? "text-neutral-600" : "text-neutral-400");
+const strong = (d: boolean) => (d ? "text-white" : "text-neutral-900");
+const soft = (d: boolean) => (d ? "text-neutral-400" : "text-neutral-500");
+const subtle = (d: boolean) => (d ? "text-neutral-500" : "text-neutral-400");
+const faint = (d: boolean) => (d ? "text-neutral-700" : "text-neutral-400");
+const focusRing = (d: boolean) =>
+  d
     ? "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
     : "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/25";
-
-/* ============================================================
-   USER CACHE
-============================================================ */
-
-const userProfileCache = {
-  profile: null as UserProfile | null,
-};
+const primaryBtn = (d: boolean) =>
+  d
+    ? "bg-white text-black hover:bg-neutral-200"
+    : "bg-neutral-900 text-white hover:bg-neutral-700";
+const cx = (...c: (string | false | null | undefined)[]) =>
+  c.filter(Boolean).join(" ");
 
 /* ============================================================
    NETWORKS
@@ -163,7 +124,7 @@ function getNetworkId(channel: ConnectedChannel): SocialNetworkKey | null {
 }
 
 /* ============================================================
-   LATEST COMMENTS
+   LATEST COMMENTS (logique inchangée)
 ============================================================ */
 
 type RawComment = {
@@ -193,7 +154,6 @@ async function getYouTubeVideoMap(): Promise<Map<string, VideoInfo>> {
   if (youtubeVideoCache && Date.now() - youtubeVideoCache.at < VIDEO_CACHE_MS) {
     return youtubeVideoCache.map;
   }
-
   try {
     const { videos } = await fetchYouTubeVideos();
     const map = new Map<string, VideoInfo>(
@@ -206,8 +166,7 @@ async function getYouTubeVideoMap(): Promise<Map<string, VideoInfo>> {
   }
 }
 
-const youtubeThumbnail = (videoId: string) =>
-  `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`;
+const youtubeThumbnail = (id: string) => `https://i.ytimg.com/vi/${id}/mqdefault.jpg`;
 
 const COMMENT_SOURCES: Partial<
   Record<SocialNetworkKey, () => Promise<RawComment[]>>
@@ -217,12 +176,10 @@ const COMMENT_SOURCES: Partial<
       fetchYouTubeComments({ filter: "all" }),
       getYouTubeVideoMap(),
     ]);
-
     return comments
       .filter((c) => !c.is_own)
       .map((c) => {
         const video = c.video_id ? videos.get(c.video_id) : undefined;
-
         return {
           id: `youtube:${c.id}`,
           author: c.author_name,
@@ -243,21 +200,7 @@ const COMMENT_SOURCES: Partial<
 const COMMENTS_POLL_MS = 60_000;
 const HOME_COMMENTS_LIMIT = 3;
 
-/* ───────── Cache module-level des commentaires ─────────
- *
- * - Survit aux unmount/remount (navigation hash).
- * - Clé = sourceKey (combinaison des channels connectés).
- * - Au mount :
- *     • cache absent       → fetch avec loading (1ʳᵉ visite)
- *     • cache frais (<60s) → utilisé tel quel, aucun fetch
- *     • cache périmé (>60s)→ utilisé puis refresh silencieux en arrière-plan
- * - Le polling (60s) + visibilitychange mettent le cache à jour en continu.
- */
-type CommentsCacheEntry = {
-  comments: HomeComment[];
-  error: string | null;
-  at: number;
-};
+type CommentsCacheEntry = { comments: HomeComment[]; error: string | null; at: number };
 const commentsCache = new Map<string, CommentsCacheEntry>();
 
 const commentTime = (c: { publishedAt: string | null }) =>
@@ -267,15 +210,12 @@ function useLatestComments(channels: ConnectedChannel[]) {
   const sources = useMemo(() => {
     const seen = new Set<SocialNetworkKey>();
     const list: { channel: ConnectedChannel; network: SocialNetworkKey }[] = [];
-
     for (const channel of channels) {
       const network = getNetworkId(channel);
       if (!network || !COMMENT_SOURCES[network] || seen.has(network)) continue;
-
       seen.add(network);
       list.push({ channel, network });
     }
-
     return list;
   }, [channels]);
 
@@ -283,8 +223,6 @@ function useLatestComments(channels: ConnectedChannel[]) {
   const sourcesRef = useRef(sources);
   sourcesRef.current = sources;
 
-  // Initial state SYNCHRONE depuis le cache s'il existe : pas de flash
-  // "loading" quand on revient sur la page.
   const [comments, setComments] = useState<HomeComment[]>(
     () => commentsCache.get(sourceKey)?.comments ?? []
   );
@@ -305,8 +243,6 @@ function useLatestComments(channels: ConnectedChannel[]) {
       return;
     }
 
-    // Sync l'état avec le cache pour ce sourceKey.
-    // Nécessaire si sourceKey a changé (les useState init ne rejouent pas).
     const cacheEntry = commentsCache.get(sourceKey);
     setComments(cacheEntry?.comments ?? []);
     setError(cacheEntry?.error ?? null);
@@ -318,7 +254,6 @@ function useLatestComments(channels: ConnectedChannel[]) {
     const load = async (initial: boolean) => {
       if (busy || (!initial && document.hidden)) return;
       busy = true;
-
       if (initial) setLoading(true);
 
       try {
@@ -328,33 +263,24 @@ function useLatestComments(channels: ConnectedChannel[]) {
             return raw.map((c): HomeComment => ({ ...c, channel, network }));
           })
         );
-
         if (cancelled) return;
 
         const merged: HomeComment[] = [];
         const errors: string[] = [];
-
-        for (const result of results) {
-          if (result.status === "fulfilled") {
-            merged.push(...result.value);
-          } else {
+        for (const r of results) {
+          if (r.status === "fulfilled") merged.push(...r.value);
+          else
             errors.push(
-              result.reason instanceof Error
-                ? result.reason.message
-                : "Could not load comments."
+              r.reason instanceof Error ? r.reason.message : "Could not load comments."
             );
-          }
         }
 
         const allFailed = errors.length === results.length;
         if (allFailed && !initial) return;
 
         merged.sort((a, b) => commentTime(b) - commentTime(a));
-
         setComments(merged);
         setError(allFailed ? errors[0] : null);
-
-        // Met à jour le cache pour les prochains mounts
         commentsCache.set(sourceKey, {
           comments: merged,
           error: allFailed ? errors[0] : null,
@@ -366,15 +292,8 @@ function useLatestComments(channels: ConnectedChannel[]) {
       }
     };
 
-    // Au mount :
-    //  - pas de cache       → load(true) : loading visible
-    //  - cache périmé (>60s)→ load(false) : refresh silencieux
-    //  - cache frais        → aucun fetch, le polling prend le relais
-    const cacheFresh =
-      cacheEntry && Date.now() - cacheEntry.at < COMMENTS_POLL_MS;
-    if (!cacheFresh) {
-      void load(!cacheEntry);
-    }
+    const cacheFresh = cacheEntry && Date.now() - cacheEntry.at < COMMENTS_POLL_MS;
+    if (!cacheFresh) void load(!cacheEntry);
 
     const timer = window.setInterval(() => void load(false), COMMENTS_POLL_MS);
     const onVisible = () => {
@@ -393,19 +312,12 @@ function useLatestComments(channels: ConnectedChannel[]) {
 }
 
 /* ============================================================
-   BLOG
+   DATA
 ============================================================ */
 
-type BlogPost = {
-  title: string;
-  label: string;
-  date: string;
-  image?: string;
-  url: string;
-};
+type BlogPost = { title: string; label: string; date: string; image?: string; url: string };
 
 const BLOG_URL = "#";
-
 const BLOG_POSTS: BlogPost[] = [
   {
     title: "The Best Time to Post on TikTok in 2026",
@@ -440,158 +352,306 @@ const BLOG_POSTS: BlogPost[] = [
 const linkProps = (url: string) =>
   /^https?:\/\//.test(url) ? { target: "_blank", rel: "noreferrer" } : {};
 
-/* ============================================================
-   GREETING
-============================================================ */
-
 function getGreeting(date: Date = new Date()): string {
-  const hour = date.getHours();
-
-  if (hour >= 5 && hour < 12) return "Good morning";
-  if (hour >= 12 && hour < 18) return "Good afternoon";
-  if (hour >= 18 && hour < 22) return "Good evening";
+  const h = date.getHours();
+  if (h >= 5 && h < 12) return "Good morning";
+  if (h >= 12 && h < 18) return "Good afternoon";
+  if (h >= 18 && h < 22) return "Good evening";
   return "Good night";
 }
 
+function formatCommentTime(value: string | null): string {
+  if (!value) return "Unknown date";
+  const ts = new Date(value).getTime();
+  if (!Number.isFinite(ts)) return "Unknown date";
+
+  const diff = Math.round((ts - Date.now()) / 1000);
+  const abs = Math.abs(diff);
+  const rtf = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
+  if (abs < 60) return rtf.format(diff, "second");
+  if (abs < 3600) return rtf.format(Math.round(diff / 60), "minute");
+  if (abs < 86400) return rtf.format(Math.round(diff / 3600), "hour");
+  if (abs < 604800) return rtf.format(Math.round(diff / 86400), "day");
+  return new Date(ts).toLocaleDateString("en", { month: "short", day: "numeric" });
+}
+
 /* ============================================================
-   AVATAR
+   PRIMITIVES
 ============================================================ */
 
-function GreetingAvatar({
-  avatarUrl,
-  initials,
+function Card({
   isDark,
-  loading = false,
+  title,
+  sub,
+  action,
+  className,
+  children,
 }: {
-  avatarUrl?: string | null;
-  initials: string;
   isDark: boolean;
-  loading?: boolean;
+  title?: string;
+  sub?: string;
+  action?: ReactNode;
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <section
+      className={cx(
+        "flex min-w-0 flex-col rounded-2xl border p-4",
+        surface(isDark),
+        className
+      )}
+    >
+      {(title || action) && (
+        <div className="mb-3 flex shrink-0 items-start justify-between gap-2">
+          <div className="min-w-0">
+            <h2 className={cx("text-[12px] font-semibold", subtle(isDark))}>{title}</h2>
+            {sub && <p className={cx("mt-0.5 text-[10px]", faint(isDark))}>{sub}</p>}
+          </div>
+          {action}
+        </div>
+      )}
+      {children}
+    </section>
+  );
+}
+
+function ViewAll({
+  isDark,
+  label = "View all",
+  onClick,
+  href,
+}: {
+  isDark: boolean;
+  label?: string;
+  onClick?: () => void;
+  href?: string;
+}) {
+  const cls = cx(
+    "flex shrink-0 items-center gap-0.5 rounded-md text-[11px] font-semibold transition",
+    focusRing(isDark),
+    isDark ? "text-neutral-400 hover:text-white" : "text-neutral-500 hover:text-neutral-900"
+  );
+  const content = (
+    <>
+      {label}
+      <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
+    </>
+  );
+  return href ? (
+    <a href={href} {...linkProps(href)} className={cls}>
+      {content}
+    </a>
+  ) : (
+    <button type="button" onClick={onClick} className={cls}>
+      {content}
+    </button>
+  );
+}
+
+function Avatar({
+  src,
+  fallback,
+  isDark,
+  className,
+  rounded = "rounded-full",
+}: {
+  src?: string | null;
+  fallback: string;
+  isDark: boolean;
+  className: string;
+  rounded?: string;
 }) {
   const [failed, setFailed] = useState(false);
+  useEffect(() => setFailed(false), [src]);
 
-  useEffect(() => {
-    setFailed(false);
-  }, [avatarUrl]);
-
-  if (loading) {
-    return (
-      <div
-        aria-hidden="true"
-        className="h-11 w-11 animate-pulse rounded-2xl bg-neutral-500/20"
-      />
-    );
-  }
-
-  if (avatarUrl && !failed) {
+  if (src && !failed) {
     return (
       <img
-        src={avatarUrl}
-        alt="Profile"
+        src={src}
+        alt=""
+        draggable={false}
+        referrerPolicy="no-referrer"
         onError={() => setFailed(true)}
-        className="h-11 w-11 rounded-2xl object-cover"
+        className={cx(className, rounded, "object-cover")}
       />
     );
   }
+  return (
+    <div
+      className={cx(
+        className,
+        rounded,
+        "flex items-center justify-center font-semibold",
+        isDark ? "bg-[#242428] text-white" : "bg-neutral-900 text-white"
+      )}
+    >
+      {fallback}
+    </div>
+  );
+}
+
+function ClockDisplay({ isDark, now }: { isDark: boolean; now: Date }) {
+  return (
+    <div className="text-right">
+      <p className={cx("text-[16px] font-semibold tabular-nums", strong(isDark))}>
+        {now.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
+      </p>
+      <p className={cx("text-[11px] font-medium", muted(isDark))}>
+        {now.toLocaleDateString("en-GB", {
+          weekday: "short",
+          day: "numeric",
+          month: "short",
+          year: "numeric",
+        })}
+      </p>
+    </div>
+  );
+}
+
+function Ring({
+  isDark,
+  progress,
+  children,
+  size = 48,
+  stroke = 3.5,
+}: {
+  isDark: boolean;
+  progress: number;
+  children: ReactNode;
+  size?: number;
+  stroke?: number;
+}) {
+  const p = Math.min(1, Math.max(0, progress));
+  const r = (size - stroke) / 2;
+  const c = 2 * Math.PI * r;
 
   return (
     <div
-      className={[
-        "flex h-11 w-11 items-center justify-center rounded-2xl",
-        "text-[14px] font-semibold",
-        isDark ? "bg-white text-black" : "bg-neutral-900 text-white",
-      ].join(" ")}
+      className="relative shrink-0"
+      style={{ width: size, height: size }}
+      role="img"
+      aria-label={`${Math.round(p * 100)}% complete`}
     >
-      {initials}
-    </div>
-  );
-}
-
-/* ============================================================
-   CLOCK
-============================================================ */
-
-function ClockDisplay({ isDark, now }: { isDark: boolean; now: Date }) {
-  const time = now.toLocaleTimeString("en-GB", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-
-  const date = now.toLocaleDateString("en-GB", {
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-  });
-
-  return (
-    <div className="text-left sm:text-right">
-      <p
-        className={[
-          "text-[16px] font-semibold tabular-nums",
-          strongClass(isDark),
-        ].join(" ")}
-      >
-        {time}
-      </p>
-      <p
-        className={[
-          "text-[11px] font-medium capitalize",
-          mutedClass(isDark),
-        ].join(" ")}
-      >
-        {date}
-      </p>
-    </div>
-  );
-}
-
-/* ============================================================
-   OVERVIEW
-============================================================ */
-
-function InfoHint({ isDark, text }: { isDark: boolean; text: string }) {
-  return (
-    <span className="group relative flex shrink-0 items-center">
-      <button
-        type="button"
-        aria-label={text}
-        className={[
-          "flex h-3.5 w-3.5 items-center justify-center rounded-full transition",
-          "focus-visible:outline-none focus-visible:ring-1",
-          isDark
-            ? "text-neutral-600 hover:text-neutral-300 focus-visible:ring-white/30"
-            : "text-neutral-400 hover:text-neutral-700 focus-visible:ring-black/30",
-        ].join(" ")}
-      >
-        <svg
-          viewBox="0 0 24 24"
-          className="h-full w-full"
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="absolute inset-0 -rotate-90" aria-hidden="true">
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" strokeWidth={stroke} className={isDark ? "stroke-white/[0.14]" : "stroke-black/[0.10]"} />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={r}
           fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
+          strokeWidth={stroke}
           strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden="true"
-        >
-          <circle cx="12" cy="12" r="9.5" />
-          <path d="M12 7.5v5.5" />
-          <path d="M12 16.6v.1" strokeWidth="2.6" />
-        </svg>
-      </button>
+          strokeDasharray={c}
+          strokeDashoffset={c * (1 - p)}
+          className={cx(
+            isDark ? "stroke-white" : "stroke-neutral-900",
+            "transition-[stroke-dashoffset] duration-700 ease-out motion-reduce:transition-none"
+          )}
+        />
+      </svg>
+      <div className={cx("absolute inset-0 flex items-center justify-center", strong(isDark))}>
+        {children}
+      </div>
+    </div>
+  );
+}
 
-      <span
-        role="tooltip"
-        className={[
-          "pointer-events-none absolute bottom-full left-1/2 z-30 mb-2 w-max max-w-[210px]",
-          "-translate-x-1/2 rounded-lg px-2.5 py-1.5 text-center text-[11px] font-medium leading-snug",
-          "opacity-0 shadow-lg transition-opacity duration-150",
-          "group-hover:opacity-100 group-focus-within:opacity-100",
-          isDark ? "bg-[#2e2e31] text-white" : "bg-neutral-900 text-white",
-        ].join(" ")}
-      >
-        {text}
-      </span>
-    </span>
+/* ============================================================
+   LEFT COLUMN
+============================================================ */
+
+function SearchBar({
+  isDark,
+  value,
+  onChange,
+}: {
+  isDark: boolean;
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <label
+      className={cx(
+        "flex h-11 items-center gap-2 rounded-2xl border px-4",
+        surface(isDark),
+        isDark ? "focus-within:border-white/20" : "focus-within:border-black/20"
+      )}
+    >
+      <input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="Search..."
+        aria-label="Search"
+        className={cx(
+          "min-w-0 flex-1 bg-transparent text-[13px] outline-none",
+          strong(isDark),
+          isDark ? "placeholder:text-neutral-600" : "placeholder:text-neutral-400"
+        )}
+      />
+      <Search className={cx("h-4 w-4", muted(isDark))} aria-hidden="true" />
+    </label>
+  );
+}
+
+function Hero({
+  isDark,
+  greeting,
+  name,
+  avatarUrl,
+  initials,
+  loading,
+  onCreate,
+}: {
+  isDark: boolean;
+  greeting: string;
+  name: string;
+  avatarUrl?: string | null;
+  initials: string;
+  loading: boolean;
+  onCreate: () => void;
+}) {
+  return (
+    <Card isDark={isDark} className="min-h-[170px] justify-center !p-6">
+      <div className="flex items-center justify-between gap-4">
+        <div className="min-w-0">
+          <p className={cx("text-[12px] font-medium", soft(isDark))}>Welcome back</p>
+          <h1
+            className={cx(
+              "mt-1 text-[clamp(22px,2.4vw,30px)] font-semibold leading-tight tracking-[-0.035em]",
+              strong(isDark)
+            )}
+          >
+            {greeting},
+            <br />
+            {name}!
+          </h1>
+          <button
+            type="button"
+            onClick={onCreate}
+            className={cx(
+              "mt-4 inline-flex items-center gap-1.5 rounded-full px-4 py-1.5 text-[11px] font-semibold transition",
+              focusRing(isDark),
+              primaryBtn(isDark)
+            )}
+          >
+            <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+            Create Post
+          </button>
+        </div>
+
+        {loading ? (
+          <div className="h-24 w-24 shrink-0 animate-pulse rounded-full bg-neutral-500/20" aria-hidden="true" />
+        ) : (
+          <Avatar
+            src={avatarUrl}
+            fallback={initials}
+            isDark={isDark}
+            className="h-24 w-24 shrink-0 text-[28px]"
+          />
+        )}
+      </div>
+    </Card>
   );
 }
 
@@ -611,508 +671,38 @@ function Stat({
   hint: string;
 }) {
   const positive = change.startsWith("+");
+  const Trend = positive ? TrendingUp : TrendingDown;
 
   return (
-    <div className={["flex min-w-0 items-center justify-between gap-3 border-b py-3 last:border-b-0 sm:border-b-0 sm:py-1", isDark ? "border-white/10" : "border-black/10"].join(" ")}>
-      <div className="flex min-w-0 items-center gap-3">
-        <span className={["flex h-8 w-8 shrink-0 items-center justify-center rounded-lg", isDark ? "bg-white/[0.06] text-neutral-300" : "bg-black/[0.04] text-neutral-600"].join(" ")}>
-          {icon}
-        </span>
-        <div className="min-w-0">
-          <div className="flex items-center gap-1">
-            <p className={["truncate text-[11px] font-medium", mutedClass(isDark)].join(" ")}>{label}</p>
-            <InfoHint isDark={isDark} text={hint} />
-          </div>
-          <p className={["mt-0.5 text-[23px] font-semibold tracking-[-0.045em] tabular-nums", strongClass(isDark)].join(" ")}>
-            {value}
-          </p>
-        </div>
-      </div>
-      <span className={["flex shrink-0 items-center gap-1 text-[11px] font-semibold tabular-nums", positive ? (isDark ? "text-emerald-400" : "text-emerald-700") : (isDark ? "text-rose-400" : "text-rose-700")].join(" ")}>
-        {positive ? <TrendingUp className="h-3 w-3" aria-hidden="true" /> : <TrendingDown className="h-3 w-3" aria-hidden="true" />}
-        {change}
-      </span>
-    </div>
-  );
-}
-
-type HomeOverviewProps = {
-  isDark: boolean;
-  weekStreak: number;
-  postingGoal: { done: number; target: number };
-  commentScore: { value: number; changePct: number };
-};
-
-function HomeOverview({
-  isDark,
-  weekStreak,
-  postingGoal,
-  commentScore,
-}: HomeOverviewProps) {
-  const goalRatio =
-    postingGoal.target > 0 ? postingGoal.done / postingGoal.target : 0;
-  const goalReached =
-    postingGoal.target > 0 && postingGoal.done >= postingGoal.target;
-
-  const items = [
-    {
-      label: "Week streak",
-      value: String(weekStreak),
-      detail: weekStreak > 0 ? "Consecutive weeks on target" : "Reach your weekly goal to begin",
-    },
-    {
-      label: "Posting goal",
-      value: `${postingGoal.done}/${postingGoal.target}`,
-      detail: goalReached ? "Weekly goal reached" : `${Math.round(goalRatio * 100)}% of your weekly target`,
-    },
-    {
-      label: "Comment score",
-      value: String(commentScore.value),
-      detail: `${commentScore.changePct >= 0 ? "+" : ""}${commentScore.changePct}% from last week`,
-    },
-  ];
-
-  return (
-    <section className="mt-7 shrink-0" aria-label="Your activity">
-      <div className={["grid grid-cols-1 gap-0 md:grid-cols-3 md:divide-x", isDark ? "divide-white/10" : "divide-black/10"].join(" ")}>
-        {items.map((item, index) => (
-          <div
-            key={item.label}
-            className={[
-              "flex items-center justify-between gap-4 py-3 md:px-5 md:first:pl-0 md:last:pr-0",
-              index > 0 ? "border-t md:border-t-0" : "",
-              isDark ? "border-white/10" : "border-black/10",
-            ].join(" ")}
-          >
-            <div className="min-w-0">
-              <p className={["text-[11px] font-medium uppercase tracking-[0.12em]", mutedClass(isDark)].join(" ")}>
-                {item.label}
-              </p>
-              <p className={["mt-1 text-[12px]", softClass(isDark)].join(" ")}>
-                {item.detail}
-              </p>
-            </div>
-            <span className={["shrink-0 text-[25px] font-semibold tracking-[-0.05em] tabular-nums", strongClass(isDark)].join(" ")}>
-              {item.value}
-            </span>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
-/* ============================================================
-   CHANNEL AVATAR
-============================================================ */
-
-function ChannelAvatar({
-  channel,
-  isDark,
-  overlap,
-}: {
-  channel: ConnectedChannel;
-  isDark: boolean;
-  overlap: boolean;
-}) {
-  const [failed, setFailed] = useState(false);
-
-  useEffect(() => {
-    setFailed(false);
-  }, [channel.avatarUrl]);
-
-  const label = channel.handle || channel.name || "Channel";
-  const initial = label.replace(/^@/, "").charAt(0).toUpperCase() || "?";
-  const networkId = getNetworkId(channel);
-  const NetworkIcon = networkId ? NETWORK_ICONS[networkId] : null;
-
-  return (
-    <div
-      className="relative h-9 w-9 shrink-0"
-      style={{ marginLeft: overlap ? -8 : 0 }}
-      title={label}
-    >
-      {channel.avatarUrl && !failed ? (
-        <img
-          src={channel.avatarUrl}
-          alt={label}
-          referrerPolicy="no-referrer"
-          onError={() => setFailed(true)}
-          className={[
-            "h-full w-full rounded-full object-cover ring-2",
-            panelRingClass(isDark),
-          ].join(" ")}
-        />
-      ) : (
-        <div
-          className={[
-            "flex h-full w-full items-center justify-center rounded-full",
-            "text-[11px] font-semibold ring-2",
-            isDark ? "bg-[#242428] text-white" : "bg-neutral-900 text-white",
-            panelRingClass(isDark),
-          ].join(" ")}
-        >
-          {initial}
-        </div>
-      )}
-
-      {NetworkIcon && (
-        <span
-          className={[
-            "absolute -bottom-1 -right-1 flex h-4 w-4 items-center",
-            "justify-center rounded-full bg-white text-black ring-1",
-            panelRingClass(isDark),
-          ].join(" ")}
-        >
-          <NetworkIcon className="h-2.5 w-2.5" />
-        </span>
-      )}
-    </div>
-  );
-}
-
-/* ============================================================
-   CHANNELS
-============================================================ */
-
-function Channels({
-  isDark,
-  channels,
-  onAdd,
-}: {
-  isDark: boolean;
-  channels: ConnectedChannel[];
-  onAdd: () => void;
-}) {
-  return (
-    <div
-      className={[
-        "flex min-h-[74px] items-center justify-between gap-4 border-y px-1 py-3 sm:px-3",
-        panelSurfaceClass(isDark),
-      ].join(" ")}
-    >
-      {channels.length === 0 ? (
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            aria-label="Connect a channel"
-            onClick={onAdd}
-            className={[
-              "flex h-9 w-9 items-center justify-center rounded-xl transition",
-              focusRingClass(isDark),
-              isDark
-                ? "bg-white/[0.06] hover:bg-white/[0.12]"
-                : "bg-white shadow-sm ring-1 ring-black/[0.05] hover:bg-neutral-100",
-            ].join(" ")}
-          >
-            <Plus
-              className={[
-                "h-4 w-4",
-                isDark ? "text-white" : "text-neutral-700",
-              ].join(" ")}
-            />
-          </button>
-          <div>
-            <p
-              className={[
-                "text-[11px] font-semibold",
-                strongClass(isDark),
-              ].join(" ")}
-            >
-              Connect your first channel
-            </p>
-            <p
-              className={["mt-0.5 text-[10px]", mutedClass(isDark)].join(" ")}
-            >
-              Start publishing to social networks.
-            </p>
-          </div>
-        </div>
-      ) : (
-        <div className="flex items-center gap-3">
-          <div className="flex items-center pl-1">
-            {channels.slice(0, 6).map((channel, index) => (
-              <ChannelAvatar
-                key={channel.key}
-                channel={channel}
-                isDark={isDark}
-                overlap={index > 0}
-              />
-            ))}
-
-            {channels.length > 6 && (
-              <span
-                title={`${channels.length - 6} more ${
-                  channels.length - 6 === 1 ? "channel" : "channels"
-                }`}
-                className={[
-                  "-ml-2 flex h-9 w-9 shrink-0 items-center justify-center rounded-full",
-                  "text-[10px] font-semibold ring-2",
-                  isDark ? "bg-[#242428] text-white" : "bg-neutral-200 text-neutral-700",
-                  panelRingClass(isDark),
-                ].join(" ")}
-              >
-                +{channels.length - 6}
-              </span>
-            )}
-
-            <button
-              type="button"
-              aria-label="Connect another channel"
-              title="Connect another channel"
-              onClick={onAdd}
-              className={[
-                "-ml-2 flex h-9 w-9 shrink-0 items-center justify-center",
-                "relative z-10 rounded-full border transition-all duration-200",
-                focusRingClass(isDark),
-                "ring-2",
-                panelRingClass(isDark),
-                isDark
-                  ? "border-white/[0.14] bg-[#161618] text-white hover:bg-[#1f1f22] hover:border-white/25"
-                  : "border-black/[0.10] bg-white text-neutral-700 shadow-sm hover:bg-neutral-50 hover:border-black/20",
-              ].join(" ")}
-            >
-              <Plus className="h-[15px] w-[15px]" strokeWidth={1.8} />
-            </button>
-          </div>
-
-          <div>
-            <p
-              className={[
-                "text-[11px] font-semibold",
-                strongClass(isDark),
-              ].join(" ")}
-            >
-              {channels.length}{" "}
-              {channels.length === 1 ? "channel" : "channels"} connected
-            </p>
-            <p className={["text-[10px]", mutedClass(isDark)].join(" ")}>
-              Ready to publish
-            </p>
-          </div>
-        </div>
-      )}
-
-      <button
-        type="button"
-        onClick={() =>
-          channels.length === 0
-            ? onAdd()
-            : navigateToSettingsSection("channels")
-        }
-        className={[
-          "flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-2",
-          "text-[10px] font-semibold transition",
-          focusRingClass(isDark),
-          isDark
-            ? "text-white hover:bg-white/[0.06]"
-            : "text-neutral-900 hover:bg-black/[0.04]",
-        ].join(" ")}
-      >
-        {channels.length === 0 ? "Connect" : "Manage"}
-        <ArrowUpRight className="h-3 w-3" />
-      </button>
-    </div>
-  );
-}
-
-/* ============================================================
-   PANEL (Up Next / Calendar) — hauteur réduite, alignée sur Comments
-============================================================ */
-
-function Panel({
-  isDark,
-  title,
-  meta,
-  onViewAll,
-  icon,
-  line1,
-  line2,
-  action,
-}: {
-  isDark: boolean;
-  title: string;
-  meta: string;
-  onViewAll?: () => void;
-  icon: ReactNode;
-  line1: string;
-  line2: string;
-  action?: {
-    label: string;
-    onClick: () => void;
-  };
-}) {
-  return (
-    <section className="min-w-0 h-full flex flex-col">
-      <div className="mb-3 flex items-center justify-between shrink-0">
-        {/* ✅ Titre "Up Next" aligné sur le gris de "Channels" */}
-        <p
-          className={[
-            "text-[12px] font-semibold",
-            subtleTitleClass(isDark),
-          ].join(" ")}
-        >
-          {title}
-          <span
-            className={["ml-1.5 font-normal", mutedClass(isDark)].join(" ")}
-          >
-            · {meta}
-          </span>
-        </p>
-
-        <button
-          type="button"
-          disabled={!onViewAll}
-          onClick={onViewAll}
-          className={[
-            "flex items-center gap-0.5 rounded-md text-[11px] font-semibold transition",
-            focusRingClass(isDark),
-            "disabled:cursor-default disabled:opacity-40",
-            isDark
-              ? "text-neutral-400 enabled:hover:text-white"
-              : "text-neutral-500 enabled:hover:text-neutral-900",
-          ].join(" ")}
-        >
-          View All
-          <ChevronRight className="h-3.5 w-3.5" />
-        </button>
-      </div>
-
+    <div title={hint} className={cx("flex min-w-0 flex-col gap-3 rounded-xl border p-3", inner(isDark))}>
       <div
-        className={[
-          "flex flex-1 min-h-[130px] flex-col items-center justify-center",
-          "gap-1 rounded-xl border px-4 py-3 text-center",
-          panelSurfaceClass(isDark),
-        ].join(" ")}
-      >
-        <div
-          className={[
-            "mb-1.5 flex h-10 w-10 items-center justify-center rounded-full",
-            isDark
-              ? "bg-white/[0.07] text-neutral-300"
-              : "bg-neutral-200/70 text-neutral-600",
-          ].join(" ")}
-        >
-          {icon}
-        </div>
-
-        <p
-          className={["text-[12px] font-medium", strongClass(isDark)].join(" ")}
-        >
-          {line1}
-        </p>
-        <p className="text-[12px] text-neutral-500">{line2}</p>
-
-        {action && (
-          <button
-            type="button"
-            onClick={action.onClick}
-            className={[
-              "mt-2.5 flex items-center gap-1.5 rounded-full border px-3.5 py-1.5",
-              "text-[11px] font-semibold transition",
-              focusRingClass(isDark),
-              isDark
-                ? "border-white/10 text-white hover:bg-white/[0.07]"
-                : "border-black/10 text-neutral-900 hover:bg-black/[0.04]",
-            ].join(" ")}
-          >
-            <Plus className="h-3.5 w-3.5" />
-            {action.label}
-          </button>
+        className={cx(
+          "flex h-8 w-8 items-center justify-center rounded-lg",
+          isDark ? "bg-white/[0.06] text-white" : "bg-neutral-100 text-neutral-700"
         )}
+      >
+        {icon}
       </div>
-    </section>
-  );
-}
-
-/* ============================================================
-   COMMENT AVATAR
-============================================================ */
-
-function CommentAvatar({
-  src,
-  name,
-  network,
-  isDark,
-}: {
-  src: string | null;
-  name: string;
-  network: SocialNetworkKey;
-  isDark: boolean;
-}) {
-  const [failed, setFailed] = useState(false);
-
-  useEffect(() => {
-    setFailed(false);
-  }, [src]);
-
-  const initial = name.replace(/^@/, "").charAt(0).toUpperCase() || "?";
-  const NetworkIcon = NETWORK_ICONS[network];
-
-  return (
-    <div className="relative h-6 w-6 shrink-0">
-      {src && !failed ? (
-        <img
-          src={src}
-          alt=""
-          draggable={false}
-          referrerPolicy="no-referrer"
-          onError={() => setFailed(true)}
-          className="h-full w-full rounded-lg object-cover"
-        />
-      ) : (
-        <div
-          className={[
-            "flex h-full w-full items-center justify-center rounded-lg",
-            "text-[10px] font-semibold",
-            isDark ? "bg-[#242428] text-white" : "bg-neutral-900 text-white",
-          ].join(" ")}
-        >
-          {initial}
+      <div className="min-w-0">
+        <p className={cx("truncate text-[11px] font-semibold", strong(isDark))}>{label}</p>
+        <div className="mt-1 flex items-baseline gap-1.5">
+          <span className={cx("text-[17px] font-bold tracking-tight", strong(isDark))}>{value}</span>
+          <span
+            className={cx(
+              "flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[9px] font-semibold",
+              positive
+                ? isDark ? "bg-emerald-500/10 text-emerald-400" : "bg-emerald-500/10 text-emerald-600"
+                : isDark ? "bg-rose-500/10 text-rose-400" : "bg-rose-500/10 text-rose-600"
+            )}
+          >
+            <Trend className="h-2.5 w-2.5" aria-hidden="true" />
+            <span className="sr-only">{positive ? "Up " : "Down "}</span>
+            {change}
+          </span>
         </div>
-      )}
-
-      <span
-        className={[
-          "absolute -bottom-0.5 -right-0.5 flex h-3.5 w-3.5 items-center",
-          "justify-center rounded-full ring-2",
-          network === "youtube" ? "bg-[#ff0000]" : "bg-white text-black",
-          panelRingClass(isDark),
-        ].join(" ")}
-      >
-        {network === "youtube" ? (
-          <svg viewBox="0 0 24 24" className="h-2 w-2" aria-hidden="true">
-            <rect x="2" y="5" width="20" height="14" rx="4.5" fill="#fff" />
-            <path d="M10 9v6l5-3-5-3Z" fill="#ff0000" />
-          </svg>
-        ) : (
-          <NetworkIcon className="h-1.5 w-1.5" />
-        )}
-      </span>
+      </div>
     </div>
   );
-}
-
-/* ============================================================
-   COMMENTS PANEL — hauteur réduite, bouton pleine largeur
-============================================================ */
-
-function formatCommentTime(value: string | null): string {
-  if (!value) return "Date inconnue";
-  const timestamp = new Date(value).getTime();
-  if (!Number.isFinite(timestamp)) return "Date inconnue";
-
-  const diffSeconds = Math.round((timestamp - Date.now()) / 1000);
-  const abs = Math.abs(diffSeconds);
-  const rtf = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
-  if (abs < 60) return rtf.format(diffSeconds, "second");
-  if (abs < 3600) return rtf.format(Math.round(diffSeconds / 60), "minute");
-  if (abs < 86400) return rtf.format(Math.round(diffSeconds / 3600), "hour");
-  if (abs < 604800) return rtf.format(Math.round(diffSeconds / 86400), "day");
-  return new Date(timestamp).toLocaleDateString("en", {
-    month: "short",
-    day: "numeric",
-  });
 }
 
 function CommentsPanel({
@@ -1134,103 +724,61 @@ function CommentsPanel({
   onViewMore: () => void;
   onConnect: () => void;
 }) {
-  const visibleComments = comments.slice(0, HOME_COMMENTS_LIMIT);
-  const cardSurface = isDark
-    ? "border-white/[0.08] bg-[#101012] hover:border-white/[0.15] hover:bg-[#141417]"
-    : "border-black/[0.07] bg-white hover:border-black/[0.12] hover:bg-[#fcfbf9]";
+  const visible = comments.slice(0, HOME_COMMENTS_LIMIT);
 
   return (
-    <section
-      className="min-w-0 h-full flex flex-col"
-      aria-labelledby="home-comments-title"
+    <Card
+      isDark={isDark}
+      title="Comments"
+      sub="Keep up with your community"
+      className="flex-1"
+      action={visible.length > 0 ? <ViewAll isDark={isDark} onClick={onViewMore} /> : undefined}
     >
-      {/* Header */}
-      <div className="mb-2 shrink-0">
-        <div className="flex flex-wrap items-center gap-2">
-          {/* ✅ Titre "Comments" aligné sur le gris de "Channels" */}
-          <h2
-            id="home-comments-title"
-            className={[
-              "text-[12px] font-semibold",
-              subtleTitleClass(isDark),
-            ].join(" ")}
-          >
-            Comments
-          </h2>
-          {/* ✅ Badge "X to reply" supprimé */}
-        </div>
-        {/* ✅ Sous-titre très discret, aligné sur "Your connected accounts" */}
-        <p
-          className={[
-            "mt-0.5 text-[11px]",
-            verySubtleClass(isDark),
-          ].join(" ")}
-        >
-          Keep up with your community
-        </p>
-      </div>
-
-      {loading && visibleComments.length === 0 ? (
-        <div
-          className={[
-            "flex flex-1 min-h-[130px] flex-col justify-center gap-2 rounded-2xl border p-3",
-            panelSurfaceClass(isDark),
-          ].join(" ")}
-          aria-label="Loading comments"
-          aria-live="polite"
-        >
-          {[0, 1].map((item) => (
-            <div key={item} className="flex animate-pulse items-start gap-2.5" aria-hidden="true">
-              <div className={["h-8 w-8 shrink-0 rounded-lg", isDark ? "bg-white/10" : "bg-black/[0.07]"].join(" ")} />
-              <div className="min-w-0 flex-1 space-y-1.5 pt-0.5">
-                <div className={["h-2.5 w-1/3 rounded", isDark ? "bg-white/10" : "bg-black/[0.07]"].join(" ")} />
-                <div className={["h-2.5 w-full rounded", isDark ? "bg-white/[0.07]" : "bg-black/[0.05]"].join(" ")} />
+      {loading && visible.length === 0 ? (
+        <div className="flex flex-col gap-2" aria-label="Loading comments" aria-live="polite">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className={cx("flex animate-pulse gap-2.5 rounded-xl border p-3", inner(isDark))} aria-hidden="true">
+              <div className={cx("h-6 w-6 rounded-lg", isDark ? "bg-white/10" : "bg-black/[0.07]")} />
+              <div className="flex-1 space-y-1.5">
+                <div className={cx("h-2.5 w-1/3 rounded", isDark ? "bg-white/10" : "bg-black/[0.07]")} />
+                <div className={cx("h-2.5 w-full rounded", isDark ? "bg-white/[0.07]" : "bg-black/[0.05]")} />
               </div>
             </div>
           ))}
         </div>
-      ) : visibleComments.length === 0 ? (
-        <div
-          className={[
-            "flex flex-1 min-h-[130px] flex-col items-center justify-center rounded-2xl border px-5 py-3 text-center",
-            panelSurfaceClass(isDark),
-          ].join(" ")}
-        >
+      ) : visible.length === 0 ? (
+        <div className="flex flex-1 flex-col items-center justify-center py-6 text-center">
           <div
-            className={[
-              "mb-1.5 flex h-9 w-9 items-center justify-center rounded-2xl",
-              isDark
-                ? "bg-white/[0.07] text-neutral-300"
-                : "bg-white text-neutral-600 shadow-sm ring-1 ring-black/[0.04]",
-            ].join(" ")}
+            className={cx(
+              "mb-2 flex h-9 w-9 items-center justify-center rounded-2xl",
+              isDark ? "bg-white/[0.07] text-neutral-300" : "bg-white text-neutral-600 shadow-sm ring-1 ring-black/[0.04]"
+            )}
           >
             <MessageCircle className="h-4 w-4" aria-hidden="true" />
           </div>
-          <p className={["text-[12px] font-semibold", strongClass(isDark)].join(" ")}>
+          <p className={cx("text-[12px] font-semibold", strong(isDark))}>
             {error
               ? "Comments couldn't be loaded"
               : connectedChannelsCount === 0
                 ? "Connect a channel to get started"
                 : "You're all caught up"}
           </p>
-          <p className={["mt-1 max-w-[280px] text-[11px] leading-snug", softClass(isDark)].join(" ")}>
+          <p className={cx("mt-1 max-w-[280px] text-[11px] leading-snug", soft(isDark))}>
             {error
-              ? "We couldn't retrieve your latest comments. Please check your connection and try again later."
+              ? "We couldn't retrieve your latest comments. Please try again later."
               : connectedChannelsCount === 0
-                ? "Connect your YouTube account to see and manage comments from your audience here."
-                : "When new comments arrive, they'll appear here so you can respond quickly."}
+                ? "Connect your YouTube account to see and manage comments here."
+                : "When new comments arrive, they'll appear here."}
           </p>
           {connectedChannelsCount === 0 && !error && (
             <button
               type="button"
               onClick={onConnect}
-              className={[
-                "mt-2.5 inline-flex min-h-8 items-center gap-2 rounded-xl px-3 text-[11px] font-semibold transition",
-                focusRingClass(isDark),
-                isDark
-                  ? "bg-white text-black hover:bg-neutral-200"
-                  : "bg-neutral-900 text-white hover:bg-neutral-700",
-              ].join(" ")}
+              className={cx(
+                "mt-3 inline-flex min-h-8 items-center gap-2 rounded-xl px-3 text-[11px] font-semibold transition",
+                focusRing(isDark),
+                primaryBtn(isDark)
+              )}
             >
               <Plus className="h-3.5 w-3.5" aria-hidden="true" />
               Connect a channel
@@ -1238,310 +786,477 @@ function CommentsPanel({
           )}
         </div>
       ) : (
-        <>
+        <div className="flex flex-col gap-2">
           {error && (
             <p
-              className={[
-                "shrink-0 rounded-xl border px-2.5 py-1.5 text-[11px]",
+              role="status"
+              className={cx(
+                "rounded-xl border px-2.5 py-1.5 text-[11px]",
                 isDark
                   ? "border-amber-200/10 bg-amber-200/[0.05] text-amber-100/80"
-                  : "border-amber-700/10 bg-amber-50 text-amber-800",
-              ].join(" ")}
-              role="status"
+                  : "border-amber-700/10 bg-amber-50 text-amber-800"
+              )}
             >
               Some comments may be missing because a source couldn't be reached.
             </p>
           )}
 
-          {/* Zone de contenu — hauteur réduite (200px) */}
-          <div className="relative flex-1 min-h-[200px]">
-            {/* Liste clippée + fondu */}
-            <div className="absolute inset-0 overflow-hidden">
-              <div className="flex flex-col gap-2 pb-12">
-                {visibleComments.map((comment) => (
-                  <button
-                    key={comment.id}
-                    type="button"
-                    onClick={() => onOpen(comment.channel.key)}
-                    aria-label={`Open conversation with ${comment.author}`}
-                    className={[
-                      "group w-full rounded-xl border px-2.5 py-2 text-left",
-                      "transition duration-200 motion-reduce:transition-none",
-                      "focus-visible:outline-none focus-visible:ring-2",
-                      isDark
-                        ? "focus-visible:ring-white/30"
-                        : "focus-visible:ring-black/25",
-                      cardSurface,
-                    ].join(" ")}
-                  >
-                    <div className="flex items-start gap-2.5">
-                      <CommentAvatar
-                        src={comment.authorAvatar}
-                        name={comment.author}
-                        network={comment.network}
-                        isDark={isDark}
-                      />
-
-                      <div className="min-w-0 flex-1">
-                        <div className="flex min-w-0 items-start justify-between gap-2">
-                          <div className="min-w-0">
-                            <p
-                              className={[
-                                "truncate text-[12px] font-semibold",
-                                strongClass(isDark),
-                              ].join(" ")}
-                            >
-                              {comment.author}
-                            </p>
-                            <p
-                              className={[
-                                "truncate text-[10px]",
-                                softClass(isDark),
-                              ].join(" ")}
-                            >
-                              {comment.channel.handle ||
-                                comment.channel.name ||
-                                comment.network}
-                              {comment.videoTitle
-                                ? ` · ${comment.videoTitle}`
-                                : ""}
-                            </p>
-                          </div>
-                          <span
-                            className={[
-                              "inline-flex shrink-0 items-center gap-1 text-[10px]",
-                              mutedClass(isDark),
-                            ].join(" ")}
-                          >
-                            <Clock3 className="h-3 w-3" aria-hidden="true" />
-                            {formatCommentTime(comment.publishedAt)}
-                          </span>
-                        </div>
-
-                        <p
-                          className={[
-                            "mt-1 text-[12px] leading-[1.35]",
-                            isDark ? "text-neutral-300" : "text-neutral-700",
-                          ].join(" ")}
-                          style={{
-                            display: "-webkit-box",
-                            WebkitLineClamp: 2,
-                            WebkitBoxOrient: "vertical",
-                            overflow: "hidden",
-                            overflowWrap: "anywhere",
-                          }}
-                        >
-                          {comment.text || "This comment has no text."}
-                        </p>
-
-                        <div className="mt-1.5 flex items-center justify-between gap-2">
-                          {/* ✅ Pill "Replied" conservée, "Needs a reply" supprimée */}
-                          {comment.answered ? (
-                            <span
-                              className={[
-                                "inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium",
-                                isDark
-                                  ? "bg-emerald-400/10 text-emerald-300"
-                                  : "bg-emerald-50 text-emerald-700",
-                              ].join(" ")}
-                            >
-                              <CheckCheck className="h-2.5 w-2.5" aria-hidden="true" />
-                              Replied
-                            </span>
-                          ) : (
-                            <span />
-                          )}
-                          <span
-                            className={[
-                              "inline-flex items-center gap-1 text-[10px] font-semibold opacity-80 transition group-hover:translate-x-0.5 group-hover:opacity-100",
-                              strongClass(isDark),
-                            ].join(" ")}
-                          >
-                            Open conversation
-                            <ArrowUpRight className="h-3 w-3" aria-hidden="true" />
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                    {/* ✅ sr-only simplifié : plus de mention "Needs a reply" */}
-                    <span className="sr-only">
-                      {comment.isRead ? "Read." : "Unread."}
+          {visible.map((c) => {
+            const NetworkIcon = NETWORK_ICONS[c.network];
+            return (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => onOpen(c.channel.key)}
+                aria-label={`Open conversation with ${c.author}`}
+                className={cx(
+                  "group w-full rounded-xl border px-3 py-2.5 text-left transition duration-200 motion-reduce:transition-none",
+                  focusRing(isDark),
+                  inner(isDark)
+                )}
+              >
+                <div className="flex items-start gap-2.5">
+                  <div className="relative h-7 w-7 shrink-0">
+                    <Avatar
+                      src={c.authorAvatar}
+                      fallback={c.author.replace(/^@/, "").charAt(0).toUpperCase() || "?"}
+                      isDark={isDark}
+                      rounded="rounded-lg"
+                      className="h-full w-full text-[10px]"
+                    />
+                    <span
+                      className={cx(
+                        "absolute -bottom-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full ring-2",
+                        c.network === "youtube" ? "bg-[#ff0000]" : "bg-white text-black",
+                        ring(isDark)
+                      )}
+                    >
+                      {c.network === "youtube" ? (
+                        <svg viewBox="0 0 24 24" className="h-2 w-2" aria-hidden="true">
+                          <rect x="2" y="5" width="20" height="14" rx="4.5" fill="#fff" />
+                          <path d="M10 9v6l5-3-5-3Z" fill="#ff0000" />
+                        </svg>
+                      ) : (
+                        <NetworkIcon className="h-1.5 w-1.5" />
+                      )}
                     </span>
-                  </button>
-                ))}
-              </div>
+                  </div>
 
-              {/* Fondu */}
-              <div
-                aria-hidden="true"
-                className={[
-                  "pointer-events-none absolute inset-x-0 bottom-0 h-20",
-                  "bg-gradient-to-t to-transparent",
-                  mainBgFadeClass(isDark),
-                ].join(" ")}
-              />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className={cx("truncate text-[12px] font-semibold", strong(isDark))}>
+                          {c.author}
+                        </p>
+                        <p className={cx("truncate text-[10px]", soft(isDark))}>
+                          {c.channel.handle || c.channel.name || c.network}
+                          {c.videoTitle ? ` · ${c.videoTitle}` : ""}
+                        </p>
+                      </div>
+                      <span className={cx("inline-flex shrink-0 items-center gap-1 text-[10px]", muted(isDark))}>
+                        <Clock3 className="h-3 w-3" aria-hidden="true" />
+                        {formatCommentTime(c.publishedAt)}
+                      </span>
+                    </div>
+
+                    <p
+                      className={cx("mt-1 text-[12px] leading-[1.35]", isDark ? "text-neutral-300" : "text-neutral-700")}
+                      style={{
+                        display: "-webkit-box",
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: "vertical",
+                        overflow: "hidden",
+                        overflowWrap: "anywhere",
+                      }}
+                    >
+                      {c.text || "This comment has no text."}
+                    </p>
+
+                    <div className="mt-1.5 flex items-center justify-between gap-2">
+                      {c.answered ? (
+                        <span
+                          className={cx(
+                            "inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium",
+                            isDark ? "bg-emerald-400/10 text-emerald-300" : "bg-emerald-50 text-emerald-700"
+                          )}
+                        >
+                          <CheckCheck className="h-2.5 w-2.5" aria-hidden="true" />
+                          Replied
+                        </span>
+                      ) : (
+                        <span />
+                      )}
+                      <span
+                        className={cx(
+                          "inline-flex items-center gap-1 text-[10px] font-semibold opacity-80 transition group-hover:translate-x-0.5 group-hover:opacity-100",
+                          strong(isDark)
+                        )}
+                      >
+                        Open conversation
+                        <ArrowUpRight className="h-3 w-3" aria-hidden="true" />
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <span className="sr-only">{c.isRead ? "Read." : "Unread."}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+/* ============================================================
+   MIDDLE COLUMN
+============================================================ */
+
+function ChannelAvatar({
+  channel,
+  isDark,
+  overlap,
+}: {
+  channel: ConnectedChannel;
+  isDark: boolean;
+  overlap: boolean;
+}) {
+  const label = channel.handle || channel.name || "Channel";
+  const networkId = getNetworkId(channel);
+  const NetworkIcon = networkId ? NETWORK_ICONS[networkId] : null;
+
+  return (
+    <div className="relative h-9 w-9 shrink-0" style={{ marginLeft: overlap ? -8 : 0 }} title={label}>
+      <Avatar
+        src={channel.avatarUrl}
+        fallback={label.replace(/^@/, "").charAt(0).toUpperCase() || "?"}
+        isDark={isDark}
+        className={cx("h-full w-full text-[11px] ring-2", ring(isDark))}
+      />
+      {NetworkIcon && (
+        <span
+          className={cx(
+            "absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-white text-black ring-1",
+            ring(isDark)
+          )}
+        >
+          <NetworkIcon className="h-2.5 w-2.5" />
+        </span>
+      )}
+    </div>
+  );
+}
+
+function Channels({
+  isDark,
+  channels,
+  onAdd,
+}: {
+  isDark: boolean;
+  channels: ConnectedChannel[];
+  onAdd: () => void;
+}) {
+  const empty = channels.length === 0;
+  const extra = channels.length - 5;
+
+  return (
+    <Card
+      isDark={isDark}
+      title="Channels"
+      sub="Your connected accounts"
+      action={
+        <ViewAll
+          isDark={isDark}
+          label={empty ? "Connect" : "Manage"}
+          onClick={() => (empty ? onAdd() : navigateToSettingsSection("channels"))}
+        />
+      }
+    >
+      <div className={cx("flex items-center gap-3 rounded-xl border p-3", inner(isDark))}>
+        {empty ? (
+          <>
+            <button
+              type="button"
+              aria-label="Connect a channel"
+              onClick={onAdd}
+              className={cx(
+                "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition",
+                focusRing(isDark),
+                isDark ? "bg-white/[0.06] text-white hover:bg-white/[0.12]" : "bg-neutral-100 text-neutral-700 hover:bg-neutral-200"
+              )}
+            >
+              <Plus className="h-4 w-4" />
+            </button>
+            <div>
+              <p className={cx("text-[11px] font-semibold", strong(isDark))}>Connect your first channel</p>
+              <p className={cx("mt-0.5 text-[10px]", muted(isDark))}>Start publishing to social networks.</p>
             </div>
-
-            {/* Bouton pleine largeur en bas — ✅ plus carré (rounded-md) */}
-            <div className="absolute inset-x-0 bottom-0 z-10">
+          </>
+        ) : (
+          <>
+            <div className="flex shrink-0 items-center pl-1">
+              {channels.slice(0, 5).map((ch, i) => (
+                <ChannelAvatar key={ch.key} channel={ch} isDark={isDark} overlap={i > 0} />
+              ))}
+              {extra > 0 && (
+                <span
+                  className={cx(
+                    "-ml-2 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold ring-2",
+                    isDark ? "bg-[#242428] text-white" : "bg-neutral-200 text-neutral-700",
+                    ring(isDark)
+                  )}
+                >
+                  +{extra}
+                </span>
+              )}
               <button
                 type="button"
-                onClick={onViewMore}
-                className={[
-                  "flex w-full items-center justify-center gap-1 rounded-md border px-3.5 py-1.5",
-                  "text-[11px] font-semibold transition",
-                  focusRingClass(isDark),
-                  panelSolidClass(isDark),
+                aria-label="Connect another channel"
+                onClick={onAdd}
+                className={cx(
+                  "relative z-10 -ml-2 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border ring-2 transition",
+                  focusRing(isDark),
+                  ring(isDark),
                   isDark
-                    ? "border-white/10 text-white hover:bg-[#161618] hover:border-white/20"
-                    : "border-black/10 text-neutral-900 hover:bg-white hover:border-black/20",
-                ].join(" ")}
+                    ? "border-white/[0.14] bg-[#161618] text-white hover:bg-[#1f1f22]"
+                    : "border-black/[0.10] bg-white text-neutral-700 hover:bg-neutral-50"
+                )}
               >
-                View all comments
-                <ChevronRight className="h-3 w-3" aria-hidden="true" />
+                <Plus className="h-[15px] w-[15px]" strokeWidth={1.8} />
               </button>
             </div>
-          </div>
-        </>
-      )}
-    </section>
-  );
-}
-
-/* ============================================================
-   BLOG IMAGE
-============================================================ */
-
-function BlogImage({ src, isDark }: { src?: string; isDark: boolean }) {
-  const [failed, setFailed] = useState(false);
-
-  useEffect(() => {
-    setFailed(false);
-  }, [src]);
-
-  if (!src || failed) {
-    return (
-      <div
-        className={[
-          "h-[140px] w-full rounded-lg",
-          isDark ? "bg-white/[0.06]" : "bg-neutral-200/70",
-        ].join(" ")}
-      />
-    );
-  }
-
-  return (
-    <img
-      src={src}
-      alt=""
-      loading="lazy"
-      draggable={false}
-      onError={() => setFailed(true)}
-      className="h-[140px] w-full rounded-lg object-cover"
-    />
-  );
-}
-
-/* ============================================================
-   BLOG SECTION
-============================================================ */
-
-function BlogSection({ isDark }: { isDark: boolean }) {
-  return (
-    <section>
-      <div className="mb-3 flex items-center justify-between">
-        <p
-          className={[
-            "text-[12px] font-semibold",
-            isDark ? "text-neutral-300" : "text-neutral-700",
-          ].join(" ")}
-        >
-          From the Blog
-        </p>
-
-        <a
-          href={BLOG_URL}
-          {...linkProps(BLOG_URL)}
-          className={[
-            "flex items-center gap-0.5 rounded-md text-[11px] font-semibold transition",
-            focusRingClass(isDark),
-            isDark
-              ? "text-neutral-400 hover:text-white"
-              : "text-neutral-500 hover:text-neutral-900",
-          ].join(" ")}
-        >
-          View All Articles
-          <ChevronRight className="h-3.5 w-3.5" />
-        </a>
+            <div className="min-w-0">
+              <p className={cx("text-[11px] font-semibold", strong(isDark))}>
+                {channels.length} {channels.length === 1 ? "channel" : "channels"} connected
+              </p>
+              <p className={cx("text-[10px]", muted(isDark))}>Ready to publish</p>
+            </div>
+          </>
+        )}
       </div>
+    </Card>
+  );
+}
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 2xl:grid-cols-4">
-        {BLOG_POSTS.map((post) => (
+function Goals({
+  isDark,
+  weekStreak,
+  postingGoal,
+  commentScore,
+}: {
+  isDark: boolean;
+  weekStreak: number;
+  postingGoal: { done: number; target: number };
+  commentScore: { value: number; changePct: number };
+}) {
+  const ratio = postingGoal.target > 0 ? postingGoal.done / postingGoal.target : 0;
+  const reached = postingGoal.target > 0 && postingGoal.done >= postingGoal.target;
+  const up = commentScore.changePct >= 0;
+  const Trend = up ? TrendingUp : TrendingDown;
+
+  const rows: {
+    title: string;
+    hint: string;
+    ring: ReactNode;
+    sub: ReactNode;
+  }[] = [
+    {
+      title: "Week Streak",
+      hint: "Consecutive weeks in which you reached your posting goal.",
+      ring: (
+        <Ring isDark={isDark} progress={weekStreak > 0 ? 1 : 0}>
+          <span className="text-[17px] font-semibold tabular-nums">{weekStreak}</span>
+        </Ring>
+      ),
+      sub: weekStreak > 0 ? "Streak hit, keep going!" : "Hit your goal to start a streak.",
+    },
+    {
+      title: "Posting Goals",
+      hint: "Posts published this week compared to your weekly goal.",
+      ring: (
+        <Ring isDark={isDark} progress={ratio}>
+          <span className="text-[15px] font-bold tabular-nums">
+            {Math.round(ratio * 100)}
+            <span className="text-[10px]">%</span>
+          </span>
+        </Ring>
+      ),
+      sub: reached ? "Goal reached, great work!" : `${postingGoal.done} of ${postingGoal.target}, so close!`,
+    },
+    {
+      title: "Comment Score",
+      hint: "Your engagement score based on the comments you answer.",
+      ring: (
+        <Ring isDark={isDark} progress={commentScore.value / 100}>
+          <span className={cx("text-[17px] font-semibold tabular-nums", soft(isDark))}>
+            {commentScore.value}
+          </span>
+        </Ring>
+      ),
+      sub: (
+        <>
+          <span className={cx("inline-flex items-center gap-1", strong(isDark))}>
+            <Trend className="h-3 w-3" aria-hidden="true" />
+            <span className="sr-only">{up ? "Up " : "Down "}</span>
+            {up ? "+" : ""}
+            {commentScore.changePct}%
+          </span>
+          <span>from last week</span>
+        </>
+      ),
+    },
+  ];
+
+  return (
+    <Card isDark={isDark} title="Overview" sub="Your weekly goals">
+      <div className="flex flex-col gap-2">
+        {rows.map((r) => (
+          <div key={r.title} title={r.hint} className={cx("flex items-center gap-3 rounded-xl border p-3", inner(isDark))}>
+            {r.ring}
+            <div className="min-w-0">
+              <p className={cx("text-[12px] font-semibold", strong(isDark))}>{r.title}</p>
+              <p className={cx("mt-0.5 flex items-center gap-1 text-[11px]", soft(isDark))}>{r.sub}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
+function UpNext({
+  isDark,
+  onViewAll,
+  onCreate,
+}: {
+  isDark: boolean;
+  onViewAll: () => void;
+  onCreate: () => void;
+}) {
+  return (
+    <Card
+      isDark={isDark}
+      title="Up Next"
+      sub="0 posts scheduled"
+      action={<ViewAll isDark={isDark} onClick={onViewAll} />}
+    >
+      <div className={cx("flex items-center gap-3 rounded-xl border p-3", inner(isDark))}>
+        <div
+          className={cx(
+            "flex h-10 w-10 shrink-0 items-center justify-center rounded-full",
+            isDark ? "bg-white/[0.07] text-neutral-300" : "bg-neutral-200/70 text-neutral-600"
+          )}
+        >
+          <CalendarDays className="h-5 w-5" aria-hidden="true" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className={cx("text-[12px] font-medium", strong(isDark))}>No posts scheduled yet.</p>
+          <p className="text-[11px] text-neutral-500">You'll see upcoming posts here.</p>
+        </div>
+      </div>
+      <button
+        type="button"
+        onClick={onCreate}
+        className={cx(
+          "mt-2 flex w-full items-center justify-center gap-1.5 rounded-xl px-3.5 py-2 text-[11px] font-semibold transition",
+          focusRing(isDark),
+          primaryBtn(isDark)
+        )}
+      >
+        <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+        Create Post
+      </button>
+    </Card>
+  );
+}
+
+/* ============================================================
+   RIGHT COLUMN
+============================================================ */
+
+function BlogList({ isDark, posts }: { isDark: boolean; posts: BlogPost[] }) {
+  return (
+    <Card
+      isDark={isDark}
+      title="From the Blog"
+      action={<ViewAll isDark={isDark} label="View all" href={BLOG_URL} />}
+    >
+      <div className="flex flex-col gap-2">
+        {posts.map((post) => (
           <a
             key={post.title}
             href={post.url}
             {...linkProps(post.url)}
-            className={[
-              "group flex flex-col border-t pt-3 transition",
-              focusRingClass(isDark),
-              cardClass(isDark),
-              isDark ? "hover:bg-[#141416]" : "hover:bg-[#f6f4f0]",
-            ].join(" ")}
+            className={cx(
+              "group flex items-center gap-3 rounded-xl border p-3 transition",
+              focusRing(isDark),
+              inner(isDark)
+            )}
           >
-            <BlogImage src={post.image} isDark={isDark} />
-
-            <div className="mt-3.5 flex items-center justify-between gap-2 px-0.5">
-              <span
-                className={[
-                  "rounded-md px-2 py-0.5 text-[10px] font-semibold",
-                  isDark
-                    ? "bg-[#16304f] text-[#a9cdf5]"
-                    : "bg-blue-50 text-blue-700",
-                ].join(" ")}
-              >
-                {post.label}
-              </span>
-              <span
-                className={["text-[10px]", mutedClass(isDark)].join(" ")}
-              >
-                {post.date}
-              </span>
-            </div>
-
-            <h3
-              className={[
-                "mt-2.5 px-0.5 text-[14px] font-semibold leading-snug",
-                "tracking-[-0.01em]",
-                strongClass(isDark),
-              ].join(" ")}
-              style={{
-                display: "-webkit-box",
-                WebkitLineClamp: 2,
-                WebkitBoxOrient: "vertical",
-                overflow: "hidden",
-              }}
+            <div
+              className={cx(
+                "flex h-9 w-9 shrink-0 items-center justify-center rounded-full",
+                isDark ? "bg-white/[0.07] text-neutral-300" : "bg-neutral-200/70 text-neutral-600"
+              )}
             >
-              {post.title}
-            </h3>
-
-            <div className="mt-3 flex justify-end px-0.5">
-              <ArrowRight
-                className={[
-                  "h-4 w-4 transition-transform group-hover:translate-x-0.5",
-                  strongClass(isDark),
-                ].join(" ")}
-              />
+              <BookOpen className="h-4 w-4" aria-hidden="true" />
             </div>
+            <div className="min-w-0 flex-1">
+              <p className={cx("truncate text-[12px] font-semibold", strong(isDark))}>{post.title}</p>
+              <p className={cx("text-[10px]", muted(isDark))}>{post.date}</p>
+            </div>
+            <ArrowUpRight
+              className={cx("h-3.5 w-3.5 shrink-0 transition-transform group-hover:translate-x-0.5", soft(isDark))}
+              aria-hidden="true"
+            />
           </a>
         ))}
       </div>
-    </section>
+    </Card>
+  );
+}
+
+function FeaturedBlog({ isDark, post }: { isDark: boolean; post: BlogPost }) {
+  const [failed, setFailed] = useState(false);
+  useEffect(() => setFailed(false), [post.image]);
+
+  return (
+    <a
+      href={post.url}
+      {...linkProps(post.url)}
+      className={cx(
+        "group flex flex-1 flex-col rounded-2xl border p-3 transition",
+        focusRing(isDark),
+        surface(isDark)
+      )}
+    >
+      {post.image && !failed ? (
+        <img
+          src={post.image}
+          alt=""
+          loading="lazy"
+          draggable={false}
+          onError={() => setFailed(true)}
+          className="min-h-[180px] w-full flex-1 rounded-xl object-cover"
+        />
+      ) : (
+        <div className={cx("min-h-[180px] w-full flex-1 rounded-xl", isDark ? "bg-white/[0.06]" : "bg-neutral-200/70")} />
+      )}
+      <div className="mt-3 px-1">
+        <p className={cx("text-[14px] font-semibold leading-snug tracking-[-0.01em]", strong(isDark))}>
+          {post.title}
+        </p>
+        <p className={cx("mt-0.5 text-[11px]", muted(isDark))}>Most popular · {post.date}</p>
+      </div>
+    </a>
   );
 }
 
 /* ============================================================
    HOME
 ============================================================ */
+
+const userProfileCache = { profile: null as UserProfile | null };
 
 export default function Home() {
   const { theme } = useTheme();
@@ -1552,58 +1267,39 @@ export default function Home() {
   const [isNewPostOpen, setIsNewPostOpen] = useState(false);
   const [isFolderOpen, setIsFolderOpen] = useState(false);
   const [user, setUser] = useState<UserProfile | null>(userProfileCache.profile);
-  const [userLoaded, setUserLoaded] = useState(
-    userProfileCache.profile !== null
-  );
+  const [userLoaded, setUserLoaded] = useState(userProfileCache.profile !== null);
   const [now, setNow] = useState(() => new Date());
   const connectedChannels = useConnectedChannels();
   const latestComments = useLatestComments(connectedChannels);
 
   useEffect(() => {
-    const interval = setInterval(() => setNow(new Date()), 15000);
-    return () => clearInterval(interval);
+    const i = setInterval(() => setNow(new Date()), 15000);
+    return () => clearInterval(i);
   }, []);
 
   useEffect(() => {
     let mounted = true;
-
-    async function loadUser() {
+    (async () => {
       try {
-        const userData = await getCurrentUser();
-
-        if (mounted && userData) {
-          userProfileCache.profile = userData;
-          setUser(userData);
+        const data = await getCurrentUser();
+        if (mounted && data) {
+          userProfileCache.profile = data;
+          setUser(data);
         }
-      } catch (error) {
-        console.error("Error loading user on Home:", error);
+      } catch (e) {
+        console.error("Error loading user on Home:", e);
       } finally {
         if (mounted) setUserLoaded(true);
       }
-    }
-
-    loadUser();
-
+    })();
     return () => {
       mounted = false;
     };
   }, []);
 
   const fullName = `${user?.first_name || ""} ${user?.last_name || ""}`.trim();
-
   const initials =
-    `${(user?.first_name || "")[0] || ""}${
-      (user?.last_name || "")[0] || ""
-    }`.toUpperCase() || "U";
-
-  const greeting = getGreeting(now);
-
-  const formattedDate = `${now.toLocaleDateString("en-US", {
-    weekday: "short",
-  })}, ${now.toLocaleDateString("en-US", {
-    month: "short",
-  })} ${now.getDate()} ${now.getFullYear()}`;
-
+    `${(user?.first_name || "")[0] || ""}${(user?.last_name || "")[0] || ""}`.toUpperCase() || "U";
   const displayName = fullName || "adamnolke";
 
   const handleCreatePost = async (payload: NewPostPayload) => {
@@ -1611,223 +1307,140 @@ export default function Home() {
       await createPosts(payload);
       return;
     }
-
     throw new Error(unavailablePostActionMessage(payload));
   };
 
-  const handleViewAllComments = (channelKey?: string) => {
+  const openCommunity = (channelKey?: string) => {
     const channel =
-      connectedChannels.find((item) => item.key === channelKey) ??
-      connectedChannels.find((item) => item.platform === "youtube");
-    navigate(
-      channel
-        ? `community?channel=${encodeURIComponent(channel.key)}`
-        : "community"
-    );
+      connectedChannels.find((c) => c.key === channelKey) ??
+      connectedChannels.find((c) => c.platform === "youtube");
+    navigate(channel ? `community?channel=${encodeURIComponent(channel.key)}` : "community");
   };
 
   const handleBottomBarChange = (id: BottomBarTab) => {
-    switch (id) {
-      case "add":
-        setIsFolderOpen(false);
-        setIsNewPostOpen(true);
-        break;
-      case "files":
-        setIsFolderOpen((open) => !open);
-        break;
-      default:
-        break;
+    if (id === "add") {
+      setIsFolderOpen(false);
+      setIsNewPostOpen(true);
+    } else if (id === "files") {
+      setIsFolderOpen((o) => !o);
     }
   };
 
+  const goSettingsChannels = () => navigateToSettingsSection("channels");
+
   return (
     <main
-      className={[
-        "relative h-screen h-[100dvh] min-h-0 w-full overflow-hidden",
-        "transition-colors duration-300",
-        pageBgClass(isDark),
-      ].join(" ")}
+      className={cx(
+        "relative h-screen w-full overflow-hidden transition-colors duration-300",
+        pageBg(isDark)
+      )}
     >
       <DashboardSidebar theme={theme} />
 
       <div
-        className={[
-          "h-full min-h-0 py-0 pr-0 sm:py-3 sm:pr-3",
-          "transition-[padding-left] duration-[380ms]",
-          "ease-[cubic-bezier(0.4,0,0.2,1)]",
-          "motion-reduce:transition-none",
-        ].join(" ")}
+        className="h-full py-3 pr-3 transition-[padding-left] duration-[380ms] ease-[cubic-bezier(0.4,0,0.2,1)] motion-reduce:transition-none"
         style={{ paddingLeft: sidebarOffset }}
       >
         <div
-          className={[
-            "h-full min-h-0 overflow-x-hidden overflow-y-auto overscroll-y-contain",
-            "rounded-none border-0 sm:rounded-[22px] sm:border",
-            "[scrollbar-width:thin]",
-            "transition-colors duration-300",
-            mainPanelClass(isDark),
-          ].join(" ")}
+          className={cx(
+            "h-full overflow-y-auto overflow-x-hidden rounded-[28px] border",
+            "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden transition-colors duration-300",
+            mainPanel(isDark)
+          )}
         >
-          <div
-            className={[
-              "mx-auto flex min-h-full w-full min-w-0 max-w-[1480px]",
-              "flex-col px-[clamp(16px,2.6vw,38px)]",
-              "pb-[128px] pt-[clamp(22px,3vw,36px)]",
-            ].join(" ")}
-          >
-            <header className="flex min-w-0 shrink-0 flex-col gap-4 md:flex-row md:items-center md:justify-between">
-              <div className="flex items-center gap-4">
-                <GreetingAvatar
-                  avatarUrl={user?.avatar_url}
-                  initials={initials}
-                  isDark={isDark}
-                  loading={!userLoaded}
-                />
-                <div className="flex min-w-0 flex-col">
-                  <h1
-                    className={[
-                      "truncate text-[clamp(21px,2.2vw,30px)] font-semibold tracking-[-0.045em]",
-                      strongClass(isDark),
-                    ].join(" ")}
-                  >
-                    {greeting.charAt(0).toUpperCase() + greeting.slice(1)},{" "}
-                    {displayName}!
-                  </h1>
-                  <p
-                    className={[
-                      "mt-0.5 text-[13px] font-medium",
-                      mutedClass(isDark),
-                    ].join(" ")}
-                  >
-                    {formattedDate}
-                  </p>
-                </div>
-              </div>
+          <div className="mx-auto w-full max-w-[1720px] px-[clamp(18px,3vw,40px)] pb-[120px] pt-[clamp(18px,3vw,30px)]">
+            {/* Top bar */}
+            <header className="flex items-center justify-between gap-4">
+              <p className={cx("truncate text-[13px] font-medium tracking-wide", soft(isDark))}>
+                Dashboard / <span className={cx("font-semibold", strong(isDark))}>{displayName}</span>
+              </p>
               <ClockDisplay isDark={isDark} now={now} />
             </header>
 
-            <HomeOverview
-              isDark={isDark}
-              weekStreak={1}
-              postingGoal={{ done: 1, target: 2 }}
-              commentScore={{ value: 13, changePct: 100 }}
-            />
+            {/* 3 columns : gauche large / milieu / droite */}
+            <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)_minmax(0,1fr)]">
+              {/* LEFT */}
+              <div className="flex min-w-0 flex-col gap-4 lg:col-span-2 xl:col-span-1">
+                <SearchBar isDark={isDark} value={query} onChange={setQuery} />
 
-            <section className="mt-7 shrink-0">
-              <div className="mb-3">
-                <p
-                  className={[
-                    "text-[11px] font-semibold",
-                    isDark ? "text-neutral-500" : "text-neutral-400",
-                  ].join(" ")}
-                >
-                  Overview
-                </p>
-                <p
-                  className={[
-                    "mt-0.5 text-[11px]",
-                    isDark ? "text-neutral-400" : "text-neutral-500",
-                  ].join(" ")}
-                >
-                  Example metrics · not connected to live channels
-                </p>
+                <Hero
+                  isDark={isDark}
+                  greeting={getGreeting(now)}
+                  name={displayName}
+                  avatarUrl={user?.avatar_url}
+                  initials={initials}
+                  loading={!userLoaded}
+                  onCreate={() => setIsNewPostOpen(true)}
+                />
+
+                <section>
+                  <div className="mb-3 flex items-baseline justify-between">
+                    <h2 className={cx("text-[12px] font-semibold", subtle(isDark))}>Stats</h2>
+                    <p className={cx("text-[10px]", faint(isDark))}>
+                      Example metrics · not connected to live channels
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    <Stat
+                      isDark={isDark}
+                      label="Followers"
+                      value="27K"
+                      change="-2%"
+                      hint="Total followers across all your connected channels, compared to the previous period."
+                      icon={<Users className="h-4 w-4" />}
+                    />
+                    <Stat
+                      isDark={isDark}
+                      label="Likes"
+                      value="12.4K"
+                      change="+16%"
+                      hint="Total likes received on your posts across all channels, compared to the previous period."
+                      icon={<Heart className="h-4 w-4" />}
+                    />
+                    <Stat
+                      isDark={isDark}
+                      label="Comments"
+                      value="342"
+                      change="+5%"
+                      hint="Total comments received on your posts across all channels, compared to the previous period."
+                      icon={<MessageCircle className="h-4 w-4" />}
+                    />
+                  </div>
+                </section>
+
+                <CommentsPanel
+                  isDark={isDark}
+                  comments={latestComments.comments}
+                  loading={latestComments.loading}
+                  error={latestComments.error}
+                  connectedChannelsCount={connectedChannels.length}
+                  onOpen={(key) => navigate(`community?channel=${encodeURIComponent(key)}`)}
+                  onViewMore={() => openCommunity(latestComments.comments[0]?.channel.key)}
+                  onConnect={goSettingsChannels}
+                />
               </div>
 
-              <div
-                className={[
-                  "grid grid-cols-1 gap-3 rounded-xl border p-4",
-                  "md:grid-cols-3",
-                  panelSurfaceClass(isDark),
-                ].join(" ")}
-              >
-                <Stat
+              {/* MIDDLE */}
+              <div className="flex min-w-0 flex-col gap-4">
+                <Channels isDark={isDark} channels={connectedChannels} onAdd={goSettingsChannels} />
+                <Goals
                   isDark={isDark}
-                  label="Followers"
-                  value="27K"
-                  change="-2%"
-                  hint="Total followers across all your connected channels, compared to the previous period."
-                  icon={<Users className="h-4 w-4" />}
+                  weekStreak={1}
+                  postingGoal={{ done: 1, target: 2 }}
+                  commentScore={{ value: 13, changePct: 100 }}
                 />
-                <Stat
+                <UpNext
                   isDark={isDark}
-                  label="Likes"
-                  value="12.4K"
-                  change="+16%"
-                  hint="Total likes received on your posts across all channels, compared to the previous period."
-                  icon={<Heart className="h-4 w-4" />}
-                />
-                <Stat
-                  isDark={isDark}
-                  label="Comments"
-                  value="342"
-                  change="+5%"
-                  hint="Total comments received on your posts across all channels, compared to the previous period."
-                  icon={<MessageCircle className="h-4 w-4" />}
+                  onViewAll={() => navigate("calendar")}
+                  onCreate={() => setIsNewPostOpen(true)}
                 />
               </div>
-            </section>
 
-            <section className="mt-5 shrink-0">
-              <div className="mb-3 flex items-center justify-between">
-                <div>
-                  <p
-                    className={[
-                      "text-[11px] font-semibold",
-                      isDark ? "text-neutral-500" : "text-neutral-400",
-                    ].join(" ")}
-                  >
-                    Channels
-                  </p>
-                  <p
-                    className={[
-                      "mt-0.5 text-[10px]",
-                      isDark ? "text-neutral-700" : "text-neutral-400",
-                    ].join(" ")}
-                  >
-                    Your connected accounts
-                  </p>
-                </div>
+              {/* RIGHT */}
+              <div className="flex min-w-0 flex-col gap-4">
+                <BlogList isDark={isDark} posts={BLOG_POSTS.slice(1)} />
+                <FeaturedBlog isDark={isDark} post={BLOG_POSTS[0]} />
               </div>
-
-              <Channels
-                isDark={isDark}
-                channels={connectedChannels}
-                onAdd={() => navigateToSettingsSection("channels")}
-              />
-            </section>
-
-            <div className="mt-8 grid min-w-0 grid-cols-1 gap-7 xl:grid-cols-[minmax(0,1.08fr)_minmax(300px,0.92fr)] xl:gap-8">
-              <CommentsPanel
-                isDark={isDark}
-                comments={latestComments.comments}
-                loading={latestComments.loading}
-                error={latestComments.error}
-                connectedChannelsCount={connectedChannels.length}
-                onOpen={(key) =>
-                  navigate(`community?channel=${encodeURIComponent(key)}`)
-                }
-                onViewMore={() =>
-                  handleViewAllComments(latestComments.comments[0]?.channel.key)
-                }
-                onConnect={() => navigateToSettingsSection("channels")}
-              />
-              <Panel
-                isDark={isDark}
-                title="Up Next"
-                meta="0 posts scheduled"
-                onViewAll={() => navigate("calendar")}
-                icon={<CalendarDays className="h-5 w-5" />}
-                line1="No posts scheduled yet."
-                line2="You'll see upcoming posts here."
-                action={{
-                  label: "Create Post",
-                  onClick: () => setIsNewPostOpen(true),
-                }}
-              />
-            </div>
-
-            <div className="mt-8">
-              <BlogSection isDark={isDark} />
             </div>
           </div>
         </div>
