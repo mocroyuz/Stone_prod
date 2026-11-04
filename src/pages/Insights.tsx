@@ -2,6 +2,12 @@
 // Page Insights — même shell arrondi que Home (fond de page + panneau rounded-[28px]).
 // Données YouTube réelles via useYouTubeInsights (services/youtube.ts).
 // Les autres réseaux conservent les données d'exemple en attendant leur API.
+//
+// ⚠️  Les posts encore programmés (status === "scheduled") ne sont PAS
+//     affichés : la page ne montre que les contenus réellement en ligne.
+//     Le service `useYouTubeInsights` (services/youtube.ts) et la route
+//     backend `/api/youtube/insights` doivent renvoyer un champ `status`
+//     par vidéo (voir la note en bas de fichier).
 
 import {
   useEffect,
@@ -115,6 +121,9 @@ type PostRow = {
   comments: number;
   engRate: number;
   videoViews: number;
+  /** Statut renvoyé par le backend ("scheduled" | "published" | …).
+   *  Absent → considéré comme en ligne (compat ancien backend). */
+  status?: string;
 };
 
 type SeriesDef = { key: NumKey; label: string; tone: 0 | 1; agg: "sum" | "last" };
@@ -280,6 +289,7 @@ function useInsights(
             comments: 0,
             engRate: 0,
             videoViews: 0,
+            status: "published",
           },
         ]
       : [];
@@ -319,6 +329,9 @@ function downloadCsv(filename: string, rows: (string | number)[][]) {
   a.click();
   URL.revokeObjectURL(url);
 }
+
+/** Une ligne du tableau est « en ligne » si elle n'est pas encore programmée. */
+const isOnlinePost = (p: PostRow): boolean => p.status !== "scheduled";
 
 /* ============================================================
    COURBE LISSÉE
@@ -1070,7 +1083,7 @@ function TipCard({
 
 const SUMMARY_INFO: Record<string, string> = {
   "Total Followers": "Total number of followers at the end of the period.",
-  Posts: "Posts published during the period.",
+  Posts: "Posts published during the period (scheduled posts excluded).",
   Reactions: "Likes and other reactions received.",
   Comments: "Comments received on your posts.",
   "Eng. Rate": "Engagement divided by reach.",
@@ -1117,8 +1130,24 @@ export default function Insights() {
   // Pour YouTube, le squelette vide sert d'affichage pendant le chargement.
   const yt = useYouTubeInsights(start, end, isYouTube && Boolean(channel), reloadKey);
   const fallback = useInsights(start, end, !isYouTube);
-  const { current, previous, summary, posts, previousPosts } =
-    isYouTube && yt.data ? yt.data : fallback;
+  const raw = isYouTube && yt.data ? yt.data : fallback;
+
+  // ── Filtre « en ligne uniquement » ──
+  // Les posts encore programmés (status === "scheduled") sont retirés de
+  // la liste affichée. Le service renvoie normalement `status` ; s'il est
+  // absent (ancien backend), `isOnlinePost` renvoie `true` et rien ne
+  // disparaît → pas de régression.
+  const current = raw.current;
+  const previous = raw.previous;
+  const posts = useMemo(() => raw.posts.filter(isOnlinePost), [raw.posts]);
+  const previousPosts = useMemo(
+    () => raw.previousPosts.filter(isOnlinePost),
+    [raw.previousPosts]
+  );
+  const summary = useMemo<Summary>(
+    () => ({ ...raw.summary, posts: posts.length }),
+    [raw.summary, posts.length]
+  );
 
   const days = current.length;
   const dates = current.map((p) => p.date);
@@ -1617,7 +1646,7 @@ export default function Insights() {
                             <Activity className="h-5 w-5" aria-hidden="true" />
                           </span>
                           <p className={`text-[12px] font-medium ${t.text}`}>
-                            {youtubeLoading ? "Loading videos…" : "No posts in this period"}
+                            {youtubeLoading ? "Loading videos…" : "No published posts in this period"}
                           </p>
                           {!youtubeLoading && (
                             <p className={`max-w-[360px] text-[12px] ${t.soft}`}>
