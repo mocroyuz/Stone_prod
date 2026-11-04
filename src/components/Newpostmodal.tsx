@@ -1488,6 +1488,10 @@ export default function NewPostModal({
     at: Date;
     hasVideo: boolean;
   } | null>(null);
+  /** Popup affichée quand aucune chaîne connectée n'est disponible pour publier. */
+  const [connectChannelPrompt, setConnectChannelPrompt] = useState<{
+    message: string;
+  } | null>(null);
   const [activeEmojiNetwork, setActiveEmojiNetwork] = useState<string | null>(null);
   const [collapsedCards, setCollapsedCards] = useState<Record<string, boolean>>({});
   const [previewNetwork, setPreviewNetwork] = useState<SocialNetworkId | null>(null);
@@ -1559,9 +1563,6 @@ export default function NewPostModal({
   const [tiktokCommercial, setTiktokCommercial] = useState<TikTokCommercial>(
     TIKTOK_DEFAULT_COMMERCIAL
   );
-  // Note : `tiktokSelected` et `youtubeSelected` sont définis plus bas,
-  // après `validNetworks`, pour refléter uniquement les chaînes
-  // réellement connectées (les IDs obsolètes sont ignorés).
   const tiktokPrivacyOptions = useMemo<string[]>(() => {
     const fromInfo = tiktokInfo?.privacy_level_options;
     if (fromInfo && fromInfo.length > 0) return fromInfo as string[];
@@ -1690,7 +1691,9 @@ export default function NewPostModal({
     if (!isOpen) return;
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        if (tagMenuOpen) {
+        if (connectChannelPrompt) {
+          setConnectChannelPrompt(null);
+        } else if (tagMenuOpen) {
           setTagMenuOpen(false);
         } else if (showSourceMenu) {
           setShowSourceMenu(null);
@@ -1714,7 +1717,7 @@ export default function NewPostModal({
       document.removeEventListener("keydown", handleKeyDown);
       document.body.style.overflow = previousOverflow;
     };
-  }, [isOpen, showActionMenu, showDateTimePanel, activeEmojiNetwork, showSourceMenu, tagMenuOpen]);
+  }, [isOpen, showActionMenu, showDateTimePanel, activeEmojiNetwork, showSourceMenu, tagMenuOpen, connectChannelPrompt]);
   // Focus le champ principal à l'ouverture (sauf si un brouillon est proposé)
   useEffect(() => {
     if (!isOpen || savedDraft) return;
@@ -1859,6 +1862,7 @@ export default function NewPostModal({
     setSubmitProgress(null);
     setYoutubeResult(null);
     setScheduledResult(null);
+    setConnectChannelPrompt(null);
     setActiveEmojiNetwork(null);
     setShowSourceMenu(null);
     setCanvaBusy(null);
@@ -2664,9 +2668,6 @@ export default function NewPostModal({
   const handleSubmit = async () => {
     if (!canSubmit) return;
 
-    // Si des réseaux sont sélectionnés mais plus connectés (brouillon repris,
-    // chaîne déconnectée en cours de session), on les ignore. Le backend
-    // refuserait la requête avec « At least one network is required ».
     const resolved: Record<string, string> = {};
     validNetworks.forEach((n) => {
       resolved[n] = contentFor(n);
@@ -2690,11 +2691,29 @@ export default function NewPostModal({
       if (own) mediaByNetwork[n] = own.map((item) => item.file);
     });
 
+    // Construit channelKeys en collectant les réseaux dont la clé manque.
+    // Si `channelKeys` finit vide, le backend refusera la requête avec
+    // « At least one network is required » : on intercepte avant l'appel réseau
+    // et on affiche la popup « Connect a channel ».
     const channelKeys: Partial<Record<SocialNetworkId, string>> = {};
+    const missingChannelKeys: SocialNetworkId[] = [];
     validNetworks.forEach((n) => {
       const key = channelTiles.find((t) => t.network.id === n)?.channel.key;
       if (key) channelKeys[n] = key;
+      else missingChannelKeys.push(n);
     });
+
+    if (missingChannelKeys.length > 0 || Object.keys(channelKeys).length === 0) {
+      setConnectChannelPrompt({
+        message:
+          missingChannelKeys.length > 0
+            ? `Impossible de retrouver la chaîne connectée pour ${missingChannelKeys
+                .map(labelOf)
+                .join(", ")}. Reconnecte-la dans les paramètres ou sélectionne une autre chaîne.`
+            : "Aucune chaîne connectée n'est disponible pour ce post. Connecte un canal dans les paramètres.",
+      });
+      return;
+    }
 
     const payload: NewPostPayload = {
       title: title.trim(),
@@ -2714,6 +2733,16 @@ export default function NewPostModal({
       externalNetworks: externallyScheduled,
       channelKeys,
     };
+
+    // Log utile pour diagnostiquer ce qui part réellement au backend.
+    if (typeof console !== "undefined") {
+      console.log("[NewPost] Submitting payload", {
+        networks,
+        validNetworks,
+        channelKeys,
+        payload,
+      });
+    }
 
     try {
       setIsSubmitting(true);
@@ -2873,6 +2902,19 @@ export default function NewPostModal({
     } catch (error) {
       console.error("Error while creating the post:", error);
       const raw = error instanceof Error ? error.message : "";
+
+      // Cas spécifique : le backend refuse parce qu'il ne voit aucun réseau.
+      // On affiche la popup « connecter une chaîne » plutôt que du texte rouge.
+      if (/at least one network is required/i.test(raw)) {
+        setConnectChannelPrompt({
+          message:
+            "Aucune chaîne connectée n'a été reconnue. Reconnecte-la dans les paramètres ou sélectionne une autre chaîne.",
+        });
+        setSubmitProgress(null);
+        setIsSubmitting(false);
+        return;
+      }
+
       const message = /too_many_posts|spam_risk/i.test(raw)
         ? "This TikTok account has reached its posting limit for now. Please try again later."
         : raw || "Something went wrong while publishing.";
@@ -2962,8 +3004,6 @@ export default function NewPostModal({
   const previewHasSomething = previewText.trim().length > 0 || previewMedia.length > 0;
   const avatarRing = isDark ? "ring-[#1c1c1e]" : "ring-neutral-50";
   // Avertissement : des réseaux sélectionnés ne sont plus connectés.
-  // Ça arrive si une chaîne est déconnectée pendant que le modal est ouvert
-  // (session expirée, autre onglet, etc.). `validNetworks` les ignorera.
   const staleNetworks = networks.filter((n) => !connectedNetworkIds.has(n));
   const renderMediaArea = (target: string) => {
     const isMaster = target === "master";
@@ -4137,6 +4177,64 @@ export default function NewPostModal({
               <div className="mt-5 flex gap-2">
                 <button type="button" onClick={ignoreDraft} className={["flex-1 rounded-xl border px-4 py-2.5 text-[13.5px] font-semibold transition", border, textPrimary, isDark ? "hover:bg-white/5" : "hover:bg-black/5"].join(" ")}>Start fresh</button>
                 <button type="button" autoFocus onClick={resumeDraft} className={["flex-1 rounded-xl px-4 py-2.5 text-[13.5px] font-semibold transition", isDark ? "bg-white text-[#141416] hover:bg-neutral-200" : "bg-neutral-900 text-white hover:bg-neutral-800"].join(" ")}>Resume</button>
+              </div>
+            </div>
+          </div>
+        )}
+        {/* ── Popup : aucune chaîne connectée ── */}
+        {connectChannelPrompt && (
+          <div className="absolute inset-0 z-[80] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+            <div
+              role="alertdialog"
+              aria-labelledby="connect-channel-title"
+              aria-describedby="connect-channel-desc"
+              className={[
+                "w-[380px] max-w-full rounded-2xl border p-6 shadow-2xl",
+                isDark ? "border-white/10 bg-[#1c1c1e]" : "border-black/10 bg-white",
+              ].join(" ")}
+            >
+              <h3
+                id="connect-channel-title"
+                className={["text-[16px] font-bold", textPrimary].join(" ")}
+              >
+                Connect a channel first
+              </h3>
+              <p
+                id="connect-channel-desc"
+                className={["mt-2 text-[13px] leading-relaxed", textSecondary].join(" ")}
+              >
+                {connectChannelPrompt.message}
+              </p>
+              <div className="mt-5 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setConnectChannelPrompt(null)}
+                  className={[
+                    "flex-1 rounded-xl border px-4 py-2.5 text-[13.5px] font-semibold transition",
+                    border,
+                    textPrimary,
+                    isDark ? "hover:bg-white/5" : "hover:bg-black/5",
+                  ].join(" ")}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  autoFocus
+                  onClick={() => {
+                    setConnectChannelPrompt(null);
+                    closeWithDraft();
+                    navigateToSettingsSection("channels");
+                  }}
+                  className={[
+                    "flex-1 rounded-xl px-4 py-2.5 text-[13.5px] font-semibold transition",
+                    isDark
+                      ? "bg-white text-[#141416] hover:bg-neutral-200"
+                      : "bg-neutral-900 text-white hover:bg-neutral-800",
+                  ].join(" ")}
+                >
+                  Go to settings
+                </button>
               </div>
             </div>
           </div>
