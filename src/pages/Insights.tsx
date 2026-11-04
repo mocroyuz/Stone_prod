@@ -25,6 +25,8 @@ import {
   CalendarClock,
   Check,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Columns,
   Copy,
   Download,
@@ -135,6 +137,8 @@ const RANGES: { key: Range; label: string }[] = [
   { key: "custom", label: "Custom" },
 ];
 
+const PAGE_SIZE = 10;
+
 /* ============================================================
    STYLE — tokens alignés sur le shell Home (dark plus profond)
 ============================================================ */
@@ -244,8 +248,6 @@ function resolveRange(range: Range, customStart: Date, customEnd: Date) {
 
 /* ============================================================
    FILTRE « EN LIGNE UNIQUEMENT »
-   Combine plusieurs heuristiques pour être fiable quel que
-   soit le format renvoyé par useYouTubeInsights.
 ============================================================ */
 
 const SCHEDULED_STATUSES = new Set([
@@ -282,7 +284,7 @@ const isOnlinePost = (p: PostRow): boolean => {
 };
 
 /* ============================================================
-   DONNÉES D'EXEMPLE (réseaux sans API pour l'instant)
+   DONNÉES D'EXEMPLE
 ============================================================ */
 
 function useInsights(
@@ -368,7 +370,7 @@ function downloadCsv(filename: string, rows: (string | number)[][]) {
 }
 
 /* ============================================================
-   COURBE LISSÉE
+   COURBE LISSÉE & CHART
 ============================================================ */
 
 function smoothPath(pts: [number, number][]): string {
@@ -408,10 +410,6 @@ function smoothPath(pts: [number, number][]): string {
   }
   return d;
 }
-
-/* ============================================================
-   CHART
-============================================================ */
 
 type ChartSeries = { label: string; color: string; values: number[]; prev: number[] };
 
@@ -807,7 +805,6 @@ function Avatar({
   );
 }
 
-/** Menu de sélection de canal (local à Insights) — sans bouton marque-page. */
 function ChannelMenu({
   channels,
   current,
@@ -900,10 +897,6 @@ function ChannelMenu({
     </div>
   );
 }
-
-/* ============================================================
-   RANGE PICKER
-============================================================ */
 
 function RangePicker({
   range,
@@ -1055,10 +1048,6 @@ function RangePicker({
   );
 }
 
-/* ============================================================
-   ICÔNE INSIGHTS — identique à celle de la sidebar
-============================================================ */
-
 function InsightsIcon() {
   return (
     <svg
@@ -1075,10 +1064,6 @@ function InsightsIcon() {
     </svg>
   );
 }
-
-/* ============================================================
-   BANNIÈRE — cartes blanches inclinées
-============================================================ */
 
 function TipCard({
   className,
@@ -1138,7 +1123,6 @@ export default function Insights() {
   const channel = channels.find((c) => c.key === channelKey) ?? channels[0];
   const isYouTube = isYouTubeChannel(channel);
 
-  // Favoris partagés avec la sidebar.
   const { isFavorite, toggle: toggleFavorite } = useFavorites();
   const saved = isFavorite(PAGE_ROUTE);
 
@@ -1154,6 +1138,14 @@ export default function Insights() {
   const [query, setQuery] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
 
+  // ── PAGINATION STATE ──
+  const [page, setPage] = useState(1);
+
+  // Reset de la page si les filtres changent
+  useEffect(() => {
+    setPage(1);
+  }, [postsPeriod, range, query, sort]);
+
   const { start, end } = useMemo(
     () => resolveRange(range, customStart, customEnd),
     [range, customStart, customEnd]
@@ -1163,7 +1155,6 @@ export default function Insights() {
   const fallback = useInsights(start, end, !isYouTube);
   const raw = isYouTube && yt.data ? yt.data : fallback;
 
-  // ── Filtre « en ligne uniquement » (défense en profondeur) ──
   const posts = useMemo(() => raw.posts.filter(isOnlinePost), [raw.posts]);
   const previousPosts = useMemo(
     () => raw.previousPosts.filter(isOnlinePost),
@@ -1174,7 +1165,6 @@ export default function Insights() {
     [raw.summary, posts.length]
   );
 
-  // ── Log de diagnostic ──
   useEffect(() => {
     if (!isYouTube || !yt.data) return;
     const totalThis = raw.posts.length;
@@ -1275,6 +1265,11 @@ export default function Insights() {
     const dir = sort.dir === "asc" ? 1 : -1;
     return [...matchingRows].sort((a, b) => (a[sort.key] - b[sort.key]) * dir);
   }, [rows, sort, needle]);
+
+  // ── PAGINATION CALCULS ──
+  const totalPages = Math.max(1, Math.ceil(sortedRows.length / PAGE_SIZE));
+  const paginatedRows = sortedRows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
   const toggleSort = (key: SortKey) =>
     setSort((s) => (s?.key === key ? { key, dir: s.dir === "desc" ? "asc" : "desc" } : { key, dir: "desc" }));
 
@@ -1679,7 +1674,7 @@ export default function Insights() {
                         </button>
                       </div>
 
-                      {sortedRows.length === 0 ? (
+                      {paginatedRows.length === 0 ? (
                         <div className={`flex flex-col items-center gap-2 border-t px-6 py-10 text-center ${t.border}`}>
                           <span className={`flex h-11 w-11 items-center justify-center rounded-full ${t.iconBox}`}>
                             <Activity className="h-5 w-5" aria-hidden="true" />
@@ -1703,53 +1698,99 @@ export default function Insights() {
                           )}
                         </div>
                       ) : (
-                        sortedRows.map((p, idx) => (
-                          <div
-                            key={p.id}
-                            className={`grid ${TABLE_GRID} items-center gap-2 border-t px-4 py-3 text-[13px] ${t.border} ${t.text}`}
-                          >
-                            <div className="flex min-w-0 items-center gap-3">
-                              <span className={`w-5 shrink-0 text-[12px] ${t.muted}`}>#{idx + 1}</span>
-                              <span className={`flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl ${t.iconBox}`}>
-                                {p.thumbnailUrl ? (
-                                  <img src={p.thumbnailUrl} alt="" referrerPolicy="no-referrer" loading="lazy" className="h-full w-full object-cover" />
-                                ) : (
-                                  mediaIcon(p.media)
-                                )}
-                              </span>
-                              <div className="min-w-0">
-                                {isYouTube ? (
-                                  <a
-                                    href={`https://www.youtube.com/watch?v=${p.id}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className={`block truncate rounded text-[14px] font-medium hover:underline ${t.soft} ${t.ring}`}
-                                  >
-                                    {p.label}
-                                  </a>
-                                ) : (
-                                  <p className={`truncate text-[14px] font-medium ${t.soft}`}>{p.label}</p>
-                                )}
-                                <p className={`text-[11px] ${t.muted}`}>{fmtFull(p.date)}</p>
-                              </div>
-                            </div>
-                            {columns.map((c) => (
-                              <span key={c.key} className="tabular-nums">
-                                {c.render(p)}
-                              </span>
-                            ))}
-                            <button
-                              type="button"
-                              aria-label="Post actions"
-                              className={`flex h-8 w-8 items-center justify-center rounded-lg ${t.soft} ${t.hover} ${t.ring}`}
+                        paginatedRows.map((p, idx) => {
+                          const globalIdx = (page - 1) * PAGE_SIZE + idx + 1;
+                          return (
+                            <div
+                              key={p.id}
+                              className={`grid ${TABLE_GRID} items-center gap-2 border-t px-4 py-3 text-[13px] ${t.border} ${t.text}`}
                             >
-                              <MoreVertical className="h-4 w-4" aria-hidden="true" />
-                            </button>
-                          </div>
-                        ))
+                              <div className="flex min-w-0 items-center gap-3">
+                                <span className={`w-5 shrink-0 text-[12px] ${t.muted}`}>#{globalIdx}</span>
+                                <span className={`flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl ${t.iconBox}`}>
+                                  {p.thumbnailUrl ? (
+                                    <img src={p.thumbnailUrl} alt="" referrerPolicy="no-referrer" loading="lazy" className="h-full w-full object-cover" />
+                                  ) : (
+                                    mediaIcon(p.media)
+                                  )}
+                                </span>
+                                <div className="min-w-0">
+                                  {isYouTube ? (
+                                    <a
+                                      href={`https://www.youtube.com/watch?v=${p.id}`}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className={`block truncate rounded text-[14px] font-medium hover:underline ${t.soft} ${t.ring}`}
+                                    >
+                                      {p.label}
+                                    </a>
+                                  ) : (
+                                    <p className={`truncate text-[14px] font-medium ${t.soft}`}>{p.label}</p>
+                                  )}
+                                  <p className={`text-[11px] ${t.muted}`}>{fmtFull(p.date)}</p>
+                                </div>
+                              </div>
+                              {columns.map((c) => (
+                                <span key={c.key} className="tabular-nums">
+                                  {c.render(p)}
+                                </span>
+                              ))}
+                              <button
+                                type="button"
+                                aria-label="Post actions"
+                                className={`flex h-8 w-8 items-center justify-center rounded-lg ${t.soft} ${t.hover} ${t.ring}`}
+                              >
+                                <MoreVertical className="h-4 w-4" aria-hidden="true" />
+                              </button>
+                            </div>
+                          );
+                        })
                       )}
                     </div>
                   </div>
+
+                  {/* PAGINATION UI */}
+                  {totalPages > 1 && (
+                    <div className={`mt-4 flex items-center justify-center gap-1.5 rounded-2xl border py-2 ${t.border} ${t.panel}`}>
+                      <button
+                        type="button"
+                        onClick={() => setPage((p) => Math.max(1, p - 1))}
+                        disabled={page === 1}
+                        aria-label="Previous page"
+                        className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors disabled:opacity-30 ${t.ring} ${t.soft} ${t.hover}`}
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </button>
+
+                      {Array.from({ length: totalPages }).map((_, i) => {
+                        const pg = i + 1;
+                        const active = page === pg;
+                        return (
+                          <button
+                            key={pg}
+                            type="button"
+                            onClick={() => setPage(pg)}
+                            aria-current={active ? "page" : undefined}
+                            className={`flex h-8 w-8 items-center justify-center rounded-lg text-[12px] font-semibold transition-colors ${t.ring} ${
+                              active ? (isDark ? "bg-[#2a4a2a] text-green-100" : "bg-neutral-200 text-black") : `${t.soft} ${t.hover}`
+                            }`}
+                          >
+                            {pg}
+                          </button>
+                        );
+                      })}
+
+                      <button
+                        type="button"
+                        onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                        disabled={page === totalPages}
+                        aria-label="Next page"
+                        className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors disabled:opacity-30 ${t.ring} ${t.soft} ${t.hover}`}
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </button>
+                    </div>
+                  )}
                 </section>
 
                 {/* METRICS */}
