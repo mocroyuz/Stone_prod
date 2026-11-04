@@ -82,6 +82,50 @@ function writeTabToHash(tab: Tab) {
   if (current !== next) history.replaceState(null, "", next);
 }
 
+/* ───────── Persistance des préférences UI (survit au refresh) ─────────
+ *
+ * L'onglet (Ideas / Templates) est déjà persisté via le hash.
+ * On persiste ici :
+ *   - le mode d'affichage (Board / Gallery)
+ *   - les tags masqués dans le filtre « Tags »
+ *
+ * Comme pour la page Home / Insights, ces préférences sont lues une fois
+ * au montage (initialisation paresseuse de useState) puis écrites à chaque
+ * changement via useEffect. Un reload conserve donc exactement l'état.
+ */
+
+const CREATE_VIEW_STORAGE_KEY = "create.view";
+const CREATE_HIDDEN_TAGS_STORAGE_KEY = "create.hiddenTags";
+
+function readStoredView(): View {
+  if (typeof window === "undefined") return "board";
+  try {
+    const raw = window.localStorage.getItem(CREATE_VIEW_STORAGE_KEY);
+    if (raw === "board" || raw === "gallery") return raw;
+  } catch {
+    /* ignore */
+  }
+  return "board";
+}
+
+function readStoredHiddenTags(): string[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(CREATE_HIDDEN_TAGS_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed: unknown = JSON.parse(raw);
+    if (
+      Array.isArray(parsed) &&
+      parsed.every((x): x is string => typeof x === "string")
+    ) {
+      return parsed;
+    }
+  } catch {
+    /* ignore */
+  }
+  return [];
+}
+
 /* ───────── Cache module-level des tags ─────────
  *
  * Les tags sont chargés depuis Supabase UNE SEULE FOIS par session.
@@ -766,10 +810,32 @@ export default function Create() {
   } = useBoard();
 
   const [tab, setTab] = useState<Tab>(tabFromHash);
-  const [view, setView] = useState<View>("board");
-  const [hidden, setHidden] = useState<string[]>([]);
+  // Préférences UI persistées (survivent au refresh).
+  const [view, setView] = useState<View>(readStoredView);
+  const [hidden, setHidden] = useState<string[]>(readStoredHiddenTags);
   const [query, setQuery] = useState("");
   const [isFolderOpen, setIsFolderOpen] = useState(false);
+
+  // Persiste le mode d'affichage (Board / Gallery).
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(CREATE_VIEW_STORAGE_KEY, view);
+    } catch {
+      /* ignore */
+    }
+  }, [view]);
+
+  // Persiste les tags masqués (filtre « Tags »).
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(
+        CREATE_HIDDEN_TAGS_STORAGE_KEY,
+        JSON.stringify(hidden)
+      );
+    } catch {
+      /* ignore */
+    }
+  }, [hidden]);
 
   const [colDrag, setColDrag] = useState<string | null>(null);
   const [cardDrag, setCardDrag] = useState<string | null>(null);
