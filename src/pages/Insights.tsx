@@ -1,16 +1,24 @@
 // src/pages/Insights.tsx
 // Page Insights — même shell arrondi que Home (fond de page + panneau rounded-[28px]).
 // Données YouTube réelles via useYouTubeInsights (services/youtube.ts).
-// Les autres réseaux conservent les données d'exemple en attendant leur API.
 //
 // ⚠️  Les posts encore programmés ne sont PAS affichés : la page ne montre
 //     que les contenus réellement en ligne. Le filtre est appliqué deux fois :
 //       - dans `buildPosts` (services/youtube.ts)
 //       - dans `isOnlinePost` ci-dessous (défense en profondeur)
 //
-// ✨ Le graphique « Metrics » propose maintenant deux rendus au choix :
-//       - Line (courbe lissée avec aire)
-//       - Bar  (barres groupées par jour, période précédente en barres hachurées)
+// ✨ Nouveautés de cette version
+//   Demandées :
+//     • Variations (deltas) vs période précédente dans le Summary
+//     • Nettoyage des éléments factices (fausses cartes, boutons sans action,
+//       données d'exemple des autres réseaux)
+//   Ajoutées :
+//     1. Graphique Line / Bar au choix
+//     2. Regroupement automatique par semaine / 30 jours sur les longues périodes
+//     3. Préférences mémorisées (période, type de graphique, vue, onglet)
+//     4. Champ de recherche visible au-dessus du tableau des posts
+//     5. Pagination avec ellipses (1 … 4 5 6 … 50)
+//     6. Menu Export (métriques quotidiennes / posts) avec CSV correctement échappé
 
 import {
   useEffect,
@@ -25,6 +33,8 @@ import {
 } from "react";
 import {
   Activity,
+  ArrowDownRight,
+  ArrowUpRight,
   BarChart3,
   Bookmark,
   CalendarClock,
@@ -32,25 +42,22 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  Columns,
   Copy,
   Download,
   ExternalLink,
   Eye,
   FileText,
-  FlaskConical,
   Image as ImageIcon,
   Info,
   LineChart,
-  MoreVertical,
-  Pencil,
+  Minus,
   Play,
   Plus,
   RefreshCw,
-  Repeat2,
-  Send,
+  Search,
   Tag,
   TrendingUp,
+  X,
   Zap,
 } from "lucide-react";
 import { navigate, useHashRoute } from "../hooks/useHashRoute";
@@ -137,6 +144,8 @@ type PostRow = {
 
 type SeriesDef = { key: NumKey; label: string; tone: 0 | 1; agg: "sum" | "last" };
 
+type Delta = { text: string; tone: "up" | "down" | "flat" } | null;
+
 const RANGES: { key: Range; label: string }[] = [
   { key: "7d", label: "7 Days" },
   { key: "30d", label: "30 Days" },
@@ -145,6 +154,50 @@ const RANGES: { key: Range; label: string }[] = [
 ];
 
 const PAGE_SIZE = 10;
+
+/* ============================================================
+   PRÉFÉRENCES MÉMORISÉES
+============================================================ */
+
+const PREFS_KEY = "insights:prefs:v1";
+
+type Prefs = {
+  range: Range;
+  chartType: ChartType;
+  chartView: ChartView;
+  metricTab: MetricTab;
+};
+
+const DEFAULT_PREFS: Prefs = {
+  range: "30d",
+  chartType: "line",
+  chartView: "this",
+  metricTab: "visibility",
+};
+
+const oneOf = <T extends string>(value: unknown, list: readonly T[], fallback: T): T =>
+  list.includes(value as T) ? (value as T) : fallback;
+
+function loadPrefs(): Prefs {
+  try {
+    const raw = window.localStorage.getItem(PREFS_KEY);
+    if (!raw) return DEFAULT_PREFS;
+    const p = JSON.parse(raw) as Partial<Prefs>;
+    return {
+      // « custom » n'est jamais restauré : les dates personnalisées ne sont pas sauvegardées.
+      range: oneOf(p.range, ["7d", "30d", "mtd"] as const, DEFAULT_PREFS.range),
+      chartType: oneOf(p.chartType, ["line", "bar"] as const, DEFAULT_PREFS.chartType),
+      chartView: oneOf(p.chartView, ["this", "comparison", "both"] as const, DEFAULT_PREFS.chartView),
+      metricTab: oneOf(
+        p.metricTab,
+        ["posts", "impact", "growth", "visibility"] as const,
+        DEFAULT_PREFS.metricTab
+      ),
+    };
+  } catch {
+    return DEFAULT_PREFS;
+  }
+}
 
 /* ============================================================
    STYLE — tokens alignés sur le shell Home (dark plus profond)
@@ -254,6 +307,28 @@ function resolveRange(range: Range, customStart: Date, customEnd: Date) {
 }
 
 /* ============================================================
+   VARIATIONS (DELTAS)
+============================================================ */
+
+/** Variation en pourcentage. `allowNew` : afficher « New » quand la période précédente vaut 0. */
+function pctDelta(cur: number, prev: number, allowNew = true): Delta {
+  if (!Number.isFinite(cur) || !Number.isFinite(prev)) return null;
+  if (prev === 0) return cur === 0 || !allowNew ? null : { text: "New", tone: "up" };
+  const pct = ((cur - prev) / prev) * 100;
+  if (Math.abs(pct) < 0.05) return { text: "0%", tone: "flat" };
+  const digits = Math.abs(pct) >= 10 ? 0 : 1;
+  return { text: `${pct > 0 ? "+" : ""}${pct.toFixed(digits)}%`, tone: pct > 0 ? "up" : "down" };
+}
+
+/** Variation en points (pour un taux déjà exprimé en %). */
+function ptsDelta(cur: number, prev: number): Delta {
+  if (!Number.isFinite(cur) || !Number.isFinite(prev)) return null;
+  const diff = cur - prev;
+  if (Math.abs(diff) < 0.005) return { text: "0 pt", tone: "flat" };
+  return { text: `${diff > 0 ? "+" : ""}${diff.toFixed(2)} pt`, tone: diff > 0 ? "up" : "down" };
+}
+
+/* ============================================================
    FILTRE « EN LIGNE UNIQUEMENT »
 ============================================================ */
 
@@ -291,13 +366,13 @@ const isOnlinePost = (p: PostRow): boolean => {
 };
 
 /* ============================================================
-   DONNÉES D'EXEMPLE
+   DONNÉES VIDES (avant chargement / pas de données)
+   — plus aucune donnée d'exemple : zéros uniquement.
 ============================================================ */
 
-function useInsights(
+function useEmptyInsights(
   start: Date,
-  end: Date,
-  sample: boolean
+  end: Date
 ): {
   current: Point[];
   previous: Point[];
@@ -310,42 +385,22 @@ function useInsights(
 
   return useMemo(() => {
     const days = Math.round((e - s) / DAY) + 1;
-    const build = (from: Date, withPost: boolean): Point[] =>
+    const build = (from: Date): Point[] =>
       Array.from({ length: days }, (_, i) => ({
         date: addDays(from, i),
-        posts: withPost && i === Math.max(0, days - 3) ? 1 : 0,
+        posts: 0,
         reactions: 0,
         comments: 0,
         followers: 0,
         profileViews: 0,
       }));
 
-    const current = build(new Date(s), sample);
-    const previous = build(addDays(new Date(s), -days), false);
-
-    const postDate = addDays(new Date(e), -2);
-    const posts: PostRow[] = sample
-      ? [
-          {
-            id: "1",
-            label: "Media only",
-            date: postDate < new Date(s) ? new Date(s) : postDate,
-            media: "image",
-            reactions: 0,
-            comments: 0,
-            engRate: 0,
-            videoViews: 0,
-            status: "published",
-          },
-        ]
-      : [];
-
     return {
-      current,
-      previous,
+      current: build(new Date(s)),
+      previous: build(addDays(new Date(s), -days)),
       summary: {
         followers: 0,
-        posts: posts.length,
+        posts: 0,
         reactions: 0,
         comments: 0,
         engRate: 0,
@@ -355,10 +410,10 @@ function useInsights(
         watchMin: 0,
         avgWatchSec: 0,
       },
-      posts,
+      posts: [] as PostRow[],
       previousPosts: [] as PostRow[],
     };
-  }, [s, e, sample]);
+  }, [s, e]);
 }
 
 function useHashChannel(): string | null {
@@ -366,14 +421,43 @@ function useHashChannel(): string | null {
   return new URLSearchParams(window.location.search).get("channel");
 }
 
+/* ============================================================
+   CSV
+============================================================ */
+
+const csvCell = (v: string | number): string => {
+  const s = String(v);
+  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+};
+
 function downloadCsv(filename: string, rows: (string | number)[][]) {
-  const csv = rows.map((r) => r.join(",")).join("\n");
-  const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+  const csv = rows.map((r) => r.map(csvCell).join(",")).join("\r\n");
+  // BOM UTF-8 : Excel ouvre correctement les accents.
+  const url = URL.createObjectURL(new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" }));
   const a = document.createElement("a");
   a.href = url;
   a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+/* ============================================================
+   PAGINATION (avec ellipses)
+============================================================ */
+
+function pageItems(page: number, total: number): (number | "…")[] {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+  const set = new Set<number>([1, total]);
+  for (let i = page - 1; i <= page + 1; i++) if (i >= 1 && i <= total) set.add(i);
+  if (page <= 3) [2, 3, 4].forEach((n) => set.add(n));
+  if (page >= total - 2) [total - 1, total - 2, total - 3].forEach((n) => set.add(n));
+  const sorted = [...set].sort((a, b) => a - b);
+  const out: (number | "…")[] = [];
+  sorted.forEach((n, i) => {
+    if (i > 0 && n - sorted[i - 1] > 1) out.push("…");
+    out.push(n);
+  });
+  return out;
 }
 
 /* ============================================================
@@ -425,15 +509,18 @@ function Chart({
   series,
   view,
   type,
+  bucket,
   isDark,
 }: {
   dates: Date[];
   series: ChartSeries[];
   view: ChartView;
   type: ChartType;
+  /** Nombre de jours regroupés par point (1 = quotidien, 7 = hebdo, 30 = par 30 jours). */
+  bucket: number;
   isDark: boolean;
 }) {
-  const [hover, setHover] = useState<number | null>(null);
+  const [hoverRaw, setHover] = useState<number | null>(null);
   const uid = useId().replace(/:/g, "");
   const gradId = `grad-${uid}`;
   const hatchId = `hatch-${uid}`;
@@ -445,6 +532,9 @@ function Chart({
   const n = dates.length;
   const isBar = type === "bar";
 
+  // Garde-fou : si les données changent (période, regroupement), l'index survolé peut dépasser.
+  const hover = hoverRaw !== null && hoverRaw < n ? hoverRaw : null;
+
   const showThis = view === "this" || view === "both";
   const showPrev = view === "comparison" || view === "both";
 
@@ -455,7 +545,7 @@ function Chart({
     Math.max(4, ...(showThis ? s.values : []), ...(showPrev ? s.prev : []))
   );
 
-  // En mode barres, chaque jour occupe une « colonne » et x() renvoie son centre.
+  // En mode barres, chaque point occupe une « colonne » et x() renvoie son centre.
   const colW = iw / Math.max(1, n);
   const x = (i: number) =>
     isBar ? pad.l + (i + 0.5) * colW : pad.l + (n === 1 ? iw / 2 : (i / (n - 1)) * iw);
@@ -463,6 +553,13 @@ function Chart({
 
   const path = (si: number, vals: number[]) =>
     smoothPath(vals.map((v, i) => [x(i), y(si, v)] as [number, number]));
+
+  const heading = (i: number) =>
+    bucket === 1
+      ? fmtFull(dates[i])
+      : bucket === 7
+      ? `Week of ${fmtFull(dates[i])}`
+      : `${bucket} days from ${fmtFull(dates[i])}`;
 
   const ticks = [0, 1, 2, 3, 4];
   const labelIdx = Array.from(new Set([0, 0.5, 1].map((r) => Math.round(r * (n - 1)))));
@@ -509,7 +606,7 @@ function Chart({
       }`}
       tabIndex={0}
       role="group"
-      aria-label={`Metrics ${isBar ? "bar" : "line"} chart. Use the left and right arrow keys to inspect each day.`}
+      aria-label={`Metrics ${isBar ? "bar" : "line"} chart. Use the left and right arrow keys to inspect each point.`}
       onKeyDown={onKey}
       onBlur={() => setHover(null)}
     >
@@ -716,7 +813,7 @@ function Chart({
             transform: `translateX(${hover > n / 2 ? "-110%" : "10%"})`,
           }}
         >
-          <div className="mb-1 text-[11px] opacity-50">{fmtFull(dates[hover])}</div>
+          <div className="mb-1 text-[11px] opacity-50">{heading(hover)}</div>
           {showThis &&
             series.map((s) => (
               <div key={s.label} className="flex justify-between gap-5">
@@ -735,7 +832,7 @@ function Chart({
 
       <p className="sr-only" aria-live="polite">
         {hover !== null
-          ? `${fmtFull(dates[hover])}: ${series.map((s) => `${s.values[hover]} ${s.label}`).join(", ")}`
+          ? `${heading(hover)}: ${series.map((s) => `${s.values[hover]} ${s.label}`).join(", ")}`
           : ""}
       </p>
     </div>
@@ -794,29 +891,54 @@ function IconBtn({
   onClick,
   children,
   t,
-  boxed = false,
 }: {
   label: string;
   onClick?: () => void;
   children: ReactNode;
   t: Tokens;
-  boxed?: boolean;
 }) {
   return (
     <button
       type="button"
       aria-label={label}
       onClick={onClick}
-      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-colors ${t.ring} ${t.soft} ${
-        boxed ? `border ${t.inner} ${t.hover}` : t.hover
-      }`}
+      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-colors ${t.ring} ${t.soft} ${t.hover}`}
     >
       {children}
     </button>
   );
 }
 
-function MetricBox({ label, value, info, t }: { label: string; value: string; info: string; t: Tokens }) {
+function DeltaBadge({ delta, t }: { delta: Delta; t: Tokens }) {
+  if (!delta) return <span className="h-4" aria-hidden="true" />;
+  const color =
+    delta.tone === "up" ? "text-emerald-500" : delta.tone === "down" ? "text-red-500" : t.muted;
+  const Icon = delta.tone === "up" ? ArrowUpRight : delta.tone === "down" ? ArrowDownRight : Minus;
+  return (
+    <span
+      className={`flex h-4 items-center gap-1 text-[11px] font-semibold tabular-nums ${color}`}
+      aria-label={`${delta.text} compared to the previous period`}
+      title="Compared to the previous period"
+    >
+      <Icon className="h-3 w-3" aria-hidden="true" />
+      {delta.text}
+    </span>
+  );
+}
+
+function MetricBox({
+  label,
+  value,
+  info,
+  delta,
+  t,
+}: {
+  label: string;
+  value: string;
+  info: string;
+  delta: Delta;
+  t: Tokens;
+}) {
   return (
     <div className={`flex flex-col gap-2 rounded-xl border px-3.5 py-3 ${t.inner}`}>
       <span className={`flex items-center justify-between gap-2 text-[10px] font-medium ${t.soft}`}>
@@ -826,6 +948,7 @@ function MetricBox({ label, value, info, t }: { label: string; value: string; in
         </span>
       </span>
       <span className={`text-[20px] font-bold leading-none tracking-tight tabular-nums ${t.text}`}>{value}</span>
+      <DeltaBadge delta={delta} t={t} />
     </div>
   );
 }
@@ -1006,6 +1129,80 @@ function ChannelMenu({
   );
 }
 
+function ExportMenu({
+  disabled,
+  onDaily,
+  onPosts,
+  t,
+}: {
+  disabled: boolean;
+  onDaily: () => void;
+  onPosts: () => void;
+  t: Tokens;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: PointerEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    document.addEventListener("pointerdown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  const item = (label: string, hint: string, action: () => void) => (
+    <button
+      type="button"
+      role="menuitem"
+      onClick={() => {
+        setOpen(false);
+        action();
+      }}
+      className={`flex w-full flex-col items-start gap-0.5 rounded-xl px-3 py-2 text-left transition-colors ${t.ring} ${t.hover}`}
+    >
+      <span className={`text-[12px] font-semibold ${t.text}`}>{label}</span>
+      <span className={`text-[11px] ${t.muted}`}>{hint}</span>
+    </button>
+  );
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        disabled={disabled}
+        onClick={() => setOpen((o) => !o)}
+        className={`flex h-10 items-center gap-2 rounded-xl px-3.5 text-[12px] font-semibold transition-colors disabled:opacity-40 ${t.ring} ${t.outlineBtn}`}
+      >
+        <Download className="h-4 w-4" aria-hidden="true" />
+        Export
+        <ChevronDown
+          className={`h-3.5 w-3.5 opacity-70 transition-transform motion-reduce:transition-none ${open ? "rotate-180" : ""}`}
+          aria-hidden="true"
+        />
+      </button>
+
+      {open && (
+        <div
+          role="menu"
+          className={`absolute right-0 z-30 mt-2 w-64 rounded-2xl border p-1.5 shadow-[0_12px_40px_rgba(0,0,0,0.5)] ${t.popover}`}
+        >
+          {item("Daily metrics", "One row per day, with the previous period (.csv)", onDaily)}
+          {item("Posts", "Published posts of both periods (.csv)", onPosts)}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function RangePicker({
   range,
   start,
@@ -1173,37 +1370,6 @@ function InsightsIcon() {
   );
 }
 
-function TipCard({
-  className,
-  icon,
-  title,
-  text,
-  cta,
-}: {
-  className: string;
-  icon: ReactNode;
-  title: string;
-  text: string;
-  cta?: string;
-}) {
-  return (
-    <div className={`absolute w-[176px] rounded-xl bg-white p-3 text-black shadow-[0_6px_22px_rgba(0,0,0,0.35)] ring-1 ring-black/5 ${className}`}>
-      <div className="flex items-center gap-2">
-        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-neutral-900 text-white">
-          {icon}
-        </span>
-        <span className="text-[10.5px] font-semibold leading-tight">{title}</span>
-      </div>
-      <p className="mt-2 text-[9.5px] leading-snug text-neutral-600">{text}</p>
-      {cta && (
-        <span className="mt-2 inline-block rounded-md border border-neutral-300 px-2 py-0.5 text-[9.5px] font-semibold">
-          {cta}
-        </span>
-      )}
-    </div>
-  );
-}
-
 /* ============================================================
    PAGE
 ============================================================ */
@@ -1221,6 +1387,10 @@ const SUMMARY_INFO: Record<string, string> = {
   "Avg. Watch Time (sec)": "Average seconds watched per view.",
 };
 
+const sumKey = (pts: Point[], k: NumKey) => pts.reduce((a, p) => a + p[k], 0);
+const mean = (xs: number[]): number | null =>
+  xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null;
+
 export default function Insights() {
   const { theme } = useTheme();
   const isDark = theme === "dark";
@@ -1234,13 +1404,16 @@ export default function Insights() {
   const { isFavorite, toggle: toggleFavorite } = useFavorites();
   const saved = isFavorite(PAGE_ROUTE);
 
-  const [range, setRange] = useState<Range>("30d");
+  // Préférences restaurées depuis le localStorage (valeurs validées).
+  const [initialPrefs] = useState<Prefs>(loadPrefs);
+
+  const [range, setRange] = useState<Range>(initialPrefs.range);
   const [customStart, setCustomStart] = useState(() => addDays(startOfDay(new Date()), -29));
   const [customEnd, setCustomEnd] = useState(() => startOfDay(new Date()));
-  const [chartView, setChartView] = useState<ChartView>("this");
-  const [chartType, setChartType] = useState<ChartType>("line");
+  const [chartView, setChartView] = useState<ChartView>(initialPrefs.chartView);
+  const [chartType, setChartType] = useState<ChartType>(initialPrefs.chartType);
   const [postsPeriod, setPostsPeriod] = useState<PostsPeriod>("this");
-  const [metricTab, setMetricTab] = useState<MetricTab>("visibility");
+  const [metricTab, setMetricTab] = useState<MetricTab>(initialPrefs.metricTab);
   const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" } | null>(null);
   const [isFolderOpen, setIsFolderOpen] = useState(false);
   const [isNewPostOpen, setIsNewPostOpen] = useState(false);
@@ -1249,6 +1422,21 @@ export default function Insights() {
 
   // ── PAGINATION STATE ──
   const [page, setPage] = useState(1);
+
+  // Sauvegarde des préférences
+  useEffect(() => {
+    try {
+      const prefs: Prefs = {
+        range: range === "custom" ? "30d" : range,
+        chartType,
+        chartView,
+        metricTab,
+      };
+      window.localStorage.setItem(PREFS_KEY, JSON.stringify(prefs));
+    } catch {
+      /* stockage indisponible : on ignore */
+    }
+  }, [range, chartType, chartView, metricTab]);
 
   // Reset de la page si les filtres changent
   useEffect(() => {
@@ -1261,7 +1449,7 @@ export default function Insights() {
   );
 
   const yt = useYouTubeInsights(start, end, isYouTube && Boolean(channel), reloadKey);
-  const fallback = useInsights(start, end, !isYouTube);
+  const fallback = useEmptyInsights(start, end);
   const raw = isYouTube && yt.data ? yt.data : fallback;
 
   const posts = useMemo(() => raw.posts.filter(isOnlinePost), [raw.posts]);
@@ -1312,6 +1500,35 @@ export default function Insights() {
     { label: "Avg. Watch Time (sec)", value: nf(summary.avgWatchSec) },
   ];
 
+  // Variations : uniquement pour les métriques dont on dispose réellement
+  // pour la période précédente (points quotidiens + posts).
+  const curEng = mean(posts.map((p) => p.engRate));
+  const prevEng = mean(previousPosts.map((p) => p.engRate));
+  const deltas: Record<string, Delta> = {
+    "Total Followers": pctDelta(
+      current[days - 1]?.followers ?? 0,
+      previous[days - 1]?.followers ?? 0,
+      false
+    ),
+    Posts: pctDelta(posts.length, previousPosts.length),
+    Reactions: pctDelta(sumKey(current, "reactions"), sumKey(previous, "reactions")),
+    Comments: pctDelta(sumKey(current, "comments"), sumKey(previous, "comments")),
+    "Eng. Rate": curEng !== null && prevEng !== null ? ptsDelta(curEng, prevEng) : null,
+  };
+
+  // Regroupement automatique pour garder un graphique lisible.
+  const bucket = days > 180 ? 30 : days > 60 ? 7 : 1;
+  const bucketValues = (vals: number[], agg: "sum" | "last"): number[] => {
+    if (bucket === 1) return vals;
+    const out: number[] = [];
+    for (let i = 0; i < vals.length; i += bucket) {
+      const slice = vals.slice(i, i + bucket);
+      out.push(agg === "sum" ? slice.reduce((a, b) => a + b, 0) : slice[slice.length - 1]);
+    }
+    return out;
+  };
+  const chartDates = bucket === 1 ? dates : dates.filter((_, i) => i % bucket === 0);
+
   const TONES = [isDark ? "#ffffff" : "#111111", isDark ? "#7c7c85" : "#a3a3a3"];
   const SERIES: Record<MetricTab, SeriesDef[]> = {
     posts: [
@@ -1332,19 +1549,14 @@ export default function Insights() {
   const chartSeries: ChartSeries[] = activeSeries.map((s) => ({
     label: s.label,
     color: TONES[s.tone],
-    values: current.map((p) => p[s.key]),
-    prev: previous.map((p) => p[s.key]),
+    values: bucketValues(current.map((p) => p[s.key]), s.agg),
+    prev: bucketValues(previous.map((p) => p[s.key]), s.agg),
   }));
   const seriesTotal = (s: SeriesDef) =>
     s.agg === "sum" ? current.reduce((a, p) => a + p[s.key], 0) : current[days - 1]?.[s.key] ?? 0;
 
-  const METRIC_TABS: { key: MetricTab; label: string; icon: ReactNode; trailing?: ReactNode }[] = [
-    {
-      key: "posts",
-      label: "Posts",
-      icon: <Copy className="h-4 w-4" aria-hidden="true" />,
-      trailing: <ChevronDown className="ml-1 h-3.5 w-3.5 opacity-70" aria-hidden="true" />,
-    },
+  const METRIC_TABS: { key: MetricTab; label: string; icon: ReactNode }[] = [
+    { key: "posts", label: "Posts", icon: <Copy className="h-4 w-4" aria-hidden="true" /> },
     { key: "impact", label: "Content Impact", icon: <Zap className="h-4 w-4" aria-hidden="true" /> },
     { key: "growth", label: "Audience Growth", icon: <TrendingUp className="h-4 w-4" aria-hidden="true" /> },
     { key: "visibility", label: "Visibility", icon: <Eye className="h-4 w-4" aria-hidden="true" /> },
@@ -1382,7 +1594,8 @@ export default function Insights() {
 
   // ── PAGINATION CALCULS ──
   const totalPages = Math.max(1, Math.ceil(sortedRows.length / PAGE_SIZE));
-  const paginatedRows = sortedRows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const safePage = Math.min(page, totalPages);
+  const paginatedRows = sortedRows.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
   const toggleSort = (key: SortKey) =>
     setSort((s) => (s?.key === key ? { key, dir: s.dir === "desc" ? "asc" : "desc" } : { key, dir: "desc" }));
@@ -1395,14 +1608,74 @@ export default function Insights() {
   ];
   const TABLE_GRID = "grid-cols-[minmax(0,2.3fr)_1fr_1fr_1fr_1fr_44px]";
 
-  const exportCsv = () => {
+  const ytUrl = (id: string) => `https://www.youtube.com/watch?v=${id}`;
+
+  const exportDailyCsv = () => {
     const rowsCsv: (string | number)[][] = [
-      ["date", "followers", "posts", "reactions", "comments", "profile_views", "previous_followers"],
+      [
+        "date",
+        "followers",
+        "posts",
+        "reactions",
+        "comments",
+        "profile_views",
+        "previous_date",
+        "previous_followers",
+        "previous_posts",
+        "previous_reactions",
+        "previous_comments",
+        "previous_profile_views",
+      ],
     ];
-    current.forEach((p, i) =>
-      rowsCsv.push([toInput(p.date), p.followers, p.posts, p.reactions, p.comments, p.profileViews, previous[i].followers])
-    );
-    downloadCsv(`insights-${toInput(start)}-${toInput(end)}.csv`, rowsCsv);
+    current.forEach((p, i) => {
+      const q = previous[i];
+      rowsCsv.push([
+        toInput(p.date),
+        p.followers,
+        p.posts,
+        p.reactions,
+        p.comments,
+        p.profileViews,
+        q ? toInput(q.date) : "",
+        q?.followers ?? "",
+        q?.posts ?? "",
+        q?.reactions ?? "",
+        q?.comments ?? "",
+        q?.profileViews ?? "",
+      ]);
+    });
+    downloadCsv(`insights-daily-${toInput(start)}-${toInput(end)}.csv`, rowsCsv);
+  };
+
+  const exportPostsCsv = () => {
+    const header: (string | number)[] = [
+      "period",
+      "id",
+      "title",
+      "published_at",
+      "reactions",
+      "comments",
+      "eng_rate_pct",
+      "video_views",
+      "url",
+    ];
+    const mk = (period: string, list: PostRow[]): (string | number)[][] =>
+      list.map((p) => [
+        period,
+        p.id,
+        p.label,
+        toInput(p.date),
+        p.reactions,
+        p.comments,
+        p.engRate.toFixed(2),
+        p.videoViews,
+        ytUrl(p.id),
+      ]);
+    downloadCsv(`insights-posts-${toInput(start)}-${toInput(end)}.csv`, [
+      header,
+      ...mk("this", posts),
+      ...mk("previous", previousPosts),
+    ]);
   };
 
   const handleBottomBarChange = (id: BottomBarTab) => {
@@ -1434,6 +1707,10 @@ export default function Insights() {
   const sectionSub = `mt-1 text-[11px] ${t.muted}`;
 
   const youtubeLoading = isYouTube && yt.loading && !yt.data;
+
+  // La bannière d'encouragement n'a de sens que si la chaîne a peu publié.
+  const showBanner =
+    isYouTube && !youtubeLoading && !yt.error && posts.length < 3 && previousPosts.length < 3;
 
   return (
     <main
@@ -1496,16 +1773,12 @@ export default function Insights() {
                   </IconBtn>
                 )}
 
-                <button
-                  type="button"
-                  onClick={exportCsv}
-                  disabled={!channel}
-                  className={`flex h-10 items-center gap-2 rounded-xl px-3.5 text-[12px] font-semibold transition-colors disabled:opacity-40 ${t.ring} ${t.outlineBtn}`}
-                >
-                  <Download className="h-4 w-4" aria-hidden="true" />
-                  Export
-                  <ChevronDown className="h-3.5 w-3.5 opacity-70" aria-hidden="true" />
-                </button>
+                <ExportMenu
+                  disabled={!channel || !isYouTube}
+                  onDaily={exportDailyCsv}
+                  onPosts={exportPostsCsv}
+                  t={t}
+                />
 
                 <button
                   type="button"
@@ -1546,9 +1819,22 @@ export default function Insights() {
                   Connect a channel
                 </button>
               </section>
+            ) : !isYouTube ? (
+              <section className={`flex flex-col items-center gap-3 rounded-2xl border px-6 py-20 text-center ${t.panel}`}>
+                <span className={`flex h-11 w-11 items-center justify-center rounded-full ${t.iconBox}`}>
+                  <Activity className="h-5 w-5" aria-hidden="true" />
+                </span>
+                <h2 className={`text-[14px] font-semibold ${t.text}`}>
+                  Insights for this network are coming soon
+                </h2>
+                <p className={`max-w-[380px] text-[12px] ${t.soft}`}>
+                  Real statistics are only available for YouTube channels for now. Switch to a
+                  YouTube channel from the menu above to see your insights.
+                </p>
+              </section>
             ) : (
               <>
-                {isYouTube && yt.error && (
+                {yt.error && (
                   <div
                     role="alert"
                     className={`flex flex-wrap items-center justify-between gap-3 rounded-2xl border px-4 py-3 ${t.panel}`}
@@ -1571,65 +1857,38 @@ export default function Insights() {
                   </p>
                 )}
 
-                {/* BANNIÈRE */}
-                <section className={`relative overflow-hidden rounded-2xl border ${t.card}`}>
-                  <div
-                    aria-hidden="true"
-                    className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${
-                      isDark
-                        ? "from-white/[0.06] via-transparent to-transparent"
-                        : "from-black/[0.04] via-transparent to-transparent"
-                    }`}
-                  />
-                  <div className="relative z-10 flex min-h-[168px] flex-col justify-center gap-4 px-6 py-6 lg:max-w-[58%]">
-                    <div>
-                      <h2 className={`text-[22px] font-semibold tracking-[-0.035em] ${t.text}`}>
-                        A Path to Growth with Weekly Takeaways
-                      </h2>
-                      <p className={`mt-2 max-w-[400px] text-[13px] leading-relaxed ${t.soft}`}>
-                        The more you post, the better your takeaways. Share a few posts and
-                        we'll start showing you weekly insights to help you grow.
-                      </p>
+                {/* BANNIÈRE — uniquement si la chaîne a peu publié */}
+                {showBanner && (
+                  <section className={`relative overflow-hidden rounded-2xl border ${t.card}`}>
+                    <div
+                      aria-hidden="true"
+                      className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${
+                        isDark
+                          ? "from-white/[0.06] via-transparent to-transparent"
+                          : "from-black/[0.04] via-transparent to-transparent"
+                      }`}
+                    />
+                    <div className="relative z-10 flex flex-col justify-center gap-4 px-6 py-6">
+                      <div>
+                        <h2 className={`text-[20px] font-semibold tracking-[-0.03em] ${t.text}`}>
+                          Post more to unlock weekly takeaways
+                        </h2>
+                        <p className={`mt-2 max-w-[460px] text-[13px] leading-relaxed ${t.soft}`}>
+                          Your channel has published fewer than 3 videos in the last two periods.
+                          Share a few more and your trends will become much easier to read.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => navigate("new-post")}
+                        className={`flex w-fit items-center gap-1.5 rounded-lg px-4 py-2.5 text-[12px] font-semibold transition-all duration-150 active:scale-[0.98] ${t.ring} ${t.primaryBtn}`}
+                      >
+                        <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+                        Create Post
+                      </button>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => navigate("new-post")}
-                      className={`flex w-fit items-center gap-1.5 rounded-lg px-4 py-2.5 text-[12px] font-semibold transition-all duration-150 active:scale-[0.98] ${t.ring} ${t.primaryBtn}`}
-                    >
-                      <Plus className="h-3.5 w-3.5" aria-hidden="true" />
-                      Create Post
-                    </button>
-                  </div>
-
-                  <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-0 hidden w-[430px] lg:block">
-                    <div className="absolute left-[134px] top-[30px] h-[90px] w-[120px] -rotate-[4deg] rounded-xl bg-neutral-300/90 shadow-[0_6px_22px_rgba(0,0,0,0.3)]">
-                      <span className="ml-3 mt-3 flex h-6 w-6 items-center justify-center rounded-md bg-neutral-900 text-white">
-                        <FlaskConical className="h-3.5 w-3.5" />
-                      </span>
-                    </div>
-                    <TipCard
-                      className="left-[70px] top-[74px] -rotate-[9deg]"
-                      icon={<Pencil className="h-3.5 w-3.5" />}
-                      title="Use Your Drafts"
-                      text="You have 3 unsaved drafts to schedule."
-                      cta="Open Drafts"
-                    />
-                    <TipCard
-                      className="left-[168px] top-[4px] -rotate-[5deg]"
-                      icon={<Repeat2 className="h-3.5 w-3.5" />}
-                      title="Repost Your Popular Post"
-                      text="Repost your post about your ambitious project. It rated well, with a reach of 1.2K."
-                      cta="Create Post"
-                    />
-                    <TipCard
-                      className="left-[272px] top-[66px] rotate-[6deg]"
-                      icon={<Send className="h-3.5 w-3.5" />}
-                      title="Evergreen Ideas"
-                      text="Reshare last year's top post, still pulling engagement."
-                      cta="Duplicate Post"
-                    />
-                  </div>
-                </section>
+                  </section>
+                )}
 
                 {/* ALL INSIGHTS */}
                 <section aria-labelledby="all-title" className="flex flex-col gap-4">
@@ -1708,25 +1967,22 @@ export default function Insights() {
 
                   {/* SUMMARY */}
                   <div className={sectionCard}>
-                    <div className="flex items-start justify-between gap-3 px-1">
-                      <div>
-                        <h3 className={sectionTitle}>Summary</h3>
-                        <p className={sectionSub}>
-                          {periodLabel} · {compareLabel}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2 print:hidden">
-                        <IconBtn label="Share summary" boxed t={t}>
-                          <Send className="h-4 w-4" aria-hidden="true" />
-                        </IconBtn>
-                        <IconBtn label="Open summary" boxed t={t}>
-                          <ExternalLink className="h-4 w-4" aria-hidden="true" />
-                        </IconBtn>
-                      </div>
+                    <div className="px-1">
+                      <h3 className={sectionTitle}>Summary</h3>
+                      <p className={sectionSub}>
+                        {periodLabel} · {compareLabel}
+                      </p>
                     </div>
                     <div className={`mt-4 grid grid-cols-2 gap-2.5 rounded-2xl border p-3 sm:grid-cols-3 lg:grid-cols-6 ${t.panel}`}>
                       {summaryBoxes.map((b) => (
-                        <MetricBox key={b.label} label={b.label} value={b.value} info={SUMMARY_INFO[b.label] ?? b.label} t={t} />
+                        <MetricBox
+                          key={b.label}
+                          label={b.label}
+                          value={b.value}
+                          info={SUMMARY_INFO[b.label] ?? b.label}
+                          delta={deltas[b.label] ?? null}
+                          t={t}
+                        />
                       ))}
                     </div>
                   </div>
@@ -1756,12 +2012,38 @@ export default function Insights() {
                     />
                   </div>
 
-                  <div className={`mt-4 overflow-x-auto rounded-2xl border ${t.panel}`}>
+                  {/* RECHERCHE */}
+                  <div className="relative mt-4 max-w-[340px]">
+                    <Search
+                      className={`pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 ${t.muted}`}
+                      aria-hidden="true"
+                    />
+                    <input
+                      type="text"
+                      value={query}
+                      onChange={(e) => setQuery(e.target.value)}
+                      placeholder="Search posts…"
+                      aria-label="Search posts by title"
+                      className={`w-full rounded-xl border py-2 pl-9 pr-9 text-[12px] placeholder:text-neutral-500 ${t.panel} ${t.text} ${t.ring}`}
+                    />
+                    {query && (
+                      <button
+                        type="button"
+                        aria-label="Clear search"
+                        onClick={() => setQuery("")}
+                        className={`absolute right-1.5 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md ${t.soft} ${t.hover} ${t.ring}`}
+                      >
+                        <X className="h-3.5 w-3.5" aria-hidden="true" />
+                      </button>
+                    )}
+                  </div>
+
+                  <div className={`mt-3 overflow-x-auto rounded-2xl border ${t.panel}`}>
                     <div className="min-w-[720px]">
                       <div
                         className={`grid ${TABLE_GRID} items-center gap-2 px-4 py-3 text-[12px] font-semibold ${t.head} ${t.text}`}
                       >
-                        <span>Posts · {rows.length}</span>
+                        <span>Posts · {sortedRows.length}</span>
                         {columns.map((c) => (
                           <button
                             key={c.key}
@@ -1779,41 +2061,53 @@ export default function Insights() {
                             />
                           </button>
                         ))}
-                        <button
-                          type="button"
-                          aria-label="Customize columns"
-                          className={`flex h-9 w-9 items-center justify-center rounded-xl border ${t.inner} ${t.soft} ${t.hover} ${t.ring}`}
-                        >
-                          <Columns className="h-4 w-4" aria-hidden="true" />
-                        </button>
+                        <span aria-hidden="true" />
                       </div>
 
                       {paginatedRows.length === 0 ? (
-                        <div className={`flex flex-col items-center gap-2 border-t px-6 py-10 text-center ${t.border}`}>
-                          <span className={`flex h-11 w-11 items-center justify-center rounded-full ${t.iconBox}`}>
-                            <Activity className="h-5 w-5" aria-hidden="true" />
-                          </span>
-                          <p className={`text-[12px] font-medium ${t.text}`}>
-                            {youtubeLoading ? "Loading videos…" : "No published posts in this period"}
-                          </p>
-                          {!youtubeLoading && (
-                            <p className={`max-w-[360px] text-[12px] ${t.soft}`}>
-                              Choose a longer range to see how your earlier posts performed.
+                        needle && rows.length > 0 ? (
+                          <div className={`flex flex-col items-center gap-2 border-t px-6 py-10 text-center ${t.border}`}>
+                            <span className={`flex h-11 w-11 items-center justify-center rounded-full ${t.iconBox}`}>
+                              <Search className="h-5 w-5" aria-hidden="true" />
+                            </span>
+                            <p className={`text-[12px] font-medium ${t.text}`}>
+                              No post matches “{query.trim()}”
                             </p>
-                          )}
-                          {!youtubeLoading && days < 30 && (
                             <button
                               type="button"
-                              onClick={() => setRange("30d")}
+                              onClick={() => setQuery("")}
                               className={`mt-2 rounded-lg px-3 py-1.5 text-[11px] font-semibold transition-colors ${t.ring} ${t.outlineBtn}`}
                             >
-                              Show last 30 days
+                              Clear search
                             </button>
-                          )}
-                        </div>
+                          </div>
+                        ) : (
+                          <div className={`flex flex-col items-center gap-2 border-t px-6 py-10 text-center ${t.border}`}>
+                            <span className={`flex h-11 w-11 items-center justify-center rounded-full ${t.iconBox}`}>
+                              <Activity className="h-5 w-5" aria-hidden="true" />
+                            </span>
+                            <p className={`text-[12px] font-medium ${t.text}`}>
+                              {youtubeLoading ? "Loading videos…" : "No published posts in this period"}
+                            </p>
+                            {!youtubeLoading && (
+                              <p className={`max-w-[360px] text-[12px] ${t.soft}`}>
+                                Choose a longer range to see how your earlier posts performed.
+                              </p>
+                            )}
+                            {!youtubeLoading && days < 30 && (
+                              <button
+                                type="button"
+                                onClick={() => setRange("30d")}
+                                className={`mt-2 rounded-lg px-3 py-1.5 text-[11px] font-semibold transition-colors ${t.ring} ${t.outlineBtn}`}
+                              >
+                                Show last 30 days
+                              </button>
+                            )}
+                          </div>
+                        )
                       ) : (
                         paginatedRows.map((p, idx) => {
-                          const globalIdx = (page - 1) * PAGE_SIZE + idx + 1;
+                          const globalIdx = (safePage - 1) * PAGE_SIZE + idx + 1;
                           return (
                             <div
                               key={p.id}
@@ -1829,18 +2123,14 @@ export default function Insights() {
                                   )}
                                 </span>
                                 <div className="min-w-0">
-                                  {isYouTube ? (
-                                    <a
-                                      href={`https://www.youtube.com/watch?v=${p.id}`}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className={`block truncate rounded text-[14px] font-medium hover:underline ${t.soft} ${t.ring}`}
-                                    >
-                                      {p.label}
-                                    </a>
-                                  ) : (
-                                    <p className={`truncate text-[14px] font-medium ${t.soft}`}>{p.label}</p>
-                                  )}
+                                  <a
+                                    href={ytUrl(p.id)}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className={`block truncate rounded text-[14px] font-medium hover:underline ${t.soft} ${t.ring}`}
+                                  >
+                                    {p.label}
+                                  </a>
                                   <p className={`text-[11px] ${t.muted}`}>{fmtFull(p.date)}</p>
                                 </div>
                               </div>
@@ -1849,13 +2139,16 @@ export default function Insights() {
                                   {c.render(p)}
                                 </span>
                               ))}
-                              <button
-                                type="button"
-                                aria-label="Post actions"
+                              <a
+                                href={ytUrl(p.id)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                aria-label={`Open “${p.label}” on YouTube`}
+                                title="Open on YouTube"
                                 className={`flex h-8 w-8 items-center justify-center rounded-lg ${t.soft} ${t.hover} ${t.ring}`}
                               >
-                                <MoreVertical className="h-4 w-4" aria-hidden="true" />
-                              </button>
+                                <ExternalLink className="h-4 w-4" aria-hidden="true" />
+                              </a>
                             </div>
                           );
                         })
@@ -1863,64 +2156,70 @@ export default function Insights() {
                     </div>
                   </div>
 
-                  {/* PAGINATION UI */}
+                  {/* PAGINATION UI (avec ellipses) */}
                   {totalPages > 1 && (
-                    <div className="mt-4 flex items-center justify-center gap-1.5">
+                    <nav aria-label="Posts pagination" className="mt-4 flex items-center justify-center gap-1.5">
                       <button
                         type="button"
-                        onClick={() => setPage((p) => Math.max(1, p - 1))}
-                        disabled={page === 1}
+                        onClick={() => setPage(Math.max(1, safePage - 1))}
+                        disabled={safePage === 1}
                         aria-label="Previous page"
                         className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors disabled:opacity-30 ${t.ring} ${t.soft} ${t.hover}`}
                       >
                         <ChevronLeft className="h-4 w-4" />
                       </button>
 
-                      {Array.from({ length: totalPages }).map((_, i) => {
-                        const pg = i + 1;
-                        const active = page === pg;
+                      {pageItems(safePage, totalPages).map((item, i) => {
+                        if (item === "…") {
+                          return (
+                            <span
+                              key={`gap-${i}`}
+                              aria-hidden="true"
+                              className={`flex h-8 w-6 items-center justify-center text-[12px] ${t.muted}`}
+                            >
+                              …
+                            </span>
+                          );
+                        }
+                        const active = safePage === item;
                         return (
                           <button
-                            key={pg}
+                            key={item}
                             type="button"
-                            onClick={() => setPage(pg)}
+                            onClick={() => setPage(item)}
                             aria-current={active ? "page" : undefined}
-                            className={`flex h-8 w-8 items-center justify-center rounded-lg text-[12px] font-semibold transition-colors ${t.ring} ${
+                            aria-label={`Page ${item}`}
+                            className={`flex h-8 min-w-8 items-center justify-center rounded-lg px-1.5 text-[12px] font-semibold tabular-nums transition-colors ${t.ring} ${
                               active ? t.sel : `${t.soft} ${t.hover}`
                             }`}
                           >
-                            {pg}
+                            {item}
                           </button>
                         );
                       })}
 
                       <button
                         type="button"
-                        onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                        disabled={page === totalPages}
+                        onClick={() => setPage(Math.min(totalPages, safePage + 1))}
+                        disabled={safePage === totalPages}
                         aria-label="Next page"
                         className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors disabled:opacity-30 ${t.ring} ${t.soft} ${t.hover}`}
                       >
                         <ChevronRight className="h-4 w-4" />
                       </button>
-                    </div>
+                    </nav>
                   )}
                 </section>
 
                 {/* METRICS */}
                 <section className={sectionCard} aria-labelledby="metrics-title">
-                  <div className="flex items-start justify-between gap-3 px-1">
-                    <div>
-                      <h3 id="metrics-title" className={sectionTitle}>
-                        Metrics
-                      </h3>
-                      <p className={sectionSub}>
-                        {periodLabel} · {compareLabel}
-                      </p>
-                    </div>
-                    <IconBtn label="Share metrics" boxed t={t}>
-                      <Send className="h-4 w-4" aria-hidden="true" />
-                    </IconBtn>
+                  <div className="px-1">
+                    <h3 id="metrics-title" className={sectionTitle}>
+                      Metrics
+                    </h3>
+                    <p className={sectionSub}>
+                      {periodLabel} · {compareLabel}
+                    </p>
                   </div>
 
                   <div className="mt-4">
@@ -1970,8 +2269,22 @@ export default function Insights() {
                     </div>
 
                     <div className="mt-6">
-                      <Chart dates={dates} series={chartSeries} view={chartView} type={chartType} isDark={isDark} />
+                      <Chart
+                        dates={chartDates}
+                        series={chartSeries}
+                        view={chartView}
+                        type={chartType}
+                        bucket={bucket}
+                        isDark={isDark}
+                      />
                     </div>
+
+                    {bucket > 1 && (
+                      <p className={`mt-3 text-[11px] ${t.muted}`}>
+                        Grouped by {bucket === 7 ? "week" : "30-day period"} to keep the chart
+                        readable: totals are summed, followers show the last value of each group.
+                      </p>
+                    )}
                   </div>
                 </section>
               </>
