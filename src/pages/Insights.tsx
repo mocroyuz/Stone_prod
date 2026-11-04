@@ -7,6 +7,10 @@
 //     que les contenus réellement en ligne. Le filtre est appliqué deux fois :
 //       - dans `buildPosts` (services/youtube.ts)
 //       - dans `isOnlinePost` ci-dessous (défense en profondeur)
+//
+// ✨ Le graphique « Metrics » propose maintenant deux rendus au choix :
+//       - Line (courbe lissée avec aire)
+//       - Bar  (barres groupées par jour, période précédente en barres hachurées)
 
 import {
   useEffect,
@@ -21,6 +25,7 @@ import {
 } from "react";
 import {
   Activity,
+  BarChart3,
   Bookmark,
   CalendarClock,
   Check,
@@ -36,6 +41,7 @@ import {
   FlaskConical,
   Image as ImageIcon,
   Info,
+  LineChart,
   MoreVertical,
   Pencil,
   Play,
@@ -85,6 +91,7 @@ type IconComponent = ComponentType<{ className?: string; size?: number }>;
 
 type Range = "7d" | "30d" | "mtd" | "custom";
 type ChartView = "this" | "comparison" | "both";
+type ChartType = "line" | "bar";
 type PostsPeriod = "this" | "previous";
 type MetricTab = "posts" | "impact" | "growth" | "visibility";
 type SortKey = "reactions" | "comments" | "engRate" | "videoViews";
@@ -370,7 +377,7 @@ function downloadCsv(filename: string, rows: (string | number)[][]) {
 }
 
 /* ============================================================
-   COURBE LISSÉE & CHART
+   COURBE LISSÉE & CHART (ligne + barres)
 ============================================================ */
 
 function smoothPath(pts: [number, number][]): string {
@@ -417,21 +424,26 @@ function Chart({
   dates,
   series,
   view,
+  type,
   isDark,
 }: {
   dates: Date[];
   series: ChartSeries[];
   view: ChartView;
+  type: ChartType;
   isDark: boolean;
 }) {
   const [hover, setHover] = useState<number | null>(null);
-  const gradId = useId().replace(/:/g, "");
+  const uid = useId().replace(/:/g, "");
+  const gradId = `grad-${uid}`;
+  const hatchId = `hatch-${uid}`;
   const W = 900;
   const H = 300;
   const pad = { l: 52, r: series.length > 1 ? 52 : 16, t: 16, b: 28 };
   const iw = W - pad.l - pad.r;
   const ih = H - pad.t - pad.b;
   const n = dates.length;
+  const isBar = type === "bar";
 
   const showThis = view === "this" || view === "both";
   const showPrev = view === "comparison" || view === "both";
@@ -443,7 +455,10 @@ function Chart({
     Math.max(4, ...(showThis ? s.values : []), ...(showPrev ? s.prev : []))
   );
 
-  const x = (i: number) => pad.l + (n === 1 ? iw / 2 : (i / (n - 1)) * iw);
+  // En mode barres, chaque jour occupe une « colonne » et x() renvoie son centre.
+  const colW = iw / Math.max(1, n);
+  const x = (i: number) =>
+    isBar ? pad.l + (i + 0.5) * colW : pad.l + (n === 1 ? iw / 2 : (i / (n - 1)) * iw);
   const y = (si: number, v: number) => pad.t + ih - (v / maxes[si]) * ih;
 
   const path = (si: number, vals: number[]) =>
@@ -451,12 +466,29 @@ function Chart({
 
   const ticks = [0, 1, 2, 3, 4];
   const labelIdx = Array.from(new Set([0, 0.5, 1].map((r) => Math.round(r * (n - 1)))));
-  const area = `${path(0, series[0].values)} L${x(n - 1).toFixed(1)},${pad.t + ih} L${x(0).toFixed(1)},${pad.t + ih} Z`;
+  const area = isBar
+    ? ""
+    : `${path(0, series[0].values)} L${x(n - 1).toFixed(1)},${pad.t + ih} L${x(0).toFixed(1)},${pad.t + ih} Z`;
+
+  // Disposition des barres à l'intérieur d'une colonne.
+  const slots: { si: number; kind: "this" | "prev" }[] = [];
+  series.forEach((_, si) => {
+    if (showThis) slots.push({ si, kind: "this" });
+    if (showPrev) slots.push({ si, kind: "prev" });
+  });
+  const groupW = colW * 0.72;
+  const barW = Math.max(1.5, Math.min(22, groupW / Math.max(1, slots.length)));
+  const barGap = slots.length > 1 && barW > 6 ? 1.5 : 0;
+  const totalW = barW * slots.length + barGap * Math.max(0, slots.length - 1);
 
   const onPointer = (e: ReactPointerEvent<SVGSVGElement>) => {
     const r = e.currentTarget.getBoundingClientRect();
     const px = ((e.clientX - r.left) / r.width) * W;
-    const i = n === 1 ? 0 : Math.round(((px - pad.l) / iw) * (n - 1));
+    const i = isBar
+      ? Math.floor((px - pad.l) / colW)
+      : n === 1
+      ? 0
+      : Math.round(((px - pad.l) / iw) * (n - 1));
     setHover(Math.max(0, Math.min(n - 1, i)));
   };
 
@@ -477,7 +509,7 @@ function Chart({
       }`}
       tabIndex={0}
       role="group"
-      aria-label="Metrics chart. Use the left and right arrow keys to inspect each day."
+      aria-label={`Metrics ${isBar ? "bar" : "line"} chart. Use the left and right arrow keys to inspect each day.`}
       onKeyDown={onKey}
       onBlur={() => setHover(null)}
     >
@@ -494,6 +526,20 @@ function Chart({
             <stop offset="0%" stopColor={series[0].color} stopOpacity="0.14" />
             <stop offset="100%" stopColor={series[0].color} stopOpacity="0" />
           </linearGradient>
+          {/* Hachures utilisées pour les barres de la période précédente */}
+          {series.map((s, si) => (
+            <pattern
+              key={`hatch-${si}`}
+              id={`${hatchId}-${si}`}
+              width="5"
+              height="5"
+              patternUnits="userSpaceOnUse"
+              patternTransform="rotate(45)"
+            >
+              <rect width="5" height="5" fill={s.color} fillOpacity="0.12" />
+              <line x1="0" y1="0" x2="0" y2="5" stroke={s.color} strokeOpacity="0.7" strokeWidth="2" />
+            </pattern>
+          ))}
         </defs>
 
         <text
@@ -542,13 +588,14 @@ function Chart({
             y={H - 8}
             fontSize="11"
             fill={axis}
-            textAnchor={i === 0 ? "start" : i === n - 1 ? "end" : "middle"}
+            textAnchor={isBar ? "middle" : i === 0 ? "start" : i === n - 1 ? "end" : "middle"}
           >
             {fmt(dates[i])}
           </text>
         ))}
 
-        {showPrev &&
+        {/* ───────── MODE LIGNE ───────── */}
+        {!isBar && showPrev &&
           series.map((s, si) => (
             <path
               key={`p-${s.label}`}
@@ -562,7 +609,7 @@ function Chart({
             />
           ))}
 
-        {showThis && (
+        {!isBar && showThis && (
           <>
             <path d={area} fill={`url(#${gradId})`} />
             {series.map((s, si) => (
@@ -579,7 +626,68 @@ function Chart({
           </>
         )}
 
-        {hover !== null && (
+        {/* ───────── MODE BARRES ───────── */}
+        {isBar && hover !== null && (
+          <rect
+            x={pad.l + hover * colW}
+            y={pad.t}
+            width={colW}
+            height={ih}
+            fill={isDark ? "#ffffff" : "#000000"}
+            fillOpacity="0.05"
+            rx="4"
+          />
+        )}
+
+        {isBar &&
+          dates.map((_, i) => {
+            const startX = x(i) - totalW / 2;
+            return (
+              <g key={i}>
+                {slots.map((slot, k) => {
+                  const s = series[slot.si];
+                  const v = slot.kind === "this" ? s.values[i] : s.prev[i];
+                  const h = Math.max(0, (v / maxes[slot.si]) * ih);
+                  // Une valeur à 0 reste visible sous la forme d'un trait fin.
+                  const hh = v > 0 ? Math.max(2, h) : 0;
+                  const bx = startX + k * (barW + barGap);
+                  const isPrev = slot.kind === "prev";
+                  return (
+                    <g key={`${slot.si}-${slot.kind}`}>
+                      {v === 0 && !isPrev && (
+                        <rect
+                          x={bx}
+                          y={pad.t + ih - 1.5}
+                          width={barW}
+                          height={1.5}
+                          fill={s.color}
+                          fillOpacity="0.35"
+                        />
+                      )}
+                      {hh > 0 && (
+                        <rect
+                          x={bx}
+                          y={pad.t + ih - hh}
+                          width={barW}
+                          height={hh}
+                          rx={Math.min(3, barW / 2)}
+                          ry={Math.min(3, barW / 2)}
+                          fill={isPrev ? `url(#${hatchId}-${slot.si})` : s.color}
+                          stroke={isPrev ? s.color : "none"}
+                          strokeOpacity={isPrev ? 0.5 : 0}
+                          strokeWidth={isPrev ? 1 : 0}
+                          opacity={hover === null || hover === i ? 1 : 0.55}
+                        />
+                      )}
+                    </g>
+                  );
+                })}
+              </g>
+            );
+          })}
+
+        {/* ───────── CURSEUR (ligne uniquement) ───────── */}
+        {!isBar && hover !== null && (
           <g>
             <line x1={x(hover)} x2={x(hover)} y1={pad.t} y2={pad.t + ih} stroke={axis} strokeOpacity="0.6" strokeDasharray="3 3" />
             {showThis &&
@@ -1130,6 +1238,7 @@ export default function Insights() {
   const [customStart, setCustomStart] = useState(() => addDays(startOfDay(new Date()), -29));
   const [customEnd, setCustomEnd] = useState(() => startOfDay(new Date()));
   const [chartView, setChartView] = useState<ChartView>("this");
+  const [chartType, setChartType] = useState<ChartType>("line");
   const [postsPeriod, setPostsPeriod] = useState<PostsPeriod>("this");
   const [metricTab, setMetricTab] = useState<MetricTab>("visibility");
   const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" } | null>(null);
@@ -1253,6 +1362,11 @@ export default function Insights() {
       icon: <span className="h-2.5 w-2.5 rounded-[3px] border border-dashed border-current" aria-hidden="true" />,
     },
     { key: "both", label: "Both" },
+  ];
+
+  const CHART_TYPES: { key: ChartType; label: string; icon: ReactNode }[] = [
+    { key: "line", label: "Line", icon: <LineChart className="h-4 w-4" aria-hidden="true" /> },
+    { key: "bar", label: "Bar", icon: <BarChart3 className="h-4 w-4" aria-hidden="true" /> },
   ];
 
   const rows = postsPeriod === "this" ? posts : previousPosts;
@@ -1833,18 +1947,30 @@ export default function Insights() {
                           </div>
                         ))}
                       </div>
-                      <Segmented<ChartView>
-                        label="Chart view"
-                        value={chartView}
-                        onChange={setChartView}
-                        t={t}
-                        size="lg"
-                        options={CHART_VIEWS}
-                      />
+
+                      {/* Choix du type de graphique + choix de la vue */}
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Segmented<ChartType>
+                          label="Chart type"
+                          value={chartType}
+                          onChange={setChartType}
+                          t={t}
+                          size="lg"
+                          options={CHART_TYPES}
+                        />
+                        <Segmented<ChartView>
+                          label="Chart view"
+                          value={chartView}
+                          onChange={setChartView}
+                          t={t}
+                          size="lg"
+                          options={CHART_VIEWS}
+                        />
+                      </div>
                     </div>
 
                     <div className="mt-6">
-                      <Chart dates={dates} series={chartSeries} view={chartView} isDark={isDark} />
+                      <Chart dates={dates} series={chartSeries} view={chartView} type={chartType} isDark={isDark} />
                     </div>
                   </div>
                 </section>
