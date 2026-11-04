@@ -294,10 +294,10 @@ function resolveRange(range: Range, customStart: Date, customEnd: Date) {
    VARIATIONS (DELTAS)
 ============================================================ */
 
-/** Variation en pourcentage. `allowNew` : afficher « New » quand la période précédente vaut 0. */
-function pctDelta(cur: number, prev: number, allowNew = true): Delta {
+/** Variation en pourcentage. Pas de variation si la période précédente vaut 0. */
+function pctDelta(cur: number, prev: number): Delta {
   if (!Number.isFinite(cur) || !Number.isFinite(prev)) return null;
-  if (prev === 0) return cur === 0 || !allowNew ? null : { text: "New", tone: "up" };
+  if (prev === 0) return null;
   const pct = ((cur - prev) / prev) * 100;
   if (Math.abs(pct) < 0.05) return { text: "0%", tone: "flat" };
   const digits = Math.abs(pct) >= 10 ? 0 : 1;
@@ -1552,8 +1552,7 @@ export default function Insights() {
   const deltas: Record<string, Delta> = {
     "Total Followers": pctDelta(
       current[days - 1]?.followers ?? 0,
-      previous[days - 1]?.followers ?? 0,
-      false
+      previous[days - 1]?.followers ?? 0
     ),
     Posts: pctDelta(posts.length, previousPosts.length),
     Reactions: pctDelta(sumKey(current, "reactions"), sumKey(previous, "reactions")),
