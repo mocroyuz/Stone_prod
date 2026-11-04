@@ -1771,9 +1771,9 @@ export default function Insights() {
                             type="button"
                             onClick={() => setPage(pg)}
                             aria-current={active ? "page" : undefined}
-                            className={`flex h-8 w-8 items-center justify-center rounded-lg text-[12px] font-semibold transition-colors ${t.ring} ${
-                              active ? (isDark ? "bg-[#2a4a2a] text-green-100" : "bg-neutral-200 text-black") : `${t.soft} ${t.hover}`
-                            }`}
+className={`flex h-8 w-8 items-center justify-center rounded-lg text-[12px] font-semibold transition-colors ${t.ring} ${
+  active ? t.sel : `${t.soft} ${t.hover}`
+}`}
                           >
                             {pg}
                           </button>
