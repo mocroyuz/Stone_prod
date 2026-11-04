@@ -1751,7 +1751,7 @@ export default function Insights() {
 
                   {/* PAGINATION UI */}
                   {totalPages > 1 && (
-                    <div className={`mt-4 flex items-center justify-center gap-1.5 rounded-2xl border py-2 ${t.border} ${t.panel}`}>
+                    <div className="mt-4 flex items-center justify-center gap-1.5">
                       <button
                         type="button"
                         onClick={() => setPage((p) => Math.max(1, p - 1))}
@@ -1771,9 +1771,9 @@ export default function Insights() {
                             type="button"
                             onClick={() => setPage(pg)}
                             aria-current={active ? "page" : undefined}
-className={`flex h-8 w-8 items-center justify-center rounded-lg text-[12px] font-semibold transition-colors ${t.ring} ${
-  active ? t.sel : `${t.soft} ${t.hover}`
-}`}
+                            className={`flex h-8 w-8 items-center justify-center rounded-lg text-[12px] font-semibold transition-colors ${t.ring} ${
+                              active ? t.sel : `${t.soft} ${t.hover}`
+                            }`}
                           >
                             {pg}
                           </button>
