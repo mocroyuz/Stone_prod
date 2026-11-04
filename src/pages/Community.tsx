@@ -40,6 +40,9 @@ type Post = {
   title: string;
   commentCount: number;
   thumbnail: string | null;
+  /** Statut du post renvoyé par le backend ("scheduled" | "published" | …).
+   *  Absent → considéré comme publié (compat ancien backend). */
+  status?: string;
 };
 
 type IconProps = { className?: string };
@@ -200,6 +203,10 @@ function useCommunity(
             title: v.title,
             commentCount: v.comment_count,
             thumbnail: v.thumbnail,
+            // Le backend doit renvoyer `status` ("scheduled" | "published").
+            // Si absent (ancien backend), on laisse `undefined`
+            // → l'élément sera considéré comme publié et restera visible.
+            status: (v as { status?: string }).status,
           }));
           setPosts(mapped);
           setPostsError(null);
@@ -894,8 +901,15 @@ export default function Community() {
     );
   };
 
+  // ── Filtre des posts du panneau de gauche ──
+  // • Mode par défaut : uniquement les posts qui ont au moins un commentaire.
+  // • « Show all posts » : tous les posts SAUF ceux qui sont encore programmés
+  //   (status = "scheduled"). Un post sans `status` (ancien backend) est
+  //   considéré comme publié et reste visible.
   const visiblePosts = (
-    showAll ? posts : posts.filter((p) => p.commentCount > 0)
+    showAll
+      ? posts.filter((p) => p.status !== "scheduled")
+      : posts.filter((p) => p.commentCount > 0)
   ).filter((post) => post.title.toLowerCase().includes(needle));
 
   /* ── Actions ── */
