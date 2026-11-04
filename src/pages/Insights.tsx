@@ -516,7 +516,7 @@ function Chart({
   }, []);
 
   const narrow = W < 520;
-  const H = narrow ? 220 : 280;
+  const H = narrow ? 240 : 320;
   const pad = { l: 40, r: series.length > 1 ? 40 : 8, t: 12, b: 24 };
   const iw = W - pad.l - pad.r;
   const ih = H - pad.t - pad.b;
@@ -1996,18 +1996,21 @@ export default function Insights() {
                     />
 
                     <div className="flex flex-col gap-8">
-                      <div className="grid grid-cols-2 gap-x-6 gap-y-8 sm:grid-cols-3 lg:grid-cols-5">
+                      <div
+                        className={`grid grid-cols-2 gap-px overflow-hidden rounded-2xl border sm:grid-cols-3 lg:grid-cols-5 ${t.border} ${t.track}`}
+                      >
                         {primaryBoxes.map((b) => (
-                          <Stat
-                            key={b.label}
-                            label={b.label}
-                            value={b.value}
-                            info={SUMMARY_INFO[b.label] ?? b.label}
-                            delta={deltas[b.label] ?? null}
-                            spark={b.key ? current.map((p) => p[b.key as NumKey]) : []}
-                            sparkColor={SPARK_COLOR}
-                            t={t}
-                          />
+                          <div key={b.label} className={`p-4 sm:p-5 ${isDark ? "bg-[#0a0a0c]" : "bg-white"}`}>
+                            <Stat
+                              label={b.label}
+                              value={b.value}
+                              info={SUMMARY_INFO[b.label] ?? b.label}
+                              delta={deltas[b.label] ?? null}
+                              spark={b.key ? current.map((p) => p[b.key as NumKey]) : []}
+                              sparkColor={SPARK_COLOR}
+                              t={t}
+                            />
+                          </div>
                         ))}
                       </div>
 
@@ -2092,7 +2095,7 @@ export default function Insights() {
                       ))}
                     </div>
 
-                    {hasData ? (
+                    <div className={`relative rounded-2xl border p-3 sm:p-5 ${t.border}`}>
                       <Chart
                         dates={chartDates}
                         series={chartSeries}
@@ -2101,13 +2104,14 @@ export default function Insights() {
                         bucket={bucket}
                         isDark={isDark}
                       />
-                    ) : (
-                      <EmptyState
-                        t={t}
-                        title={youtubeLoading ? "Loading data…" : "No data for this period"}
-                        text={youtubeLoading ? undefined : "Try refreshing or choosing another range."}
-                      />
-                    )}
+                      {!hasData && (
+                        <p
+                          className={`pointer-events-none absolute inset-x-0 top-1/2 -translate-y-1/2 text-center text-[12px] ${t.muted}`}
+                        >
+                          {youtubeLoading ? "Loading data…" : "No data for this period"}
+                        </p>
+                      )}
+                    </div>
 
                     {hasData && bucket > 1 && (
                       <p className={`text-[11px] ${t.muted}`}>
