@@ -7,18 +7,14 @@
 //       - dans `buildPosts` (services/youtube.ts)
 //       - dans `isOnlinePost` ci-dessous (défense en profondeur)
 //
-// ✨ Nouveautés de cette version
-//   Demandées :
-//     • Variations (deltas) vs période précédente dans le Summary
-//     • Nettoyage des éléments factices (fausses cartes, boutons sans action,
-//       données d'exemple des autres réseaux)
-//   Ajoutées :
-//     1. Graphique Line / Bar au choix
-//     2. Regroupement automatique par semaine / 30 jours sur les longues périodes
-//     3. Préférences mémorisées (période, type de graphique, vue, onglet)
-//     4. Champ de recherche visible au-dessus du tableau des posts
-//     5. Pagination avec ellipses (1 … 4 5 6 … 50)
-//     6. Menu Export (métriques quotidiennes / posts) avec CSV correctement échappé
+// Direction UI : minimaliste.
+//   • plus de cartes imbriquées : les sections sont séparées par de l'espace
+//     et des filets très fins
+//   • onglets soulignés (texte seul) à la place des boutons encadrés
+//   • statistiques en texte (grand chiffre + libellé + variation)
+//   • tableau en lignes simples, colonnes numériques alignées à droite
+//   • graphique responsive (la typographie garde sa taille sur mobile),
+//     graduations « rondes », légende retirée des axes
 
 import {
   useEffect,
@@ -32,9 +28,6 @@ import {
   type ReactNode,
 } from "react";
 import {
-  Activity,
-  ArrowDownRight,
-  ArrowUpRight,
   BarChart3,
   Bookmark,
   CalendarClock,
@@ -42,23 +35,17 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  Copy,
   Download,
   ExternalLink,
-  Eye,
   FileText,
   Image as ImageIcon,
-  Info,
   LineChart,
-  Minus,
   Play,
   Plus,
   RefreshCw,
   Search,
   Tag,
-  TrendingUp,
   X,
-  Zap,
 } from "lucide-react";
 import { navigate, useHashRoute } from "../hooks/useHashRoute";
 import { navigateToSettingsSection } from "../utils/settingsNavigation";
@@ -147,9 +134,9 @@ type SeriesDef = { key: NumKey; label: string; tone: 0 | 1; agg: "sum" | "last" 
 type Delta = { text: string; tone: "up" | "down" | "flat" } | null;
 
 const RANGES: { key: Range; label: string }[] = [
-  { key: "7d", label: "7 Days" },
-  { key: "30d", label: "30 Days" },
-  { key: "mtd", label: "Month to Date" },
+  { key: "7d", label: "7 days" },
+  { key: "30d", label: "30 days" },
+  { key: "mtd", label: "Month to date" },
   { key: "custom", label: "Custom" },
 ];
 
@@ -200,7 +187,7 @@ function loadPrefs(): Prefs {
 }
 
 /* ============================================================
-   STYLE — tokens alignés sur le shell Home (dark plus profond)
+   STYLE — tokens alignés sur le shell Home
 ============================================================ */
 
 type Tokens = {
@@ -208,19 +195,17 @@ type Tokens = {
   text: string;
   muted: string;
   soft: string;
-  card: string;
-  panel: string;
-  inner: string;
   border: string;
-  head: string;
-  primaryBtn: string;
-  outlineBtn: string;
-  iconBox: string;
-  ring: string;
+  track: string;
+  thumb: string;
   hover: string;
+  ring: string;
   sel: string;
   idle: string;
+  underline: string;
   popover: string;
+  primaryBtn: string;
+  outlineBtn: string;
 };
 
 const tokens = (isDark: boolean): Tokens =>
@@ -228,40 +213,36 @@ const tokens = (isDark: boolean): Tokens =>
     ? {
         page: "bg-[#050505]",
         text: "text-white",
-        muted: "text-neutral-600",
+        muted: "text-neutral-500",
         soft: "text-neutral-400",
-        card: "border-white/[0.07] bg-[#0f0f11]",
-        panel: "border-white/[0.07] bg-white/[0.025]",
-        inner: "border-white/[0.07] bg-white/[0.03]",
         border: "border-white/[0.07]",
-        head: "bg-white/[0.03]",
-        primaryBtn: "bg-white text-black hover:bg-neutral-200",
-        outlineBtn: "border border-white/10 text-white hover:bg-white/[0.07]",
-        iconBox: "bg-white/[0.07] text-neutral-300",
-        ring: "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30",
+        track: "bg-white/[0.05]",
+        thumb: "bg-white/[0.06] text-neutral-400",
         hover: "hover:bg-white/[0.06]",
+        ring: "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30",
         sel: "bg-white text-black",
         idle: "text-neutral-400 hover:text-white",
+        underline: "bg-white",
         popover: "border-white/10 bg-[#101012]",
+        primaryBtn: "bg-white text-black hover:bg-neutral-200",
+        outlineBtn: "border border-white/10 text-white hover:bg-white/[0.07]",
       }
     : {
         page: "bg-[#f5f3ef]",
         text: "text-neutral-900",
-        muted: "text-neutral-400",
-        soft: "text-neutral-500",
-        card: "border-black/[0.06] bg-white",
-        panel: "border-black/[0.06] bg-[#f6f4f0]",
-        inner: "border-black/[0.06] bg-white",
-        border: "border-black/[0.06]",
-        head: "bg-[#f6f4f0]",
-        primaryBtn: "bg-neutral-900 text-white hover:bg-neutral-700",
-        outlineBtn: "border border-black/10 text-neutral-900 hover:bg-neutral-100",
-        iconBox: "bg-neutral-200/70 text-neutral-600",
-        ring: "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/25",
+        muted: "text-neutral-500",
+        soft: "text-neutral-600",
+        border: "border-black/[0.07]",
+        track: "bg-black/[0.04]",
+        thumb: "bg-neutral-100 text-neutral-500",
         hover: "hover:bg-black/[0.04]",
+        ring: "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/25",
         sel: "bg-neutral-900 text-white",
         idle: "text-neutral-500 hover:text-neutral-900",
+        underline: "bg-neutral-900",
         popover: "border-black/10 bg-white",
+        primaryBtn: "bg-neutral-900 text-white hover:bg-neutral-700",
+        outlineBtn: "border border-black/10 text-neutral-900 hover:bg-neutral-100",
       };
 
 /* ============================================================
@@ -286,8 +267,11 @@ const toInput = (d: Date) =>
 const fmt = (d: Date) => d.toLocaleDateString("en-US", { day: "numeric", month: "short" });
 const fmtFull = (d: Date) =>
   d.toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" });
-const fmtRange = (a: Date, b: Date) => `${fmt(a)} - ${fmtFull(b)}`;
+const fmtRange = (a: Date, b: Date) => `${fmt(a)} – ${fmtFull(b)}`;
 const nf = (n: number) => n.toLocaleString("en-US");
+
+const compactFmt = new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 });
+const nfc = (n: number) => (n >= 1000 ? compactFmt.format(n) : String(n));
 
 function resolveRange(range: Range, customStart: Date, customEnd: Date) {
   const today = startOfDay(new Date());
@@ -367,7 +351,6 @@ const isOnlinePost = (p: PostRow): boolean => {
 
 /* ============================================================
    DONNÉES VIDES (avant chargement / pas de données)
-   — plus aucune donnée d'exemple : zéros uniquement.
 ============================================================ */
 
 function useEmptyInsights(
@@ -442,26 +425,7 @@ function downloadCsv(filename: string, rows: (string | number)[][]) {
 }
 
 /* ============================================================
-   PAGINATION (avec ellipses)
-============================================================ */
-
-function pageItems(page: number, total: number): (number | "…")[] {
-  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
-  const set = new Set<number>([1, total]);
-  for (let i = page - 1; i <= page + 1; i++) if (i >= 1 && i <= total) set.add(i);
-  if (page <= 3) [2, 3, 4].forEach((n) => set.add(n));
-  if (page >= total - 2) [total - 1, total - 2, total - 3].forEach((n) => set.add(n));
-  const sorted = [...set].sort((a, b) => a - b);
-  const out: (number | "…")[] = [];
-  sorted.forEach((n, i) => {
-    if (i > 0 && n - sorted[i - 1] > 1) out.push("…");
-    out.push(n);
-  });
-  return out;
-}
-
-/* ============================================================
-   COURBE LISSÉE & CHART (ligne + barres)
+   COURBE LISSÉE & CHART (ligne + barres, responsive)
 ============================================================ */
 
 function smoothPath(pts: [number, number][]): string {
@@ -502,6 +466,15 @@ function smoothPath(pts: [number, number][]): string {
   return d;
 }
 
+/** Pas « rond » (1, 2, 5, 10, 20, 50…) pour 4 graduations entières. */
+function niceStep(max: number): number {
+  const raw = Math.max(max, 4) / 4;
+  const pow = 10 ** Math.floor(Math.log10(raw));
+  const f = raw / pow;
+  const m = f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10;
+  return m * pow;
+}
+
 type ChartSeries = { label: string; color: string; values: number[]; prev: number[] };
 
 function Chart({
@@ -520,13 +493,28 @@ function Chart({
   bucket: number;
   isDark: boolean;
 }) {
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const [W, setW] = useState(900);
   const [hoverRaw, setHover] = useState<number | null>(null);
   const uid = useId().replace(/:/g, "");
   const gradId = `grad-${uid}`;
   const hatchId = `hatch-${uid}`;
-  const W = 900;
-  const H = 300;
-  const pad = { l: 52, r: series.length > 1 ? 52 : 16, t: 16, b: 28 };
+
+  // Largeur réelle du conteneur : la typographie garde sa taille sur mobile.
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    const update = () => setW(Math.max(280, Math.round(el.clientWidth)));
+    update();
+    if (typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const narrow = W < 520;
+  const H = narrow ? 220 : 280;
+  const pad = { l: 40, r: series.length > 1 ? 40 : 8, t: 12, b: 24 };
   const iw = W - pad.l - pad.r;
   const ih = H - pad.t - pad.b;
   const n = dates.length;
@@ -538,12 +526,14 @@ function Chart({
   const showThis = view === "this" || view === "both";
   const showPrev = view === "comparison" || view === "both";
 
-  const axis = isDark ? "#6b6b72" : "#a3a3a3";
-  const grid = isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.07)";
+  const axis = isDark ? "#6b6b72" : "#8a8a90";
+  const grid = isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.06)";
 
-  const maxes = series.map((s) =>
-    Math.max(4, ...(showThis ? s.values : []), ...(showPrev ? s.prev : []))
+  const peaks = series.map((s) =>
+    Math.max(0, ...(showThis ? s.values : []), ...(showPrev ? s.prev : []))
   );
+  const steps = peaks.map(niceStep);
+  const maxes = steps.map((s) => s * 4);
 
   // En mode barres, chaque point occupe une « colonne » et x() renvoie son centre.
   const colW = iw / Math.max(1, n);
@@ -562,7 +552,14 @@ function Chart({
       : `${bucket} days from ${fmtFull(dates[i])}`;
 
   const ticks = [0, 1, 2, 3, 4];
-  const labelIdx = Array.from(new Set([0, 0.5, 1].map((r) => Math.round(r * (n - 1)))));
+  const labelCount = narrow ? 3 : 5;
+  const labelIdx = Array.from(
+    new Set(
+      Array.from({ length: labelCount }, (_, k) =>
+        n <= 1 ? 0 : Math.round((k * (n - 1)) / (labelCount - 1))
+      )
+    )
+  );
   const area = isBar
     ? ""
     : `${path(0, series[0].values)} L${x(n - 1).toFixed(1)},${pad.t + ih} L${x(0).toFixed(1)},${pad.t + ih} Z`;
@@ -573,14 +570,14 @@ function Chart({
     if (showThis) slots.push({ si, kind: "this" });
     if (showPrev) slots.push({ si, kind: "prev" });
   });
-  const groupW = colW * 0.72;
-  const barW = Math.max(1.5, Math.min(22, groupW / Math.max(1, slots.length)));
+  const groupW = colW * 0.7;
+  const barW = Math.max(1.5, Math.min(18, groupW / Math.max(1, slots.length)));
   const barGap = slots.length > 1 && barW > 6 ? 1.5 : 0;
   const totalW = barW * slots.length + barGap * Math.max(0, slots.length - 1);
 
   const onPointer = (e: ReactPointerEvent<SVGSVGElement>) => {
     const r = e.currentTarget.getBoundingClientRect();
-    const px = ((e.clientX - r.left) / r.width) * W;
+    const px = (e.clientX - r.left) * (W / (r.width || W));
     const i = isBar
       ? Math.floor((px - pad.l) / colW)
       : n === 1
@@ -601,7 +598,8 @@ function Chart({
 
   return (
     <div
-      className={`relative rounded-lg focus-visible:outline-none focus-visible:ring-2 ${
+      ref={wrapRef}
+      className={`relative w-full rounded-lg focus-visible:outline-none focus-visible:ring-2 ${
         isDark ? "focus-visible:ring-white/30" : "focus-visible:ring-black/25"
       }`}
       tabIndex={0}
@@ -611,8 +609,10 @@ function Chart({
       onBlur={() => setHover(null)}
     >
       <svg
+        width={W}
+        height={H}
         viewBox={`0 0 ${W} ${H}`}
-        className="h-auto w-full touch-pan-y"
+        className="block touch-pan-y"
         onPointerMove={onPointer}
         onPointerDown={onPointer}
         onPointerLeave={() => setHover(null)}
@@ -620,7 +620,7 @@ function Chart({
       >
         <defs>
           <linearGradient id={gradId} x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0%" stopColor={series[0].color} stopOpacity="0.14" />
+            <stop offset="0%" stopColor={series[0].color} stopOpacity="0.12" />
             <stop offset="100%" stopColor={series[0].color} stopOpacity="0" />
           </linearGradient>
           {/* Hachures utilisées pour les barres de la période précédente */}
@@ -633,46 +633,23 @@ function Chart({
               patternUnits="userSpaceOnUse"
               patternTransform="rotate(45)"
             >
-              <rect width="5" height="5" fill={s.color} fillOpacity="0.12" />
+              <rect width="5" height="5" fill={s.color} fillOpacity="0.1" />
               <line x1="0" y1="0" x2="0" y2="5" stroke={s.color} strokeOpacity="0.7" strokeWidth="2" />
             </pattern>
           ))}
         </defs>
-
-        <text
-          x={12}
-          y={pad.t + ih / 2}
-          fontSize="11"
-          fill={axis}
-          textAnchor="middle"
-          transform={`rotate(-90 12 ${pad.t + ih / 2})`}
-        >
-          {series[0].label}
-        </text>
-        {series.length > 1 && (
-          <text
-            x={W - 12}
-            y={pad.t + ih / 2}
-            fontSize="11"
-            fill={axis}
-            textAnchor="middle"
-            transform={`rotate(90 ${W - 12} ${pad.t + ih / 2})`}
-          >
-            {series[1].label}
-          </text>
-        )}
 
         {ticks.map((tk) => {
           const yy = pad.t + ih - (tk / 4) * ih;
           return (
             <g key={tk}>
               <line x1={pad.l} x2={W - pad.r} y1={yy} y2={yy} stroke={grid} />
-              <text x={pad.l - 10} y={yy + 3.5} fontSize="11" fill={axis} textAnchor="end" className="tabular-nums">
-                {Math.round((tk / 4) * maxes[0])}
+              <text x={pad.l - 8} y={yy + 3.5} fontSize="11" fill={axis} textAnchor="end" className="tabular-nums">
+                {nfc(steps[0] * tk)}
               </text>
               {series.length > 1 && (
-                <text x={W - pad.r + 10} y={yy + 3.5} fontSize="11" fill={axis} textAnchor="start" className="tabular-nums">
-                  {Math.round((tk / 4) * maxes[1])}
+                <text x={W - pad.r + 8} y={yy + 3.5} fontSize="11" fill={axis} textAnchor="start" className="tabular-nums">
+                  {nfc(steps[1] * tk)}
                 </text>
               )}
             </g>
@@ -682,7 +659,7 @@ function Chart({
           <text
             key={i}
             x={x(i)}
-            y={H - 8}
+            y={H - 6}
             fontSize="11"
             fill={axis}
             textAnchor={isBar ? "middle" : i === 0 ? "start" : i === n - 1 ? "end" : "middle"}
@@ -700,8 +677,8 @@ function Chart({
               fill="none"
               stroke={s.color}
               strokeOpacity="0.5"
-              strokeWidth="2"
-              strokeDasharray="5 5"
+              strokeWidth="1.75"
+              strokeDasharray="4 5"
               strokeLinecap="round"
             />
           ))}
@@ -715,7 +692,7 @@ function Chart({
                 d={path(si, s.values)}
                 fill="none"
                 stroke={s.color}
-                strokeWidth="2.5"
+                strokeWidth="2"
                 strokeLinejoin="round"
                 strokeLinecap="round"
               />
@@ -786,17 +763,17 @@ function Chart({
         {/* ───────── CURSEUR (ligne uniquement) ───────── */}
         {!isBar && hover !== null && (
           <g>
-            <line x1={x(hover)} x2={x(hover)} y1={pad.t} y2={pad.t + ih} stroke={axis} strokeOpacity="0.6" strokeDasharray="3 3" />
+            <line x1={x(hover)} x2={x(hover)} y1={pad.t} y2={pad.t + ih} stroke={axis} strokeOpacity="0.5" strokeDasharray="3 3" />
             {showThis &&
               series.map((s, si) => (
                 <circle
                   key={s.label}
                   cx={x(hover)}
                   cy={y(si, s.values[hover])}
-                  r="4.5"
-                  fill={isDark ? "#0f0f11" : "#fff"}
+                  r="4"
+                  fill={isDark ? "#0a0a0c" : "#fff"}
                   stroke={s.color}
-                  strokeWidth="2.5"
+                  strokeWidth="2"
                 />
               ))}
           </g>
@@ -805,12 +782,12 @@ function Chart({
 
       {hover !== null && (
         <div
-          className={`pointer-events-none absolute top-1 min-w-[160px] rounded-xl px-3.5 py-2.5 text-[12px] shadow-[0_8px_30px_rgba(0,0,0,0.35)] ${
+          className={`pointer-events-none absolute top-0 min-w-[150px] rounded-lg px-3 py-2 text-[12px] shadow-[0_8px_30px_rgba(0,0,0,0.3)] ${
             isDark ? "bg-[#101012] text-white ring-1 ring-white/10" : "bg-white text-neutral-900 ring-1 ring-black/10"
           }`}
           style={{
-            left: `${(x(hover) / W) * 100}%`,
-            transform: `translateX(${hover > n / 2 ? "-110%" : "10%"})`,
+            left: x(hover),
+            transform: `translateX(${hover > n / 2 ? "calc(-100% - 12px)" : "12px"})`,
           }}
         >
           <div className="mb-1 text-[11px] opacity-50">{heading(hover)}</div>
@@ -843,26 +820,70 @@ function Chart({
    PETITS COMPOSANTS
 ============================================================ */
 
+/** Onglets texte soulignés (plus léger visuellement qu'un groupe de boutons). */
+function Tabs<T extends string>({
+  value,
+  options,
+  onChange,
+  t,
+  label,
+}: {
+  value: T;
+  options: { key: T; label: string }[];
+  onChange: (k: T) => void;
+  t: Tokens;
+  label: string;
+}) {
+  return (
+    <div
+      role="tablist"
+      aria-label={label}
+      className={`flex flex-wrap items-center gap-x-5 border-b ${t.border}`}
+    >
+      {options.map((o) => {
+        const active = value === o.key;
+        return (
+          <button
+            key={o.key}
+            type="button"
+            role="tab"
+            aria-selected={active}
+            onClick={() => onChange(o.key)}
+            className={`relative -mb-px rounded-sm py-2 text-[13px] font-medium transition-colors motion-reduce:transition-none ${t.ring} ${
+              active ? t.text : t.idle
+            }`}
+          >
+            {o.label}
+            <span
+              aria-hidden="true"
+              className={`absolute inset-x-0 bottom-0 h-px ${active ? t.underline : "bg-transparent"}`}
+            />
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Petit sélecteur discret, pour les réglages du graphique. */
 function Segmented<T extends string>({
   value,
   options,
   onChange,
   t,
   label,
-  size = "md",
 }: {
   value: T;
-  options: { key: T; label: string; icon?: ReactNode; trailing?: ReactNode }[];
+  options: { key: T; title: string; label?: string; icon?: ReactNode }[];
   onChange: (k: T) => void;
   t: Tokens;
   label: string;
-  size?: "md" | "lg";
 }) {
   return (
     <div
       role="group"
       aria-label={label}
-      className={`inline-flex flex-wrap items-center gap-0.5 rounded-xl border p-1 ${t.panel}`}
+      className={`inline-flex items-center gap-0.5 rounded-lg p-0.5 ${t.track}`}
     >
       {options.map((o) => {
         const active = value === o.key;
@@ -871,14 +892,15 @@ function Segmented<T extends string>({
             key={o.key}
             type="button"
             aria-pressed={active}
+            aria-label={o.title}
+            title={o.title}
             onClick={() => onChange(o.key)}
-            className={`flex items-center gap-1.5 whitespace-nowrap rounded-lg px-3 ${
-              size === "lg" ? "py-2 text-[13px]" : "py-1.5 text-[12px]"
-            } font-semibold transition-colors motion-reduce:transition-none ${t.ring} ${active ? t.sel : t.idle}`}
+            className={`flex h-7 items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 text-[12px] font-medium transition-colors motion-reduce:transition-none ${t.ring} ${
+              active ? t.sel : t.idle
+            }`}
           >
             {o.icon}
             {o.label}
-            {o.trailing}
           </button>
         );
       })}
@@ -901,32 +923,87 @@ function IconBtn({
     <button
       type="button"
       aria-label={label}
+      title={label}
       onClick={onClick}
-      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-colors ${t.ring} ${t.soft} ${t.hover}`}
+      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors ${t.ring} ${t.soft} ${t.hover}`}
     >
       {children}
     </button>
   );
 }
 
+function SectionHead({
+  id,
+  title,
+  sub,
+  right,
+  t,
+}: {
+  id: string;
+  title: string;
+  sub?: string;
+  right?: ReactNode;
+  t: Tokens;
+}) {
+  return (
+    <div className="flex flex-wrap items-end justify-between gap-3">
+      <div>
+        <h2 id={id} className={`text-[15px] font-semibold tracking-[-0.02em] ${t.text}`}>
+          {title}
+        </h2>
+        {sub && <p className={`mt-0.5 text-[12px] ${t.muted}`}>{sub}</p>}
+      </div>
+      {right}
+    </div>
+  );
+}
+
+function EmptyState({
+  title,
+  text,
+  action,
+  t,
+  tall = false,
+}: {
+  title: string;
+  text?: string;
+  action?: { label: string; onClick: () => void };
+  t: Tokens;
+  tall?: boolean;
+}) {
+  return (
+    <div className={`flex flex-col items-center gap-1.5 text-center ${tall ? "py-24" : "py-12"}`}>
+      <p className={`text-[13px] font-medium ${t.text}`}>{title}</p>
+      {text && <p className={`max-w-[380px] text-[12px] leading-relaxed ${t.soft}`}>{text}</p>}
+      {action && (
+        <button
+          type="button"
+          onClick={action.onClick}
+          className={`mt-2 rounded-md px-1 text-[12px] font-semibold underline underline-offset-4 ${t.ring} ${t.text}`}
+        >
+          {action.label}
+        </button>
+      )}
+    </div>
+  );
+}
+
 function DeltaBadge({ delta, t }: { delta: Delta; t: Tokens }) {
-  if (!delta) return <span className="h-4" aria-hidden="true" />;
+  if (!delta) return null;
   const color =
     delta.tone === "up" ? "text-emerald-500" : delta.tone === "down" ? "text-red-500" : t.muted;
-  const Icon = delta.tone === "up" ? ArrowUpRight : delta.tone === "down" ? ArrowDownRight : Minus;
   return (
     <span
-      className={`flex h-4 items-center gap-1 text-[11px] font-semibold tabular-nums ${color}`}
+      className={`text-[11px] font-medium tabular-nums ${color}`}
       aria-label={`${delta.text} compared to the previous period`}
       title="Compared to the previous period"
     >
-      <Icon className="h-3 w-3" aria-hidden="true" />
       {delta.text}
     </span>
   );
 }
 
-function MetricBox({
+function Stat({
   label,
   value,
   info,
@@ -940,15 +1017,16 @@ function MetricBox({
   t: Tokens;
 }) {
   return (
-    <div className={`flex flex-col gap-2 rounded-xl border px-3.5 py-3 ${t.inner}`}>
-      <span className={`flex items-center justify-between gap-2 text-[10px] font-medium ${t.soft}`}>
-        <span className="truncate">{label}</span>
-        <span title={info} className={`shrink-0 ${t.muted}`}>
-          <Info className="h-3.5 w-3.5" aria-label={info} />
-        </span>
-      </span>
-      <span className={`text-[20px] font-bold leading-none tracking-tight tabular-nums ${t.text}`}>{value}</span>
-      <DeltaBadge delta={delta} t={t} />
+    <div className="min-w-0">
+      <p title={info} className={`truncate text-[12px] ${t.soft}`}>
+        {label}
+      </p>
+      <p className={`mt-2 text-[26px] font-semibold leading-none tracking-[-0.03em] tabular-nums ${t.text}`}>
+        {value}
+      </p>
+      <div className="mt-2 h-4">
+        <DeltaBadge delta={delta} t={t} />
+      </div>
     </div>
   );
 }
@@ -1069,27 +1147,23 @@ function ChannelMenu({
 
   return (
     <div ref={ref} className="relative">
-      <div className="flex items-center gap-1.5">
-        <button
-          type="button"
-          aria-haspopup="menu"
-          aria-expanded={open}
-          disabled={!canSwitch}
-          onClick={() => setOpen((o) => !o)}
-          className={`flex items-center gap-3 rounded-xl py-1 pr-2 transition-colors disabled:cursor-default ${t.ring} ${canSwitch ? t.hover : ""}`}
-        >
-          <Avatar channel={current} isDark={isDark} size={28} />
-          <span className={`max-w-[160px] truncate text-[14px] font-semibold tracking-[-0.01em] ${t.text}`}>
-            {name(current)}
-          </span>
-          {canSwitch && <ChevronDown className={`h-4 w-4 ${t.muted}`} aria-hidden="true" />}
-        </button>
-      </div>
+      <button
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        disabled={!canSwitch}
+        onClick={() => setOpen((o) => !o)}
+        className={`flex h-9 items-center gap-2.5 rounded-lg pl-1.5 pr-2.5 transition-colors disabled:cursor-default ${t.ring} ${canSwitch ? t.hover : ""}`}
+      >
+        <Avatar channel={current} isDark={isDark} size={24} />
+        <span className={`max-w-[160px] truncate text-[13px] font-medium ${t.text}`}>{name(current)}</span>
+        {canSwitch && <ChevronDown className={`h-3.5 w-3.5 ${t.muted}`} aria-hidden="true" />}
+      </button>
 
       {open && (
         <div
           role="menu"
-          className={`absolute right-0 z-30 mt-2 w-64 rounded-2xl border p-1.5 shadow-[0_12px_40px_rgba(0,0,0,0.5)] ${t.popover}`}
+          className={`absolute right-0 z-30 mt-2 w-64 rounded-xl border p-1.5 shadow-[0_12px_40px_rgba(0,0,0,0.45)] ${t.popover}`}
         >
           {channels.map((c) => {
             const active = c.key === current?.key;
@@ -1103,10 +1177,10 @@ function ChannelMenu({
                   setOpen(false);
                   navigate(`insights?channel=${encodeURIComponent(c.key)}`);
                 }}
-                className={`flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left transition-colors ${t.ring} ${t.hover}`}
+                className={`flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left transition-colors ${t.ring} ${t.hover}`}
               >
-                <Avatar channel={c} isDark={isDark} size={28} showNetwork={false} />
-                <span className={`min-w-0 flex-1 truncate text-[12px] font-semibold ${t.text}`}>{name(c)}</span>
+                <Avatar channel={c} isDark={isDark} size={24} showNetwork={false} />
+                <span className={`min-w-0 flex-1 truncate text-[12px] font-medium ${t.text}`}>{name(c)}</span>
                 {active && <Check className={`h-4 w-4 ${t.text}`} aria-hidden="true" />}
               </button>
             );
@@ -1116,11 +1190,9 @@ function ChannelMenu({
             type="button"
             role="menuitem"
             onClick={() => navigateToSettingsSection("channels")}
-            className={`flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left text-[12px] font-semibold transition-colors ${t.ring} ${t.hover} ${t.soft}`}
+            className={`flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left text-[12px] font-medium transition-colors ${t.ring} ${t.hover} ${t.soft}`}
           >
-            <span className="flex h-7 w-7 items-center justify-center rounded-full border border-dashed border-current opacity-60">
-              <Plus className="h-3.5 w-3.5" aria-hidden="true" />
-            </span>
+            <Plus className="h-4 w-4" aria-hidden="true" />
             Manage channels
           </button>
         </div>
@@ -1165,9 +1237,9 @@ function ExportMenu({
         setOpen(false);
         action();
       }}
-      className={`flex w-full flex-col items-start gap-0.5 rounded-xl px-3 py-2 text-left transition-colors ${t.ring} ${t.hover}`}
+      className={`flex w-full flex-col items-start gap-0.5 rounded-lg px-3 py-2 text-left transition-colors ${t.ring} ${t.hover}`}
     >
-      <span className={`text-[12px] font-semibold ${t.text}`}>{label}</span>
+      <span className={`text-[12px] font-medium ${t.text}`}>{label}</span>
       <span className={`text-[11px] ${t.muted}`}>{hint}</span>
     </button>
   );
@@ -1180,20 +1252,16 @@ function ExportMenu({
         aria-expanded={open}
         disabled={disabled}
         onClick={() => setOpen((o) => !o)}
-        className={`flex h-10 items-center gap-2 rounded-xl px-3.5 text-[12px] font-semibold transition-colors disabled:opacity-40 ${t.ring} ${t.outlineBtn}`}
+        className={`flex h-9 items-center gap-2 rounded-lg px-3 text-[12px] font-medium transition-colors disabled:opacity-40 ${t.ring} ${t.outlineBtn}`}
       >
-        <Download className="h-4 w-4" aria-hidden="true" />
+        <Download className="h-3.5 w-3.5" aria-hidden="true" />
         Export
-        <ChevronDown
-          className={`h-3.5 w-3.5 opacity-70 transition-transform motion-reduce:transition-none ${open ? "rotate-180" : ""}`}
-          aria-hidden="true"
-        />
       </button>
 
       {open && (
         <div
           role="menu"
-          className={`absolute right-0 z-30 mt-2 w-64 rounded-2xl border p-1.5 shadow-[0_12px_40px_rgba(0,0,0,0.5)] ${t.popover}`}
+          className={`absolute right-0 z-30 mt-2 w-64 rounded-xl border p-1.5 shadow-[0_12px_40px_rgba(0,0,0,0.45)] ${t.popover}`}
         >
           {item("Daily metrics", "One row per day, with the previous period (.csv)", onDaily)}
           {item("Posts", "Published posts of both periods (.csv)", onPosts)}
@@ -1278,7 +1346,7 @@ function RangePicker({
         type="button"
         aria-pressed={active}
         onClick={() => openPicker(id)}
-        className={`flex-1 whitespace-nowrap rounded-lg px-3 py-1.5 text-[11px] font-semibold transition-colors motion-reduce:transition-none ${t.ring} ${
+        className={`flex-1 whitespace-nowrap rounded-md px-3 py-1.5 text-[11px] font-medium transition-colors motion-reduce:transition-none ${t.ring} ${
           active ? t.sel : t.idle
         }`}
       >
@@ -1294,19 +1362,15 @@ function RangePicker({
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => (open ? setOpen(false) : openPicker("from"))}
-        className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-[12px] font-semibold transition-colors ${t.ring} ${t.panel} ${t.hover} ${t.text}`}
+        className={`flex h-8 items-center gap-2 rounded-lg px-2.5 text-[12px] font-medium transition-colors ${t.ring} ${t.track} ${t.hover} ${t.text}`}
       >
         <CalendarClock className={`h-3.5 w-3.5 ${t.muted}`} aria-hidden="true" />
         <span className="whitespace-nowrap">{label}</span>
-        <ChevronDown
-          className={`h-3.5 w-3.5 transition-transform motion-reduce:transition-none ${open ? "rotate-180" : ""} ${t.muted}`}
-          aria-hidden="true"
-        />
       </button>
 
       {open && (
         <div
-          className={`absolute left-0 top-full z-30 mt-2 w-[300px] overflow-hidden rounded-2xl border shadow-[0_12px_40px_rgba(0,0,0,0.5)] ${t.popover}`}
+          className={`absolute left-0 top-full z-30 mt-2 w-[300px] overflow-hidden rounded-xl border shadow-[0_12px_40px_rgba(0,0,0,0.45)] ${t.popover}`}
         >
           <div className={`flex gap-1 border-b p-2 ${t.border}`}>
             {fieldTab("from")}
@@ -1334,14 +1398,14 @@ function RangePicker({
             <button
               type="button"
               onClick={() => setField((f) => (f === "from" ? "to" : "from"))}
-              className={`rounded-md px-1 text-[12px] font-semibold transition-colors ${t.ring} ${t.hover} ${t.text}`}
+              className={`rounded-md px-1 text-[12px] font-medium transition-colors ${t.ring} ${t.hover} ${t.text}`}
             >
               {field === "from" ? "Next: To" : "Back: From"}
             </button>
             <button
               type="button"
               onClick={() => setOpen(false)}
-              className={`flex items-center gap-1.5 rounded-md px-1 text-[12px] font-semibold transition-colors ${t.ring} ${t.hover} ${t.text}`}
+              className={`flex items-center gap-1.5 rounded-md px-1 text-[12px] font-medium transition-colors ${t.ring} ${t.hover} ${t.text}`}
             >
               <Check className="h-3.5 w-3.5" strokeWidth={3} aria-hidden="true" />
               Done
@@ -1350,23 +1414,6 @@ function RangePicker({
         </div>
       )}
     </div>
-  );
-}
-
-function InsightsIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className="h-[18px] w-[18px]"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M5 18V9M12 18V5M19 18v-7M3 20h18" />
-    </svg>
   );
 }
 
@@ -1419,8 +1466,6 @@ export default function Insights() {
   const [isNewPostOpen, setIsNewPostOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
-
-  // ── PAGINATION STATE ──
   const [page, setPage] = useState(1);
 
   // Sauvegarde des préférences
@@ -1485,7 +1530,7 @@ export default function Insights() {
   const prevStart = previous[0].date;
   const prevEnd = previous[days - 1].date;
   const periodLabel = fmtRange(start, end);
-  const compareLabel = `Compared to ${fmtRange(prevStart, prevEnd)}`;
+  const compareLabel = `vs ${fmtRange(prevStart, prevEnd)}`;
 
   const summaryBoxes: { label: string; value: string }[] = [
     { label: "Total Followers", value: nf(summary.followers) },
@@ -1555,30 +1600,22 @@ export default function Insights() {
   const seriesTotal = (s: SeriesDef) =>
     s.agg === "sum" ? current.reduce((a, p) => a + p[s.key], 0) : current[days - 1]?.[s.key] ?? 0;
 
-  const METRIC_TABS: { key: MetricTab; label: string; icon: ReactNode }[] = [
-    { key: "posts", label: "Posts", icon: <Copy className="h-4 w-4" aria-hidden="true" /> },
-    { key: "impact", label: "Content Impact", icon: <Zap className="h-4 w-4" aria-hidden="true" /> },
-    { key: "growth", label: "Audience Growth", icon: <TrendingUp className="h-4 w-4" aria-hidden="true" /> },
-    { key: "visibility", label: "Visibility", icon: <Eye className="h-4 w-4" aria-hidden="true" /> },
+  const METRIC_TABS: { key: MetricTab; label: string }[] = [
+    { key: "visibility", label: "Visibility" },
+    { key: "growth", label: "Audience growth" },
+    { key: "impact", label: "Content impact" },
+    { key: "posts", label: "Posts" },
   ];
 
-  const CHART_VIEWS: { key: ChartView; label: string; icon?: ReactNode }[] = [
-    {
-      key: "this",
-      label: "This Period",
-      icon: <span className="h-2.5 w-2.5 rounded-[3px] bg-current" aria-hidden="true" />,
-    },
-    {
-      key: "comparison",
-      label: "Comparison",
-      icon: <span className="h-2.5 w-2.5 rounded-[3px] border border-dashed border-current" aria-hidden="true" />,
-    },
-    { key: "both", label: "Both" },
+  const CHART_VIEWS: { key: ChartView; title: string; label: string }[] = [
+    { key: "this", title: "This period", label: "This period" },
+    { key: "comparison", title: "Previous period", label: "Previous" },
+    { key: "both", title: "Both periods", label: "Both" },
   ];
 
-  const CHART_TYPES: { key: ChartType; label: string; icon: ReactNode }[] = [
-    { key: "line", label: "Line", icon: <LineChart className="h-4 w-4" aria-hidden="true" /> },
-    { key: "bar", label: "Bar", icon: <BarChart3 className="h-4 w-4" aria-hidden="true" /> },
+  const CHART_TYPES: { key: ChartType; title: string; icon: ReactNode }[] = [
+    { key: "line", title: "Line chart", icon: <LineChart className="h-3.5 w-3.5" aria-hidden="true" /> },
+    { key: "bar", title: "Bar chart", icon: <BarChart3 className="h-3.5 w-3.5" aria-hidden="true" /> },
   ];
 
   const rows = postsPeriod === "this" ? posts : previousPosts;
@@ -1592,10 +1629,11 @@ export default function Insights() {
     return [...matchingRows].sort((a, b) => (a[sort.key] - b[sort.key]) * dir);
   }, [rows, sort, needle]);
 
-  // ── PAGINATION CALCULS ──
+  // ── PAGINATION ──
   const totalPages = Math.max(1, Math.ceil(sortedRows.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
-  const paginatedRows = sortedRows.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  const pageStart = (safePage - 1) * PAGE_SIZE;
+  const paginatedRows = sortedRows.slice(pageStart, pageStart + PAGE_SIZE);
 
   const toggleSort = (key: SortKey) =>
     setSort((s) => (s?.key === key ? { key, dir: s.dir === "desc" ? "asc" : "desc" } : { key, dir: "desc" }));
@@ -1603,10 +1641,10 @@ export default function Insights() {
   const columns: { key: SortKey; label: string; render: (p: PostRow) => string }[] = [
     { key: "reactions", label: "Reactions", render: (p) => nf(p.reactions) },
     { key: "comments", label: "Comments", render: (p) => nf(p.comments) },
-    { key: "engRate", label: "Eng. Rate", render: (p) => `${p.engRate.toFixed(2)}%` },
-    { key: "videoViews", label: "Video Views", render: (p) => nf(p.videoViews) },
+    { key: "engRate", label: "Eng. rate", render: (p) => `${p.engRate.toFixed(2)}%` },
+    { key: "videoViews", label: "Views", render: (p) => nf(p.videoViews) },
   ];
-  const TABLE_GRID = "grid-cols-[minmax(0,2.3fr)_1fr_1fr_1fr_1fr_44px]";
+  const TABLE_GRID = "grid-cols-[minmax(0,2.4fr)_repeat(4,minmax(72px,1fr))_32px]";
 
   const ytUrl = (id: string) => `https://www.youtube.com/watch?v=${id}`;
 
@@ -1702,14 +1740,10 @@ export default function Insights() {
   const mediaIcon = (m: PostRow["media"]) =>
     m === "video" ? <Play className="h-4 w-4" /> : m === "text" ? <FileText className="h-4 w-4" /> : <ImageIcon className="h-4 w-4" />;
 
-  const sectionCard = `rounded-2xl border p-4 ${t.card}`;
-  const sectionTitle = `text-[15px] font-semibold tracking-[-0.02em] ${t.text}`;
-  const sectionSub = `mt-1 text-[11px] ${t.muted}`;
-
   const youtubeLoading = isYouTube && yt.loading && !yt.data;
 
-  // La bannière d'encouragement n'a de sens que si la chaîne a peu publié.
-  const showBanner =
+  // Message d'encouragement discret, seulement si la chaîne a peu publié.
+  const showHint =
     isYouTube && !youtubeLoading && !yt.error && posts.length < 3 && previousPosts.length < 3;
 
   return (
@@ -1744,24 +1778,15 @@ export default function Insights() {
         >
           <div
             className={[
-              "mx-auto flex w-full max-w-[1720px]",
-              "flex-col gap-6 px-[clamp(18px,3vw,48px)]",
-              "pb-[120px] pt-[clamp(18px,3vw,30px)]",
+              "mx-auto flex w-full max-w-[1120px]",
+              "flex-col gap-12 px-[clamp(18px,3vw,48px)]",
+              "pb-[120px] pt-[clamp(18px,3vw,32px)]",
             ].join(" ")}
           >
-            {/* HEADER COMPACT */}
-            <div className="flex shrink-0 flex-wrap items-center justify-between gap-3">
-              <div className="flex min-w-0 items-center gap-2.5">
-                <span
-                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border ${t.inner} ${t.soft}`}
-                >
-                  <InsightsIcon />
-                </span>
-                <h1 className={`truncate text-[20px] font-semibold tracking-[-0.03em] ${t.text}`}>
-                  Insights
-                </h1>
-              </div>
-              <div className="flex flex-wrap items-center gap-2.5 print:hidden">
+            {/* HEADER */}
+            <header className="flex flex-wrap items-center justify-between gap-3">
+              <h1 className={`text-[22px] font-semibold tracking-[-0.03em] ${t.text}`}>Insights</h1>
+              <div className="flex flex-wrap items-center gap-1.5 print:hidden">
                 <ChannelMenu channels={channels} current={channel} t={t} isDark={isDark} />
 
                 {isYouTube && (
@@ -1780,166 +1805,89 @@ export default function Insights() {
                   t={t}
                 />
 
-                <button
-                  type="button"
-                  aria-label={saved ? "Remove from favorites" : "Add to favorites"}
-                  aria-pressed={saved}
-                  title={saved ? "Remove from favorites" : "Add to favorites"}
+                <IconBtn
+                  label={saved ? "Remove from favorites" : "Add to favorites"}
+                  t={t}
                   onClick={() => toggleFavorite(PAGE_ROUTE)}
-                  className={[
-                    "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors motion-reduce:transition-none",
-                    t.ring,
-                    t.soft,
-                    t.hover,
-                  ].join(" ")}
                 >
                   <Bookmark
                     className={`h-4 w-4 ${saved ? "fill-current" : ""}`}
                     aria-hidden="true"
                   />
-                </button>
+                </IconBtn>
               </div>
-            </div>
+            </header>
 
             {!channel ? (
-              <section className={`flex flex-col items-center gap-3 rounded-2xl border px-6 py-20 text-center ${t.panel}`}>
-                <span className={`flex h-11 w-11 items-center justify-center rounded-full ${t.iconBox}`}>
-                  <Activity className="h-5 w-5" aria-hidden="true" />
-                </span>
-                <h2 className={`text-[14px] font-semibold ${t.text}`}>Connect a channel to see insights</h2>
-                <p className={`max-w-[360px] text-[12px] ${t.soft}`}>
-                  Followers, reach and engagement show up here once a social account is connected.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => navigateToSettingsSection("channels")}
-                  className={`mt-2 flex items-center gap-1.5 rounded-lg px-4 py-2 text-[11px] font-semibold ${t.ring} ${t.primaryBtn}`}
-                >
-                  <Plus className="h-3.5 w-3.5" aria-hidden="true" />
-                  Connect a channel
-                </button>
-              </section>
+              <EmptyState
+                tall
+                t={t}
+                title="Connect a channel to see insights"
+                text="Followers, reach and engagement show up here once a social account is connected."
+                action={{ label: "Connect a channel", onClick: () => navigateToSettingsSection("channels") }}
+              />
             ) : !isYouTube ? (
-              <section className={`flex flex-col items-center gap-3 rounded-2xl border px-6 py-20 text-center ${t.panel}`}>
-                <span className={`flex h-11 w-11 items-center justify-center rounded-full ${t.iconBox}`}>
-                  <Activity className="h-5 w-5" aria-hidden="true" />
-                </span>
-                <h2 className={`text-[14px] font-semibold ${t.text}`}>
-                  Insights for this network are coming soon
-                </h2>
-                <p className={`max-w-[380px] text-[12px] ${t.soft}`}>
-                  Real statistics are only available for YouTube channels for now. Switch to a
-                  YouTube channel from the menu above to see your insights.
-                </p>
-              </section>
+              <EmptyState
+                tall
+                t={t}
+                title="Insights for this network are coming soon"
+                text="Real statistics are only available for YouTube channels for now. Switch to a YouTube channel from the menu above."
+              />
             ) : (
               <>
                 {yt.error && (
-                  <div
-                    role="alert"
-                    className={`flex flex-wrap items-center justify-between gap-3 rounded-2xl border px-4 py-3 ${t.panel}`}
-                  >
+                  <div role="alert" className="flex flex-wrap items-center gap-x-4 gap-y-1">
                     <p className="text-[12.5px] text-red-500">
                       Could not load YouTube insights: {yt.error}
                     </p>
                     <button
                       type="button"
                       onClick={() => setReloadKey((k) => k + 1)}
-                      className={`rounded-lg px-3 py-1.5 text-[11px] font-semibold transition-colors ${t.ring} ${t.outlineBtn}`}
+                      className={`rounded-md px-1 text-[12px] font-semibold underline underline-offset-4 ${t.ring} ${t.text}`}
                     >
                       Retry
                     </button>
                   </div>
                 )}
-                {youtubeLoading && (
-                  <p className={`text-[12.5px] ${t.soft}`} role="status" aria-live="polite">
-                    Loading YouTube insights…
-                  </p>
-                )}
 
-                {/* BANNIÈRE — uniquement si la chaîne a peu publié */}
-                {showBanner && (
-                  <section className={`relative overflow-hidden rounded-2xl border ${t.card}`}>
-                    <div
-                      aria-hidden="true"
-                      className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${
-                        isDark
-                          ? "from-white/[0.06] via-transparent to-transparent"
-                          : "from-black/[0.04] via-transparent to-transparent"
-                      }`}
-                    />
-                    <div className="relative z-10 flex flex-col justify-center gap-4 px-6 py-6">
-                      <div>
-                        <h2 className={`text-[20px] font-semibold tracking-[-0.03em] ${t.text}`}>
-                          Post more to unlock weekly takeaways
-                        </h2>
-                        <p className={`mt-2 max-w-[460px] text-[13px] leading-relaxed ${t.soft}`}>
-                          Your channel has published fewer than 3 videos in the last two periods.
-                          Share a few more and your trends will become much easier to read.
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => navigate("new-post")}
-                        className={`flex w-fit items-center gap-1.5 rounded-lg px-4 py-2.5 text-[12px] font-semibold transition-all duration-150 active:scale-[0.98] ${t.ring} ${t.primaryBtn}`}
-                      >
-                        <Plus className="h-3.5 w-3.5" aria-hidden="true" />
-                        Create Post
-                      </button>
-                    </div>
-                  </section>
-                )}
-
-                {/* ALL INSIGHTS */}
-                <section aria-labelledby="all-title" className="flex flex-col gap-4">
-                  <div>
-                    <h2 id="all-title" className={`text-[20px] font-semibold tracking-[-0.03em] ${t.text}`}>
-                      All Insights
-                    </h2>
-                    <p className={`mt-0.5 text-[10px] ${t.muted}`}>Your activity at a glance</p>
+                {showHint && (
+                  <div className={`flex flex-wrap items-center justify-between gap-3 rounded-xl px-4 py-3 ${t.track}`}>
+                    <p className={`text-[13px] ${t.soft}`}>
+                      Fewer than 3 videos published recently. Post a bit more and your trends will be easier to read.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => navigate("new-post")}
+                      className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-semibold ${t.ring} ${t.primaryBtn}`}
+                    >
+                      <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+                      Create post
+                    </button>
                   </div>
+                )}
 
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div className="flex flex-wrap items-center gap-3">
-                      <div
-                        role="tablist"
-                        aria-label="Date range"
-                        className={`inline-flex flex-wrap items-center gap-0.5 rounded-xl border p-1 ${t.panel}`}
-                      >
-                        {RANGES.map((o) => {
-                          const active = range === o.key;
-                          return (
-                            <button
-                              key={o.key}
-                              type="button"
-                              role="tab"
-                              aria-selected={active}
-                              onClick={() => setRange(o.key)}
-                              className={`flex items-center gap-2 whitespace-nowrap rounded-lg px-3.5 py-2 text-[13px] font-semibold transition-colors ${t.ring} ${
-                                active ? t.sel : t.idle
-                              }`}
-                            >
-                              {o.label}
-                              {o.key === "custom" && (
-                                <span
-                                  className={`flex h-5 w-5 items-center justify-center rounded-full ${
-                                    active
-                                      ? isDark
-                                        ? "bg-black/15 text-black"
-                                        : "bg-white/20 text-white"
-                                      : isDark
-                                        ? "bg-white/15 text-white"
-                                        : "bg-black/10 text-black"
-                                  }`}
-                                  aria-hidden="true"
-                                >
-                                  <Zap className="h-3 w-3 fill-current" />
-                                </span>
-                              )}
-                            </button>
-                          );
-                        })}
-                      </div>
+                <div
+                  className={`flex flex-col gap-12 transition-opacity duration-200 motion-reduce:transition-none ${
+                    youtubeLoading ? "pointer-events-none opacity-50" : ""
+                  }`}
+                  aria-busy={youtubeLoading}
+                >
+                  {youtubeLoading && (
+                    <p className="sr-only" role="status" aria-live="polite">
+                      Loading YouTube insights…
+                    </p>
+                  )}
+
+                  {/* PÉRIODE */}
+                  <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
+                    <div className="flex flex-wrap items-center gap-4">
+                      <Tabs<Range>
+                        label="Date range"
+                        value={range}
+                        onChange={setRange}
+                        t={t}
+                        options={RANGES}
+                      />
                       {range === "custom" && (
                         <RangePicker
                           range={range}
@@ -1957,25 +1905,24 @@ export default function Insights() {
                     <button
                       type="button"
                       onClick={() => navigate("tags")}
-                      className={`flex items-center gap-2 rounded-lg px-3 py-2 text-[13px] font-semibold transition-colors ${t.ring} ${t.hover} ${t.text}`}
+                      className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-medium transition-colors ${t.ring} ${t.hover} ${t.soft}`}
                     >
-                      <Tag className="h-4 w-4" aria-hidden="true" />
+                      <Tag className="h-3.5 w-3.5" aria-hidden="true" />
                       Tags
-                      <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
                     </button>
                   </div>
 
                   {/* SUMMARY */}
-                  <div className={sectionCard}>
-                    <div className="px-1">
-                      <h3 className={sectionTitle}>Summary</h3>
-                      <p className={sectionSub}>
-                        {periodLabel} · {compareLabel}
-                      </p>
-                    </div>
-                    <div className={`mt-4 grid grid-cols-2 gap-2.5 rounded-2xl border p-3 sm:grid-cols-3 lg:grid-cols-6 ${t.panel}`}>
+                  <section aria-labelledby="summary-title" className="flex flex-col gap-6">
+                    <SectionHead
+                      id="summary-title"
+                      title="Summary"
+                      sub={`${periodLabel} · ${compareLabel}`}
+                      t={t}
+                    />
+                    <div className="grid grid-cols-2 gap-x-6 gap-y-7 sm:grid-cols-3 lg:grid-cols-5">
                       {summaryBoxes.map((b) => (
-                        <MetricBox
+                        <Stat
                           key={b.label}
                           label={b.label}
                           value={b.value}
@@ -1985,137 +1932,189 @@ export default function Insights() {
                         />
                       ))}
                     </div>
-                  </div>
-                </section>
+                  </section>
 
-                {/* PERFORMANCE PER POST */}
-                <section className={sectionCard} aria-labelledby="perf-title">
-                  <div className="flex flex-wrap items-start justify-between gap-3 px-1">
-                    <div>
-                      <h3 id="perf-title" className={sectionTitle}>
-                        Performance per Post
-                      </h3>
-                      <p className={sectionSub}>
-                        {postsPeriod === "this" ? periodLabel : fmtRange(prevStart, prevEnd)}
-                      </p>
-                    </div>
-                    <Segmented<PostsPeriod>
-                      label="Posts period"
-                      value={postsPeriod}
-                      onChange={setPostsPeriod}
+                  {/* METRICS */}
+                  <section aria-labelledby="metrics-title" className="flex flex-col gap-5">
+                    <SectionHead
+                      id="metrics-title"
+                      title="Metrics"
+                      sub={periodLabel}
                       t={t}
-                      size="lg"
-                      options={[
-                        { key: "this", label: "This Period" },
-                        { key: "previous", label: "Previous Period" },
-                      ]}
+                      right={
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Segmented<ChartType>
+                            label="Chart type"
+                            value={chartType}
+                            onChange={setChartType}
+                            t={t}
+                            options={CHART_TYPES}
+                          />
+                          <Segmented<ChartView>
+                            label="Chart view"
+                            value={chartView}
+                            onChange={setChartView}
+                            t={t}
+                            options={CHART_VIEWS}
+                          />
+                        </div>
+                      }
                     />
-                  </div>
 
-                  {/* RECHERCHE */}
-                  <div className="relative mt-4 max-w-[340px]">
-                    <Search
-                      className={`pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 ${t.muted}`}
-                      aria-hidden="true"
+                    <Tabs<MetricTab>
+                      label="Metric group"
+                      value={metricTab}
+                      onChange={setMetricTab}
+                      t={t}
+                      options={METRIC_TABS}
                     />
-                    <input
-                      type="text"
-                      value={query}
-                      onChange={(e) => setQuery(e.target.value)}
-                      placeholder="Search posts…"
-                      aria-label="Search posts by title"
-                      className={`w-full rounded-xl border py-2 pl-9 pr-9 text-[12px] placeholder:text-neutral-500 ${t.panel} ${t.text} ${t.ring}`}
-                    />
-                    {query && (
-                      <button
-                        type="button"
-                        aria-label="Clear search"
-                        onClick={() => setQuery("")}
-                        className={`absolute right-1.5 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md ${t.soft} ${t.hover} ${t.ring}`}
-                      >
-                        <X className="h-3.5 w-3.5" aria-hidden="true" />
-                      </button>
-                    )}
-                  </div>
 
-                  <div className={`mt-3 overflow-x-auto rounded-2xl border ${t.panel}`}>
-                    <div className="min-w-[720px]">
-                      <div
-                        className={`grid ${TABLE_GRID} items-center gap-2 px-4 py-3 text-[12px] font-semibold ${t.head} ${t.text}`}
-                      >
-                        <span>Posts · {sortedRows.length}</span>
-                        {columns.map((c) => (
-                          <button
-                            key={c.key}
-                            type="button"
-                            onClick={() => toggleSort(c.key)}
-                            aria-label={`Sort by ${c.label}`}
-                            className={`flex w-fit items-center gap-1 rounded-md text-left ${t.ring}`}
-                          >
-                            {c.label}
-                            <ChevronDown
-                              className={`h-3.5 w-3.5 transition-transform ${t.muted} ${
-                                sort?.key === c.key && sort.dir === "asc" ? "rotate-180" : ""
-                              } ${sort?.key === c.key ? "opacity-100" : "opacity-70"}`}
+                    <div className="flex flex-wrap gap-x-12 gap-y-3">
+                      {activeSeries.map((s) => (
+                        <div key={s.key}>
+                          <p className={`flex items-center gap-2 text-[12px] ${t.soft}`}>
+                            <span
+                              className="h-2 w-2 rounded-full"
+                              style={{ background: TONES[s.tone] }}
                               aria-hidden="true"
                             />
-                          </button>
-                        ))}
-                        <span aria-hidden="true" />
-                      </div>
+                            {s.label}
+                          </p>
+                          <p className={`mt-1.5 text-[26px] font-semibold leading-none tracking-[-0.03em] tabular-nums ${t.text}`}>
+                            {nf(seriesTotal(s))}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
 
-                      {paginatedRows.length === 0 ? (
-                        needle && rows.length > 0 ? (
-                          <div className={`flex flex-col items-center gap-2 border-t px-6 py-10 text-center ${t.border}`}>
-                            <span className={`flex h-11 w-11 items-center justify-center rounded-full ${t.iconBox}`}>
-                              <Search className="h-5 w-5" aria-hidden="true" />
-                            </span>
-                            <p className={`text-[12px] font-medium ${t.text}`}>
-                              No post matches “{query.trim()}”
-                            </p>
-                            <button
-                              type="button"
-                              onClick={() => setQuery("")}
-                              className={`mt-2 rounded-lg px-3 py-1.5 text-[11px] font-semibold transition-colors ${t.ring} ${t.outlineBtn}`}
-                            >
-                              Clear search
-                            </button>
+                    <Chart
+                      dates={chartDates}
+                      series={chartSeries}
+                      view={chartView}
+                      type={chartType}
+                      bucket={bucket}
+                      isDark={isDark}
+                    />
+
+                    {bucket > 1 && (
+                      <p className={`text-[11px] ${t.muted}`}>
+                        Grouped by {bucket === 7 ? "week" : "30-day period"}: totals are summed,
+                        followers show the last value of each group.
+                      </p>
+                    )}
+                  </section>
+
+                  {/* POSTS */}
+                  <section aria-labelledby="perf-title" className="flex flex-col gap-5">
+                    <SectionHead
+                      id="perf-title"
+                      title="Performance per post"
+                      sub={postsPeriod === "this" ? periodLabel : fmtRange(prevStart, prevEnd)}
+                      t={t}
+                      right={
+                        <Tabs<PostsPeriod>
+                          label="Posts period"
+                          value={postsPeriod}
+                          onChange={setPostsPeriod}
+                          t={t}
+                          options={[
+                            { key: "this", label: "This period" },
+                            { key: "previous", label: "Previous" },
+                          ]}
+                        />
+                      }
+                    />
+
+                    {/* RECHERCHE */}
+                    <div className="relative max-w-[320px]">
+                      <Search
+                        className={`pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 ${t.muted}`}
+                        aria-hidden="true"
+                      />
+                      <input
+                        type="text"
+                        value={query}
+                        onChange={(e) => setQuery(e.target.value)}
+                        placeholder="Search posts"
+                        aria-label="Search posts by title"
+                        className={`h-9 w-full rounded-lg bg-transparent pl-9 pr-9 text-[12px] placeholder:text-neutral-500 ${t.track} ${t.text} ${t.ring}`}
+                      />
+                      {query && (
+                        <button
+                          type="button"
+                          aria-label="Clear search"
+                          onClick={() => setQuery("")}
+                          className={`absolute right-1.5 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md ${t.soft} ${t.hover} ${t.ring}`}
+                        >
+                          <X className="h-3.5 w-3.5" aria-hidden="true" />
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="overflow-x-auto">
+                      <div className="min-w-[640px]">
+                        <div className={`grid ${TABLE_GRID} items-center gap-3 pb-2 text-[11px] font-medium ${t.muted}`}>
+                          <span>{nf(sortedRows.length)} {sortedRows.length === 1 ? "post" : "posts"}</span>
+                          {columns.map((c) => {
+                            const active = sort?.key === c.key;
+                            return (
+                              <button
+                                key={c.key}
+                                type="button"
+                                onClick={() => toggleSort(c.key)}
+                                aria-label={`Sort by ${c.label}`}
+                                className={`ml-auto flex items-center gap-1 rounded-md ${t.ring} ${
+                                  active ? t.text : "hover:opacity-80"
+                                }`}
+                              >
+                                {c.label}
+                                {active && (
+                                  <ChevronDown
+                                    className={`h-3 w-3 transition-transform motion-reduce:transition-none ${
+                                      sort?.dir === "asc" ? "rotate-180" : ""
+                                    }`}
+                                    aria-hidden="true"
+                                  />
+                                )}
+                              </button>
+                            );
+                          })}
+                          <span aria-hidden="true" />
+                        </div>
+
+                        {paginatedRows.length === 0 ? (
+                          <div className={`border-t ${t.border}`}>
+                            {needle && rows.length > 0 ? (
+                              <EmptyState
+                                t={t}
+                                title={`No post matches “${query.trim()}”`}
+                                action={{ label: "Clear search", onClick: () => setQuery("") }}
+                              />
+                            ) : (
+                              <EmptyState
+                                t={t}
+                                title={youtubeLoading ? "Loading videos…" : "No published posts in this period"}
+                                text={
+                                  youtubeLoading
+                                    ? undefined
+                                    : "Choose a longer range to see how your earlier posts performed."
+                                }
+                                action={
+                                  !youtubeLoading && days < 30
+                                    ? { label: "Show last 30 days", onClick: () => setRange("30d") }
+                                    : undefined
+                                }
+                              />
+                            )}
                           </div>
                         ) : (
-                          <div className={`flex flex-col items-center gap-2 border-t px-6 py-10 text-center ${t.border}`}>
-                            <span className={`flex h-11 w-11 items-center justify-center rounded-full ${t.iconBox}`}>
-                              <Activity className="h-5 w-5" aria-hidden="true" />
-                            </span>
-                            <p className={`text-[12px] font-medium ${t.text}`}>
-                              {youtubeLoading ? "Loading videos…" : "No published posts in this period"}
-                            </p>
-                            {!youtubeLoading && (
-                              <p className={`max-w-[360px] text-[12px] ${t.soft}`}>
-                                Choose a longer range to see how your earlier posts performed.
-                              </p>
-                            )}
-                            {!youtubeLoading && days < 30 && (
-                              <button
-                                type="button"
-                                onClick={() => setRange("30d")}
-                                className={`mt-2 rounded-lg px-3 py-1.5 text-[11px] font-semibold transition-colors ${t.ring} ${t.outlineBtn}`}
-                              >
-                                Show last 30 days
-                              </button>
-                            )}
-                          </div>
-                        )
-                      ) : (
-                        paginatedRows.map((p, idx) => {
-                          const globalIdx = (safePage - 1) * PAGE_SIZE + idx + 1;
-                          return (
+                          paginatedRows.map((p) => (
                             <div
                               key={p.id}
-                              className={`grid ${TABLE_GRID} items-center gap-2 border-t px-4 py-3 text-[13px] ${t.border} ${t.text}`}
+                              className={`grid ${TABLE_GRID} items-center gap-3 border-t py-3 text-[13px] ${t.border} ${t.text}`}
                             >
                               <div className="flex min-w-0 items-center gap-3">
-                                <span className={`w-5 shrink-0 text-[12px] ${t.muted}`}>#{globalIdx}</span>
-                                <span className={`flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl ${t.iconBox}`}>
+                                <span className={`flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg ${t.thumb}`}>
                                   {p.thumbnailUrl ? (
                                     <img src={p.thumbnailUrl} alt="" referrerPolicy="no-referrer" loading="lazy" className="h-full w-full object-cover" />
                                   ) : (
@@ -2127,7 +2126,7 @@ export default function Insights() {
                                     href={ytUrl(p.id)}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className={`block truncate rounded text-[14px] font-medium hover:underline ${t.soft} ${t.ring}`}
+                                    className={`block truncate rounded text-[13px] font-medium hover:underline ${t.ring}`}
                                   >
                                     {p.label}
                                   </a>
@@ -2135,7 +2134,7 @@ export default function Insights() {
                                 </div>
                               </div>
                               {columns.map((c) => (
-                                <span key={c.key} className="tabular-nums">
+                                <span key={c.key} className="text-right tabular-nums">
                                   {c.render(p)}
                                 </span>
                               ))}
@@ -2145,148 +2144,42 @@ export default function Insights() {
                                 rel="noopener noreferrer"
                                 aria-label={`Open “${p.label}” on YouTube`}
                                 title="Open on YouTube"
-                                className={`flex h-8 w-8 items-center justify-center rounded-lg ${t.soft} ${t.hover} ${t.ring}`}
+                                className={`flex h-8 w-8 items-center justify-center rounded-lg ${t.muted} ${t.hover} ${t.ring}`}
                               >
-                                <ExternalLink className="h-4 w-4" aria-hidden="true" />
+                                <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
                               </a>
                             </div>
-                          );
-                        })
-                      )}
+                          ))
+                        )}
+                      </div>
                     </div>
-                  </div>
 
-                  {/* PAGINATION UI (avec ellipses) */}
-                  {totalPages > 1 && (
-                    <nav aria-label="Posts pagination" className="mt-4 flex items-center justify-center gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => setPage(Math.max(1, safePage - 1))}
-                        disabled={safePage === 1}
-                        aria-label="Previous page"
-                        className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors disabled:opacity-30 ${t.ring} ${t.soft} ${t.hover}`}
-                      >
-                        <ChevronLeft className="h-4 w-4" />
-                      </button>
-
-                      {pageItems(safePage, totalPages).map((item, i) => {
-                        if (item === "…") {
-                          return (
-                            <span
-                              key={`gap-${i}`}
-                              aria-hidden="true"
-                              className={`flex h-8 w-6 items-center justify-center text-[12px] ${t.muted}`}
-                            >
-                              …
-                            </span>
-                          );
-                        }
-                        const active = safePage === item;
-                        return (
-                          <button
-                            key={item}
-                            type="button"
-                            onClick={() => setPage(item)}
-                            aria-current={active ? "page" : undefined}
-                            aria-label={`Page ${item}`}
-                            className={`flex h-8 min-w-8 items-center justify-center rounded-lg px-1.5 text-[12px] font-semibold tabular-nums transition-colors ${t.ring} ${
-                              active ? t.sel : `${t.soft} ${t.hover}`
-                            }`}
+                    {/* PAGINATION */}
+                    {totalPages > 1 && (
+                      <nav aria-label="Posts pagination" className="flex items-center justify-between">
+                        <p className={`text-[12px] tabular-nums ${t.muted}`} aria-live="polite">
+                          {pageStart + 1}–{Math.min(pageStart + PAGE_SIZE, sortedRows.length)} of {nf(sortedRows.length)}
+                        </p>
+                        <div className="flex items-center gap-1">
+                          <IconBtn
+                            label="Previous page"
+                            t={t}
+                            onClick={() => setPage(Math.max(1, safePage - 1))}
                           >
-                            {item}
-                          </button>
-                        );
-                      })}
-
-                      <button
-                        type="button"
-                        onClick={() => setPage(Math.min(totalPages, safePage + 1))}
-                        disabled={safePage === totalPages}
-                        aria-label="Next page"
-                        className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors disabled:opacity-30 ${t.ring} ${t.soft} ${t.hover}`}
-                      >
-                        <ChevronRight className="h-4 w-4" />
-                      </button>
-                    </nav>
-                  )}
-                </section>
-
-                {/* METRICS */}
-                <section className={sectionCard} aria-labelledby="metrics-title">
-                  <div className="px-1">
-                    <h3 id="metrics-title" className={sectionTitle}>
-                      Metrics
-                    </h3>
-                    <p className={sectionSub}>
-                      {periodLabel} · {compareLabel}
-                    </p>
-                  </div>
-
-                  <div className="mt-4">
-                    <Segmented<MetricTab>
-                      label="Metric group"
-                      value={metricTab}
-                      onChange={setMetricTab}
-                      t={t}
-                      size="lg"
-                      options={METRIC_TABS}
-                    />
-                  </div>
-
-                  <div className={`mt-3 rounded-2xl border p-4 ${t.panel}`}>
-                    <div className="flex flex-wrap items-start justify-between gap-4">
-                      <div className="flex flex-wrap gap-x-10 gap-y-3 pl-2">
-                        {activeSeries.map((s) => (
-                          <div key={s.key}>
-                            <p className={`text-[11px] font-medium ${t.soft}`}>{s.label}</p>
-                            <p className={`mt-1.5 flex items-center gap-2 text-[28px] font-bold leading-none tracking-tight tabular-nums ${t.text}`}>
-                              <span className="h-2.5 w-2.5 rounded-[3px]" style={{ background: TONES[s.tone] }} aria-hidden="true" />
-                              {nf(seriesTotal(s))}
-                            </p>
-                          </div>
-                        ))}
-                      </div>
-
-                      {/* Choix du type de graphique + choix de la vue */}
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Segmented<ChartType>
-                          label="Chart type"
-                          value={chartType}
-                          onChange={setChartType}
-                          t={t}
-                          size="lg"
-                          options={CHART_TYPES}
-                        />
-                        <Segmented<ChartView>
-                          label="Chart view"
-                          value={chartView}
-                          onChange={setChartView}
-                          t={t}
-                          size="lg"
-                          options={CHART_VIEWS}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="mt-6">
-                      <Chart
-                        dates={chartDates}
-                        series={chartSeries}
-                        view={chartView}
-                        type={chartType}
-                        bucket={bucket}
-                        isDark={isDark}
-                      />
-                    </div>
-
-                    {bucket > 1 && (
-                      <p className={`mt-3 text-[11px] ${t.muted}`}>
-                        Grouped by {bucket === 7 ? "week" : "30-day period"} to keep the chart
-                        readable: totals are summed, followers show the last value of each group.
-                      </p>
+                            <ChevronLeft className={`h-4 w-4 ${safePage === 1 ? "opacity-30" : ""}`} aria-hidden="true" />
+                          </IconBtn>
+                          <IconBtn
+                            label="Next page"
+                            t={t}
+                            onClick={() => setPage(Math.min(totalPages, safePage + 1))}
+                          >
+                            <ChevronRight className={`h-4 w-4 ${safePage === totalPages ? "opacity-30" : ""}`} aria-hidden="true" />
+                          </IconBtn>
+                        </div>
+                      </nav>
                     )}
-                  </div>
-                </section>
+                  </section>
+                </div>
               </>
             )}
           </div>
