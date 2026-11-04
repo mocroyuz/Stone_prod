@@ -88,14 +88,16 @@ function writeTabToHash(tab: Tab) {
  * On persiste ici :
  *   - le mode d'affichage (Board / Gallery)
  *   - les tags masqués dans le filtre « Tags »
+ *   - l'ORDRE des tags (déplacements de colonnes via drag)
  *
  * Comme pour la page Home / Insights, ces préférences sont lues une fois
- * au montage (initialisation paresseuse de useState) puis écrites à chaque
- * changement via useEffect. Un reload conserve donc exactement l'état.
+ * au montage (ou lors du fetch initial pour l'ordre) puis écrites à chaque
+ * changement. Un reload conserve donc exactement l'état.
  */
 
 const CREATE_VIEW_STORAGE_KEY = "create.view";
 const CREATE_HIDDEN_TAGS_STORAGE_KEY = "create.hiddenTags";
+const CREATE_TAG_ORDER_STORAGE_KEY = "create.tagOrder";
 
 function readStoredView(): View {
   if (typeof window === "undefined") return "board";
@@ -124,6 +126,61 @@ function readStoredHiddenTags(): string[] {
     /* ignore */
   }
   return [];
+}
+
+function readStoredTagOrder(): string[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(CREATE_TAG_ORDER_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed: unknown = JSON.parse(raw);
+    if (
+      Array.isArray(parsed) &&
+      parsed.every((x): x is string => typeof x === "string")
+    ) {
+      return parsed;
+    }
+  } catch {
+    /* ignore */
+  }
+  return [];
+}
+
+function writeStoredTagOrder(ids: string[]) {
+  try {
+    window.localStorage.setItem(
+      CREATE_TAG_ORDER_STORAGE_KEY,
+      JSON.stringify(ids)
+    );
+  } catch {
+    /* ignore */
+  }
+}
+
+/**
+ * Réordonne les tags selon l'ordre stocké.
+ *
+ * - « Unassigned » reste TOUJOURS en premier (colonne figée).
+ * - Les tags présents dans l'ordre stocké sont triés selon leur position.
+ * - Les tags absents de l'ordre stocké (nouveaux, ou anciens supprimés
+ *   côté serveur) sont laissés à la fin, dans leur ordre d'origine.
+ * - Les IDs stockés qui n'existent plus côté serveur sont simplement ignorés.
+ */
+function applyStoredTagOrder(tags: Tag[]): Tag[] {
+  if (tags.length === 0) return tags;
+  const stored = readStoredTagOrder();
+  if (stored.length === 0) return tags;
+
+  const position = new Map(stored.map((id, i) => [id, i] as const));
+  const posOf = (id: string) => position.get(id) ?? Number.POSITIVE_INFINITY;
+
+  const unassigned = tags.find((t) => t.id === UNASSIGNED);
+  const rest = tags.filter((t) => t.id !== UNASSIGNED);
+  const known = rest.filter((t) => position.has(t.id));
+  const unknown = rest.filter((t) => !position.has(t.id));
+  known.sort((a, b) => posOf(a.id) - posOf(b.id));
+
+  return unassigned ? [unassigned, ...known, ...unknown] : [...known, ...unknown];
 }
 
 /* ───────── Cache module-level des tags ─────────
@@ -157,7 +214,10 @@ async function fetchTagsOnce(): Promise<Tag[]> {
     const sorted = [...server].sort((a, b) => rank(a) - rank(b));
     // Si une mutation a déjà rempli le cache pendant le fetch (cas très rare),
     // on respecte le cache existant plutôt que de l'écraser.
-    if (!tagsCache) tagsCache = [UNASSIGNED_TAG, ...sorted];
+    // Sinon, on applique l'ordre personnalisé sauvegardé (drag des colonnes).
+    if (!tagsCache) {
+      tagsCache = applyStoredTagOrder([UNASSIGNED_TAG, ...sorted]);
+    }
     return tagsCache;
   })();
 
@@ -253,16 +313,26 @@ function useBoard() {
     }
   };
 
+  /**
+   * Déplace un tag et persiste le nouvel ordre dans localStorage.
+   *
+   * On lit `tagsCache` (source de vérité synchrone) pour calculer le nouvel
+   * ordre, puis on écrit d'abord dans localStorage et enfin dans le state
+   * React. Ça évite tout problème de double-invocation Strict Mode qui
+   * toucherait un effet de bord placé dans un updater React.
+   */
   const moveTag = (id: string, toId: string) => {
-    setTags((prev) => {
-      const from = prev.findIndex((t) => t.id === id);
-      const to = prev.findIndex((t) => t.id === toId);
-      if (from < 1 || to < 1 || from === to) return prev;
-      const next = [...prev];
-      const [m] = next.splice(from, 1);
-      next.splice(to, 0, m);
-      return next;
-    });
+    const current = tagsCache ?? [UNASSIGNED_TAG];
+    const from = current.findIndex((t) => t.id === id);
+    const to = current.findIndex((t) => t.id === toId);
+    if (from < 1 || to < 1 || from === to) return;
+
+    const next = [...current];
+    const [m] = next.splice(from, 1);
+    next.splice(to, 0, m);
+
+    writeStoredTagOrder(next.map((t) => t.id));
+    setTags(next);
   };
 
   const addIdea = (idea: Omit<Idea, "id">) =>
