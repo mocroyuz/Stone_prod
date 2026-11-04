@@ -1022,6 +1022,7 @@ function Panel({
    INSIGHTS PANEL (graphique identique à la page Insights)
    - YouTube : vraies données via useYouTubeInsights
    - Sélecteur de canal (icône swap) + onglets métrique sur la même ligne
+   - Persistance de l'onglet et du canal via localStorage
 ============================================================ */
 
 const INSIGHTS_DAYS = 30;
@@ -1306,6 +1307,33 @@ const HOME_METRIC_TABS: { key: HomeMetricTab; label: string }[] = [
   { key: "visibility", label: "Visibility" },
 ];
 
+/* --- Persistance de l'état Insights (onglet + canal) --- */
+
+const HOME_METRIC_TAB_STORAGE_KEY = "home.insights.metricTab";
+const HOME_CHANNEL_STORAGE_KEY = "home.insights.channelKey";
+
+function readStoredMetricTab(): HomeMetricTab {
+  if (typeof window === "undefined") return "visibility";
+  try {
+    const raw = window.localStorage.getItem(HOME_METRIC_TAB_STORAGE_KEY);
+    if (raw && HOME_METRIC_TABS.some((t) => t.key === raw)) {
+      return raw as HomeMetricTab;
+    }
+  } catch {
+    /* ignore */
+  }
+  return "visibility";
+}
+
+function readStoredChannelKey(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return window.localStorage.getItem(HOME_CHANNEL_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
 function InsightsPanel({
   isDark,
   channels,
@@ -1315,10 +1343,36 @@ function InsightsPanel({
   channels: ConnectedChannel[];
   onConnect: () => void;
 }) {
-  const [selectedKey, setSelectedKey] = useState<string | null>(null);
-  const [metricTab, setMetricTab] = useState<HomeMetricTab>("visibility");
+  const [selectedKey, setSelectedKey] = useState<string | null>(
+    readStoredChannelKey
+  );
+  const [metricTab, setMetricTab] = useState<HomeMetricTab>(
+    readStoredMetricTab
+  );
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  // Persiste l'onglet métrique (survit au refresh)
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(HOME_METRIC_TAB_STORAGE_KEY, metricTab);
+    } catch {
+      /* ignore */
+    }
+  }, [metricTab]);
+
+  // Persiste le canal sélectionné (survit au refresh)
+  useEffect(() => {
+    try {
+      if (selectedKey) {
+        window.localStorage.setItem(HOME_CHANNEL_STORAGE_KEY, selectedKey);
+      } else {
+        window.localStorage.removeItem(HOME_CHANNEL_STORAGE_KEY);
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [selectedKey]);
 
   useEffect(() => {
     if (!menuOpen) return;
