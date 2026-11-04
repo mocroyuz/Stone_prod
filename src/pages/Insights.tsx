@@ -28,6 +28,7 @@ import {
   FlaskConical,
   Image as ImageIcon,
   Info,
+  LineChart,
   MoreVertical,
   Pencil,
   Play,
@@ -39,6 +40,7 @@ import {
   TrendingUp,
   UserPlus,
   Users,
+  BarChart3,
   Zap,
 } from "lucide-react";
 import { navigate, useHashRoute } from "../hooks/useHashRoute";
@@ -79,6 +81,7 @@ type IconComponent = ComponentType<{ className?: string; size?: number }>;
 
 type Range = "7d" | "30d" | "mtd" | "custom";
 type ChartView = "this" | "comparison" | "both";
+type ChartType = "line" | "bar";
 type PostsPeriod = "this" | "previous";
 type MetricCategory = "posts" | "impact" | "growth" | "visibility" | "follower_growth_rate";
 type SubMetric = "followers" | "video_views" | "posts_count" | "net_new_followers";
@@ -364,7 +367,19 @@ function smoothPath(pts: [number, number][]): string {
 
 type ChartSeries = { label: string; color: string; values: number[]; prev: number[]; format?: (v: number) => string };
 
-function Chart({ dates, series, view, isDark }: { dates: Date[]; series: ChartSeries[]; view: ChartView; isDark: boolean }) {
+function Chart({ 
+  dates, 
+  series, 
+  view, 
+  type,
+  isDark 
+}: { 
+  dates: Date[]; 
+  series: ChartSeries[]; 
+  view: ChartView; 
+  type: ChartType;
+  isDark: boolean 
+}) {
   const [hover, setHover] = useState<number | null>(null);
   const gradId = useId().replace(/:/g, "");
   const W = 900, H = 300;
@@ -393,6 +408,9 @@ function Chart({ dates, series, view, isDark }: { dates: Date[]; series: ChartSe
     setHover(Math.max(0, Math.min(n - 1, i)));
   };
 
+  // Bar width calculation: thin bars
+  const barW = Math.max(2, (iw / n) * (series.length > 1 ? 0.2 : 0.4));
+
   return (
     <div className={`relative rounded-lg focus-visible:outline-none focus-visible:ring-2 ${isDark ? "focus-visible:ring-white/30" : "focus-visible:ring-black/25"}`} tabIndex={0} role="group" onPointerLeave={() => setHover(null)}>
       <svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full touch-pan-y" onPointerMove={onPointer} onPointerDown={onPointer} aria-hidden="true">
@@ -404,6 +422,7 @@ function Chart({ dates, series, view, isDark }: { dates: Date[]; series: ChartSe
         </defs>
         <text x={12} y={pad.t + ih / 2} fontSize="11" fill={axis} textAnchor="middle" transform={`rotate(-90 12 ${pad.t + ih / 2})`}>{series[0].label}</text>
         {series.length > 1 && <text x={W - 12} y={pad.t + ih / 2} fontSize="11" fill={axis} textAnchor="middle" transform={`rotate(90 ${W - 12} ${pad.t + ih / 2})`}>{series[1].label}</text>}
+        
         {ticks.map((tk) => {
           const yy = pad.t + ih - (tk / 4) * ih;
           return (
@@ -416,10 +435,30 @@ function Chart({ dates, series, view, isDark }: { dates: Date[]; series: ChartSe
         {labelIdx.map((i) => (
           <text key={i} x={x(i)} y={H - 8} fontSize="11" fill={axis} textAnchor={i === 0 ? "start" : i === n - 1 ? "end" : "middle"}>{fmt(dates[i])}</text>
         ))}
+
+        {/* PREVIOUS PERIOD */}
         {showPrev && series.map((s, si) => (
-          <path key={`p-${s.label}`} d={path(si, s.prev)} fill="none" stroke={s.color} strokeOpacity="0.5" strokeWidth="2" strokeDasharray="5 5" strokeLinecap="round" />
+          type === "line" ? (
+            <path key={`p-${s.label}`} d={path(si, s.prev)} fill="none" stroke={s.color} strokeOpacity="0.3" strokeWidth="2" strokeDasharray="5 5" strokeLinecap="round" />
+          ) : (
+            <g key={`p-${s.label}`} opacity="0.3">
+              {s.prev.map((v, i) => (
+                <rect
+                  key={i}
+                  x={x(i) - (series.length > 1 ? (si === 0 ? barW + 1 : 0) : barW / 2)}
+                  y={y(si, v)}
+                  width={barW}
+                  height={ih - (y(si, v) - pad.t)}
+                  fill={s.color}
+                  rx={2}
+                />
+              ))}
+            </g>
+          )
         ))}
-        {showThis && (
+
+        {/* CURRENT PERIOD */}
+        {showThis && type === "line" && (
           <>
             <path d={area} fill={`url(#${gradId})`} />
             {series.map((s, si) => (
@@ -427,11 +466,44 @@ function Chart({ dates, series, view, isDark }: { dates: Date[]; series: ChartSe
             ))}
           </>
         )}
+
+        {showThis && type === "bar" && series.map((s, si) => (
+          <g key={s.label}>
+            {s.values.map((v, i) => (
+              <rect
+                key={i}
+                x={x(i) - (series.length > 1 ? (si === 0 ? barW + 1 : 0) : barW / 2)}
+                y={y(si, v)}
+                width={barW}
+                height={Math.max(1, ih - (y(si, v) - pad.t))}
+                fill={s.color}
+                rx={2}
+                className="transition-all duration-300"
+              />
+            ))}
+          </g>
+        ))}
+
+        {/* HOVER EFFECT */}
         {hover !== null && (
           <g>
             <line x1={x(hover)} x2={x(hover)} y1={pad.t} y2={pad.t + ih} stroke={axis} strokeOpacity="0.6" strokeDasharray="3 3" />
             {showThis && series.map((s, si) => (
-              <circle key={s.label} cx={x(hover)} cy={y(si, s.values[hover])} r="4.5" fill={isDark ? "#0f0f11" : "#fff"} stroke={s.color} strokeWidth="2.5" />
+              type === "line" ? (
+                <circle key={s.label} cx={x(hover)} cy={y(si, s.values[hover])} r="4.5" fill={isDark ? "#0f0f11" : "#fff"} stroke={s.color} strokeWidth="2.5" />
+              ) : (
+                <rect 
+                  key={s.label} 
+                  x={x(hover) - (series.length > 1 ? (si === 0 ? barW + 1 : 0) : barW / 2) - 2} 
+                  y={y(si, s.values[hover]) - 2} 
+                  width={barW + 4} 
+                  height={Math.max(1, ih - (y(si, s.values[hover]) - pad.t)) + 4} 
+                  fill="none" 
+                  stroke={s.color} 
+                  strokeWidth="2"
+                  rx={2}
+                />
+              )
             ))}
           </g>
         )}
@@ -527,6 +599,7 @@ export default function Insights() {
   const [customStart, setCustomStart] = useState(() => addDays(startOfDay(new Date()), -29));
   const [customEnd, setCustomEnd] = useState(() => startOfDay(new Date()));
   const [chartView, setChartView] = useState<ChartView>("this");
+  const [chartType, setChartType] = useState<ChartType>("line");
   const [postsPeriod, setPostsPeriod] = useState<PostsPeriod>("this");
   
   // Metric selections
@@ -921,20 +994,35 @@ export default function Insights() {
                           </div>
                         ))}
                       </div>
-                      <Segmented<ChartView>
-                        label="Chart view"
-                        value={chartView}
-                        onChange={setChartView}
-                        t={t}
-                        options={[
-                          { key: "this", label: "This Period" },
-                          { key: "comparison", label: "Comparison" },
-                          { key: "both", label: "Both" },
-                        ]}
-                      />
+                      
+                      <div className="flex items-center gap-3">
+                        {/* CHART TYPE TOGGLE */}
+                        <Segmented<ChartType>
+                          label="Chart type"
+                          value={chartType}
+                          onChange={setChartType}
+                          t={t}
+                          options={[
+                            { key: "line", label: "Line", icon: <LineChart className="h-3.5 w-3.5" /> },
+                            { key: "bar", label: "Bar", icon: <BarChart3 className="h-3.5 w-3.5" /> },
+                          ]}
+                        />
+
+                        <Segmented<ChartView>
+                          label="Chart view"
+                          value={chartView}
+                          onChange={setChartView}
+                          t={t}
+                          options={[
+                            { key: "this", label: "This Period" },
+                            { key: "comparison", label: "Comparison" },
+                            { key: "both", label: "Both" },
+                          ]}
+                        />
+                      </div>
                     </div>
                     <div className="mt-6">
-                      <Chart dates={dates} series={chartSeries} view={chartView} isDark={isDark} />
+                      <Chart dates={dates} series={chartSeries} view={chartView} type={chartType} isDark={isDark} />
                     </div>
                   </div>
                 </section>
