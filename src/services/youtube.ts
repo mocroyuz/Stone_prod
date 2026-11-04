@@ -253,6 +253,8 @@ export type YouTubeVideo = {
   thumbnail: string | null;
   published_at: string | null;
   comment_count: number;
+  /** Statut backend ("scheduled" | "published" | …). Absent = inconnu. */
+  status?: string;
 };
 
 export type YouTubeReply = {
@@ -362,6 +364,10 @@ export interface YouTubeInsightsVideo {
   likes: number;
   comments: number;
   shares?: number;
+  /** Statut backend ("scheduled" | "published" | …). */
+  status?: string;
+  /** Date de publication programmée (YouTube status.publishAt). */
+  publish_at?: string | null;
 }
 
 export interface YouTubeInsightsResponse {
@@ -421,6 +427,10 @@ export type InsightsPostRow = {
   comments: number;
   engRate: number;
   videoViews: number;
+  /** Statut backend. Absent = inconnu (compat ancien backend). */
+  status?: string;
+  /** Date de publication programmée si exposée par le backend. */
+  publishAt?: string | null;
 };
 
 export type YouTubeInsightsData = {
@@ -450,6 +460,46 @@ const thumbnailFor = (videoId: string) =>
 const rate = (num: number, den: number) =>
   den > 0 ? Math.round((num / den) * 10_000) / 100 : 0;
 
+/* ───────── Filtre « en ligne uniquement » ─────────
+   Exclut les vidéos programmées AVANT même qu'elles n'arrivent
+   dans Insights.tsx. Deux critères indépendants :
+     - status explicite "scheduled"/"pending"/… (fiable, backend patché)
+     - publish_at dans le futur (fallback si status absent) */
+
+const SCHEDULED_STATUSES = new Set([
+  "scheduled",
+  "pending",
+  "draft",
+  "queued",
+  "future",
+  "unpublished",
+  "processing",
+]);
+
+function isOnlineVideo(v: YouTubeInsightsVideo): boolean {
+  const status = String((v as { status?: unknown }).status ?? "")
+    .trim()
+    .toLowerCase();
+  if (SCHEDULED_STATUSES.has(status)) return false;
+
+  const raw =
+    (v as { publish_at?: unknown }).publish_at ??
+    (v as { publishAt?: unknown }).publishAt;
+  if (raw) {
+    const ms =
+      typeof raw === "string"
+        ? Date.parse(raw)
+        : raw instanceof Date
+        ? raw.getTime()
+        : NaN;
+    if (Number.isFinite(ms) && ms > Date.now()) return false;
+  }
+
+  return true;
+}
+
+/* ───────── Constructeurs ───────── */
+
 function buildPoints(
   from: Date,
   days: number,
@@ -458,6 +508,7 @@ function buildPoints(
   const byDay = new Map(res.days.map((d) => [d.date.slice(0, 10), d]));
   const videosByDay = new Map<string, number>();
   for (const v of res.videos) {
+    if (!isOnlineVideo(v)) continue; // on ne compte que les vidéos en ligne
     const k = dayKey(new Date(v.published_at));
     videosByDay.set(k, (videosByDay.get(k) ?? 0) + 1);
   }
@@ -491,6 +542,7 @@ function buildPoints(
 
 function buildPosts(res: YouTubeInsightsResponse): InsightsPostRow[] {
   return [...res.videos]
+    .filter(isOnlineVideo) // ← on retire les scheduled avant le rendu
     .sort((a, b) => +new Date(b.published_at) - +new Date(a.published_at))
     .map((v) => ({
       id: v.id,
@@ -502,6 +554,8 @@ function buildPosts(res: YouTubeInsightsResponse): InsightsPostRow[] {
       comments: v.comments,
       engRate: rate(v.likes + v.comments + (v.shares ?? 0), v.views),
       videoViews: v.views,
+      status: v.status,
+      publishAt: v.publish_at ?? null,
     }));
 }
 

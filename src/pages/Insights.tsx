@@ -3,9 +3,10 @@
 // Données YouTube réelles via useYouTubeInsights (services/youtube.ts).
 // Les autres réseaux conservent les données d'exemple en attendant leur API.
 //
-// ⚠️  Filtre « posts en ligne » : voir `isOnlinePost` plus bas. Il combine
-//     plusieurs heuristiques indépendantes (statut, dates) pour être fiable
-//     quel que soit le format renvoyé par useYouTubeInsights.
+// ⚠️  Les posts encore programmés ne sont PAS affichés : la page ne montre
+//     que les contenus réellement en ligne. Le filtre est appliqué deux fois :
+//       - dans `buildPosts` (services/youtube.ts)
+//       - dans `isOnlinePost` ci-dessous (défense en profondeur)
 
 import {
   useEffect,
@@ -119,12 +120,10 @@ type PostRow = {
   comments: number;
   engRate: number;
   videoViews: number;
-  /** Statut éventuel renvoyé par le backend. Absent = inconnu. */
+  /** Statut backend. Absent = inconnu (compat ancien backend). */
   status?: string;
-  /** Date de publication programmée (si fournie par le backend). */
-  scheduledAt?: string | Date;
-  /** Date de programmation YouTube (publishAt). */
-  publishAt?: string | Date;
+  /** Date de publication programmée si exposée par le backend. */
+  publishAt?: string | null;
 };
 
 type SeriesDef = { key: NumKey; label: string; tone: 0 | 1; agg: "sum" | "last" };
@@ -245,16 +244,8 @@ function resolveRange(range: Range, customStart: Date, customEnd: Date) {
 
 /* ============================================================
    FILTRE « EN LIGNE UNIQUEMENT »
-
-   Combine plusieurs heuristiques indépendantes pour être fiable
-   quel que soit le format renvoyé par useYouTubeInsights :
-
-   1. Un `status` explicite ("scheduled", "pending", "draft"…) → exclu.
-   2. Un `status` explicite "published" / "live" → inclus (même si
-      la date est passée).
-   3. N'IMPORTE QUELLE date candidate dans le futur → exclu.
-      (On regarde `date`, `scheduledAt`, `publishAt`, `published_at`,
-      `scheduled_at` — selon ce que le service renvoie.)
+   Combine plusieurs heuristiques pour être fiable quel que
+   soit le format renvoyé par useYouTubeInsights.
 ============================================================ */
 
 const SCHEDULED_STATUSES = new Set([
@@ -266,56 +257,27 @@ const SCHEDULED_STATUSES = new Set([
   "unpublished",
   "processing",
 ]);
-const ONLINE_STATUSES = new Set(["published", "posted", "live", "public", "active"]);
-
-const toMs = (v: unknown): number => {
-  if (v == null) return NaN;
-  if (v instanceof Date) return v.getTime();
-  if (typeof v === "number") return v;
-  if (typeof v === "string") {
-    const n = Date.parse(v);
-    return Number.isFinite(n) ? n : NaN;
-  }
-  return NaN;
-};
 
 const isOnlinePost = (p: PostRow): boolean => {
-  const anyP = p as unknown as Record<string, unknown>;
-
-  // 1. Statut — première source fiable
-  const status = String(
-    anyP.status ?? anyP.state ?? anyP.publish_status ?? anyP.video_status ?? ""
-  )
+  const status = String((p as { status?: unknown }).status ?? "")
     .trim()
     .toLowerCase();
   if (SCHEDULED_STATUSES.has(status)) return false;
-  const isExplicitlyOnline = ONLINE_STATUSES.has(status);
 
-  // 2. Dates candidates — on rejette dès qu'UNE date est dans le futur
-  const dateFields = [
-    anyP.date,
-    anyP.published_at,
-    anyP.publishedAt,
-    anyP.publish_at,
-    anyP.publishAt,
-    anyP.scheduled_at,
-    anyP.scheduledAt,
-  ];
-  const now = Date.now();
-  for (const raw of dateFields) {
-    const ms = toMs(raw);
-    if (Number.isFinite(ms) && ms > now) {
-      // Une date planifiée dans le futur. On la rejette SAUF si le
-      // statut explicite nous dit que la vidéo est déjà publiée
-      // (cas rare où le backend conserve un publish_at obsolète).
-      return isExplicitlyOnline;
-    }
+  const raw =
+    (p as { publishAt?: unknown }).publishAt ??
+    (p as { publish_at?: unknown }).publish_at;
+  if (raw) {
+    const ms =
+      typeof raw === "string"
+        ? Date.parse(raw)
+        : raw instanceof Date
+        ? raw.getTime()
+        : NaN;
+    if (Number.isFinite(ms) && ms > Date.now()) return false;
   }
 
-  // 3. Statut explicitement publié → inclus
-  if (isExplicitlyOnline) return true;
-
-  // 4. Aucune info → inclus par défaut (compat ancien backend)
+  if (p.date instanceof Date && p.date.getTime() > Date.now()) return false;
   return true;
 };
 
@@ -1201,7 +1163,7 @@ export default function Insights() {
   const fallback = useInsights(start, end, !isYouTube);
   const raw = isYouTube && yt.data ? yt.data : fallback;
 
-  // ── Filtre « en ligne uniquement » ──
+  // ── Filtre « en ligne uniquement » (défense en profondeur) ──
   const posts = useMemo(() => raw.posts.filter(isOnlinePost), [raw.posts]);
   const previousPosts = useMemo(
     () => raw.previousPosts.filter(isOnlinePost),
@@ -1212,9 +1174,7 @@ export default function Insights() {
     [raw.summary, posts.length]
   );
 
-  // ── Log de diagnostic (visible en console uniquement) ──
-  // Permet de vérifier d'un coup d'œil combien de posts sont filtrés
-  // et ce que contient chaque ligne. Ne pollue pas l'UI.
+  // ── Log de diagnostic ──
   useEffect(() => {
     if (!isYouTube || !yt.data) return;
     const totalThis = raw.posts.length;
@@ -1228,15 +1188,6 @@ export default function Insights() {
     console.warn(
       `[Insights] period posts: ${totalThis} total → ${keptThis} kept (${droppedThis} scheduled filtered out) · previous: ${totalPrev} total → ${keptPrev} kept (${droppedPrev} scheduled filtered out)`
     );
-    if (droppedThis + droppedPrev > 0) {
-      const sample = [...raw.posts, ...raw.previousPosts].filter(
-        (p) => !isOnlinePost(p)
-      )[0];
-      if (sample) {
-        // eslint-disable-next-line no-console
-        console.warn("[Insights] sample filtered post:", sample);
-      }
-    }
   }, [isYouTube, yt.data, raw.posts, raw.previousPosts, posts.length, previousPosts.length]);
 
   const current = raw.current;
