@@ -643,18 +643,13 @@ function getVideoInfo(
   });
 }
 
-/** Vérifie l'extension du fichier par rapport aux formats acceptés par YouTube.
- *  On se base sur l'extension (plus fiable que le MIME type, qui varie selon
- *  le navigateur et le système — ex. .avi et .wmv ont souvent un type vide). */
+/** Vérifie l'extension du fichier par rapport aux formats acceptés par YouTube. */
 function isYouTubeVideoFormat(file: File): boolean {
   const ext = file.name.toLowerCase().split(".").pop() ?? "";
   return YOUTUBE_VIDEO_EXTENSIONS.includes(ext);
 }
 
-/** Vérifie que le ratio de la vidéo correspond à un Short :
- *  - carré 1:1 (ex. 1080×1080)
- *  - vertical 9:16 (ex. 1080×1920)
- *  Une tolérance de 5 % est appliquée sur le ratio. */
+/** Vérifie que le ratio de la vidéo correspond à un Short (9:16 ou 1:1). */
 function isYouTubeShortAspectRatio(width: number, height: number): boolean {
   if (width <= 0 || height <= 0) return false;
   const ratio = width / height;
@@ -1564,8 +1559,9 @@ export default function NewPostModal({
   const [tiktokCommercial, setTiktokCommercial] = useState<TikTokCommercial>(
     TIKTOK_DEFAULT_COMMERCIAL
   );
-  const tiktokSelected = networks.includes("tiktok");
-  const youtubeSelected = networks.includes("youtube");
+  // Note : `tiktokSelected` et `youtubeSelected` sont définis plus bas,
+  // après `validNetworks`, pour refléter uniquement les chaînes
+  // réellement connectées (les IDs obsolètes sont ignorés).
   const tiktokPrivacyOptions = useMemo<string[]>(() => {
     const fromInfo = tiktokInfo?.privacy_level_options;
     if (fromInfo && fromInfo.length > 0) return fromInfo as string[];
@@ -1626,6 +1622,26 @@ export default function NewPostModal({
     }
     return tiles.sort((a, b) => a.order - b.order);
   }, [connectedChannels]);
+
+  /* ── Réseaux réellement connectés ──
+   * `networks` peut contenir des IDs obsolètes :
+   *   • un brouillon repris après qu'une chaîne a été déconnectée ;
+   *   • une chaîne qui se déconnecte pendant que le modal est ouvert.
+   * On filtre contre `channelTiles` avant toute publication, sinon le payload
+   * part avec des réseaux sans `channelKey` et le backend répond
+   * « At least one network is required ».
+   */
+  const connectedNetworkIds = useMemo(
+    () => new Set(channelTiles.map((t) => t.network.id)),
+    [channelTiles]
+  );
+  const validNetworks = useMemo(
+    () => networks.filter((n) => connectedNetworkIds.has(n)),
+    [networks, connectedNetworkIds]
+  );
+  const tiktokSelected = validNetworks.includes("tiktok");
+  const youtubeSelected = validNetworks.includes("youtube");
+
   useEffect(() => {
     const handle = () => {
       if (!peekNewPostRequest()) return;
@@ -1805,15 +1821,15 @@ export default function NewPostModal({
   const contentFor = (id: string): string => contents[id] ?? masterContent;
   const isCustomized = (id: string): boolean =>
     contents[id] !== undefined && contents[id] !== masterContent;
-  const strictestLimit = networks.length
-    ? Math.min(...networks.map((n) => CHAR_LIMITS[n]))
+  const strictestLimit = validNetworks.length
+    ? Math.min(...validNetworks.map((n) => CHAR_LIMITS[n]))
     : undefined;
-  const overLimitNetworks = networks.filter(
+  const overLimitNetworks = validNetworks.filter(
     (n) => contentFor(n).length > CHAR_LIMITS[n]
   );
   const hasContent =
     masterContent.trim().length > 0 ||
-    networks.some((n) => contentFor(n).trim().length > 0);
+    validNetworks.some((n) => contentFor(n).trim().length > 0);
   const hasDraftContent =
     hasContent ||
     Object.values(contents).some((c) => c.trim().length > 0) ||
@@ -1941,12 +1957,22 @@ export default function NewPostModal({
   closeWithDraftRef.current = closeWithDraft;
   const resumeDraft = () => {
     if (!pendingDraft) return;
+    // Les chaînes peuvent avoir été déconnectées depuis la sauvegarde du brouillon.
+    // On ignore celles qui ne sont plus dans `channelTiles` (sauf si les tiles
+    // ne sont pas encore chargées, auquel cas on garde tout et `validNetworks`
+    // filtrera au moment de la soumission).
+    const connected = channelTiles.length > 0
+      ? new Set(channelTiles.map((t) => t.network.id))
+      : null;
+    const isConnected = (id: SocialNetworkId) => !connected || connected.has(id);
+    const resumedNetworks =
+      preselectRef.current && isConnected(preselectRef.current)
+        ? [preselectRef.current]
+        : pendingDraft.networks.filter(isConnected);
     setTitle(pendingDraft.title);
     setMasterContent(pendingDraft.masterContent || "");
     setContents(pendingDraft.contents || {});
-    setNetworks(
-      preselectRef.current ? [preselectRef.current] : pendingDraft.networks
-    );
+    setNetworks(resumedNetworks);
     setScheduleAction(pendingDraft.scheduleAction);
     setScheduledAt(new Date(pendingDraft.scheduledAt));
     setYoutubeOptions(pendingDraft.youtubeOptions ?? YOUTUBE_DEFAULT_OPTIONS);
@@ -2407,15 +2433,7 @@ export default function NewPostModal({
       message: `${source?.label ?? "This source"} import isn't connected yet.`,
     });
   };
-  /* ── Canva ──
-  1. L'utilisateur choisit une taille dans le sous-menu.
-  2. Une fenêtre est ouverte tout de suite (dans le clic, sinon le navigateur
-  la bloque), puis le serveur crée un design vide chez Canva.
-  3. Si le compte Canva n'est pas relié, la même fenêtre sert à l'autorisation
-  OAuth ; on attend la connexion puis on crée le design.
-  4. La fenêtre est redirigée vers l'éditeur Canva. Le design apparaît dans
-  la zone média avec un bouton « Import design » : il est exporté en PNG
-  et ajouté aux médias. */
+  /* ── Canva ── */
   const handleCanvaPick = async (size: CanvaSize) => {
     const target = showSourceMenu ?? "master";
     setShowSourceMenu(null);
@@ -2600,7 +2618,7 @@ export default function NewPostModal({
     ? "Say whether your TikTok promotes yourself, a third party, or both."
     : null;
   /* ── YouTube ── */
-  const primaryContent = masterContent || (networks[0] ? contentFor(networks[0]) : "");
+  const primaryContent = masterContent || (validNetworks[0] ? contentFor(validNetworks[0]) : "");
   const youtubeFallbackTitle = (
     title.trim() ||
     primaryContent.trim().split("\n")[0] ||
@@ -2631,7 +2649,9 @@ export default function NewPostModal({
   const blockingReason: string | null =
     networks.length === 0
       ? "Select at least one channel."
-      : !hasContent && !networks.some((n) => mediaFor(n).length > 0)
+      : validNetworks.length === 0
+      ? "The selected channels are no longer connected. Reconnect them in Settings or pick another channel."
+      : !hasContent && !validNetworks.some((n) => mediaFor(n).length > 0)
       ? "Write something or add media."
       : scheduleAction === "set_date" && scheduledAt.getTime() <= Date.now()
       ? "Pick a date and time in the future."
@@ -2643,8 +2663,12 @@ export default function NewPostModal({
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
+
+    // Si des réseaux sont sélectionnés mais plus connectés (brouillon repris,
+    // chaîne déconnectée en cours de session), on les ignore. Le backend
+    // refuserait la requête avec « At least one network is required ».
     const resolved: Record<string, string> = {};
-    networks.forEach((n) => {
+    validNetworks.forEach((n) => {
       resolved[n] = contentFor(n);
     });
     const allTexts = Object.values(resolved).join(" ");
@@ -2661,29 +2685,29 @@ export default function NewPostModal({
       youtubeNow && scheduleAction === "set_date" ? ["youtube"] : [];
 
     const mediaByNetwork: Partial<Record<SocialNetworkId, File[]>> = {};
-    networks.forEach((n) => {
+    validNetworks.forEach((n) => {
       const own = channelMedia[n];
       if (own) mediaByNetwork[n] = own.map((item) => item.file);
     });
 
     const channelKeys: Partial<Record<SocialNetworkId, string>> = {};
-    networks.forEach((n) => {
+    validNetworks.forEach((n) => {
       const key = channelTiles.find((t) => t.network.id === n)?.channel.key;
       if (key) channelKeys[n] = key;
     });
 
     const payload: NewPostPayload = {
       title: title.trim(),
-      content: resolved[networks[0]]?.trim() || masterContent.trim() || "",
+      content: resolved[validNetworks[0]]?.trim() || masterContent.trim() || "",
       contents: resolved,
       hashtags: extractedHashtags,
-      networks: networks,
+      networks: validNetworks,
       scheduleMode: scheduleAction === "set_date" ? "later" : scheduleAction,
       scheduledAt:
         scheduleAction === "set_date" ? scheduledAt.toISOString() : null,
       media: media.map((item) => item.file),
       ...(Object.keys(mediaByNetwork).length > 0 ? { mediaByNetwork } : {}),
-      ...(networks.includes("youtube") || externallyScheduled.includes("youtube")
+      ...(validNetworks.includes("youtube") || externallyScheduled.includes("youtube")
         ? { youtube: { ...youtubeOptions, title: youtubeEffectiveTitle } }
         : {}),
       tagIds,
@@ -2763,8 +2787,6 @@ export default function NewPostModal({
               : "Finalizing…"
           );
         });
-        // TikTok est parti, mais on le laisse dans la liste 'networks' du payload
-        // pour que le backend l'enregistre comme 'published' ou 'external'.
       }
 
       // 2. Publication YouTube Directe
@@ -2773,7 +2795,6 @@ export default function NewPostModal({
         const youtubeVideo = mediaFor("youtube").find((m) => m.kind === "video")?.file;
         if (!youtubeVideo) throw new Error("YouTube Shorts needs a video.");
 
-        // Format du fichier (extension) — mp4, mov, mpeg, avi, webm, wmv
         if (!isYouTubeVideoFormat(youtubeVideo)) {
           throw new Error(
             "This video format isn't supported by YouTube Shorts. Use MP4, MOV, MPEG, AVI, WebM or WMV."
@@ -2785,14 +2806,12 @@ export default function NewPostModal({
           throw new Error("Could not read the video size. Try another file.");
         }
 
-        // Dimensions : vertical 9:16 ou carré 1:1 uniquement
         if (!isYouTubeShortAspectRatio(width, height)) {
           throw new Error(
             `YouTube Shorts must be vertical (9:16) or square (1:1). Your video is ${width}×${height}. Crop it to 1080×1920 (9:16) or 1080×1080 (1:1) and try again.`
           );
         }
 
-        // Durée maximale : 3 minutes (180 s)
         if (duration > YOUTUBE_SHORT_MAX_DURATION_SEC) {
           throw new Error(
             `This video is too long for a YouTube Short (${formatDuration(duration)}). The maximum is 3 minutes (180 seconds).`
@@ -2833,7 +2852,7 @@ export default function NewPostModal({
       // 3. Envoi au Backend (pour enregistrer l'état dans le calendrier)
       await onSubmit(payload);
 
-      const scheduledHasVideo = networks.some((n) =>
+      const scheduledHasVideo = validNetworks.some((n) =>
         mediaFor(n).some((m) => m.kind === "video")
       );
       if (scheduleAction === "set_date") {
@@ -2845,7 +2864,6 @@ export default function NewPostModal({
         setIsSubmitting(false);
         return;
       }
-      // Si c'est une programmation, on reste ouvert pour montrer le résultat
       if (scheduleAction === "set_date") {
         setSubmitProgress(null);
         setIsSubmitting(false);
@@ -2943,11 +2961,10 @@ export default function NewPostModal({
   const previewMedia = activePreviewId ? mediaFor(activePreviewId) : media;
   const previewHasSomething = previewText.trim().length > 0 || previewMedia.length > 0;
   const avatarRing = isDark ? "ring-[#1c1c1e]" : "ring-neutral-50";
-  // Zone média (miniatures + tuile « Drag & drop ») : une pour le texte principal,
-  // une par canal. Un canal sans média propre affiche les médias partagés
-  // (badge « Shared ») — les boutons supprimer/éditer n'apparaissent que sur
-  // les médias réellement possédés par la zone courante, pour éviter qu'un clic
-  // depuis une carte de canal ne supprime le média partagé pour tous les canaux.
+  // Avertissement : des réseaux sélectionnés ne sont plus connectés.
+  // Ça arrive si une chaîne est déconnectée pendant que le modal est ouvert
+  // (session expirée, autre onglet, etc.). `validNetworks` les ignorera.
+  const staleNetworks = networks.filter((n) => !connectedNetworkIds.has(n));
   const renderMediaArea = (target: string) => {
     const isMaster = target === "master";
     const hasOwn = !isMaster && channelMedia[target] !== undefined;
@@ -3122,8 +3139,6 @@ export default function NewPostModal({
       </>
     );
   };
-  // Bouton « + » (sources de médias) : un par zone de texte, un seul menu ouvert à la fois.
-  // Les médias restent partagés par tous les canaux.
   const renderSourceButton = (target: string) => {
     const open = showSourceMenu === target;
     return (
@@ -3340,6 +3355,17 @@ export default function NewPostModal({
                   No channel connected yet. Connect one to start publishing.
                 </p>
               )}
+              {staleNetworks.length > 0 && (
+                <p role="status" className="mt-2 flex items-start gap-1.5 text-[12.5px] text-amber-500">
+                  <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                  <span className="min-w-0">
+                    {staleNetworks.map(labelOf).join(", ")}{" "}
+                    {staleNetworks.length === 1
+                      ? "is no longer connected and will be skipped."
+                      : "are no longer connected and will be skipped."}
+                  </span>
+                </p>
+              )}
             </section>
             {/* Zone d'écriture principale */}
             <section
@@ -3458,6 +3484,7 @@ export default function NewPostModal({
                   const customized = isCustomized(networkId);
                   const limit = CHAR_LIMITS[networkId];
                   const over = currentContent.length > limit;
+                  const disconnected = !connectedNetworkIds.has(networkId);
                   return (
                     <div
                       key={networkId}
@@ -3481,6 +3508,7 @@ export default function NewPostModal({
                           ? isDark ? "border-white/40" : "border-neutral-400"
                           : over ? "border-red-500/60" : border,
                         bgCard,
+                        disconnected ? "opacity-60" : "",
                       ].join(" ")}
                     >
                       {draggingTarget === networkId && (
@@ -3522,6 +3550,11 @@ export default function NewPostModal({
                               {over && (
                                 <span className="shrink-0 rounded-full bg-red-500/15 px-2 py-0.5 text-[11px] font-semibold text-red-500">
                                   Too long
+                                </span>
+                              )}
+                              {disconnected && (
+                                <span className="shrink-0 rounded-full bg-amber-500/15 px-2 py-0.5 text-[11px] font-semibold text-amber-500">
+                                  Disconnected
                                 </span>
                               )}
                             </div>
