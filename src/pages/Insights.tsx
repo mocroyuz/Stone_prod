@@ -3,10 +3,9 @@
 // Données YouTube réelles via useYouTubeInsights (services/youtube.ts).
 // Les autres réseaux conservent les données d'exemple en attendant leur API.
 //
-// ⚠️  Les posts encore programmés ne sont PAS affichés : la page ne montre
-//     que les contenus réellement en ligne. La détection se fait en deux
-//     temps (voir `isOnlinePost` plus bas) pour être fiable même si le
-//     backend ne renvoie pas encore de champ `status`.
+// ⚠️  Filtre « posts en ligne » : voir `isOnlinePost` plus bas. Il combine
+//     plusieurs heuristiques indépendantes (statut, dates) pour être fiable
+//     quel que soit le format renvoyé par useYouTubeInsights.
 
 import {
   useEffect,
@@ -120,9 +119,12 @@ type PostRow = {
   comments: number;
   engRate: number;
   videoViews: number;
-  /** Statut renvoyé par le backend ("scheduled" | "published" | …).
-   *  Absent → on retombe sur la date pour décider. */
+  /** Statut éventuel renvoyé par le backend. Absent = inconnu. */
   status?: string;
+  /** Date de publication programmée (si fournie par le backend). */
+  scheduledAt?: string | Date;
+  /** Date de programmation YouTube (publishAt). */
+  publishAt?: string | Date;
 };
 
 type SeriesDef = { key: NumKey; label: string; tone: 0 | 1; agg: "sum" | "last" };
@@ -244,24 +246,81 @@ function resolveRange(range: Range, customStart: Date, customEnd: Date) {
 /* ============================================================
    FILTRE « EN LIGNE UNIQUEMENT »
 
-   Deux niveaux de sécurité :
-     1. `status === "scheduled"` → masqué (backend fiable).
-     2. `date` dans le futur → masqué (fallback : YouTube renvoie la
-        date programmée tant que la vidéo n'est pas publiée, donc une
-        vidéo programmée a toujours une `date` future, même si le
-        backend n'expose pas encore `status`).
+   Combine plusieurs heuristiques indépendantes pour être fiable
+   quel que soit le format renvoyé par useYouTubeInsights :
+
+   1. Un `status` explicite ("scheduled", "pending", "draft"…) → exclu.
+   2. Un `status` explicite "published" / "live" → inclus (même si
+      la date est passée).
+   3. N'IMPORTE QUELLE date candidate dans le futur → exclu.
+      (On regarde `date`, `scheduledAt`, `publishAt`, `published_at`,
+      `scheduled_at` — selon ce que le service renvoie.)
 ============================================================ */
 
+const SCHEDULED_STATUSES = new Set([
+  "scheduled",
+  "pending",
+  "draft",
+  "queued",
+  "future",
+  "unpublished",
+  "processing",
+]);
+const ONLINE_STATUSES = new Set(["published", "posted", "live", "public", "active"]);
+
+const toMs = (v: unknown): number => {
+  if (v == null) return NaN;
+  if (v instanceof Date) return v.getTime();
+  if (typeof v === "number") return v;
+  if (typeof v === "string") {
+    const n = Date.parse(v);
+    return Number.isFinite(n) ? n : NaN;
+  }
+  return NaN;
+};
+
 const isOnlinePost = (p: PostRow): boolean => {
-  if (p.status === "scheduled") return false;
-  if (p.date instanceof Date && p.date.getTime() > Date.now()) return false;
+  const anyP = p as unknown as Record<string, unknown>;
+
+  // 1. Statut — première source fiable
+  const status = String(
+    anyP.status ?? anyP.state ?? anyP.publish_status ?? anyP.video_status ?? ""
+  )
+    .trim()
+    .toLowerCase();
+  if (SCHEDULED_STATUSES.has(status)) return false;
+  const isExplicitlyOnline = ONLINE_STATUSES.has(status);
+
+  // 2. Dates candidates — on rejette dès qu'UNE date est dans le futur
+  const dateFields = [
+    anyP.date,
+    anyP.published_at,
+    anyP.publishedAt,
+    anyP.publish_at,
+    anyP.publishAt,
+    anyP.scheduled_at,
+    anyP.scheduledAt,
+  ];
+  const now = Date.now();
+  for (const raw of dateFields) {
+    const ms = toMs(raw);
+    if (Number.isFinite(ms) && ms > now) {
+      // Une date planifiée dans le futur. On la rejette SAUF si le
+      // statut explicite nous dit que la vidéo est déjà publiée
+      // (cas rare où le backend conserve un publish_at obsolète).
+      return isExplicitlyOnline;
+    }
+  }
+
+  // 3. Statut explicitement publié → inclus
+  if (isExplicitlyOnline) return true;
+
+  // 4. Aucune info → inclus par défaut (compat ancien backend)
   return true;
 };
 
 /* ============================================================
    DONNÉES D'EXEMPLE (réseaux sans API pour l'instant)
-   `sample = false` renvoie un squelette vide (zéros) : utilisé
-   pour YouTube tant que les vraies données ne sont pas arrivées.
 ============================================================ */
 
 function useInsights(
@@ -1117,8 +1176,7 @@ export default function Insights() {
   const channel = channels.find((c) => c.key === channelKey) ?? channels[0];
   const isYouTube = isYouTubeChannel(channel);
 
-  // Favoris partagés avec la sidebar : le marque-page du header ajoute /
-  // retire cette page de la section « Favorite ».
+  // Favoris partagés avec la sidebar.
   const { isFavorite, toggle: toggleFavorite } = useFavorites();
   const saved = isFavorite(PAGE_ROUTE);
 
@@ -1139,17 +1197,11 @@ export default function Insights() {
     [range, customStart, customEnd]
   );
 
-  // YouTube : vraies données. Autres réseaux : données d'exemple.
-  // Pour YouTube, le squelette vide sert d'affichage pendant le chargement.
   const yt = useYouTubeInsights(start, end, isYouTube && Boolean(channel), reloadKey);
   const fallback = useInsights(start, end, !isYouTube);
   const raw = isYouTube && yt.data ? yt.data : fallback;
 
   // ── Filtre « en ligne uniquement » ──
-  // `isOnlinePost` filtre sur `status` ET sur la date (filet de sécurité
-  // qui fonctionne même si le backend n'expose pas encore `status`).
-  const current = raw.current;
-  const previous = raw.previous;
   const posts = useMemo(() => raw.posts.filter(isOnlinePost), [raw.posts]);
   const previousPosts = useMemo(
     () => raw.previousPosts.filter(isOnlinePost),
@@ -1159,6 +1211,36 @@ export default function Insights() {
     () => ({ ...raw.summary, posts: posts.length }),
     [raw.summary, posts.length]
   );
+
+  // ── Log de diagnostic (visible en console uniquement) ──
+  // Permet de vérifier d'un coup d'œil combien de posts sont filtrés
+  // et ce que contient chaque ligne. Ne pollue pas l'UI.
+  useEffect(() => {
+    if (!isYouTube || !yt.data) return;
+    const totalThis = raw.posts.length;
+    const totalPrev = raw.previousPosts.length;
+    const keptThis = posts.length;
+    const keptPrev = previousPosts.length;
+    const droppedThis = totalThis - keptThis;
+    const droppedPrev = totalPrev - keptPrev;
+    if (totalThis === 0 && totalPrev === 0) return;
+    // eslint-disable-next-line no-console
+    console.warn(
+      `[Insights] period posts: ${totalThis} total → ${keptThis} kept (${droppedThis} scheduled filtered out) · previous: ${totalPrev} total → ${keptPrev} kept (${droppedPrev} scheduled filtered out)`
+    );
+    if (droppedThis + droppedPrev > 0) {
+      const sample = [...raw.posts, ...raw.previousPosts].filter(
+        (p) => !isOnlinePost(p)
+      )[0];
+      if (sample) {
+        // eslint-disable-next-line no-console
+        console.warn("[Insights] sample filtered post:", sample);
+      }
+    }
+  }, [isYouTube, yt.data, raw.posts, raw.previousPosts, posts.length, previousPosts.length]);
+
+  const current = raw.current;
+  const previous = raw.previous;
 
   const days = current.length;
   const dates = current.map((p) => p.date);
@@ -1303,7 +1385,6 @@ export default function Insights() {
     >
       <DashboardSidebar theme={theme} />
 
-      {/* Zone à droite de la sidebar : marge autour du panneau arrondi */}
       <div
         className={[
           "h-full py-3 pr-3",
@@ -1313,7 +1394,6 @@ export default function Insights() {
         ].join(" ")}
         style={{ paddingLeft: sidebarOffset }}
       >
-        {/* PANNEAU ARRONDI : c'est lui qui scrolle */}
         <div
           className={[
             "h-full overflow-y-auto overflow-x-hidden",
@@ -1332,7 +1412,7 @@ export default function Insights() {
               "pb-[120px] pt-[clamp(18px,3vw,30px)]",
             ].join(" ")}
           >
-            {/* HEADER COMPACT (remplace PageHeader) */}
+            {/* HEADER COMPACT */}
             <div className="flex shrink-0 flex-wrap items-center justify-between gap-3">
               <div className="flex min-w-0 items-center gap-2.5">
                 <span
@@ -1367,8 +1447,6 @@ export default function Insights() {
                   <ChevronDown className="h-3.5 w-3.5 opacity-70" aria-hidden="true" />
                 </button>
 
-                {/* Marque-page : sans contour, fond au survol uniquement
-                    (même style que Channels / Community / Schedule). */}
                 <button
                   type="button"
                   aria-label={saved ? "Remove from favorites" : "Add to favorites"}
@@ -1410,7 +1488,6 @@ export default function Insights() {
               </section>
             ) : (
               <>
-                {/* ÉTAT YOUTUBE : erreur / chargement */}
                 {isYouTube && yt.error && (
                   <div
                     role="alert"
