@@ -2,19 +2,20 @@
 // Page Insights — même shell arrondi que Home (fond de page + panneau rounded-[28px]).
 // Données YouTube réelles via useYouTubeInsights (services/youtube.ts).
 //
+// ⚠️  Aucun nombre inventé : toute valeur affichée provient d'une donnée réelle.
+//     Quand une métrique n'est pas disponible, on affiche « — » (jamais un 0 trompeur).
+//
 // ⚠️  Les posts encore programmés ne sont PAS affichés : la page ne montre
 //     que les contenus réellement en ligne. Le filtre est appliqué deux fois :
 //       - dans `buildPosts` (services/youtube.ts)
 //       - dans `isOnlinePost` ci-dessous (défense en profondeur)
 //
 // Direction UI : minimaliste.
-//   • plus de cartes imbriquées : les sections sont séparées par de l'espace
-//     et des filets très fins
-//   • onglets soulignés (texte seul) à la place des boutons encadrés
-//   • statistiques en texte (grand chiffre + libellé + variation)
-//   • tableau en lignes simples, colonnes numériques alignées à droite
-//   • graphique responsive (la typographie garde sa taille sur mobile),
-//     graduations « rondes », légende retirée des axes
+//   • sections séparées par de l'espace et des filets très fins
+//   • onglets soulignés (texte seul)
+//   • statistiques : grandes stats + mini-courbes réelles, puis stats secondaires
+//   • tableau en lignes simples, barre relative sur les réactions
+//   • graphique responsive, graduations « rondes »
 
 import {
   useEffect,
@@ -351,6 +352,8 @@ const isOnlinePost = (p: PostRow): boolean => {
 
 /* ============================================================
    DONNÉES VIDES (avant chargement / pas de données)
+   Ces zéros ne sont JAMAIS affichés comme des mesures : l'UI
+   utilise `hasData` pour afficher « — » ou un état vide.
 ============================================================ */
 
 function useEmptyInsights(
@@ -988,45 +991,99 @@ function EmptyState({
   );
 }
 
+/** Mini courbe construite uniquement à partir de la série quotidienne réelle. */
+function Spark({ values, color }: { values: number[]; color: string }) {
+  if (values.length < 2 || values.every((v) => v === 0)) {
+    return <div className="h-8" aria-hidden="true" />;
+  }
+  const W = 120;
+  const H = 32;
+  const max = Math.max(...values);
+  const min = Math.min(...values);
+  const span = max - min || 1;
+  const pts = values
+    .map(
+      (v, i) =>
+        `${((i / (values.length - 1)) * W).toFixed(1)},${(H - 3 - ((v - min) / span) * (H - 6)).toFixed(1)}`
+    )
+    .join(" ");
+  return (
+    <svg
+      viewBox={`0 0 ${W} ${H}`}
+      className="h-8 w-full"
+      preserveAspectRatio="none"
+      aria-hidden="true"
+    >
+      <polyline
+        points={pts}
+        fill="none"
+        stroke={color}
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+        vectorEffect="non-scaling-stroke"
+      />
+    </svg>
+  );
+}
+
 function DeltaBadge({ delta, t }: { delta: Delta; t: Tokens }) {
   if (!delta) return null;
   const color =
-    delta.tone === "up" ? "text-emerald-500" : delta.tone === "down" ? "text-red-500" : t.muted;
+    delta.tone === "up"
+      ? "bg-emerald-500/10 text-emerald-500"
+      : delta.tone === "down"
+      ? "bg-red-500/10 text-red-500"
+      : `${t.track} ${t.muted}`;
+  const arrow = delta.tone === "up" ? "↑" : delta.tone === "down" ? "↓" : "";
   return (
     <span
-      className={`text-[11px] font-medium tabular-nums ${color}`}
+      className={`inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[11px] font-medium tabular-nums ${color}`}
       aria-label={`${delta.text} compared to the previous period`}
       title="Compared to the previous period"
     >
-      {delta.text}
+      {arrow} {delta.tone === "flat" ? delta.text : delta.text.replace(/^[+-]/, "")}
     </span>
   );
 }
 
+/** `value === null` → donnée indisponible : on affiche « — », jamais 0. */
 function Stat({
   label,
   value,
   info,
   delta,
+  spark,
+  sparkColor,
+  size = "lg",
   t,
 }: {
   label: string;
-  value: string;
+  value: string | null;
   info: string;
   delta: Delta;
+  spark?: number[];
+  sparkColor?: string;
+  size?: "lg" | "sm";
   t: Tokens;
 }) {
+  const unavailable = value === null;
   return (
-    <div className="min-w-0">
-      <p title={info} className={`truncate text-[12px] ${t.soft}`}>
-        {label}
+    <div className="min-w-0" title={unavailable ? `${info} (not available)` : info}>
+      <p className={`truncate text-[12px] ${t.soft}`}>{label}</p>
+      <p
+        className={`mt-2 font-semibold leading-none tracking-[-0.03em] tabular-nums ${
+          size === "lg" ? "text-[30px]" : "text-[20px]"
+        } ${unavailable ? t.muted : t.text}`}
+      >
+        {unavailable ? "—" : value}
       </p>
-      <p className={`mt-2 text-[26px] font-semibold leading-none tracking-[-0.03em] tabular-nums ${t.text}`}>
-        {value}
-      </p>
-      <div className="mt-2 h-4">
-        <DeltaBadge delta={delta} t={t} />
-      </div>
+      {size === "lg" && (
+        <div className="mt-3">
+          <Spark values={spark ?? []} color={sparkColor ?? "currentColor"} />
+        </div>
+      )}
+      <div className="mt-2 h-5">{!unavailable && <DeltaBadge delta={delta} t={t} />}</div>
     </div>
   );
 }
@@ -1507,6 +1564,10 @@ export default function Insights() {
     [raw.summary, posts.length]
   );
 
+  // État des données : « — » ou état vide tant qu'il n'y a pas de vraies données.
+  const youtubeLoading = isYouTube && yt.loading && !yt.data;
+  const hasData = isYouTube && Boolean(yt.data) && !youtubeLoading;
+
   useEffect(() => {
     if (!isYouTube || !yt.data) return;
     const totalThis = raw.posts.length;
@@ -1532,17 +1593,29 @@ export default function Insights() {
   const periodLabel = fmtRange(start, end);
   const compareLabel = `vs ${fmtRange(prevStart, prevEnd)}`;
 
-  const summaryBoxes: { label: string; value: string }[] = [
-    { label: "Total Followers", value: nf(summary.followers) },
-    { label: "Posts", value: nf(summary.posts) },
-    { label: "Reactions", value: nf(summary.reactions) },
-    { label: "Comments", value: nf(summary.comments) },
-    { label: "Eng. Rate", value: `${summary.engRate}%` },
-    { label: "Video Views", value: nf(summary.videoViews) },
-    { label: "Shares", value: nf(summary.shares) },
-    { label: "Reach", value: nf(summary.reach) },
-    { label: "Watch Time (min)", value: nf(summary.watchMin) },
-    { label: "Avg. Watch Time (sec)", value: nf(summary.avgWatchSec) },
+  // Une métrique sans source réelle (0 par défaut) devient « — ».
+  const real = (v: number, needsPositive = false): string | null =>
+    !hasData || !Number.isFinite(v) || (needsPositive && v <= 0) ? null : nf(v);
+
+  const primaryBoxes: { label: string; value: string | null; key: NumKey | null }[] = [
+    { label: "Total Followers", value: real(summary.followers), key: "followers" },
+    { label: "Posts", value: real(summary.posts), key: "posts" },
+    { label: "Reactions", value: real(summary.reactions), key: "reactions" },
+    { label: "Comments", value: real(summary.comments), key: "comments" },
+    {
+      label: "Eng. Rate",
+      // Calculé uniquement s'il existe au moins un post en ligne.
+      value: hasData && posts.length > 0 ? `${summary.engRate.toFixed(2)}%` : null,
+      key: null,
+    },
+  ];
+
+  const secondaryBoxes: { label: string; value: string | null }[] = [
+    { label: "Video Views", value: real(summary.videoViews) },
+    { label: "Shares", value: real(summary.shares, true) },
+    { label: "Reach", value: real(summary.reach, true) },
+    { label: "Watch Time (min)", value: real(summary.watchMin, true) },
+    { label: "Avg. Watch Time (sec)", value: real(summary.avgWatchSec, true) },
   ];
 
   // Variations : uniquement pour les métriques dont on dispose réellement
@@ -1574,6 +1647,7 @@ export default function Insights() {
   const chartDates = bucket === 1 ? dates : dates.filter((_, i) => i % bucket === 0);
 
   const TONES = [isDark ? "#ffffff" : "#111111", isDark ? "#7c7c85" : "#a3a3a3"];
+  const SPARK_COLOR = isDark ? "#a1a1aa" : "#52525b";
   const SERIES: Record<MetricTab, SeriesDef[]> = {
     posts: [
       { key: "posts", label: "Posts", tone: 0, agg: "sum" },
@@ -1633,6 +1707,9 @@ export default function Insights() {
   const safePage = Math.min(page, totalPages);
   const pageStart = (safePage - 1) * PAGE_SIZE;
   const paginatedRows = sortedRows.slice(pageStart, pageStart + PAGE_SIZE);
+
+  // Barre relative : proportion réelle par rapport au meilleur post de la liste.
+  const maxReactions = Math.max(1, ...sortedRows.map((r) => r.reactions));
 
   const toggleSort = (key: SortKey) =>
     setSort((s) => (s?.key === key ? { key, dir: s.dir === "desc" ? "asc" : "desc" } : { key, dir: "desc" }));
@@ -1739,8 +1816,6 @@ export default function Insights() {
   const mediaIcon = (m: PostRow["media"]) =>
     m === "video" ? <Play className="h-4 w-4" /> : m === "text" ? <FileText className="h-4 w-4" /> : <ImageIcon className="h-4 w-4" />;
 
-  const youtubeLoading = isYouTube && yt.loading && !yt.data;
-
   // Message d'encouragement discret, seulement si la chaîne a peu publié.
   const showHint =
     isYouTube && !youtubeLoading && !yt.error && posts.length < 3 && previousPosts.length < 3;
@@ -1798,7 +1873,7 @@ export default function Insights() {
                 )}
 
                 <ExportMenu
-                  disabled={!channel || !isYouTube}
+                  disabled={!channel || !isYouTube || !hasData}
                   onDaily={exportDailyCsv}
                   onPosts={exportPostsCsv}
                   t={t}
@@ -1919,17 +1994,44 @@ export default function Insights() {
                       sub={`${periodLabel} · ${compareLabel}`}
                       t={t}
                     />
-                    <div className="grid grid-cols-2 gap-x-6 gap-y-7 sm:grid-cols-3 lg:grid-cols-5">
-                      {summaryBoxes.map((b) => (
-                        <Stat
-                          key={b.label}
-                          label={b.label}
-                          value={b.value}
-                          info={SUMMARY_INFO[b.label] ?? b.label}
-                          delta={deltas[b.label] ?? null}
-                          t={t}
-                        />
-                      ))}
+
+                    <div className="flex flex-col gap-8">
+                      <div className="grid grid-cols-2 gap-x-6 gap-y-8 sm:grid-cols-3 lg:grid-cols-5">
+                        {primaryBoxes.map((b) => (
+                          <Stat
+                            key={b.label}
+                            label={b.label}
+                            value={b.value}
+                            info={SUMMARY_INFO[b.label] ?? b.label}
+                            delta={deltas[b.label] ?? null}
+                            spark={b.key ? current.map((p) => p[b.key as NumKey]) : []}
+                            sparkColor={SPARK_COLOR}
+                            t={t}
+                          />
+                        ))}
+                      </div>
+
+                      <div
+                        className={`grid grid-cols-2 gap-x-6 gap-y-6 border-t pt-6 sm:grid-cols-3 lg:grid-cols-5 ${t.border}`}
+                      >
+                        {secondaryBoxes.map((b) => (
+                          <Stat
+                            key={b.label}
+                            size="sm"
+                            label={b.label}
+                            value={b.value}
+                            info={SUMMARY_INFO[b.label] ?? b.label}
+                            delta={null}
+                            t={t}
+                          />
+                        ))}
+                      </div>
+
+                      {hasData && secondaryBoxes.some((b) => b.value === null) && (
+                        <p className={`text-[11px] ${t.muted}`}>
+                          “—” means the value is not provided by YouTube for this period. Nothing is estimated.
+                        </p>
+                      )}
                     </div>
                   </section>
 
@@ -1979,23 +2081,35 @@ export default function Insights() {
                             />
                             {s.label}
                           </p>
-                          <p className={`mt-1.5 text-[26px] font-semibold leading-none tracking-[-0.03em] tabular-nums ${t.text}`}>
-                            {nf(seriesTotal(s))}
+                          <p
+                            className={`mt-1.5 text-[26px] font-semibold leading-none tracking-[-0.03em] tabular-nums ${
+                              hasData ? t.text : t.muted
+                            }`}
+                          >
+                            {hasData ? nf(seriesTotal(s)) : "—"}
                           </p>
                         </div>
                       ))}
                     </div>
 
-                    <Chart
-                      dates={chartDates}
-                      series={chartSeries}
-                      view={chartView}
-                      type={chartType}
-                      bucket={bucket}
-                      isDark={isDark}
-                    />
+                    {hasData ? (
+                      <Chart
+                        dates={chartDates}
+                        series={chartSeries}
+                        view={chartView}
+                        type={chartType}
+                        bucket={bucket}
+                        isDark={isDark}
+                      />
+                    ) : (
+                      <EmptyState
+                        t={t}
+                        title={youtubeLoading ? "Loading data…" : "No data for this period"}
+                        text={youtubeLoading ? undefined : "Try refreshing or choosing another range."}
+                      />
+                    )}
 
-                    {bucket > 1 && (
+                    {hasData && bucket > 1 && (
                       <p className={`text-[11px] ${t.muted}`}>
                         Grouped by {bucket === 7 ? "week" : "30-day period"}: totals are summed,
                         followers show the last value of each group.
@@ -2133,8 +2247,17 @@ export default function Insights() {
                                 </div>
                               </div>
                               {columns.map((c) => (
-                                <span key={c.key} className="text-right tabular-nums">
-                                  {c.render(p)}
+                                <span key={c.key} className="relative text-right tabular-nums">
+                                  {c.key === "reactions" && p.reactions > 0 && (
+                                    <span
+                                      aria-hidden="true"
+                                      className={`absolute inset-y-[-4px] right-0 rounded-sm ${
+                                        isDark ? "bg-white/[0.06]" : "bg-black/[0.05]"
+                                      }`}
+                                      style={{ width: `${Math.round((p.reactions / maxReactions) * 100)}%` }}
+                                    />
+                                  )}
+                                  <span className="relative z-10 pr-1">{c.render(p)}</span>
                                 </span>
                               ))}
                               <a
