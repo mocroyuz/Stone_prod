@@ -3,11 +3,10 @@
 // Données YouTube réelles via useYouTubeInsights (services/youtube.ts).
 // Les autres réseaux conservent les données d'exemple en attendant leur API.
 //
-// ⚠️  Les posts encore programmés (status === "scheduled") ne sont PAS
-//     affichés : la page ne montre que les contenus réellement en ligne.
-//     Le service `useYouTubeInsights` (services/youtube.ts) et la route
-//     backend `/api/youtube/insights` doivent renvoyer un champ `status`
-//     par vidéo (voir la note en bas de fichier).
+// ⚠️  Les posts encore programmés ne sont PAS affichés : la page ne montre
+//     que les contenus réellement en ligne. La détection se fait en deux
+//     temps (voir `isOnlinePost` plus bas) pour être fiable même si le
+//     backend ne renvoie pas encore de champ `status`.
 
 import {
   useEffect,
@@ -122,7 +121,7 @@ type PostRow = {
   engRate: number;
   videoViews: number;
   /** Statut renvoyé par le backend ("scheduled" | "published" | …).
-   *  Absent → considéré comme en ligne (compat ancien backend). */
+   *  Absent → on retombe sur la date pour décider. */
   status?: string;
 };
 
@@ -243,6 +242,23 @@ function resolveRange(range: Range, customStart: Date, customEnd: Date) {
 }
 
 /* ============================================================
+   FILTRE « EN LIGNE UNIQUEMENT »
+
+   Deux niveaux de sécurité :
+     1. `status === "scheduled"` → masqué (backend fiable).
+     2. `date` dans le futur → masqué (fallback : YouTube renvoie la
+        date programmée tant que la vidéo n'est pas publiée, donc une
+        vidéo programmée a toujours une `date` future, même si le
+        backend n'expose pas encore `status`).
+============================================================ */
+
+const isOnlinePost = (p: PostRow): boolean => {
+  if (p.status === "scheduled") return false;
+  if (p.date instanceof Date && p.date.getTime() > Date.now()) return false;
+  return true;
+};
+
+/* ============================================================
    DONNÉES D'EXEMPLE (réseaux sans API pour l'instant)
    `sample = false` renvoie un squelette vide (zéros) : utilisé
    pour YouTube tant que les vraies données ne sont pas arrivées.
@@ -329,9 +345,6 @@ function downloadCsv(filename: string, rows: (string | number)[][]) {
   a.click();
   URL.revokeObjectURL(url);
 }
-
-/** Une ligne du tableau est « en ligne » si elle n'est pas encore programmée. */
-const isOnlinePost = (p: PostRow): boolean => p.status !== "scheduled";
 
 /* ============================================================
    COURBE LISSÉE
@@ -1133,10 +1146,8 @@ export default function Insights() {
   const raw = isYouTube && yt.data ? yt.data : fallback;
 
   // ── Filtre « en ligne uniquement » ──
-  // Les posts encore programmés (status === "scheduled") sont retirés de
-  // la liste affichée. Le service renvoie normalement `status` ; s'il est
-  // absent (ancien backend), `isOnlinePost` renvoie `true` et rien ne
-  // disparaît → pas de régression.
+  // `isOnlinePost` filtre sur `status` ET sur la date (filet de sécurité
+  // qui fonctionne même si le backend n'expose pas encore `status`).
   const current = raw.current;
   const previous = raw.previous;
   const posts = useMemo(() => raw.posts.filter(isOnlinePost), [raw.posts]);
