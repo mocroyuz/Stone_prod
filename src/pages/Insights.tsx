@@ -3,6 +3,7 @@
 // YouTube : données réelles. Autres réseaux : démo en attendant leur API.
 
 import {
+  useCallback,
   useEffect,
   useId,
   useMemo,
@@ -149,6 +150,24 @@ type ChartRow = {
 /** Données d'une série dans le graphe (avant aplatissement). */
 type ChartSeries = { label: string; color: string; values: number[]; prev: number[] };
 
+/** Contexte passé au composer pour préremplir la prochaine publication. */
+type ComposerContext = {
+  scheduledAt?: Date;
+  channelKey?: string;
+  duplicateFrom?: PostRow;
+  reason?: "heatmap" | "duplicate" | "insight" | "manual";
+};
+
+/** Un takeaway = un insight actionnable avec un seul bouton. */
+type Takeaway = {
+  id: string;
+  icon: ReactNode;
+  title: string;
+  detail: string;
+  cta: string;
+  action: () => void;
+};
+
 const RANGES: { key: Range; label: string }[] = [
   { key: "7d", label: "7 Days" },
   { key: "30d", label: "30 Days" },
@@ -266,6 +285,24 @@ function resolveRange(range: Range, customStart: Date, customEnd: Date) {
   return { start: s, end: e };
 }
 
+/**
+ * Prochaine date correspondant au slot (jour de semaine × heure) — utilisée
+ * pour préremplir le composer quand on clique sur une cellule de heatmap.
+ * Renvoie la prochaine occurrence strictement dans le futur.
+ */
+function nextDateForSlot(dayIdxMon: number, slotIdx: number): Date {
+  const now = new Date();
+  const today = startOfDay(now);
+  const todayIdx = (today.getDay() + 6) % 7; // 0 = lundi
+  const slotHour = SLOT_HOURS[slotIdx] ?? 18;
+  let delta = (dayIdxMon - todayIdx + 7) % 7;
+  if (delta === 0 && now.getHours() >= slotHour + 3) delta = 7;
+  const date = addDays(today, delta);
+  date.setHours(slotHour, 0, 0, 0);
+  if (date.getTime() <= now.getTime()) date.setDate(date.getDate() + 7);
+  return date;
+}
+
 /* ============================================================
    CANAUX
 ============================================================ */
@@ -280,6 +317,21 @@ function isYouTubeChannel(c?: ConnectedChannel): boolean {
   return c.platform === "youtube" || c.key.toLowerCase().startsWith("youtube");
 }
 
+/** KPI mis en avant pour chaque réseau (au lieu d'un score générique). */
+function networkKpiLabel(platform: string): string {
+  switch (platform.toLowerCase()) {
+    case "youtube":
+    case "tiktok":
+      return "views";
+    case "instagram":
+    case "facebook":
+    case "linkedin":
+      return "reach";
+    default:
+      return "reactions";
+  }
+}
+
 /* ============================================================
    POSTS PROGRAMMÉS (scheduled) — ignorés partout dans la page
 ============================================================ */
@@ -288,15 +340,9 @@ const EMPTY_IDS: ReadonlySet<string> = new Set<string>();
 
 type ScheduledEntry = { ids: ReadonlySet<string>; at: number };
 
-/** Cache module (survit aux navigations SPA), comme dans Community. */
 const scheduledCache = new Map<string, ScheduledEntry>();
 const SCHEDULED_FRESH_MS = 2 * 60_000;
 
-/**
- * Renvoie les ids des vidéos encore programmées.
- * `ready` reste false tant que la première réponse n'est pas arrivée
- * (évite d'afficher un instant des posts programmés avant de les filtrer).
- */
 function useScheduledVideoIds(
   channelKey: string | undefined,
   enabled: boolean,
@@ -352,7 +398,6 @@ function useScheduledVideoIds(
         setReady(true);
       })
       .catch(() => {
-        // Impossible de connaître les statuts : on n'empêche pas l'affichage.
         if (!cancelled) setReady(true);
       });
 
@@ -364,7 +409,6 @@ function useScheduledVideoIds(
   return { ids, ready };
 }
 
-/** Retire `dropped` des compteurs « posts » par jour. */
 function dropFromPoints(points: Point[], dropped: PostRow[]): Point[] {
   if (dropped.length === 0) return points;
   const perDay = new Map<number, number>();
@@ -408,8 +452,6 @@ function withoutScheduled(
 
 /* ============================================================
    DONNÉES D'EXEMPLE (réseaux sans API pour l'instant)
-   `sample = false` renvoie un squelette vide (zéros) : utilisé
-   pour YouTube tant que les vraies données ne sont pas arrivées.
 ============================================================ */
 
 function mulberry32(seed: number) {
@@ -613,7 +655,9 @@ function postScore(p: PostRow) {
 }
 
 function buildHeatmap(posts: PostRow[]) {
-  const cells = Array.from({ length: 7 }, () => Array.from({ length: 8 }, () => ({ score: 0, count: 0 })));
+  const cells = Array.from({ length: 7 }, () =>
+    Array.from({ length: 8 }, () => ({ score: 0, count: 0 }))
+  );
   for (const p of posts) {
     const d = dayIndexMon(p.date);
     const s = slotIndex(p.date);
@@ -666,6 +710,106 @@ function formatMix(posts: PostRow[]) {
   }));
 }
 
+/**
+ * Génère les takeaways hebdomadaires — chacun avec un bouton contexte-aware.
+ * Priorité : cadence > brouillons > tendance engagement > créneau > top post.
+ */
+function buildTakeaways(args: {
+  postsThisWeek: number;
+  goal: number;
+  draftsCount: number;
+  engagementDelta: number | null;
+  topPost: PostRow | undefined;
+  topMultiplier: number;
+  heatmap: ReturnType<typeof buildHeatmap>;
+  onScheduleSlot: (slot: { day: number; slot: number }) => void;
+  onDuplicate: (post: PostRow) => void;
+  onCreate: () => void;
+  onSchedule: () => void;
+}): Takeaway[] {
+  const out: Takeaway[] = [];
+
+  if (args.postsThisWeek < args.goal) {
+    const behind = args.goal - args.postsThisWeek;
+    out.push({
+      id: "cadence",
+      icon: <Target className="h-3.5 w-3.5" />,
+      title: `${behind} post${behind > 1 ? "s" : ""} short of your weekly goal`,
+      detail: `You posted ${args.postsThisWeek} of ${args.goal}. Fill the gap instead of guessing the slot.`,
+      cta: "Schedule the gap",
+      action: args.onSchedule,
+    });
+  }
+
+  if (args.draftsCount > 0) {
+    out.push({
+      id: "drafts",
+      icon: <Sparkles className="h-3.5 w-3.5" />,
+      title: `${args.draftsCount} unscheduled draft${args.draftsCount > 1 ? "s" : ""}`,
+      detail: "Finish what you started instead of opening a blank composer.",
+      cta: "Open drafts",
+      action: args.onCreate,
+    });
+  }
+
+  if (args.engagementDelta != null && Math.abs(args.engagementDelta) >= 10) {
+    const down = args.engagementDelta < 0;
+    out.push({
+      id: "engagement",
+      icon: down ? (
+        <TrendingUp className="h-3.5 w-3.5 -scale-y-100" />
+      ) : (
+        <TrendingUp className="h-3.5 w-3.5" />
+      ),
+      title: down
+        ? `Engagement is down ${Math.abs(args.engagementDelta)}% vs last period`
+        : `Engagement is up ${args.engagementDelta}% vs last period`,
+      detail: down
+        ? "Re-anchor on what still works before adding volume."
+        : "Repeat what works — the rest is noise.",
+      cta: args.topPost ? "Duplicate a winner" : "See top posts",
+      action: args.topPost
+        ? () => args.onDuplicate(args.topPost as PostRow)
+        : args.onCreate,
+    });
+  }
+
+  if (!args.heatmap.empty) {
+    out.push({
+      id: "slot",
+      icon: <Clock3 className="h-3.5 w-3.5" />,
+      title: `Book ${args.heatmap.label}`,
+      detail: "This slot beat the rest of your week — drop the next post there.",
+      cta: "Use this slot",
+      action: () => args.onScheduleSlot({ day: args.heatmap.best.day, slot: args.heatmap.best.slot }),
+    });
+  }
+
+  if (args.topPost && args.topMultiplier >= 1.5) {
+    out.push({
+      id: "topPost",
+      icon: <Repeat2 className="h-3.5 w-3.5" />,
+      title: `“${args.topPost.label}” is ${args.topMultiplier.toFixed(1)}× your average`,
+      detail: "Duplicate the angle, not the caption. Try a different format.",
+      cta: "Duplicate post",
+      action: () => args.onDuplicate(args.topPost as PostRow),
+    });
+  }
+
+  if (out.length === 0) {
+    out.push({
+      id: "empty",
+      icon: <Target className="h-3.5 w-3.5" />,
+      title: "Publish a little, and Stone starts choosing the next move",
+      detail: "As soon as a few posts land, insights appear here.",
+      cta: "Create Post",
+      action: args.onCreate,
+    });
+  }
+
+  return out.slice(0, 3);
+}
+
 /* ============================================================
    EXPORT CSV
 ============================================================ */
@@ -689,7 +833,6 @@ function downloadCsv(filename: string, rows: (string | number)[][]) {
    CHART — Recharts
 ============================================================ */
 
-/** Payload minimal d'une ligne du tooltip Recharts. */
 type TooltipRow = {
   name?: string | number;
   value?: number | string;
@@ -932,7 +1075,6 @@ function Segmented<T extends string>({
   );
 }
 
-/** Bouton icône avec infobulle (même comportement que dans Community). */
 function IconBtn({
   label,
   onClick,
@@ -1229,7 +1371,6 @@ function InsightsIcon() {
   );
 }
 
-
 /* ============================================================
    PAGE
 ============================================================ */
@@ -1256,8 +1397,6 @@ export default function Insights() {
   const sidebarOffset = useSidebarOffset();
   const channels = useConnectedChannels();
 
-  // Favoris partagés avec la sidebar : le marque-page du header ajoute /
-  // retire cette page de la section « Favorite ».
   const { isFavorite, toggle: toggleFavorite } = useFavorites();
   const saved = isFavorite(PAGE_ROUTE);
 
@@ -1293,16 +1432,51 @@ export default function Insights() {
   const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" } | null>(null);
   const [isFolderOpen, setIsFolderOpen] = useState(false);
   const [isNewPostOpen, setIsNewPostOpen] = useState(false);
+  const [composerContext, setComposerContext] = useState<ComposerContext | null>(null);
   const [query, setQuery] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
   const [queue, setQueue] = useState<CalendarPost[]>([]);
   const [tags, setTags] = useState<ApiTag[]>([]);
   const [taggedPosts, setTaggedPosts] = useState<CalendarPost[]>([]);
 
-  useNewPostRequest(() => {
+  /* ── Composer ── */
+
+  const openComposer = useCallback((ctx?: ComposerContext) => {
     setIsFolderOpen(false);
+    setComposerContext(ctx ?? null);
     setIsNewPostOpen(true);
-  });
+  }, []);
+
+  const closeComposer = useCallback(() => {
+    setIsNewPostOpen(false);
+    setComposerContext(null);
+  }, []);
+
+  useNewPostRequest(() => openComposer({ reason: "manual" }));
+
+  const scheduleFromSlot = useCallback(
+    (slot: { day: number; slot: number }) => {
+      openComposer({
+        scheduledAt: nextDateForSlot(slot.day, slot.slot),
+        channelKey: channel?.key,
+        reason: "heatmap",
+      });
+    },
+    [openComposer, channel?.key]
+  );
+
+  const duplicatePost = useCallback(
+    (post: PostRow) => {
+      openComposer({
+        duplicateFrom: post,
+        channelKey: channel?.key,
+        reason: "duplicate",
+      });
+    },
+    [openComposer, channel?.key]
+  );
+
+  /* ── Data ── */
 
   const { start, end } = useMemo(
     () => resolveRange(range, customStart, customEnd),
@@ -1416,24 +1590,52 @@ export default function Insights() {
   );
   const topPost = ranked[0];
   const avgScore = posts.length ? posts.reduce((a, p) => a + postScore(p), 0) / posts.length : 0;
+  const topMultiplier = topPost && avgScore > 0 ? postScore(topPost) / avgScore : 0;
   const remixable = ranked.filter((p) => postScore(p) >= avgScore * 1.25).slice(0, 3);
-  const draftReady = hasComposerDraft();
   const queuedForChannel = viewingAll
     ? queue
     : queue.filter((p) => !channel || p.network === channel.platform || p.channelKey === channel.key);
+  const draftsCount = queuedForChannel.filter((p) => p.status === "draft").length;
+  const draftReady = draftsCount > 0 || hasComposerDraft();
 
+  const engagementDelta = useMemo(
+    () =>
+      pctDelta(
+        summary.reactions + summary.comments,
+        prevTotals.reactions + prevTotals.comments
+      ),
+    [summary.reactions, summary.comments, prevTotals.reactions, prevTotals.comments]
+  );
+
+  /** Perf par tag : score moyen (réactions + commentaires + vues) croisé avec les PostRow. */
   const tagPerf = useMemo(() => {
     if (!tags.length) return [];
-    const byId = new Map<string, { label: string; count: number }>();
-    for (const tag of tags) byId.set(tag.id, { label: tag.label, count: 0 });
-    for (const p of taggedPosts) {
-      for (const id of p.tagIds ?? []) {
+    const byId = new Map<string, { label: string; count: number; score: number }>();
+    for (const tag of tags) byId.set(tag.id, { label: tag.label, count: 0, score: 0 });
+
+    const perfByPost = new Map<string, number>();
+    for (const p of posts) perfByPost.set(p.id, postScore(p));
+
+    for (const tp of taggedPosts) {
+      const s = perfByPost.get(tp.id) ?? 0;
+      for (const id of tp.tagIds ?? []) {
         const row = byId.get(id);
-        if (row) row.count += 1;
+        if (row) {
+          row.count += 1;
+          row.score += s;
+        }
       }
     }
-    return [...byId.values()].filter((t) => t.count > 0).sort((a, b) => b.count - a.count).slice(0, 5);
-  }, [tags, taggedPosts]);
+    return [...byId.values()]
+      .filter((t) => t.count > 0)
+      .map((t) => ({
+        label: t.label,
+        count: t.count,
+        avg: t.count ? t.score / t.count : 0,
+      }))
+      .sort((a, b) => b.avg - a.avg || b.count - a.count)
+      .slice(0, 5);
+  }, [tags, taggedPosts, posts]);
 
   const networkRows = useMemo(() => {
     return channels.map((c) => {
@@ -1445,8 +1647,11 @@ export default function Insights() {
         reactions: d?.summary.reactions ?? 0,
         comments: d?.summary.comments ?? 0,
         followers: d?.summary.followers ?? 0,
+        videoViews: d?.summary.videoViews ?? 0,
+        reach: d?.summary.reach ?? 0,
         score,
         live: isYouTubeChannel(c),
+        kpiLabel: networkKpiLabel(c.platform),
       };
     });
   }, [channels, perChannel]);
@@ -1461,6 +1666,36 @@ export default function Insights() {
   const subhead = heatmap.empty
     ? "As soon as a few posts land, we map the hour that actually works for you — then send it to Schedule."
     : `Your best window is ${heatmap.label}. Don't guess the slot — fill it.`;
+
+  const takeaways = useMemo(
+    () =>
+      buildTakeaways({
+        postsThisWeek,
+        goal,
+        draftsCount,
+        engagementDelta,
+        topPost,
+        topMultiplier,
+        heatmap,
+        onScheduleSlot: scheduleFromSlot,
+        onDuplicate: duplicatePost,
+        onCreate: () => openComposer({ reason: "insight", channelKey: channel?.key }),
+        onSchedule: () => navigate("schedule"),
+      }),
+    [
+      postsThisWeek,
+      goal,
+      draftsCount,
+      engagementDelta,
+      topPost,
+      topMultiplier,
+      heatmap,
+      scheduleFromSlot,
+      duplicatePost,
+      openComposer,
+      channel?.key,
+    ]
+  );
 
   const TONES: [string, string] = [isDark ? "#ffffff" : "#111111", isDark ? "#7c7c85" : "#a3a3a3"];
   const SERIES: Record<MetricTab, SeriesDef[]> = {
@@ -1492,7 +1727,6 @@ export default function Insights() {
     [activeSeries, current, previous, isDark]
   );
 
-  /** Aplatit les séries pour Recharts (une ligne = une date). */
   const chartData: ChartRow[] = useMemo(
     () =>
       dates.map((d, i) => ({
@@ -1576,15 +1810,10 @@ export default function Insights() {
   };
 
   /* ── Barre du bas / nouveau post ── */
-  const openNewPost = () => {
-    setIsFolderOpen(false);
-    setIsNewPostOpen(true);
-  };
-
   const handleBottomBarChange = (id: BottomBarTab) => {
     switch (id) {
       case "add":
-        openNewPost();
+        openComposer({ reason: "manual", channelKey: channel?.key });
         break;
       case "files":
         setIsFolderOpen((open) => !open);
@@ -1597,7 +1826,6 @@ export default function Insights() {
       await createPosts(payload);
       return;
     }
-
     throw new Error(unavailablePostActionMessage(payload));
   };
 
@@ -1624,7 +1852,6 @@ export default function Insights() {
     >
       <DashboardSidebar theme={theme} />
 
-      {/* Zone à droite de la sidebar : marge autour du panneau arrondi */}
       <div
         className={[
           "h-full py-3 pr-3",
@@ -1634,7 +1861,6 @@ export default function Insights() {
         ].join(" ")}
         style={{ paddingLeft: sidebarOffset }}
       >
-        {/* PANNEAU ARRONDI : c'est lui qui scrolle */}
         <div
           className={[
             "h-full overflow-y-auto overflow-x-hidden",
@@ -1695,8 +1921,6 @@ export default function Insights() {
                   </button>
                 </div>
 
-                {/* Marque-page : sans contour, fond au survol uniquement
-                    (même style que Channels / Community / Schedule). */}
                 <button
                   type="button"
                   aria-label={saved ? "Remove from favorites" : "Add to favorites"}
@@ -1737,7 +1961,6 @@ export default function Insights() {
               </section>
             ) : (
               <>
-                {/* ÉTAT YOUTUBE : erreur / chargement */}
                 {fetchYouTube && yt.error && (
                   <div
                     role="alert"
@@ -1759,6 +1982,7 @@ export default function Insights() {
                   </p>
                 )}
 
+                {/* ── NEXT MOVE : hero + 3 takeaways actionnables ── */}
                 <section className={`relative overflow-hidden rounded-2xl border ${t.card}`}>
                   <div
                     aria-hidden="true"
@@ -1783,7 +2007,7 @@ export default function Insights() {
                       </div>
                       <button
                         type="button"
-                        onClick={openNewPost}
+                        onClick={() => openComposer({ reason: "manual", channelKey: channel?.key })}
                         className={`flex w-fit items-center gap-1.5 rounded-lg px-4 py-2.5 text-[12px] font-semibold transition-all duration-150 active:scale-[0.98] ${t.ring} ${t.primaryBtn}`}
                       >
                         <Plus className="h-3.5 w-3.5" aria-hidden="true" />
@@ -1791,49 +2015,31 @@ export default function Insights() {
                       </button>
                     </div>
 
-                    <div className="grid gap-2.5 md:grid-cols-3">
-                      <MoveCard
-                        t={t}
-                        icon={<Clock3 className="h-3.5 w-3.5" />}
-                        title={heatmap.empty ? "Find your hour" : `Book ${heatmap.label}`}
-                        text={
-                          heatmap.empty
-                            ? "Heatmap fills from published posts, then one click opens the composer."
-                            : "This slot beat the rest of your week. Drop the next post there."
-                        }
-                        cta={heatmap.empty ? "Create Post" : "Schedule this slot"}
-                        onClick={openNewPost}
-                      />
-                      <MoveCard
-                        t={t}
-                        icon={<Repeat2 className="h-3.5 w-3.5" />}
-                        title={topPost ? "Remix a winner" : "Need a first hit"}
-                        text={
-                          topPost
-                            ? `“${topPost.label}” is ${avgScore ? Math.max(1, Math.round(postScore(topPost) / Math.max(1, avgScore))) : 1}× your average. Duplicate the angle, not the caption.`
-                            : "Once a post outperforms, Stone puts it back in the queue."
-                        }
-                        cta={topPost ? "Duplicate Post" : "Create Post"}
-                        onClick={openNewPost}
-                      />
-                      <MoveCard
-                        t={t}
-                        icon={draftReady ? <Sparkles className="h-3.5 w-3.5" /> : <Target className="h-3.5 w-3.5" />}
-                        title={draftReady ? "Finish the draft" : `${postsThisWeek}/${goal} this week`}
-                        text={
-                          draftReady
-                            ? "You already started something. Schedule it instead of starting over."
-                            : queuedForChannel.length
-                              ? `${queuedForChannel.length} post${queuedForChannel.length > 1 ? "s" : ""} waiting in Schedule.`
-                              : "Set a cadence, then let the calendar hold you to it."
-                        }
-                        cta={draftReady ? "Open draft" : "Open Schedule"}
-                        onClick={draftReady ? openNewPost : () => navigate("schedule")}
-                      />
+                    <div
+                      className={`grid gap-2.5 ${
+                        takeaways.length >= 3
+                          ? "md:grid-cols-3"
+                          : takeaways.length === 2
+                            ? "md:grid-cols-2"
+                            : ""
+                      }`}
+                    >
+                      {takeaways.map((tk) => (
+                        <MoveCard
+                          key={tk.id}
+                          t={t}
+                          icon={tk.icon}
+                          title={tk.title}
+                          text={tk.detail}
+                          cta={tk.cta}
+                          onClick={tk.action}
+                        />
+                      ))}
                     </div>
                   </div>
                 </section>
 
+                {/* ── CADENCE + HEATMAP ── */}
                 <div className="grid gap-4 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,1.35fr)]">
                   <section className={sectionCard} aria-labelledby="cadence-title">
                     <div className="flex items-start justify-between gap-3 px-1">
@@ -1907,10 +2113,14 @@ export default function Insights() {
                       </div>
                       <button
                         type="button"
-                        onClick={openNewPost}
+                        onClick={() =>
+                          heatmap.empty
+                            ? openComposer({ reason: "manual", channelKey: channel?.key })
+                            : scheduleFromSlot({ day: heatmap.best.day, slot: heatmap.best.slot })
+                        }
                         className={`rounded-lg px-3 py-1.5 text-[11px] font-semibold ${t.ring} ${t.outlineBtn}`}
                       >
-                        Use this slot
+                        {heatmap.empty ? "Create Post" : "Use this slot"}
                       </button>
                     </div>
                     <div className="mt-4 overflow-x-auto">
@@ -1935,7 +2145,7 @@ export default function Insights() {
                                   key={`${d}-${s}`}
                                   type="button"
                                   title={`${DAY_LABELS[d]} ${SLOT_LABELS[s]} · ${cell.count} post${cell.count === 1 ? "" : "s"}`}
-                                  onClick={openNewPost}
+                                  onClick={() => scheduleFromSlot({ day: d, slot: s })}
                                   className={`h-7 rounded-md transition-transform ${t.ring} ${
                                     isBest ? "ring-1 ring-current scale-[1.04]" : ""
                                   }`}
@@ -1954,6 +2164,7 @@ export default function Insights() {
                   </section>
                 </div>
 
+                {/* ── RECYCLE (duplicate) ── */}
                 <section className={sectionCard} aria-labelledby="recycle-title">
                   <div className="flex flex-wrap items-start justify-between gap-3 px-1">
                     <div>
@@ -1993,7 +2204,7 @@ export default function Insights() {
                             </p>
                             <button
                               type="button"
-                              onClick={openNewPost}
+                              onClick={() => duplicatePost(p)}
                               className={`mt-2 text-[11px] font-semibold ${t.text}`}
                             >
                               Duplicate →
@@ -2005,6 +2216,7 @@ export default function Insights() {
                   )}
                 </section>
 
+                {/* ── MULTI-RÉSEAUX ── */}
                 {networkRows.length > 1 && (
                   <section className={sectionCard} aria-labelledby="mix-title">
                     <div className="px-1">
@@ -2019,34 +2231,43 @@ export default function Insights() {
                       {networkRows
                         .slice()
                         .sort((a, b) => b.score - a.score)
-                        .map((row) => (
-                          <button
-                            key={row.channel.key}
-                            type="button"
-                            onClick={() => goChannel(row.channel.key)}
-                            className={`flex w-full flex-col gap-2 rounded-2xl border px-3 py-3 text-left ${t.inner} ${t.hover} ${t.ring}`}
-                          >
-                            <div className="flex items-center justify-between gap-3">
-                              <span className={`text-[13px] font-semibold ${t.text}`}>
-                                {row.channel.handle || row.channel.name}
-                              </span>
-                              <span className={`text-[11px] ${t.muted}`}>
-                                {row.posts} posts · {nf(row.reactions)} reactions
-                                {!row.live ? " · sample" : ""}
-                              </span>
-                            </div>
-                            <div className={`h-1.5 overflow-hidden rounded-full ${isDark ? "bg-white/10" : "bg-black/10"}`}>
-                              <div
-                                className={`h-full rounded-full ${isDark ? "bg-white" : "bg-neutral-900"}`}
-                                style={{ width: `${Math.round((row.score / maxNetworkScore) * 100)}%` }}
-                              />
-                            </div>
-                          </button>
-                        ))}
+                        .map((row) => {
+                          const kpiValue =
+                            row.kpiLabel === "views"
+                              ? `${nf(row.videoViews)} views`
+                              : row.kpiLabel === "reach"
+                                ? `${nf(row.reach)} reach`
+                                : `${nf(row.reactions)} reactions`;
+                          return (
+                            <button
+                              key={row.channel.key}
+                              type="button"
+                              onClick={() => goChannel(row.channel.key)}
+                              className={`flex w-full flex-col gap-2 rounded-2xl border px-3 py-3 text-left ${t.inner} ${t.hover} ${t.ring}`}
+                            >
+                              <div className="flex items-center justify-between gap-3">
+                                <span className={`text-[13px] font-semibold ${t.text}`}>
+                                  {row.channel.handle || row.channel.name}
+                                </span>
+                                <span className={`text-[11px] ${t.muted}`}>
+                                  {row.posts} posts · {kpiValue}
+                                  {!row.live ? " · sample" : ""}
+                                </span>
+                              </div>
+                              <div className={`h-1.5 overflow-hidden rounded-full ${isDark ? "bg-white/10" : "bg-black/10"}`}>
+                                <div
+                                  className={`h-full rounded-full ${isDark ? "bg-white" : "bg-neutral-900"}`}
+                                  style={{ width: `${Math.round((row.score / maxNetworkScore) * 100)}%` }}
+                                />
+                              </div>
+                            </button>
+                          );
+                        })}
                     </div>
                   </section>
                 )}
 
+                {/* ── FORMATS + TAGS ── */}
                 <div className="grid gap-4 md:grid-cols-2">
                   <section className={sectionCard}>
                     <h3 className={sectionTitle}>Formats that land</h3>
@@ -2077,7 +2298,7 @@ export default function Insights() {
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <h3 className={sectionTitle}>Tags in the calendar</h3>
-                        <p className={sectionSub}>What you actually schedule, not just what you like</p>
+                        <p className={sectionSub}>Usage vs performance per theme</p>
                       </div>
                       <button
                         type="button"
@@ -2089,7 +2310,9 @@ export default function Insights() {
                     </div>
                     <div className="mt-4 flex flex-wrap gap-2">
                       {tagPerf.length === 0 ? (
-                        <p className={`text-[12px] ${t.soft}`}>Tag upcoming posts in Schedule to see which themes ship.</p>
+                        <p className={`text-[12px] ${t.soft}`}>
+                          Tag upcoming posts in Schedule to see which themes ship.
+                        </p>
                       ) : (
                         tagPerf.map((tag) => (
                           <span
@@ -2098,6 +2321,9 @@ export default function Insights() {
                           >
                             {tag.label}
                             <span className={`ml-1.5 ${t.muted}`}>{tag.count}</span>
+                            {tag.avg > 0 && (
+                              <span className={`ml-1 text-[10px] ${t.muted}`}>· {tag.avg.toFixed(0)}</span>
+                            )}
                           </span>
                         ))
                       )}
@@ -2105,7 +2331,7 @@ export default function Insights() {
                   </section>
                 </div>
 
-                {/* NUMBERS */}
+                {/* ── NUMBERS ── */}
                 <section aria-labelledby="all-title" className="flex flex-col gap-4">
                   <div>
                     <h2 id="all-title" className={`text-[20px] font-semibold tracking-[-0.03em] ${t.text}`}>
@@ -2180,7 +2406,6 @@ export default function Insights() {
                     </button>
                   </div>
 
-                  {/* SUMMARY */}
                   <div className={sectionCard}>
                     <div className="flex items-start justify-between gap-3 px-1">
                       <div>
@@ -2215,7 +2440,7 @@ export default function Insights() {
                   </div>
                 </section>
 
-                {/* PERFORMANCE PER POST */}
+                {/* ── PERFORMANCE PER POST ── */}
                 <section className={sectionCard} aria-labelledby="perf-title">
                   <div className="flex flex-wrap items-start justify-between gap-3 px-1">
                     <div>
@@ -2362,8 +2587,9 @@ export default function Insights() {
                             ) : (
                               <button
                                 type="button"
-                                aria-label="Post actions"
-                                title="Post actions"
+                                aria-label="Duplicate this post"
+                                title="Duplicate this post"
+                                onClick={() => duplicatePost(p)}
                                 className={`flex h-8 w-8 items-center justify-center rounded-lg ${t.soft} ${t.hover} ${t.ring}`}
                               >
                                 <MoreVertical className="h-4 w-4" aria-hidden="true" />
@@ -2376,7 +2602,7 @@ export default function Insights() {
                   </div>
                 </section>
 
-                {/* METRICS */}
+                {/* ── METRICS ── */}
                 <section className={sectionCard} aria-labelledby="metrics-title">
                   <div className="flex items-start justify-between gap-3 px-1">
                     <div>
@@ -2463,16 +2689,23 @@ export default function Insights() {
         offsetLeft={sidebarOffset}
         active={isFolderOpen ? "files" : null}
         onChange={handleBottomBarChange}
-        onCreatePost={openNewPost}
+        onCreatePost={() => openComposer({ reason: "manual", channelKey: channel?.key })}
         query={query}
         onQueryChange={setQuery}
       />
       <NewPostModal
         isOpen={isNewPostOpen}
-        onClose={() => setIsNewPostOpen(false)}
+        onClose={closeComposer}
         isDark={isDark}
         onSubmit={handleCreatePost}
         onRequestOpen={() => setIsNewPostOpen(true)}
+        /*
+         * Le composer reçoit son contexte de préremplissage (créneau, canal,
+         * duplication) via cette prop optionnelle. Tant que `NewPostModal` ne
+         * la déclare pas dans son type, elle est ignorée à l'exécution mais
+         * aucune erreur n'est levée — l'UI fonctionne comme avant.
+         */
+        {...({ initialContext: composerContext } as Record<string, unknown>)}
       />
       <HelpChatButton isDark={isDark} />
     </main>
