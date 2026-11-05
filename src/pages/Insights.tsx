@@ -1,29 +1,7 @@
 // src/pages/Insights.tsx
-// Page Insights — même shell que Create / Home (fond de page + panneau rounded-[28px]).
+// Page Insights — même shell arrondi que Home (fond de page + panneau rounded-[28px]).
 // Données YouTube réelles via useYouTubeInsights (services/youtube.ts).
-//
-// ⚠️  Aucun nombre inventé : toute valeur affichée provient d'une donnée réelle.
-//     Quand une métrique n'est pas disponible, on affiche « — » (jamais un 0 trompeur).
-//
-// ⚠️  Les posts encore programmés ne sont PAS affichés : la page ne montre
-//     que les contenus réellement en ligne. Le filtre est appliqué deux fois :
-//       - dans `buildPosts` (services/youtube.ts)
-//       - dans `isOnlinePost` ci-dessous (défense en profondeur)
-//
-// Direction UI (alignée sur Create) :
-//   • en-tête compact : pastille d'icône + titre 20px + boutons icône avec tooltip
-//   • onglets soulignés (border-b-2) + barre d'outils à droite
-//   • sections dans des « colonnes » (fond doux, rounded-2xl) contenant des cartes rounded-xl
-//   • sélecteurs segmentés (rounded-xl border p-1), menus popover shadow-lg
-//   • icônes SVG inline (même jeu que Create), aucune dépendance d'icônes
-//
-// Section graphiques — refonte complète :
-//   • Cartes KPI interactives (remplacent les tabs soulignés) : label + total + delta + indicateur actif
-//   • Légende pro avec pastilles colorées + totaux de période
-//   • Chart : crosshair intelligent, tooltip HTML enrichi (pastilles série),
-//     axes Y color-codés, grille pointillée discrète, hover dots avec halo,
-//     hover column en mode barres, animation au survol, focus clavier.
-//   • Rangée Highlights (Peak / Lowest / Average) calculée sur la série active.
+// Les autres réseaux conservent les données d'exemple en attendant leur API.
 
 import {
   useEffect,
@@ -32,11 +10,36 @@ import {
   useRef,
   useState,
   type ComponentType,
-  type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from "react";
+import {
+  Activity,
+  Bookmark,
+  CalendarClock,
+  Check,
+  ChevronDown,
+  Columns,
+  Copy,
+  Download,
+  ExternalLink,
+  Eye,
+  FileText,
+  FlaskConical,
+  Image as ImageIcon,
+  Info,
+  MoreVertical,
+  Pencil,
+  Play,
+  Plus,
+  RefreshCw,
+  Repeat2,
+  Send,
+  Tag,
+  TrendingUp,
+  Zap,
+} from "lucide-react";
 import { navigate, useHashRoute } from "../hooks/useHashRoute";
 import { navigateToSettingsSection } from "../utils/settingsNavigation";
 import { useTheme } from "../hooks/useTheme";
@@ -72,11 +75,9 @@ const PAGE_ROUTE = "insights";
 ============================================================ */
 
 type IconComponent = ComponentType<{ className?: string; size?: number }>;
-type IconProps = { className?: string };
 
 type Range = "7d" | "30d" | "mtd" | "custom";
 type ChartView = "this" | "comparison" | "both";
-type ChartType = "line" | "bar";
 type PostsPeriod = "this" | "previous";
 type MetricTab = "posts" | "impact" | "growth" | "visibility";
 type SortKey = "reactions" | "comments" | "engRate" | "videoViews";
@@ -114,249 +115,81 @@ type PostRow = {
   comments: number;
   engRate: number;
   videoViews: number;
-  /** Statut backend. Absent = inconnu (compat ancien backend). */
-  status?: string;
-  /** Date de publication programmée si exposée par le backend. */
-  publishAt?: string | null;
 };
 
 type SeriesDef = { key: NumKey; label: string; tone: 0 | 1; agg: "sum" | "last" };
 
-type Delta = { text: string; tone: "up" | "down" | "flat" } | null;
-
 const RANGES: { key: Range; label: string }[] = [
-  { key: "7d", label: "7 days" },
-  { key: "30d", label: "30 days" },
-  { key: "mtd", label: "Month to date" },
+  { key: "7d", label: "7 Days" },
+  { key: "30d", label: "30 Days" },
+  { key: "mtd", label: "Month to Date" },
   { key: "custom", label: "Custom" },
 ];
 
-const PAGE_SIZE = 10;
-
 /* ============================================================
-   PRÉFÉRENCES MÉMORISÉES
-============================================================ */
-
-const PREFS_KEY = "insights:prefs:v1";
-
-type Prefs = {
-  range: Range;
-  chartType: ChartType;
-  chartView: ChartView;
-  metricTab: MetricTab;
-};
-
-const DEFAULT_PREFS: Prefs = {
-  range: "30d",
-  chartType: "line",
-  chartView: "this",
-  metricTab: "visibility",
-};
-
-const oneOf = <T extends string>(value: unknown, list: readonly T[], fallback: T): T =>
-  list.includes(value as T) ? (value as T) : fallback;
-
-function loadPrefs(): Prefs {
-  try {
-    const raw = window.localStorage.getItem(PREFS_KEY);
-    if (!raw) return DEFAULT_PREFS;
-    const p = JSON.parse(raw) as Partial<Prefs>;
-    return {
-      // « custom » n'est jamais restauré : les dates personnalisées ne sont pas sauvegardées.
-      range: oneOf(p.range, ["7d", "30d", "mtd"] as const, DEFAULT_PREFS.range),
-      chartType: oneOf(p.chartType, ["line", "bar"] as const, DEFAULT_PREFS.chartType),
-      chartView: oneOf(p.chartView, ["this", "comparison", "both"] as const, DEFAULT_PREFS.chartView),
-      metricTab: oneOf(
-        p.metricTab,
-        ["posts", "impact", "growth", "visibility"] as const,
-        DEFAULT_PREFS.metricTab
-      ),
-    };
-  } catch {
-    return DEFAULT_PREFS;
-  }
-}
-
-/* ============================================================
-   STYLE — tokens identiques à ceux de Create
+   STYLE — tokens alignés sur le shell Home (dark plus profond)
 ============================================================ */
 
 type Tokens = {
   page: string;
-  panel: string;
-  line: string;
-  strong: string;
+  text: string;
   muted: string;
   soft: string;
-  ghost: string;
-  ring: string;
-  column: string;
-  chip: string;
   card: string;
-  popover: string;
+  panel: string;
+  inner: string;
+  border: string;
+  head: string;
+  primaryBtn: string;
+  outlineBtn: string;
+  iconBox: string;
+  ring: string;
+  hover: string;
   sel: string;
   idle: string;
-  primaryBtn: string;
+  popover: string;
 };
 
 const tokens = (isDark: boolean): Tokens =>
   isDark
     ? {
         page: "bg-[#050505]",
-        panel: "border-white/[0.07] bg-[#0a0a0c]",
-        line: "border-white/[0.07]",
-        strong: "text-white",
-        muted: "text-neutral-500",
+        text: "text-white",
+        muted: "text-neutral-600",
         soft: "text-neutral-400",
-        ghost: "hover:bg-white/[0.06]",
-        ring: "focus-visible:ring-white/30",
-        column: "bg-white/[0.025]",
-        chip: "bg-white/[0.06]",
         card: "border-white/[0.07] bg-[#0f0f11]",
-        popover: "border-white/[0.08] bg-[#101012]",
+        panel: "border-white/[0.07] bg-white/[0.025]",
+        inner: "border-white/[0.07] bg-white/[0.03]",
+        border: "border-white/[0.07]",
+        head: "bg-white/[0.03]",
+        primaryBtn: "bg-white text-black hover:bg-neutral-200",
+        outlineBtn: "border border-white/10 text-white hover:bg-white/[0.07]",
+        iconBox: "bg-white/[0.07] text-neutral-300",
+        ring: "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30",
+        hover: "hover:bg-white/[0.06]",
         sel: "bg-white text-black",
         idle: "text-neutral-400 hover:text-white",
-        primaryBtn: "bg-white text-black hover:bg-neutral-200",
+        popover: "border-white/10 bg-[#101012]",
       }
     : {
         page: "bg-[#f5f3ef]",
-        panel: "border-black/[0.06] bg-white",
-        line: "border-black/[0.06]",
-        strong: "text-neutral-900",
+        text: "text-neutral-900",
         muted: "text-neutral-400",
         soft: "text-neutral-500",
-        ghost: "hover:bg-black/[0.04]",
-        ring: "focus-visible:ring-black/25",
-        column: "bg-[#f6f4f0]",
-        chip: "bg-black/[0.05]",
         card: "border-black/[0.06] bg-white",
-        popover: "border-black/[0.06] bg-white",
+        panel: "border-black/[0.06] bg-[#f6f4f0]",
+        inner: "border-black/[0.06] bg-white",
+        border: "border-black/[0.06]",
+        head: "bg-[#f6f4f0]",
+        primaryBtn: "bg-neutral-900 text-white hover:bg-neutral-700",
+        outlineBtn: "border border-black/10 text-neutral-900 hover:bg-neutral-100",
+        iconBox: "bg-neutral-200/70 text-neutral-600",
+        ring: "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/25",
+        hover: "hover:bg-black/[0.04]",
         sel: "bg-neutral-900 text-white",
         idle: "text-neutral-500 hover:text-neutral-900",
-        primaryBtn: "bg-neutral-900 text-white hover:bg-neutral-700",
+        popover: "border-black/10 bg-white",
       };
-
-/* ============================================================
-   ICÔNES (SVG inline, même style que Create)
-============================================================ */
-
-function Svg({
-  className = "h-4 w-4",
-  children,
-  filled,
-}: IconProps & { children: ReactNode; filled?: boolean }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className={className}
-      fill={filled ? "currentColor" : "none"}
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      {children}
-    </svg>
-  );
-}
-
-const ChartBarsIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M5 20V11M12 20V5M19 20v-7" />
-  </Svg>
-);
-const LineIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M3.5 19.5 9 12.5l4 3.5 7.5-10" />
-  </Svg>
-);
-const BookmarkIcon = (p: IconProps & { filled?: boolean }) => (
-  <Svg {...p} filled={p.filled}>
-    <path d="M7 4.5h10a1 1 0 0 1 1 1V20l-6-3.8L6 20V5.5a1 1 0 0 1 1-1Z" />
-  </Svg>
-);
-const CalendarIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <rect x="4" y="5.5" width="16" height="14" rx="2.5" />
-    <path d="M4 10h16M8.5 3.5v4M15.5 3.5v4" />
-  </Svg>
-);
-const CheckIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="m5 12.5 4.5 4.5L19 7.5" />
-  </Svg>
-);
-const ChevronDownIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="m6 9 6 6 6-6" />
-  </Svg>
-);
-const ChevronLeftIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="m15 6-6 6 6 6" />
-  </Svg>
-);
-const ChevronRightIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="m9 6 6 6-6 6" />
-  </Svg>
-);
-const DownloadIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 19.5h14" />
-  </Svg>
-);
-const ExternalIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M14 4.5h5.5V10M19.5 4.5 11 13M18 14v4a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 6 18V9.5A1.5 1.5 0 0 1 7.5 8H10" />
-  </Svg>
-);
-const FileTextIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M7 3.5h7l4 4V19a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 5.5 19V5A1.5 1.5 0 0 1 7 3.5Z" />
-    <path d="M9 12h6M9 16h6" />
-  </Svg>
-);
-const ImageIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <rect x="4" y="5" width="16" height="14" rx="2.5" />
-    <circle cx="9" cy="10" r="1.5" />
-    <path d="m5 17 5-4.5 3 2.5 3-3 3 3" />
-  </Svg>
-);
-const PlayIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M8 5.5v13l11-6.5-11-6.5Z" />
-  </Svg>
-);
-const PlusIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M12 5v14M5 12h14" />
-  </Svg>
-);
-const RefreshIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M20 11a8 8 0 0 0-14-4.5L4 9M4 4v5h5M4 13a8 8 0 0 0 14 4.5L20 15M20 20v-5h-5" />
-  </Svg>
-);
-const SearchIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <circle cx="11" cy="11" r="6.5" />
-    <path d="m16 16 4 4" />
-  </Svg>
-);
-const TagIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M3.5 12.2V4.5a1 1 0 0 1 1-1h7.7a1 1 0 0 1 .7.3l7.6 7.6a1 1 0 0 1 0 1.4l-7.7 7.7a1 1 0 0 1-1.4 0l-7.6-7.6a1 1 0 0 1-.3-.7Z" />
-    <path d="M8 8h.01" strokeWidth="2.4" />
-  </Svg>
-);
-const XIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M6 6l12 12M18 6 6 18" />
-  </Svg>
-);
 
 /* ============================================================
    DATES & FORMAT
@@ -380,11 +213,8 @@ const toInput = (d: Date) =>
 const fmt = (d: Date) => d.toLocaleDateString("en-US", { day: "numeric", month: "short" });
 const fmtFull = (d: Date) =>
   d.toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" });
-const fmtRange = (a: Date, b: Date) => `${fmt(a)} – ${fmtFull(b)}`;
+const fmtRange = (a: Date, b: Date) => `${fmt(a)} - ${fmtFull(b)}`;
 const nf = (n: number) => n.toLocaleString("en-US");
-
-const compactFmt = new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 });
-const nfc = (n: number) => (n >= 1000 ? compactFmt.format(n) : String(n));
 
 function resolveRange(range: Range, customStart: Date, customEnd: Date) {
   const today = startOfDay(new Date());
@@ -404,73 +234,15 @@ function resolveRange(range: Range, customStart: Date, customEnd: Date) {
 }
 
 /* ============================================================
-   VARIATIONS (DELTAS)
+   DONNÉES D'EXEMPLE (réseaux sans API pour l'instant)
+   `sample = false` renvoie un squelette vide (zéros) : utilisé
+   pour YouTube tant que les vraies données ne sont pas arrivées.
 ============================================================ */
 
-/** Variation en pourcentage. Pas de variation si la période précédente vaut 0. */
-function pctDelta(cur: number, prev: number): Delta {
-  if (!Number.isFinite(cur) || !Number.isFinite(prev)) return null;
-  if (prev === 0) return null;
-  const pct = ((cur - prev) / prev) * 100;
-  if (Math.abs(pct) < 0.05) return { text: "0%", tone: "flat" };
-  const digits = Math.abs(pct) >= 10 ? 0 : 1;
-  return { text: `${pct > 0 ? "+" : ""}${pct.toFixed(digits)}%`, tone: pct > 0 ? "up" : "down" };
-}
-
-/** Variation en points (pour un taux déjà exprimé en %). */
-function ptsDelta(cur: number, prev: number): Delta {
-  if (!Number.isFinite(cur) || !Number.isFinite(prev)) return null;
-  const diff = cur - prev;
-  if (Math.abs(diff) < 0.005) return { text: "0 pt", tone: "flat" };
-  return { text: `${diff > 0 ? "+" : ""}${diff.toFixed(2)} pt`, tone: diff > 0 ? "up" : "down" };
-}
-
-/* ============================================================
-   FILTRE « EN LIGNE UNIQUEMENT »
-============================================================ */
-
-const SCHEDULED_STATUSES = new Set([
-  "scheduled",
-  "pending",
-  "draft",
-  "queued",
-  "future",
-  "unpublished",
-  "processing",
-]);
-
-const isOnlinePost = (p: PostRow): boolean => {
-  const status = String((p as { status?: unknown }).status ?? "")
-    .trim()
-    .toLowerCase();
-  if (SCHEDULED_STATUSES.has(status)) return false;
-
-  const raw =
-    (p as { publishAt?: unknown }).publishAt ??
-    (p as { publish_at?: unknown }).publish_at;
-  if (raw) {
-    const ms =
-      typeof raw === "string"
-        ? Date.parse(raw)
-        : raw instanceof Date
-        ? raw.getTime()
-        : NaN;
-    if (Number.isFinite(ms) && ms > Date.now()) return false;
-  }
-
-  if (p.date instanceof Date && p.date.getTime() > Date.now()) return false;
-  return true;
-};
-
-/* ============================================================
-   DONNÉES VIDES (avant chargement / pas de données)
-   Ces zéros ne sont JAMAIS affichés comme des mesures : l'UI
-   utilise `hasData` pour afficher « — » ou un état vide.
-============================================================ */
-
-function useEmptyInsights(
+function useInsights(
   start: Date,
-  end: Date
+  end: Date,
+  sample: boolean
 ): {
   current: Point[];
   previous: Point[];
@@ -483,22 +255,41 @@ function useEmptyInsights(
 
   return useMemo(() => {
     const days = Math.round((e - s) / DAY) + 1;
-    const build = (from: Date): Point[] =>
+    const build = (from: Date, withPost: boolean): Point[] =>
       Array.from({ length: days }, (_, i) => ({
         date: addDays(from, i),
-        posts: 0,
+        posts: withPost && i === Math.max(0, days - 3) ? 1 : 0,
         reactions: 0,
         comments: 0,
         followers: 0,
         profileViews: 0,
       }));
 
+    const current = build(new Date(s), sample);
+    const previous = build(addDays(new Date(s), -days), false);
+
+    const postDate = addDays(new Date(e), -2);
+    const posts: PostRow[] = sample
+      ? [
+          {
+            id: "1",
+            label: "Media only",
+            date: postDate < new Date(s) ? new Date(s) : postDate,
+            media: "image",
+            reactions: 0,
+            comments: 0,
+            engRate: 0,
+            videoViews: 0,
+          },
+        ]
+      : [];
+
     return {
-      current: build(new Date(s)),
-      previous: build(addDays(new Date(s), -days)),
+      current,
+      previous,
       summary: {
         followers: 0,
-        posts: 0,
+        posts: posts.length,
         reactions: 0,
         comments: 0,
         engRate: 0,
@@ -508,10 +299,10 @@ function useEmptyInsights(
         watchMin: 0,
         avgWatchSec: 0,
       },
-      posts: [] as PostRow[],
+      posts,
       previousPosts: [] as PostRow[],
     };
-  }, [s, e]);
+  }, [s, e, sample]);
 }
 
 function useHashChannel(): string | null {
@@ -519,29 +310,9 @@ function useHashChannel(): string | null {
   return new URLSearchParams(window.location.search).get("channel");
 }
 
-/** Ferme un menu avec Échap. */
-function useEscape(open: boolean, close: () => void) {
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && close();
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [open, close]);
-}
-
-/* ============================================================
-   CSV
-============================================================ */
-
-const csvCell = (v: string | number): string => {
-  const s = String(v);
-  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-};
-
 function downloadCsv(filename: string, rows: (string | number)[][]) {
-  const csv = rows.map((r) => r.map(csvCell).join(",")).join("\r\n");
-  // BOM UTF-8 : Excel ouvre correctement les accents.
-  const url = URL.createObjectURL(new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" }));
+  const csv = rows.map((r) => r.join(",")).join("\n");
+  const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
   const a = document.createElement("a");
   a.href = url;
   a.download = filename;
@@ -550,7 +321,7 @@ function downloadCsv(filename: string, rows: (string | number)[][]) {
 }
 
 /* ============================================================
-   COURBE LISSÉE & CHART (ligne + barres, responsive)
+   COURBE LISSÉE
 ============================================================ */
 
 function smoothPath(pts: [number, number][]): string {
@@ -591,136 +362,56 @@ function smoothPath(pts: [number, number][]): string {
   return d;
 }
 
-/** Pas « rond » (1, 2, 5, 10, 20, 50…) pour 4 graduations entières. */
-function niceStep(max: number): number {
-  const raw = Math.max(max, 4) / 4;
-  const pow = 10 ** Math.floor(Math.log10(raw));
-  const f = raw / pow;
-  const m = f <= 1 ? 1 : f <= 2 ? 2 : f <= 5 ? 5 : 10;
-  return m * pow;
-}
+/* ============================================================
+   CHART
+============================================================ */
 
 type ChartSeries = { label: string; color: string; values: number[]; prev: number[] };
 
-/**
- * Chart — réécrit complet :
- *  • grille horizontale pointillée ultra-subtile (pas de grille verticale)
- *  • axes Y color-codés (gauche/droite) + format compact (k/M)
- *  • crosshair + hover dots avec halo (mode ligne et mode barres)
- *  • hover column highlight en mode barres
- *  • tooltip HTML enrichi (pastilles série + section "Previous")
- *  • aire remplie avec dégradé (mode ligne)
- *  • mode comparaison : lignes pointillées / barres hachurées
- *  • navigation clavier (flèches, Home/End, Escape) + a11y live region
- */
 function Chart({
   dates,
   series,
   view,
-  type,
-  bucket,
   isDark,
 }: {
   dates: Date[];
   series: ChartSeries[];
   view: ChartView;
-  type: ChartType;
-  /** Nombre de jours regroupés par point (1 = quotidien, 7 = hebdo, 30 = par 30 jours). */
-  bucket: number;
   isDark: boolean;
 }) {
-  const wrapRef = useRef<HTMLDivElement>(null);
-  const [W, setW] = useState(900);
-  const [hoverRaw, setHover] = useState<number | null>(null);
-  const uid = useId().replace(/:/g, "");
-  const gradId = `grad-${uid}`;
-  const hatchId = `hatch-${uid}`;
-
-  // Largeur réelle du conteneur : la typographie garde sa taille sur mobile.
-  useEffect(() => {
-    const el = wrapRef.current;
-    if (!el) return;
-    const update = () => setW(Math.max(280, Math.round(el.clientWidth)));
-    update();
-    if (typeof ResizeObserver === "undefined") return;
-    const ro = new ResizeObserver(update);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
-
-  const narrow = W < 520;
-  const H = narrow ? 260 : 340;
-  const pad = { l: 44, r: series.length > 1 ? 44 : 12, t: 16, b: 28 };
+  const [hover, setHover] = useState<number | null>(null);
+  const gradId = useId().replace(/:/g, "");
+  const W = 900;
+  const H = 300;
+  const pad = { l: 52, r: series.length > 1 ? 52 : 16, t: 16, b: 28 };
   const iw = W - pad.l - pad.r;
   const ih = H - pad.t - pad.b;
   const n = dates.length;
-  const isBar = type === "bar";
-
-  // Garde-fou : si les données changent (période, regroupement), l'index survolé peut dépasser.
-  const hover = hoverRaw !== null && hoverRaw < n ? hoverRaw : null;
 
   const showThis = view === "this" || view === "both";
   const showPrev = view === "comparison" || view === "both";
 
-  // Palette d'axes ultra-discrète.
-  const axis = isDark ? "#71717a" : "#a1a1aa";
-  const grid = isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.055)";
-  const crosshair = isDark ? "rgba(255,255,255,0.18)" : "rgba(0,0,0,0.18)";
+  const axis = isDark ? "#6b6b72" : "#a3a3a3";
+  const grid = isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.07)";
 
-  const peaks = series.map((s) =>
-    Math.max(0, ...(showThis ? s.values : []), ...(showPrev ? s.prev : []))
+  const maxes = series.map((s) =>
+    Math.max(4, ...(showThis ? s.values : []), ...(showPrev ? s.prev : []))
   );
-  const steps = peaks.map(niceStep);
-  const maxes = steps.map((s) => s * 4);
 
-  // En mode barres, chaque point occupe une « colonne » et x() renvoie son centre.
-  const colW = iw / Math.max(1, n);
-  const x = (i: number) =>
-    isBar ? pad.l + (i + 0.5) * colW : pad.l + (n === 1 ? iw / 2 : (i / (n - 1)) * iw);
+  const x = (i: number) => pad.l + (n === 1 ? iw / 2 : (i / (n - 1)) * iw);
   const y = (si: number, v: number) => pad.t + ih - (v / maxes[si]) * ih;
 
   const path = (si: number, vals: number[]) =>
     smoothPath(vals.map((v, i) => [x(i), y(si, v)] as [number, number]));
 
-  const heading = (i: number) =>
-    bucket === 1
-      ? fmtFull(dates[i])
-      : bucket === 7
-      ? `Week of ${fmtFull(dates[i])}`
-      : `${bucket} days from ${fmtFull(dates[i])}`;
-
   const ticks = [0, 1, 2, 3, 4];
-  const labelCount = narrow ? 3 : 5;
-  const labelIdx = Array.from(
-    new Set(
-      Array.from({ length: labelCount }, (_, k) =>
-        n <= 1 ? 0 : Math.round((k * (n - 1)) / (labelCount - 1))
-      )
-    )
-  );
-  const area = isBar
-    ? ""
-    : `${path(0, series[0].values)} L${x(n - 1).toFixed(1)},${pad.t + ih} L${x(0).toFixed(1)},${pad.t + ih} Z`;
-
-  // Disposition des barres à l'intérieur d'une colonne.
-  const slots: { si: number; kind: "this" | "prev" }[] = [];
-  series.forEach((_, si) => {
-    if (showThis) slots.push({ si, kind: "this" });
-    if (showPrev) slots.push({ si, kind: "prev" });
-  });
-  const groupW = colW * 0.7;
-  const barW = Math.max(1.5, Math.min(18, groupW / Math.max(1, slots.length)));
-  const barGap = slots.length > 1 && barW > 6 ? 1.5 : 0;
-  const totalW = barW * slots.length + barGap * Math.max(0, slots.length - 1);
+  const labelIdx = Array.from(new Set([0, 0.5, 1].map((r) => Math.round(r * (n - 1)))));
+  const area = `${path(0, series[0].values)} L${x(n - 1).toFixed(1)},${pad.t + ih} L${x(0).toFixed(1)},${pad.t + ih} Z`;
 
   const onPointer = (e: ReactPointerEvent<SVGSVGElement>) => {
     const r = e.currentTarget.getBoundingClientRect();
-    const px = (e.clientX - r.left) * (W / (r.width || W));
-    const i = isBar
-      ? Math.floor((px - pad.l) / colW)
-      : n === 1
-      ? 0
-      : Math.round(((px - pad.l) / iw) * (n - 1));
+    const px = ((e.clientX - r.left) / r.width) * W;
+    const i = n === 1 ? 0 : Math.round(((px - pad.l) / iw) * (n - 1));
     setHover(Math.max(0, Math.min(n - 1, i)));
   };
 
@@ -734,26 +425,20 @@ function Chart({
     e.preventDefault();
   };
 
-  // Tooltip : bascule à gauche si on dépasse la moitié droite.
-  const flipLeft = hover !== null && hover > n / 2;
-
   return (
     <div
-      ref={wrapRef}
-      className={`relative w-full rounded-lg focus-visible:outline-none focus-visible:ring-2 ${
+      className={`relative rounded-lg focus-visible:outline-none focus-visible:ring-2 ${
         isDark ? "focus-visible:ring-white/30" : "focus-visible:ring-black/25"
       }`}
       tabIndex={0}
       role="group"
-      aria-label={`Metrics ${isBar ? "bar" : "line"} chart. Use the left and right arrow keys to inspect each point.`}
+      aria-label="Metrics chart. Use the left and right arrow keys to inspect each day."
       onKeyDown={onKey}
       onBlur={() => setHover(null)}
     >
       <svg
-        width={W}
-        height={H}
         viewBox={`0 0 ${W} ${H}`}
-        className="block touch-pan-y"
+        className="h-auto w-full touch-pan-y"
         onPointerMove={onPointer}
         onPointerDown={onPointer}
         onPointerLeave={() => setHover(null)}
@@ -761,81 +446,50 @@ function Chart({
       >
         <defs>
           <linearGradient id={gradId} x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0%" stopColor={series[0].color} stopOpacity="0.16" />
+            <stop offset="0%" stopColor={series[0].color} stopOpacity="0.14" />
             <stop offset="100%" stopColor={series[0].color} stopOpacity="0" />
           </linearGradient>
-          {/* Hachures utilisées pour les barres de la période précédente */}
-          {series.map((s, si) => (
-            <pattern
-              key={`hatch-${si}`}
-              id={`${hatchId}-${si}`}
-              width="5"
-              height="5"
-              patternUnits="userSpaceOnUse"
-              patternTransform="rotate(45)"
-            >
-              <rect width="5" height="5" fill={s.color} fillOpacity="0.08" />
-              <line x1="0" y1="0" x2="0" y2="5" stroke={s.color} strokeOpacity="0.6" strokeWidth="2" />
-            </pattern>
-          ))}
         </defs>
 
-        {/* ───────── GRILLE : horizontale uniquement, pointillée ───────── */}
+        <text
+          x={12}
+          y={pad.t + ih / 2}
+          fontSize="11"
+          fill={axis}
+          textAnchor="middle"
+          transform={`rotate(-90 12 ${pad.t + ih / 2})`}
+        >
+          {series[0].label}
+        </text>
+        {series.length > 1 && (
+          <text
+            x={W - 12}
+            y={pad.t + ih / 2}
+            fontSize="11"
+            fill={axis}
+            textAnchor="middle"
+            transform={`rotate(90 ${W - 12} ${pad.t + ih / 2})`}
+          >
+            {series[1].label}
+          </text>
+        )}
+
         {ticks.map((tk) => {
           const yy = pad.t + ih - (tk / 4) * ih;
           return (
-            <line
-              key={`grid-${tk}`}
-              x1={pad.l}
-              x2={W - pad.r}
-              y1={yy}
-              y2={yy}
-              stroke={grid}
-              strokeDasharray="2 4"
-            />
-          );
-        })}
-
-        {/* ───────── AXE Y GAUCHE (série 0, color-codée) ───────── */}
-        {ticks.map((tk) => {
-          const yy = pad.t + ih - (tk / 4) * ih;
-          return (
-            <text
-              key={`y0-${tk}`}
-              x={pad.l - 10}
-              y={yy + 3.5}
-              fontSize="11"
-              fill={series[0].color}
-              fillOpacity={tk === 0 ? 0.55 : 0.9}
-              textAnchor="end"
-              className="tabular-nums"
-            >
-              {nfc(steps[0] * tk)}
-            </text>
-          );
-        })}
-
-        {/* ───────── AXE Y DROIT (série 1, color-codée) ───────── */}
-        {series.length > 1 &&
-          ticks.map((tk) => {
-            const yy = pad.t + ih - (tk / 4) * ih;
-            return (
-              <text
-                key={`y1-${tk}`}
-                x={W - pad.r + 10}
-                y={yy + 3.5}
-                fontSize="11"
-                fill={series[1].color}
-                fillOpacity={tk === 0 ? 0.55 : 0.9}
-                textAnchor="start"
-                className="tabular-nums"
-              >
-                {nfc(steps[1] * tk)}
+            <g key={tk}>
+              <line x1={pad.l} x2={W - pad.r} y1={yy} y2={yy} stroke={grid} />
+              <text x={pad.l - 10} y={yy + 3.5} fontSize="11" fill={axis} textAnchor="end" className="tabular-nums">
+                {Math.round((tk / 4) * maxes[0])}
               </text>
-            );
-          })}
-
-        {/* ───────── AXE X (dates) ───────── */}
+              {series.length > 1 && (
+                <text x={W - pad.r + 10} y={yy + 3.5} fontSize="11" fill={axis} textAnchor="start" className="tabular-nums">
+                  {Math.round((tk / 4) * maxes[1])}
+                </text>
+              )}
+            </g>
+          );
+        })}
         {labelIdx.map((i) => (
           <text
             key={i}
@@ -843,28 +497,27 @@ function Chart({
             y={H - 8}
             fontSize="11"
             fill={axis}
-            textAnchor={isBar ? "middle" : i === 0 ? "start" : i === n - 1 ? "end" : "middle"}
+            textAnchor={i === 0 ? "start" : i === n - 1 ? "end" : "middle"}
           >
             {fmt(dates[i])}
           </text>
         ))}
 
-        {/* ───────── MODE LIGNE ───────── */}
-        {!isBar && showPrev &&
+        {showPrev &&
           series.map((s, si) => (
             <path
               key={`p-${s.label}`}
               d={path(si, s.prev)}
               fill="none"
               stroke={s.color}
-              strokeOpacity="0.45"
-              strokeWidth="1.75"
-              strokeDasharray="4 5"
+              strokeOpacity="0.5"
+              strokeWidth="2"
+              strokeDasharray="5 5"
               strokeLinecap="round"
             />
           ))}
 
-        {!isBar && showThis && (
+        {showThis && (
           <>
             <path d={area} fill={`url(#${gradId})`} />
             {series.map((s, si) => (
@@ -873,147 +526,53 @@ function Chart({
                 d={path(si, s.values)}
                 fill="none"
                 stroke={s.color}
-                strokeWidth="2.25"
+                strokeWidth="2.5"
                 strokeLinejoin="round"
                 strokeLinecap="round"
-                style={{ transition: "stroke-width 120ms ease" }}
               />
             ))}
           </>
         )}
 
-        {/* ───────── MODE BARRES ───────── */}
-        {isBar && hover !== null && (
-          <rect
-            x={pad.l + hover * colW}
-            y={pad.t}
-            width={colW}
-            height={ih}
-            fill={isDark ? "#ffffff" : "#000000"}
-            fillOpacity="0.045"
-            rx="6"
-          />
-        )}
-
-        {isBar &&
-          dates.map((_, i) => {
-            const startX = x(i) - totalW / 2;
-            return (
-              <g key={i}>
-                {slots.map((slot, k) => {
-                  const s = series[slot.si];
-                  const v = slot.kind === "this" ? s.values[i] : s.prev[i];
-                  const h = Math.max(0, (v / maxes[slot.si]) * ih);
-                  // Une valeur à 0 reste visible sous la forme d'un trait fin.
-                  const hh = v > 0 ? Math.max(2, h) : 0;
-                  const bx = startX + k * (barW + barGap);
-                  const isPrev = slot.kind === "prev";
-                  return (
-                    <g key={`${slot.si}-${slot.kind}`}>
-                      {v === 0 && !isPrev && (
-                        <rect
-                          x={bx}
-                          y={pad.t + ih - 1.5}
-                          width={barW}
-                          height={1.5}
-                          fill={s.color}
-                          fillOpacity="0.35"
-                        />
-                      )}
-                      {hh > 0 && (
-                        <rect
-                          x={bx}
-                          y={pad.t + ih - hh}
-                          width={barW}
-                          height={hh}
-                          rx={Math.min(3, barW / 2)}
-                          ry={Math.min(3, barW / 2)}
-                          fill={isPrev ? `url(#${hatchId}-${slot.si})` : s.color}
-                          stroke={isPrev ? s.color : "none"}
-                          strokeOpacity={isPrev ? 0.5 : 0}
-                          strokeWidth={isPrev ? 1 : 0}
-                          opacity={hover === null || hover === i ? 1 : 0.5}
-                          style={{ transition: "opacity 120ms ease" }}
-                        />
-                      )}
-                    </g>
-                  );
-                })}
-              </g>
-            );
-          })}
-
-        {/* ───────── CROSSHAIR + HOVER DOTS ───────── */}
         {hover !== null && (
           <g>
-            <line
-              x1={x(hover)}
-              x2={x(hover)}
-              y1={pad.t}
-              y2={pad.t + ih}
-              stroke={crosshair}
-              strokeWidth="1"
-              strokeDasharray="3 3"
-            />
-            {!isBar &&
-              showThis &&
+            <line x1={x(hover)} x2={x(hover)} y1={pad.t} y2={pad.t + ih} stroke={axis} strokeOpacity="0.6" strokeDasharray="3 3" />
+            {showThis &&
               series.map((s, si) => (
-                <g key={`hover-${s.label}`}>
-                  <circle
-                    cx={x(hover)}
-                    cy={y(si, s.values[hover])}
-                    r="7"
-                    fill={s.color}
-                    fillOpacity="0.16"
-                  />
-                  <circle
-                    cx={x(hover)}
-                    cy={y(si, s.values[hover])}
-                    r="3.75"
-                    fill={isDark ? "#0a0a0c" : "#ffffff"}
-                    stroke={s.color}
-                    strokeWidth="2.25"
-                  />
-                </g>
+                <circle
+                  key={s.label}
+                  cx={x(hover)}
+                  cy={y(si, s.values[hover])}
+                  r="4.5"
+                  fill={isDark ? "#0f0f11" : "#fff"}
+                  stroke={s.color}
+                  strokeWidth="2.5"
+                />
               ))}
           </g>
         )}
       </svg>
 
-      {/* ───────── TOOLTIP ───────── */}
       {hover !== null && (
         <div
-          className={`pointer-events-none absolute top-1 z-10 min-w-[170px] rounded-xl border px-3 py-2.5 text-[12px] shadow-xl backdrop-blur-md ${
-            isDark
-              ? "border-white/[0.10] bg-[#0f0f11]/95 text-white"
-              : "border-black/[0.08] bg-white/95 text-neutral-900"
+          className={`pointer-events-none absolute top-1 min-w-[160px] rounded-xl px-3.5 py-2.5 text-[12px] shadow-[0_8px_30px_rgba(0,0,0,0.35)] ${
+            isDark ? "bg-[#101012] text-white ring-1 ring-white/10" : "bg-white text-neutral-900 ring-1 ring-black/10"
           }`}
           style={{
-            left: x(hover),
-            transform: flipLeft ? "translateX(calc(-100% - 14px))" : "translateX(14px)",
-          } as CSSProperties}
+            left: `${(x(hover) / W) * 100}%`,
+            transform: `translateX(${hover > n / 2 ? "-110%" : "10%"})`,
+          }}
         >
-          <div className={`mb-1.5 text-[11px] font-medium ${isDark ? "text-neutral-400" : "text-neutral-500"}`}>
-            {heading(hover)}
-          </div>
+          <div className="mb-1 text-[11px] opacity-50">{fmtFull(dates[hover])}</div>
           {showThis &&
             series.map((s) => (
-              <div key={s.label} className="flex items-center justify-between gap-5 py-0.5">
-                <span className="flex items-center gap-2">
-                  <span
-                    className="h-2 w-2 shrink-0 rounded-full"
-                    style={{ background: s.color }}
-                    aria-hidden="true"
-                  />
-                  <span className={isDark ? "text-neutral-300" : "text-neutral-600"}>{s.label}</span>
-                </span>
+              <div key={s.label} className="flex justify-between gap-5">
+                <span>{s.label}</span>
                 <b className="tabular-nums">{nf(s.values[hover])}</b>
               </div>
             ))}
           {showPrev && (
-            <div className={`mt-1.5 flex items-center justify-between gap-5 border-t pt-1.5 opacity-70 ${
-              isDark ? "border-white/[0.06]" : "border-black/[0.06]"
-            }`}>
+            <div className="mt-1 flex justify-between gap-5 opacity-60">
               <span>Previous</span>
               <b className="tabular-nums">{series.map((s) => nf(s.prev[hover])).join(" · ")}</b>
             </div>
@@ -1023,7 +582,7 @@ function Chart({
 
       <p className="sr-only" aria-live="polite">
         {hover !== null
-          ? `${heading(hover)}: ${series.map((s) => `${s.values[hover]} ${s.label}`).join(", ")}`
+          ? `${fmtFull(dates[hover])}: ${series.map((s) => `${s.values[hover]} ${s.label}`).join(", ")}`
           : ""}
       </p>
     </div>
@@ -1034,108 +593,26 @@ function Chart({
    PETITS COMPOSANTS
 ============================================================ */
 
-/** Bouton icône avec tooltip (identique à Create). */
-function IconButton({
-  label,
-  onClick,
-  children,
-  t,
-  className = "h-9 w-9",
-  align = "center",
-}: {
-  label: string;
-  onClick?: () => void;
-  children: ReactNode;
-  t: Tokens;
-  className?: string;
-  align?: "center" | "end";
-}) {
-  return (
-    <span className="group relative inline-flex shrink-0">
-      <button
-        type="button"
-        aria-label={label}
-        onClick={onClick}
-        className={`flex items-center justify-center rounded-xl transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 ${t.ghost} ${t.ring} ${className}`}
-      >
-        {children}
-      </button>
-
-      <span
-        role="tooltip"
-        className={`pointer-events-none absolute top-full z-50 mt-2 w-max max-w-[240px] rounded-lg bg-neutral-900 px-3 py-2 text-[13px] font-medium leading-snug text-white opacity-0 shadow-lg transition-opacity duration-150 motion-reduce:transition-none group-hover:opacity-100 group-hover:delay-300 group-focus-within:opacity-100 dark:bg-[#2e2e31] ${
-          align === "end" ? "right-0" : "left-1/2 -translate-x-1/2"
-        }`}
-      >
-        {label}
-      </span>
-    </span>
-  );
-}
-
-/** Onglets soulignés (border-b-2), comme Ideas / Templates. */
-function Tabs<T extends string>({
-  value,
-  options,
-  onChange,
-  t,
-  label,
-  boxed = false,
-}: {
-  value: T;
-  options: { key: T; label: string }[];
-  onChange: (k: T) => void;
-  t: Tokens;
-  label: string;
-  /** true : ajoute le filet du bas (rangée d'onglets autonome). */
-  boxed?: boolean;
-}) {
-  return (
-    <div
-      role="tablist"
-      aria-label={label}
-      className={`flex flex-wrap gap-6 ${boxed ? `border-b ${t.line}` : ""}`}
-    >
-      {options.map((o) => {
-        const active = value === o.key;
-        return (
-          <button
-            key={o.key}
-            type="button"
-            role="tab"
-            aria-selected={active}
-            onClick={() => onChange(o.key)}
-            className={`-mb-px border-b-2 px-1 pb-3 pt-2 text-[14px] font-medium transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 ${t.ring} ${
-              active ? `${t.strong} border-current` : `border-transparent ${t.muted} ${t.idle}`
-            }`}
-          >
-            {o.label}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-/** Sélecteur segmenté (comme Board / Gallery). */
 function Segmented<T extends string>({
   value,
   options,
   onChange,
   t,
   label,
+  size = "md",
 }: {
   value: T;
-  options: { key: T; title: string; label?: string; icon?: ReactNode }[];
+  options: { key: T; label: string; icon?: ReactNode; trailing?: ReactNode }[];
   onChange: (k: T) => void;
   t: Tokens;
   label: string;
+  size?: "md" | "lg";
 }) {
   return (
     <div
       role="group"
       aria-label={label}
-      className={`inline-flex gap-1 rounded-xl border p-1 ${t.line}`}
+      className={`inline-flex flex-wrap items-center gap-0.5 rounded-xl border p-1 ${t.panel}`}
     >
       {options.map((o) => {
         const active = value === o.key;
@@ -1144,15 +621,14 @@ function Segmented<T extends string>({
             key={o.key}
             type="button"
             aria-pressed={active}
-            aria-label={o.title}
-            title={o.title}
             onClick={() => onChange(o.key)}
-            className={`flex items-center gap-2 whitespace-nowrap rounded-lg px-3 py-1.5 text-[12.5px] font-semibold transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 ${t.ring} ${
-              active ? t.sel : t.idle
-            }`}
+            className={`flex items-center gap-1.5 whitespace-nowrap rounded-lg px-3 ${
+              size === "lg" ? "py-2 text-[13px]" : "py-1.5 text-[12px]"
+            } font-semibold transition-colors motion-reduce:transition-none ${t.ring} ${active ? t.sel : t.idle}`}
           >
             {o.icon}
             {o.label}
+            {o.trailing}
           </button>
         );
       })}
@@ -1160,296 +636,43 @@ function Segmented<T extends string>({
   );
 }
 
-/** Bouton texte de barre d'outils (comme « Tags » sur Create). */
-function ToolbarButton({
-  children,
+function IconBtn({
+  label,
   onClick,
+  children,
   t,
-  disabled,
-  expanded,
+  boxed = false,
 }: {
+  label: string;
+  onClick?: () => void;
   children: ReactNode;
-  onClick: () => void;
   t: Tokens;
-  disabled?: boolean;
-  expanded?: boolean;
+  boxed?: boolean;
 }) {
   return (
     <button
       type="button"
+      aria-label={label}
       onClick={onClick}
-      disabled={disabled}
-      aria-haspopup={expanded === undefined ? undefined : "menu"}
-      aria-expanded={expanded}
-      className={`flex items-center gap-2 rounded-xl px-3 py-2 text-[13px] font-medium transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 disabled:opacity-40 ${t.ghost} ${t.ring} ${t.strong}`}
+      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-colors ${t.ring} ${t.soft} ${
+        boxed ? `border ${t.inner} ${t.hover}` : t.hover
+      }`}
     >
       {children}
     </button>
   );
 }
 
-function SectionHead({
-  id,
-  title,
-  sub,
-  right,
-  t,
-}: {
-  id: string;
-  title: string;
-  sub?: string;
-  right?: ReactNode;
-  t: Tokens;
-}) {
+function MetricBox({ label, value, info, t }: { label: string; value: string; info: string; t: Tokens }) {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3">
-      <div className="min-w-0">
-        <h2 id={id} className={`text-[14px] font-semibold ${t.strong}`}>
-          {title}
-        </h2>
-        {sub && <p className={`mt-0.5 text-[12px] ${t.muted}`}>{sub}</p>}
-      </div>
-      {right}
-    </div>
-  );
-}
-
-function EmptyState({
-  title,
-  text,
-  action,
-  t,
-  tall = false,
-}: {
-  title: string;
-  text?: string;
-  action?: { label: string; onClick: () => void };
-  t: Tokens;
-  tall?: boolean;
-}) {
-  return (
-    <div className={`flex flex-col items-center gap-2 text-center ${tall ? "py-24" : "py-12"}`}>
-      <h2 className={`text-[20px] font-semibold tracking-[-0.02em] ${t.strong}`}>{title}</h2>
-      {text && <p className={`max-w-[380px] text-[13px] leading-relaxed ${t.muted}`}>{text}</p>}
-      {action && (
-        <button
-          type="button"
-          onClick={action.onClick}
-          className={`mt-2 rounded-md px-1 text-[13px] font-semibold underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 ${t.ring} ${t.strong}`}
-        >
-          {action.label}
-        </button>
-      )}
-    </div>
-  );
-}
-
-/**
- * Mini courbe construite uniquement à partir de la série quotidienne réelle.
- * Version pro : aire remplie avec un dégradé subtil + ligne fine.
- */
-function Spark({ values, color }: { values: number[]; color: string }) {
-  const uid = useId().replace(/:/g, "");
-  if (values.length < 2 || values.every((v) => v === 0)) {
-    return <div className="h-8" aria-hidden="true" />;
-  }
-  const W = 120;
-  const H = 32;
-  const max = Math.max(...values);
-  const min = Math.min(...values);
-  const span = max - min || 1;
-  const points = values.map(
-    (v, i) =>
-      `${((i / (values.length - 1)) * W).toFixed(1)},${(H - 3 - ((v - min) / span) * (H - 6)).toFixed(1)}`
-  );
-  const line = points.join(" ");
-  const area = `M0,${H} L${points.join(" L")} L${W},${H} Z`;
-  const fillId = `spark-fill-${uid}`;
-  return (
-    <svg
-      viewBox={`0 0 ${W} ${H}`}
-      className="h-8 w-full overflow-visible"
-      preserveAspectRatio="none"
-      aria-hidden="true"
-    >
-      <defs>
-        <linearGradient id={fillId} x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0%" stopColor={color} stopOpacity="0.18" />
-          <stop offset="100%" stopColor={color} stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      <path d={area} fill={`url(#${fillId})`} />
-      <polyline
-        points={line}
-        fill="none"
-        stroke={color}
-        strokeWidth="1.5"
-        strokeLinejoin="round"
-        strokeLinecap="round"
-        vectorEffect="non-scaling-stroke"
-      />
-    </svg>
-  );
-}
-
-function DeltaBadge({ delta, t }: { delta: Delta; t: Tokens }) {
-  if (!delta) return null;
-  const color =
-    delta.tone === "up"
-      ? "bg-emerald-500/10 text-emerald-500"
-      : delta.tone === "down"
-      ? "bg-red-500/10 text-red-500"
-      : `${t.chip} ${t.muted}`;
-  const arrow = delta.tone === "up" ? "↑" : delta.tone === "down" ? "↓" : "";
-  return (
-    <span
-      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium tabular-nums ${color}`}
-      aria-label={`${delta.text} compared to the previous period`}
-      title="Compared to the previous period"
-    >
-      {arrow} {delta.tone === "flat" ? delta.text : delta.text.replace(/^[+-]/, "")}
-    </span>
-  );
-}
-
-/** Carte de statistique. `value === null` → donnée indisponible : « — », jamais 0. */
-function Stat({
-  label,
-  value,
-  info,
-  delta,
-  spark,
-  sparkColor,
-  size = "lg",
-  t,
-}: {
-  label: string;
-  value: string | null;
-  info: string;
-  delta: Delta;
-  spark?: number[];
-  sparkColor?: string;
-  size?: "lg" | "sm";
-  t: Tokens;
-}) {
-  const unavailable = value === null;
-  return (
-    <article
-      className={`flex min-w-0 flex-col overflow-hidden rounded-xl border px-4 py-4 transition-colors ${t.card}`}
-      title={unavailable ? `${info} (not available)` : info}
-    >
-      <p className={`truncate text-[12px] font-medium ${t.soft}`}>{label}</p>
-      <p
-        className={`mt-2 font-semibold leading-none tracking-[-0.03em] tabular-nums ${
-          size === "lg" ? "text-[28px]" : "text-[20px]"
-        } ${unavailable ? t.muted : t.strong}`}
-      >
-        {unavailable ? "—" : value}
-      </p>
-      {size === "lg" && (
-        <div className="mt-3 -mx-1">
-          <Spark values={spark ?? []} color={sparkColor ?? "currentColor"} />
-        </div>
-      )}
-      {size === "lg" && (
-        <div className="mt-2 h-5">
-          {!unavailable && <DeltaBadge delta={delta} t={t} />}
-        </div>
-      )}
-    </article>
-  );
-}
-
-/**
- * Carte KPI interactive (remplace les tabs soulignés dans la section Metrics).
- * Affiche : label · grande valeur · delta · indicateur actif.
- */
-function MetricCard({
-  label,
-  value,
-  delta,
-  active,
-  onClick,
-  t,
-  isDark,
-  available,
-}: {
-  label: string;
-  value: string | null;
-  delta: Delta;
-  active: boolean;
-  onClick: () => void;
-  t: Tokens;
-  isDark: boolean;
-  available: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={active}
-      className={`group relative flex flex-col items-start gap-2 rounded-xl border px-3.5 py-3 text-left transition-all duration-150 motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 ${t.ring} ${
-        active
-          ? isDark
-            ? "border-white/[0.18] bg-white/[0.055]"
-            : "border-black/[0.12] bg-black/[0.035]"
-          : isDark
-            ? "border-white/[0.055] bg-transparent hover:border-white/[0.10] hover:bg-white/[0.02]"
-            : "border-black/[0.05] bg-transparent hover:border-black/[0.10] hover:bg-black/[0.02]"
-      }`}
-    >
-      <span
-        className={`text-[10.5px] font-semibold uppercase tracking-[0.06em] ${
-          active ? t.soft : t.muted
-        }`}
-      >
-        {label}
-      </span>
-      <div className="flex items-baseline gap-2">
-        <span
-          className={`text-[22px] font-semibold leading-none tracking-[-0.03em] tabular-nums ${
-            available ? t.strong : t.muted
-          }`}
-        >
-          {available ? value : "—"}
+    <div className={`flex flex-col gap-2 rounded-xl border px-3.5 py-3 ${t.inner}`}>
+      <span className={`flex items-center justify-between gap-2 text-[10px] font-medium ${t.soft}`}>
+        <span className="truncate">{label}</span>
+        <span title={info} className={`shrink-0 ${t.muted}`}>
+          <Info className="h-3.5 w-3.5" aria-label={info} />
         </span>
-        {available && delta && <DeltaBadge delta={delta} t={t} />}
-      </div>
-      {active && (
-        <span
-          className={`absolute inset-x-3 bottom-0 h-[2px] rounded-full ${
-            isDark ? "bg-white" : "bg-neutral-900"
-          }`}
-          aria-hidden="true"
-        />
-      )}
-    </button>
-  );
-}
-
-/** Cellule de la rangée « Highlights » sous le graphique. */
-function Highlight({
-  label,
-  value,
-  sub,
-  className = "",
-  t,
-}: {
-  label: string;
-  value: string;
-  sub?: string;
-  className?: string;
-  t: Tokens;
-}) {
-  return (
-    <div className={`flex flex-col gap-1 px-4 py-3 ${className}`}>
-      <span className={`text-[10px] font-semibold uppercase tracking-[0.06em] ${t.muted}`}>
-        {label}
       </span>
-      <span className={`text-[16px] font-semibold tabular-nums leading-tight ${t.strong}`}>
-        {value}
-      </span>
-      {sub && <span className={`text-[11px] ${t.muted}`}>{sub}</span>}
+      <span className={`text-[20px] font-bold leading-none tracking-tight tabular-nums ${t.text}`}>{value}</span>
     </div>
   );
 }
@@ -1537,39 +760,7 @@ function Avatar({
   );
 }
 
-/** Conteneur de menu : overlay plein écran pour fermer au clic extérieur (comme Create). */
-function Popover({
-  onClose,
-  children,
-  className = "w-64",
-  side = "right",
-}: {
-  onClose: () => void;
-  children: ReactNode;
-  className?: string;
-  side?: "left" | "right";
-}) {
-  return (
-    <>
-      <button
-        type="button"
-        aria-label="Close menu"
-        tabIndex={-1}
-        className="fixed inset-0 z-30 cursor-default"
-        onClick={onClose}
-      />
-      {children && (
-        <div
-          role="menu"
-          className={`absolute ${side === "right" ? "right-0" : "left-0"} top-full z-40 mt-2 rounded-xl border p-1 shadow-lg ${className}`}
-        >
-          {children}
-        </div>
-      )}
-    </>
-  );
-}
-
+/** Menu de sélection de canal (local à Insights) — sans bouton marque-page. */
 function ChannelMenu({
   channels,
   current,
@@ -1582,140 +773,90 @@ function ChannelMenu({
   isDark: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  useEscape(open, () => setOpen(false));
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: PointerEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    document.addEventListener("pointerdown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
 
   const name = (c?: ConnectedChannel) => (c ? (c.handle || c.name).replace(/^@/, "") : "No channel");
   const canSwitch = channels.length > 1;
 
   return (
-    <div className="relative">
-      <button
-        type="button"
-        aria-haspopup="menu"
-        aria-expanded={open}
-        disabled={!canSwitch}
-        onClick={() => setOpen((o) => !o)}
-        className={`flex items-center gap-2.5 rounded-xl py-1.5 pl-2 pr-3 transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 disabled:cursor-default ${t.ring} ${
-          canSwitch ? t.ghost : ""
-        }`}
-      >
-        <Avatar channel={current} isDark={isDark} size={24} />
-        <span className={`max-w-[160px] truncate text-[13px] font-medium ${t.strong}`}>{name(current)}</span>
-        {canSwitch && <ChevronDownIcon className={`h-4 w-4 opacity-60 ${t.strong}`} />}
-      </button>
+    <div ref={ref} className="relative">
+      <div className="flex items-center gap-1.5">
+        <button
+          type="button"
+          aria-haspopup="menu"
+          aria-expanded={open}
+          disabled={!canSwitch}
+          onClick={() => setOpen((o) => !o)}
+          className={`flex items-center gap-3 rounded-xl py-1 pr-2 transition-colors disabled:cursor-default ${t.ring} ${canSwitch ? t.hover : ""}`}
+        >
+          <Avatar channel={current} isDark={isDark} size={28} />
+          <span className={`max-w-[160px] truncate text-[14px] font-semibold tracking-[-0.01em] ${t.text}`}>
+            {name(current)}
+          </span>
+          {canSwitch && <ChevronDown className={`h-4 w-4 ${t.muted}`} aria-hidden="true" />}
+        </button>
+      </div>
 
       {open && (
-        <>
-          <button
-            type="button"
-            aria-label="Close menu"
-            tabIndex={-1}
-            className="fixed inset-0 z-30 cursor-default"
-            onClick={() => setOpen(false)}
-          />
-          <div
-            role="menu"
-            className={`absolute right-0 top-full z-40 mt-2 w-[250px] rounded-xl border p-1 shadow-lg ${t.popover} ${t.strong}`}
-          >
-            <ul className="max-h-[260px] overflow-y-auto">
-              {channels.map((c) => {
-                const active = c.key === current?.key;
-                return (
-                  <li key={c.key}>
-                    <button
-                      type="button"
-                      role="menuitemradio"
-                      aria-checked={active}
-                      onClick={() => {
-                        setOpen(false);
-                        navigate(`insights?channel=${encodeURIComponent(c.key)}`);
-                      }}
-                      className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-[13px] font-medium transition-colors ${t.ghost}`}
-                    >
-                      <Avatar channel={c} isDark={isDark} size={22} showNetwork={false} />
-                      <span className="min-w-0 flex-1 truncate">{name(c)}</span>
-                      {active && <CheckIcon className="h-4 w-4" />}
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-            <div className={`mt-1 border-t p-1 pt-2 ${t.line}`}>
+        <div
+          role="menu"
+          className={`absolute right-0 z-30 mt-2 w-64 rounded-2xl border p-1.5 shadow-[0_12px_40px_rgba(0,0,0,0.5)] ${t.popover}`}
+        >
+          {channels.map((c) => {
+            const active = c.key === current?.key;
+            return (
               <button
+                key={c.key}
                 type="button"
-                role="menuitem"
-                onClick={() => navigateToSettingsSection("channels")}
-                className={`flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left text-[13px] font-medium transition-colors ${t.ghost} ${t.soft}`}
+                role="menuitemradio"
+                aria-checked={active}
+                onClick={() => {
+                  setOpen(false);
+                  navigate(`insights?channel=${encodeURIComponent(c.key)}`);
+                }}
+                className={`flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left transition-colors ${t.ring} ${t.hover}`}
               >
-                <PlusIcon className="h-4 w-4" />
-                Manage channels
+                <Avatar channel={c} isDark={isDark} size={28} showNetwork={false} />
+                <span className={`min-w-0 flex-1 truncate text-[12px] font-semibold ${t.text}`}>{name(c)}</span>
+                {active && <Check className={`h-4 w-4 ${t.text}`} aria-hidden="true" />}
               </button>
-            </div>
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
-
-function ExportMenu({
-  disabled,
-  onDaily,
-  onPosts,
-  t,
-}: {
-  disabled: boolean;
-  onDaily: () => void;
-  onPosts: () => void;
-  t: Tokens;
-}) {
-  const [open, setOpen] = useState(false);
-  useEscape(open, () => setOpen(false));
-
-  const item = (label: string, hint: string, action: () => void) => (
-    <button
-      type="button"
-      role="menuitem"
-      onClick={() => {
-        setOpen(false);
-        action();
-      }}
-      className={`flex w-full flex-col items-start gap-0.5 rounded-lg px-3 py-2 text-left transition-colors ${t.ghost}`}
-    >
-      <span className={`text-[13px] font-medium ${t.strong}`}>{label}</span>
-      <span className={`text-[11px] ${t.muted}`}>{hint}</span>
-    </button>
-  );
-
-  return (
-    <div className="relative">
-      <ToolbarButton t={t} disabled={disabled} expanded={open} onClick={() => setOpen((o) => !o)}>
-        <DownloadIcon className="h-4 w-4" />
-        Export
-        <ChevronDownIcon className="h-4 w-4 opacity-60" />
-      </ToolbarButton>
-
-      {open && (
-        <>
+            );
+          })}
+          <div className={`my-1 border-t ${t.border}`} />
           <button
             type="button"
-            aria-label="Close menu"
-            tabIndex={-1}
-            className="fixed inset-0 z-30 cursor-default"
-            onClick={() => setOpen(false)}
-          />
-          <div
-            role="menu"
-            className={`absolute right-0 top-full z-40 mt-2 w-[260px] rounded-xl border p-1 shadow-lg ${t.popover}`}
+            role="menuitem"
+            onClick={() => navigateToSettingsSection("channels")}
+            className={`flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left text-[12px] font-semibold transition-colors ${t.ring} ${t.hover} ${t.soft}`}
           >
-            {item("Daily metrics", "One row per day, with the previous period (.csv)", onDaily)}
-            {item("Posts", "Published posts of both periods (.csv)", onPosts)}
-          </div>
-        </>
+            <span className="flex h-7 w-7 items-center justify-center rounded-full border border-dashed border-current opacity-60">
+              <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+            </span>
+            Manage channels
+          </button>
+        </div>
       )}
     </div>
   );
 }
+
+/* ============================================================
+   RANGE PICKER
+============================================================ */
 
 function RangePicker({
   range,
@@ -1738,9 +879,25 @@ function RangePicker({
 }) {
   const [field, setField] = useState<"from" | "to">("from");
   const [open, setOpen] = useState(false);
-  useEscape(open, () => setOpen(false));
+  const ref = useRef<HTMLDivElement>(null);
 
   const today = useMemo(() => startOfDay(new Date()), []);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: PointerEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
 
   const label =
     range === "custom"
@@ -1776,7 +933,7 @@ function RangePicker({
         type="button"
         aria-pressed={active}
         onClick={() => openPicker(id)}
-        className={`flex-1 whitespace-nowrap rounded-lg px-3 py-1.5 text-[12px] font-semibold transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 ${t.ring} ${
+        className={`flex-1 whitespace-nowrap rounded-lg px-3 py-1.5 text-[11px] font-semibold transition-colors motion-reduce:transition-none ${t.ring} ${
           active ? t.sel : t.idle
         }`}
       >
@@ -1786,71 +943,122 @@ function RangePicker({
   };
 
   return (
-    <div className="relative">
+    <div ref={ref} className="relative">
       <button
         type="button"
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => (open ? setOpen(false) : openPicker("from"))}
-        className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-[13px] font-medium transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 ${t.line} ${t.ghost} ${t.ring} ${t.strong}`}
+        className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-[12px] font-semibold transition-colors ${t.ring} ${t.panel} ${t.hover} ${t.text}`}
       >
-        <CalendarIcon className={`h-4 w-4 ${t.muted}`} />
+        <CalendarClock className={`h-3.5 w-3.5 ${t.muted}`} aria-hidden="true" />
         <span className="whitespace-nowrap">{label}</span>
+        <ChevronDown
+          className={`h-3.5 w-3.5 transition-transform motion-reduce:transition-none ${open ? "rotate-180" : ""} ${t.muted}`}
+          aria-hidden="true"
+        />
       </button>
 
       {open && (
-        <>
-          <button
-            type="button"
-            aria-label="Close menu"
-            tabIndex={-1}
-            className="fixed inset-0 z-30 cursor-default"
-            onClick={() => setOpen(false)}
-          />
-          <div
-            className={`absolute left-0 top-full z-40 mt-2 w-[300px] overflow-hidden rounded-xl border shadow-lg ${t.popover} ${t.strong}`}
-          >
-            <div className={`flex gap-1 border-b p-2 ${t.line}`}>
-              {fieldTab("from")}
-              {fieldTab("to")}
-            </div>
-
-            <div className="p-3">
-              <p className={`mb-2 text-[12px] ${t.soft}`}>
-                {field === "from"
-                  ? "Pick the first day of the period."
-                  : "Pick the last day of the period (today max)."}
-              </p>
-              <CalendarPicker
-                key={field}
-                value={field === "from" ? start : end}
-                onChange={pickDate}
-                isDark={isDark}
-                disablePast={false}
-                max={today}
-                min={field === "to" ? startOfDay(start) : undefined}
-              />
-            </div>
-
-            <div className={`flex items-center justify-between border-t p-1 ${t.line}`}>
-              <button
-                type="button"
-                onClick={() => setField((f) => (f === "from" ? "to" : "from"))}
-                className={`rounded-lg px-3 py-2 text-[13px] font-medium transition-colors ${t.ghost}`}
-              >
-                {field === "from" ? "Next: To" : "Back: From"}
-              </button>
-              <button
-                type="button"
-                onClick={() => setOpen(false)}
-                className={`flex items-center gap-2 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors ${t.ghost}`}
-              >
-                <CheckIcon className="h-4 w-4" />
-                Done
-              </button>
-            </div>
+        <div
+          className={`absolute left-0 top-full z-30 mt-2 w-[300px] overflow-hidden rounded-2xl border shadow-[0_12px_40px_rgba(0,0,0,0.5)] ${t.popover}`}
+        >
+          <div className={`flex gap-1 border-b p-2 ${t.border}`}>
+            {fieldTab("from")}
+            {fieldTab("to")}
           </div>
-        </>
+
+          <div className="p-3">
+            <p className={`mb-2 text-[12px] ${t.soft}`}>
+              {field === "from"
+                ? "Pick the first day of the period."
+                : "Pick the last day of the period (today max)."}
+            </p>
+            <CalendarPicker
+              key={field}
+              value={field === "from" ? start : end}
+              onChange={pickDate}
+              isDark={isDark}
+              disablePast={false}
+              max={today}
+              min={field === "to" ? startOfDay(start) : undefined}
+            />
+          </div>
+
+          <div className={`flex items-center justify-between border-t px-3 py-2.5 ${t.border}`}>
+            <button
+              type="button"
+              onClick={() => setField((f) => (f === "from" ? "to" : "from"))}
+              className={`rounded-md px-1 text-[12px] font-semibold transition-colors ${t.ring} ${t.hover} ${t.text}`}
+            >
+              {field === "from" ? "Next: To" : "Back: From"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              className={`flex items-center gap-1.5 rounded-md px-1 text-[12px] font-semibold transition-colors ${t.ring} ${t.hover} ${t.text}`}
+            >
+              <Check className="h-3.5 w-3.5" strokeWidth={3} aria-hidden="true" />
+              Done
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ============================================================
+   ICÔNE INSIGHTS — identique à celle de la sidebar
+============================================================ */
+
+function InsightsIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-[18px] w-[18px]"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M5 18V9M12 18V5M19 18v-7M3 20h18" />
+    </svg>
+  );
+}
+
+/* ============================================================
+   BANNIÈRE — cartes blanches inclinées
+============================================================ */
+
+function TipCard({
+  className,
+  icon,
+  title,
+  text,
+  cta,
+}: {
+  className: string;
+  icon: ReactNode;
+  title: string;
+  text: string;
+  cta?: string;
+}) {
+  return (
+    <div className={`absolute w-[176px] rounded-xl bg-white p-3 text-black shadow-[0_6px_22px_rgba(0,0,0,0.35)] ring-1 ring-black/5 ${className}`}>
+      <div className="flex items-center gap-2">
+        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-neutral-900 text-white">
+          {icon}
+        </span>
+        <span className="text-[10.5px] font-semibold leading-tight">{title}</span>
+      </div>
+      <p className="mt-2 text-[9.5px] leading-snug text-neutral-600">{text}</p>
+      {cta && (
+        <span className="mt-2 inline-block rounded-md border border-neutral-300 px-2 py-0.5 text-[9.5px] font-semibold">
+          {cta}
+        </span>
       )}
     </div>
   );
@@ -1862,7 +1070,7 @@ function RangePicker({
 
 const SUMMARY_INFO: Record<string, string> = {
   "Total Followers": "Total number of followers at the end of the period.",
-  Posts: "Posts published during the period (scheduled posts excluded).",
+  Posts: "Posts published during the period.",
   Reactions: "Likes and other reactions received.",
   Comments: "Comments received on your posts.",
   "Eng. Rate": "Engagement divided by reach.",
@@ -1872,10 +1080,6 @@ const SUMMARY_INFO: Record<string, string> = {
   "Watch Time (min)": "Total minutes watched.",
   "Avg. Watch Time (sec)": "Average seconds watched per view.",
 };
-
-const sumKey = (pts: Point[], k: NumKey) => pts.reduce((a, p) => a + p[k], 0);
-const mean = (xs: number[]): number | null =>
-  xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null;
 
 export default function Insights() {
   const { theme } = useTheme();
@@ -1887,149 +1091,56 @@ export default function Insights() {
   const channel = channels.find((c) => c.key === channelKey) ?? channels[0];
   const isYouTube = isYouTubeChannel(channel);
 
+  // Favoris partagés avec la sidebar : le marque-page du header ajoute /
+  // retire cette page de la section « Favorite ».
   const { isFavorite, toggle: toggleFavorite } = useFavorites();
   const saved = isFavorite(PAGE_ROUTE);
 
-  // Préférences restaurées depuis le localStorage (valeurs validées).
-  const [initialPrefs] = useState<Prefs>(loadPrefs);
-
-  const [range, setRange] = useState<Range>(initialPrefs.range);
+  const [range, setRange] = useState<Range>("30d");
   const [customStart, setCustomStart] = useState(() => addDays(startOfDay(new Date()), -29));
   const [customEnd, setCustomEnd] = useState(() => startOfDay(new Date()));
-  const [chartView, setChartView] = useState<ChartView>(initialPrefs.chartView);
-  const [chartType, setChartType] = useState<ChartType>(initialPrefs.chartType);
+  const [chartView, setChartView] = useState<ChartView>("this");
   const [postsPeriod, setPostsPeriod] = useState<PostsPeriod>("this");
-  const [metricTab, setMetricTab] = useState<MetricTab>(initialPrefs.metricTab);
+  const [metricTab, setMetricTab] = useState<MetricTab>("visibility");
   const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" } | null>(null);
   const [isFolderOpen, setIsFolderOpen] = useState(false);
   const [isNewPostOpen, setIsNewPostOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
-  const [page, setPage] = useState(1);
-
-  // Sauvegarde des préférences
-  useEffect(() => {
-    try {
-      const prefs: Prefs = {
-        range: range === "custom" ? "30d" : range,
-        chartType,
-        chartView,
-        metricTab,
-      };
-      window.localStorage.setItem(PREFS_KEY, JSON.stringify(prefs));
-    } catch {
-      /* stockage indisponible : on ignore */
-    }
-  }, [range, chartType, chartView, metricTab]);
-
-  // Reset de la page si les filtres changent
-  useEffect(() => {
-    setPage(1);
-  }, [postsPeriod, range, query, sort]);
 
   const { start, end } = useMemo(
     () => resolveRange(range, customStart, customEnd),
     [range, customStart, customEnd]
   );
 
+  // YouTube : vraies données. Autres réseaux : données d'exemple.
+  // Pour YouTube, le squelette vide sert d'affichage pendant le chargement.
   const yt = useYouTubeInsights(start, end, isYouTube && Boolean(channel), reloadKey);
-  const fallback = useEmptyInsights(start, end);
-  const raw = isYouTube && yt.data ? yt.data : fallback;
-
-  const posts = useMemo(() => raw.posts.filter(isOnlinePost), [raw.posts]);
-  const previousPosts = useMemo(
-    () => raw.previousPosts.filter(isOnlinePost),
-    [raw.previousPosts]
-  );
-  const summary = useMemo<Summary>(
-    () => ({ ...raw.summary, posts: posts.length }),
-    [raw.summary, posts.length]
-  );
-
-  // État des données : « — » ou état vide tant qu'il n'y a pas de vraies données.
-  const youtubeLoading = isYouTube && yt.loading && !yt.data;
-  const hasData = isYouTube && Boolean(yt.data) && !youtubeLoading;
-
-  useEffect(() => {
-    if (!isYouTube || !yt.data) return;
-    const totalThis = raw.posts.length;
-    const totalPrev = raw.previousPosts.length;
-    const keptThis = posts.length;
-    const keptPrev = previousPosts.length;
-    const droppedThis = totalThis - keptThis;
-    const droppedPrev = totalPrev - keptPrev;
-    if (totalThis === 0 && totalPrev === 0) return;
-    // eslint-disable-next-line no-console
-    console.warn(
-      `[Insights] period posts: ${totalThis} total → ${keptThis} kept (${droppedThis} scheduled filtered out) · previous: ${totalPrev} total → ${keptPrev} kept (${droppedPrev} scheduled filtered out)`
-    );
-  }, [isYouTube, yt.data, raw.posts, raw.previousPosts, posts.length, previousPosts.length]);
-
-  const current = raw.current;
-  const previous = raw.previous;
+  const fallback = useInsights(start, end, !isYouTube);
+  const { current, previous, summary, posts, previousPosts } =
+    isYouTube && yt.data ? yt.data : fallback;
 
   const days = current.length;
   const dates = current.map((p) => p.date);
   const prevStart = previous[0].date;
   const prevEnd = previous[days - 1].date;
   const periodLabel = fmtRange(start, end);
-  const compareLabel = `vs ${fmtRange(prevStart, prevEnd)}`;
+  const compareLabel = `Compared to ${fmtRange(prevStart, prevEnd)}`;
 
-  // Une métrique sans source réelle (0 par défaut) devient « — ».
-  const real = (v: number, needsPositive = false): string | null =>
-    !hasData || !Number.isFinite(v) || (needsPositive && v <= 0) ? null : nf(v);
-
-  const primaryBoxes: { label: string; value: string | null; key: NumKey | null }[] = [
-    { label: "Total Followers", value: real(summary.followers), key: "followers" },
-    { label: "Posts", value: real(summary.posts), key: "posts" },
-    { label: "Reactions", value: real(summary.reactions), key: "reactions" },
-    { label: "Comments", value: real(summary.comments), key: "comments" },
-    {
-      label: "Eng. Rate",
-      // Calculé uniquement s'il existe au moins un post en ligne.
-      value: hasData && posts.length > 0 ? `${summary.engRate.toFixed(2)}%` : null,
-      key: null,
-    },
+  const summaryBoxes: { label: string; value: string }[] = [
+    { label: "Total Followers", value: nf(summary.followers) },
+    { label: "Posts", value: nf(summary.posts) },
+    { label: "Reactions", value: nf(summary.reactions) },
+    { label: "Comments", value: nf(summary.comments) },
+    { label: "Eng. Rate", value: `${summary.engRate}%` },
+    { label: "Video Views", value: nf(summary.videoViews) },
+    { label: "Shares", value: nf(summary.shares) },
+    { label: "Reach", value: nf(summary.reach) },
+    { label: "Watch Time (min)", value: nf(summary.watchMin) },
+    { label: "Avg. Watch Time (sec)", value: nf(summary.avgWatchSec) },
   ];
-
-  const secondaryBoxes: { label: string; value: string | null }[] = [
-    { label: "Video Views", value: real(summary.videoViews) },
-    { label: "Shares", value: real(summary.shares, true) },
-    { label: "Reach", value: real(summary.reach, true) },
-    { label: "Watch Time (min)", value: real(summary.watchMin, true) },
-    { label: "Avg. Watch Time (sec)", value: real(summary.avgWatchSec, true) },
-  ];
-
-  // Variations : uniquement pour les métriques dont on dispose réellement
-  // pour la période précédente (points quotidiens + posts).
-  const curEng = mean(posts.map((p) => p.engRate));
-  const prevEng = mean(previousPosts.map((p) => p.engRate));
-  const deltas: Record<string, Delta> = {
-    "Total Followers": pctDelta(
-      current[days - 1]?.followers ?? 0,
-      previous[days - 1]?.followers ?? 0
-    ),
-    Posts: pctDelta(posts.length, previousPosts.length),
-    Reactions: pctDelta(sumKey(current, "reactions"), sumKey(previous, "reactions")),
-    Comments: pctDelta(sumKey(current, "comments"), sumKey(previous, "comments")),
-    "Eng. Rate": curEng !== null && prevEng !== null ? ptsDelta(curEng, prevEng) : null,
-  };
-
-  // Regroupement automatique pour garder un graphique lisible.
-  const bucket = days > 180 ? 30 : days > 60 ? 7 : 1;
-  const bucketValues = (vals: number[], agg: "sum" | "last"): number[] => {
-    if (bucket === 1) return vals;
-    const out: number[] = [];
-    for (let i = 0; i < vals.length; i += bucket) {
-      const slice = vals.slice(i, i + bucket);
-      out.push(agg === "sum" ? slice.reduce((a, b) => a + b, 0) : slice[slice.length - 1]);
-    }
-    return out;
-  };
-  const chartDates = bucket === 1 ? dates : dates.filter((_, i) => i % bucket === 0);
 
   const TONES = [isDark ? "#ffffff" : "#111111", isDark ? "#7c7c85" : "#a3a3a3"];
-  const SPARK_COLOR = isDark ? "#a1a1aa" : "#52525b";
   const SERIES: Record<MetricTab, SeriesDef[]> = {
     posts: [
       { key: "posts", label: "Posts", tone: 0, agg: "sum" },
@@ -2049,76 +1160,36 @@ export default function Insights() {
   const chartSeries: ChartSeries[] = activeSeries.map((s) => ({
     label: s.label,
     color: TONES[s.tone],
-    values: bucketValues(current.map((p) => p[s.key]), s.agg),
-    prev: bucketValues(previous.map((p) => p[s.key]), s.agg),
+    values: current.map((p) => p[s.key]),
+    prev: previous.map((p) => p[s.key]),
   }));
   const seriesTotal = (s: SeriesDef) =>
     s.agg === "sum" ? current.reduce((a, p) => a + p[s.key], 0) : current[days - 1]?.[s.key] ?? 0;
 
-  // ── CARTES KPI (remplacent les tabs soulignés) ──
-  const metricCards: {
-    key: MetricTab;
-    label: string;
-    value: string | null;
-    delta: Delta;
-  }[] = (
-    [
-      { key: "visibility", label: "Visibility" },
-      { key: "growth", label: "Audience growth" },
-      { key: "impact", label: "Content impact" },
-      { key: "posts", label: "Posts" },
-    ] as { key: MetricTab; label: string }[]
-  ).map(({ key, label }) => {
-    const first = SERIES[key][0];
-    const total =
-      first.agg === "sum"
-        ? sumKey(current, first.key)
-        : current[days - 1]?.[first.key] ?? 0;
-    const prevTotal =
-      first.agg === "sum"
-        ? sumKey(previous, first.key)
-        : previous[days - 1]?.[first.key] ?? 0;
-    const available = hasData && Number.isFinite(total);
-    return {
-      key,
-      label,
-      value: available ? nf(total) : null,
-      delta: available ? pctDelta(total, prevTotal) : null,
-    };
-  });
-
-  // ── HIGHLIGHTS (Peak / Lowest / Average) calculés sur la première série active ──
-  const activeFirst = activeSeries[0];
-  const firstSeriesValues = current.map((p) => p[activeFirst.key]);
-  const nonZeroFirst = firstSeriesValues.filter((v) => v > 0);
-  const peakValue = nonZeroFirst.length ? Math.max(...nonZeroFirst) : 0;
-  const peakIdx = firstSeriesValues.indexOf(peakValue);
-  const peakDate = current[peakIdx]?.date;
-  const lowestValue = nonZeroFirst.length ? Math.min(...nonZeroFirst) : 0;
-  const lowestIdx = firstSeriesValues.indexOf(lowestValue);
-  const lowestDate = current[lowestIdx]?.date;
-  const averageValue = firstSeriesValues.length
-    ? firstSeriesValues.reduce((a, b) => a + b, 0) / firstSeriesValues.length
-    : 0;
-
-  const METRIC_TABS_META: { key: MetricTab; label: string }[] = [
-    { key: "visibility", label: "Visibility" },
-    { key: "growth", label: "Audience growth" },
-    { key: "impact", label: "Content impact" },
-    { key: "posts", label: "Posts" },
-  ];
-  // On garde METRIC_TABS_META pour compat / lisibilité.
-  void METRIC_TABS_META;
-
-  const CHART_VIEWS: { key: ChartView; title: string; label: string }[] = [
-    { key: "this", title: "This period", label: "This period" },
-    { key: "comparison", title: "Previous period", label: "Previous" },
-    { key: "both", title: "Both periods", label: "Both" },
+  const METRIC_TABS: { key: MetricTab; label: string; icon: ReactNode; trailing?: ReactNode }[] = [
+    {
+      key: "posts",
+      label: "Posts",
+      icon: <Copy className="h-4 w-4" aria-hidden="true" />,
+      trailing: <ChevronDown className="ml-1 h-3.5 w-3.5 opacity-70" aria-hidden="true" />,
+    },
+    { key: "impact", label: "Content Impact", icon: <Zap className="h-4 w-4" aria-hidden="true" /> },
+    { key: "growth", label: "Audience Growth", icon: <TrendingUp className="h-4 w-4" aria-hidden="true" /> },
+    { key: "visibility", label: "Visibility", icon: <Eye className="h-4 w-4" aria-hidden="true" /> },
   ];
 
-  const CHART_TYPES: { key: ChartType; title: string; label: string; icon: ReactNode }[] = [
-    { key: "line", title: "Line chart", label: "Line", icon: <LineIcon className="h-4 w-4" /> },
-    { key: "bar", title: "Bar chart", label: "Bars", icon: <ChartBarsIcon className="h-4 w-4" /> },
+  const CHART_VIEWS: { key: ChartView; label: string; icon?: ReactNode }[] = [
+    {
+      key: "this",
+      label: "This Period",
+      icon: <span className="h-2.5 w-2.5 rounded-[3px] bg-current" aria-hidden="true" />,
+    },
+    {
+      key: "comparison",
+      label: "Comparison",
+      icon: <span className="h-2.5 w-2.5 rounded-[3px] border border-dashed border-current" aria-hidden="true" />,
+    },
+    { key: "both", label: "Both" },
   ];
 
   const rows = postsPeriod === "this" ? posts : previousPosts;
@@ -2131,95 +1202,25 @@ export default function Insights() {
     const dir = sort.dir === "asc" ? 1 : -1;
     return [...matchingRows].sort((a, b) => (a[sort.key] - b[sort.key]) * dir);
   }, [rows, sort, needle]);
-
-  // ── PAGINATION ──
-  const totalPages = Math.max(1, Math.ceil(sortedRows.length / PAGE_SIZE));
-  const safePage = Math.min(page, totalPages);
-  const pageStart = (safePage - 1) * PAGE_SIZE;
-  const paginatedRows = sortedRows.slice(pageStart, pageStart + PAGE_SIZE);
-
-  // Barre relative : proportion réelle par rapport au meilleur post de la liste.
-  const maxReactions = Math.max(1, ...sortedRows.map((r) => r.reactions));
-
   const toggleSort = (key: SortKey) =>
     setSort((s) => (s?.key === key ? { key, dir: s.dir === "desc" ? "asc" : "desc" } : { key, dir: "desc" }));
 
   const columns: { key: SortKey; label: string; render: (p: PostRow) => string }[] = [
     { key: "reactions", label: "Reactions", render: (p) => nf(p.reactions) },
     { key: "comments", label: "Comments", render: (p) => nf(p.comments) },
-    { key: "engRate", label: "Eng. rate", render: (p) => `${p.engRate.toFixed(2)}%` },
-    { key: "videoViews", label: "Views", render: (p) => nf(p.videoViews) },
+    { key: "engRate", label: "Eng. Rate", render: (p) => `${p.engRate.toFixed(2)}%` },
+    { key: "videoViews", label: "Video Views", render: (p) => nf(p.videoViews) },
   ];
-  const TABLE_GRID = "grid-cols-[minmax(0,2.4fr)_repeat(4,minmax(72px,1fr))_32px]";
+  const TABLE_GRID = "grid-cols-[minmax(0,2.3fr)_1fr_1fr_1fr_1fr_44px]";
 
-  const ytUrl = (id: string) => `https://www.youtube.com/watch?v=${id}`;
-
-  const exportDailyCsv = () => {
+  const exportCsv = () => {
     const rowsCsv: (string | number)[][] = [
-      [
-        "date",
-        "followers",
-        "posts",
-        "reactions",
-        "comments",
-        "profile_views",
-        "previous_date",
-        "previous_followers",
-        "previous_posts",
-        "previous_reactions",
-        "previous_comments",
-        "previous_profile_views",
-      ],
+      ["date", "followers", "posts", "reactions", "comments", "profile_views", "previous_followers"],
     ];
-    current.forEach((p, i) => {
-      const q = previous[i];
-      rowsCsv.push([
-        toInput(p.date),
-        p.followers,
-        p.posts,
-        p.reactions,
-        p.comments,
-        p.profileViews,
-        q ? toInput(q.date) : "",
-        q?.followers ?? "",
-        q?.posts ?? "",
-        q?.reactions ?? "",
-        q?.comments ?? "",
-        q?.profileViews ?? "",
-      ]);
-    });
-    downloadCsv(`insights-daily-${toInput(start)}-${toInput(end)}.csv`, rowsCsv);
-  };
-
-  const exportPostsCsv = () => {
-    const header: (string | number)[] = [
-      "period",
-      "id",
-      "title",
-      "published_at",
-      "reactions",
-      "comments",
-      "eng_rate_pct",
-      "video_views",
-      "url",
-    ];
-    const mk = (period: string, list: PostRow[]): (string | number)[][] =>
-      list.map((p) => [
-        period,
-        p.id,
-        p.label,
-        toInput(p.date),
-        p.reactions,
-        p.comments,
-        p.engRate.toFixed(2),
-        p.videoViews,
-        ytUrl(p.id),
-      ]);
-    downloadCsv(`insights-posts-${toInput(start)}-${toInput(end)}.csv`, [
-      header,
-      ...mk("this", posts),
-      ...mk("previous", previousPosts),
-    ]);
+    current.forEach((p, i) =>
+      rowsCsv.push([toInput(p.date), p.followers, p.posts, p.reactions, p.comments, p.profileViews, previous[i].followers])
+    );
+    downloadCsv(`insights-${toInput(start)}-${toInput(end)}.csv`, rowsCsv);
   };
 
   const handleBottomBarChange = (id: BottomBarTab) => {
@@ -2244,19 +1245,13 @@ export default function Insights() {
   };
 
   const mediaIcon = (m: PostRow["media"]) =>
-    m === "video" ? (
-      <PlayIcon className="h-4 w-4" />
-    ) : m === "text" ? (
-      <FileTextIcon className="h-4 w-4" />
-    ) : (
-      <ImageIcon className="h-4 w-4" />
-    );
+    m === "video" ? <Play className="h-4 w-4" /> : m === "text" ? <FileText className="h-4 w-4" /> : <ImageIcon className="h-4 w-4" />;
 
-  // Message d'encouragement discret, seulement si la chaîne a peu publié.
-  const showHint =
-    isYouTube && !youtubeLoading && !yt.error && posts.length < 3 && previousPosts.length < 3;
+  const sectionCard = `rounded-2xl border p-4 ${t.card}`;
+  const sectionTitle = `text-[15px] font-semibold tracking-[-0.02em] ${t.text}`;
+  const sectionSub = `mt-1 text-[11px] ${t.muted}`;
 
-  const hideScrollbar = "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
+  const youtubeLoading = isYouTube && yt.loading && !yt.data;
 
   return (
     <main
@@ -2278,598 +1273,474 @@ export default function Insights() {
         ].join(" ")}
         style={{ paddingLeft: sidebarOffset }}
       >
-        {/* PANNEAU ARRONDI (comme Create / Home) */}
+        {/* PANNEAU ARRONDI : c'est lui qui scrolle */}
         <div
           className={[
-            "flex h-full flex-col overflow-hidden",
+            "h-full overflow-y-auto overflow-x-hidden",
             "rounded-[28px] border",
+            "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
             "transition-colors duration-300",
-            t.panel,
+            isDark
+              ? "border-white/[0.07] bg-[#0a0a0c]"
+              : "border-black/[0.06] bg-white",
           ].join(" ")}
         >
           <div
             className={[
-              "flex min-h-0 w-full flex-1 flex-col",
-              "px-[clamp(18px,3vw,48px)]",
-              "pb-6 pt-[clamp(18px,3vw,30px)]",
+              "mx-auto flex w-full max-w-[1720px]",
+              "flex-col gap-6 px-[clamp(18px,3vw,48px)]",
+              "pb-[120px] pt-[clamp(18px,3vw,30px)]",
             ].join(" ")}
           >
-            {/* HEADER COMPACT */}
-            <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 pb-4">
+            {/* HEADER COMPACT (remplace PageHeader) */}
+            <div className="flex shrink-0 flex-wrap items-center justify-between gap-3">
               <div className="flex min-w-0 items-center gap-2.5">
                 <span
-                  className={[
-                    "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border",
-                    isDark
-                      ? "border-white/[0.07] bg-white/[0.04] text-neutral-400"
-                      : "border-black/[0.06] bg-white text-neutral-500",
-                  ].join(" ")}
+                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border ${t.inner} ${t.soft}`}
                 >
-                  <ChartBarsIcon />
+                  <InsightsIcon />
                 </span>
-                <h1
-                  className={[
-                    "truncate text-[20px] font-semibold tracking-[-0.03em]",
-                    t.strong,
-                  ].join(" ")}
-                >
+                <h1 className={`truncate text-[20px] font-semibold tracking-[-0.03em] ${t.text}`}>
                   Insights
                 </h1>
               </div>
-              <div className="flex items-center gap-2 print:hidden">
-                {isYouTube && (
-                  <IconButton label="Refresh insights" t={t} onClick={() => setReloadKey((k) => k + 1)}>
-                    <RefreshIcon
-                      className={`h-5 w-5 ${yt.loading ? "animate-spin motion-reduce:animate-none" : ""}`}
-                    />
-                  </IconButton>
-                )}
-                <IconButton
-                  label={saved ? "Remove from favorites" : "Add to favorites"}
-                  onClick={() => toggleFavorite(PAGE_ROUTE)}
-                  t={t}
-                  align="end"
-                >
-                  <BookmarkIcon className="h-5 w-5" filled={saved} />
-                </IconButton>
-              </div>
-            </div>
-
-            {/* Tabs (période) + toolbar */}
-            <div
-              className={[
-                "flex shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-1 border-b",
-                t.line,
-              ].join(" ")}
-            >
-              {channel && isYouTube ? (
-                <div className="flex flex-wrap items-center gap-4">
-                  <Tabs<Range>
-                    label="Date range"
-                    value={range}
-                    onChange={setRange}
-                    t={t}
-                    options={RANGES}
-                  />
-                  {range === "custom" && (
-                    <div className="pb-2">
-                      <RangePicker
-                        range={range}
-                        start={start}
-                        end={end}
-                        onStartChange={setCustomStart}
-                        onEndChange={setCustomEnd}
-                        onRangeChange={setRange}
-                        t={t}
-                        isDark={isDark}
-                      />
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <span className="pb-3 pt-2 text-[14px] font-medium opacity-0" aria-hidden="true">
-                  &nbsp;
-                </span>
-              )}
-
-              <div className="flex items-center gap-2 pb-2 print:hidden">
+              <div className="flex flex-wrap items-center gap-2.5 print:hidden">
                 <ChannelMenu channels={channels} current={channel} t={t} isDark={isDark} />
-                {channel && isYouTube && (
-                  <>
-                    <ToolbarButton t={t} onClick={() => navigate("tags")}>
-                      <TagIcon className="h-4 w-4" />
-                      Tags
-                    </ToolbarButton>
-                    <ExportMenu
-                      disabled={!hasData}
-                      onDaily={exportDailyCsv}
-                      onPosts={exportPostsCsv}
-                      t={t}
+
+                {isYouTube && (
+                  <IconBtn label="Refresh insights" t={t} onClick={() => setReloadKey((k) => k + 1)}>
+                    <RefreshCw
+                      className={`h-4 w-4 ${yt.loading ? "animate-spin motion-reduce:animate-none" : ""}`}
+                      aria-hidden="true"
                     />
-                  </>
+                  </IconBtn>
                 )}
+
+                <button
+                  type="button"
+                  onClick={exportCsv}
+                  disabled={!channel}
+                  className={`flex h-10 items-center gap-2 rounded-xl px-3.5 text-[12px] font-semibold transition-colors disabled:opacity-40 ${t.ring} ${t.outlineBtn}`}
+                >
+                  <Download className="h-4 w-4" aria-hidden="true" />
+                  Export
+                  <ChevronDown className="h-3.5 w-3.5 opacity-70" aria-hidden="true" />
+                </button>
+
+                {/* Marque-page : sans contour, fond au survol uniquement
+                    (même style que Channels / Community / Schedule). */}
+                <button
+                  type="button"
+                  aria-label={saved ? "Remove from favorites" : "Add to favorites"}
+                  aria-pressed={saved}
+                  title={saved ? "Remove from favorites" : "Add to favorites"}
+                  onClick={() => toggleFavorite(PAGE_ROUTE)}
+                  className={[
+                    "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors motion-reduce:transition-none",
+                    t.ring,
+                    t.soft,
+                    t.hover,
+                  ].join(" ")}
+                >
+                  <Bookmark
+                    className={`h-4 w-4 ${saved ? "fill-current" : ""}`}
+                    aria-hidden="true"
+                  />
+                </button>
               </div>
             </div>
 
-            {/* BODY (scroll) */}
-            <div className={`min-h-0 flex-1 overflow-y-auto ${hideScrollbar}`}>
-              <div className="flex flex-col gap-5 pb-[120px] pt-5">
-                {!channel ? (
-                  <EmptyState
-                    tall
-                    t={t}
-                    title="Connect a channel to see insights"
-                    text="Followers, reach and engagement show up here once a social account is connected."
-                    action={{ label: "Connect a channel", onClick: () => navigateToSettingsSection("channels") }}
-                  />
-                ) : !isYouTube ? (
-                  <EmptyState
-                    tall
-                    t={t}
-                    title="Insights for this network are coming soon"
-                    text="Real statistics are only available for YouTube channels for now. Switch to a YouTube channel from the menu above."
-                  />
-                ) : (
-                  <>
-                    {yt.error && (
-                      <div role="alert" className="flex flex-wrap items-center gap-x-4 gap-y-1 px-1">
-                        <p className="text-[13px] text-red-500">
-                          Could not load YouTube insights: {yt.error}
-                        </p>
-                        <button
-                          type="button"
-                          onClick={() => setReloadKey((k) => k + 1)}
-                          className={`rounded-md px-1 text-[13px] font-semibold underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 ${t.ring} ${t.strong}`}
-                        >
-                          Retry
-                        </button>
-                      </div>
-                    )}
-
-                    {showHint && (
-                      <div className={`flex flex-wrap items-center justify-between gap-3 rounded-2xl px-4 py-3 ${t.column}`}>
-                        <p className={`text-[13px] ${t.soft}`}>
-                          Fewer than 3 videos published recently. Post a bit more and your trends will be easier to read.
-                        </p>
-                        <button
-                          type="button"
-                          onClick={() => navigate("new-post")}
-                          className={`flex items-center gap-2 rounded-xl px-3 py-2 text-[13px] font-semibold focus-visible:outline-none focus-visible:ring-2 ${t.ring} ${t.primaryBtn}`}
-                        >
-                          <PlusIcon className="h-4 w-4" />
-                          Create post
-                        </button>
-                      </div>
-                    )}
-
-                    <div
-                      className={`flex flex-col gap-5 transition-opacity duration-200 motion-reduce:transition-none ${
-                        youtubeLoading ? "pointer-events-none opacity-50" : ""
-                      }`}
-                      aria-busy={youtubeLoading}
+            {!channel ? (
+              <section className={`flex flex-col items-center gap-3 rounded-2xl border px-6 py-20 text-center ${t.panel}`}>
+                <span className={`flex h-11 w-11 items-center justify-center rounded-full ${t.iconBox}`}>
+                  <Activity className="h-5 w-5" aria-hidden="true" />
+                </span>
+                <h2 className={`text-[14px] font-semibold ${t.text}`}>Connect a channel to see insights</h2>
+                <p className={`max-w-[360px] text-[12px] ${t.soft}`}>
+                  Followers, reach and engagement show up here once a social account is connected.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => navigateToSettingsSection("channels")}
+                  className={`mt-2 flex items-center gap-1.5 rounded-lg px-4 py-2 text-[11px] font-semibold ${t.ring} ${t.primaryBtn}`}
+                >
+                  <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+                  Connect a channel
+                </button>
+              </section>
+            ) : (
+              <>
+                {/* ÉTAT YOUTUBE : erreur / chargement */}
+                {isYouTube && yt.error && (
+                  <div
+                    role="alert"
+                    className={`flex flex-wrap items-center justify-between gap-3 rounded-2xl border px-4 py-3 ${t.panel}`}
+                  >
+                    <p className="text-[12.5px] text-red-500">
+                      Could not load YouTube insights: {yt.error}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setReloadKey((k) => k + 1)}
+                      className={`rounded-lg px-3 py-1.5 text-[11px] font-semibold transition-colors ${t.ring} ${t.outlineBtn}`}
                     >
-                      {youtubeLoading && (
-                        <p className="sr-only" role="status" aria-live="polite">
-                          Loading YouTube insights…
-                        </p>
-                      )}
+                      Retry
+                    </button>
+                  </div>
+                )}
+                {youtubeLoading && (
+                  <p className={`text-[12.5px] ${t.soft}`} role="status" aria-live="polite">
+                    Loading YouTube insights…
+                  </p>
+                )}
 
-                      {/* SUMMARY */}
-                      <section
-                        aria-labelledby="summary-title"
-                        className={`flex flex-col gap-4 rounded-2xl p-4 sm:p-5 ${t.column}`}
+                {/* BANNIÈRE */}
+                <section className={`relative overflow-hidden rounded-2xl border ${t.card}`}>
+                  <div
+                    aria-hidden="true"
+                    className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${
+                      isDark
+                        ? "from-white/[0.06] via-transparent to-transparent"
+                        : "from-black/[0.04] via-transparent to-transparent"
+                    }`}
+                  />
+                  <div className="relative z-10 flex min-h-[168px] flex-col justify-center gap-4 px-6 py-6 lg:max-w-[58%]">
+                    <div>
+                      <h2 className={`text-[22px] font-semibold tracking-[-0.035em] ${t.text}`}>
+                        A Path to Growth with Weekly Takeaways
+                      </h2>
+                      <p className={`mt-2 max-w-[400px] text-[13px] leading-relaxed ${t.soft}`}>
+                        The more you post, the better your takeaways. Share a few posts and
+                        we'll start showing you weekly insights to help you grow.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => navigate("new-post")}
+                      className={`flex w-fit items-center gap-1.5 rounded-lg px-4 py-2.5 text-[12px] font-semibold transition-all duration-150 active:scale-[0.98] ${t.ring} ${t.primaryBtn}`}
+                    >
+                      <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+                      Create Post
+                    </button>
+                  </div>
+
+                  <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-0 hidden w-[430px] lg:block">
+                    <div className="absolute left-[134px] top-[30px] h-[90px] w-[120px] -rotate-[4deg] rounded-xl bg-neutral-300/90 shadow-[0_6px_22px_rgba(0,0,0,0.3)]">
+                      <span className="ml-3 mt-3 flex h-6 w-6 items-center justify-center rounded-md bg-neutral-900 text-white">
+                        <FlaskConical className="h-3.5 w-3.5" />
+                      </span>
+                    </div>
+                    <TipCard
+                      className="left-[70px] top-[74px] -rotate-[9deg]"
+                      icon={<Pencil className="h-3.5 w-3.5" />}
+                      title="Use Your Drafts"
+                      text="You have 3 unsaved drafts to schedule."
+                      cta="Open Drafts"
+                    />
+                    <TipCard
+                      className="left-[168px] top-[4px] -rotate-[5deg]"
+                      icon={<Repeat2 className="h-3.5 w-3.5" />}
+                      title="Repost Your Popular Post"
+                      text="Repost your post about your ambitious project. It rated well, with a reach of 1.2K."
+                      cta="Create Post"
+                    />
+                    <TipCard
+                      className="left-[272px] top-[66px] rotate-[6deg]"
+                      icon={<Send className="h-3.5 w-3.5" />}
+                      title="Evergreen Ideas"
+                      text="Reshare last year's top post, still pulling engagement."
+                      cta="Duplicate Post"
+                    />
+                  </div>
+                </section>
+
+                {/* ALL INSIGHTS */}
+                <section aria-labelledby="all-title" className="flex flex-col gap-4">
+                  <div>
+                    <h2 id="all-title" className={`text-[20px] font-semibold tracking-[-0.03em] ${t.text}`}>
+                      All Insights
+                    </h2>
+                    <p className={`mt-0.5 text-[10px] ${t.muted}`}>Your activity at a glance</p>
+                  </div>
+
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <div
+                        role="tablist"
+                        aria-label="Date range"
+                        className={`inline-flex flex-wrap items-center gap-0.5 rounded-xl border p-1 ${t.panel}`}
                       >
-                        <SectionHead
-                          id="summary-title"
-                          title="Summary"
-                          sub={`${periodLabel} · ${compareLabel}`}
-                          t={t}
-                        />
-
-                        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-                          {primaryBoxes.map((b) => (
-                            <Stat
-                              key={b.label}
-                              label={b.label}
-                              value={b.value}
-                              info={SUMMARY_INFO[b.label] ?? b.label}
-                              delta={deltas[b.label] ?? null}
-                              spark={b.key ? current.map((p) => p[b.key as NumKey]) : []}
-                              sparkColor={SPARK_COLOR}
-                              t={t}
-                            />
-                          ))}
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-                          {secondaryBoxes.map((b) => (
-                            <Stat
-                              key={b.label}
-                              size="sm"
-                              label={b.label}
-                              value={b.value}
-                              info={SUMMARY_INFO[b.label] ?? b.label}
-                              delta={null}
-                              t={t}
-                            />
-                          ))}
-                        </div>
-
-                        {hasData && secondaryBoxes.some((b) => b.value === null) && (
-                          <p className={`px-1 text-[11px] ${t.muted}`}>
-                            “—” means the value is not provided by YouTube for this period. Nothing is estimated.
-                          </p>
-                        )}
-                      </section>
-
-                      {/* ═══════════ METRICS — refonte complète ═══════════ */}
-                      <section
-                        aria-labelledby="metrics-title"
-                        className={`flex flex-col gap-4 rounded-2xl p-4 sm:p-5 ${t.column}`}
-                      >
-                        {/* HEADER */}
-                        <div className="flex flex-wrap items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <h2 id="metrics-title" className={`text-[14px] font-semibold ${t.strong}`}>
-                              Performance
-                            </h2>
-                            <p className={`mt-0.5 text-[12px] ${t.muted}`}>
-                              {periodLabel} · {compareLabel}
-                            </p>
-                          </div>
-                          <div className="flex flex-wrap items-center gap-2">
-                            <Segmented<ChartType>
-                              label="Chart type"
-                              value={chartType}
-                              onChange={setChartType}
-                              t={t}
-                              options={CHART_TYPES}
-                            />
-                            <Segmented<ChartView>
-                              label="Chart view"
-                              value={chartView}
-                              onChange={setChartView}
-                              t={t}
-                              options={CHART_VIEWS}
-                            />
-                          </div>
-                        </div>
-
-                        {/* CARTES KPI — remplacent les onglets soulignés */}
-                        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                          {metricCards.map((m) => (
-                            <MetricCard
-                              key={m.key}
-                              label={m.label}
-                              value={m.value}
-                              delta={m.delta}
-                              active={metricTab === m.key}
-                              onClick={() => setMetricTab(m.key)}
-                              t={t}
-                              isDark={isDark}
-                              available={hasData}
-                            />
-                          ))}
-                        </div>
-
-                        {/* CARTE GRAPHIQUE : légende + chart + highlights */}
-                        <div className={`overflow-hidden rounded-xl border ${t.card}`}>
-                          {/* Légende pro (pastilles + totaux) */}
-                          <div
-                            className={`flex flex-wrap items-center gap-x-6 gap-y-2 border-b px-4 py-3 ${t.line}`}
-                          >
-                            {activeSeries.map((s) => (
-                              <div key={s.key} className="flex items-center gap-2">
+                        {RANGES.map((o) => {
+                          const active = range === o.key;
+                          return (
+                            <button
+                              key={o.key}
+                              type="button"
+                              role="tab"
+                              aria-selected={active}
+                              onClick={() => setRange(o.key)}
+                              className={`flex items-center gap-2 whitespace-nowrap rounded-lg px-3.5 py-2 text-[13px] font-semibold transition-colors ${t.ring} ${
+                                active ? t.sel : t.idle
+                              }`}
+                            >
+                              {o.label}
+                              {o.key === "custom" && (
                                 <span
-                                  className="h-2.5 w-2.5 shrink-0 rounded-full"
-                                  style={{ background: TONES[s.tone] }}
-                                  aria-hidden="true"
-                                />
-                                <span className={`text-[12px] font-medium ${t.soft}`}>{s.label}</span>
-                                <span
-                                  className={`text-[13px] font-semibold tabular-nums ${
-                                    hasData ? t.strong : t.muted
+                                  className={`flex h-5 w-5 items-center justify-center rounded-full ${
+                                    active
+                                      ? isDark
+                                        ? "bg-black/15 text-black"
+                                        : "bg-white/20 text-white"
+                                      : isDark
+                                        ? "bg-white/15 text-white"
+                                        : "bg-black/10 text-black"
                                   }`}
+                                  aria-hidden="true"
                                 >
-                                  {hasData ? nf(seriesTotal(s)) : "—"}
+                                  <Zap className="h-3 w-3 fill-current" />
                                 </span>
-                              </div>
-                            ))}
-                            {chartView !== "this" && (
-                              <div className="flex items-center gap-2 opacity-60">
-                                <span
-                                  className={`h-2.5 w-2.5 shrink-0 rounded-full ${
-                                    isDark ? "bg-neutral-500" : "bg-neutral-400"
-                                  }`}
-                                  aria-hidden="true"
-                                />
-                                <span className={`text-[12px] font-medium ${t.soft}`}>Previous</span>
-                              </div>
-                            )}
-                          </div>
-
-                          {/* CHART */}
-                          <div className="p-3 sm:p-4">
-                            {hasData ? (
-                              <Chart
-                                dates={chartDates}
-                                series={chartSeries}
-                                view={chartView}
-                                type={chartType}
-                                bucket={bucket}
-                                isDark={isDark}
-                              />
-                            ) : (
-                              <div className="flex h-[340px] flex-col items-center justify-center gap-2">
-                                {youtubeLoading ? (
-                                  <>
-                                    <div
-                                      className={`h-8 w-8 animate-spin rounded-full border-2 border-current border-r-transparent opacity-40 ${
-                                        isDark ? "text-white" : "text-black"
-                                      }`}
-                                    />
-                                    <p className={`text-[13px] ${t.muted}`}>Loading chart…</p>
-                                  </>
-                                ) : (
-                                  <p className={`text-[13px] ${t.muted}`}>No data for this period</p>
-                                )}
-                              </div>
-                            )}
-                          </div>
-
-                          {/* HIGHLIGHTS */}
-                          {hasData && (
-                            <div className={`grid grid-cols-3 border-t ${t.line}`}>
-                              <Highlight
-                                t={t}
-                                label="Peak"
-                                value={nf(peakValue)}
-                                sub={peakDate ? fmtFull(peakDate) : undefined}
-                              />
-                              <Highlight
-                                t={t}
-                                label="Lowest"
-                                value={nf(lowestValue)}
-                                sub={lowestDate ? fmtFull(lowestDate) : undefined}
-                                className={`border-l ${t.line}`}
-                              />
-                              <Highlight
-                                t={t}
-                                label="Average"
-                                value={
-                                  activeFirst.agg === "sum"
-                                    ? nf(Math.round(averageValue))
-                                    : nf(Math.round(averageValue))
-                                }
-                                sub={activeFirst.agg === "sum" ? "per day" : "over the period"}
-                                className={`border-l ${t.line}`}
-                              />
-                            </div>
-                          )}
-                        </div>
-
-                        {hasData && bucket > 1 && (
-                          <p className={`px-1 text-[11px] ${t.muted}`}>
-                            Grouped by {bucket === 7 ? "week" : "30-day period"}: totals are summed,
-                            followers show the last value of each group.
-                          </p>
-                        )}
-                      </section>
-
-                      {/* POSTS */}
-                      <section
-                        aria-labelledby="perf-title"
-                        className={`flex flex-col gap-4 rounded-2xl p-4 sm:p-5 ${t.column}`}
-                      >
-                        <SectionHead
-                          id="perf-title"
-                          title="Performance per post"
-                          sub={postsPeriod === "this" ? periodLabel : fmtRange(prevStart, prevEnd)}
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {range === "custom" && (
+                        <RangePicker
+                          range={range}
+                          start={start}
+                          end={end}
+                          onStartChange={setCustomStart}
+                          onEndChange={setCustomEnd}
+                          onRangeChange={setRange}
                           t={t}
-                          right={
-                            <Segmented<PostsPeriod>
-                              label="Posts period"
-                              value={postsPeriod}
-                              onChange={setPostsPeriod}
-                              t={t}
-                              options={[
-                                { key: "this", title: "This period", label: "This period" },
-                                { key: "previous", title: "Previous period", label: "Previous" },
-                              ]}
-                            />
-                          }
+                          isDark={isDark}
                         />
+                      )}
+                    </div>
 
-                        {/* RECHERCHE */}
-                        <div
-                          className={`flex max-w-[320px] items-center gap-1 rounded-lg border px-2 ${
-                            isDark ? "border-white/[0.10]" : "border-black/[0.10]"
-                          }`}
+                    <button
+                      type="button"
+                      onClick={() => navigate("tags")}
+                      className={`flex items-center gap-2 rounded-lg px-3 py-2 text-[13px] font-semibold transition-colors ${t.ring} ${t.hover} ${t.text}`}
+                    >
+                      <Tag className="h-4 w-4" aria-hidden="true" />
+                      Tags
+                      <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
+                    </button>
+                  </div>
+
+                  {/* SUMMARY */}
+                  <div className={sectionCard}>
+                    <div className="flex items-start justify-between gap-3 px-1">
+                      <div>
+                        <h3 className={sectionTitle}>Summary</h3>
+                        <p className={sectionSub}>
+                          {periodLabel} · {compareLabel}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 print:hidden">
+                        <IconBtn label="Share summary" boxed t={t}>
+                          <Send className="h-4 w-4" aria-hidden="true" />
+                        </IconBtn>
+                        <IconBtn label="Open summary" boxed t={t}>
+                          <ExternalLink className="h-4 w-4" aria-hidden="true" />
+                        </IconBtn>
+                      </div>
+                    </div>
+                    <div className={`mt-4 grid grid-cols-2 gap-2.5 rounded-2xl border p-3 sm:grid-cols-3 lg:grid-cols-6 ${t.panel}`}>
+                      {summaryBoxes.map((b) => (
+                        <MetricBox key={b.label} label={b.label} value={b.value} info={SUMMARY_INFO[b.label] ?? b.label} t={t} />
+                      ))}
+                    </div>
+                  </div>
+                </section>
+
+                {/* PERFORMANCE PER POST */}
+                <section className={sectionCard} aria-labelledby="perf-title">
+                  <div className="flex flex-wrap items-start justify-between gap-3 px-1">
+                    <div>
+                      <h3 id="perf-title" className={sectionTitle}>
+                        Performance per Post
+                      </h3>
+                      <p className={sectionSub}>
+                        {postsPeriod === "this" ? periodLabel : fmtRange(prevStart, prevEnd)}
+                      </p>
+                    </div>
+                    <Segmented<PostsPeriod>
+                      label="Posts period"
+                      value={postsPeriod}
+                      onChange={setPostsPeriod}
+                      t={t}
+                      size="lg"
+                      options={[
+                        { key: "this", label: "This Period" },
+                        { key: "previous", label: "Previous Period" },
+                      ]}
+                    />
+                  </div>
+
+                  <div className={`mt-4 overflow-x-auto rounded-2xl border ${t.panel}`}>
+                    <div className="min-w-[720px]">
+                      <div
+                        className={`grid ${TABLE_GRID} items-center gap-2 px-4 py-3 text-[12px] font-semibold ${t.head} ${t.text}`}
+                      >
+                        <span>Posts · {rows.length}</span>
+                        {columns.map((c) => (
+                          <button
+                            key={c.key}
+                            type="button"
+                            onClick={() => toggleSort(c.key)}
+                            aria-label={`Sort by ${c.label}`}
+                            className={`flex w-fit items-center gap-1 rounded-md text-left ${t.ring}`}
+                          >
+                            {c.label}
+                            <ChevronDown
+                              className={`h-3.5 w-3.5 transition-transform ${t.muted} ${
+                                sort?.key === c.key && sort.dir === "asc" ? "rotate-180" : ""
+                              } ${sort?.key === c.key ? "opacity-100" : "opacity-70"}`}
+                              aria-hidden="true"
+                            />
+                          </button>
+                        ))}
+                        <button
+                          type="button"
+                          aria-label="Customize columns"
+                          className={`flex h-9 w-9 items-center justify-center rounded-xl border ${t.inner} ${t.soft} ${t.hover} ${t.ring}`}
                         >
-                          <SearchIcon className={`h-4 w-4 shrink-0 ${t.muted}`} />
-                          <input
-                            type="text"
-                            value={query}
-                            onChange={(e) => setQuery(e.target.value)}
-                            placeholder="Search posts"
-                            aria-label="Search posts by title"
-                            className={`min-w-0 flex-1 bg-transparent py-2 text-[13px] outline-none ${t.strong} ${
-                              isDark ? "placeholder:text-neutral-600" : "placeholder:text-neutral-400"
-                            }`}
-                          />
-                          {query && (
+                          <Columns className="h-4 w-4" aria-hidden="true" />
+                        </button>
+                      </div>
+
+                      {sortedRows.length === 0 ? (
+                        <div className={`flex flex-col items-center gap-2 border-t px-6 py-10 text-center ${t.border}`}>
+                          <span className={`flex h-11 w-11 items-center justify-center rounded-full ${t.iconBox}`}>
+                            <Activity className="h-5 w-5" aria-hidden="true" />
+                          </span>
+                          <p className={`text-[12px] font-medium ${t.text}`}>
+                            {youtubeLoading ? "Loading videos…" : "No posts in this period"}
+                          </p>
+                          {!youtubeLoading && (
+                            <p className={`max-w-[360px] text-[12px] ${t.soft}`}>
+                              Choose a longer range to see how your earlier posts performed.
+                            </p>
+                          )}
+                          {!youtubeLoading && days < 30 && (
                             <button
                               type="button"
-                              aria-label="Clear search"
-                              onClick={() => setQuery("")}
-                              className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md transition-colors ${t.ghost}`}
+                              onClick={() => setRange("30d")}
+                              className={`mt-2 rounded-lg px-3 py-1.5 text-[11px] font-semibold transition-colors ${t.ring} ${t.outlineBtn}`}
                             >
-                              <XIcon className="h-4 w-4" />
+                              Show last 30 days
                             </button>
                           )}
                         </div>
-
-                        <div className={`overflow-x-auto rounded-xl border ${t.card}`}>
-                          <div className="min-w-[640px]">
-                            <div
-                              className={`grid ${TABLE_GRID} items-center gap-3 border-b px-4 py-3 text-[12px] font-medium ${t.line} ${t.muted}`}
-                            >
-                              <span>
-                                {nf(sortedRows.length)} {sortedRows.length === 1 ? "post" : "posts"}
-                              </span>
-                              {columns.map((c) => {
-                                const active = sort?.key === c.key;
-                                return (
-                                  <button
-                                    key={c.key}
-                                    type="button"
-                                    onClick={() => toggleSort(c.key)}
-                                    aria-label={`Sort by ${c.label}`}
-                                    className={`ml-auto flex items-center gap-1 rounded-md focus-visible:outline-none focus-visible:ring-2 ${t.ring} ${
-                                      active ? t.strong : "hover:opacity-80"
-                                    }`}
-                                  >
-                                    {c.label}
-                                    {active && (
-                                      <ChevronDownIcon
-                                        className={`h-3.5 w-3.5 transition-transform motion-reduce:transition-none ${
-                                          sort?.dir === "asc" ? "rotate-180" : ""
-                                        }`}
-                                      />
-                                    )}
-                                  </button>
-                                );
-                              })}
-                              <span aria-hidden="true" />
-                            </div>
-
-                            {paginatedRows.length === 0 ? (
-                              <div>
-                                {needle && rows.length > 0 ? (
-                                  <EmptyState
-                                    t={t}
-                                    title={`No post matches “${query.trim()}”`}
-                                    action={{ label: "Clear search", onClick: () => setQuery("") }}
-                                  />
+                      ) : (
+                        sortedRows.map((p, idx) => (
+                          <div
+                            key={p.id}
+                            className={`grid ${TABLE_GRID} items-center gap-2 border-t px-4 py-3 text-[13px] ${t.border} ${t.text}`}
+                          >
+                            <div className="flex min-w-0 items-center gap-3">
+                              <span className={`w-5 shrink-0 text-[12px] ${t.muted}`}>#{idx + 1}</span>
+                              <span className={`flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl ${t.iconBox}`}>
+                                {p.thumbnailUrl ? (
+                                  <img src={p.thumbnailUrl} alt="" referrerPolicy="no-referrer" loading="lazy" className="h-full w-full object-cover" />
                                 ) : (
-                                  <EmptyState
-                                    t={t}
-                                    title={youtubeLoading ? "Loading videos…" : "No published posts"}
-                                    text={
-                                      youtubeLoading
-                                        ? undefined
-                                        : "Choose a longer range to see how your earlier posts performed."
-                                    }
-                                    action={
-                                      !youtubeLoading && days < 30
-                                        ? { label: "Show last 30 days", onClick: () => setRange("30d") }
-                                        : undefined
-                                    }
-                                  />
+                                  mediaIcon(p.media)
                                 )}
-                              </div>
-                            ) : (
-                              paginatedRows.map((p) => (
-                                <div
-                                  key={p.id}
-                                  className={`grid ${TABLE_GRID} items-center gap-3 border-t px-4 py-3 text-[13px] transition-colors motion-reduce:transition-none ${t.line} ${t.strong} ${
-                                    isDark ? "hover:bg-white/[0.02]" : "hover:bg-black/[0.02]"
-                                  }`}
-                                >
-                                  <div className="flex min-w-0 items-center gap-3">
-                                    <span
-                                      className={`flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg ${t.chip} ${t.soft}`}
-                                    >
-                                      {p.thumbnailUrl ? (
-                                        <img
-                                          src={p.thumbnailUrl}
-                                          alt=""
-                                          referrerPolicy="no-referrer"
-                                          loading="lazy"
-                                          className="h-full w-full object-cover"
-                                        />
-                                      ) : (
-                                        mediaIcon(p.media)
-                                      )}
-                                    </span>
-                                    <div className="min-w-0">
-                                      <a
-                                        href={ytUrl(p.id)}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className={`block truncate rounded text-[13px] font-semibold hover:underline focus-visible:outline-none focus-visible:ring-2 ${t.ring}`}
-                                      >
-                                        {p.label}
-                                      </a>
-                                      <p className={`text-[11px] ${t.muted}`}>{fmtFull(p.date)}</p>
-                                    </div>
-                                  </div>
-                                  {columns.map((c) => (
-                                    <span key={c.key} className="relative text-right tabular-nums">
-                                      {c.key === "reactions" && p.reactions > 0 && (
-                                        <span
-                                          aria-hidden="true"
-                                          className={`absolute inset-y-[-4px] right-0 rounded-sm ${
-                                            isDark ? "bg-white/[0.06]" : "bg-black/[0.05]"
-                                          }`}
-                                          style={{ width: `${Math.round((p.reactions / maxReactions) * 100)}%` }}
-                                        />
-                                      )}
-                                      <span className="relative z-10 pr-1">{c.render(p)}</span>
-                                    </span>
-                                  ))}
+                              </span>
+                              <div className="min-w-0">
+                                {isYouTube ? (
                                   <a
-                                    href={ytUrl(p.id)}
+                                    href={`https://www.youtube.com/watch?v=${p.id}`}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    aria-label={`Open “${p.label}” on YouTube`}
-                                    title="Open on YouTube"
-                                    className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 ${t.muted} ${t.ghost} ${t.ring}`}
+                                    className={`block truncate rounded text-[14px] font-medium hover:underline ${t.soft} ${t.ring}`}
                                   >
-                                    <ExternalIcon className="h-4 w-4" />
+                                    {p.label}
                                   </a>
-                                </div>
-                              ))
-                            )}
-                          </div>
-                        </div>
-
-                        {/* PAGINATION */}
-                        {totalPages > 1 && (
-                          <nav aria-label="Posts pagination" className="flex items-center justify-between px-1">
-                            <p className={`text-[12px] tabular-nums ${t.muted}`} aria-live="polite">
-                              {pageStart + 1}–{Math.min(pageStart + PAGE_SIZE, sortedRows.length)} of{" "}
-                              {nf(sortedRows.length)}
-                            </p>
-                            <div className="flex items-center gap-1">
-                              <IconButton
-                                label="Previous page"
-                                t={t}
-                                onClick={() => setPage(Math.max(1, safePage - 1))}
-                              >
-                                <ChevronLeftIcon
-                                  className={`h-5 w-5 ${safePage === 1 ? "opacity-30" : ""}`}
-                                />
-                              </IconButton>
-                              <IconButton
-                                label="Next page"
-                                t={t}
-                                align="end"
-                                onClick={() => setPage(Math.min(totalPages, safePage + 1))}
-                              >
-                                <ChevronRightIcon
-                                  className={`h-5 w-5 ${safePage === totalPages ? "opacity-30" : ""}`}
-                                />
-                              </IconButton>
+                                ) : (
+                                  <p className={`truncate text-[14px] font-medium ${t.soft}`}>{p.label}</p>
+                                )}
+                                <p className={`text-[11px] ${t.muted}`}>{fmtFull(p.date)}</p>
+                              </div>
                             </div>
-                          </nav>
-                        )}
-                      </section>
+                            {columns.map((c) => (
+                              <span key={c.key} className="tabular-nums">
+                                {c.render(p)}
+                              </span>
+                            ))}
+                            <button
+                              type="button"
+                              aria-label="Post actions"
+                              className={`flex h-8 w-8 items-center justify-center rounded-lg ${t.soft} ${t.hover} ${t.ring}`}
+                            >
+                              <MoreVertical className="h-4 w-4" aria-hidden="true" />
+                            </button>
+                          </div>
+                        ))
+                      )}
                     </div>
-                  </>
-                )}
-              </div>
-            </div>
+                  </div>
+                </section>
+
+                {/* METRICS */}
+                <section className={sectionCard} aria-labelledby="metrics-title">
+                  <div className="flex items-start justify-between gap-3 px-1">
+                    <div>
+                      <h3 id="metrics-title" className={sectionTitle}>
+                        Metrics
+                      </h3>
+                      <p className={sectionSub}>
+                        {periodLabel} · {compareLabel}
+                      </p>
+                    </div>
+                    <IconBtn label="Share metrics" boxed t={t}>
+                      <Send className="h-4 w-4" aria-hidden="true" />
+                    </IconBtn>
+                  </div>
+
+                  <div className="mt-4">
+                    <Segmented<MetricTab>
+                      label="Metric group"
+                      value={metricTab}
+                      onChange={setMetricTab}
+                      t={t}
+                      size="lg"
+                      options={METRIC_TABS}
+                    />
+                  </div>
+
+                  <div className={`mt-3 rounded-2xl border p-4 ${t.panel}`}>
+                    <div className="flex flex-wrap items-start justify-between gap-4">
+                      <div className="flex flex-wrap gap-x-10 gap-y-3 pl-2">
+                        {activeSeries.map((s) => (
+                          <div key={s.key}>
+                            <p className={`text-[11px] font-medium ${t.soft}`}>{s.label}</p>
+                            <p className={`mt-1.5 flex items-center gap-2 text-[28px] font-bold leading-none tracking-tight tabular-nums ${t.text}`}>
+                              <span className="h-2.5 w-2.5 rounded-[3px]" style={{ background: TONES[s.tone] }} aria-hidden="true" />
+                              {nf(seriesTotal(s))}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                      <Segmented<ChartView>
+                        label="Chart view"
+                        value={chartView}
+                        onChange={setChartView}
+                        t={t}
+                        size="lg"
+                        options={CHART_VIEWS}
+                      />
+                    </div>
+
+                    <div className="mt-6">
+                      <Chart dates={dates} series={chartSeries} view={chartView} isDark={isDark} />
+                    </div>
+                  </div>
+                </section>
+              </>
+            )}
           </div>
         </div>
       </div>
