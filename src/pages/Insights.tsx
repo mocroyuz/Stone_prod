@@ -3,6 +3,10 @@
 // Données YouTube réelles via useYouTubeInsights (services/youtube.ts).
 // Les autres réseaux conservent les données d'exemple en attendant leur API.
 //
+// Graphiques rendus avec **Recharts** (npm i recharts) : plus de SVG
+// artisanal, gestion du survol / clavier / axes / tooltips prise en charge
+// par la librairie. Le thème clair/sombre est respecté via un Tooltip custom.
+//
 // Comme dans Community, les posts dont le statut est "scheduled" sont ignorés :
 //   • le statut est lu sur le post s'il est fourni par le hook,
 //   • sinon il est déduit de fetchYouTubeVideos() (le backend renvoie `status`),
@@ -15,8 +19,6 @@ import {
   useMemo,
   useRef,
   useState,
-  type KeyboardEvent as ReactKeyboardEvent,
-  type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from "react";
 import {
@@ -45,6 +47,16 @@ import {
   TrendingUp,
   Zap,
 } from "lucide-react";
+import {
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+} from "recharts";
 import { navigate, useHashRoute } from "../hooks/useHashRoute";
 import { navigateToSettingsSection } from "../utils/settingsNavigation";
 import { useTheme } from "../hooks/useTheme";
@@ -127,6 +139,19 @@ type InsightsData = {
 };
 
 type SeriesDef = { key: NumKey; label: string; tone: 0 | 1; agg: "sum" | "last" };
+
+/** Ligne « plate » consommée par Recharts (une ligne = une date). */
+type ChartRow = {
+  date: string;
+  fullDate: string;
+  left_this: number;
+  left_prev: number;
+  right_this?: number;
+  right_prev?: number;
+};
+
+/** Données d'une série dans le graphe (avant aplatissement). */
+type ChartSeries = { label: string; color: string; values: number[]; prev: number[] };
 
 const RANGES: { key: Range; label: string }[] = [
   { key: "7d", label: "7 Days" },
@@ -467,76 +492,78 @@ function downloadCsv(filename: string, rows: (string | number)[][]) {
 }
 
 /* ============================================================
-   COURBE LISSÉE
+   CHART — Recharts
 ============================================================ */
 
-function smoothPath(pts: [number, number][]): string {
-  const n = pts.length;
-  if (n === 0) return "";
-  if (n === 1) return `M${pts[0][0]},${pts[0][1]}`;
-  const dx: number[] = [];
-  const m: number[] = [];
-  for (let i = 0; i < n - 1; i++) {
-    dx.push(pts[i + 1][0] - pts[i][0]);
-    m.push((pts[i + 1][1] - pts[i][1]) / (dx[i] || 1));
-  }
-  const t: number[] = [m[0]];
-  for (let i = 1; i < n - 1; i++) t.push(m[i - 1] * m[i] <= 0 ? 0 : (m[i - 1] + m[i]) / 2);
-  t.push(m[n - 2]);
-  for (let i = 0; i < n - 1; i++) {
-    if (m[i] === 0) {
-      t[i] = 0;
-      t[i + 1] = 0;
-      continue;
-    }
-    const a = t[i] / m[i];
-    const b = t[i + 1] / m[i];
-    const q = a * a + b * b;
-    if (q > 9) {
-      const k = 3 / Math.sqrt(q);
-      t[i] = k * a * m[i];
-      t[i + 1] = k * b * m[i];
-    }
-  }
-  let d = `M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`;
-  for (let i = 0; i < n - 1; i++) {
-    const h = dx[i] / 3;
-    d += ` C${(pts[i][0] + h).toFixed(1)},${(pts[i][1] + t[i] * h).toFixed(1)} ${(pts[i + 1][0] - h).toFixed(1)},${(
-      pts[i + 1][1] -
-      t[i + 1] * h
-    ).toFixed(1)} ${pts[i + 1][0].toFixed(1)},${pts[i + 1][1].toFixed(1)}`;
-  }
-  return d;
-}
+/** Payload minimal d'une ligne du tooltip Recharts. */
+type TooltipRow = {
+  name?: string | number;
+  value?: number | string;
+  color?: string;
+  payload?: ChartRow;
+};
 
-/* ============================================================
-   CHART
-============================================================ */
-
-type ChartSeries = { label: string; color: string; values: number[]; prev: number[] };
-
-function Chart({
-  dates,
-  series,
-  view,
+function ChartTooltip({
+  active,
+  payload,
   isDark,
 }: {
-  dates: Date[];
-  series: ChartSeries[];
-  view: ChartView;
+  active?: boolean;
+  payload?: ReadonlyArray<TooltipRow>;
   isDark: boolean;
 }) {
-  const [hover, setHover] = useState<number | null>(null);
-  const gradId = useId().replace(/:/g, "");
-  const W = 900;
-  const H = 300;
-  const pad = { l: 52, r: series.length > 1 ? 52 : 16, t: 16, b: 28 };
-  const iw = W - pad.l - pad.r;
-  const ih = H - pad.t - pad.b;
-  const n = dates.length;
+  if (!active || !payload?.length) return null;
+  const row = payload[0]?.payload;
+  if (!row) return null;
 
-  // Le survol peut dépasser après un changement de période : on le borne.
-  const h = hover !== null && hover < n ? hover : null;
+  return (
+    <div
+      className={`min-w-[160px] rounded-xl px-3.5 py-2.5 text-[12px] shadow-[0_8px_30px_rgba(0,0,0,0.35)] ${
+        isDark
+          ? "bg-[#101012] text-white ring-1 ring-white/10"
+          : "bg-white text-neutral-900 ring-1 ring-black/10"
+      }`}
+    >
+      <div className="mb-1 text-[11px] opacity-50">{row.fullDate}</div>
+      {payload.map((p, i) => (
+        <div key={i} className="flex justify-between gap-5">
+          <span className="flex items-center gap-1.5">
+            <span
+              className="h-2 w-2 shrink-0 rounded-[2px]"
+              style={{ background: p.color }}
+              aria-hidden="true"
+            />
+            {p.name}
+          </span>
+          <b className="tabular-nums">{nf(Number(p.value) || 0)}</b>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function InsightsChart({
+  data,
+  view,
+  isDark,
+  seriesLabel,
+  seriesLabel2,
+  seriesColor,
+  seriesColor2,
+  hasSecondAxis,
+}: {
+  data: ChartRow[];
+  view: ChartView;
+  isDark: boolean;
+  seriesLabel: string;
+  seriesLabel2?: string;
+  seriesColor: string;
+  seriesColor2?: string;
+  hasSecondAxis: boolean;
+}) {
+  const uid = useId().replace(/:/g, "");
+  const gradLeft = `gradLeft-${uid}`;
+  const gradRight = `gradRight-${uid}`;
 
   const showThis = view === "this" || view === "both";
   const showPrev = view === "comparison" || view === "both";
@@ -544,197 +571,122 @@ function Chart({
   const axis = isDark ? "#6b6b72" : "#a3a3a3";
   const grid = isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.07)";
 
-  const maxes = series.map((s) =>
-    Math.max(4, ...(showThis ? s.values : []), ...(showPrev ? s.prev : []))
-  );
-
-  const x = (i: number) => pad.l + (n === 1 ? iw / 2 : (i / (n - 1)) * iw);
-  const y = (si: number, v: number) => pad.t + ih - (v / maxes[si]) * ih;
-
-  const path = (si: number, vals: number[]) =>
-    smoothPath(vals.map((v, i) => [x(i), y(si, v ?? 0)] as [number, number]));
-
-  const ticks = [0, 1, 2, 3, 4];
-  const labelIdx = Array.from(new Set([0, 0.5, 1].map((r) => Math.round(r * (n - 1)))));
-  const area = `${path(0, series[0].values)} L${x(n - 1).toFixed(1)},${pad.t + ih} L${x(0).toFixed(1)},${pad.t + ih} Z`;
-
-  const onPointer = (e: ReactPointerEvent<SVGSVGElement>) => {
-    const r = e.currentTarget.getBoundingClientRect();
-    const px = ((e.clientX - r.left) / r.width) * W;
-    const i = n === 1 ? 0 : Math.round(((px - pad.l) / iw) * (n - 1));
-    setHover(Math.max(0, Math.min(n - 1, i)));
-  };
-
-  const onKey = (e: ReactKeyboardEvent<HTMLDivElement>) => {
-    if (e.key === "ArrowRight") setHover((v) => (v === null ? 0 : Math.min(n - 1, v + 1)));
-    else if (e.key === "ArrowLeft") setHover((v) => (v === null ? n - 1 : Math.max(0, v - 1)));
-    else if (e.key === "Home") setHover(0);
-    else if (e.key === "End") setHover(n - 1);
-    else if (e.key === "Escape") setHover(null);
-    else return;
-    e.preventDefault();
-  };
-
   return (
-    <div
-      className={`relative rounded-lg focus-visible:outline-none focus-visible:ring-2 ${
-        isDark ? "focus-visible:ring-white/30" : "focus-visible:ring-black/25"
-      }`}
-      tabIndex={0}
-      role="group"
-      aria-label="Metrics chart. Use the left and right arrow keys to inspect each day."
-      onKeyDown={onKey}
-      onBlur={() => setHover(null)}
-    >
-      <svg
-        viewBox={`0 0 ${W} ${H}`}
-        className="h-auto w-full touch-pan-y"
-        onPointerMove={onPointer}
-        onPointerDown={onPointer}
-        onPointerLeave={() => setHover(null)}
-        aria-hidden="true"
-      >
-        <defs>
-          <linearGradient id={gradId} x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0%" stopColor={series[0].color} stopOpacity="0.14" />
-            <stop offset="100%" stopColor={series[0].color} stopOpacity="0" />
-          </linearGradient>
-        </defs>
-
-        <text
-          x={12}
-          y={pad.t + ih / 2}
-          fontSize="11"
-          fill={axis}
-          textAnchor="middle"
-          transform={`rotate(-90 12 ${pad.t + ih / 2})`}
+    <div className="h-[320px] w-full">
+      <ResponsiveContainer width="100%" height="100%">
+        <AreaChart
+          data={data}
+          margin={{ top: 16, right: hasSecondAxis ? 48 : 16, left: 4, bottom: 0 }}
+          accessibilityLayer
         >
-          {series[0].label}
-        </text>
-        {series.length > 1 && (
-          <text
-            x={W - 12}
-            y={pad.t + ih / 2}
-            fontSize="11"
-            fill={axis}
-            textAnchor="middle"
-            transform={`rotate(90 ${W - 12} ${pad.t + ih / 2})`}
-          >
-            {series[1].label}
-          </text>
-        )}
+          <defs>
+            <linearGradient id={gradLeft} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={seriesColor} stopOpacity={0.14} />
+              <stop offset="100%" stopColor={seriesColor} stopOpacity={0} />
+            </linearGradient>
+            {hasSecondAxis && seriesColor2 && (
+              <linearGradient id={gradRight} x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={seriesColor2} stopOpacity={0.14} />
+                <stop offset="100%" stopColor={seriesColor2} stopOpacity={0} />
+              </linearGradient>
+            )}
+          </defs>
 
-        {ticks.map((tk) => {
-          const yy = pad.t + ih - (tk / 4) * ih;
-          return (
-            <g key={tk}>
-              <line x1={pad.l} x2={W - pad.r} y1={yy} y2={yy} stroke={grid} />
-              <text x={pad.l - 10} y={yy + 3.5} fontSize="11" fill={axis} textAnchor="end" className="tabular-nums">
-                {Math.round((tk / 4) * maxes[0])}
-              </text>
-              {series.length > 1 && (
-                <text x={W - pad.r + 10} y={yy + 3.5} fontSize="11" fill={axis} textAnchor="start" className="tabular-nums">
-                  {Math.round((tk / 4) * maxes[1])}
-                </text>
-              )}
-            </g>
-          );
-        })}
-        {labelIdx.map((i) => (
-          <text
-            key={i}
-            x={x(i)}
-            y={H - 8}
-            fontSize="11"
-            fill={axis}
-            textAnchor={i === 0 ? "start" : i === n - 1 ? "end" : "middle"}
-          >
-            {fmt(dates[i])}
-          </text>
-        ))}
+          <CartesianGrid stroke={grid} vertical={false} />
 
-        {showPrev &&
-          series.map((s, si) => (
-            <path
-              key={`p-${s.label}`}
-              d={path(si, s.prev)}
-              fill="none"
-              stroke={s.color}
-              strokeOpacity="0.5"
-              strokeWidth="2"
-              strokeDasharray="5 5"
-              strokeLinecap="round"
+          <XAxis
+            dataKey="date"
+            tick={{ fill: axis, fontSize: 11 }}
+            axisLine={false}
+            tickLine={false}
+            tickMargin={8}
+            minTickGap={24}
+          />
+
+          <YAxis
+            yAxisId="left"
+            tick={{ fill: axis, fontSize: 11 }}
+            axisLine={false}
+            tickLine={false}
+            tickFormatter={(v) => nf(Number(v))}
+            width={48}
+          />
+          {hasSecondAxis && (
+            <YAxis
+              yAxisId="right"
+              orientation="right"
+              tick={{ fill: axis, fontSize: 11 }}
+              axisLine={false}
+              tickLine={false}
+              tickFormatter={(v) => nf(Number(v))}
+              width={48}
             />
-          ))}
-
-        {showThis && (
-          <>
-            <path d={area} fill={`url(#${gradId})`} />
-            {series.map((s, si) => (
-              <path
-                key={s.label}
-                d={path(si, s.values)}
-                fill="none"
-                stroke={s.color}
-                strokeWidth="2.5"
-                strokeLinejoin="round"
-                strokeLinecap="round"
-              />
-            ))}
-          </>
-        )}
-
-        {h !== null && (
-          <g>
-            <line x1={x(h)} x2={x(h)} y1={pad.t} y2={pad.t + ih} stroke={axis} strokeOpacity="0.6" strokeDasharray="3 3" />
-            {showThis &&
-              series.map((s, si) => (
-                <circle
-                  key={s.label}
-                  cx={x(h)}
-                  cy={y(si, s.values[h] ?? 0)}
-                  r="4.5"
-                  fill={isDark ? "#0f0f11" : "#fff"}
-                  stroke={s.color}
-                  strokeWidth="2.5"
-                />
-              ))}
-          </g>
-        )}
-      </svg>
-
-      {h !== null && (
-        <div
-          className={`pointer-events-none absolute top-1 min-w-[160px] rounded-xl px-3.5 py-2.5 text-[12px] shadow-[0_8px_30px_rgba(0,0,0,0.35)] ${
-            isDark ? "bg-[#101012] text-white ring-1 ring-white/10" : "bg-white text-neutral-900 ring-1 ring-black/10"
-          }`}
-          style={{
-            left: `${(x(h) / W) * 100}%`,
-            transform: `translateX(${h > n / 2 ? "-110%" : "10%"})`,
-          }}
-        >
-          <div className="mb-1 text-[11px] opacity-50">{fmtFull(dates[h])}</div>
-          {showThis &&
-            series.map((s) => (
-              <div key={s.label} className="flex justify-between gap-5">
-                <span>{s.label}</span>
-                <b className="tabular-nums">{nf(s.values[h] ?? 0)}</b>
-              </div>
-            ))}
-          {showPrev && (
-            <div className="mt-1 flex justify-between gap-5 opacity-60">
-              <span>Previous</span>
-              <b className="tabular-nums">{series.map((s) => nf(s.prev[h] ?? 0)).join(" · ")}</b>
-            </div>
           )}
-        </div>
-      )}
 
-      <p className="sr-only" aria-live="polite">
-        {h !== null
-          ? `${fmtFull(dates[h])}: ${series.map((s) => `${s.values[h] ?? 0} ${s.label}`).join(", ")}`
-          : ""}
-      </p>
+          <Tooltip
+            cursor={{ stroke: axis, strokeOpacity: 0.6, strokeDasharray: "3 3" }}
+            content={<ChartTooltip isDark={isDark} />}
+          />
+
+          {showPrev && (
+            <>
+              <Line
+                yAxisId="left"
+                type="monotone"
+                dataKey="left_prev"
+                stroke={seriesColor}
+                strokeOpacity={0.5}
+                strokeDasharray="5 5"
+                strokeWidth={2}
+                dot={false}
+                name={`${seriesLabel} (prev.)`}
+                isAnimationActive={false}
+              />
+              {hasSecondAxis && seriesColor2 && (
+                <Line
+                  yAxisId="right"
+                  type="monotone"
+                  dataKey="right_prev"
+                  stroke={seriesColor2}
+                  strokeOpacity={0.5}
+                  strokeDasharray="5 5"
+                  strokeWidth={2}
+                  dot={false}
+                  name={`${seriesLabel2} (prev.)`}
+                  isAnimationActive={false}
+                />
+              )}
+            </>
+          )}
+
+          {showThis && (
+            <>
+              <Area
+                yAxisId="left"
+                type="monotone"
+                dataKey="left_this"
+                stroke={seriesColor}
+                strokeWidth={2.5}
+                fill={`url(#${gradLeft})`}
+                name={seriesLabel}
+                isAnimationActive={false}
+              />
+              {hasSecondAxis && seriesColor2 && (
+                <Area
+                  yAxisId="right"
+                  type="monotone"
+                  dataKey="right_this"
+                  stroke={seriesColor2}
+                  strokeWidth={2.5}
+                  fill={`url(#${gradRight})`}
+                  name={seriesLabel2}
+                  isAnimationActive={false}
+                />
+              )}
+            </>
+          )}
+        </AreaChart>
+      </ResponsiveContainer>
     </div>
   );
 }
@@ -1173,7 +1125,7 @@ export default function Insights() {
     { label: "Avg. Watch Time (sec)", value: nf(summary.avgWatchSec) },
   ];
 
-  const TONES = [isDark ? "#ffffff" : "#111111", isDark ? "#7c7c85" : "#a3a3a3"];
+  const TONES: [string, string] = [isDark ? "#ffffff" : "#111111", isDark ? "#7c7c85" : "#a3a3a3"];
   const SERIES: Record<MetricTab, SeriesDef[]> = {
     posts: [
       { key: "posts", label: "Posts", tone: 0, agg: "sum" },
@@ -1190,12 +1142,33 @@ export default function Insights() {
     ],
   };
   const activeSeries = SERIES[metricTab];
-  const chartSeries: ChartSeries[] = activeSeries.map((s) => ({
-    label: s.label,
-    color: TONES[s.tone],
-    values: current.map((p) => p[s.key]),
-    prev: previous.map((p) => p[s.key]),
-  }));
+
+  const chartSeries: ChartSeries[] = useMemo(
+    () =>
+      activeSeries.map((s) => ({
+        label: s.label,
+        color: TONES[s.tone],
+        values: current.map((p) => p[s.key]),
+        prev: previous.map((p) => p[s.key]),
+      })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [activeSeries, current, previous, isDark]
+  );
+
+  /** Aplatit les séries pour Recharts (une ligne = une date). */
+  const chartData: ChartRow[] = useMemo(
+    () =>
+      dates.map((d, i) => ({
+        date: fmt(d),
+        fullDate: fmtFull(d),
+        left_this: chartSeries[0]?.values[i] ?? 0,
+        left_prev: chartSeries[0]?.prev[i] ?? 0,
+        right_this: chartSeries[1]?.values[i],
+        right_prev: chartSeries[1]?.prev[i],
+      })),
+    [dates, chartSeries]
+  );
+
   const seriesTotal = (s: SeriesDef) =>
     s.agg === "sum" ? current.reduce((a, p) => a + p[s.key], 0) : current[days - 1]?.[s.key] ?? 0;
 
@@ -1837,7 +1810,16 @@ export default function Insights() {
                     </div>
 
                     <div className="mt-6">
-                      <Chart dates={dates} series={chartSeries} view={chartView} isDark={isDark} />
+                      <InsightsChart
+                        data={chartData}
+                        view={chartView}
+                        isDark={isDark}
+                        seriesLabel={activeSeries[0]?.label ?? "Metric"}
+                        seriesLabel2={activeSeries[1]?.label}
+                        seriesColor={TONES[activeSeries[0]?.tone ?? 0]}
+                        seriesColor2={activeSeries[1] ? TONES[activeSeries[1].tone] : undefined}
+                        hasSecondAxis={activeSeries.length > 1}
+                      />
                     </div>
                   </div>
                 </section>
