@@ -962,20 +962,26 @@ function RangePicker({
   );
 }
 
-/* ============================================================
-   ICÔNE INSIGHTS — identique à celle de la sidebar
-============================================================ */
-
 function InsightsIcon() {
   return (
-  <Svg {...p}>
-    <path d="M3 3v18h18" />
-    <path d="M18 17V9" />
-    <path d="M13 17V5" />
-    <path d="M8 17v-3" />
-  </Svg>
+    <svg
+      viewBox="0 0 24 24"
+      className="h-[18px] w-[18px]"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M3 3v18h18" />
+      <path d="M18 17V9" />
+      <path d="M13 17V5" />
+      <path d="M8 17v-3" />
+    </svg>
   );
 }
+
 
 /* ============================================================
    BANNIÈRE — cartes blanches inclinées
