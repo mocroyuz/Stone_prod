@@ -454,7 +454,10 @@ const CommunityIcon = (p: IconProps) => (
 
 const InsightsIcon = (p: IconProps) => (
   <Svg {...p}>
-    <path d="M5 18V9M12 18V5M19 18v-7M3 20h18" />
+    <path d="M3 3v18h18" />
+    <path d="M18 17V9" />
+    <path d="M13 17V5" />
+    <path d="M8 17v-3" />
   </Svg>
 );
 
