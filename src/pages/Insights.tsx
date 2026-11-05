@@ -1,7 +1,13 @@
 // src/pages/Insights.tsx
-// Page Insights — même shell arrondi que Home (fond de page + panneau rounded-[28px]).
+// Page Insights — même shell arrondi que Home / Community.
 // Données YouTube réelles via useYouTubeInsights (services/youtube.ts).
 // Les autres réseaux conservent les données d'exemple en attendant leur API.
+//
+// Comme dans Community, les posts dont le statut est "scheduled" sont ignorés :
+//   • le statut est lu sur le post s'il est fourni par le hook,
+//   • sinon il est déduit de fetchYouTubeVideos() (le backend renvoie `status`),
+//   • un post sans statut est considéré comme publié (compat ancien backend).
+// Les compteurs (Posts) et la courbe « Posts » sont corrigés en conséquence.
 
 import {
   useEffect,
@@ -9,7 +15,6 @@ import {
   useMemo,
   useRef,
   useState,
-  type ComponentType,
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
@@ -50,22 +55,18 @@ import DashboardSidebar, {
 import BottomBar, { type BottomBarTab } from "../components/Bottombar";
 import Folder from "../components/Folder";
 import HelpChatButton from "../components/Helpchatbutton";
+import ChannelMenu from "../components/ChannelMenu";
 import { CalendarPicker } from "../components/CalendarPicker";
 import NewPostModal, {
   type NewPostPayload,
   unavailablePostActionMessage,
 } from "../components/Newpostmodal";
-import { useConnectedChannels, type ConnectedChannel } from "../hooks/useConnectedChannels";
-import { createPosts } from "../services/posts";
-import { useYouTubeInsights } from "../services/youtube";
 import {
-  InstagramIcon,
-  FacebookIcon,
-  TikTokIcon,
-  YouTubeIcon,
-  PinterestIcon,
-  ThreadsIcon,
-} from "../components/IntegrationIcons";
+  useConnectedChannels,
+  type ConnectedChannel,
+} from "../hooks/useConnectedChannels";
+import { createPosts } from "../services/posts";
+import { fetchYouTubeVideos, useYouTubeInsights } from "../services/youtube";
 
 /** Route de cette page dans la sidebar (section Favorite). */
 const PAGE_ROUTE = "insights";
@@ -73,8 +74,6 @@ const PAGE_ROUTE = "insights";
 /* ============================================================
    TYPES
 ============================================================ */
-
-type IconComponent = ComponentType<{ className?: string; size?: number }>;
 
 type Range = "7d" | "30d" | "mtd" | "custom";
 type ChartView = "this" | "comparison" | "both";
@@ -111,10 +110,20 @@ type PostRow = {
   date: Date;
   media: "image" | "video" | "text";
   thumbnailUrl?: string;
+  /** "scheduled" | "published" | … — absent → considéré comme publié. */
+  status?: string;
   reactions: number;
   comments: number;
   engRate: number;
   videoViews: number;
+};
+
+type InsightsData = {
+  current: Point[];
+  previous: Point[];
+  summary: Summary;
+  posts: PostRow[];
+  previousPosts: PostRow[];
 };
 
 type SeriesDef = { key: NumKey; label: string; tone: 0 | 1; agg: "sum" | "last" };
@@ -148,6 +157,7 @@ type Tokens = {
   sel: string;
   idle: string;
   popover: string;
+  tip: string;
 };
 
 const tokens = (isDark: boolean): Tokens =>
@@ -170,6 +180,7 @@ const tokens = (isDark: boolean): Tokens =>
         sel: "bg-white text-black",
         idle: "text-neutral-400 hover:text-white",
         popover: "border-white/10 bg-[#101012]",
+        tip: "bg-[#2e2e31]",
       }
     : {
         page: "bg-[#f5f3ef]",
@@ -189,6 +200,7 @@ const tokens = (isDark: boolean): Tokens =>
         sel: "bg-neutral-900 text-white",
         idle: "text-neutral-500 hover:text-neutral-900",
         popover: "border-black/10 bg-white",
+        tip: "bg-neutral-900",
       };
 
 /* ============================================================
@@ -214,7 +226,7 @@ const fmt = (d: Date) => d.toLocaleDateString("en-US", { day: "numeric", month: 
 const fmtFull = (d: Date) =>
   d.toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" });
 const fmtRange = (a: Date, b: Date) => `${fmt(a)} - ${fmtFull(b)}`;
-const nf = (n: number) => n.toLocaleString("en-US");
+const nf = (n: number) => (Number.isFinite(n) ? n : 0).toLocaleString("en-US");
 
 function resolveRange(range: Range, customStart: Date, customEnd: Date) {
   const today = startOfDay(new Date());
@@ -234,22 +246,152 @@ function resolveRange(range: Range, customStart: Date, customEnd: Date) {
 }
 
 /* ============================================================
+   CANAUX
+============================================================ */
+
+function useHashChannel(): string | null {
+  useHashRoute();
+  return new URLSearchParams(window.location.search).get("channel");
+}
+
+function isYouTubeChannel(c?: ConnectedChannel): boolean {
+  if (!c) return false;
+  return c.platform === "youtube" || c.key.toLowerCase().startsWith("youtube");
+}
+
+/* ============================================================
+   POSTS PROGRAMMÉS (scheduled) — ignorés partout dans la page
+============================================================ */
+
+const EMPTY_IDS: ReadonlySet<string> = new Set<string>();
+
+type ScheduledEntry = { ids: ReadonlySet<string>; at: number };
+
+/** Cache module (survit aux navigations SPA), comme dans Community. */
+const scheduledCache = new Map<string, ScheduledEntry>();
+const SCHEDULED_FRESH_MS = 2 * 60_000;
+
+/**
+ * Renvoie les ids des vidéos encore programmées.
+ * `ready` reste false tant que la première réponse n'est pas arrivée
+ * (évite d'afficher un instant des posts programmés avant de les filtrer).
+ */
+function useScheduledVideoIds(
+  channelKey: string | undefined,
+  enabled: boolean,
+  reloadKey: number
+): { ids: ReadonlySet<string>; ready: boolean } {
+  const active = enabled && Boolean(channelKey);
+
+  const [ids, setIds] = useState<ReadonlySet<string>>(() =>
+    active && channelKey ? scheduledCache.get(channelKey)?.ids ?? EMPTY_IDS : EMPTY_IDS
+  );
+  const [ready, setReady] = useState<boolean>(
+    () => !active || (channelKey ? scheduledCache.has(channelKey) : true)
+  );
+  const lastReloadRef = useRef(reloadKey);
+
+  useEffect(() => {
+    const forceReload = reloadKey !== lastReloadRef.current;
+    lastReloadRef.current = reloadKey;
+
+    if (!active || !channelKey) {
+      setIds(EMPTY_IDS);
+      setReady(true);
+      return;
+    }
+
+    const key = channelKey;
+    const cached = scheduledCache.get(key);
+
+    if (cached) {
+      setIds(cached.ids);
+      setReady(true);
+    } else {
+      setIds(EMPTY_IDS);
+      setReady(false);
+    }
+
+    const stale = !cached || Date.now() - cached.at >= SCHEDULED_FRESH_MS;
+    if (!forceReload && !stale) return;
+
+    let cancelled = false;
+
+    fetchYouTubeVideos()
+      .then((r) => {
+        if (cancelled) return;
+        const list = Array.isArray(r?.videos) ? r.videos : [];
+        const next = new Set<string>(
+          list
+            .filter((v) => (v as { status?: string }).status === "scheduled")
+            .map((v) => v.id)
+        );
+        scheduledCache.set(key, { ids: next, at: Date.now() });
+        setIds(next);
+        setReady(true);
+      })
+      .catch(() => {
+        // Impossible de connaître les statuts : on n'empêche pas l'affichage.
+        if (!cancelled) setReady(true);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [active, channelKey, reloadKey]);
+
+  return { ids, ready };
+}
+
+/** Retire `dropped` des compteurs « posts » par jour. */
+function dropFromPoints(points: Point[], dropped: PostRow[]): Point[] {
+  if (dropped.length === 0) return points;
+  const perDay = new Map<number, number>();
+  for (const p of dropped) {
+    const k = startOfDay(p.date).getTime();
+    perDay.set(k, (perDay.get(k) ?? 0) + 1);
+  }
+  return points.map((pt) => {
+    const n = perDay.get(startOfDay(pt.date).getTime());
+    return n ? { ...pt, posts: Math.max(0, pt.posts - n) } : pt;
+  });
+}
+
+function withoutScheduled(
+  data: InsightsData,
+  scheduledIds: ReadonlySet<string>
+): { data: InsightsData; skipped: { current: number; previous: number } } {
+  const isScheduled = (p: PostRow) => p.status === "scheduled" || scheduledIds.has(p.id);
+
+  const droppedCurrent = data.posts.filter(isScheduled);
+  const droppedPrevious = data.previousPosts.filter(isScheduled);
+
+  if (droppedCurrent.length === 0 && droppedPrevious.length === 0) {
+    return { data, skipped: { current: 0, previous: 0 } };
+  }
+
+  return {
+    data: {
+      current: dropFromPoints(data.current, droppedCurrent),
+      previous: dropFromPoints(data.previous, droppedPrevious),
+      summary: {
+        ...data.summary,
+        posts: Math.max(0, data.summary.posts - droppedCurrent.length),
+      },
+      posts: data.posts.filter((p) => !isScheduled(p)),
+      previousPosts: data.previousPosts.filter((p) => !isScheduled(p)),
+    },
+    skipped: { current: droppedCurrent.length, previous: droppedPrevious.length },
+  };
+}
+
+/* ============================================================
    DONNÉES D'EXEMPLE (réseaux sans API pour l'instant)
    `sample = false` renvoie un squelette vide (zéros) : utilisé
    pour YouTube tant que les vraies données ne sont pas arrivées.
 ============================================================ */
 
-function useInsights(
-  start: Date,
-  end: Date,
-  sample: boolean
-): {
-  current: Point[];
-  previous: Point[];
-  summary: Summary;
-  posts: PostRow[];
-  previousPosts: PostRow[];
-} {
+function useSampleInsights(start: Date, end: Date, sample: boolean): InsightsData {
   const s = start.getTime();
   const e = end.getTime();
 
@@ -305,13 +447,17 @@ function useInsights(
   }, [s, e, sample]);
 }
 
-function useHashChannel(): string | null {
-  useHashRoute();
-  return new URLSearchParams(window.location.search).get("channel");
-}
+/* ============================================================
+   EXPORT CSV
+============================================================ */
+
+const csvCell = (v: string | number) => {
+  const s = String(v);
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+};
 
 function downloadCsv(filename: string, rows: (string | number)[][]) {
-  const csv = rows.map((r) => r.join(",")).join("\n");
+  const csv = "\uFEFF" + rows.map((r) => r.map(csvCell).join(",")).join("\n");
   const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
   const a = document.createElement("a");
   a.href = url;
@@ -355,9 +501,10 @@ function smoothPath(pts: [number, number][]): string {
   let d = `M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`;
   for (let i = 0; i < n - 1; i++) {
     const h = dx[i] / 3;
-    d += ` C${(pts[i][0] + h).toFixed(1)},${(pts[i][1] + t[i] * h).toFixed(1)} ${(pts[i + 1][0] - h).toFixed(1)},${
-      (pts[i + 1][1] - t[i + 1] * h).toFixed(1)
-    } ${pts[i + 1][0].toFixed(1)},${pts[i + 1][1].toFixed(1)}`;
+    d += ` C${(pts[i][0] + h).toFixed(1)},${(pts[i][1] + t[i] * h).toFixed(1)} ${(pts[i + 1][0] - h).toFixed(1)},${(
+      pts[i + 1][1] -
+      t[i + 1] * h
+    ).toFixed(1)} ${pts[i + 1][0].toFixed(1)},${pts[i + 1][1].toFixed(1)}`;
   }
   return d;
 }
@@ -388,6 +535,9 @@ function Chart({
   const ih = H - pad.t - pad.b;
   const n = dates.length;
 
+  // Le survol peut dépasser après un changement de période : on le borne.
+  const h = hover !== null && hover < n ? hover : null;
+
   const showThis = view === "this" || view === "both";
   const showPrev = view === "comparison" || view === "both";
 
@@ -402,7 +552,7 @@ function Chart({
   const y = (si: number, v: number) => pad.t + ih - (v / maxes[si]) * ih;
 
   const path = (si: number, vals: number[]) =>
-    smoothPath(vals.map((v, i) => [x(i), y(si, v)] as [number, number]));
+    smoothPath(vals.map((v, i) => [x(i), y(si, v ?? 0)] as [number, number]));
 
   const ticks = [0, 1, 2, 3, 4];
   const labelIdx = Array.from(new Set([0, 0.5, 1].map((r) => Math.round(r * (n - 1)))));
@@ -416,8 +566,8 @@ function Chart({
   };
 
   const onKey = (e: ReactKeyboardEvent<HTMLDivElement>) => {
-    if (e.key === "ArrowRight") setHover((h) => (h === null ? 0 : Math.min(n - 1, h + 1)));
-    else if (e.key === "ArrowLeft") setHover((h) => (h === null ? n - 1 : Math.max(0, h - 1)));
+    if (e.key === "ArrowRight") setHover((v) => (v === null ? 0 : Math.min(n - 1, v + 1)));
+    else if (e.key === "ArrowLeft") setHover((v) => (v === null ? n - 1 : Math.max(0, v - 1)));
     else if (e.key === "Home") setHover(0);
     else if (e.key === "End") setHover(n - 1);
     else if (e.key === "Escape") setHover(null);
@@ -534,15 +684,15 @@ function Chart({
           </>
         )}
 
-        {hover !== null && (
+        {h !== null && (
           <g>
-            <line x1={x(hover)} x2={x(hover)} y1={pad.t} y2={pad.t + ih} stroke={axis} strokeOpacity="0.6" strokeDasharray="3 3" />
+            <line x1={x(h)} x2={x(h)} y1={pad.t} y2={pad.t + ih} stroke={axis} strokeOpacity="0.6" strokeDasharray="3 3" />
             {showThis &&
               series.map((s, si) => (
                 <circle
                   key={s.label}
-                  cx={x(hover)}
-                  cy={y(si, s.values[hover])}
+                  cx={x(h)}
+                  cy={y(si, s.values[h] ?? 0)}
                   r="4.5"
                   fill={isDark ? "#0f0f11" : "#fff"}
                   stroke={s.color}
@@ -553,36 +703,36 @@ function Chart({
         )}
       </svg>
 
-      {hover !== null && (
+      {h !== null && (
         <div
           className={`pointer-events-none absolute top-1 min-w-[160px] rounded-xl px-3.5 py-2.5 text-[12px] shadow-[0_8px_30px_rgba(0,0,0,0.35)] ${
             isDark ? "bg-[#101012] text-white ring-1 ring-white/10" : "bg-white text-neutral-900 ring-1 ring-black/10"
           }`}
           style={{
-            left: `${(x(hover) / W) * 100}%`,
-            transform: `translateX(${hover > n / 2 ? "-110%" : "10%"})`,
+            left: `${(x(h) / W) * 100}%`,
+            transform: `translateX(${h > n / 2 ? "-110%" : "10%"})`,
           }}
         >
-          <div className="mb-1 text-[11px] opacity-50">{fmtFull(dates[hover])}</div>
+          <div className="mb-1 text-[11px] opacity-50">{fmtFull(dates[h])}</div>
           {showThis &&
             series.map((s) => (
               <div key={s.label} className="flex justify-between gap-5">
                 <span>{s.label}</span>
-                <b className="tabular-nums">{nf(s.values[hover])}</b>
+                <b className="tabular-nums">{nf(s.values[h] ?? 0)}</b>
               </div>
             ))}
           {showPrev && (
             <div className="mt-1 flex justify-between gap-5 opacity-60">
               <span>Previous</span>
-              <b className="tabular-nums">{series.map((s) => nf(s.prev[hover])).join(" · ")}</b>
+              <b className="tabular-nums">{series.map((s) => nf(s.prev[h] ?? 0)).join(" · ")}</b>
             </div>
           )}
         </div>
       )}
 
       <p className="sr-only" aria-live="polite">
-        {hover !== null
-          ? `${fmtFull(dates[hover])}: ${series.map((s) => `${s.values[hover]} ${s.label}`).join(", ")}`
+        {h !== null
+          ? `${fmtFull(dates[h])}: ${series.map((s) => `${s.values[h] ?? 0} ${s.label}`).join(", ")}`
           : ""}
       </p>
     </div>
@@ -636,30 +786,59 @@ function Segmented<T extends string>({
   );
 }
 
+/** Bouton icône avec infobulle (même comportement que dans Community). */
 function IconBtn({
   label,
   onClick,
+  href,
   children,
   t,
   boxed = false,
+  align = "center",
+  disabled = false,
+  className = "h-9 w-9",
 }: {
   label: string;
   onClick?: () => void;
+  href?: string;
   children: ReactNode;
   t: Tokens;
   boxed?: boolean;
+  align?: "center" | "end";
+  disabled?: boolean;
+  className?: string;
 }) {
+  const cls = [
+    "flex shrink-0 items-center justify-center rounded-xl transition-colors motion-reduce:transition-none disabled:cursor-not-allowed disabled:opacity-40",
+    t.ring,
+    t.soft,
+    boxed ? `border ${t.inner} ${t.hover}` : t.hover,
+    className,
+  ].join(" ");
+
   return (
-    <button
-      type="button"
-      aria-label={label}
-      onClick={onClick}
-      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-colors ${t.ring} ${t.soft} ${
-        boxed ? `border ${t.inner} ${t.hover}` : t.hover
-      }`}
-    >
-      {children}
-    </button>
+    <span className="group relative inline-flex shrink-0">
+      {href ? (
+        <a href={href} target="_blank" rel="noopener noreferrer" aria-label={label} className={cls}>
+          {children}
+        </a>
+      ) : (
+        <button type="button" aria-label={label} onClick={onClick} disabled={disabled} className={cls}>
+          {children}
+        </button>
+      )}
+
+      <span
+        role="tooltip"
+        className={[
+          "pointer-events-none absolute top-full z-50 mt-2 w-max max-w-[240px] rounded-lg px-3 py-2 text-[12.5px] font-medium leading-snug text-white opacity-0 shadow-lg transition-opacity duration-150 motion-reduce:transition-none group-hover:opacity-100 group-hover:delay-300 group-focus-within:opacity-100",
+          t.tip,
+          align === "end" ? "right-0" : "left-1/2 -translate-x-1/2",
+        ].join(" ")}
+      >
+        {label}
+      </span>
+    </span>
   );
 }
 
@@ -668,188 +847,11 @@ function MetricBox({ label, value, info, t }: { label: string; value: string; in
     <div className={`flex flex-col gap-2 rounded-xl border px-3.5 py-3 ${t.inner}`}>
       <span className={`flex items-center justify-between gap-2 text-[10px] font-medium ${t.soft}`}>
         <span className="truncate">{label}</span>
-        <span title={info} className={`shrink-0 ${t.muted}`}>
-          <Info className="h-3.5 w-3.5" aria-label={info} />
+        <span title={info} role="img" aria-label={info} className={`shrink-0 ${t.muted}`}>
+          <Info className="h-3.5 w-3.5" aria-hidden="true" />
         </span>
       </span>
       <span className={`text-[20px] font-bold leading-none tracking-tight tabular-nums ${t.text}`}>{value}</span>
-    </div>
-  );
-}
-
-const NETWORK_ICONS: Record<string, IconComponent> = {
-  instagram: InstagramIcon,
-  facebook: FacebookIcon,
-  threads: ThreadsIcon,
-  youtube: YouTubeIcon,
-  tiktok: TikTokIcon,
-  pinterest: PinterestIcon,
-};
-
-function channelNetwork(c?: ConnectedChannel): string {
-  if (!c) return "";
-  const extra = c as ConnectedChannel & {
-    network?: string;
-    platform?: string;
-    provider?: string;
-  };
-  const raw = c.key ?? extra.network ?? extra.platform ?? extra.provider ?? "";
-  return String(raw).toLowerCase();
-}
-
-function isYouTubeChannel(c?: ConnectedChannel): boolean {
-  if (!c) return false;
-  const extra = c as ConnectedChannel & { platform?: string };
-  return channelNetwork(c).startsWith("youtube") || extra.platform === "youtube";
-}
-
-function NetworkIcon({ channel, isDark }: { channel?: ConnectedChannel; isDark: boolean }) {
-  const key = channelNetwork(channel);
-  const Icon = Object.entries(NETWORK_ICONS).find(([k]) => key.includes(k))?.[1];
-  if (!Icon) return null;
-  return (
-    <span
-      className={`absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-white text-black ring-1 ${
-        isDark ? "ring-[#0a0a0c]" : "ring-white"
-      }`}
-    >
-      <Icon className="h-2.5 w-2.5" />
-    </span>
-  );
-}
-
-function Avatar({
-  channel,
-  isDark,
-  size = 36,
-  showNetwork = true,
-}: {
-  channel?: ConnectedChannel;
-  isDark: boolean;
-  size?: number;
-  showNetwork?: boolean;
-}) {
-  const [failed, setFailed] = useState(false);
-  useEffect(() => setFailed(false), [channel?.avatarUrl]);
-  const label = (channel?.handle || channel?.name || "?").replace(/^@/, "");
-  const box = { width: size, height: size };
-
-  return (
-    <span className="relative inline-flex shrink-0" style={box}>
-      {channel?.avatarUrl && !failed ? (
-        <img
-          src={channel.avatarUrl}
-          alt=""
-          referrerPolicy="no-referrer"
-          onError={() => setFailed(true)}
-          style={box}
-          className="rounded-full object-cover"
-        />
-      ) : (
-        <span
-          style={box}
-          className={`flex items-center justify-center rounded-full text-[12px] font-semibold ${
-            isDark ? "bg-white text-black" : "bg-neutral-900 text-white"
-          }`}
-        >
-          {label.charAt(0).toUpperCase() || "?"}
-        </span>
-      )}
-      {showNetwork && <NetworkIcon channel={channel} isDark={isDark} />}
-    </span>
-  );
-}
-
-/** Menu de sélection de canal (local à Insights) — sans bouton marque-page. */
-function ChannelMenu({
-  channels,
-  current,
-  t,
-  isDark,
-}: {
-  channels: ConnectedChannel[];
-  current?: ConnectedChannel;
-  t: Tokens;
-  isDark: boolean;
-}) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: PointerEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
-    document.addEventListener("pointerdown", onDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("pointerdown", onDown);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
-
-  const name = (c?: ConnectedChannel) => (c ? (c.handle || c.name).replace(/^@/, "") : "No channel");
-  const canSwitch = channels.length > 1;
-
-  return (
-    <div ref={ref} className="relative">
-      <div className="flex items-center gap-1.5">
-        <button
-          type="button"
-          aria-haspopup="menu"
-          aria-expanded={open}
-          disabled={!canSwitch}
-          onClick={() => setOpen((o) => !o)}
-          className={`flex items-center gap-3 rounded-xl py-1 pr-2 transition-colors disabled:cursor-default ${t.ring} ${canSwitch ? t.hover : ""}`}
-        >
-          <Avatar channel={current} isDark={isDark} size={28} />
-          <span className={`max-w-[160px] truncate text-[14px] font-semibold tracking-[-0.01em] ${t.text}`}>
-            {name(current)}
-          </span>
-          {canSwitch && <ChevronDown className={`h-4 w-4 ${t.muted}`} aria-hidden="true" />}
-        </button>
-      </div>
-
-      {open && (
-        <div
-          role="menu"
-          className={`absolute right-0 z-30 mt-2 w-64 rounded-2xl border p-1.5 shadow-[0_12px_40px_rgba(0,0,0,0.5)] ${t.popover}`}
-        >
-          {channels.map((c) => {
-            const active = c.key === current?.key;
-            return (
-              <button
-                key={c.key}
-                type="button"
-                role="menuitemradio"
-                aria-checked={active}
-                onClick={() => {
-                  setOpen(false);
-                  navigate(`insights?channel=${encodeURIComponent(c.key)}`);
-                }}
-                className={`flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left transition-colors ${t.ring} ${t.hover}`}
-              >
-                <Avatar channel={c} isDark={isDark} size={28} showNetwork={false} />
-                <span className={`min-w-0 flex-1 truncate text-[12px] font-semibold ${t.text}`}>{name(c)}</span>
-                {active && <Check className={`h-4 w-4 ${t.text}`} aria-hidden="true" />}
-              </button>
-            );
-          })}
-          <div className={`my-1 border-t ${t.border}`} />
-          <button
-            type="button"
-            role="menuitem"
-            onClick={() => navigateToSettingsSection("channels")}
-            className={`flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left text-[12px] font-semibold transition-colors ${t.ring} ${t.hover} ${t.soft}`}
-          >
-            <span className="flex h-7 w-7 items-center justify-center rounded-full border border-dashed border-current opacity-60">
-              <Plus className="h-3.5 w-3.5" aria-hidden="true" />
-            </span>
-            Manage channels
-          </button>
-        </div>
-      )}
     </div>
   );
 }
@@ -891,10 +893,10 @@ function RangePicker({
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setOpen(false);
     };
-    document.addEventListener("mousedown", onDown);
+    document.addEventListener("pointerdown", onDown);
     document.addEventListener("keydown", onKey);
     return () => {
-      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("pointerdown", onDown);
       document.removeEventListener("keydown", onKey);
     };
   }, [open]);
@@ -1047,7 +1049,9 @@ function TipCard({
   cta?: string;
 }) {
   return (
-    <div className={`absolute w-[176px] rounded-xl bg-white p-3 text-black shadow-[0_6px_22px_rgba(0,0,0,0.35)] ring-1 ring-black/5 ${className}`}>
+    <div
+      className={`absolute w-[176px] rounded-xl bg-white p-3 text-black shadow-[0_6px_22px_rgba(0,0,0,0.35)] ring-1 ring-black/5 ${className}`}
+    >
       <div className="flex items-center gap-2">
         <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-neutral-900 text-white">
           {icon}
@@ -1070,7 +1074,7 @@ function TipCard({
 
 const SUMMARY_INFO: Record<string, string> = {
   "Total Followers": "Total number of followers at the end of the period.",
-  Posts: "Posts published during the period.",
+  Posts: "Published posts during the period (scheduled posts are not counted).",
   Reactions: "Likes and other reactions received.",
   Comments: "Comments received on your posts.",
   "Eng. Rate": "Engagement divided by reach.",
@@ -1081,20 +1085,38 @@ const SUMMARY_INFO: Record<string, string> = {
   "Avg. Watch Time (sec)": "Average seconds watched per view.",
 };
 
+const TABLE_GRID = "grid-cols-[minmax(0,2.3fr)_1fr_1fr_1fr_1fr_44px]";
+
 export default function Insights() {
   const { theme } = useTheme();
   const isDark = theme === "dark";
   const t = useMemo(() => tokens(isDark), [isDark]);
   const sidebarOffset = useSidebarOffset();
   const channels = useConnectedChannels();
-  const channelKey = useHashChannel();
-  const channel = channels.find((c) => c.key === channelKey) ?? channels[0];
-  const isYouTube = isYouTubeChannel(channel);
 
   // Favoris partagés avec la sidebar : le marque-page du header ajoute /
   // retire cette page de la section « Favorite ».
   const { isFavorite, toggle: toggleFavorite } = useFavorites();
   const saved = isFavorite(PAGE_ROUTE);
+
+  // Sélection du canal — même logique que Community.
+  const hashChannel = useHashChannel();
+  const [selectedKey, setSelectedKey] = useState<string | null>(hashChannel);
+
+  useEffect(() => {
+    if (hashChannel) setSelectedKey(hashChannel);
+  }, [hashChannel]);
+
+  const channel =
+    channels.find((c) => c.key === selectedKey) ??
+    channels.find((c) => isYouTubeChannel(c)) ??
+    channels[0];
+  const isYouTube = isYouTubeChannel(channel);
+
+  const goChannel = (key: string) => {
+    setSelectedKey(key);
+    window.history.replaceState(null, "", `/insights?channel=${encodeURIComponent(key)}`);
+  };
 
   const [range, setRange] = useState<Range>("30d");
   const [customStart, setCustomStart] = useState(() => addDays(startOfDay(new Date()), -29));
@@ -1113,17 +1135,28 @@ export default function Insights() {
     [range, customStart, customEnd]
   );
 
-  // YouTube : vraies données. Autres réseaux : données d'exemple.
-  // Pour YouTube, le squelette vide sert d'affichage pendant le chargement.
+  /* ── Données ──
+     YouTube : vraies données (squelette vide pendant le chargement).
+     Autres réseaux : données d'exemple.
+     Dans tous les cas, les posts « scheduled » sont retirés. */
   const yt = useYouTubeInsights(start, end, isYouTube && Boolean(channel), reloadKey);
-  const fallback = useInsights(start, end, !isYouTube);
-  const { current, previous, summary, posts, previousPosts } =
-    isYouTube && yt.data ? yt.data : fallback;
+  const scheduled = useScheduledVideoIds(channel?.key, isYouTube, reloadKey);
+  const fallback = useSampleInsights(start, end, !isYouTube);
+
+  const source: InsightsData = isYouTube && yt.data && scheduled.ready ? yt.data : fallback;
+
+  const { data, skipped } = useMemo(
+    () => withoutScheduled(source, scheduled.ids),
+    [source, scheduled.ids]
+  );
+  const { current, previous, summary, posts, previousPosts } = data;
+
+  const youtubeLoading = isYouTube && ((yt.loading && !yt.data) || !scheduled.ready);
 
   const days = current.length;
   const dates = current.map((p) => p.date);
-  const prevStart = previous[0].date;
-  const prevEnd = previous[days - 1].date;
+  const prevStart = previous[0]?.date ?? addDays(start, -days);
+  const prevEnd = previous[days - 1]?.date ?? addDays(start, -1);
   const periodLabel = fmtRange(start, end);
   const compareLabel = `Compared to ${fmtRange(prevStart, prevEnd)}`;
 
@@ -1192,16 +1225,18 @@ export default function Insights() {
     { key: "both", label: "Both" },
   ];
 
+  /* ── Tableau des posts ── */
   const rows = postsPeriod === "this" ? posts : previousPosts;
+  const hiddenScheduled = postsPeriod === "this" ? skipped.current : skipped.previous;
   const needle = query.trim().toLowerCase();
+
   const sortedRows = useMemo(() => {
-    const matchingRows = needle
-      ? rows.filter((post) => post.label.toLowerCase().includes(needle))
-      : rows;
-    if (!sort) return matchingRows;
+    const matching = needle ? rows.filter((post) => post.label.toLowerCase().includes(needle)) : rows;
+    if (!sort) return matching;
     const dir = sort.dir === "asc" ? 1 : -1;
-    return [...matchingRows].sort((a, b) => (a[sort.key] - b[sort.key]) * dir);
+    return [...matching].sort((a, b) => (a[sort.key] - b[sort.key]) * dir);
   }, [rows, sort, needle]);
+
   const toggleSort = (key: SortKey) =>
     setSort((s) => (s?.key === key ? { key, dir: s.dir === "desc" ? "asc" : "desc" } : { key, dir: "desc" }));
 
@@ -1211,23 +1246,35 @@ export default function Insights() {
     { key: "engRate", label: "Eng. Rate", render: (p) => `${p.engRate.toFixed(2)}%` },
     { key: "videoViews", label: "Video Views", render: (p) => nf(p.videoViews) },
   ];
-  const TABLE_GRID = "grid-cols-[minmax(0,2.3fr)_1fr_1fr_1fr_1fr_44px]";
 
   const exportCsv = () => {
     const rowsCsv: (string | number)[][] = [
       ["date", "followers", "posts", "reactions", "comments", "profile_views", "previous_followers"],
     ];
     current.forEach((p, i) =>
-      rowsCsv.push([toInput(p.date), p.followers, p.posts, p.reactions, p.comments, p.profileViews, previous[i].followers])
+      rowsCsv.push([
+        toInput(p.date),
+        p.followers,
+        p.posts,
+        p.reactions,
+        p.comments,
+        p.profileViews,
+        previous[i]?.followers ?? 0,
+      ])
     );
     downloadCsv(`insights-${toInput(start)}-${toInput(end)}.csv`, rowsCsv);
+  };
+
+  /* ── Barre du bas / nouveau post ── */
+  const openNewPost = () => {
+    setIsFolderOpen(false);
+    setIsNewPostOpen(true);
   };
 
   const handleBottomBarChange = (id: BottomBarTab) => {
     switch (id) {
       case "add":
-        setIsFolderOpen(false);
-        setIsNewPostOpen(true);
+        openNewPost();
         break;
       case "files":
         setIsFolderOpen((open) => !open);
@@ -1245,13 +1292,17 @@ export default function Insights() {
   };
 
   const mediaIcon = (m: PostRow["media"]) =>
-    m === "video" ? <Play className="h-4 w-4" /> : m === "text" ? <FileText className="h-4 w-4" /> : <ImageIcon className="h-4 w-4" />;
+    m === "video" ? (
+      <Play className="h-4 w-4" />
+    ) : m === "text" ? (
+      <FileText className="h-4 w-4" />
+    ) : (
+      <ImageIcon className="h-4 w-4" />
+    );
 
   const sectionCard = `rounded-2xl border p-4 ${t.card}`;
   const sectionTitle = `text-[15px] font-semibold tracking-[-0.02em] ${t.text}`;
   const sectionSub = `mt-1 text-[11px] ${t.muted}`;
-
-  const youtubeLoading = isYouTube && yt.loading && !yt.data;
 
   return (
     <main
@@ -1280,9 +1331,7 @@ export default function Insights() {
             "rounded-[28px] border",
             "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
             "transition-colors duration-300",
-            isDark
-              ? "border-white/[0.07] bg-[#0a0a0c]"
-              : "border-black/[0.06] bg-white",
+            isDark ? "border-white/[0.07] bg-[#0a0a0c]" : "border-black/[0.06] bg-white",
           ].join(" ")}
         >
           <div
@@ -1292,8 +1341,8 @@ export default function Insights() {
               "pb-[120px] pt-[clamp(18px,3vw,30px)]",
             ].join(" ")}
           >
-            {/* HEADER COMPACT (remplace PageHeader) */}
-            <div className="flex shrink-0 flex-wrap items-center justify-between gap-3">
+            {/* HEADER COMPACT */}
+            <div className="relative z-40 flex shrink-0 flex-wrap items-center justify-between gap-3">
               <div className="flex min-w-0 items-center gap-2.5">
                 <span
                   className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border ${t.inner} ${t.soft}`}
@@ -1304,28 +1353,35 @@ export default function Insights() {
                   Insights
                 </h1>
               </div>
+
               <div className="flex flex-wrap items-center gap-2.5 print:hidden">
-                <ChannelMenu channels={channels} current={channel} t={t} isDark={isDark} />
+                <ChannelMenu
+                  channels={channels}
+                  current={channel}
+                  isDark={isDark}
+                  onSelect={goChannel}
+                />
 
-                {isYouTube && (
-                  <IconBtn label="Refresh insights" t={t} onClick={() => setReloadKey((k) => k + 1)}>
-                    <RefreshCw
-                      className={`h-4 w-4 ${yt.loading ? "animate-spin motion-reduce:animate-none" : ""}`}
-                      aria-hidden="true"
-                    />
-                  </IconBtn>
-                )}
+                <div className="flex items-center gap-2">
+                  {isYouTube && (
+                    <IconBtn label="Refresh insights" t={t} onClick={() => setReloadKey((k) => k + 1)}>
+                      <RefreshCw
+                        className={`h-[18px] w-[18px] ${yt.loading ? "animate-spin motion-reduce:animate-none" : ""}`}
+                        aria-hidden="true"
+                      />
+                    </IconBtn>
+                  )}
 
-                <button
-                  type="button"
-                  onClick={exportCsv}
-                  disabled={!channel}
-                  className={`flex h-10 items-center gap-2 rounded-xl px-3.5 text-[12px] font-semibold transition-colors disabled:opacity-40 ${t.ring} ${t.outlineBtn}`}
-                >
-                  <Download className="h-4 w-4" aria-hidden="true" />
-                  Export
-                  <ChevronDown className="h-3.5 w-3.5 opacity-70" aria-hidden="true" />
-                </button>
+                  <button
+                    type="button"
+                    onClick={exportCsv}
+                    disabled={!channel}
+                    className={`flex h-9 items-center gap-2 rounded-xl px-3.5 text-[12px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${t.ring} ${t.outlineBtn}`}
+                  >
+                    <Download className="h-4 w-4" aria-hidden="true" />
+                    Export
+                  </button>
+                </div>
 
                 {/* Marque-page : sans contour, fond au survol uniquement
                     (même style que Channels / Community / Schedule). */}
@@ -1336,22 +1392,21 @@ export default function Insights() {
                   title={saved ? "Remove from favorites" : "Add to favorites"}
                   onClick={() => toggleFavorite(PAGE_ROUTE)}
                   className={[
-                    "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors motion-reduce:transition-none",
+                    "ml-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-colors motion-reduce:transition-none",
                     t.ring,
                     t.soft,
                     t.hover,
                   ].join(" ")}
                 >
-                  <Bookmark
-                    className={`h-4 w-4 ${saved ? "fill-current" : ""}`}
-                    aria-hidden="true"
-                  />
+                  <Bookmark className={`h-5 w-5 ${saved ? "fill-current" : ""}`} aria-hidden="true" />
                 </button>
               </div>
             </div>
 
             {!channel ? (
-              <section className={`flex flex-col items-center gap-3 rounded-2xl border px-6 py-20 text-center ${t.panel}`}>
+              <section
+                className={`flex flex-col items-center gap-3 rounded-2xl border px-6 py-20 text-center ${t.panel}`}
+              >
                 <span className={`flex h-11 w-11 items-center justify-center rounded-full ${t.iconBox}`}>
                   <Activity className="h-5 w-5" aria-hidden="true" />
                 </span>
@@ -1376,9 +1431,7 @@ export default function Insights() {
                     role="alert"
                     className={`flex flex-wrap items-center justify-between gap-3 rounded-2xl border px-4 py-3 ${t.panel}`}
                   >
-                    <p className="text-[12.5px] text-red-500">
-                      Could not load YouTube insights: {yt.error}
-                    </p>
+                    <p className="text-[12.5px] text-red-500">Could not load YouTube insights: {yt.error}</p>
                     <button
                       type="button"
                       onClick={() => setReloadKey((k) => k + 1)}
@@ -1411,12 +1464,12 @@ export default function Insights() {
                       </h2>
                       <p className={`mt-2 max-w-[400px] text-[13px] leading-relaxed ${t.soft}`}>
                         The more you post, the better your takeaways. Share a few posts and
-                        we'll start showing you weekly insights to help you grow.
+                        we&apos;ll start showing you weekly insights to help you grow.
                       </p>
                     </div>
                     <button
                       type="button"
-                      onClick={() => navigate("new-post")}
+                      onClick={openNewPost}
                       className={`flex w-fit items-center gap-1.5 rounded-lg px-4 py-2.5 text-[12px] font-semibold transition-all duration-150 active:scale-[0.98] ${t.ring} ${t.primaryBtn}`}
                     >
                       <Plus className="h-3.5 w-3.5" aria-hidden="true" />
@@ -1424,7 +1477,10 @@ export default function Insights() {
                     </button>
                   </div>
 
-                  <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-0 hidden w-[430px] lg:block">
+                  <div
+                    aria-hidden="true"
+                    className="pointer-events-none absolute inset-y-0 right-0 hidden w-[430px] lg:block"
+                  >
                     <div className="absolute left-[134px] top-[30px] h-[90px] w-[120px] -rotate-[4deg] rounded-xl bg-neutral-300/90 shadow-[0_6px_22px_rgba(0,0,0,0.3)]">
                       <span className="ml-3 mt-3 flex h-6 w-6 items-center justify-center rounded-md bg-neutral-900 text-white">
                         <FlaskConical className="h-3.5 w-3.5" />
@@ -1542,14 +1598,22 @@ export default function Insights() {
                         <IconBtn label="Share summary" boxed t={t}>
                           <Send className="h-4 w-4" aria-hidden="true" />
                         </IconBtn>
-                        <IconBtn label="Open summary" boxed t={t}>
+                        <IconBtn label="Open summary" boxed t={t} align="end">
                           <ExternalLink className="h-4 w-4" aria-hidden="true" />
                         </IconBtn>
                       </div>
                     </div>
-                    <div className={`mt-4 grid grid-cols-2 gap-2.5 rounded-2xl border p-3 sm:grid-cols-3 lg:grid-cols-6 ${t.panel}`}>
+                    <div
+                      className={`mt-4 grid grid-cols-2 gap-2.5 rounded-2xl border p-3 sm:grid-cols-3 lg:grid-cols-6 ${t.panel}`}
+                    >
                       {summaryBoxes.map((b) => (
-                        <MetricBox key={b.label} label={b.label} value={b.value} info={SUMMARY_INFO[b.label] ?? b.label} t={t} />
+                        <MetricBox
+                          key={b.label}
+                          label={b.label}
+                          value={b.value}
+                          info={SUMMARY_INFO[b.label] ?? b.label}
+                          t={t}
+                        />
                       ))}
                     </div>
                   </div>
@@ -1564,6 +1628,7 @@ export default function Insights() {
                       </h3>
                       <p className={sectionSub}>
                         {postsPeriod === "this" ? periodLabel : fmtRange(prevStart, prevEnd)}
+                        {hiddenScheduled > 0 && ` · ${hiddenScheduled} scheduled not shown`}
                       </p>
                     </div>
                     <Segmented<PostsPeriod>
@@ -1584,7 +1649,7 @@ export default function Insights() {
                       <div
                         className={`grid ${TABLE_GRID} items-center gap-2 px-4 py-3 text-[12px] font-semibold ${t.head} ${t.text}`}
                       >
-                        <span>Posts · {rows.length}</span>
+                        <span>Posts · {sortedRows.length}</span>
                         {columns.map((c) => (
                           <button
                             key={c.key}
@@ -1605,6 +1670,7 @@ export default function Insights() {
                         <button
                           type="button"
                           aria-label="Customize columns"
+                          title="Customize columns"
                           className={`flex h-9 w-9 items-center justify-center rounded-xl border ${t.inner} ${t.soft} ${t.hover} ${t.ring}`}
                         >
                           <Columns className="h-4 w-4" aria-hidden="true" />
@@ -1612,19 +1678,27 @@ export default function Insights() {
                       </div>
 
                       {sortedRows.length === 0 ? (
-                        <div className={`flex flex-col items-center gap-2 border-t px-6 py-10 text-center ${t.border}`}>
-                          <span className={`flex h-11 w-11 items-center justify-center rounded-full ${t.iconBox}`}>
+                        <div
+                          className={`flex flex-col items-center gap-2 border-t px-6 py-10 text-center ${t.border}`}
+                        >
+                          <span
+                            className={`flex h-11 w-11 items-center justify-center rounded-full ${t.iconBox}`}
+                          >
                             <Activity className="h-5 w-5" aria-hidden="true" />
                           </span>
                           <p className={`text-[12px] font-medium ${t.text}`}>
-                            {youtubeLoading ? "Loading videos…" : "No posts in this period"}
+                            {youtubeLoading
+                              ? "Loading videos…"
+                              : needle
+                                ? "No posts match your search"
+                                : "No posts in this period"}
                           </p>
-                          {!youtubeLoading && (
+                          {!youtubeLoading && !needle && (
                             <p className={`max-w-[360px] text-[12px] ${t.soft}`}>
                               Choose a longer range to see how your earlier posts performed.
                             </p>
                           )}
-                          {!youtubeLoading && days < 30 && (
+                          {!youtubeLoading && !needle && days < 30 && (
                             <button
                               type="button"
                               onClick={() => setRange("30d")}
@@ -1642,9 +1716,17 @@ export default function Insights() {
                           >
                             <div className="flex min-w-0 items-center gap-3">
                               <span className={`w-5 shrink-0 text-[12px] ${t.muted}`}>#{idx + 1}</span>
-                              <span className={`flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl ${t.iconBox}`}>
+                              <span
+                                className={`flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl ${t.iconBox}`}
+                              >
                                 {p.thumbnailUrl ? (
-                                  <img src={p.thumbnailUrl} alt="" referrerPolicy="no-referrer" loading="lazy" className="h-full w-full object-cover" />
+                                  <img
+                                    src={p.thumbnailUrl}
+                                    alt=""
+                                    referrerPolicy="no-referrer"
+                                    loading="lazy"
+                                    className="h-full w-full object-cover"
+                                  />
                                 ) : (
                                   mediaIcon(p.media)
                                 )}
@@ -1670,13 +1752,27 @@ export default function Insights() {
                                 {c.render(p)}
                               </span>
                             ))}
-                            <button
-                              type="button"
-                              aria-label="Post actions"
-                              className={`flex h-8 w-8 items-center justify-center rounded-lg ${t.soft} ${t.hover} ${t.ring}`}
-                            >
-                              <MoreVertical className="h-4 w-4" aria-hidden="true" />
-                            </button>
+                            {isYouTube ? (
+                              <a
+                                href={`https://www.youtube.com/watch?v=${p.id}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                aria-label="Open on YouTube"
+                                title="Open on YouTube"
+                                className={`flex h-8 w-8 items-center justify-center rounded-lg ${t.soft} ${t.hover} ${t.ring}`}
+                              >
+                                <ExternalLink className="h-4 w-4" aria-hidden="true" />
+                              </a>
+                            ) : (
+                              <button
+                                type="button"
+                                aria-label="Post actions"
+                                title="Post actions"
+                                className={`flex h-8 w-8 items-center justify-center rounded-lg ${t.soft} ${t.hover} ${t.ring}`}
+                              >
+                                <MoreVertical className="h-4 w-4" aria-hidden="true" />
+                              </button>
+                            )}
                           </div>
                         ))
                       )}
@@ -1695,7 +1791,7 @@ export default function Insights() {
                         {periodLabel} · {compareLabel}
                       </p>
                     </div>
-                    <IconBtn label="Share metrics" boxed t={t}>
+                    <IconBtn label="Share metrics" boxed t={t} align="end">
                       <Send className="h-4 w-4" aria-hidden="true" />
                     </IconBtn>
                   </div>
@@ -1717,8 +1813,14 @@ export default function Insights() {
                         {activeSeries.map((s) => (
                           <div key={s.key}>
                             <p className={`text-[11px] font-medium ${t.soft}`}>{s.label}</p>
-                            <p className={`mt-1.5 flex items-center gap-2 text-[28px] font-bold leading-none tracking-tight tabular-nums ${t.text}`}>
-                              <span className="h-2.5 w-2.5 rounded-[3px]" style={{ background: TONES[s.tone] }} aria-hidden="true" />
+                            <p
+                              className={`mt-1.5 flex items-center gap-2 text-[28px] font-bold leading-none tracking-tight tabular-nums ${t.text}`}
+                            >
+                              <span
+                                className="h-2.5 w-2.5 rounded-[3px]"
+                                style={{ background: TONES[s.tone] }}
+                                aria-hidden="true"
+                              />
                               {nf(seriesTotal(s))}
                             </p>
                           </div>
@@ -1756,7 +1858,7 @@ export default function Insights() {
         offsetLeft={sidebarOffset}
         active={isFolderOpen ? "files" : null}
         onChange={handleBottomBarChange}
-        onCreatePost={() => handleBottomBarChange("add")}
+        onCreatePost={openNewPost}
         query={query}
         onQueryChange={setQuery}
       />
