@@ -1,5 +1,5 @@
 // src/pages/Insights.tsx
-// Page Insights — même shell arrondi que Home (fond de page + panneau rounded-[28px]).
+// Page Insights — même shell que Create / Home (fond de page + panneau rounded-[28px]).
 // Données YouTube réelles via useYouTubeInsights (services/youtube.ts).
 //
 // ⚠️  Aucun nombre inventé : toute valeur affichée provient d'une donnée réelle.
@@ -10,12 +10,12 @@
 //       - dans `buildPosts` (services/youtube.ts)
 //       - dans `isOnlinePost` ci-dessous (défense en profondeur)
 //
-// Direction UI : minimaliste.
-//   • sections séparées par de l'espace et des filets très fins
-//   • onglets soulignés (texte seul)
-//   • statistiques : grandes stats + mini-courbes réelles, puis stats secondaires
-//   • tableau en lignes simples, barre relative sur les réactions
-//   • graphique responsive, graduations « rondes »
+// Direction UI (alignée sur Create) :
+//   • en-tête compact : pastille d'icône + titre 20px + boutons icône avec tooltip
+//   • onglets soulignés (border-b-2) + barre d'outils à droite
+//   • sections dans des « colonnes » (fond doux, rounded-2xl) contenant des cartes rounded-xl
+//   • sélecteurs segmentés (rounded-xl border p-1), menus popover shadow-lg
+//   • icônes SVG inline (même jeu que Create), aucune dépendance d'icônes
 
 import {
   useEffect,
@@ -28,26 +28,6 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from "react";
-import {
-  BarChart3,
-  Bookmark,
-  CalendarClock,
-  Check,
-  ChevronDown,
-  ChevronLeft,
-  ChevronRight,
-  Download,
-  ExternalLink,
-  FileText,
-  Image as ImageIcon,
-  LineChart,
-  Play,
-  Plus,
-  RefreshCw,
-  Search,
-  Tag,
-  X,
-} from "lucide-react";
 import { navigate, useHashRoute } from "../hooks/useHashRoute";
 import { navigateToSettingsSection } from "../utils/settingsNavigation";
 import { useTheme } from "../hooks/useTheme";
@@ -83,6 +63,7 @@ const PAGE_ROUTE = "insights";
 ============================================================ */
 
 type IconComponent = ComponentType<{ className?: string; size?: number }>;
+type IconProps = { className?: string };
 
 type Range = "7d" | "30d" | "mtd" | "custom";
 type ChartView = "this" | "comparison" | "both";
@@ -188,63 +169,185 @@ function loadPrefs(): Prefs {
 }
 
 /* ============================================================
-   STYLE — tokens alignés sur le shell Home
+   STYLE — tokens identiques à ceux de Create
 ============================================================ */
 
 type Tokens = {
   page: string;
-  text: string;
+  panel: string;
+  line: string;
+  strong: string;
   muted: string;
   soft: string;
-  border: string;
-  track: string;
-  thumb: string;
-  hover: string;
+  ghost: string;
   ring: string;
+  column: string;
+  chip: string;
+  card: string;
+  popover: string;
   sel: string;
   idle: string;
-  underline: string;
-  popover: string;
   primaryBtn: string;
-  outlineBtn: string;
 };
 
 const tokens = (isDark: boolean): Tokens =>
   isDark
     ? {
         page: "bg-[#050505]",
-        text: "text-white",
+        panel: "border-white/[0.07] bg-[#0a0a0c]",
+        line: "border-white/[0.07]",
+        strong: "text-white",
         muted: "text-neutral-500",
         soft: "text-neutral-400",
-        border: "border-white/[0.07]",
-        track: "bg-white/[0.05]",
-        thumb: "bg-white/[0.06] text-neutral-400",
-        hover: "hover:bg-white/[0.06]",
-        ring: "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30",
+        ghost: "hover:bg-white/[0.06]",
+        ring: "focus-visible:ring-white/30",
+        column: "bg-white/[0.025]",
+        chip: "bg-white/[0.06]",
+        card: "border-white/[0.07] bg-[#0f0f11]",
+        popover: "border-white/[0.08] bg-[#101012]",
         sel: "bg-white text-black",
         idle: "text-neutral-400 hover:text-white",
-        underline: "bg-white",
-        popover: "border-white/10 bg-[#101012]",
         primaryBtn: "bg-white text-black hover:bg-neutral-200",
-        outlineBtn: "border border-white/10 text-white hover:bg-white/[0.07]",
       }
     : {
         page: "bg-[#f5f3ef]",
-        text: "text-neutral-900",
-        muted: "text-neutral-500",
-        soft: "text-neutral-600",
-        border: "border-black/[0.07]",
-        track: "bg-black/[0.04]",
-        thumb: "bg-neutral-100 text-neutral-500",
-        hover: "hover:bg-black/[0.04]",
-        ring: "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/25",
+        panel: "border-black/[0.06] bg-white",
+        line: "border-black/[0.06]",
+        strong: "text-neutral-900",
+        muted: "text-neutral-400",
+        soft: "text-neutral-500",
+        ghost: "hover:bg-black/[0.04]",
+        ring: "focus-visible:ring-black/25",
+        column: "bg-[#f6f4f0]",
+        chip: "bg-black/[0.05]",
+        card: "border-black/[0.06] bg-white",
+        popover: "border-black/[0.06] bg-white",
         sel: "bg-neutral-900 text-white",
         idle: "text-neutral-500 hover:text-neutral-900",
-        underline: "bg-neutral-900",
-        popover: "border-black/10 bg-white",
         primaryBtn: "bg-neutral-900 text-white hover:bg-neutral-700",
-        outlineBtn: "border border-black/10 text-neutral-900 hover:bg-neutral-100",
       };
+
+/* ============================================================
+   ICÔNES (SVG inline, même style que Create)
+============================================================ */
+
+function Svg({
+  className = "h-4 w-4",
+  children,
+  filled,
+}: IconProps & { children: ReactNode; filled?: boolean }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className={className}
+      fill={filled ? "currentColor" : "none"}
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      {children}
+    </svg>
+  );
+}
+
+const ChartBarsIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M5 20V11M12 20V5M19 20v-7" />
+  </Svg>
+);
+const LineIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M3.5 19.5 9 12.5l4 3.5 7.5-10" />
+  </Svg>
+);
+const BookmarkIcon = (p: IconProps & { filled?: boolean }) => (
+  <Svg {...p} filled={p.filled}>
+    <path d="M7 4.5h10a1 1 0 0 1 1 1V20l-6-3.8L6 20V5.5a1 1 0 0 1 1-1Z" />
+  </Svg>
+);
+const CalendarIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <rect x="4" y="5.5" width="16" height="14" rx="2.5" />
+    <path d="M4 10h16M8.5 3.5v4M15.5 3.5v4" />
+  </Svg>
+);
+const CheckIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="m5 12.5 4.5 4.5L19 7.5" />
+  </Svg>
+);
+const ChevronDownIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="m6 9 6 6 6-6" />
+  </Svg>
+);
+const ChevronLeftIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="m15 6-6 6 6 6" />
+  </Svg>
+);
+const ChevronRightIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="m9 6 6 6-6 6" />
+  </Svg>
+);
+const DownloadIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 19.5h14" />
+  </Svg>
+);
+const ExternalIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M14 4.5h5.5V10M19.5 4.5 11 13M18 14v4a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 6 18V9.5A1.5 1.5 0 0 1 7.5 8H10" />
+  </Svg>
+);
+const FileTextIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M7 3.5h7l4 4V19a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 5.5 19V5A1.5 1.5 0 0 1 7 3.5Z" />
+    <path d="M9 12h6M9 16h6" />
+  </Svg>
+);
+const ImageIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <rect x="4" y="5" width="16" height="14" rx="2.5" />
+    <circle cx="9" cy="10" r="1.5" />
+    <path d="m5 17 5-4.5 3 2.5 3-3 3 3" />
+  </Svg>
+);
+const PlayIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M8 5.5v13l11-6.5-11-6.5Z" />
+  </Svg>
+);
+const PlusIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M12 5v14M5 12h14" />
+  </Svg>
+);
+const RefreshIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M20 11a8 8 0 0 0-14-4.5L4 9M4 4v5h5M4 13a8 8 0 0 0 14 4.5L20 15M20 20v-5h-5" />
+  </Svg>
+);
+const SearchIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <circle cx="11" cy="11" r="6.5" />
+    <path d="m16 16 4 4" />
+  </Svg>
+);
+const TagIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M3.5 12.2V4.5a1 1 0 0 1 1-1h7.7a1 1 0 0 1 .7.3l7.6 7.6a1 1 0 0 1 0 1.4l-7.7 7.7a1 1 0 0 1-1.4 0l-7.6-7.6a1 1 0 0 1-.3-.7Z" />
+    <path d="M8 8h.01" strokeWidth="2.4" />
+  </Svg>
+);
+const XIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M6 6l12 12M18 6 6 18" />
+  </Svg>
+);
 
 /* ============================================================
    DATES & FORMAT
@@ -405,6 +508,16 @@ function useEmptyInsights(
 function useHashChannel(): string | null {
   useHashRoute();
   return new URLSearchParams(window.location.search).get("channel");
+}
+
+/** Ferme un menu avec Échap. */
+function useEscape(open: boolean, close: () => void) {
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && close();
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open, close]);
 }
 
 /* ============================================================
@@ -785,8 +898,8 @@ function Chart({
 
       {hover !== null && (
         <div
-          className={`pointer-events-none absolute top-0 min-w-[150px] rounded-lg px-3 py-2 text-[12px] shadow-[0_8px_30px_rgba(0,0,0,0.3)] ${
-            isDark ? "bg-[#101012] text-white ring-1 ring-white/10" : "bg-white text-neutral-900 ring-1 ring-black/10"
+          className={`pointer-events-none absolute top-0 min-w-[150px] rounded-xl border px-3 py-2 text-[12px] shadow-lg ${
+            isDark ? "border-white/[0.08] bg-[#101012] text-white" : "border-black/[0.06] bg-white text-neutral-900"
           }`}
           style={{
             left: x(hover),
@@ -823,25 +936,67 @@ function Chart({
    PETITS COMPOSANTS
 ============================================================ */
 
-/** Onglets texte soulignés (plus léger visuellement qu'un groupe de boutons). */
+/** Bouton icône avec tooltip (identique à Create). */
+function IconButton({
+  label,
+  onClick,
+  children,
+  t,
+  className = "h-9 w-9",
+  align = "center",
+}: {
+  label: string;
+  onClick?: () => void;
+  children: ReactNode;
+  t: Tokens;
+  className?: string;
+  align?: "center" | "end";
+}) {
+  return (
+    <span className="group relative inline-flex shrink-0">
+      <button
+        type="button"
+        aria-label={label}
+        onClick={onClick}
+        className={`flex items-center justify-center rounded-xl transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 ${t.ghost} ${t.ring} ${className}`}
+      >
+        {children}
+      </button>
+
+      <span
+        role="tooltip"
+        className={`pointer-events-none absolute top-full z-50 mt-2 w-max max-w-[240px] rounded-lg bg-neutral-900 px-3 py-2 text-[13px] font-medium leading-snug text-white opacity-0 shadow-lg transition-opacity duration-150 motion-reduce:transition-none group-hover:opacity-100 group-hover:delay-300 group-focus-within:opacity-100 dark:bg-[#2e2e31] ${
+          align === "end" ? "right-0" : "left-1/2 -translate-x-1/2"
+        }`}
+      >
+        {label}
+      </span>
+    </span>
+  );
+}
+
+/** Onglets soulignés (border-b-2), comme Ideas / Templates. */
 function Tabs<T extends string>({
   value,
   options,
   onChange,
   t,
   label,
+  boxed = false,
 }: {
   value: T;
   options: { key: T; label: string }[];
   onChange: (k: T) => void;
   t: Tokens;
   label: string;
+  /** true : ajoute le filet du bas (rangée d'onglets autonome). */
+  boxed?: boolean;
 }) {
   return (
     <div
       role="tablist"
       aria-label={label}
-      className={`flex flex-wrap items-center gap-x-5 border-b ${t.border}`}
+      className={`flex flex-wrap gap-6 ${boxed ? `border-b ${t.line}` : ""}`}
     >
       {options.map((o) => {
         const active = value === o.key;
@@ -852,15 +1007,11 @@ function Tabs<T extends string>({
             role="tab"
             aria-selected={active}
             onClick={() => onChange(o.key)}
-            className={`relative -mb-px rounded-sm py-2 text-[13px] font-medium transition-colors motion-reduce:transition-none ${t.ring} ${
-              active ? t.text : t.idle
+            className={`-mb-px border-b-2 px-1 pb-3 pt-2 text-[14px] font-medium transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 ${t.ring} ${
+              active ? `${t.strong} border-current` : `border-transparent ${t.muted} ${t.idle}`
             }`}
           >
             {o.label}
-            <span
-              aria-hidden="true"
-              className={`absolute inset-x-0 bottom-0 h-px ${active ? t.underline : "bg-transparent"}`}
-            />
           </button>
         );
       })}
@@ -868,7 +1019,7 @@ function Tabs<T extends string>({
   );
 }
 
-/** Petit sélecteur discret, pour les réglages du graphique. */
+/** Sélecteur segmenté (comme Board / Gallery). */
 function Segmented<T extends string>({
   value,
   options,
@@ -886,7 +1037,7 @@ function Segmented<T extends string>({
     <div
       role="group"
       aria-label={label}
-      className={`inline-flex items-center gap-0.5 rounded-lg p-0.5 ${t.track}`}
+      className={`inline-flex gap-1 rounded-xl border p-1 ${t.line}`}
     >
       {options.map((o) => {
         const active = value === o.key;
@@ -898,7 +1049,7 @@ function Segmented<T extends string>({
             aria-label={o.title}
             title={o.title}
             onClick={() => onChange(o.key)}
-            className={`flex h-7 items-center gap-1.5 whitespace-nowrap rounded-md px-2.5 text-[12px] font-medium transition-colors motion-reduce:transition-none ${t.ring} ${
+            className={`flex items-center gap-2 whitespace-nowrap rounded-lg px-3 py-1.5 text-[12.5px] font-semibold transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 ${t.ring} ${
               active ? t.sel : t.idle
             }`}
           >
@@ -911,24 +1062,28 @@ function Segmented<T extends string>({
   );
 }
 
-function IconBtn({
-  label,
-  onClick,
+/** Bouton texte de barre d'outils (comme « Tags » sur Create). */
+function ToolbarButton({
   children,
+  onClick,
   t,
+  disabled,
+  expanded,
 }: {
-  label: string;
-  onClick?: () => void;
   children: ReactNode;
+  onClick: () => void;
   t: Tokens;
+  disabled?: boolean;
+  expanded?: boolean;
 }) {
   return (
     <button
       type="button"
-      aria-label={label}
-      title={label}
       onClick={onClick}
-      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors ${t.ring} ${t.soft} ${t.hover}`}
+      disabled={disabled}
+      aria-haspopup={expanded === undefined ? undefined : "menu"}
+      aria-expanded={expanded}
+      className={`flex items-center gap-2 rounded-xl px-3 py-2 text-[13px] font-medium transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 disabled:opacity-40 ${t.ghost} ${t.ring} ${t.strong}`}
     >
       {children}
     </button>
@@ -949,9 +1104,9 @@ function SectionHead({
   t: Tokens;
 }) {
   return (
-    <div className="flex flex-wrap items-end justify-between gap-3">
-      <div>
-        <h2 id={id} className={`text-[15px] font-semibold tracking-[-0.02em] ${t.text}`}>
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="min-w-0">
+        <h2 id={id} className={`text-[14px] font-semibold ${t.strong}`}>
           {title}
         </h2>
         {sub && <p className={`mt-0.5 text-[12px] ${t.muted}`}>{sub}</p>}
@@ -975,14 +1130,14 @@ function EmptyState({
   tall?: boolean;
 }) {
   return (
-    <div className={`flex flex-col items-center gap-1.5 text-center ${tall ? "py-24" : "py-12"}`}>
-      <p className={`text-[13px] font-medium ${t.text}`}>{title}</p>
-      {text && <p className={`max-w-[380px] text-[12px] leading-relaxed ${t.soft}`}>{text}</p>}
+    <div className={`flex flex-col items-center gap-2 text-center ${tall ? "py-24" : "py-12"}`}>
+      <h2 className={`text-[20px] font-semibold tracking-[-0.02em] ${t.strong}`}>{title}</h2>
+      {text && <p className={`max-w-[380px] text-[13px] leading-relaxed ${t.muted}`}>{text}</p>}
       {action && (
         <button
           type="button"
           onClick={action.onClick}
-          className={`mt-2 rounded-md px-1 text-[12px] font-semibold underline underline-offset-4 ${t.ring} ${t.text}`}
+          className={`mt-2 rounded-md px-1 text-[13px] font-semibold underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 ${t.ring} ${t.strong}`}
         >
           {action.label}
         </button>
@@ -1008,12 +1163,7 @@ function Spark({ values, color }: { values: number[]; color: string }) {
     )
     .join(" ");
   return (
-    <svg
-      viewBox={`0 0 ${W} ${H}`}
-      className="h-8 w-full"
-      preserveAspectRatio="none"
-      aria-hidden="true"
-    >
+    <svg viewBox={`0 0 ${W} ${H}`} className="h-8 w-full" preserveAspectRatio="none" aria-hidden="true">
       <polyline
         points={pts}
         fill="none"
@@ -1034,11 +1184,11 @@ function DeltaBadge({ delta, t }: { delta: Delta; t: Tokens }) {
       ? "bg-emerald-500/10 text-emerald-500"
       : delta.tone === "down"
       ? "bg-red-500/10 text-red-500"
-      : `${t.track} ${t.muted}`;
+      : `${t.chip} ${t.muted}`;
   const arrow = delta.tone === "up" ? "↑" : delta.tone === "down" ? "↓" : "";
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[11px] font-medium tabular-nums ${color}`}
+      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium tabular-nums ${color}`}
       aria-label={`${delta.text} compared to the previous period`}
       title="Compared to the previous period"
     >
@@ -1047,7 +1197,7 @@ function DeltaBadge({ delta, t }: { delta: Delta; t: Tokens }) {
   );
 }
 
-/** `value === null` → donnée indisponible : on affiche « — », jamais 0. */
+/** Carte de statistique. `value === null` → donnée indisponible : « — », jamais 0. */
 function Stat({
   label,
   value,
@@ -1069,12 +1219,15 @@ function Stat({
 }) {
   const unavailable = value === null;
   return (
-    <div className="min-w-0" title={unavailable ? `${info} (not available)` : info}>
-      <p className={`truncate text-[12px] ${t.soft}`}>{label}</p>
+    <article
+      className={`min-w-0 rounded-xl border px-4 py-4 transition-colors ${t.card}`}
+      title={unavailable ? `${info} (not available)` : info}
+    >
+      <p className={`truncate text-[12px] font-medium ${t.soft}`}>{label}</p>
       <p
         className={`mt-2 font-semibold leading-none tracking-[-0.03em] tabular-nums ${
-          size === "lg" ? "text-[30px]" : "text-[20px]"
-        } ${unavailable ? t.muted : t.text}`}
+          size === "lg" ? "text-[28px]" : "text-[20px]"
+        } ${unavailable ? t.muted : t.strong}`}
       >
         {unavailable ? "—" : value}
       </p>
@@ -1083,8 +1236,8 @@ function Stat({
           <Spark values={spark ?? []} color={sparkColor ?? "currentColor"} />
         </div>
       )}
-      <div className="mt-2 h-5">{!unavailable && <DeltaBadge delta={delta} t={t} />}</div>
-    </div>
+      {size === "lg" && <div className="mt-2 h-5">{!unavailable && <DeltaBadge delta={delta} t={t} />}</div>}
+    </article>
   );
 }
 
@@ -1171,6 +1324,39 @@ function Avatar({
   );
 }
 
+/** Conteneur de menu : overlay plein écran pour fermer au clic extérieur (comme Create). */
+function Popover({
+  onClose,
+  children,
+  className = "w-64",
+  side = "right",
+}: {
+  onClose: () => void;
+  children: ReactNode;
+  className?: string;
+  side?: "left" | "right";
+}) {
+  return (
+    <>
+      <button
+        type="button"
+        aria-label="Close menu"
+        tabIndex={-1}
+        className="fixed inset-0 z-30 cursor-default"
+        onClick={onClose}
+      />
+      {children && (
+        <div
+          role="menu"
+          className={`absolute ${side === "right" ? "right-0" : "left-0"} top-full z-40 mt-2 rounded-xl border p-1 shadow-lg ${className}`}
+        >
+          {children}
+        </div>
+      )}
+    </>
+  );
+}
+
 function ChannelMenu({
   channels,
   current,
@@ -1183,76 +1369,77 @@ function ChannelMenu({
   isDark: boolean;
 }) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: PointerEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
-    document.addEventListener("pointerdown", onDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("pointerdown", onDown);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
+  useEscape(open, () => setOpen(false));
 
   const name = (c?: ConnectedChannel) => (c ? (c.handle || c.name).replace(/^@/, "") : "No channel");
   const canSwitch = channels.length > 1;
 
   return (
-    <div ref={ref} className="relative">
+    <div className="relative">
       <button
         type="button"
         aria-haspopup="menu"
         aria-expanded={open}
         disabled={!canSwitch}
         onClick={() => setOpen((o) => !o)}
-        className={`flex h-9 items-center gap-2.5 rounded-lg pl-1.5 pr-2.5 transition-colors disabled:cursor-default ${t.ring} ${canSwitch ? t.hover : ""}`}
+        className={`flex items-center gap-2.5 rounded-xl py-1.5 pl-2 pr-3 transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 disabled:cursor-default ${t.ring} ${
+          canSwitch ? t.ghost : ""
+        }`}
       >
         <Avatar channel={current} isDark={isDark} size={24} />
-        <span className={`max-w-[160px] truncate text-[13px] font-medium ${t.text}`}>{name(current)}</span>
-        {canSwitch && <ChevronDown className={`h-3.5 w-3.5 ${t.muted}`} aria-hidden="true" />}
+        <span className={`max-w-[160px] truncate text-[13px] font-medium ${t.strong}`}>{name(current)}</span>
+        {canSwitch && <ChevronDownIcon className={`h-4 w-4 opacity-60 ${t.strong}`} />}
       </button>
 
       {open && (
-        <div
-          role="menu"
-          className={`absolute right-0 z-30 mt-2 w-64 rounded-xl border p-1.5 shadow-[0_12px_40px_rgba(0,0,0,0.45)] ${t.popover}`}
-        >
-          {channels.map((c) => {
-            const active = c.key === current?.key;
-            return (
-              <button
-                key={c.key}
-                type="button"
-                role="menuitemradio"
-                aria-checked={active}
-                onClick={() => {
-                  setOpen(false);
-                  navigate(`insights?channel=${encodeURIComponent(c.key)}`);
-                }}
-                className={`flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left transition-colors ${t.ring} ${t.hover}`}
-              >
-                <Avatar channel={c} isDark={isDark} size={24} showNetwork={false} />
-                <span className={`min-w-0 flex-1 truncate text-[12px] font-medium ${t.text}`}>{name(c)}</span>
-                {active && <Check className={`h-4 w-4 ${t.text}`} aria-hidden="true" />}
-              </button>
-            );
-          })}
-          <div className={`my-1 border-t ${t.border}`} />
+        <>
           <button
             type="button"
-            role="menuitem"
-            onClick={() => navigateToSettingsSection("channels")}
-            className={`flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left text-[12px] font-medium transition-colors ${t.ring} ${t.hover} ${t.soft}`}
+            aria-label="Close menu"
+            tabIndex={-1}
+            className="fixed inset-0 z-30 cursor-default"
+            onClick={() => setOpen(false)}
+          />
+          <div
+            role="menu"
+            className={`absolute right-0 top-full z-40 mt-2 w-[250px] rounded-xl border p-1 shadow-lg ${t.popover} ${t.strong}`}
           >
-            <Plus className="h-4 w-4" aria-hidden="true" />
-            Manage channels
-          </button>
-        </div>
+            <ul className="max-h-[260px] overflow-y-auto">
+              {channels.map((c) => {
+                const active = c.key === current?.key;
+                return (
+                  <li key={c.key}>
+                    <button
+                      type="button"
+                      role="menuitemradio"
+                      aria-checked={active}
+                      onClick={() => {
+                        setOpen(false);
+                        navigate(`insights?channel=${encodeURIComponent(c.key)}`);
+                      }}
+                      className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-[13px] font-medium transition-colors ${t.ghost}`}
+                    >
+                      <Avatar channel={c} isDark={isDark} size={22} showNetwork={false} />
+                      <span className="min-w-0 flex-1 truncate">{name(c)}</span>
+                      {active && <CheckIcon className="h-4 w-4" />}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+            <div className={`mt-1 border-t p-1 pt-2 ${t.line}`}>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => navigateToSettingsSection("channels")}
+                className={`flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left text-[13px] font-medium transition-colors ${t.ghost} ${t.soft}`}
+              >
+                <PlusIcon className="h-4 w-4" />
+                Manage channels
+              </button>
+            </div>
+          </div>
+        </>
       )}
     </div>
   );
@@ -1270,21 +1457,7 @@ function ExportMenu({
   t: Tokens;
 }) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: PointerEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
-    document.addEventListener("pointerdown", onDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("pointerdown", onDown);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
+  useEscape(open, () => setOpen(false));
 
   const item = (label: string, hint: string, action: () => void) => (
     <button
@@ -1294,35 +1467,38 @@ function ExportMenu({
         setOpen(false);
         action();
       }}
-      className={`flex w-full flex-col items-start gap-0.5 rounded-lg px-3 py-2 text-left transition-colors ${t.ring} ${t.hover}`}
+      className={`flex w-full flex-col items-start gap-0.5 rounded-lg px-3 py-2 text-left transition-colors ${t.ghost}`}
     >
-      <span className={`text-[12px] font-medium ${t.text}`}>{label}</span>
+      <span className={`text-[13px] font-medium ${t.strong}`}>{label}</span>
       <span className={`text-[11px] ${t.muted}`}>{hint}</span>
     </button>
   );
 
   return (
-    <div ref={ref} className="relative">
-      <button
-        type="button"
-        aria-haspopup="menu"
-        aria-expanded={open}
-        disabled={disabled}
-        onClick={() => setOpen((o) => !o)}
-        className={`flex h-9 items-center gap-2 rounded-lg px-3 text-[12px] font-medium transition-colors disabled:opacity-40 ${t.ring} ${t.outlineBtn}`}
-      >
-        <Download className="h-3.5 w-3.5" aria-hidden="true" />
+    <div className="relative">
+      <ToolbarButton t={t} disabled={disabled} expanded={open} onClick={() => setOpen((o) => !o)}>
+        <DownloadIcon className="h-4 w-4" />
         Export
-      </button>
+        <ChevronDownIcon className="h-4 w-4 opacity-60" />
+      </ToolbarButton>
 
       {open && (
-        <div
-          role="menu"
-          className={`absolute right-0 z-30 mt-2 w-64 rounded-xl border p-1.5 shadow-[0_12px_40px_rgba(0,0,0,0.45)] ${t.popover}`}
-        >
-          {item("Daily metrics", "One row per day, with the previous period (.csv)", onDaily)}
-          {item("Posts", "Published posts of both periods (.csv)", onPosts)}
-        </div>
+        <>
+          <button
+            type="button"
+            aria-label="Close menu"
+            tabIndex={-1}
+            className="fixed inset-0 z-30 cursor-default"
+            onClick={() => setOpen(false)}
+          />
+          <div
+            role="menu"
+            className={`absolute right-0 top-full z-40 mt-2 w-[260px] rounded-xl border p-1 shadow-lg ${t.popover}`}
+          >
+            {item("Daily metrics", "One row per day, with the previous period (.csv)", onDaily)}
+            {item("Posts", "Published posts of both periods (.csv)", onPosts)}
+          </div>
+        </>
       )}
     </div>
   );
@@ -1349,25 +1525,9 @@ function RangePicker({
 }) {
   const [field, setField] = useState<"from" | "to">("from");
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  useEscape(open, () => setOpen(false));
 
   const today = useMemo(() => startOfDay(new Date()), []);
-
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: PointerEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-    };
-    document.addEventListener("mousedown", onDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDown);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
 
   const label =
     range === "custom"
@@ -1403,7 +1563,7 @@ function RangePicker({
         type="button"
         aria-pressed={active}
         onClick={() => openPicker(id)}
-        className={`flex-1 whitespace-nowrap rounded-md px-3 py-1.5 text-[11px] font-medium transition-colors motion-reduce:transition-none ${t.ring} ${
+        className={`flex-1 whitespace-nowrap rounded-lg px-3 py-1.5 text-[12px] font-semibold transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 ${t.ring} ${
           active ? t.sel : t.idle
         }`}
       >
@@ -1413,62 +1573,71 @@ function RangePicker({
   };
 
   return (
-    <div ref={ref} className="relative">
+    <div className="relative">
       <button
         type="button"
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => (open ? setOpen(false) : openPicker("from"))}
-        className={`flex h-8 items-center gap-2 rounded-lg px-2.5 text-[12px] font-medium transition-colors ${t.ring} ${t.track} ${t.hover} ${t.text}`}
+        className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-[13px] font-medium transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 ${t.line} ${t.ghost} ${t.ring} ${t.strong}`}
       >
-        <CalendarClock className={`h-3.5 w-3.5 ${t.muted}`} aria-hidden="true" />
+        <CalendarIcon className={`h-4 w-4 ${t.muted}`} />
         <span className="whitespace-nowrap">{label}</span>
       </button>
 
       {open && (
-        <div
-          className={`absolute left-0 top-full z-30 mt-2 w-[300px] overflow-hidden rounded-xl border shadow-[0_12px_40px_rgba(0,0,0,0.45)] ${t.popover}`}
-        >
-          <div className={`flex gap-1 border-b p-2 ${t.border}`}>
-            {fieldTab("from")}
-            {fieldTab("to")}
-          </div>
+        <>
+          <button
+            type="button"
+            aria-label="Close menu"
+            tabIndex={-1}
+            className="fixed inset-0 z-30 cursor-default"
+            onClick={() => setOpen(false)}
+          />
+          <div
+            className={`absolute left-0 top-full z-40 mt-2 w-[300px] overflow-hidden rounded-xl border shadow-lg ${t.popover} ${t.strong}`}
+          >
+            <div className={`flex gap-1 border-b p-2 ${t.line}`}>
+              {fieldTab("from")}
+              {fieldTab("to")}
+            </div>
 
-          <div className="p-3">
-            <p className={`mb-2 text-[12px] ${t.soft}`}>
-              {field === "from"
-                ? "Pick the first day of the period."
-                : "Pick the last day of the period (today max)."}
-            </p>
-            <CalendarPicker
-              key={field}
-              value={field === "from" ? start : end}
-              onChange={pickDate}
-              isDark={isDark}
-              disablePast={false}
-              max={today}
-              min={field === "to" ? startOfDay(start) : undefined}
-            />
-          </div>
+            <div className="p-3">
+              <p className={`mb-2 text-[12px] ${t.soft}`}>
+                {field === "from"
+                  ? "Pick the first day of the period."
+                  : "Pick the last day of the period (today max)."}
+              </p>
+              <CalendarPicker
+                key={field}
+                value={field === "from" ? start : end}
+                onChange={pickDate}
+                isDark={isDark}
+                disablePast={false}
+                max={today}
+                min={field === "to" ? startOfDay(start) : undefined}
+              />
+            </div>
 
-          <div className={`flex items-center justify-between border-t px-3 py-2.5 ${t.border}`}>
-            <button
-              type="button"
-              onClick={() => setField((f) => (f === "from" ? "to" : "from"))}
-              className={`rounded-md px-1 text-[12px] font-medium transition-colors ${t.ring} ${t.hover} ${t.text}`}
-            >
-              {field === "from" ? "Next: To" : "Back: From"}
-            </button>
-            <button
-              type="button"
-              onClick={() => setOpen(false)}
-              className={`flex items-center gap-1.5 rounded-md px-1 text-[12px] font-medium transition-colors ${t.ring} ${t.hover} ${t.text}`}
-            >
-              <Check className="h-3.5 w-3.5" strokeWidth={3} aria-hidden="true" />
-              Done
-            </button>
+            <div className={`flex items-center justify-between border-t p-1 ${t.line}`}>
+              <button
+                type="button"
+                onClick={() => setField((f) => (f === "from" ? "to" : "from"))}
+                className={`rounded-lg px-3 py-2 text-[13px] font-medium transition-colors ${t.ghost}`}
+              >
+                {field === "from" ? "Next: To" : "Back: From"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                className={`flex items-center gap-2 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors ${t.ghost}`}
+              >
+                <CheckIcon className="h-4 w-4" />
+                Done
+              </button>
+            </div>
           </div>
-        </div>
+        </>
       )}
     </div>
   );
@@ -1686,9 +1855,9 @@ export default function Insights() {
     { key: "both", title: "Both periods", label: "Both" },
   ];
 
-  const CHART_TYPES: { key: ChartType; title: string; icon: ReactNode }[] = [
-    { key: "line", title: "Line chart", icon: <LineChart className="h-3.5 w-3.5" aria-hidden="true" /> },
-    { key: "bar", title: "Bar chart", icon: <BarChart3 className="h-3.5 w-3.5" aria-hidden="true" /> },
+  const CHART_TYPES: { key: ChartType; title: string; label: string; icon: ReactNode }[] = [
+    { key: "line", title: "Line chart", label: "Line", icon: <LineIcon className="h-4 w-4" /> },
+    { key: "bar", title: "Bar chart", label: "Bars", icon: <ChartBarsIcon className="h-4 w-4" /> },
   ];
 
   const rows = postsPeriod === "this" ? posts : previousPosts;
@@ -1814,11 +1983,19 @@ export default function Insights() {
   };
 
   const mediaIcon = (m: PostRow["media"]) =>
-    m === "video" ? <Play className="h-4 w-4" /> : m === "text" ? <FileText className="h-4 w-4" /> : <ImageIcon className="h-4 w-4" />;
+    m === "video" ? (
+      <PlayIcon className="h-4 w-4" />
+    ) : m === "text" ? (
+      <FileTextIcon className="h-4 w-4" />
+    ) : (
+      <ImageIcon className="h-4 w-4" />
+    );
 
   // Message d'encouragement discret, seulement si la chaîne a peu publié.
   const showHint =
     isYouTube && !youtubeLoading && !yt.error && posts.length < 3 && previousPosts.length < 3;
+
+  const hideScrollbar = "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
 
   return (
     <main
@@ -1830,6 +2007,7 @@ export default function Insights() {
     >
       <DashboardSidebar theme={theme} />
 
+      {/* Zone à droite de la sidebar : marge autour du panneau arrondi */}
       <div
         className={[
           "h-full py-3 pr-3",
@@ -1839,169 +2017,198 @@ export default function Insights() {
         ].join(" ")}
         style={{ paddingLeft: sidebarOffset }}
       >
+        {/* PANNEAU ARRONDI (comme Create / Home) */}
         <div
           className={[
-            "h-full overflow-y-auto overflow-x-hidden",
+            "flex h-full flex-col overflow-hidden",
             "rounded-[28px] border",
-            "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
             "transition-colors duration-300",
-            isDark
-              ? "border-white/[0.07] bg-[#0a0a0c]"
-              : "border-black/[0.06] bg-white",
+            t.panel,
           ].join(" ")}
         >
           <div
             className={[
-              "mx-auto flex w-full max-w-[1120px]",
-              "flex-col gap-12 px-[clamp(18px,3vw,48px)]",
-              "pb-[120px] pt-[clamp(18px,3vw,32px)]",
+              "mx-auto flex min-h-0 w-full max-w-[1200px] flex-1 flex-col",
+              "px-[clamp(18px,3vw,48px)]",
+              "pb-0 pt-[clamp(18px,3vw,30px)]",
             ].join(" ")}
           >
-            {/* HEADER */}
-            <header className="flex flex-wrap items-center justify-between gap-3">
-              <h1 className={`text-[22px] font-semibold tracking-[-0.03em] ${t.text}`}>Insights</h1>
-              <div className="flex flex-wrap items-center gap-1.5 print:hidden">
-                <ChannelMenu channels={channels} current={channel} t={t} isDark={isDark} />
-
-                {isYouTube && (
-                  <IconBtn label="Refresh insights" t={t} onClick={() => setReloadKey((k) => k + 1)}>
-                    <RefreshCw
-                      className={`h-4 w-4 ${yt.loading ? "animate-spin motion-reduce:animate-none" : ""}`}
-                      aria-hidden="true"
-                    />
-                  </IconBtn>
-                )}
-
-                <ExportMenu
-                  disabled={!channel || !isYouTube || !hasData}
-                  onDaily={exportDailyCsv}
-                  onPosts={exportPostsCsv}
-                  t={t}
-                />
-
-                <IconBtn
-                  label={saved ? "Remove from favorites" : "Add to favorites"}
-                  t={t}
-                  onClick={() => toggleFavorite(PAGE_ROUTE)}
+            {/* HEADER COMPACT */}
+            <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 pb-4">
+              <div className="flex min-w-0 items-center gap-2.5">
+                <span
+                  className={[
+                    "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border",
+                    isDark
+                      ? "border-white/[0.07] bg-white/[0.04] text-neutral-400"
+                      : "border-black/[0.06] bg-white text-neutral-500",
+                  ].join(" ")}
                 >
-                  <Bookmark
-                    className={`h-4 w-4 ${saved ? "fill-current" : ""}`}
-                    aria-hidden="true"
-                  />
-                </IconBtn>
+                  <ChartBarsIcon />
+                </span>
+                <h1
+                  className={[
+                    "truncate text-[20px] font-semibold tracking-[-0.03em]",
+                    t.strong,
+                  ].join(" ")}
+                >
+                  Insights
+                </h1>
               </div>
-            </header>
-
-            {!channel ? (
-              <EmptyState
-                tall
-                t={t}
-                title="Connect a channel to see insights"
-                text="Followers, reach and engagement show up here once a social account is connected."
-                action={{ label: "Connect a channel", onClick: () => navigateToSettingsSection("channels") }}
-              />
-            ) : !isYouTube ? (
-              <EmptyState
-                tall
-                t={t}
-                title="Insights for this network are coming soon"
-                text="Real statistics are only available for YouTube channels for now. Switch to a YouTube channel from the menu above."
-              />
-            ) : (
-              <>
-                {yt.error && (
-                  <div role="alert" className="flex flex-wrap items-center gap-x-4 gap-y-1">
-                    <p className="text-[12.5px] text-red-500">
-                      Could not load YouTube insights: {yt.error}
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => setReloadKey((k) => k + 1)}
-                      className={`rounded-md px-1 text-[12px] font-semibold underline underline-offset-4 ${t.ring} ${t.text}`}
-                    >
-                      Retry
-                    </button>
-                  </div>
+              <div className="flex items-center gap-2 print:hidden">
+                {isYouTube && (
+                  <IconButton label="Refresh insights" t={t} onClick={() => setReloadKey((k) => k + 1)}>
+                    <RefreshIcon
+                      className={`h-5 w-5 ${yt.loading ? "animate-spin motion-reduce:animate-none" : ""}`}
+                    />
+                  </IconButton>
                 )}
-
-                {showHint && (
-                  <div className={`flex flex-wrap items-center justify-between gap-3 rounded-xl px-4 py-3 ${t.track}`}>
-                    <p className={`text-[13px] ${t.soft}`}>
-                      Fewer than 3 videos published recently. Post a bit more and your trends will be easier to read.
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => navigate("new-post")}
-                      className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-semibold ${t.ring} ${t.primaryBtn}`}
-                    >
-                      <Plus className="h-3.5 w-3.5" aria-hidden="true" />
-                      Create post
-                    </button>
-                  </div>
-                )}
-
-                <div
-                  className={`flex flex-col gap-12 transition-opacity duration-200 motion-reduce:transition-none ${
-                    youtubeLoading ? "pointer-events-none opacity-50" : ""
-                  }`}
-                  aria-busy={youtubeLoading}
+                <IconButton
+                  label={saved ? "Remove from favorites" : "Add to favorites"}
+                  onClick={() => toggleFavorite(PAGE_ROUTE)}
+                  t={t}
+                  align="end"
                 >
-                  {youtubeLoading && (
-                    <p className="sr-only" role="status" aria-live="polite">
-                      Loading YouTube insights…
-                    </p>
-                  )}
+                  <BookmarkIcon className="h-5 w-5" filled={saved} />
+                </IconButton>
+              </div>
+            </div>
 
-                  {/* PÉRIODE */}
-                  <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
-                    <div className="flex flex-wrap items-center gap-4">
-                      <Tabs<Range>
-                        label="Date range"
-                        value={range}
-                        onChange={setRange}
+            {/* Tabs (période) + toolbar */}
+            <div
+              className={[
+                "flex shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-1 border-b",
+                t.line,
+              ].join(" ")}
+            >
+              {channel && isYouTube ? (
+                <div className="flex flex-wrap items-center gap-4">
+                  <Tabs<Range>
+                    label="Date range"
+                    value={range}
+                    onChange={setRange}
+                    t={t}
+                    options={RANGES}
+                  />
+                  {range === "custom" && (
+                    <div className="pb-2">
+                      <RangePicker
+                        range={range}
+                        start={start}
+                        end={end}
+                        onStartChange={setCustomStart}
+                        onEndChange={setCustomEnd}
+                        onRangeChange={setRange}
                         t={t}
-                        options={RANGES}
+                        isDark={isDark}
                       />
-                      {range === "custom" && (
-                        <RangePicker
-                          range={range}
-                          start={start}
-                          end={end}
-                          onStartChange={setCustomStart}
-                          onEndChange={setCustomEnd}
-                          onRangeChange={setRange}
-                          t={t}
-                          isDark={isDark}
-                        />
-                      )}
                     </div>
+                  )}
+                </div>
+              ) : (
+                <span className="pb-3 pt-2 text-[14px] font-medium opacity-0" aria-hidden="true">
+                  &nbsp;
+                </span>
+              )}
 
-                    <button
-                      type="button"
-                      onClick={() => navigate("tags")}
-                      className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-medium transition-colors ${t.ring} ${t.hover} ${t.soft}`}
-                    >
-                      <Tag className="h-3.5 w-3.5" aria-hidden="true" />
+              <div className="flex items-center gap-2 pb-2 print:hidden">
+                <ChannelMenu channels={channels} current={channel} t={t} isDark={isDark} />
+                {channel && isYouTube && (
+                  <>
+                    <ToolbarButton t={t} onClick={() => navigate("tags")}>
+                      <TagIcon className="h-4 w-4" />
                       Tags
-                    </button>
-                  </div>
-
-                  {/* SUMMARY */}
-                  <section aria-labelledby="summary-title" className="flex flex-col gap-6">
-                    <SectionHead
-                      id="summary-title"
-                      title="Summary"
-                      sub={`${periodLabel} · ${compareLabel}`}
+                    </ToolbarButton>
+                    <ExportMenu
+                      disabled={!hasData}
+                      onDaily={exportDailyCsv}
+                      onPosts={exportPostsCsv}
                       t={t}
                     />
+                  </>
+                )}
+              </div>
+            </div>
 
-                    <div className="flex flex-col gap-8">
-                      <div
-                        className={`grid grid-cols-2 gap-px overflow-hidden rounded-2xl border sm:grid-cols-3 lg:grid-cols-5 ${t.border} ${t.track}`}
+            {/* BODY (scroll) */}
+            <div className={`min-h-0 flex-1 overflow-y-auto ${hideScrollbar}`}>
+              <div className="flex flex-col gap-5 pb-[120px] pt-5">
+                {!channel ? (
+                  <EmptyState
+                    tall
+                    t={t}
+                    title="Connect a channel to see insights"
+                    text="Followers, reach and engagement show up here once a social account is connected."
+                    action={{ label: "Connect a channel", onClick: () => navigateToSettingsSection("channels") }}
+                  />
+                ) : !isYouTube ? (
+                  <EmptyState
+                    tall
+                    t={t}
+                    title="Insights for this network are coming soon"
+                    text="Real statistics are only available for YouTube channels for now. Switch to a YouTube channel from the menu above."
+                  />
+                ) : (
+                  <>
+                    {yt.error && (
+                      <div role="alert" className="flex flex-wrap items-center gap-x-4 gap-y-1 px-1">
+                        <p className="text-[13px] text-red-500">
+                          Could not load YouTube insights: {yt.error}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => setReloadKey((k) => k + 1)}
+                          className={`rounded-md px-1 text-[13px] font-semibold underline underline-offset-4 focus-visible:outline-none focus-visible:ring-2 ${t.ring} ${t.strong}`}
+                        >
+                          Retry
+                        </button>
+                      </div>
+                    )}
+
+                    {showHint && (
+                      <div className={`flex flex-wrap items-center justify-between gap-3 rounded-2xl px-4 py-3 ${t.column}`}>
+                        <p className={`text-[13px] ${t.soft}`}>
+                          Fewer than 3 videos published recently. Post a bit more and your trends will be easier to read.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => navigate("new-post")}
+                          className={`flex items-center gap-2 rounded-xl px-3 py-2 text-[13px] font-semibold focus-visible:outline-none focus-visible:ring-2 ${t.ring} ${t.primaryBtn}`}
+                        >
+                          <PlusIcon className="h-4 w-4" />
+                          Create post
+                        </button>
+                      </div>
+                    )}
+
+                    <div
+                      className={`flex flex-col gap-5 transition-opacity duration-200 motion-reduce:transition-none ${
+                        youtubeLoading ? "pointer-events-none opacity-50" : ""
+                      }`}
+                      aria-busy={youtubeLoading}
+                    >
+                      {youtubeLoading && (
+                        <p className="sr-only" role="status" aria-live="polite">
+                          Loading YouTube insights…
+                        </p>
+                      )}
+
+                      {/* SUMMARY */}
+                      <section
+                        aria-labelledby="summary-title"
+                        className={`flex flex-col gap-4 rounded-2xl p-4 sm:p-5 ${t.column}`}
                       >
-                        {primaryBoxes.map((b) => (
-                          <div key={b.label} className={`p-4 sm:p-5 ${isDark ? "bg-[#0a0a0c]" : "bg-white"}`}>
+                        <SectionHead
+                          id="summary-title"
+                          title="Summary"
+                          sub={`${periodLabel} · ${compareLabel}`}
+                          t={t}
+                        />
+
+                        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+                          {primaryBoxes.map((b) => (
                             <Stat
+                              key={b.label}
                               label={b.label}
                               value={b.value}
                               info={SUMMARY_INFO[b.label] ?? b.label}
@@ -2010,304 +2217,329 @@ export default function Insights() {
                               sparkColor={SPARK_COLOR}
                               t={t}
                             />
-                          </div>
-                        ))}
-                      </div>
-
-                      <div
-                        className={`grid grid-cols-2 gap-x-6 gap-y-6 border-t pt-6 sm:grid-cols-3 lg:grid-cols-5 ${t.border}`}
-                      >
-                        {secondaryBoxes.map((b) => (
-                          <Stat
-                            key={b.label}
-                            size="sm"
-                            label={b.label}
-                            value={b.value}
-                            info={SUMMARY_INFO[b.label] ?? b.label}
-                            delta={null}
-                            t={t}
-                          />
-                        ))}
-                      </div>
-
-                      {hasData && secondaryBoxes.some((b) => b.value === null) && (
-                        <p className={`text-[11px] ${t.muted}`}>
-                          “—” means the value is not provided by YouTube for this period. Nothing is estimated.
-                        </p>
-                      )}
-                    </div>
-                  </section>
-
-                  {/* METRICS */}
-                  <section aria-labelledby="metrics-title" className="flex flex-col gap-5">
-                    <SectionHead
-                      id="metrics-title"
-                      title="Metrics"
-                      sub={periodLabel}
-                      t={t}
-                      right={
-                        <div className="flex flex-wrap items-center gap-2">
-                          <Segmented<ChartType>
-                            label="Chart type"
-                            value={chartType}
-                            onChange={setChartType}
-                            t={t}
-                            options={CHART_TYPES}
-                          />
-                          <Segmented<ChartView>
-                            label="Chart view"
-                            value={chartView}
-                            onChange={setChartView}
-                            t={t}
-                            options={CHART_VIEWS}
-                          />
+                          ))}
                         </div>
-                      }
-                    />
 
-                    <Tabs<MetricTab>
-                      label="Metric group"
-                      value={metricTab}
-                      onChange={setMetricTab}
-                      t={t}
-                      options={METRIC_TABS}
-                    />
-
-                    <div className="flex flex-wrap gap-x-12 gap-y-3">
-                      {activeSeries.map((s) => (
-                        <div key={s.key}>
-                          <p className={`flex items-center gap-2 text-[12px] ${t.soft}`}>
-                            <span
-                              className="h-2 w-2 rounded-full"
-                              style={{ background: TONES[s.tone] }}
-                              aria-hidden="true"
+                        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+                          {secondaryBoxes.map((b) => (
+                            <Stat
+                              key={b.label}
+                              size="sm"
+                              label={b.label}
+                              value={b.value}
+                              info={SUMMARY_INFO[b.label] ?? b.label}
+                              delta={null}
+                              t={t}
                             />
-                            {s.label}
-                          </p>
-                          <p
-                            className={`mt-1.5 text-[26px] font-semibold leading-none tracking-[-0.03em] tabular-nums ${
-                              hasData ? t.text : t.muted
-                            }`}
-                          >
-                            {hasData ? nf(seriesTotal(s)) : "—"}
-                          </p>
+                          ))}
                         </div>
-                      ))}
-                    </div>
 
-                    <div className={`relative rounded-2xl border p-3 sm:p-5 ${t.border}`}>
-                      <Chart
-                        dates={chartDates}
-                        series={chartSeries}
-                        view={chartView}
-                        type={chartType}
-                        bucket={bucket}
-                        isDark={isDark}
-                      />
-                      {!hasData && (
-                        <p
-                          className={`pointer-events-none absolute inset-x-0 top-1/2 -translate-y-1/2 text-center text-[12px] ${t.muted}`}
-                        >
-                          {youtubeLoading ? "Loading data…" : "No data for this period"}
-                        </p>
-                      )}
-                    </div>
+                        {hasData && secondaryBoxes.some((b) => b.value === null) && (
+                          <p className={`px-1 text-[11px] ${t.muted}`}>
+                            “—” means the value is not provided by YouTube for this period. Nothing is estimated.
+                          </p>
+                        )}
+                      </section>
 
-                    {hasData && bucket > 1 && (
-                      <p className={`text-[11px] ${t.muted}`}>
-                        Grouped by {bucket === 7 ? "week" : "30-day period"}: totals are summed,
-                        followers show the last value of each group.
-                      </p>
-                    )}
-                  </section>
-
-                  {/* POSTS */}
-                  <section aria-labelledby="perf-title" className="flex flex-col gap-5">
-                    <SectionHead
-                      id="perf-title"
-                      title="Performance per post"
-                      sub={postsPeriod === "this" ? periodLabel : fmtRange(prevStart, prevEnd)}
-                      t={t}
-                      right={
-                        <Tabs<PostsPeriod>
-                          label="Posts period"
-                          value={postsPeriod}
-                          onChange={setPostsPeriod}
+                      {/* METRICS */}
+                      <section
+                        aria-labelledby="metrics-title"
+                        className={`flex flex-col gap-4 rounded-2xl p-4 sm:p-5 ${t.column}`}
+                      >
+                        <SectionHead
+                          id="metrics-title"
+                          title="Metrics"
+                          sub={periodLabel}
                           t={t}
-                          options={[
-                            { key: "this", label: "This period" },
-                            { key: "previous", label: "Previous" },
-                          ]}
+                          right={
+                            <div className="flex flex-wrap items-center gap-2">
+                              <Segmented<ChartType>
+                                label="Chart type"
+                                value={chartType}
+                                onChange={setChartType}
+                                t={t}
+                                options={CHART_TYPES}
+                              />
+                              <Segmented<ChartView>
+                                label="Chart view"
+                                value={chartView}
+                                onChange={setChartView}
+                                t={t}
+                                options={CHART_VIEWS}
+                              />
+                            </div>
+                          }
                         />
-                      }
-                    />
 
-                    {/* RECHERCHE */}
-                    <div className="relative max-w-[320px]">
-                      <Search
-                        className={`pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 ${t.muted}`}
-                        aria-hidden="true"
-                      />
-                      <input
-                        type="text"
-                        value={query}
-                        onChange={(e) => setQuery(e.target.value)}
-                        placeholder="Search posts"
-                        aria-label="Search posts by title"
-                        className={`h-9 w-full rounded-lg bg-transparent pl-9 pr-9 text-[12px] placeholder:text-neutral-500 ${t.track} ${t.text} ${t.ring}`}
-                      />
-                      {query && (
-                        <button
-                          type="button"
-                          aria-label="Clear search"
-                          onClick={() => setQuery("")}
-                          className={`absolute right-1.5 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md ${t.soft} ${t.hover} ${t.ring}`}
-                        >
-                          <X className="h-3.5 w-3.5" aria-hidden="true" />
-                        </button>
-                      )}
-                    </div>
+                        <Tabs<MetricTab>
+                          boxed
+                          label="Metric group"
+                          value={metricTab}
+                          onChange={setMetricTab}
+                          t={t}
+                          options={METRIC_TABS}
+                        />
 
-                    <div className="overflow-x-auto">
-                      <div className="min-w-[640px]">
-                        <div className={`grid ${TABLE_GRID} items-center gap-3 pb-2 text-[11px] font-medium ${t.muted}`}>
-                          <span>{nf(sortedRows.length)} {sortedRows.length === 1 ? "post" : "posts"}</span>
-                          {columns.map((c) => {
-                            const active = sort?.key === c.key;
-                            return (
-                              <button
-                                key={c.key}
-                                type="button"
-                                onClick={() => toggleSort(c.key)}
-                                aria-label={`Sort by ${c.label}`}
-                                className={`ml-auto flex items-center gap-1 rounded-md ${t.ring} ${
-                                  active ? t.text : "hover:opacity-80"
+                        <div className="flex flex-wrap gap-x-12 gap-y-3 px-1">
+                          {activeSeries.map((s) => (
+                            <div key={s.key}>
+                              <p className={`flex items-center gap-2 text-[12px] font-medium ${t.soft}`}>
+                                <span
+                                  className="h-2.5 w-2.5 rounded-full"
+                                  style={{ background: TONES[s.tone] }}
+                                  aria-hidden="true"
+                                />
+                                {s.label}
+                              </p>
+                              <p
+                                className={`mt-1.5 text-[26px] font-semibold leading-none tracking-[-0.03em] tabular-nums ${
+                                  hasData ? t.strong : t.muted
                                 }`}
                               >
-                                {c.label}
-                                {active && (
-                                  <ChevronDown
-                                    className={`h-3 w-3 transition-transform motion-reduce:transition-none ${
-                                      sort?.dir === "asc" ? "rotate-180" : ""
-                                    }`}
-                                    aria-hidden="true"
-                                  />
-                                )}
-                              </button>
-                            );
-                          })}
-                          <span aria-hidden="true" />
+                                {hasData ? nf(seriesTotal(s)) : "—"}
+                              </p>
+                            </div>
+                          ))}
                         </div>
 
-                        {paginatedRows.length === 0 ? (
-                          <div className={`border-t ${t.border}`}>
-                            {needle && rows.length > 0 ? (
-                              <EmptyState
-                                t={t}
-                                title={`No post matches “${query.trim()}”`}
-                                action={{ label: "Clear search", onClick: () => setQuery("") }}
-                              />
-                            ) : (
-                              <EmptyState
-                                t={t}
-                                title={youtubeLoading ? "Loading videos…" : "No published posts in this period"}
-                                text={
-                                  youtubeLoading
-                                    ? undefined
-                                    : "Choose a longer range to see how your earlier posts performed."
-                                }
-                                action={
-                                  !youtubeLoading && days < 30
-                                    ? { label: "Show last 30 days", onClick: () => setRange("30d") }
-                                    : undefined
-                                }
-                              />
-                            )}
-                          </div>
-                        ) : (
-                          paginatedRows.map((p) => (
-                            <div
-                              key={p.id}
-                              className={`grid ${TABLE_GRID} items-center gap-3 border-t py-3 text-[13px] ${t.border} ${t.text}`}
+                        <div className={`relative rounded-xl border p-3 sm:p-4 ${t.card}`}>
+                          <Chart
+                            dates={chartDates}
+                            series={chartSeries}
+                            view={chartView}
+                            type={chartType}
+                            bucket={bucket}
+                            isDark={isDark}
+                          />
+                          {!hasData && (
+                            <p
+                              className={`pointer-events-none absolute inset-x-0 top-1/2 -translate-y-1/2 text-center text-[13px] ${t.muted}`}
                             >
-                              <div className="flex min-w-0 items-center gap-3">
-                                <span className={`flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg ${t.thumb}`}>
-                                  {p.thumbnailUrl ? (
-                                    <img src={p.thumbnailUrl} alt="" referrerPolicy="no-referrer" loading="lazy" className="h-full w-full object-cover" />
-                                  ) : (
-                                    mediaIcon(p.media)
-                                  )}
-                                </span>
-                                <div className="min-w-0">
+                              {youtubeLoading ? "Loading data…" : "No data for this period"}
+                            </p>
+                          )}
+                        </div>
+
+                        {hasData && bucket > 1 && (
+                          <p className={`px-1 text-[11px] ${t.muted}`}>
+                            Grouped by {bucket === 7 ? "week" : "30-day period"}: totals are summed,
+                            followers show the last value of each group.
+                          </p>
+                        )}
+                      </section>
+
+                      {/* POSTS */}
+                      <section
+                        aria-labelledby="perf-title"
+                        className={`flex flex-col gap-4 rounded-2xl p-4 sm:p-5 ${t.column}`}
+                      >
+                        <SectionHead
+                          id="perf-title"
+                          title="Performance per post"
+                          sub={postsPeriod === "this" ? periodLabel : fmtRange(prevStart, prevEnd)}
+                          t={t}
+                          right={
+                            <Segmented<PostsPeriod>
+                              label="Posts period"
+                              value={postsPeriod}
+                              onChange={setPostsPeriod}
+                              t={t}
+                              options={[
+                                { key: "this", title: "This period", label: "This period" },
+                                { key: "previous", title: "Previous period", label: "Previous" },
+                              ]}
+                            />
+                          }
+                        />
+
+                        {/* RECHERCHE */}
+                        <div
+                          className={`flex max-w-[320px] items-center gap-1 rounded-lg border px-2 ${
+                            isDark ? "border-white/[0.10]" : "border-black/[0.10]"
+                          }`}
+                        >
+                          <SearchIcon className={`h-4 w-4 shrink-0 ${t.muted}`} />
+                          <input
+                            type="text"
+                            value={query}
+                            onChange={(e) => setQuery(e.target.value)}
+                            placeholder="Search posts"
+                            aria-label="Search posts by title"
+                            className={`min-w-0 flex-1 bg-transparent py-2 text-[13px] outline-none ${t.strong} ${
+                              isDark ? "placeholder:text-neutral-600" : "placeholder:text-neutral-400"
+                            }`}
+                          />
+                          {query && (
+                            <button
+                              type="button"
+                              aria-label="Clear search"
+                              onClick={() => setQuery("")}
+                              className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md transition-colors ${t.ghost}`}
+                            >
+                              <XIcon className="h-4 w-4" />
+                            </button>
+                          )}
+                        </div>
+
+                        <div className={`overflow-x-auto rounded-xl border ${t.card}`}>
+                          <div className="min-w-[640px]">
+                            <div
+                              className={`grid ${TABLE_GRID} items-center gap-3 px-4 py-3 text-[12px] font-medium ${t.muted}`}
+                            >
+                              <span>
+                                {nf(sortedRows.length)} {sortedRows.length === 1 ? "post" : "posts"}
+                              </span>
+                              {columns.map((c) => {
+                                const active = sort?.key === c.key;
+                                return (
+                                  <button
+                                    key={c.key}
+                                    type="button"
+                                    onClick={() => toggleSort(c.key)}
+                                    aria-label={`Sort by ${c.label}`}
+                                    className={`ml-auto flex items-center gap-1 rounded-md focus-visible:outline-none focus-visible:ring-2 ${t.ring} ${
+                                      active ? t.strong : "hover:opacity-80"
+                                    }`}
+                                  >
+                                    {c.label}
+                                    {active && (
+                                      <ChevronDownIcon
+                                        className={`h-3.5 w-3.5 transition-transform motion-reduce:transition-none ${
+                                          sort?.dir === "asc" ? "rotate-180" : ""
+                                        }`}
+                                      />
+                                    )}
+                                  </button>
+                                );
+                              })}
+                              <span aria-hidden="true" />
+                            </div>
+
+                            {paginatedRows.length === 0 ? (
+                              <div className={`border-t ${t.line}`}>
+                                {needle && rows.length > 0 ? (
+                                  <EmptyState
+                                    t={t}
+                                    title={`No post matches “${query.trim()}”`}
+                                    action={{ label: "Clear search", onClick: () => setQuery("") }}
+                                  />
+                                ) : (
+                                  <EmptyState
+                                    t={t}
+                                    title={youtubeLoading ? "Loading videos…" : "No published posts"}
+                                    text={
+                                      youtubeLoading
+                                        ? undefined
+                                        : "Choose a longer range to see how your earlier posts performed."
+                                    }
+                                    action={
+                                      !youtubeLoading && days < 30
+                                        ? { label: "Show last 30 days", onClick: () => setRange("30d") }
+                                        : undefined
+                                    }
+                                  />
+                                )}
+                              </div>
+                            ) : (
+                              paginatedRows.map((p) => (
+                                <div
+                                  key={p.id}
+                                  className={`grid ${TABLE_GRID} items-center gap-3 border-t px-4 py-3 text-[13px] ${t.line} ${t.strong}`}
+                                >
+                                  <div className="flex min-w-0 items-center gap-3">
+                                    <span
+                                      className={`flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg ${t.chip} ${t.soft}`}
+                                    >
+                                      {p.thumbnailUrl ? (
+                                        <img
+                                          src={p.thumbnailUrl}
+                                          alt=""
+                                          referrerPolicy="no-referrer"
+                                          loading="lazy"
+                                          className="h-full w-full object-cover"
+                                        />
+                                      ) : (
+                                        mediaIcon(p.media)
+                                      )}
+                                    </span>
+                                    <div className="min-w-0">
+                                      <a
+                                        href={ytUrl(p.id)}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className={`block truncate rounded text-[13px] font-semibold hover:underline focus-visible:outline-none focus-visible:ring-2 ${t.ring}`}
+                                      >
+                                        {p.label}
+                                      </a>
+                                      <p className={`text-[11px] ${t.muted}`}>{fmtFull(p.date)}</p>
+                                    </div>
+                                  </div>
+                                  {columns.map((c) => (
+                                    <span key={c.key} className="relative text-right tabular-nums">
+                                      {c.key === "reactions" && p.reactions > 0 && (
+                                        <span
+                                          aria-hidden="true"
+                                          className={`absolute inset-y-[-4px] right-0 rounded-sm ${
+                                            isDark ? "bg-white/[0.06]" : "bg-black/[0.05]"
+                                          }`}
+                                          style={{ width: `${Math.round((p.reactions / maxReactions) * 100)}%` }}
+                                        />
+                                      )}
+                                      <span className="relative z-10 pr-1">{c.render(p)}</span>
+                                    </span>
+                                  ))}
                                   <a
                                     href={ytUrl(p.id)}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className={`block truncate rounded text-[13px] font-medium hover:underline ${t.ring}`}
+                                    aria-label={`Open “${p.label}” on YouTube`}
+                                    title="Open on YouTube"
+                                    className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 ${t.muted} ${t.ghost} ${t.ring}`}
                                   >
-                                    {p.label}
+                                    <ExternalIcon className="h-4 w-4" />
                                   </a>
-                                  <p className={`text-[11px] ${t.muted}`}>{fmtFull(p.date)}</p>
                                 </div>
-                              </div>
-                              {columns.map((c) => (
-                                <span key={c.key} className="relative text-right tabular-nums">
-                                  {c.key === "reactions" && p.reactions > 0 && (
-                                    <span
-                                      aria-hidden="true"
-                                      className={`absolute inset-y-[-4px] right-0 rounded-sm ${
-                                        isDark ? "bg-white/[0.06]" : "bg-black/[0.05]"
-                                      }`}
-                                      style={{ width: `${Math.round((p.reactions / maxReactions) * 100)}%` }}
-                                    />
-                                  )}
-                                  <span className="relative z-10 pr-1">{c.render(p)}</span>
-                                </span>
-                              ))}
-                              <a
-                                href={ytUrl(p.id)}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                aria-label={`Open “${p.label}” on YouTube`}
-                                title="Open on YouTube"
-                                className={`flex h-8 w-8 items-center justify-center rounded-lg ${t.muted} ${t.hover} ${t.ring}`}
-                              >
-                                <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
-                              </a>
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    </div>
-
-                    {/* PAGINATION */}
-                    {totalPages > 1 && (
-                      <nav aria-label="Posts pagination" className="flex items-center justify-between">
-                        <p className={`text-[12px] tabular-nums ${t.muted}`} aria-live="polite">
-                          {pageStart + 1}–{Math.min(pageStart + PAGE_SIZE, sortedRows.length)} of {nf(sortedRows.length)}
-                        </p>
-                        <div className="flex items-center gap-1">
-                          <IconBtn
-                            label="Previous page"
-                            t={t}
-                            onClick={() => setPage(Math.max(1, safePage - 1))}
-                          >
-                            <ChevronLeft className={`h-4 w-4 ${safePage === 1 ? "opacity-30" : ""}`} aria-hidden="true" />
-                          </IconBtn>
-                          <IconBtn
-                            label="Next page"
-                            t={t}
-                            onClick={() => setPage(Math.min(totalPages, safePage + 1))}
-                          >
-                            <ChevronRight className={`h-4 w-4 ${safePage === totalPages ? "opacity-30" : ""}`} aria-hidden="true" />
-                          </IconBtn>
+                              ))
+                            )}
+                          </div>
                         </div>
-                      </nav>
-                    )}
-                  </section>
-                </div>
-              </>
-            )}
+
+                        {/* PAGINATION */}
+                        {totalPages > 1 && (
+                          <nav aria-label="Posts pagination" className="flex items-center justify-between px-1">
+                            <p className={`text-[12px] tabular-nums ${t.muted}`} aria-live="polite">
+                              {pageStart + 1}–{Math.min(pageStart + PAGE_SIZE, sortedRows.length)} of{" "}
+                              {nf(sortedRows.length)}
+                            </p>
+                            <div className="flex items-center gap-1">
+                              <IconButton
+                                label="Previous page"
+                                t={t}
+                                onClick={() => setPage(Math.max(1, safePage - 1))}
+                              >
+                                <ChevronLeftIcon
+                                  className={`h-5 w-5 ${safePage === 1 ? "opacity-30" : ""}`}
+                                />
+                              </IconButton>
+                              <IconButton
+                                label="Next page"
+                                t={t}
+                                align="end"
+                                onClick={() => setPage(Math.min(totalPages, safePage + 1))}
+                              >
+                                <ChevronRightIcon
+                                  className={`h-5 w-5 ${safePage === totalPages ? "opacity-30" : ""}`}
+                                />
+                              </IconButton>
+                            </div>
+                          </nav>
+                        )}
+                      </section>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </div>
