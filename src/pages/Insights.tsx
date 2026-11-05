@@ -1146,8 +1146,12 @@ function EmptyState({
   );
 }
 
-/** Mini courbe construite uniquement à partir de la série quotidienne réelle. */
+/**
+ * Mini courbe construite uniquement à partir de la série quotidienne réelle.
+ * Version pro : aire remplie avec un dégradé subtil + ligne fine.
+ */
 function Spark({ values, color }: { values: number[]; color: string }) {
+  const uid = useId().replace(/:/g, "");
   if (values.length < 2 || values.every((v) => v === 0)) {
     return <div className="h-8" aria-hidden="true" />;
   }
@@ -1156,16 +1160,29 @@ function Spark({ values, color }: { values: number[]; color: string }) {
   const max = Math.max(...values);
   const min = Math.min(...values);
   const span = max - min || 1;
-  const pts = values
-    .map(
-      (v, i) =>
-        `${((i / (values.length - 1)) * W).toFixed(1)},${(H - 3 - ((v - min) / span) * (H - 6)).toFixed(1)}`
-    )
-    .join(" ");
+  const points = values.map(
+    (v, i) =>
+      `${((i / (values.length - 1)) * W).toFixed(1)},${(H - 3 - ((v - min) / span) * (H - 6)).toFixed(1)}`
+  );
+  const line = points.join(" ");
+  const area = `M0,${H} L${points.join(" L")} L${W},${H} Z`;
+  const fillId = `spark-fill-${uid}`;
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="h-8 w-full" preserveAspectRatio="none" aria-hidden="true">
+    <svg
+      viewBox={`0 0 ${W} ${H}`}
+      className="h-8 w-full overflow-visible"
+      preserveAspectRatio="none"
+      aria-hidden="true"
+    >
+      <defs>
+        <linearGradient id={fillId} x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity="0.18" />
+          <stop offset="100%" stopColor={color} stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <path d={area} fill={`url(#${fillId})`} />
       <polyline
-        points={pts}
+        points={line}
         fill="none"
         stroke={color}
         strokeWidth="1.5"
@@ -1220,7 +1237,7 @@ function Stat({
   const unavailable = value === null;
   return (
     <article
-      className={`min-w-0 rounded-xl border px-4 py-4 transition-colors ${t.card}`}
+      className={`flex min-w-0 flex-col overflow-hidden rounded-xl border px-4 py-4 transition-colors ${t.card}`}
       title={unavailable ? `${info} (not available)` : info}
     >
       <p className={`truncate text-[12px] font-medium ${t.soft}`}>{label}</p>
@@ -1232,11 +1249,15 @@ function Stat({
         {unavailable ? "—" : value}
       </p>
       {size === "lg" && (
-        <div className="mt-3">
+        <div className="mt-3 -mx-1">
           <Spark values={spark ?? []} color={sparkColor ?? "currentColor"} />
         </div>
       )}
-      {size === "lg" && <div className="mt-2 h-5">{!unavailable && <DeltaBadge delta={delta} t={t} />}</div>}
+      {size === "lg" && (
+        <div className="mt-2 h-5">
+          {!unavailable && <DeltaBadge delta={delta} t={t} />}
+        </div>
+      )}
     </article>
   );
 }
@@ -2028,9 +2049,9 @@ export default function Insights() {
         >
           <div
             className={[
-              "mx-auto flex min-h-0 w-full max-w-[1200px] flex-1 flex-col",
+              "flex min-h-0 w-full flex-1 flex-col",
               "px-[clamp(18px,3vw,48px)]",
-              "pb-0 pt-[clamp(18px,3vw,30px)]",
+              "pb-6 pt-[clamp(18px,3vw,30px)]",
             ].join(" ")}
           >
             {/* HEADER COMPACT */}
@@ -2384,7 +2405,7 @@ export default function Insights() {
                         <div className={`overflow-x-auto rounded-xl border ${t.card}`}>
                           <div className="min-w-[640px]">
                             <div
-                              className={`grid ${TABLE_GRID} items-center gap-3 px-4 py-3 text-[12px] font-medium ${t.muted}`}
+                              className={`grid ${TABLE_GRID} items-center gap-3 border-b px-4 py-3 text-[12px] font-medium ${t.line} ${t.muted}`}
                             >
                               <span>
                                 {nf(sortedRows.length)} {sortedRows.length === 1 ? "post" : "posts"}
@@ -2416,7 +2437,7 @@ export default function Insights() {
                             </div>
 
                             {paginatedRows.length === 0 ? (
-                              <div className={`border-t ${t.line}`}>
+                              <div>
                                 {needle && rows.length > 0 ? (
                                   <EmptyState
                                     t={t}
@@ -2444,7 +2465,9 @@ export default function Insights() {
                               paginatedRows.map((p) => (
                                 <div
                                   key={p.id}
-                                  className={`grid ${TABLE_GRID} items-center gap-3 border-t px-4 py-3 text-[13px] ${t.line} ${t.strong}`}
+                                  className={`grid ${TABLE_GRID} items-center gap-3 border-t px-4 py-3 text-[13px] transition-colors motion-reduce:transition-none ${t.line} ${t.strong} ${
+                                    isDark ? "hover:bg-white/[0.02]" : "hover:bg-black/[0.02]"
+                                  }`}
                                 >
                                   <div className="flex min-w-0 items-center gap-3">
                                     <span
