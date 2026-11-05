@@ -188,23 +188,23 @@ type Tokens = {
 const tokens = (isDark: boolean): Tokens =>
   isDark
     ? {
-        page: "bg-[#080809]",
+        page: "bg-[#050505]",
         text: "text-white",
         muted: "text-neutral-600",
         soft: "text-neutral-400",
-        card: "border-white/[0.07] bg-[#121214]",
-        panel: "border-white/[0.07] bg-[#0d0d0f]",
-        inner: "border-white/[0.07] bg-[#171719]",
+        card: "border-white/[0.07] bg-[#0f0f11]",
+        panel: "border-white/[0.07] bg-white/[0.025]",
+        inner: "border-white/[0.07] bg-white/[0.03]",
         border: "border-white/[0.07]",
         head: "bg-white/[0.03]",
-        primaryBtn: "bg-[#7667f5] text-white hover:bg-[#887bff]",
+        primaryBtn: "bg-white text-black hover:bg-neutral-200",
         outlineBtn: "border border-white/10 text-white hover:bg-white/[0.07]",
         iconBox: "bg-white/[0.07] text-neutral-300",
         ring: "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30",
         hover: "hover:bg-white/[0.06]",
-        sel: "bg-[#7667f5] text-white",
+        sel: "bg-white text-black",
         idle: "text-neutral-400 hover:text-white",
-        popover: "border-white/10 bg-[#141416]",
+        popover: "border-white/10 bg-[#101012]",
         tip: "bg-[#2e2e31]",
       }
     : {
@@ -1125,7 +1125,7 @@ export default function Insights() {
     { label: "Avg. Watch Time (sec)", value: nf(summary.avgWatchSec) },
   ];
 
-  const TONES: [string, string] = [isDark ? "#8b7cff" : "#6657e8", isDark ? "#45b8e8" : "#278dbb"];
+  const TONES: [string, string] = [isDark ? "#ffffff" : "#111111", isDark ? "#7c7c85" : "#a3a3a3"];
   const SERIES: Record<MetricTab, SeriesDef[]> = {
     posts: [
       { key: "posts", label: "Posts", tone: 0, agg: "sum" },
@@ -1219,17 +1219,6 @@ export default function Insights() {
     { key: "engRate", label: "Eng. Rate", render: (p) => `${p.engRate.toFixed(2)}%` },
     { key: "videoViews", label: "Video Views", render: (p) => nf(p.videoViews) },
   ];
-
-  const totalCurrentReactions = current.reduce((sum, point) => sum + point.reactions, 0);
-  const totalPreviousReactions = previous.reduce((sum, point) => sum + point.reactions, 0);
-  const reactionDelta =
-    totalPreviousReactions > 0
-      ? ((totalCurrentReactions - totalPreviousReactions) / totalPreviousReactions) * 100
-      : null;
-  const bestPost = [...posts].sort((a, b) => b.engRate - a.engRate)[0];
-  const averagePostEngagement = posts.length
-    ? posts.reduce((sum, post) => sum + post.engRate, 0) / posts.length
-    : 0;
 
   const exportCsv = () => {
     const rowsCsv: (string | number)[][] = [
@@ -1431,92 +1420,66 @@ export default function Insights() {
                   </p>
                 )}
 
-                {/* OVERVIEW — dashboard compact inspiré de la référence */}
-                <section className="flex flex-col gap-4">
-                  <div className="flex flex-wrap items-end justify-between gap-3">
+                {/* BANNIÈRE */}
+                <section className={`relative overflow-hidden rounded-2xl border ${t.card}`}>
+                  <div
+                    aria-hidden="true"
+                    className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${
+                      isDark
+                        ? "from-white/[0.06] via-transparent to-transparent"
+                        : "from-black/[0.04] via-transparent to-transparent"
+                    }`}
+                  />
+                  <div className="relative z-10 flex min-h-[168px] flex-col justify-center gap-4 px-6 py-6 lg:max-w-[58%]">
                     <div>
-                      <p className={`text-[11px] font-medium uppercase tracking-[0.16em] ${t.muted}`}>
-                        Creator analytics
-                      </p>
-                      <h2 className={`mt-1 text-[25px] font-semibold tracking-[-0.04em] ${t.text}`}>
-                        Overview
+                      <h2 className={`text-[22px] font-semibold tracking-[-0.035em] ${t.text}`}>
+                        A Path to Growth with Weekly Takeaways
                       </h2>
-                      <p className={`mt-1 text-[12px] ${t.soft}`}>
-                        {channel?.key ?? "Your channel"} · {periodLabel}
+                      <p className={`mt-2 max-w-[400px] text-[13px] leading-relaxed ${t.soft}`}>
+                        The more you post, the better your takeaways. Share a few posts and
+                        we&apos;ll start showing you weekly insights to help you grow.
                       </p>
                     </div>
-                    <div className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-[11px] ${t.inner} ${t.soft}`}>
-                      <span className="h-2 w-2 rounded-full bg-emerald-400" />
-                      {youtubeLoading ? "Syncing data…" : "Analytics updated"}
-                    </div>
+                    <button
+                      type="button"
+                      onClick={openNewPost}
+                      className={`flex w-fit items-center gap-1.5 rounded-lg px-4 py-2.5 text-[12px] font-semibold transition-all duration-150 active:scale-[0.98] ${t.ring} ${t.primaryBtn}`}
+                    >
+                      <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+                      Create Post
+                    </button>
                   </div>
 
-                  <div className="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(0,1.8fr)_minmax(260px,0.9fr)]">
-                    <div className={`min-w-0 rounded-2xl border p-4 sm:p-5 ${t.card}`}>
-                      <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div>
-                          <p className={`text-[12px] font-medium ${t.soft}`}>
-                            {activeSeries[0]?.label ?? "Performance"}
-                          </p>
-                          <p className={`mt-1 text-[30px] font-semibold leading-none tracking-[-0.04em] tabular-nums ${t.text}`}>
-                            {nf(seriesTotal(activeSeries[0] ?? { key: "profileViews", label: "Views", tone: 0, agg: "sum" }))}
-                          </p>
-                          <p className={`mt-2 text-[10px] ${t.muted}`}>
-                            {compareLabel}
-                          </p>
-                        </div>
-                        <Segmented<ChartView>
-                          label="Overview chart view"
-                          value={chartView}
-                          onChange={setChartView}
-                          t={t}
-                          options={[
-                            { key: "this", label: "Current" },
-                            { key: "comparison", label: "Previous" },
-                            { key: "both", label: "Both" },
-                          ]}
-                        />
-                      </div>
-                      <div className="mt-3">
-                        <InsightsChart
-                          data={chartData}
-                          view={chartView}
-                          isDark={isDark}
-                          seriesLabel={activeSeries[0]?.label ?? "Metric"}
-                          seriesLabel2={activeSeries[1]?.label}
-                          seriesColor={TONES[activeSeries[0]?.tone ?? 0]}
-                          seriesColor2={activeSeries[1] ? TONES[activeSeries[1].tone] : undefined}
-                          hasSecondAxis={activeSeries.length > 1}
-                        />
-                      </div>
+                  <div
+                    aria-hidden="true"
+                    className="pointer-events-none absolute inset-y-0 right-0 hidden w-[430px] lg:block"
+                  >
+                    <div className="absolute left-[134px] top-[30px] h-[90px] w-[120px] -rotate-[4deg] rounded-xl bg-neutral-300/90 shadow-[0_6px_22px_rgba(0,0,0,0.3)]">
+                      <span className="ml-3 mt-3 flex h-6 w-6 items-center justify-center rounded-md bg-neutral-900 text-white">
+                        <FlaskConical className="h-3.5 w-3.5" />
+                      </span>
                     </div>
-
-                    <div className={`rounded-2xl border p-4 sm:p-5 ${t.card}`}>
-                      <div className="flex items-center justify-between gap-2">
-                        <div>
-                          <h3 className={`text-[13px] font-semibold ${t.text}`}>Channel snapshot</h3>
-                          <p className={`mt-1 text-[10px] ${t.muted}`}>Selected period</p>
-                        </div>
-                        <span className={`rounded-lg px-2 py-1 text-[10px] ${t.panel} ${t.soft}`}>Connected data</span>
-                      </div>
-                      <div className="mt-4 flex flex-col gap-2">
-                        {[
-                          { label: "Followers", value: nf(summary.followers), color: "#8b7cff" },
-                          { label: "Published posts", value: nf(summary.posts), color: "#45b8e8" },
-                          { label: "Reactions", value: nf(summary.reactions), color: "#e5a45b" },
-                          { label: "Comments", value: nf(summary.comments), color: "#e879a9" },
-                          { label: "Engagement rate", value: `${summary.engRate}%`, color: "#54c69a" },
-                        ].map((item) => (
-                          <div key={item.label} className={`flex items-center justify-between gap-3 rounded-xl border px-3 py-3 ${t.inner}`}>
-                            <span className="flex min-w-0 items-center gap-2 text-[11px]">
-                              <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: item.color }} />
-                              <span className={t.soft}>{item.label}</span>
-                            </span>
-                            <strong className={`text-[14px] font-semibold tabular-nums ${t.text}`}>{item.value}</strong>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
+                    <TipCard
+                      className="left-[70px] top-[74px] -rotate-[9deg]"
+                      icon={<Pencil className="h-3.5 w-3.5" />}
+                      title="Use Your Drafts"
+                      text="You have 3 unsaved drafts to schedule."
+                      cta="Open Drafts"
+                    />
+                    <TipCard
+                      className="left-[168px] top-[4px] -rotate-[5deg]"
+                      icon={<Repeat2 className="h-3.5 w-3.5" />}
+                      title="Repost Your Popular Post"
+                      text="Repost your post about your ambitious project. It rated well, with a reach of 1.2K."
+                      cta="Create Post"
+                    />
+                    <TipCard
+                      className="left-[272px] top-[66px] rotate-[6deg]"
+                      icon={<Send className="h-3.5 w-3.5" />}
+                      title="Evergreen Ideas"
+                      text="Reshare last year's top post, still pulling engagement."
+                      cta="Duplicate Post"
+                    />
                   </div>
                 </section>
 
@@ -1599,7 +1562,7 @@ export default function Insights() {
                   <div className={sectionCard}>
                     <div className="flex items-start justify-between gap-3 px-1">
                       <div>
-                        <h3 className={sectionTitle}>Key metrics</h3>
+                        <h3 className={sectionTitle}>Summary</h3>
                         <p className={sectionSub}>
                           {periodLabel} · {compareLabel}
                         </p>
@@ -1629,60 +1592,12 @@ export default function Insights() {
                   </div>
                 </section>
 
-                {/* SMART INSIGHTS — règles explicables, basées sur les données disponibles */}
-                <section className={`rounded-2xl border p-4 sm:p-5 ${t.card}`} aria-labelledby="smart-insights-title">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div className="flex items-center gap-2.5">
-                      <span className="flex h-9 w-9 items-center justify-center rounded-xl border border-[#8b7cff]/20 bg-[#8b7cff]/10 text-[#9b90ff]">
-                        <Zap className="h-4 w-4" aria-hidden="true" />
-                      </span>
-                      <div>
-                        <h3 id="smart-insights-title" className={`text-[14px] font-semibold ${t.text}`}>Smart insights</h3>
-                        <p className={`mt-0.5 text-[10px] ${t.muted}`}>Observations calculated from your connected channel data</p>
-                      </div>
-                    </div>
-                    <span className={`rounded-lg border px-2.5 py-1 text-[10px] ${t.inner} ${t.soft}`}>Data-based</span>
-                  </div>
-
-                  <div className="mt-4 grid grid-cols-1 gap-2.5 md:grid-cols-3">
-                    <div className={`rounded-xl border p-3.5 ${t.inner}`}>
-                      <p className={`text-[10px] font-medium uppercase tracking-[0.12em] ${t.muted}`}>Top content</p>
-                      {bestPost ? (
-                        <>
-                          <p className={`mt-2 line-clamp-2 text-[12px] font-semibold ${t.text}`}>{bestPost.label}</p>
-                          <p className={`mt-1 text-[11px] ${t.soft}`}>{bestPost.engRate.toFixed(2)}% engagement rate</p>
-                        </>
-                      ) : (
-                        <p className={`mt-2 text-[12px] ${t.soft}`}>No published post to rank in this period.</p>
-                      )}
-                    </div>
-                    <div className={`rounded-xl border p-3.5 ${t.inner}`}>
-                      <p className={`text-[10px] font-medium uppercase tracking-[0.12em] ${t.muted}`}>Reaction trend</p>
-                      {reactionDelta === null ? (
-                        <p className={`mt-2 text-[12px] ${t.soft}`}>A previous-period baseline is needed to calculate a trend.</p>
-                      ) : (
-                        <>
-                          <p className={`mt-2 text-[20px] font-semibold tabular-nums ${reactionDelta >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-                            {reactionDelta >= 0 ? "+" : ""}{reactionDelta.toFixed(1)}%
-                          </p>
-                          <p className={`mt-1 text-[11px] ${t.soft}`}>Reactions versus the previous period</p>
-                        </>
-                      )}
-                    </div>
-                    <div className={`rounded-xl border p-3.5 ${t.inner}`}>
-                      <p className={`text-[10px] font-medium uppercase tracking-[0.12em] ${t.muted}`}>Average post engagement</p>
-                      <p className={`mt-2 text-[20px] font-semibold tabular-nums ${t.text}`}>{posts.length ? `${averagePostEngagement.toFixed(2)}%` : "—"}</p>
-                      <p className={`mt-1 text-[11px] ${t.soft}`}>{posts.length ? `Calculated across ${posts.length} published posts` : "Publish content to unlock this insight"}</p>
-                    </div>
-                  </div>
-                </section>
-
                 {/* PERFORMANCE PER POST */}
                 <section className={sectionCard} aria-labelledby="perf-title">
                   <div className="flex flex-wrap items-start justify-between gap-3 px-1">
                     <div>
                       <h3 id="perf-title" className={sectionTitle}>
-                        Content performance
+                        Performance per Post
                       </h3>
                       <p className={sectionSub}>
                         {postsPeriod === "this" ? periodLabel : fmtRange(prevStart, prevEnd)}
@@ -1843,7 +1758,7 @@ export default function Insights() {
                   <div className="flex items-start justify-between gap-3 px-1">
                     <div>
                       <h3 id="metrics-title" className={sectionTitle}>
-                        Performance breakdown
+                        Metrics
                       </h3>
                       <p className={sectionSub}>
                         {periodLabel} · {compareLabel}
