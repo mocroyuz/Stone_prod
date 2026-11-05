@@ -112,14 +112,19 @@ export default function ChannelMenu({
   current,
   isDark,
   onSelect,
+  allOption,
+  selectedKey,
 }: {
   channels: ConnectedChannel[];
   current?: ConnectedChannel;
   isDark: boolean;
   onSelect: (key: string) => void;
+  allOption?: { key: string; label: string };
+  selectedKey?: string | null;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const allSelected = Boolean(allOption && selectedKey === allOption.key);
 
   const ring = isDark
     ? "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
@@ -145,7 +150,7 @@ export default function ChannelMenu({
     };
   }, [open]);
 
-  const canSwitch = channels.length > 1;
+  const canSwitch = channels.length > 1 || Boolean(allOption && channels.length > 0);
 
   return (
     <div ref={ref} className="relative">
@@ -160,9 +165,23 @@ export default function ChannelMenu({
             canSwitch ? hover : ""
           }`}
         >
-          <ChannelAvatar channel={current} isDark={isDark} size={28} />
+          {allSelected ? (
+            <span className="relative flex h-7 w-10 items-center">
+              {channels.slice(0, 3).map((c, i) => (
+                <span
+                  key={c.key}
+                  className="absolute top-0"
+                  style={{ left: i * 10, zIndex: 3 - i }}
+                >
+                  <ChannelAvatar channel={c} isDark={isDark} size={28} showNetwork={false} />
+                </span>
+              ))}
+            </span>
+          ) : (
+            <ChannelAvatar channel={current} isDark={isDark} size={28} />
+          )}
           <span className={`max-w-[160px] truncate text-[14px] font-semibold tracking-[-0.01em] ${text}`}>
-            {channelName(current)}
+            {allSelected ? allOption?.label ?? "All networks" : channelName(current)}
           </span>
           {canSwitch && <ChevronDown className={`h-4 w-4 ${muted}`} aria-hidden="true" />}
         </button>
@@ -173,8 +192,36 @@ export default function ChannelMenu({
           role="menu"
           className={`absolute right-0 z-50 mt-2 w-64 rounded-2xl border p-1.5 shadow-[0_12px_40px_rgba(0,0,0,0.5)] ${popover}`}
         >
+          {allOption && (
+            <button
+              type="button"
+              role="menuitemradio"
+              aria-checked={allSelected}
+              onClick={() => {
+                setOpen(false);
+                onSelect(allOption.key);
+              }}
+              className={`flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left transition-colors ${ring} ${hover}`}
+            >
+              <span className="relative flex h-7 w-7 items-center justify-center">
+                {channels.slice(0, 2).map((c, i) => (
+                  <span
+                    key={c.key}
+                    className="absolute"
+                    style={{ left: i * 6, zIndex: 2 - i }}
+                  >
+                    <ChannelAvatar channel={c} isDark={isDark} size={22} showNetwork={false} />
+                  </span>
+                ))}
+              </span>
+              <span className={`min-w-0 flex-1 truncate text-[12px] font-semibold ${text}`}>
+                {allOption.label}
+              </span>
+              {allSelected && <Check className={`h-4 w-4 ${text}`} aria-hidden="true" />}
+            </button>
+          )}
           {channels.map((c) => {
-            const active = c.key === current?.key;
+            const active = !allSelected && c.key === current?.key;
             return (
               <button
                 key={c.key}

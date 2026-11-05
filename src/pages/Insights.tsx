@@ -1,17 +1,6 @@
 // src/pages/Insights.tsx
-// Page Insights — même shell arrondi que Home / Community.
-// Données YouTube réelles via useYouTubeInsights (services/youtube.ts).
-// Les autres réseaux conservent les données d'exemple en attendant leur API.
-//
-// Graphiques rendus avec **Recharts** (npm i recharts) : plus de SVG
-// artisanal, gestion du survol / clavier / axes / tooltips prise en charge
-// par la librairie. Le thème clair/sombre est respecté via un Tooltip custom.
-//
-// Comme dans Community, les posts dont le statut est "scheduled" sont ignorés :
-//   • le statut est lu sur le post s'il est fourni par le hook,
-//   • sinon il est déduit de fetchYouTubeVideos() (le backend renvoie `status`),
-//   • un post sans statut est considéré comme publié (compat ancien backend).
-// Les compteurs (Posts) et la courbe « Posts » sont corrigés en conséquence.
+// Insights = moteur de prochaine action (pas un clone d'analytics).
+// YouTube : données réelles. Autres réseaux : démo en attendant leur API.
 
 import {
   useEffect,
@@ -27,23 +16,24 @@ import {
   CalendarClock,
   Check,
   ChevronDown,
+  Clock3,
   Columns,
   Copy,
   Download,
   ExternalLink,
   Eye,
   FileText,
-  FlaskConical,
   Image as ImageIcon,
   Info,
   MoreVertical,
-  Pencil,
   Play,
   Plus,
   RefreshCw,
   Repeat2,
   Send,
+  Sparkles,
   Tag,
+  Target,
   TrendingUp,
   Zap,
 } from "lucide-react";
@@ -77,11 +67,16 @@ import {
   useConnectedChannels,
   type ConnectedChannel,
 } from "../hooks/useConnectedChannels";
-import { createPosts } from "../services/posts";
+import { createPosts, listPosts, type CalendarPost } from "../services/posts";
+import { listTags, type Tag as ApiTag } from "../services/supabase";
 import { fetchYouTubeVideos, useYouTubeInsights } from "../services/youtube";
+import { readPostingGoal } from "../components/OnboardingModals";
+import { useNewPostRequest } from "../services/Newpostbus";
 
 /** Route de cette page dans la sidebar (section Favorite). */
 const PAGE_ROUTE = "insights";
+const ALL_KEY = "all";
+const COMPOSER_DRAFT_KEY = "newpost:draft:v1";
 
 /* ============================================================
    TYPES
@@ -128,6 +123,7 @@ type PostRow = {
   comments: number;
   engRate: number;
   videoViews: number;
+  platform?: string;
 };
 
 type InsightsData = {
@@ -416,60 +412,258 @@ function withoutScheduled(
    pour YouTube tant que les vraies données ne sont pas arrivées.
 ============================================================ */
 
-function useSampleInsights(start: Date, end: Date, sample: boolean): InsightsData {
-  const s = start.getTime();
-  const e = end.getTime();
+function mulberry32(seed: number) {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
 
-  return useMemo(() => {
-    const days = Math.round((e - s) / DAY) + 1;
-    const build = (from: Date, withPost: boolean): Point[] =>
-      Array.from({ length: days }, (_, i) => ({
-        date: addDays(from, i),
-        posts: withPost && i === Math.max(0, days - 3) ? 1 : 0,
-        reactions: 0,
-        comments: 0,
-        followers: 0,
-        profileViews: 0,
-      }));
+function seedFrom(key: string) {
+  let h = 2166136261;
+  for (let i = 0; i < key.length; i++) h = Math.imul(h ^ key.charCodeAt(i), 16777619);
+  return h >>> 0;
+}
 
-    const current = build(new Date(s), sample);
-    const previous = build(addDays(new Date(s), -days), false);
+function emptyInsights(start: Date, end: Date): InsightsData {
+  const days = Math.max(1, Math.round((end.getTime() - start.getTime()) / DAY) + 1);
+  const build = (from: Date): Point[] =>
+    Array.from({ length: days }, (_, i) => ({
+      date: addDays(from, i),
+      posts: 0,
+      reactions: 0,
+      comments: 0,
+      followers: 0,
+      profileViews: 0,
+    }));
+  return {
+    current: build(start),
+    previous: build(addDays(start, -days)),
+    summary: {
+      followers: 0,
+      posts: 0,
+      reactions: 0,
+      comments: 0,
+      engRate: 0,
+      videoViews: 0,
+      shares: 0,
+      reach: 0,
+      watchMin: 0,
+      avgWatchSec: 0,
+    },
+    posts: [],
+    previousPosts: [],
+  };
+}
 
-    const postDate = addDays(new Date(e), -2);
-    const posts: PostRow[] = sample
-      ? [
-          {
-            id: "1",
-            label: "Media only",
-            date: postDate < new Date(s) ? new Date(s) : postDate,
-            media: "image",
-            reactions: 0,
-            comments: 0,
-            engRate: 0,
-            videoViews: 0,
-          },
-        ]
-      : [];
+const DEMO_TITLES: Record<string, string[]> = {
+  tiktok: ["Hook in 3 seconds", "Behind the studio", "Before / after", "Sound that stuck", "Day in the queue"],
+  pinterest: ["Moodboard: quiet luxury", "Pin that keeps saving", "Color story", "Shelf layout", "Texture close-up"],
+  youtube: ["Short: one idea", "Cut the intro", "What I'd remake", "90s of proof", "The leftover clip"],
+  default: ["Quiet drop", "The one people saved", "Studio note", "Ambition, shorter", "Still working"],
+};
 
-    return {
-      current,
-      previous,
-      summary: {
-        followers: 0,
-        posts: posts.length,
-        reactions: 0,
-        comments: 0,
-        engRate: 0,
-        videoViews: 0,
-        shares: 0,
-        reach: 0,
-        watchMin: 0,
-        avgWatchSec: 0,
-      },
-      posts,
-      previousPosts: [] as PostRow[],
-    };
-  }, [s, e, sample]);
+function buildSampleInsights(start: Date, end: Date, platform: string): InsightsData {
+  const days = Math.max(1, Math.round((end.getTime() - start.getTime()) / DAY) + 1);
+  const rnd = mulberry32(seedFrom(`${platform}:${toInput(start)}:${days}`));
+  const titles = DEMO_TITLES[platform] ?? DEMO_TITLES.default;
+  const mediaCycle: PostRow["media"][] = ["video", "image", "video", "text", "image"];
+  const peakHour = platform === "tiktok" ? 19 : platform === "pinterest" ? 10 : 18;
+
+  const makePoints = (from: Date, scale: number): Point[] => {
+    let followers = 800 + Math.floor(rnd() * 4200);
+    return Array.from({ length: days }, (_, i) => {
+      const date = addDays(from, i);
+      const dow = date.getDay();
+      const weekend = dow === 0 || dow === 6;
+      const posts = rnd() > (weekend ? 0.72 : 0.55) ? 1 : rnd() > 0.92 ? 2 : 0;
+      const reactions = Math.round((12 + rnd() * 90) * (posts + 0.15) * scale);
+      const comments = Math.round(reactions * (0.08 + rnd() * 0.12));
+      followers += Math.round((rnd() - 0.42) * 18 * scale);
+      return {
+        date,
+        posts,
+        reactions,
+        comments,
+        followers: Math.max(120, followers),
+        profileViews: Math.round(reactions * (3.2 + rnd()) * scale),
+      };
+    });
+  };
+
+  const current = makePoints(start, 1);
+  const previous = makePoints(addDays(start, -days), 0.82);
+  const posts: PostRow[] = [];
+
+  current.forEach((pt, i) => {
+    for (let n = 0; n < pt.posts; n++) {
+      const hour = (peakHour + Math.floor(rnd() * 5) - 1 + (n === 1 ? 4 : 0) + 24) % 24;
+      const date = new Date(pt.date);
+      date.setHours(hour, Math.floor(rnd() * 50), 0, 0);
+      const reactions = Math.max(4, Math.round(pt.reactions / Math.max(1, pt.posts) * (0.6 + rnd())));
+      const comments = Math.max(0, Math.round(reactions * (0.06 + rnd() * 0.14)));
+      const videoViews = Math.round(reactions * (18 + rnd() * 40));
+      const media = mediaCycle[(i + n) % mediaCycle.length];
+      posts.push({
+        id: `${platform}-${toInput(pt.date)}-${n}`,
+        label: titles[(i + n) % titles.length],
+        date,
+        media,
+        reactions,
+        comments,
+        engRate: ratePct(reactions + comments, videoViews),
+        videoViews,
+        platform,
+      });
+    }
+  });
+
+  const sumR = current.reduce((a, p) => a + p.reactions, 0);
+  const sumC = current.reduce((a, p) => a + p.comments, 0);
+  const views = posts.reduce((a, p) => a + p.videoViews, 0);
+
+  return {
+    current,
+    previous,
+    summary: {
+      followers: current[days - 1]?.followers ?? 0,
+      posts: posts.length,
+      reactions: sumR,
+      comments: sumC,
+      engRate: ratePct(sumR + sumC, views || current.reduce((a, p) => a + p.profileViews, 0)),
+      videoViews: views,
+      shares: Math.round(sumC * 0.7),
+      reach: current.reduce((a, p) => a + p.profileViews, 0),
+      watchMin: Math.round(views / 12),
+      avgWatchSec: 18 + Math.round(rnd() * 22),
+    },
+    posts: posts.sort((a, b) => +b.date - +a.date),
+    previousPosts: [],
+  };
+}
+
+function ratePct(num: number, den: number) {
+  return den > 0 ? Math.round((num / den) * 10_000) / 100 : 0;
+}
+
+function mergeInsights(parts: InsightsData[]): InsightsData {
+  if (parts.length === 0) return emptyInsights(startOfDay(new Date()), startOfDay(new Date()));
+  if (parts.length === 1) return parts[0];
+  const days = parts[0].current.length;
+  const current = parts[0].current.map((pt, i) => ({
+    date: pt.date,
+    posts: parts.reduce((a, p) => a + (p.current[i]?.posts ?? 0), 0),
+    reactions: parts.reduce((a, p) => a + (p.current[i]?.reactions ?? 0), 0),
+    comments: parts.reduce((a, p) => a + (p.current[i]?.comments ?? 0), 0),
+    followers: parts.reduce((a, p) => a + (p.current[i]?.followers ?? 0), 0),
+    profileViews: parts.reduce((a, p) => a + (p.current[i]?.profileViews ?? 0), 0),
+  }));
+  const previous = parts[0].previous.map((pt, i) => ({
+    date: pt.date,
+    posts: parts.reduce((a, p) => a + (p.previous[i]?.posts ?? 0), 0),
+    reactions: parts.reduce((a, p) => a + (p.previous[i]?.reactions ?? 0), 0),
+    comments: parts.reduce((a, p) => a + (p.previous[i]?.comments ?? 0), 0),
+    followers: parts.reduce((a, p) => a + (p.previous[i]?.followers ?? 0), 0),
+    profileViews: parts.reduce((a, p) => a + (p.previous[i]?.profileViews ?? 0), 0),
+  }));
+  const posts = parts.flatMap((p) => p.posts).sort((a, b) => +b.date - +a.date);
+  const previousPosts = parts.flatMap((p) => p.previousPosts);
+  const sum = (key: keyof Summary) => parts.reduce((a, p) => a + p.summary[key], 0);
+  const reactions = sum("reactions");
+  const comments = sum("comments");
+  const videoViews = sum("videoViews");
+  return {
+    current,
+    previous,
+    posts,
+    previousPosts,
+    summary: {
+      followers: sum("followers"),
+      posts: posts.length,
+      reactions,
+      comments,
+      engRate: ratePct(reactions + comments, videoViews || sum("reach")),
+      videoViews,
+      shares: sum("shares"),
+      reach: sum("reach"),
+      watchMin: sum("watchMin"),
+      avgWatchSec: Math.round(sum("avgWatchSec") / parts.length),
+    },
+  };
+}
+
+const SLOT_HOURS = [0, 3, 6, 9, 12, 15, 18, 21] as const;
+const SLOT_LABELS = ["12a", "3a", "6a", "9a", "12p", "3p", "6p", "9p"];
+const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+function dayIndexMon(d: Date) {
+  return (d.getDay() + 6) % 7;
+}
+
+function slotIndex(d: Date) {
+  return Math.min(7, Math.floor(d.getHours() / 3));
+}
+
+function postScore(p: PostRow) {
+  return p.reactions + p.comments * 2.4 + p.videoViews * 0.02;
+}
+
+function buildHeatmap(posts: PostRow[]) {
+  const cells = Array.from({ length: 7 }, () => Array.from({ length: 8 }, () => ({ score: 0, count: 0 })));
+  for (const p of posts) {
+    const d = dayIndexMon(p.date);
+    const s = slotIndex(p.date);
+    cells[d][s].score += postScore(p);
+    cells[d][s].count += 1;
+  }
+  let best = { day: 2, slot: 6, score: 0, count: 0 };
+  let max = 0;
+  cells.forEach((row, d) =>
+    row.forEach((cell, s) => {
+      if (cell.score > max) {
+        max = cell.score;
+        best = { day: d, slot: s, score: cell.score, count: cell.count };
+      }
+    })
+  );
+  const label = `${DAY_LABELS[best.day]} ${SLOT_LABELS[best.slot]}–${SLOT_LABELS[(best.slot + 1) % 8]}`;
+  return { cells, max, best, label, empty: max === 0 };
+}
+
+function pctDelta(now: number, prev: number) {
+  if (!Number.isFinite(now) || !Number.isFinite(prev)) return null;
+  if (prev === 0) return now === 0 ? 0 : 100;
+  return Math.round(((now - prev) / Math.abs(prev)) * 100);
+}
+
+function hasComposerDraft() {
+  try {
+    return Boolean(localStorage.getItem(COMPOSER_DRAFT_KEY));
+  } catch {
+    return false;
+  }
+}
+
+function formatMix(posts: PostRow[]) {
+  const groups: Record<PostRow["media"], { count: number; score: number }> = {
+    image: { count: 0, score: 0 },
+    video: { count: 0, score: 0 },
+    text: { count: 0, score: 0 },
+  };
+  for (const p of posts) {
+    groups[p.media].count += 1;
+    groups[p.media].score += postScore(p);
+  }
+  return (["video", "image", "text"] as const).map((key) => ({
+    key,
+    label: key === "video" ? "Video / Shorts" : key === "image" ? "Image" : "Text",
+    count: groups[key].count,
+    avg: groups[key].count ? groups[key].score / groups[key].count : 0,
+  }));
 }
 
 /* ============================================================
@@ -794,7 +988,50 @@ function IconBtn({
   );
 }
 
-function MetricBox({ label, value, info, t }: { label: string; value: string; info: string; t: Tokens }) {
+function MoveCard({
+  t,
+  icon,
+  title,
+  text,
+  cta,
+  onClick,
+}: {
+  t: Tokens;
+  icon: ReactNode;
+  title: string;
+  text: string;
+  cta: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex flex-col items-start rounded-2xl border p-4 text-left transition-colors ${t.inner} ${t.hover} ${t.ring}`}
+    >
+      <span className={`flex h-7 w-7 items-center justify-center rounded-lg ${t.iconBox}`}>{icon}</span>
+      <span className={`mt-3 text-[13px] font-semibold tracking-[-0.02em] ${t.text}`}>{title}</span>
+      <span className={`mt-1 text-[12px] leading-relaxed ${t.soft}`}>{text}</span>
+      <span className={`mt-3 text-[11px] font-semibold ${t.text}`}>{cta} →</span>
+    </button>
+  );
+}
+
+function MetricBox({
+  label,
+  value,
+  info,
+  t,
+  delta,
+}: {
+  label: string;
+  value: string;
+  info: string;
+  t: Tokens;
+  delta?: number | null;
+}) {
+  const up = delta != null && delta > 0;
+  const down = delta != null && delta < 0;
   return (
     <div className={`flex flex-col gap-2 rounded-xl border px-3.5 py-3 ${t.inner}`}>
       <span className={`flex items-center justify-between gap-2 text-[10px] font-medium ${t.soft}`}>
@@ -804,6 +1041,16 @@ function MetricBox({ label, value, info, t }: { label: string; value: string; in
         </span>
       </span>
       <span className={`text-[20px] font-bold leading-none tracking-tight tabular-nums ${t.text}`}>{value}</span>
+      {delta != null && (
+        <span
+          className={`text-[10px] font-semibold tabular-nums ${
+            up ? "text-emerald-500" : down ? "text-red-400" : t.muted
+          }`}
+        >
+          {up ? "+" : ""}
+          {delta}% vs last period
+        </span>
+      )}
     </div>
   );
 }
@@ -984,43 +1231,6 @@ function InsightsIcon() {
 
 
 /* ============================================================
-   BANNIÈRE — cartes blanches inclinées
-============================================================ */
-
-function TipCard({
-  className,
-  icon,
-  title,
-  text,
-  cta,
-}: {
-  className: string;
-  icon: ReactNode;
-  title: string;
-  text: string;
-  cta?: string;
-}) {
-  return (
-    <div
-      className={`absolute w-[176px] rounded-xl bg-white p-3 text-black shadow-[0_6px_22px_rgba(0,0,0,0.35)] ring-1 ring-black/5 ${className}`}
-    >
-      <div className="flex items-center gap-2">
-        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-neutral-900 text-white">
-          {icon}
-        </span>
-        <span className="text-[10.5px] font-semibold leading-tight">{title}</span>
-      </div>
-      <p className="mt-2 text-[9.5px] leading-snug text-neutral-600">{text}</p>
-      {cta && (
-        <span className="mt-2 inline-block rounded-md border border-neutral-300 px-2 py-0.5 text-[9.5px] font-semibold">
-          {cta}
-        </span>
-      )}
-    </div>
-  );
-}
-
-/* ============================================================
    PAGE
 ============================================================ */
 
@@ -1051,7 +1261,6 @@ export default function Insights() {
   const { isFavorite, toggle: toggleFavorite } = useFavorites();
   const saved = isFavorite(PAGE_ROUTE);
 
-  // Sélection du canal — même logique que Community.
   const hashChannel = useHashChannel();
   const [selectedKey, setSelectedKey] = useState<string | null>(hashChannel);
 
@@ -1059,11 +1268,16 @@ export default function Insights() {
     if (hashChannel) setSelectedKey(hashChannel);
   }, [hashChannel]);
 
-  const channel =
-    channels.find((c) => c.key === selectedKey) ??
-    channels.find((c) => isYouTubeChannel(c)) ??
-    channels[0];
-  const isYouTube = isYouTubeChannel(channel);
+  const viewingAll =
+    selectedKey === ALL_KEY || (selectedKey == null && channels.length > 1);
+  const channel = viewingAll
+    ? undefined
+    : channels.find((c) => c.key === selectedKey) ??
+      channels.find((c) => isYouTubeChannel(c)) ??
+      channels[0];
+  const youtubeConnected = channels.some(isYouTubeChannel);
+  const isYouTube = Boolean(channel && isYouTubeChannel(channel));
+  const fetchYouTube = youtubeConnected && (viewingAll || isYouTube);
 
   const goChannel = (key: string) => {
     setSelectedKey(key);
@@ -1075,27 +1289,57 @@ export default function Insights() {
   const [customEnd, setCustomEnd] = useState(() => startOfDay(new Date()));
   const [chartView, setChartView] = useState<ChartView>("this");
   const [postsPeriod, setPostsPeriod] = useState<PostsPeriod>("this");
-  const [metricTab, setMetricTab] = useState<MetricTab>("visibility");
+  const [metricTab, setMetricTab] = useState<MetricTab>("impact");
   const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" } | null>(null);
   const [isFolderOpen, setIsFolderOpen] = useState(false);
   const [isNewPostOpen, setIsNewPostOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
+  const [queue, setQueue] = useState<CalendarPost[]>([]);
+  const [tags, setTags] = useState<ApiTag[]>([]);
+  const [taggedPosts, setTaggedPosts] = useState<CalendarPost[]>([]);
+
+  useNewPostRequest(() => {
+    setIsFolderOpen(false);
+    setIsNewPostOpen(true);
+  });
 
   const { start, end } = useMemo(
     () => resolveRange(range, customStart, customEnd),
     [range, customStart, customEnd]
   );
 
-  /* ── Données ──
-     YouTube : vraies données (squelette vide pendant le chargement).
-     Autres réseaux : données d'exemple.
-     Dans tous les cas, les posts « scheduled » sont retirés. */
-  const yt = useYouTubeInsights(start, end, isYouTube && Boolean(channel), reloadKey);
-  const scheduled = useScheduledVideoIds(channel?.key, isYouTube, reloadKey);
-  const fallback = useSampleInsights(start, end, !isYouTube);
+  const yt = useYouTubeInsights(start, end, fetchYouTube, reloadKey);
+  const scheduled = useScheduledVideoIds(
+    channel?.key ?? channels.find(isYouTubeChannel)?.key,
+    fetchYouTube,
+    reloadKey
+  );
 
-  const source: InsightsData = isYouTube && yt.data && scheduled.ready ? yt.data : fallback;
+  const perChannel = useMemo(() => {
+    const map: Record<string, InsightsData> = {};
+    for (const c of channels) {
+      if (isYouTubeChannel(c)) {
+        map[c.key] =
+          yt.data && scheduled.ready
+            ? {
+                ...yt.data,
+                posts: yt.data.posts.map((p) => ({ ...p, platform: "youtube" })),
+              }
+            : emptyInsights(start, end);
+      } else {
+        map[c.key] = buildSampleInsights(start, end, c.platform);
+      }
+    }
+    return map;
+  }, [channels, yt.data, scheduled.ready, start, end]);
+
+  const source: InsightsData = useMemo(() => {
+    if (!channels.length) return emptyInsights(start, end);
+    if (viewingAll) return mergeInsights(channels.map((c) => perChannel[c.key]).filter(Boolean));
+    if (channel && perChannel[channel.key]) return perChannel[channel.key];
+    return emptyInsights(start, end);
+  }, [channels, viewingAll, channel, perChannel, start, end]);
 
   const { data, skipped } = useMemo(
     () => withoutScheduled(source, scheduled.ids),
@@ -1103,7 +1347,30 @@ export default function Insights() {
   );
   const { current, previous, summary, posts, previousPosts } = data;
 
-  const youtubeLoading = isYouTube && ((yt.loading && !yt.data) || !scheduled.ready);
+  const youtubeLoading = fetchYouTube && ((yt.loading && !yt.data) || !scheduled.ready);
+
+  useEffect(() => {
+    let cancelled = false;
+    const now = new Date();
+    Promise.all([
+      listPosts(start, addDays(now, 21)).catch(() => [] as CalendarPost[]),
+      listTags().catch(() => [] as ApiTag[]),
+    ]).then(([all, nextTags]) => {
+      if (cancelled) return;
+      setQueue(
+        all.filter(
+          (p) =>
+            (p.status === "scheduled" || p.status === "draft") &&
+            new Date(p.scheduledAt).getTime() >= now.getTime()
+        )
+      );
+      setTaggedPosts(all);
+      setTags(nextTags);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [start, reloadKey]);
 
   const days = current.length;
   const dates = current.map((p) => p.date);
@@ -1112,18 +1379,88 @@ export default function Insights() {
   const periodLabel = fmtRange(start, end);
   const compareLabel = `Compared to ${fmtRange(prevStart, prevEnd)}`;
 
-  const summaryBoxes: { label: string; value: string }[] = [
-    { label: "Total Followers", value: nf(summary.followers) },
-    { label: "Posts", value: nf(summary.posts) },
-    { label: "Reactions", value: nf(summary.reactions) },
-    { label: "Comments", value: nf(summary.comments) },
+  const prevTotals = useMemo(() => {
+    const sum = (key: NumKey) => previous.reduce((a, p) => a + p[key], 0);
+    return {
+      posts: sum("posts"),
+      reactions: sum("reactions"),
+      comments: sum("comments"),
+      followers: previous[previous.length - 1]?.followers ?? 0,
+      profileViews: sum("profileViews"),
+    };
+  }, [previous]);
+
+  const summaryBoxes: { label: string; value: string; delta?: number | null }[] = [
+    { label: "Total Followers", value: nf(summary.followers), delta: pctDelta(summary.followers, prevTotals.followers) },
+    { label: "Posts", value: nf(summary.posts), delta: pctDelta(summary.posts, prevTotals.posts) },
+    { label: "Reactions", value: nf(summary.reactions), delta: pctDelta(summary.reactions, prevTotals.reactions) },
+    { label: "Comments", value: nf(summary.comments), delta: pctDelta(summary.comments, prevTotals.comments) },
     { label: "Eng. Rate", value: `${summary.engRate}%` },
     { label: "Video Views", value: nf(summary.videoViews) },
     { label: "Shares", value: nf(summary.shares) },
-    { label: "Reach", value: nf(summary.reach) },
+    { label: "Reach", value: nf(summary.reach), delta: pctDelta(summary.reach, prevTotals.profileViews) },
     { label: "Watch Time (min)", value: nf(summary.watchMin) },
     { label: "Avg. Watch Time (sec)", value: nf(summary.avgWatchSec) },
   ];
+
+  const weekStart = addDays(startOfDay(new Date()), -6);
+  const postsThisWeek = posts.filter((p) => p.date >= weekStart).length;
+  const goalKey = channel?.key ?? channels[0]?.key ?? "youtube";
+  const goal = readPostingGoal(goalKey) ?? readPostingGoal("youtube") ?? 3;
+  const behind = Math.max(0, goal - postsThisWeek);
+  const heatmap = useMemo(() => buildHeatmap(posts), [posts]);
+  const mixes = useMemo(() => formatMix(posts), [posts]);
+  const ranked = useMemo(
+    () => [...posts].sort((a, b) => postScore(b) - postScore(a)),
+    [posts]
+  );
+  const topPost = ranked[0];
+  const avgScore = posts.length ? posts.reduce((a, p) => a + postScore(p), 0) / posts.length : 0;
+  const remixable = ranked.filter((p) => postScore(p) >= avgScore * 1.25).slice(0, 3);
+  const draftReady = hasComposerDraft();
+  const queuedForChannel = viewingAll
+    ? queue
+    : queue.filter((p) => !channel || p.network === channel.platform || p.channelKey === channel.key);
+
+  const tagPerf = useMemo(() => {
+    if (!tags.length) return [];
+    const byId = new Map<string, { label: string; count: number }>();
+    for (const tag of tags) byId.set(tag.id, { label: tag.label, count: 0 });
+    for (const p of taggedPosts) {
+      for (const id of p.tagIds ?? []) {
+        const row = byId.get(id);
+        if (row) row.count += 1;
+      }
+    }
+    return [...byId.values()].filter((t) => t.count > 0).sort((a, b) => b.count - a.count).slice(0, 5);
+  }, [tags, taggedPosts]);
+
+  const networkRows = useMemo(() => {
+    return channels.map((c) => {
+      const d = perChannel[c.key];
+      const score = (d?.summary.reactions ?? 0) + (d?.summary.comments ?? 0) * 2;
+      return {
+        channel: c,
+        posts: d?.summary.posts ?? 0,
+        reactions: d?.summary.reactions ?? 0,
+        comments: d?.summary.comments ?? 0,
+        followers: d?.summary.followers ?? 0,
+        score,
+        live: isYouTubeChannel(c),
+      };
+    });
+  }, [channels, perChannel]);
+  const maxNetworkScore = Math.max(1, ...networkRows.map((r) => r.score));
+
+  const headline =
+    behind > 0
+      ? `You're ${behind} post${behind > 1 ? "s" : ""} behind this week.`
+      : topPost
+        ? `${topPost.label} is still your strongest move.`
+        : "Publish a little, and Stone starts choosing the next move.";
+  const subhead = heatmap.empty
+    ? "As soon as a few posts land, we map the hour that actually works for you — then send it to Schedule."
+    : `Your best window is ${heatmap.label}. Don't guess the slot — fill it.`;
 
   const TONES: [string, string] = [isDark ? "#ffffff" : "#111111", isDark ? "#7c7c85" : "#a3a3a3"];
   const SERIES: Record<MetricTab, SeriesDef[]> = {
@@ -1333,10 +1670,12 @@ export default function Insights() {
                   current={channel}
                   isDark={isDark}
                   onSelect={goChannel}
+                  allOption={channels.length > 1 ? { key: ALL_KEY, label: "All networks" } : undefined}
+                  selectedKey={viewingAll ? ALL_KEY : channel?.key}
                 />
 
                 <div className="flex items-center gap-2">
-                  {isYouTube && (
+                  {fetchYouTube && (
                     <IconBtn label="Refresh insights" t={t} onClick={() => setReloadKey((k) => k + 1)}>
                       <RefreshCw
                         className={`h-[18px] w-[18px] ${yt.loading ? "animate-spin motion-reduce:animate-none" : ""}`}
@@ -1348,7 +1687,7 @@ export default function Insights() {
                   <button
                     type="button"
                     onClick={exportCsv}
-                    disabled={!channel}
+                    disabled={!channels.length}
                     className={`flex h-9 items-center gap-2 rounded-xl px-3.5 text-[12px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${t.ring} ${t.outlineBtn}`}
                   >
                     <Download className="h-4 w-4" aria-hidden="true" />
@@ -1376,7 +1715,7 @@ export default function Insights() {
               </div>
             </div>
 
-            {!channel ? (
+            {!channels.length ? (
               <section
                 className={`flex flex-col items-center gap-3 rounded-2xl border px-6 py-20 text-center ${t.panel}`}
               >
@@ -1399,7 +1738,7 @@ export default function Insights() {
             ) : (
               <>
                 {/* ÉTAT YOUTUBE : erreur / chargement */}
-                {isYouTube && yt.error && (
+                {fetchYouTube && yt.error && (
                   <div
                     role="alert"
                     className={`flex flex-wrap items-center justify-between gap-3 rounded-2xl border px-4 py-3 ${t.panel}`}
@@ -1420,76 +1759,359 @@ export default function Insights() {
                   </p>
                 )}
 
-                {/* BANNIÈRE */}
                 <section className={`relative overflow-hidden rounded-2xl border ${t.card}`}>
                   <div
                     aria-hidden="true"
                     className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${
                       isDark
-                        ? "from-white/[0.06] via-transparent to-transparent"
-                        : "from-black/[0.04] via-transparent to-transparent"
+                        ? "from-white/[0.05] via-transparent to-transparent"
+                        : "from-black/[0.03] via-transparent to-transparent"
                     }`}
                   />
-                  <div className="relative z-10 flex min-h-[168px] flex-col justify-center gap-4 px-6 py-6 lg:max-w-[58%]">
-                    <div>
-                      <h2 className={`text-[22px] font-semibold tracking-[-0.035em] ${t.text}`}>
-                        A Path to Growth with Weekly Takeaways
-                      </h2>
-                      <p className={`mt-2 max-w-[400px] text-[13px] leading-relaxed ${t.soft}`}>
-                        The more you post, the better your takeaways. Share a few posts and
-                        we&apos;ll start showing you weekly insights to help you grow.
-                      </p>
+                  <div className="relative z-10 flex flex-col gap-5 px-6 py-6">
+                    <div className="flex flex-wrap items-start justify-between gap-4">
+                      <div className="max-w-[640px]">
+                        <p className={`text-[11px] font-semibold uppercase tracking-[0.14em] ${t.muted}`}>
+                          Next move
+                        </p>
+                        <h2 className={`mt-1.5 text-[26px] font-semibold tracking-[-0.04em] ${t.text}`}>
+                          {headline}
+                        </h2>
+                        <p className={`mt-2 max-w-[520px] text-[13px] leading-relaxed ${t.soft}`}>
+                          {subhead}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={openNewPost}
+                        className={`flex w-fit items-center gap-1.5 rounded-lg px-4 py-2.5 text-[12px] font-semibold transition-all duration-150 active:scale-[0.98] ${t.ring} ${t.primaryBtn}`}
+                      >
+                        <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+                        {behind > 0 ? "Schedule the gap" : "Create Post"}
+                      </button>
                     </div>
-                    <button
-                      type="button"
-                      onClick={openNewPost}
-                      className={`flex w-fit items-center gap-1.5 rounded-lg px-4 py-2.5 text-[12px] font-semibold transition-all duration-150 active:scale-[0.98] ${t.ring} ${t.primaryBtn}`}
-                    >
-                      <Plus className="h-3.5 w-3.5" aria-hidden="true" />
-                      Create Post
-                    </button>
-                  </div>
 
-                  <div
-                    aria-hidden="true"
-                    className="pointer-events-none absolute inset-y-0 right-0 hidden w-[430px] lg:block"
-                  >
-                    <div className="absolute left-[134px] top-[30px] h-[90px] w-[120px] -rotate-[4deg] rounded-xl bg-neutral-300/90 shadow-[0_6px_22px_rgba(0,0,0,0.3)]">
-                      <span className="ml-3 mt-3 flex h-6 w-6 items-center justify-center rounded-md bg-neutral-900 text-white">
-                        <FlaskConical className="h-3.5 w-3.5" />
-                      </span>
+                    <div className="grid gap-2.5 md:grid-cols-3">
+                      <MoveCard
+                        t={t}
+                        icon={<Clock3 className="h-3.5 w-3.5" />}
+                        title={heatmap.empty ? "Find your hour" : `Book ${heatmap.label}`}
+                        text={
+                          heatmap.empty
+                            ? "Heatmap fills from published posts, then one click opens the composer."
+                            : "This slot beat the rest of your week. Drop the next post there."
+                        }
+                        cta={heatmap.empty ? "Create Post" : "Schedule this slot"}
+                        onClick={openNewPost}
+                      />
+                      <MoveCard
+                        t={t}
+                        icon={<Repeat2 className="h-3.5 w-3.5" />}
+                        title={topPost ? "Remix a winner" : "Need a first hit"}
+                        text={
+                          topPost
+                            ? `“${topPost.label}” is ${avgScore ? Math.max(1, Math.round(postScore(topPost) / Math.max(1, avgScore))) : 1}× your average. Duplicate the angle, not the caption.`
+                            : "Once a post outperforms, Stone puts it back in the queue."
+                        }
+                        cta={topPost ? "Duplicate Post" : "Create Post"}
+                        onClick={openNewPost}
+                      />
+                      <MoveCard
+                        t={t}
+                        icon={draftReady ? <Sparkles className="h-3.5 w-3.5" /> : <Target className="h-3.5 w-3.5" />}
+                        title={draftReady ? "Finish the draft" : `${postsThisWeek}/${goal} this week`}
+                        text={
+                          draftReady
+                            ? "You already started something. Schedule it instead of starting over."
+                            : queuedForChannel.length
+                              ? `${queuedForChannel.length} post${queuedForChannel.length > 1 ? "s" : ""} waiting in Schedule.`
+                              : "Set a cadence, then let the calendar hold you to it."
+                        }
+                        cta={draftReady ? "Open draft" : "Open Schedule"}
+                        onClick={draftReady ? openNewPost : () => navigate("schedule")}
+                      />
                     </div>
-                    <TipCard
-                      className="left-[70px] top-[74px] -rotate-[9deg]"
-                      icon={<Pencil className="h-3.5 w-3.5" />}
-                      title="Use Your Drafts"
-                      text="You have 3 unsaved drafts to schedule."
-                      cta="Open Drafts"
-                    />
-                    <TipCard
-                      className="left-[168px] top-[4px] -rotate-[5deg]"
-                      icon={<Repeat2 className="h-3.5 w-3.5" />}
-                      title="Repost Your Popular Post"
-                      text="Repost your post about your ambitious project. It rated well, with a reach of 1.2K."
-                      cta="Create Post"
-                    />
-                    <TipCard
-                      className="left-[272px] top-[66px] rotate-[6deg]"
-                      icon={<Send className="h-3.5 w-3.5" />}
-                      title="Evergreen Ideas"
-                      text="Reshare last year's top post, still pulling engagement."
-                      cta="Duplicate Post"
-                    />
                   </div>
                 </section>
 
-                {/* ALL INSIGHTS */}
+                <div className="grid gap-4 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,1.35fr)]">
+                  <section className={sectionCard} aria-labelledby="cadence-title">
+                    <div className="flex items-start justify-between gap-3 px-1">
+                      <div>
+                        <h3 id="cadence-title" className={sectionTitle}>
+                          Cadence
+                        </h3>
+                        <p className={sectionSub}>Goal vs published vs already queued</p>
+                      </div>
+                      <span className={`rounded-lg px-2 py-1 text-[11px] font-semibold ${t.inner} ${t.soft}`}>
+                        {postsThisWeek}/{goal} week
+                      </span>
+                    </div>
+                    <div className={`mt-4 h-2 overflow-hidden rounded-full ${isDark ? "bg-white/10" : "bg-black/10"}`}>
+                      <div
+                        className={`h-full rounded-full ${isDark ? "bg-white" : "bg-neutral-900"}`}
+                        style={{ width: `${Math.min(100, Math.round((postsThisWeek / Math.max(1, goal)) * 100))}%` }}
+                      />
+                    </div>
+                    <div className="mt-4 grid grid-cols-7 gap-1.5">
+                      {Array.from({ length: 7 }, (_, i) => {
+                        const day = addDays(weekStart, i);
+                        const count = posts.filter(
+                          (p) => startOfDay(p.date).getTime() === startOfDay(day).getTime()
+                        ).length;
+                        return (
+                          <div key={i} className="flex flex-col items-center gap-1.5">
+                            <span
+                              className={`flex h-9 w-full items-center justify-center rounded-lg text-[11px] font-semibold tabular-nums ${
+                                count ? t.sel : `${t.inner} ${t.muted}`
+                              }`}
+                            >
+                              {count || "·"}
+                            </span>
+                            <span className={`text-[10px] ${t.muted}`}>{DAY_LABELS[i].slice(0, 2)}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div className={`mt-4 space-y-2 border-t pt-3 ${t.border}`}>
+                      {queuedForChannel.slice(0, 3).map((p) => (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => navigate("schedule")}
+                          className={`flex w-full items-center justify-between gap-3 rounded-xl px-2 py-1.5 text-left ${t.hover} ${t.ring}`}
+                        >
+                          <span className={`truncate text-[12px] font-medium ${t.text}`}>
+                            {p.title || p.content || "Untitled"}
+                          </span>
+                          <span className={`shrink-0 text-[11px] ${t.muted}`}>
+                            {fmt(new Date(p.scheduledAt))}
+                          </span>
+                        </button>
+                      ))}
+                      {queuedForChannel.length === 0 && (
+                        <p className={`text-[12px] ${t.soft}`}>Nothing queued. Fill the empty days above.</p>
+                      )}
+                    </div>
+                  </section>
+
+                  <section className={sectionCard} aria-labelledby="heatmap-title">
+                    <div className="flex items-start justify-between gap-3 px-1">
+                      <div>
+                        <h3 id="heatmap-title" className={sectionTitle}>
+                          Hours that actually work
+                        </h3>
+                        <p className={sectionSub}>
+                          {heatmap.empty ? "Publishing activity by day and hour" : `Peak · ${heatmap.label}`}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={openNewPost}
+                        className={`rounded-lg px-3 py-1.5 text-[11px] font-semibold ${t.ring} ${t.outlineBtn}`}
+                      >
+                        Use this slot
+                      </button>
+                    </div>
+                    <div className="mt-4 overflow-x-auto">
+                      <div className="min-w-[420px]">
+                        <div className="mb-1 grid grid-cols-[36px_repeat(7,minmax(0,1fr))] gap-1">
+                          <span />
+                          {DAY_LABELS.map((d) => (
+                            <span key={d} className={`text-center text-[10px] font-medium ${t.muted}`}>
+                              {d}
+                            </span>
+                          ))}
+                        </div>
+                        {SLOT_HOURS.map((hour, s) => (
+                          <div key={hour} className="mb-1 grid grid-cols-[36px_repeat(7,minmax(0,1fr))] gap-1">
+                            <span className={`flex items-center text-[9px] ${t.muted}`}>{SLOT_LABELS[s]}</span>
+                            {DAY_LABELS.map((_, d) => {
+                              const cell = heatmap.cells[d][s];
+                              const intensity = heatmap.max ? cell.score / heatmap.max : 0;
+                              const isBest = heatmap.best.day === d && heatmap.best.slot === s && !heatmap.empty;
+                              return (
+                                <button
+                                  key={`${d}-${s}`}
+                                  type="button"
+                                  title={`${DAY_LABELS[d]} ${SLOT_LABELS[s]} · ${cell.count} post${cell.count === 1 ? "" : "s"}`}
+                                  onClick={openNewPost}
+                                  className={`h-7 rounded-md transition-transform ${t.ring} ${
+                                    isBest ? "ring-1 ring-current scale-[1.04]" : ""
+                                  }`}
+                                  style={{
+                                    background: isDark
+                                      ? `rgba(255,255,255,${0.06 + intensity * 0.72})`
+                                      : `rgba(17,17,17,${0.06 + intensity * 0.72})`,
+                                  }}
+                                />
+                              );
+                            })}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </section>
+                </div>
+
+                <section className={sectionCard} aria-labelledby="recycle-title">
+                  <div className="flex flex-wrap items-start justify-between gap-3 px-1">
+                    <div>
+                      <h3 id="recycle-title" className={sectionTitle}>
+                        Recycle these
+                      </h3>
+                      <p className={sectionSub}>Posts still outperforming the rest — duplicate the angle</p>
+                    </div>
+                  </div>
+                  {remixable.length === 0 ? (
+                    <p className={`mt-4 text-[12px] ${t.soft}`}>
+                      After a few published posts, the ones worth remaking show up here.
+                    </p>
+                  ) : (
+                    <div className="mt-4 grid gap-2.5 md:grid-cols-3">
+                      {remixable.map((p, i) => (
+                        <div key={p.id} className={`flex gap-3 rounded-2xl border p-3 ${t.inner}`}>
+                          <span className={`flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl ${t.iconBox}`}>
+                            {p.thumbnailUrl ? (
+                              <img
+                                src={p.thumbnailUrl}
+                                alt=""
+                                referrerPolicy="no-referrer"
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              mediaIcon(p.media)
+                            )}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <p className={`text-[10px] font-semibold uppercase tracking-wide ${t.muted}`}>
+                              #{i + 1} · {p.media}
+                            </p>
+                            <p className={`mt-0.5 truncate text-[13px] font-semibold ${t.text}`}>{p.label}</p>
+                            <p className={`mt-1 text-[11px] ${t.soft}`}>
+                              {nf(p.reactions)} reactions · {p.engRate.toFixed(1)}% eng
+                            </p>
+                            <button
+                              type="button"
+                              onClick={openNewPost}
+                              className={`mt-2 text-[11px] font-semibold ${t.text}`}
+                            >
+                              Duplicate →
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </section>
+
+                {networkRows.length > 1 && (
+                  <section className={sectionCard} aria-labelledby="mix-title">
+                    <div className="px-1">
+                      <h3 id="mix-title" className={sectionTitle}>
+                        Where to spend the week
+                      </h3>
+                      <p className={sectionSub}>
+                        Same period, every connected network — put time on the one that pays back
+                      </p>
+                    </div>
+                    <div className="mt-4 space-y-3">
+                      {networkRows
+                        .slice()
+                        .sort((a, b) => b.score - a.score)
+                        .map((row) => (
+                          <button
+                            key={row.channel.key}
+                            type="button"
+                            onClick={() => goChannel(row.channel.key)}
+                            className={`flex w-full flex-col gap-2 rounded-2xl border px-3 py-3 text-left ${t.inner} ${t.hover} ${t.ring}`}
+                          >
+                            <div className="flex items-center justify-between gap-3">
+                              <span className={`text-[13px] font-semibold ${t.text}`}>
+                                {row.channel.handle || row.channel.name}
+                              </span>
+                              <span className={`text-[11px] ${t.muted}`}>
+                                {row.posts} posts · {nf(row.reactions)} reactions
+                                {!row.live ? " · sample" : ""}
+                              </span>
+                            </div>
+                            <div className={`h-1.5 overflow-hidden rounded-full ${isDark ? "bg-white/10" : "bg-black/10"}`}>
+                              <div
+                                className={`h-full rounded-full ${isDark ? "bg-white" : "bg-neutral-900"}`}
+                                style={{ width: `${Math.round((row.score / maxNetworkScore) * 100)}%` }}
+                              />
+                            </div>
+                          </button>
+                        ))}
+                    </div>
+                  </section>
+                )}
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <section className={sectionCard}>
+                    <h3 className={sectionTitle}>Formats that land</h3>
+                    <p className={sectionSub}>Average score per published format</p>
+                    <div className="mt-4 space-y-3">
+                      {mixes.map((m) => {
+                        const max = Math.max(1, ...mixes.map((x) => x.avg));
+                        return (
+                          <div key={m.key}>
+                            <div className="flex items-center justify-between text-[12px]">
+                              <span className={t.text}>{m.label}</span>
+                              <span className={t.muted}>
+                                {m.count} · {m.avg ? m.avg.toFixed(0) : "—"}
+                              </span>
+                            </div>
+                            <div className={`mt-1.5 h-1.5 overflow-hidden rounded-full ${isDark ? "bg-white/10" : "bg-black/10"}`}>
+                              <div
+                                className={`h-full rounded-full ${isDark ? "bg-white" : "bg-neutral-900"}`}
+                                style={{ width: `${Math.round((m.avg / max) * 100)}%` }}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </section>
+                  <section className={sectionCard}>
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <h3 className={sectionTitle}>Tags in the calendar</h3>
+                        <p className={sectionSub}>What you actually schedule, not just what you like</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => navigate("tags")}
+                        className={`text-[11px] font-semibold ${t.soft}`}
+                      >
+                        Manage
+                      </button>
+                    </div>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {tagPerf.length === 0 ? (
+                        <p className={`text-[12px] ${t.soft}`}>Tag upcoming posts in Schedule to see which themes ship.</p>
+                      ) : (
+                        tagPerf.map((tag) => (
+                          <span
+                            key={tag.label}
+                            className={`rounded-full border px-3 py-1.5 text-[12px] font-medium ${t.inner} ${t.text}`}
+                          >
+                            {tag.label}
+                            <span className={`ml-1.5 ${t.muted}`}>{tag.count}</span>
+                          </span>
+                        ))
+                      )}
+                    </div>
+                  </section>
+                </div>
+
+                {/* NUMBERS */}
                 <section aria-labelledby="all-title" className="flex flex-col gap-4">
                   <div>
                     <h2 id="all-title" className={`text-[20px] font-semibold tracking-[-0.03em] ${t.text}`}>
-                      All Insights
+                      The numbers
                     </h2>
-                    <p className={`mt-0.5 text-[10px] ${t.muted}`}>Your activity at a glance</p>
+                    <p className={`mt-0.5 text-[10px] ${t.muted}`}>Proof behind the next move</p>
                   </div>
 
                   <div className="flex flex-wrap items-center justify-between gap-3">
@@ -1586,6 +2208,7 @@ export default function Insights() {
                           value={b.value}
                           info={SUMMARY_INFO[b.label] ?? b.label}
                           t={t}
+                          delta={b.delta}
                         />
                       ))}
                     </div>

@@ -90,6 +90,15 @@ function saveGoal(key: string, postsPerWeek: number) {
   }
 }
 
+export function readPostingGoal(key: string): number | null {
+  try {
+    const n = Number(localStorage.getItem(GOAL_KEY(key)));
+    return Number.isFinite(n) && n > 0 ? n : null;
+  } catch {
+    return null;
+  }
+}
+
 /* ============================================================================
    PALETTE (blanc en dark, noir en light)
 ============================================================================ */
