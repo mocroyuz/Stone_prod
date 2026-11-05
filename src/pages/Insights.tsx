@@ -16,6 +16,14 @@
 //   • sections dans des « colonnes » (fond doux, rounded-2xl) contenant des cartes rounded-xl
 //   • sélecteurs segmentés (rounded-xl border p-1), menus popover shadow-lg
 //   • icônes SVG inline (même jeu que Create), aucune dépendance d'icônes
+//
+// Section graphiques — refonte complète :
+//   • Cartes KPI interactives (remplacent les tabs soulignés) : label + total + delta + indicateur actif
+//   • Légende pro avec pastilles colorées + totaux de période
+//   • Chart : crosshair intelligent, tooltip HTML enrichi (pastilles série),
+//     axes Y color-codés, grille pointillée discrète, hover dots avec halo,
+//     hover column en mode barres, animation au survol, focus clavier.
+//   • Rangée Highlights (Peak / Lowest / Average) calculée sur la série active.
 
 import {
   useEffect,
@@ -24,6 +32,7 @@ import {
   useRef,
   useState,
   type ComponentType,
+  type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
@@ -593,6 +602,17 @@ function niceStep(max: number): number {
 
 type ChartSeries = { label: string; color: string; values: number[]; prev: number[] };
 
+/**
+ * Chart — réécrit complet :
+ *  • grille horizontale pointillée ultra-subtile (pas de grille verticale)
+ *  • axes Y color-codés (gauche/droite) + format compact (k/M)
+ *  • crosshair + hover dots avec halo (mode ligne et mode barres)
+ *  • hover column highlight en mode barres
+ *  • tooltip HTML enrichi (pastilles série + section "Previous")
+ *  • aire remplie avec dégradé (mode ligne)
+ *  • mode comparaison : lignes pointillées / barres hachurées
+ *  • navigation clavier (flèches, Home/End, Escape) + a11y live region
+ */
 function Chart({
   dates,
   series,
@@ -629,8 +649,8 @@ function Chart({
   }, []);
 
   const narrow = W < 520;
-  const H = narrow ? 240 : 320;
-  const pad = { l: 40, r: series.length > 1 ? 40 : 8, t: 12, b: 24 };
+  const H = narrow ? 260 : 340;
+  const pad = { l: 44, r: series.length > 1 ? 44 : 12, t: 16, b: 28 };
   const iw = W - pad.l - pad.r;
   const ih = H - pad.t - pad.b;
   const n = dates.length;
@@ -642,8 +662,10 @@ function Chart({
   const showThis = view === "this" || view === "both";
   const showPrev = view === "comparison" || view === "both";
 
-  const axis = isDark ? "#6b6b72" : "#8a8a90";
-  const grid = isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.06)";
+  // Palette d'axes ultra-discrète.
+  const axis = isDark ? "#71717a" : "#a1a1aa";
+  const grid = isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.055)";
+  const crosshair = isDark ? "rgba(255,255,255,0.18)" : "rgba(0,0,0,0.18)";
 
   const peaks = series.map((s) =>
     Math.max(0, ...(showThis ? s.values : []), ...(showPrev ? s.prev : []))
@@ -712,6 +734,9 @@ function Chart({
     e.preventDefault();
   };
 
+  // Tooltip : bascule à gauche si on dépasse la moitié droite.
+  const flipLeft = hover !== null && hover > n / 2;
+
   return (
     <div
       ref={wrapRef}
@@ -736,7 +761,7 @@ function Chart({
       >
         <defs>
           <linearGradient id={gradId} x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0%" stopColor={series[0].color} stopOpacity="0.12" />
+            <stop offset="0%" stopColor={series[0].color} stopOpacity="0.16" />
             <stop offset="100%" stopColor={series[0].color} stopOpacity="0" />
           </linearGradient>
           {/* Hachures utilisées pour les barres de la période précédente */}
@@ -749,33 +774,73 @@ function Chart({
               patternUnits="userSpaceOnUse"
               patternTransform="rotate(45)"
             >
-              <rect width="5" height="5" fill={s.color} fillOpacity="0.1" />
-              <line x1="0" y1="0" x2="0" y2="5" stroke={s.color} strokeOpacity="0.7" strokeWidth="2" />
+              <rect width="5" height="5" fill={s.color} fillOpacity="0.08" />
+              <line x1="0" y1="0" x2="0" y2="5" stroke={s.color} strokeOpacity="0.6" strokeWidth="2" />
             </pattern>
           ))}
         </defs>
 
+        {/* ───────── GRILLE : horizontale uniquement, pointillée ───────── */}
         {ticks.map((tk) => {
           const yy = pad.t + ih - (tk / 4) * ih;
           return (
-            <g key={tk}>
-              <line x1={pad.l} x2={W - pad.r} y1={yy} y2={yy} stroke={grid} />
-              <text x={pad.l - 8} y={yy + 3.5} fontSize="11" fill={axis} textAnchor="end" className="tabular-nums">
-                {nfc(steps[0] * tk)}
-              </text>
-              {series.length > 1 && (
-                <text x={W - pad.r + 8} y={yy + 3.5} fontSize="11" fill={axis} textAnchor="start" className="tabular-nums">
-                  {nfc(steps[1] * tk)}
-                </text>
-              )}
-            </g>
+            <line
+              key={`grid-${tk}`}
+              x1={pad.l}
+              x2={W - pad.r}
+              y1={yy}
+              y2={yy}
+              stroke={grid}
+              strokeDasharray="2 4"
+            />
           );
         })}
+
+        {/* ───────── AXE Y GAUCHE (série 0, color-codée) ───────── */}
+        {ticks.map((tk) => {
+          const yy = pad.t + ih - (tk / 4) * ih;
+          return (
+            <text
+              key={`y0-${tk}`}
+              x={pad.l - 10}
+              y={yy + 3.5}
+              fontSize="11"
+              fill={series[0].color}
+              fillOpacity={tk === 0 ? 0.55 : 0.9}
+              textAnchor="end"
+              className="tabular-nums"
+            >
+              {nfc(steps[0] * tk)}
+            </text>
+          );
+        })}
+
+        {/* ───────── AXE Y DROIT (série 1, color-codée) ───────── */}
+        {series.length > 1 &&
+          ticks.map((tk) => {
+            const yy = pad.t + ih - (tk / 4) * ih;
+            return (
+              <text
+                key={`y1-${tk}`}
+                x={W - pad.r + 10}
+                y={yy + 3.5}
+                fontSize="11"
+                fill={series[1].color}
+                fillOpacity={tk === 0 ? 0.55 : 0.9}
+                textAnchor="start"
+                className="tabular-nums"
+              >
+                {nfc(steps[1] * tk)}
+              </text>
+            );
+          })}
+
+        {/* ───────── AXE X (dates) ───────── */}
         {labelIdx.map((i) => (
           <text
             key={i}
             x={x(i)}
-            y={H - 6}
+            y={H - 8}
             fontSize="11"
             fill={axis}
             textAnchor={isBar ? "middle" : i === 0 ? "start" : i === n - 1 ? "end" : "middle"}
@@ -792,7 +857,7 @@ function Chart({
               d={path(si, s.prev)}
               fill="none"
               stroke={s.color}
-              strokeOpacity="0.5"
+              strokeOpacity="0.45"
               strokeWidth="1.75"
               strokeDasharray="4 5"
               strokeLinecap="round"
@@ -808,9 +873,10 @@ function Chart({
                 d={path(si, s.values)}
                 fill="none"
                 stroke={s.color}
-                strokeWidth="2"
+                strokeWidth="2.25"
                 strokeLinejoin="round"
                 strokeLinecap="round"
+                style={{ transition: "stroke-width 120ms ease" }}
               />
             ))}
           </>
@@ -824,8 +890,8 @@ function Chart({
             width={colW}
             height={ih}
             fill={isDark ? "#ffffff" : "#000000"}
-            fillOpacity="0.05"
-            rx="4"
+            fillOpacity="0.045"
+            rx="6"
           />
         )}
 
@@ -866,7 +932,8 @@ function Chart({
                           stroke={isPrev ? s.color : "none"}
                           strokeOpacity={isPrev ? 0.5 : 0}
                           strokeWidth={isPrev ? 1 : 0}
-                          opacity={hover === null || hover === i ? 1 : 0.55}
+                          opacity={hover === null || hover === i ? 1 : 0.5}
+                          style={{ transition: "opacity 120ms ease" }}
                         />
                       )}
                     </g>
@@ -876,46 +943,77 @@ function Chart({
             );
           })}
 
-        {/* ───────── CURSEUR (ligne uniquement) ───────── */}
-        {!isBar && hover !== null && (
+        {/* ───────── CROSSHAIR + HOVER DOTS ───────── */}
+        {hover !== null && (
           <g>
-            <line x1={x(hover)} x2={x(hover)} y1={pad.t} y2={pad.t + ih} stroke={axis} strokeOpacity="0.5" strokeDasharray="3 3" />
-            {showThis &&
+            <line
+              x1={x(hover)}
+              x2={x(hover)}
+              y1={pad.t}
+              y2={pad.t + ih}
+              stroke={crosshair}
+              strokeWidth="1"
+              strokeDasharray="3 3"
+            />
+            {!isBar &&
+              showThis &&
               series.map((s, si) => (
-                <circle
-                  key={s.label}
-                  cx={x(hover)}
-                  cy={y(si, s.values[hover])}
-                  r="4"
-                  fill={isDark ? "#0a0a0c" : "#fff"}
-                  stroke={s.color}
-                  strokeWidth="2"
-                />
+                <g key={`hover-${s.label}`}>
+                  <circle
+                    cx={x(hover)}
+                    cy={y(si, s.values[hover])}
+                    r="7"
+                    fill={s.color}
+                    fillOpacity="0.16"
+                  />
+                  <circle
+                    cx={x(hover)}
+                    cy={y(si, s.values[hover])}
+                    r="3.75"
+                    fill={isDark ? "#0a0a0c" : "#ffffff"}
+                    stroke={s.color}
+                    strokeWidth="2.25"
+                  />
+                </g>
               ))}
           </g>
         )}
       </svg>
 
+      {/* ───────── TOOLTIP ───────── */}
       {hover !== null && (
         <div
-          className={`pointer-events-none absolute top-0 min-w-[150px] rounded-xl border px-3 py-2 text-[12px] shadow-lg ${
-            isDark ? "border-white/[0.08] bg-[#101012] text-white" : "border-black/[0.06] bg-white text-neutral-900"
+          className={`pointer-events-none absolute top-1 z-10 min-w-[170px] rounded-xl border px-3 py-2.5 text-[12px] shadow-xl backdrop-blur-md ${
+            isDark
+              ? "border-white/[0.10] bg-[#0f0f11]/95 text-white"
+              : "border-black/[0.08] bg-white/95 text-neutral-900"
           }`}
           style={{
             left: x(hover),
-            transform: `translateX(${hover > n / 2 ? "calc(-100% - 12px)" : "12px"})`,
-          }}
+            transform: flipLeft ? "translateX(calc(-100% - 14px))" : "translateX(14px)",
+          } as CSSProperties}
         >
-          <div className="mb-1 text-[11px] opacity-50">{heading(hover)}</div>
+          <div className={`mb-1.5 text-[11px] font-medium ${isDark ? "text-neutral-400" : "text-neutral-500"}`}>
+            {heading(hover)}
+          </div>
           {showThis &&
             series.map((s) => (
-              <div key={s.label} className="flex justify-between gap-5">
-                <span>{s.label}</span>
+              <div key={s.label} className="flex items-center justify-between gap-5 py-0.5">
+                <span className="flex items-center gap-2">
+                  <span
+                    className="h-2 w-2 shrink-0 rounded-full"
+                    style={{ background: s.color }}
+                    aria-hidden="true"
+                  />
+                  <span className={isDark ? "text-neutral-300" : "text-neutral-600"}>{s.label}</span>
+                </span>
                 <b className="tabular-nums">{nf(s.values[hover])}</b>
               </div>
             ))}
           {showPrev && (
-            <div className="mt-1 flex justify-between gap-5 opacity-60">
+            <div className={`mt-1.5 flex items-center justify-between gap-5 border-t pt-1.5 opacity-70 ${
+              isDark ? "border-white/[0.06]" : "border-black/[0.06]"
+            }`}>
               <span>Previous</span>
               <b className="tabular-nums">{series.map((s) => nf(s.prev[hover])).join(" · ")}</b>
             </div>
@@ -1259,6 +1357,100 @@ function Stat({
         </div>
       )}
     </article>
+  );
+}
+
+/**
+ * Carte KPI interactive (remplace les tabs soulignés dans la section Metrics).
+ * Affiche : label · grande valeur · delta · indicateur actif.
+ */
+function MetricCard({
+  label,
+  value,
+  delta,
+  active,
+  onClick,
+  t,
+  isDark,
+  available,
+}: {
+  label: string;
+  value: string | null;
+  delta: Delta;
+  active: boolean;
+  onClick: () => void;
+  t: Tokens;
+  isDark: boolean;
+  available: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={`group relative flex flex-col items-start gap-2 rounded-xl border px-3.5 py-3 text-left transition-all duration-150 motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 ${t.ring} ${
+        active
+          ? isDark
+            ? "border-white/[0.18] bg-white/[0.055]"
+            : "border-black/[0.12] bg-black/[0.035]"
+          : isDark
+            ? "border-white/[0.055] bg-transparent hover:border-white/[0.10] hover:bg-white/[0.02]"
+            : "border-black/[0.05] bg-transparent hover:border-black/[0.10] hover:bg-black/[0.02]"
+      }`}
+    >
+      <span
+        className={`text-[10.5px] font-semibold uppercase tracking-[0.06em] ${
+          active ? t.soft : t.muted
+        }`}
+      >
+        {label}
+      </span>
+      <div className="flex items-baseline gap-2">
+        <span
+          className={`text-[22px] font-semibold leading-none tracking-[-0.03em] tabular-nums ${
+            available ? t.strong : t.muted
+          }`}
+        >
+          {available ? value : "—"}
+        </span>
+        {available && delta && <DeltaBadge delta={delta} t={t} />}
+      </div>
+      {active && (
+        <span
+          className={`absolute inset-x-3 bottom-0 h-[2px] rounded-full ${
+            isDark ? "bg-white" : "bg-neutral-900"
+          }`}
+          aria-hidden="true"
+        />
+      )}
+    </button>
+  );
+}
+
+/** Cellule de la rangée « Highlights » sous le graphique. */
+function Highlight({
+  label,
+  value,
+  sub,
+  className = "",
+  t,
+}: {
+  label: string;
+  value: string;
+  sub?: string;
+  className?: string;
+  t: Tokens;
+}) {
+  return (
+    <div className={`flex flex-col gap-1 px-4 py-3 ${className}`}>
+      <span className={`text-[10px] font-semibold uppercase tracking-[0.06em] ${t.muted}`}>
+        {label}
+      </span>
+      <span className={`text-[16px] font-semibold tabular-nums leading-tight ${t.strong}`}>
+        {value}
+      </span>
+      {sub && <span className={`text-[11px] ${t.muted}`}>{sub}</span>}
+    </div>
   );
 }
 
@@ -1863,12 +2055,60 @@ export default function Insights() {
   const seriesTotal = (s: SeriesDef) =>
     s.agg === "sum" ? current.reduce((a, p) => a + p[s.key], 0) : current[days - 1]?.[s.key] ?? 0;
 
-  const METRIC_TABS: { key: MetricTab; label: string }[] = [
+  // ── CARTES KPI (remplacent les tabs soulignés) ──
+  const metricCards: {
+    key: MetricTab;
+    label: string;
+    value: string | null;
+    delta: Delta;
+  }[] = (
+    [
+      { key: "visibility", label: "Visibility" },
+      { key: "growth", label: "Audience growth" },
+      { key: "impact", label: "Content impact" },
+      { key: "posts", label: "Posts" },
+    ] as { key: MetricTab; label: string }[]
+  ).map(({ key, label }) => {
+    const first = SERIES[key][0];
+    const total =
+      first.agg === "sum"
+        ? sumKey(current, first.key)
+        : current[days - 1]?.[first.key] ?? 0;
+    const prevTotal =
+      first.agg === "sum"
+        ? sumKey(previous, first.key)
+        : previous[days - 1]?.[first.key] ?? 0;
+    const available = hasData && Number.isFinite(total);
+    return {
+      key,
+      label,
+      value: available ? nf(total) : null,
+      delta: available ? pctDelta(total, prevTotal) : null,
+    };
+  });
+
+  // ── HIGHLIGHTS (Peak / Lowest / Average) calculés sur la première série active ──
+  const activeFirst = activeSeries[0];
+  const firstSeriesValues = current.map((p) => p[activeFirst.key]);
+  const nonZeroFirst = firstSeriesValues.filter((v) => v > 0);
+  const peakValue = nonZeroFirst.length ? Math.max(...nonZeroFirst) : 0;
+  const peakIdx = firstSeriesValues.indexOf(peakValue);
+  const peakDate = current[peakIdx]?.date;
+  const lowestValue = nonZeroFirst.length ? Math.min(...nonZeroFirst) : 0;
+  const lowestIdx = firstSeriesValues.indexOf(lowestValue);
+  const lowestDate = current[lowestIdx]?.date;
+  const averageValue = firstSeriesValues.length
+    ? firstSeriesValues.reduce((a, b) => a + b, 0) / firstSeriesValues.length
+    : 0;
+
+  const METRIC_TABS_META: { key: MetricTab; label: string }[] = [
     { key: "visibility", label: "Visibility" },
     { key: "growth", label: "Audience growth" },
     { key: "impact", label: "Content impact" },
     { key: "posts", label: "Posts" },
   ];
+  // On garde METRIC_TABS_META pour compat / lisibilité.
+  void METRIC_TABS_META;
 
   const CHART_VIEWS: { key: ChartView; title: string; label: string }[] = [
     { key: "this", title: "This period", label: "This period" },
@@ -2262,82 +2502,149 @@ export default function Insights() {
                         )}
                       </section>
 
-                      {/* METRICS */}
+                      {/* ═══════════ METRICS — refonte complète ═══════════ */}
                       <section
                         aria-labelledby="metrics-title"
                         className={`flex flex-col gap-4 rounded-2xl p-4 sm:p-5 ${t.column}`}
                       >
-                        <SectionHead
-                          id="metrics-title"
-                          title="Metrics"
-                          sub={periodLabel}
-                          t={t}
-                          right={
-                            <div className="flex flex-wrap items-center gap-2">
-                              <Segmented<ChartType>
-                                label="Chart type"
-                                value={chartType}
-                                onChange={setChartType}
-                                t={t}
-                                options={CHART_TYPES}
-                              />
-                              <Segmented<ChartView>
-                                label="Chart view"
-                                value={chartView}
-                                onChange={setChartView}
-                                t={t}
-                                options={CHART_VIEWS}
-                              />
-                            </div>
-                          }
-                        />
+                        {/* HEADER */}
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <h2 id="metrics-title" className={`text-[14px] font-semibold ${t.strong}`}>
+                              Performance
+                            </h2>
+                            <p className={`mt-0.5 text-[12px] ${t.muted}`}>
+                              {periodLabel} · {compareLabel}
+                            </p>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Segmented<ChartType>
+                              label="Chart type"
+                              value={chartType}
+                              onChange={setChartType}
+                              t={t}
+                              options={CHART_TYPES}
+                            />
+                            <Segmented<ChartView>
+                              label="Chart view"
+                              value={chartView}
+                              onChange={setChartView}
+                              t={t}
+                              options={CHART_VIEWS}
+                            />
+                          </div>
+                        </div>
 
-                        <Tabs<MetricTab>
-                          boxed
-                          label="Metric group"
-                          value={metricTab}
-                          onChange={setMetricTab}
-                          t={t}
-                          options={METRIC_TABS}
-                        />
-
-                        <div className="flex flex-wrap gap-x-12 gap-y-3 px-1">
-                          {activeSeries.map((s) => (
-                            <div key={s.key}>
-                              <p className={`flex items-center gap-2 text-[12px] font-medium ${t.soft}`}>
-                                <span
-                                  className="h-2.5 w-2.5 rounded-full"
-                                  style={{ background: TONES[s.tone] }}
-                                  aria-hidden="true"
-                                />
-                                {s.label}
-                              </p>
-                              <p
-                                className={`mt-1.5 text-[26px] font-semibold leading-none tracking-[-0.03em] tabular-nums ${
-                                  hasData ? t.strong : t.muted
-                                }`}
-                              >
-                                {hasData ? nf(seriesTotal(s)) : "—"}
-                              </p>
-                            </div>
+                        {/* CARTES KPI — remplacent les onglets soulignés */}
+                        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                          {metricCards.map((m) => (
+                            <MetricCard
+                              key={m.key}
+                              label={m.label}
+                              value={m.value}
+                              delta={m.delta}
+                              active={metricTab === m.key}
+                              onClick={() => setMetricTab(m.key)}
+                              t={t}
+                              isDark={isDark}
+                              available={hasData}
+                            />
                           ))}
                         </div>
 
-                        <div className={`relative rounded-xl border p-3 sm:p-4 ${t.card}`}>
-                          <Chart
-                            dates={chartDates}
-                            series={chartSeries}
-                            view={chartView}
-                            type={chartType}
-                            bucket={bucket}
-                            isDark={isDark}
-                          />
-                          {!hasData && (
-                            <p
-                              className={`pointer-events-none absolute inset-x-0 top-1/2 -translate-y-1/2 text-center text-[13px] ${t.muted}`}
-                            >
-                              {youtubeLoading ? "Loading data…" : "No data for this period"}
-                            </p>
+                        {/* CARTE GRAPHIQUE : légende + chart + highlights */}
+                        <div className={`overflow-hidden rounded-xl border ${t.card}`}>
+                          {/* Légende pro (pastilles + totaux) */}
+                          <div
+                            className={`flex flex-wrap items-center gap-x-6 gap-y-2 border-b px-4 py-3 ${t.line}`}
+                          >
+                            {activeSeries.map((s) => (
+                              <div key={s.key} className="flex items-center gap-2">
+                                <span
+                                  className="h-2.5 w-2.5 shrink-0 rounded-full"
+                                  style={{ background: TONES[s.tone] }}
+                                  aria-hidden="true"
+                                />
+                                <span className={`text-[12px] font-medium ${t.soft}`}>{s.label}</span>
+                                <span
+                                  className={`text-[13px] font-semibold tabular-nums ${
+                                    hasData ? t.strong : t.muted
+                                  }`}
+                                >
+                                  {hasData ? nf(seriesTotal(s)) : "—"}
+                                </span>
+                              </div>
+                            ))}
+                            {chartView !== "this" && (
+                              <div className="flex items-center gap-2 opacity-60">
+                                <span
+                                  className={`h-2.5 w-2.5 shrink-0 rounded-full ${
+                                    isDark ? "bg-neutral-500" : "bg-neutral-400"
+                                  }`}
+                                  aria-hidden="true"
+                                />
+                                <span className={`text-[12px] font-medium ${t.soft}`}>Previous</span>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* CHART */}
+                          <div className="p-3 sm:p-4">
+                            {hasData ? (
+                              <Chart
+                                dates={chartDates}
+                                series={chartSeries}
+                                view={chartView}
+                                type={chartType}
+                                bucket={bucket}
+                                isDark={isDark}
+                              />
+                            ) : (
+                              <div className="flex h-[340px] flex-col items-center justify-center gap-2">
+                                {youtubeLoading ? (
+                                  <>
+                                    <div
+                                      className={`h-8 w-8 animate-spin rounded-full border-2 border-current border-r-transparent opacity-40 ${
+                                        isDark ? "text-white" : "text-black"
+                                      }`}
+                                    />
+                                    <p className={`text-[13px] ${t.muted}`}>Loading chart…</p>
+                                  </>
+                                ) : (
+                                  <p className={`text-[13px] ${t.muted}`}>No data for this period</p>
+                                )}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* HIGHLIGHTS */}
+                          {hasData && (
+                            <div className={`grid grid-cols-3 border-t ${t.line}`}>
+                              <Highlight
+                                t={t}
+                                label="Peak"
+                                value={nf(peakValue)}
+                                sub={peakDate ? fmtFull(peakDate) : undefined}
+                              />
+                              <Highlight
+                                t={t}
+                                label="Lowest"
+                                value={nf(lowestValue)}
+                                sub={lowestDate ? fmtFull(lowestDate) : undefined}
+                                className={`border-l ${t.line}`}
+                              />
+                              <Highlight
+                                t={t}
+                                label="Average"
+                                value={
+                                  activeFirst.agg === "sum"
+                                    ? nf(Math.round(averageValue))
+                                    : nf(Math.round(averageValue))
+                                }
+                                sub={activeFirst.agg === "sum" ? "per day" : "over the period"}
+                                className={`border-l ${t.line}`}
+                              />
+                            </div>
                           )}
                         </div>
 
