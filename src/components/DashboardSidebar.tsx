@@ -1284,6 +1284,7 @@ function ChannelHoverCard({
               t.menu,
             ].join(" ")}
           >
+            {/* Header avec Avatar, Nom et bouton + */}
             <div className="flex items-center gap-2.5 px-1 pb-2 pt-1">
               <ChannelAvatar
                 channel={channel}
@@ -1300,30 +1301,30 @@ function ChannelHoverCard({
               >
                 {label.replace(/^@/, "")}
               </span>
+              
+              <button
+                type="button"
+                role="menuitem"
+                title="New post"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setPos(null);
+                  onNewPost(channel.key);
+                }}
+                className={[
+                  "flex h-6 w-6 shrink-0 items-center justify-center rounded-md transition-colors",
+                  "hover:bg-black/5 dark:hover:bg-white/10",
+                  focus,
+                  t.menuIcon,
+                ].join(" ")}
+              >
+                <PlusIcon className="h-4 w-4" />
+              </button>
             </div>
 
             <div className={["border-t pt-1", t.menuDivider].join(" ")} />
 
             <div className="flex flex-col gap-0.5">
-              <button
-                type="button"
-                role="menuitem"
-                onClick={() => {
-                  setPos(null);
-                  onNewPost(channel.key);
-                }}
-                className={[
-                  "group flex h-8 w-full items-center gap-2.5 whitespace-nowrap",
-                  "rounded-lg px-2 text-left text-[12.5px] font-semibold",
-                  "transition-colors duration-150 motion-reduce:transition-none",
-                  focus,
-                  t.sub,
-                ].join(" ")}
-              >
-                <PlusIcon className="h-4 w-4 shrink-0 opacity-70 group-hover:opacity-100" />
-                <span className="flex-1">New post</span>
-              </button>
-
               {links.map((link) => {
                 const Icon = link.icon;
 
