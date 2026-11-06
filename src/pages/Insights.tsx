@@ -1824,6 +1824,7 @@ export default function Insights() {
 
   void takeaways;
   void behind;
+  void subhead;
 
   const TONES: [string, string] = [isDark ? "#ffffff" : "#111111", isDark ? "#7c7c85" : "#a3a3a3"];
   const METRIC_OPTIONS: MetricOption[] = [
@@ -2118,26 +2119,75 @@ export default function Insights() {
                   </p>
                 )}
 
-                {/* ── NEXT MOVE : mini pub minimaliste, blanche ── */}
-                <section className="relative overflow-hidden rounded-2xl border border-black/[0.06] bg-white text-neutral-900">
-                  <div className="flex flex-col gap-8 px-6 py-8 md:px-10 md:py-10">
-                    <div className="flex flex-wrap items-end justify-between gap-6">
-                      <div className="max-w-[640px]">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-neutral-400">
-                          Insights
-                        </p>
-                        <h2 className="mt-3 text-[clamp(28px,3.4vw,44px)] font-semibold leading-[1.05] tracking-[-0.04em] text-neutral-900">
-                          Know what works best.
-                          <br />
-                          Then do more of it.
-                        </h2>
-                        <p className="mt-4 max-w-[480px] text-[14px] leading-relaxed text-neutral-500">
-                          Insights shows which posts, formats and hours perform best, so your next
-                          post is a decision, not a guess.
-                        </p>
-                        <p className="mt-3 text-[12px] font-medium text-neutral-400">{subhead}</p>
-                      </div>
-                    </div>
+                {/* ── HERO : bannière sombre avec ruban lumineux ── */}
+                <section
+                  aria-label="Insights"
+                  className="relative isolate h-[300px] overflow-hidden rounded-2xl bg-black ring-1 ring-inset ring-white/10 md:h-[340px]"
+                >
+                  {/* Ruban lumineux abstrait (SVG pur, aucune image externe) */}
+                  <div
+                    aria-hidden="true"
+                    className="pointer-events-none absolute inset-y-0 right-0 w-[72%] [mask-image:linear-gradient(to_right,transparent,black_38%)]"
+                  >
+                    <svg
+                      viewBox="0 0 600 340"
+                      preserveAspectRatio="xMaxYMid slice"
+                      className="h-full w-full"
+                    >
+                      <defs>
+                        <linearGradient id="hero-ribbon" x1="0" y1="0" x2="1" y2="1">
+                          <stop offset="0%" stopColor="#ff9a2e" />
+                          <stop offset="35%" stopColor="#ff3d81" />
+                          <stop offset="70%" stopColor="#8b3dff" />
+                          <stop offset="100%" stopColor="#3b82f6" />
+                        </linearGradient>
+                        <linearGradient id="hero-ribbon-2" x1="1" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#6d5bff" />
+                          <stop offset="50%" stopColor="#d946ef" />
+                          <stop offset="100%" stopColor="#ffb347" />
+                        </linearGradient>
+                        <radialGradient id="hero-glow" cx="68%" cy="48%" r="55%">
+                          <stop offset="0%" stopColor="#7c3aed" stopOpacity="0.55" />
+                          <stop offset="55%" stopColor="#be185d" stopOpacity="0.18" />
+                          <stop offset="100%" stopColor="#000" stopOpacity="0" />
+                        </radialGradient>
+                        <filter id="hero-blur" x="-20%" y="-20%" width="140%" height="140%">
+                          <feGaussianBlur stdDeviation="9" />
+                        </filter>
+                        <filter id="hero-soft" x="-20%" y="-20%" width="140%" height="140%">
+                          <feGaussianBlur stdDeviation="2" />
+                        </filter>
+                      </defs>
+
+                      <rect width="600" height="340" fill="url(#hero-glow)" />
+
+                      <g fill="none" strokeLinecap="round">
+                        <g filter="url(#hero-blur)" opacity="0.9">
+                          <path d="M360 -30 C230 70 240 270 410 370" stroke="url(#hero-ribbon)" strokeWidth="46" />
+                          <path d="M440 -30 C330 80 335 260 500 370" stroke="url(#hero-ribbon-2)" strokeWidth="42" />
+                          <path d="M520 -30 C440 90 450 250 590 370" stroke="url(#hero-ribbon)" strokeWidth="38" />
+                        </g>
+                        <g filter="url(#hero-soft)">
+                          <path d="M360 -30 C230 70 240 270 410 370" stroke="url(#hero-ribbon)" strokeWidth="9" />
+                          <path d="M395 -30 C275 75 280 265 450 370" stroke="#ffd2a1" strokeOpacity="0.85" strokeWidth="3" />
+                          <path d="M440 -30 C330 80 335 260 500 370" stroke="url(#hero-ribbon-2)" strokeWidth="8" />
+                          <path d="M480 -30 C385 85 392 255 545 370" stroke="#c4b5fd" strokeOpacity="0.8" strokeWidth="3" />
+                          <path d="M520 -30 C440 90 450 250 590 370" stroke="url(#hero-ribbon)" strokeWidth="7" />
+                        </g>
+                      </g>
+                    </svg>
+                  </div>
+
+                  {/* Texte en bas à gauche */}
+                  <div className="absolute bottom-0 left-0 z-10 flex max-w-[480px] flex-col gap-1.5 p-6 md:p-8">
+                    <p className="text-[11px] font-medium text-white/60">Insights</p>
+                    <h2 className="text-[clamp(26px,3vw,38px)] font-semibold leading-[1.05] tracking-[-0.035em] text-white">
+                      Know what works best.
+                    </h2>
+                    <p className="max-w-[380px] text-[12.5px] leading-relaxed text-white/60">
+                      Insights shows which posts, formats and hours perform best, so your next post is a
+                      decision, not a guess.
+                    </p>
                   </div>
                 </section>
 
