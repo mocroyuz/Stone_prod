@@ -2910,19 +2910,11 @@ export default function NewPostModal({
         mediaFor(n).some((m) => m.kind === "video")
       );
 
-      // YouTube déjà publié : on affiche toujours le résultat, même si le
-      // backend a refusé d'enregistrer le post dans le calendrier.
+      // YouTube déjà publié : on affiche uniquement le résultat de succès.
+      // Aucune erreur "calendrier" n'est remontée à l'utilisateur, quel que
+      // soit le mode — la vidéo est en ligne, c'est ce qui compte.
       if (youtubeOutcome) {
         setYoutubeResult(youtubeOutcome);
-        if (backendError) {
-          const raw =
-            backendError instanceof Error
-              ? backendError.message
-              : String(backendError);
-          setSubmitError(
-            `The video is live on YouTube, but the post couldn't be saved to the calendar: ${raw}`
-          );
-        }
         setSubmitProgress(null);
         setIsSubmitting(false);
         return;
