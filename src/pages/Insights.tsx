@@ -783,7 +783,8 @@ function buildBestTimes(posts: PostRow[], platform: string): BestTimes {
 }
 
 /** Rose pâle → violet profond (comme une heatmap d'engagement). */
-const heatColor = (v: number) => `hsla(292, 88%, ${66 - 24 * v}%, ${0.1 + 0.9 * v})`;
+const heatColor = (v: number) => `hsla(320, 85%, ${72 - 20 * v}%, ${0.1 + 0.9 * v})`;
+const shortHour = (h: number) => `${h % 12 === 0 ? 12 : h % 12}${h < 12 ? "a" : "p"}`;
 
 function pctDelta(now: number, prev: number) {
   if (!Number.isFinite(now) || !Number.isFinite(prev)) return null;
@@ -2415,66 +2416,61 @@ export default function Insights() {
                     </button>
                   </div>
 
-                  <div className="mt-4 overflow-x-auto">
-                    <div className="min-w-[420px]">
-                      <div className="mb-1.5 grid grid-cols-[40px_repeat(7,minmax(0,1fr))] gap-1">
-                        <span />
-                        {DAY_LABELS.map((d) => (
-                          <span key={d} className={`text-center text-[11px] font-medium ${t.soft}`}>
-                            {d}
+                  <div className="mt-5 overflow-x-auto px-1 pb-1">
+                    <div className="w-max">
+                      <div className="mb-1.5 flex items-end gap-1">
+                        <span className="w-9 shrink-0" />
+                        {Array.from({ length: 24 }, (_, h) => (
+                          <span key={h} className="relative h-3 w-4 shrink-0">
+                            {h % 3 === 0 && (
+                              <span className={`absolute bottom-0 left-0 whitespace-nowrap text-[10px] ${t.muted}`}>
+                                {shortHour(h)}
+                              </span>
+                            )}
                           </span>
+                        ))}
+                        <span className="ml-3 w-12 shrink-0" />
+                      </div>
+
+                      <div className="flex flex-col gap-1">
+                        {DAY_LABELS.map((day, d) => (
+                          <div key={day} className="flex items-center gap-1">
+                            <span className={`w-9 shrink-0 text-[10px] ${t.muted}`}>{day}</span>
+                            {Array.from({ length: 24 }, (_, h) => {
+                              const cell = heatmap.grid[d][h];
+                              const isBest = heatmap.bestByDay[d].hour === h;
+                              return (
+                                <button
+                                  key={h}
+                                  type="button"
+                                  title={`${day} ${hourLabel(h)}${isBest ? " · best of the day" : ""}`}
+                                  aria-label={`Schedule ${day} at ${hourLabel(h)}`}
+                                  onClick={() => scheduleFromSlot({ day: d, hour: h })}
+                                  className={`h-4 w-4 shrink-0 rounded-[3px] transition-transform hover:scale-125 ${t.ring} ${
+                                    isBest ? `ring-[1.5px] ring-offset-1 ${isDark ? "ring-white ring-offset-[#0a0a0c]" : "ring-neutral-900 ring-offset-white"}` : ""
+                                  }`}
+                                  style={{ background: heatColor(cell.norm) }}
+                                />
+                              );
+                            })}
+                            <span className={`ml-3 w-12 shrink-0 text-[10px] font-semibold tabular-nums ${t.soft}`}>
+                              {hourLabel(heatmap.bestByDay[d].hour)}
+                            </span>
+                          </div>
                         ))}
                       </div>
 
-                      {Array.from({ length: 24 }, (_, h) => (
-                        <div key={h} className="mb-px grid grid-cols-[40px_repeat(7,minmax(0,1fr))] gap-1">
-                          <span className={`flex items-center justify-end pr-1 text-[9px] ${t.muted}`}>
-                            {h % 3 === 0 ? hourLabel(h) : ""}
-                          </span>
-                          {DAY_LABELS.map((_, d) => {
-                            const cell = heatmap.grid[d][h];
-                            const isBest = heatmap.bestByDay[d].hour === h;
-                            return (
-                              <button
-                                key={`${d}-${h}`}
-                                type="button"
-                                title={`${DAY_LABELS[d]} ${hourLabel(h)} · ${Math.round(cell.norm * 100)}/100${isBest ? " · best of the day" : ""}`}
-                                aria-label={`Schedule ${DAY_LABELS[d]} at ${hourLabel(h)}`}
-                                onClick={() => scheduleFromSlot({ day: d, hour: h })}
-                                className={`relative h-3.5 rounded-[3px] transition-transform hover:scale-y-125 ${t.ring} ${
-                                  isBest ? `z-10 ring-2 ${isDark ? "ring-white" : "ring-neutral-900"}` : ""
-                                }`}
-                                style={{ background: heatColor(cell.norm) }}
-                              />
-                            );
-                          })}
-                        </div>
-                      ))}
-
-                      <div className={`mt-3 grid grid-cols-[40px_repeat(7,minmax(0,1fr))] gap-1 border-t pt-3 ${t.border}`}>
-                        <span className={`flex items-center justify-end pr-1 text-[9px] ${t.muted}`}>Best</span>
-                        {heatmap.bestByDay.map((b) => (
-                          <button
-                            key={b.day}
-                            type="button"
-                            onClick={() => scheduleFromSlot(b)}
-                            className={`rounded border py-1.5 text-center text-[10px] font-semibold ${t.inner} ${t.hover} ${t.ring} ${t.text}`}
-                          >
-                            {hourLabel(b.hour)}
-                          </button>
+                      <div className="mt-4 flex items-center justify-end gap-1.5">
+                        <span className={`mr-1 text-[10px] ${t.muted}`}>Lower</span>
+                        {[0, 0.25, 0.5, 0.75, 1].map((v) => (
+                          <span
+                            key={v}
+                            className="h-3 w-3 rounded-[3px]"
+                            style={{ background: heatColor(v) }}
+                            aria-hidden="true"
+                          />
                         ))}
-                      </div>
-
-                      <div className="mt-3 flex items-center justify-end gap-2">
-                        <span className={`text-[10px] ${t.muted}`}>Lower</span>
-                        <span
-                          className="h-2 w-28 rounded-full"
-                          style={{
-                            background: `linear-gradient(to right, ${heatColor(0)}, ${heatColor(0.5)}, ${heatColor(1)})`,
-                          }}
-                          aria-hidden="true"
-                        />
-                        <span className={`text-[10px] ${t.muted}`}>Higher</span>
+                        <span className={`ml-1 text-[10px] ${t.muted}`}>Higher</span>
                       </div>
                     </div>
                   </div>
