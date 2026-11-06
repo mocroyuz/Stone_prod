@@ -147,7 +147,8 @@ export type NewPostPayload = {
   youtube?: YouTubeOptions;
   // ── Tags & programmation externe ──
   tagIds?: string[];
-  /** Réseaux déjà programmés ailleurs (YouTube) : affichés dans le calendrier, pas republiés. */
+  /** Réseaux déjà programmés/publiés ailleurs (YouTube) : affichés dans le
+   *  calendrier, pas republiés par le backend. */
   externalNetworks?: SocialNetworkId[];
   channelKeys?: Partial<Record<SocialNetworkId, string>>;
 };
@@ -166,8 +167,22 @@ export function unavailablePostActionMessage(payload: NewPostPayload): string {
     pinterest: "Pinterest",
     threads: "Threads",
   };
+
+  // Les réseaux déjà publiés ailleurs (ex. YouTube Shorts uploadé directement
+  // par le composer) ne doivent pas apparaître dans le message d'indispo :
+  // le backend n'a rien à faire pour eux.
+  const externallyHandled = new Set(payload.externalNetworks ?? []);
+  const pendingNetworks = payload.networks.filter(
+    (network) => !externallyHandled.has(network)
+  );
+
+  if (pendingNetworks.length === 0) {
+    // Rien à publier côté backend : le post est complet.
+    return "";
+  }
+
   const channels =
-    payload.networks.map((network) => channelNames[network]).join(", ") ||
+    pendingNetworks.map((network) => channelNames[network]).join(", ") ||
     "the selected channels";
   return payload.scheduleMode === "later"
     ? `Scheduling to ${channels} isn't connected yet. This post wasn't scheduled.`
@@ -2679,11 +2694,12 @@ export default function NewPostModal({
       )
     );
     const tiktokNow = tiktokSelected && scheduleAction === "now";
+    // YouTube est uploadé directement par le composer pour "now" et "set_date".
+    // Dans les deux cas, le backend ne doit PAS le republier : il doit juste
+    // l'afficher dans le calendrier. D'où `externalNetworks`.
     const youtubeNow = youtubeSelected && scheduleAction !== "save_in_folder";
 
-    // YouTube programmé : déjà envoyé à Google, mais il doit apparaître dans le calendrier.
-    const externallyScheduled: SocialNetworkId[] =
-      youtubeNow && scheduleAction === "set_date" ? ["youtube"] : [];
+    const externallyHandled: SocialNetworkId[] = youtubeNow ? ["youtube"] : [];
 
     const mediaByNetwork: Partial<Record<SocialNetworkId, File[]>> = {};
     validNetworks.forEach((n) => {
@@ -2726,11 +2742,11 @@ export default function NewPostModal({
         scheduleAction === "set_date" ? scheduledAt.toISOString() : null,
       media: media.map((item) => item.file),
       ...(Object.keys(mediaByNetwork).length > 0 ? { mediaByNetwork } : {}),
-      ...(validNetworks.includes("youtube") || externallyScheduled.includes("youtube")
+      ...(validNetworks.includes("youtube") || externallyHandled.includes("youtube")
         ? { youtube: { ...youtubeOptions, title: youtubeEffectiveTitle } }
         : {}),
       tagIds,
-      externalNetworks: externallyScheduled,
+      externalNetworks: externallyHandled,
       channelKeys,
     };
 
@@ -2739,6 +2755,7 @@ export default function NewPostModal({
       console.log("[NewPost] Submitting payload", {
         networks,
         validNetworks,
+        externallyHandled,
         channelKeys,
         payload,
       });
@@ -2878,22 +2895,45 @@ export default function NewPostModal({
         };
       }
 
-      // 3. Envoi au Backend (pour enregistrer l'état dans le calendrier)
-      await onSubmit(payload);
+      // 3. Envoi au Backend (pour enregistrer l'état dans le calendrier).
+      // On isole l'appel : un échec du calendrier ne doit pas masquer un upload
+      // YouTube déjà réussi (le Short est déjà en ligne).
+      let backendError: unknown = null;
+      try {
+        await onSubmit(payload);
+      } catch (err) {
+        backendError = err;
+        console.error("Error while saving the post to the backend:", err);
+      }
 
       const scheduledHasVideo = validNetworks.some((n) =>
         mediaFor(n).some((m) => m.kind === "video")
       );
-      if (scheduleAction === "set_date") {
-        setScheduledResult({ at: new Date(scheduledAt), hasVideo: scheduledHasVideo });
-      }
+
+      // YouTube déjà publié : on affiche toujours le résultat, même si le
+      // backend a refusé d'enregistrer le post dans le calendrier.
       if (youtubeOutcome) {
         setYoutubeResult(youtubeOutcome);
+        if (backendError) {
+          const raw =
+            backendError instanceof Error
+              ? backendError.message
+              : String(backendError);
+          setSubmitError(
+            `The video is live on YouTube, but the post couldn't be saved to the calendar: ${raw}`
+          );
+        }
         setSubmitProgress(null);
         setIsSubmitting(false);
         return;
       }
+
+      // Pas d'upload YouTube : on relaie l'erreur backend au catch principal
+      // pour afficher le bon message (y compris le cas « at least one network »).
+      if (backendError) throw backendError;
+
       if (scheduleAction === "set_date") {
+        setScheduledResult({ at: new Date(scheduledAt), hasVideo: scheduledHasVideo });
         setSubmitProgress(null);
         setIsSubmitting(false);
         return;
