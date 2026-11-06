@@ -1,5 +1,5 @@
 // src/pages/Insights.tsx
-// Insights = moteur de prochaine action (pas un clone d'analytics).
+// Analyses = moteur de prochaine action (pas un clone d'analytics).
 // YouTube : données réelles. Autres réseaux : démo en attendant leur API.
 
 import {
@@ -73,7 +73,7 @@ import { fetchYouTubeVideos, useYouTubeInsights } from "../services/youtube";
 import { readPostingGoal } from "../components/OnboardingModals";
 import { useNewPostRequest } from "../services/Newpostbus";
 
-/** Route de cette page dans la sidebar (section Favorite). */
+/** Route de cette page dans la sidebar (section Favoris). */
 const PAGE_ROUTE = "insights";
 const ALL_KEY = "all";
 const COMPOSER_DRAFT_KEY = "newpost:draft:v1";
@@ -167,11 +167,17 @@ type Takeaway = {
 };
 
 const RANGES: { key: Range; label: string }[] = [
-  { key: "7d", label: "7 Days" },
-  { key: "30d", label: "30 Days" },
-  { key: "mtd", label: "Month to Date" },
-  { key: "custom", label: "Custom" },
+  { key: "7d", label: "7 jours" },
+  { key: "30d", label: "30 jours" },
+  { key: "mtd", label: "Mois en cours" },
+  { key: "custom", label: "Personnalisé" },
 ];
+
+const MEDIA_LABEL: Record<PostRow["media"], string> = {
+  video: "vidéo",
+  image: "image",
+  text: "texte",
+};
 
 /* ============================================================
    STYLE — tokens alignés sur le shell Home (dark plus profond)
@@ -263,11 +269,11 @@ const addDays = (d: Date, n: number) => {
 const toInput = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
-const fmt = (d: Date) => d.toLocaleDateString("en-US", { day: "numeric", month: "short" });
+const fmt = (d: Date) => d.toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
 const fmtFull = (d: Date) =>
-  d.toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" });
+  d.toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" });
 const fmtRange = (a: Date, b: Date) => `${fmt(a)} - ${fmtFull(b)}`;
-const nf = (n: number) => (Number.isFinite(n) ? n : 0).toLocaleString("en-US");
+const nf = (n: number) => (Number.isFinite(n) ? n : 0).toLocaleString("fr-FR");
 
 function resolveRange(range: Range, customStart: Date, customEnd: Date) {
   const today = startOfDay(new Date());
@@ -489,10 +495,10 @@ function emptyInsights(start: Date, end: Date): InsightsData {
 }
 
 const DEMO_TITLES: Record<string, string[]> = {
-  tiktok: ["Hook in 3 seconds", "Behind the studio", "Before / after", "Sound that stuck", "Day in the queue"],
-  pinterest: ["Moodboard: quiet luxury", "Pin that keeps saving", "Color story", "Shelf layout", "Texture close-up"],
-  youtube: ["Short: one idea", "Cut the intro", "What I'd remake", "90s of proof", "The leftover clip"],
-  default: ["Quiet drop", "The one people saved", "Studio note", "Ambition, shorter", "Still working"],
+  tiktok: ["Accroche en 3 secondes", "Dans les coulisses", "Avant / après", "Le son qui est resté", "Journée dans la file"],
+  pinterest: ["Moodboard : luxe discret", "Le pin qui sauve", "Histoire de couleurs", "Aménagement d'étagère", "Gros plan texture"],
+  youtube: ["Short : une idée", "Coupe l'intro", "Ce que je referais", "90s de preuve", "Le clip restant"],
+  default: ["Sortie discrète", "Celui que les gens ont sauvegardé", "Note de studio", "Ambition, plus court", "Toujours en cours"],
 };
 
 function buildSampleInsights(start: Date, end: Date, platform: string): InsightsData {
@@ -623,7 +629,7 @@ function mergeInsights(parts: InsightsData[]): InsightsData {
   };
 }
 
-const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const DAY_LABELS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
 
 function dayIndexMon(d: Date) {
   return (d.getDay() + 6) % 7;
@@ -828,9 +834,9 @@ function buildTakeaways(args: {
     out.push({
       id: "cadence",
       icon: <Target className="h-3.5 w-3.5" />,
-      title: `${behind} post${behind > 1 ? "s" : ""} short of your weekly goal`,
-      detail: `You posted ${args.postsThisWeek} of ${args.goal}. Fill the gap instead of guessing the slot.`,
-      cta: "Schedule the gap",
+      title: `${behind} post${behind > 1 ? "s" : ""} en dessous de votre objectif hebdomadaire`,
+      detail: `Vous avez publié ${args.postsThisWeek} sur ${args.goal}. Comblez l'écart au lieu de deviner le créneau.`,
+      cta: "Programmer l'écart",
       action: args.onSchedule,
     });
   }
@@ -839,9 +845,9 @@ function buildTakeaways(args: {
     out.push({
       id: "drafts",
       icon: <Sparkles className="h-3.5 w-3.5" />,
-      title: `${args.draftsCount} unscheduled draft${args.draftsCount > 1 ? "s" : ""}`,
-      detail: "Finish what you started instead of opening a blank composer.",
-      cta: "Open drafts",
+      title: `${args.draftsCount} brouillon${args.draftsCount > 1 ? "s" : ""} non programmé${args.draftsCount > 1 ? "s" : ""}`,
+      detail: "Terminez ce que vous avez commencé au lieu d'ouvrir un compositeur vide.",
+      cta: "Ouvrir les brouillons",
       action: args.onCreate,
     });
   }
@@ -856,12 +862,12 @@ function buildTakeaways(args: {
         <TrendingUp className="h-3.5 w-3.5" />
       ),
       title: down
-        ? `Engagement is down ${Math.abs(args.engagementDelta)}% vs last period`
-        : `Engagement is up ${args.engagementDelta}% vs last period`,
+        ? `L'engagement a baissé de ${Math.abs(args.engagementDelta)}% vs la période précédente`
+        : `L'engagement a augmenté de ${args.engagementDelta}% vs la période précédente`,
       detail: down
-        ? "Re-anchor on what still works before adding volume."
-        : "Repeat what works — the rest is noise.",
-      cta: args.topPost ? "Duplicate a winner" : "See top posts",
+        ? "Revenez à ce qui fonctionne encore avant d'ajouter du volume."
+        : "Répétez ce qui fonctionne — le reste est du bruit.",
+      cta: args.topPost ? "Dupliquer un gagnant" : "Voir les meilleurs posts",
       action: args.topPost
         ? () => args.onDuplicate(args.topPost as PostRow)
         : args.onCreate,
@@ -872,9 +878,9 @@ function buildTakeaways(args: {
     out.push({
       id: "slot",
       icon: <Clock3 className="h-3.5 w-3.5" />,
-      title: `Book ${args.heatmap.label}`,
-      detail: "Your posts land best then — drop the next one there.",
-      cta: "Use this slot",
+      title: `Réservez ${args.heatmap.label}`,
+      detail: "Vos posts performent mieux à ce moment — placez le prochain là.",
+      cta: "Utiliser ce créneau",
       action: () => args.onScheduleSlot({ day: args.heatmap.best.day, hour: args.heatmap.best.hour }),
     });
   }
@@ -883,9 +889,9 @@ function buildTakeaways(args: {
     out.push({
       id: "topPost",
       icon: <Repeat2 className="h-3.5 w-3.5" />,
-      title: `“${args.topPost.label}” is ${args.topMultiplier.toFixed(1)}× your average`,
-      detail: "Duplicate the angle, not the caption. Try a different format.",
-      cta: "Duplicate post",
+      title: `« ${args.topPost.label} » est ${args.topMultiplier.toFixed(1)}× votre moyenne`,
+      detail: "Dupliquez l'angle, pas la légende. Essayez un format différent.",
+      cta: "Dupliquer le post",
       action: () => args.onDuplicate(args.topPost as PostRow),
     });
   }
@@ -894,9 +900,9 @@ function buildTakeaways(args: {
     out.push({
       id: "empty",
       icon: <Target className="h-3.5 w-3.5" />,
-      title: "Publish a little, and Stone starts choosing the next move",
-      detail: "As soon as a few posts land, insights appear here.",
-      cta: "Create Post",
+      title: "Publiez un peu, et Stone commence à choisir le prochain mouvement",
+      detail: "Dès que quelques posts arrivent, les analyses apparaissent ici.",
+      cta: "Créer un post",
       action: args.onCreate,
     });
   }
@@ -1070,7 +1076,7 @@ function InsightsChart({
                 strokeDasharray="5 5"
                 strokeWidth={2}
                 dot={false}
-                name={`${seriesLabel} (prev.)`}
+                name={`${seriesLabel} (préc.)`}
                 isAnimationActive={false}
               />
               {hasSecondAxis && seriesColor2 && (
@@ -1083,7 +1089,7 @@ function InsightsChart({
                   strokeDasharray="5 5"
                   strokeWidth={2}
                   dot={false}
-                  name={`${seriesLabel2} (prev.)`}
+                  name={`${seriesLabel2} (préc.)`}
                   isAnimationActive={false}
                 />
               )}
@@ -1224,7 +1230,7 @@ function IconBtn({
   );
 }
 
-/** Petit carreau gris autonome (Summary) — ne touche jamais ses voisins. */
+/** Petit carreau gris autonome (Résumé) — ne touche jamais ses voisins. */
 function MetricBox({
   label,
   value,
@@ -1272,9 +1278,9 @@ function MetricBox({
           ) : down ? (
             <TrendingDown className="h-2.5 w-2.5" aria-hidden="true" />
           ) : null}
-          <span className="sr-only">{up ? "Up " : down ? "Down " : ""}</span>
+          <span className="sr-only">{up ? "En hausse de " : down ? "En baisse de " : ""}</span>
           {up ? "+" : ""}
-          {delta}% vs last period
+          {delta}% vs période précédente
         </span>
       )}
     </div>
@@ -1366,7 +1372,7 @@ function RangePicker({
           active ? t.sel : t.idle
         }`}
       >
-        {id === "from" ? "From" : "To"} · {fmt(value)}
+        {id === "from" ? "Du" : "Au"} · {fmt(value)}
       </button>
     );
   };
@@ -1400,8 +1406,8 @@ function RangePicker({
           <div className="p-3">
             <p className={`mb-2 text-[12px] ${t.soft}`}>
               {field === "from"
-                ? "Pick the first day of the period."
-                : "Pick the last day of the period (today max)."}
+                ? "Choisissez le premier jour de la période."
+                : "Choisissez le dernier jour de la période (aujourd'hui max)."}
             </p>
             <CalendarPicker
               key={field}
@@ -1420,7 +1426,7 @@ function RangePicker({
               onClick={() => setField((f) => (f === "from" ? "to" : "from"))}
               className={`rounded px-1 text-[12px] font-semibold transition-colors ${t.ring} ${t.hover} ${t.text}`}
             >
-              {field === "from" ? "Next: To" : "Back: From"}
+              {field === "from" ? "Suivant : Au" : "Retour : Du"}
             </button>
             <button
               type="button"
@@ -1428,7 +1434,7 @@ function RangePicker({
               className={`flex items-center gap-1.5 rounded px-1 text-[12px] font-semibold transition-colors ${t.ring} ${t.hover} ${t.text}`}
             >
               <Check className="h-3.5 w-3.5" strokeWidth={3} aria-hidden="true" />
-              Done
+              Terminé
             </button>
           </div>
         </div>
@@ -1462,12 +1468,12 @@ function InsightsIcon() {
 ============================================================ */
 
 const SUMMARY_INFO: Record<string, string> = {
-  "Total Followers": "How many people follow you at the end of the period.",
-  Posts: "Posts you published in the period (scheduled posts are not counted).",
-  Reactions: "Likes and other reactions your posts received.",
-  Comments: "Comments your posts received.",
-  "Eng. Rate": "Share of views that turned into a like or a comment. Higher is better.",
-  "Video Views": "How many times your videos were watched.",
+  "Abonnés totaux": "Combien de personnes vous suivent à la fin de la période.",
+  Posts: "Posts publiés sur la période (les posts programmés ne sont pas comptés).",
+  Réactions: "Likes et autres réactions reçues sur vos posts.",
+  Commentaires: "Commentaires reçus sur vos posts.",
+  "Taux d'eng.": "Part des vues transformées en like ou commentaire. Plus c'est haut, mieux c'est.",
+  "Vues vidéo": "Combien de fois vos vidéos ont été vues.",
 };
 
 const TABLE_GRID = "grid-cols-[minmax(0,2.3fr)_1fr_1fr_1fr_1fr_44px]";
@@ -1632,7 +1638,7 @@ export default function Insights() {
   const prevStart = previous[0]?.date ?? addDays(start, -days);
   const prevEnd = previous[days - 1]?.date ?? addDays(start, -1);
   const periodLabel = fmtRange(start, end);
-  const compareLabel = `Compared to ${fmtRange(prevStart, prevEnd)}`;
+  const compareLabel = `Comparé à ${fmtRange(prevStart, prevEnd)}`;
 
   const prevTotals = useMemo(() => {
     const sum = (key: NumKey) => previous.reduce((a, p) => a + p[key], 0);
@@ -1646,12 +1652,12 @@ export default function Insights() {
   }, [previous]);
 
   const summaryBoxes: { label: string; value: string; delta?: number | null }[] = [
-    { label: "Total Followers", value: nf(summary.followers), delta: pctDelta(summary.followers, prevTotals.followers) },
+    { label: "Abonnés totaux", value: nf(summary.followers), delta: pctDelta(summary.followers, prevTotals.followers) },
     { label: "Posts", value: nf(summary.posts), delta: pctDelta(summary.posts, prevTotals.posts) },
-    { label: "Reactions", value: nf(summary.reactions), delta: pctDelta(summary.reactions, prevTotals.reactions) },
-    { label: "Comments", value: nf(summary.comments), delta: pctDelta(summary.comments, prevTotals.comments) },
-    { label: "Eng. Rate", value: `${summary.engRate}%` },
-    { label: "Video Views", value: nf(summary.videoViews) },
+    { label: "Réactions", value: nf(summary.reactions), delta: pctDelta(summary.reactions, prevTotals.reactions) },
+    { label: "Commentaires", value: nf(summary.comments), delta: pctDelta(summary.comments, prevTotals.comments) },
+    { label: "Taux d'eng.", value: `${summary.engRate}%` },
+    { label: "Vues vidéo", value: nf(summary.videoViews) },
   ];
 
   const weekStart = addDays(startOfDay(new Date()), -6);
@@ -1663,10 +1669,10 @@ export default function Insights() {
   const heatmap = useMemo(() => buildBestTimes(posts, platformKey), [posts, platformKey]);
   const bestTimesNote =
     heatmap.confidence === "baseline"
-      ? "Based on typical audience activity — it sharpens as you publish"
+      ? "Basé sur l'activité typique de l'audience — s'affine au fur et à mesure que vous publiez"
       : heatmap.confidence === "early"
-        ? `Typical activity blended with your ${heatmap.sample} posts`
-        : `Based on your ${heatmap.sample} posts, smoothed by hour and weekday`;
+        ? `Activité typique combinée à vos ${heatmap.sample} posts`
+        : `Basé sur vos ${heatmap.sample} posts, lissés par heure et jour de la semaine`;
   const ranked = useMemo(
     () => [...posts].sort((a, b) => postScore(b) - postScore(a)),
     [posts]
@@ -1674,7 +1680,7 @@ export default function Insights() {
   const topPost = ranked[0];
   const avgScore = posts.length ? posts.reduce((a, p) => a + postScore(p), 0) / posts.length : 0;
   const topMultiplier = topPost && avgScore > 0 ? postScore(topPost) / avgScore : 0;
-  const remixable = ranked.filter((p) => postScore(p) >= avgScore * 1.25).slice(0, 3);
+  const remixable = ranked.filter((p) => postScore(p) >= avgScore * 1.25).slice(0, 2);
   const queuedForChannel = viewingAll
     ? queue
     : queue.filter((p) => !channel || p.network === channel.platform || p.channelKey === channel.key);
@@ -1692,8 +1698,8 @@ export default function Insights() {
   );
 
   const subhead = heatmap.sample === 0
-    ? "As soon as a few posts land, we map the hour that actually works for you — then send it to Schedule."
-    : `Your best window is ${heatmap.label}. Don't guess the slot — fill it.`;
+    ? "Dès que quelques posts arrivent, nous cartographions l'heure qui fonctionne vraiment pour vous — puis l'envoyons au calendrier."
+    : `Votre meilleure fenêtre est ${heatmap.label}. Ne devinez pas le créneau — remplissez-le.`;
 
   const takeaways = useMemo(
     () =>
@@ -1727,8 +1733,8 @@ export default function Insights() {
 
   const glance =
     summary.posts === 0
-      ? "No posts were published in this period."
-      : `You published ${nf(summary.posts)} post${summary.posts > 1 ? "s" : ""} and received ${nf(summary.reactions)} reaction${summary.reactions === 1 ? "" : "s"} and ${nf(summary.comments)} comment${summary.comments === 1 ? "" : "s"}.`;
+      ? "Aucun post n'a été publié sur cette période."
+      : `Vous avez publié ${nf(summary.posts)} post${summary.posts > 1 ? "s" : ""} et reçu ${nf(summary.reactions)} réaction${summary.reactions === 1 ? "" : "s"} et ${nf(summary.comments)} commentaire${summary.comments === 1 ? "" : "s"}.`;
 
   void takeaways;
   void behind;
@@ -1737,12 +1743,12 @@ export default function Insights() {
   const TONES: [string, string] = [isDark ? "#ffffff" : "#111111", isDark ? "#7c7c85" : "#a3a3a3"];
   const METRIC_OPTIONS: MetricOption[] = [
     { key: "posts", label: "Posts", icon: <Copy className="h-4 w-4" aria-hidden="true" />, agg: "sum" },
-    { key: "reactions", label: "Reactions", icon: <Zap className="h-4 w-4" aria-hidden="true" />, agg: "sum" },
-    { key: "comments", label: "Comments", icon: <Send className="h-4 w-4" aria-hidden="true" />, agg: "sum" },
-    { key: "followers", label: "Followers", icon: <TrendingUp className="h-4 w-4" aria-hidden="true" />, agg: "last" },
+    { key: "reactions", label: "Réactions", icon: <Zap className="h-4 w-4" aria-hidden="true" />, agg: "sum" },
+    { key: "comments", label: "Commentaires", icon: <Send className="h-4 w-4" aria-hidden="true" />, agg: "sum" },
+    { key: "followers", label: "Abonnés", icon: <TrendingUp className="h-4 w-4" aria-hidden="true" />, agg: "last" },
     {
       key: "profileViews",
-      label: isYouTube ? "Channel Views" : "Profile Views",
+      label: isYouTube ? "Vues de la chaîne" : "Vues du profil",
       icon: <Eye className="h-4 w-4" aria-hidden="true" />,
       agg: "sum",
     },
@@ -1808,15 +1814,15 @@ export default function Insights() {
     setSort((s) => (s?.key === key ? { key, dir: s.dir === "desc" ? "asc" : "desc" } : { key, dir: "desc" }));
 
   const columns: { key: SortKey; label: string; render: (p: PostRow) => string }[] = [
-    { key: "reactions", label: "Reactions", render: (p) => nf(p.reactions) },
-    { key: "comments", label: "Comments", render: (p) => nf(p.comments) },
-    { key: "engRate", label: "Eng. Rate", render: (p) => `${p.engRate.toFixed(2)}%` },
-    { key: "videoViews", label: "Video Views", render: (p) => nf(p.videoViews) },
+    { key: "reactions", label: "Réactions", render: (p) => nf(p.reactions) },
+    { key: "comments", label: "Commentaires", render: (p) => nf(p.comments) },
+    { key: "engRate", label: "Taux d'eng.", render: (p) => `${p.engRate.toFixed(2)}%` },
+    { key: "videoViews", label: "Vues vidéo", render: (p) => nf(p.videoViews) },
   ];
 
   const exportCsv = () => {
     const rowsCsv: (string | number)[][] = [
-      ["date", "followers", "posts", "reactions", "comments", "profile_views", "previous_followers"],
+      ["date", "abonnés", "posts", "réactions", "commentaires", "vues_profil", "abonnés_précédents"],
     ];
     current.forEach((p, i) =>
       rowsCsv.push([
@@ -1829,7 +1835,7 @@ export default function Insights() {
         previous[i]?.followers ?? 0,
       ])
     );
-    downloadCsv(`insights-${toInput(start)}-${toInput(end)}.csv`, rowsCsv);
+    downloadCsv(`analyses-${toInput(start)}-${toInput(end)}.csv`, rowsCsv);
   };
 
   /* ── Barre du bas / nouveau post ── */
@@ -1909,7 +1915,7 @@ export default function Insights() {
                   <InsightsIcon />
                 </span>
                 <h1 className={`truncate text-[20px] font-semibold tracking-[-0.03em] ${t.text}`}>
-                  Insights
+                  Analyses
                 </h1>
               </div>
 
@@ -1919,13 +1925,13 @@ export default function Insights() {
                   current={channel}
                   isDark={isDark}
                   onSelect={goChannel}
-                  allOption={channels.length > 1 ? { key: ALL_KEY, label: "All networks" } : undefined}
+                  allOption={channels.length > 1 ? { key: ALL_KEY, label: "Tous les réseaux" } : undefined}
                   selectedKey={viewingAll ? ALL_KEY : channel?.key}
                 />
 
                 <div className="flex items-center gap-2">
                   {fetchYouTube && (
-                    <IconBtn label="Refresh insights" t={t} onClick={() => setReloadKey((k) => k + 1)}>
+                    <IconBtn label="Rafraîchir les analyses" t={t} onClick={() => setReloadKey((k) => k + 1)}>
                       <RefreshCw
                         className={`h-[18px] w-[18px] ${yt.loading ? "animate-spin motion-reduce:animate-none" : ""}`}
                         aria-hidden="true"
@@ -1940,15 +1946,15 @@ export default function Insights() {
                     className={`flex h-9 items-center gap-2 rounded-full px-4 text-[12px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${t.ring} ${t.outlineBtn}`}
                   >
                     <Download className="h-4 w-4" aria-hidden="true" />
-                    Export
+                    Exporter
                   </button>
                 </div>
 
                 <button
                   type="button"
-                  aria-label={saved ? "Remove from favorites" : "Add to favorites"}
+                  aria-label={saved ? "Retirer des favoris" : "Ajouter aux favoris"}
                   aria-pressed={saved}
-                  title={saved ? "Remove from favorites" : "Add to favorites"}
+                  title={saved ? "Retirer des favoris" : "Ajouter aux favoris"}
                   onClick={() => toggleFavorite(PAGE_ROUTE)}
                   className={[
                     "ml-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors motion-reduce:transition-none",
@@ -1969,9 +1975,9 @@ export default function Insights() {
                 <span className={`flex h-11 w-11 items-center justify-center rounded-full ${t.iconBox}`}>
                   <Activity className="h-5 w-5" aria-hidden="true" />
                 </span>
-                <h2 className={`text-[14px] font-semibold ${t.text}`}>Connect a channel to see insights</h2>
+                <h2 className={`text-[14px] font-semibold ${t.text}`}>Connectez un canal pour voir les analyses</h2>
                 <p className={`max-w-[360px] text-[12px] ${t.soft}`}>
-                  Followers, reach and engagement show up here once a social account is connected.
+                  Les abonnés, la portée et l'engagement apparaissent ici une fois un compte social connecté.
                 </p>
                 <button
                   type="button"
@@ -1979,7 +1985,7 @@ export default function Insights() {
                   className={`mt-2 flex items-center gap-1.5 rounded-md px-4 py-2 text-[11px] font-semibold ${t.ring} ${t.primaryBtn}`}
                 >
                   <Plus className="h-3.5 w-3.5" aria-hidden="true" />
-                  Connect a channel
+                  Connecter un canal
                 </button>
               </section>
             ) : (
@@ -1989,25 +1995,25 @@ export default function Insights() {
                     role="alert"
                     className={`flex flex-wrap items-center justify-between gap-3 rounded-xl border px-4 py-3 ${t.panel}`}
                   >
-                    <p className="text-[12.5px] text-red-500">Could not load YouTube insights: {yt.error}</p>
+                    <p className="text-[12.5px] text-red-500">Impossible de charger les analyses YouTube : {yt.error}</p>
                     <button
                       type="button"
                       onClick={() => setReloadKey((k) => k + 1)}
                       className={`rounded-full px-3.5 py-1.5 text-[11px] font-semibold transition-colors ${t.ring} ${t.outlineBtn}`}
                     >
-                      Retry
+                      Réessayer
                     </button>
                   </div>
                 )}
                 {youtubeLoading && (
                   <p className={`text-[12.5px] ${t.soft}`} role="status" aria-live="polite">
-                    Loading YouTube insights…
+                    Chargement des analyses YouTube…
                   </p>
                 )}
 
                 {/* ── HERO : bannière sombre avec ruban lumineux ── */}
                 <section
-                  aria-label="Insights"
+                  aria-label="Analyses"
                   className={`relative isolate h-[300px] overflow-hidden rounded-[36px] ring-1 ring-inset md:h-[340px] ${
                     isDark ? "bg-white ring-black/10" : "bg-black ring-white/10"
                   }`}
@@ -2068,21 +2074,21 @@ export default function Insights() {
 
                   {/* Texte en bas à gauche */}
                   <div className="absolute bottom-0 left-0 z-10 flex max-w-[480px] flex-col gap-1.5 p-7 md:p-10">
-                    <p className={`text-[11px] font-medium ${isDark ? "text-neutral-500" : "text-white/60"}`}>Insights</p>
+                    <p className={`text-[11px] font-medium ${isDark ? "text-neutral-500" : "text-white/60"}`}>Analyses</p>
                     <h2
                       className={`text-[clamp(26px,3vw,38px)] font-semibold leading-[1.05] tracking-[-0.035em] ${
                         isDark ? "text-neutral-900" : "text-white"
                       }`}
                     >
-                      Know what works best.
+                      Sachez ce qui fonctionne le mieux.
                     </h2>
                     <p
                       className={`max-w-[380px] text-[12.5px] leading-relaxed ${
                         isDark ? "text-neutral-500" : "text-white/60"
                       }`}
                     >
-                      Insights shows which posts, formats and hours perform best, so your next post is a
-                      decision, not a guess.
+                      Les analyses montrent quels posts, formats et horaires performent le mieux,
+                      pour que votre prochaine publication soit une décision, pas un pari.
                     </p>
                   </div>
                 </section>
@@ -2091,16 +2097,16 @@ export default function Insights() {
                 <section aria-labelledby="all-title" className="flex flex-col gap-4">
                   <div>
                     <h2 id="all-title" className={`text-[28px] font-semibold tracking-[-0.03em] ${t.text}`}>
-                      Overview
+                      Aperçu
                     </h2>
-                    <p className={`mt-0.5 text-[12px] ${t.muted}`}>Choose a period — everything below updates with it</p>
+                    <p className={`mt-0.5 text-[12px] ${t.muted}`}>Choisissez une période — tout ci-dessous se met à jour</p>
                   </div>
 
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div className="flex flex-wrap items-center gap-3">
                       <div
                         role="tablist"
-                        aria-label="Date range"
+                        aria-label="Plage de dates"
                         className={`inline-flex flex-wrap items-center gap-0.5 rounded-full border p-1 ${t.panel}`}
                       >
                         {RANGES.map((o) => {
@@ -2166,7 +2172,7 @@ export default function Insights() {
                   <div className={sectionCard}>
                     <div className="flex items-start justify-between gap-3 px-1">
                       <div>
-                        <h3 className={sectionTitle}>Summary</h3>
+                        <h3 className={sectionTitle}>Résumé</h3>
                         <p className={sectionSub}>
                           {periodLabel} · {compareLabel}
                         </p>
@@ -2196,10 +2202,10 @@ export default function Insights() {
                   <div className="flex flex-wrap items-start justify-between gap-3 px-1">
                     <div>
                       <h3 id="metrics-title" className={sectionTitle}>
-                        Trends
+                        Tendances
                       </h3>
                       <p className={sectionSub}>
-                        Pick a number to see how it moves day by day · {periodLabel}
+                        Choisissez un indicateur pour voir son évolution jour par jour · {periodLabel}
                       </p>
                     </div>
                     <button
@@ -2216,13 +2222,13 @@ export default function Insights() {
                       >
                         {compare && <Check className="h-2.5 w-2.5" strokeWidth={3} />}
                       </span>
-                      Compare with previous period
+                      Comparer avec la période précédente
                     </button>
                   </div>
 
                   <div className="mt-4 overflow-x-auto">
                     <Segmented<NumKey>
-                      label="Number to show"
+                      label="Indicateur à afficher"
                       value={metricA}
                       onChange={setMetricA}
                       t={t}
@@ -2234,7 +2240,7 @@ export default function Insights() {
                     <div className="flex flex-wrap items-end justify-between gap-4 pl-2">
                       <div>
                         <p className={`text-[11px] font-medium ${t.soft}`}>
-                          {mainSeries.label} · {mainSeries.agg === "sum" ? "total for the period" : "at the end of the period"}
+                          {mainSeries.label} · {mainSeries.agg === "sum" ? "total sur la période" : "à la fin de la période"}
                         </p>
                         <p
                           className={`mt-1.5 flex flex-wrap items-center gap-3 text-[28px] font-bold leading-none tracking-tight tabular-nums ${t.text}`}
@@ -2251,7 +2257,7 @@ export default function Insights() {
                               }`}
                             >
                               {mainDelta > 0 ? "+" : ""}
-                              {mainDelta}% vs previous period
+                              {mainDelta}% vs période précédente
                             </span>
                           )}
                         </p>
@@ -2260,11 +2266,11 @@ export default function Insights() {
                         <div className={`flex items-center gap-4 text-[11px] ${t.soft}`}>
                           <span className="flex items-center gap-1.5">
                             <span className="h-0.5 w-5 bg-current" aria-hidden="true" />
-                            This period
+                            Cette période
                           </span>
                           <span className="flex items-center gap-1.5">
                             <span className="w-5 border-t-2 border-dashed border-current" aria-hidden="true" />
-                            Previous period
+                            Période précédente
                           </span>
                         </div>
                       )}
@@ -2282,17 +2288,18 @@ export default function Insights() {
                     </div>
                   </div>
                 </section>
-                {/* ── BEST TIME TO POST (gauche) + RECYCLE (droite) ── */}
+
+                {/* ── BEST TIME TO POST (gauche) + RECYCLER (droite) ── */}
                 <div className="grid items-stretch gap-4 xl:grid-cols-2">
                   {/* BEST TIME TO POST */}
                   <section className={`${sectionCard} min-w-0`} aria-labelledby="besttime-title">
                     <div className="flex flex-wrap items-start justify-between gap-3 px-1">
                       <div>
                         <h3 id="besttime-title" className={sectionTitle}>
-                          Best time to post
+                          Meilleur moment pour publier
                         </h3>
                         <p className={sectionSub}>
-                          {bestTimesNote} · Peak {heatmap.label}
+                          {bestTimesNote} · Pic {heatmap.label}
                         </p>
                       </div>
                       <button
@@ -2300,12 +2307,12 @@ export default function Insights() {
                         onClick={() => scheduleFromSlot(heatmap.best)}
                         className={`rounded-full px-3.5 py-1.5 text-[11px] font-semibold ${t.ring} ${t.outlineBtn}`}
                       >
-                        Use {heatmap.label}
+                        Utiliser {heatmap.label}
                       </button>
                     </div>
 
                     <p className={`mt-3 px-1 text-[12px] ${t.soft}`}>
-                      Darker squares are better moments to post. Click a square to schedule a post then.
+                      Les carrés plus foncés sont les meilleurs moments pour publier. Cliquez sur un carré pour programmer un post à ce moment.
                     </p>
 
                     <div className="mt-4 overflow-x-auto px-1 pb-1">
@@ -2338,8 +2345,8 @@ export default function Insights() {
                                     <button
                                       key={h}
                                       type="button"
-                                      title={`${day} ${hourLabel(h)}${isBest ? " · best of the day" : ""}`}
-                                      aria-label={`Schedule ${day} at ${hourLabel(h)}`}
+                                      title={`${day} ${hourLabel(h)}${isBest ? " · meilleur du jour" : ""}`}
+                                      aria-label={`Programmer ${day} à ${hourLabel(h)}`}
                                       onClick={() => scheduleFromSlot({ day: d, hour: h })}
                                       className={`aspect-square w-full rounded-[6px] transition-transform hover:scale-125 ${t.ring} ${
                                         isBest
@@ -2360,7 +2367,7 @@ export default function Insights() {
                         </div>
 
                         <div className="mt-4 flex items-center justify-end gap-1.5">
-                          <span className={`mr-1 text-[10px] ${t.muted}`}>Lower</span>
+                          <span className={`mr-1 text-[10px] ${t.muted}`}>Faible</span>
                           {[0, 0.25, 0.5, 0.75, 1].map((v) => (
                             <span
                               key={v}
@@ -2369,28 +2376,28 @@ export default function Insights() {
                               aria-hidden="true"
                             />
                           ))}
-                          <span className={`ml-1 text-[10px] ${t.muted}`}>Higher</span>
+                          <span className={`ml-1 text-[10px] ${t.muted}`}>Élevé</span>
                         </div>
                       </div>
                     </div>
                   </section>
 
-                  {/* RECYCLE (duplicate) */}
+                  {/* POSTS À RECYCLER */}
                   <section className={`${sectionCard} min-w-0`} aria-labelledby="recycle-title">
                     <div className="px-1">
                       <h3 id="recycle-title" className={sectionTitle}>
-                        Recycle these
+                        Posts à recycler
                       </h3>
-                      <p className={sectionSub}>Posts still outperforming the rest — duplicate the angle</p>
+                      <p className={sectionSub}>Posts qui surperforment encore — dupliquez l'angle</p>
                     </div>
                     {remixable.length === 0 ? (
                       <p className={`mt-4 text-[12px] ${t.soft}`}>
-                        After a few published posts, the ones worth remaking show up here.
+                        Après quelques posts publiés, ceux qui valent la peine d'être refaits apparaissent ici.
                       </p>
                     ) : (
                       <div className="mt-4 flex flex-col gap-2.5">
                         {remixable.map((p, i) => (
-                          <div key={p.id} className={`group flex gap-3 rounded-2xl border p-3.5 transition-transform duration-150 hover:-translate-y-0.5 ${t.inner}`}>
+                          <div key={p.id} className={`flex gap-3 rounded-2xl border p-3.5 ${t.inner}`}>
                             <span
                               className={`flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl ${t.iconBox}`}
                             >
@@ -2407,19 +2414,25 @@ export default function Insights() {
                             </span>
                             <div className="min-w-0 flex-1">
                               <p className={`text-[10px] font-semibold uppercase tracking-wide ${t.muted}`}>
-                                #{i + 1} · {p.media}
+                                #{i + 1} · {MEDIA_LABEL[p.media]}
                               </p>
-                              <p className={`mt-0.5 truncate text-[13px] font-semibold ${t.text}`}>{p.label}</p>
+                              <div className="mt-0.5 flex items-center justify-between gap-2">
+                                <p className={`truncate text-[13px] font-semibold ${t.text}`}>{p.label}</p>
+                                <button
+                                  type="button"
+                                  onClick={() => duplicatePost(p)}
+                                  className={`shrink-0 rounded-md border px-2.5 py-1 text-[11px] font-semibold ${t.ring} ${
+                                    isDark
+                                      ? "border-white/10 text-white"
+                                      : "border-black/10 text-neutral-900"
+                                  }`}
+                                >
+                                  Dupliquer →
+                                </button>
+                              </div>
                               <p className={`mt-1 text-[11px] ${t.soft}`}>
-                                {nf(p.reactions)} reactions · {p.engRate.toFixed(1)}% eng
+                                {nf(p.reactions)} réactions · {p.engRate.toFixed(1)}% eng
                               </p>
-                              <button
-                                type="button"
-                                onClick={() => duplicatePost(p)}
-                                className={`mt-2.5 rounded-full px-3 py-1 text-[11px] font-semibold transition-colors ${t.ring} ${t.outlineBtn}`}
-                              >
-                                Duplicate →
-                              </button>
                             </div>
                           </div>
                         ))}
@@ -2433,22 +2446,22 @@ export default function Insights() {
                   <div className="flex flex-wrap items-start justify-between gap-3 px-1">
                     <div>
                       <h3 id="perf-title" className={sectionTitle}>
-                        All your posts
+                        Tous vos posts
                       </h3>
                       <p className={sectionSub}>
                         {postsPeriod === "this" ? periodLabel : fmtRange(prevStart, prevEnd)}
-                        {hiddenScheduled > 0 && ` · ${hiddenScheduled} scheduled not shown`}
+                        {hiddenScheduled > 0 && ` · ${hiddenScheduled} programmé${hiddenScheduled > 1 ? "s" : ""} non affiché${hiddenScheduled > 1 ? "s" : ""}`}
                       </p>
                     </div>
                     <Segmented<PostsPeriod>
-                      label="Posts period"
+                      label="Période des posts"
                       value={postsPeriod}
                       onChange={setPostsPeriod}
                       t={t}
                       size="lg"
                       options={[
-                        { key: "this", label: "This Period" },
-                        { key: "previous", label: "Previous Period" },
+                        { key: "this", label: "Cette période" },
+                        { key: "previous", label: "Période précédente" },
                       ]}
                     />
                   </div>
@@ -2464,7 +2477,7 @@ export default function Insights() {
                             key={c.key}
                             type="button"
                             onClick={() => toggleSort(c.key)}
-                            aria-label={`Sort by ${c.label}`}
+                            aria-label={`Trier par ${c.label}`}
                             className={`flex w-fit items-center gap-1 rounded text-left ${t.ring}`}
                           >
                             {c.label}
@@ -2490,14 +2503,14 @@ export default function Insights() {
                           </span>
                           <p className={`text-[12px] font-medium ${t.text}`}>
                             {youtubeLoading
-                              ? "Loading videos…"
+                              ? "Chargement des vidéos…"
                               : needle
-                                ? "No posts match your search"
-                                : "No posts in this period"}
+                                ? "Aucun post ne correspond à votre recherche"
+                                : "Aucun post sur cette période"}
                           </p>
                           {!youtubeLoading && !needle && (
                             <p className={`max-w-[360px] text-[12px] ${t.soft}`}>
-                              Choose a longer range to see how your earlier posts performed.
+                              Choisissez une plage plus longue pour voir comment vos posts précédents ont performé.
                             </p>
                           )}
                           {!youtubeLoading && !needle && days < 30 && (
@@ -2506,7 +2519,7 @@ export default function Insights() {
                               onClick={() => setRange("30d")}
                               className={`mt-2 rounded-full px-3.5 py-1.5 text-[11px] font-semibold transition-colors ${t.ring} ${t.outlineBtn}`}
                             >
-                              Show last 30 days
+                              Afficher les 30 derniers jours
                             </button>
                           )}
                         </div>
@@ -2566,8 +2579,8 @@ export default function Insights() {
                                 href={`https://www.youtube.com/watch?v=${p.id}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                aria-label="Open on YouTube"
-                                title="Open on YouTube"
+                                aria-label="Ouvrir sur YouTube"
+                                title="Ouvrir sur YouTube"
                                 className={`flex h-8 w-8 items-center justify-center rounded-md ${t.soft} ${t.hover} ${t.ring}`}
                               >
                                 <ExternalLink className="h-4 w-4" aria-hidden="true" />
@@ -2575,8 +2588,8 @@ export default function Insights() {
                             ) : (
                               <button
                                 type="button"
-                                aria-label="Duplicate this post"
-                                title="Duplicate this post"
+                                aria-label="Dupliquer ce post"
+                                title="Dupliquer ce post"
                                 onClick={() => duplicatePost(p)}
                                 className={`flex h-8 w-8 items-center justify-center rounded-md ${t.soft} ${t.hover} ${t.ring}`}
                               >
@@ -2594,14 +2607,13 @@ export default function Insights() {
                             onClick={() => setShowAllPosts((v) => !v)}
                             className={`rounded-full px-3.5 py-1.5 text-[11px] font-semibold transition-colors ${t.ring} ${t.outlineBtn}`}
                           >
-                            {showAllPosts ? "Show fewer posts" : `Show all ${sortedRows.length} posts`}
+                            {showAllPosts ? "Afficher moins de posts" : `Afficher les ${sortedRows.length} posts`}
                           </button>
                         </div>
                       )}
                     </div>
                   </div>
                 </section>
-
               </>
             )}
           </div>
