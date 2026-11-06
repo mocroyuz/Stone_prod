@@ -85,7 +85,6 @@ const COMPOSER_DRAFT_KEY = "newpost:draft:v1";
 type Range = "7d" | "30d" | "mtd" | "custom";
 type ChartView = "this" | "comparison" | "both";
 type PostsPeriod = "this" | "previous";
-type MetricTab = "posts" | "impact" | "growth" | "visibility";
 type SortKey = "reactions" | "comments" | "engRate" | "videoViews";
 type NumKey = "posts" | "reactions" | "comments" | "followers" | "profileViews";
 
@@ -1287,6 +1286,96 @@ function MetricBox({
   );
 }
 
+type MetricOption = { key: NumKey; label: string; icon: ReactNode; agg: "sum" | "last" };
+
+/** Menu déroulant : le bouton montre l'élément choisi, la liste montre les autres. */
+function MetricSelect({
+  value,
+  all,
+  options,
+  onChange,
+  t,
+  label,
+}: {
+  value: NumKey;
+  all: MetricOption[];
+  options: MetricOption[];
+  onChange: (k: NumKey) => void;
+  t: Tokens;
+  label: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: PointerEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("pointerdown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  const current = all.find((m) => m.key === value) ?? all[0];
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label={label}
+        onClick={() => setOpen((o) => !o)}
+        className={`flex items-center gap-2 rounded-lg border px-3.5 py-2 text-[13px] font-semibold transition-colors motion-reduce:transition-none ${t.ring} ${t.inner} ${t.hover} ${t.text}`}
+      >
+        {current.icon}
+        {current.label}
+        <ChevronDown
+          className={`h-3.5 w-3.5 transition-transform motion-reduce:transition-none ${open ? "rotate-180" : ""} ${t.muted}`}
+          aria-hidden="true"
+        />
+      </button>
+
+      {open && (
+        <ul
+          role="listbox"
+          aria-label={label}
+          className={`absolute left-0 top-full z-30 mt-1.5 min-w-[190px] rounded-xl border p-1 shadow-[0_12px_40px_rgba(0,0,0,0.35)] ${t.popover}`}
+        >
+          {options.length === 0 ? (
+            <li className={`px-3 py-2 text-[12px] ${t.soft}`}>No other element</li>
+          ) : (
+            options.map((o) => (
+              <li key={o.key}>
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected={false}
+                  onClick={() => {
+                    onChange(o.key);
+                    setOpen(false);
+                  }}
+                  className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-[13px] font-medium ${t.ring} ${t.hover} ${t.text}`}
+                >
+                  {o.icon}
+                  {o.label}
+                </button>
+              </li>
+            ))
+          )}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 /* ============================================================
    RANGE PICKER
 ============================================================ */
@@ -1518,7 +1607,8 @@ export default function Insights() {
   const [customEnd, setCustomEnd] = useState(() => startOfDay(new Date()));
   const [chartView, setChartView] = useState<ChartView>("this");
   const [postsPeriod, setPostsPeriod] = useState<PostsPeriod>("this");
-  const [metricTab, setMetricTab] = useState<MetricTab>("impact");
+  const [metricA, setMetricA] = useState<NumKey>("posts");
+  const [metricB, setMetricB] = useState<NumKey>("reactions");
   const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" } | null>(null);
   const [isFolderOpen, setIsFolderOpen] = useState(false);
   const [isNewPostOpen, setIsNewPostOpen] = useState(false);
@@ -1740,22 +1830,38 @@ export default function Insights() {
   );
 
   const TONES: [string, string] = [isDark ? "#ffffff" : "#111111", isDark ? "#7c7c85" : "#a3a3a3"];
-  const SERIES: Record<MetricTab, SeriesDef[]> = {
-    posts: [
-      { key: "posts", label: "Posts", tone: 0, agg: "sum" },
-      { key: "reactions", label: "Reactions", tone: 1, agg: "sum" },
-    ],
-    impact: [
-      { key: "reactions", label: "Reactions", tone: 0, agg: "sum" },
-      { key: "comments", label: "Comments", tone: 1, agg: "sum" },
-    ],
-    growth: [{ key: "followers", label: "Followers", tone: 0, agg: "last" }],
-    visibility: [
-      { key: "profileViews", label: isYouTube ? "Channel Views" : "Profile Views", tone: 0, agg: "sum" },
-      { key: "followers", label: "Followers", tone: 1, agg: "last" },
-    ],
+  const METRIC_OPTIONS: MetricOption[] = [
+    { key: "posts", label: "Posts", icon: <Copy className="h-4 w-4" aria-hidden="true" />, agg: "sum" },
+    { key: "reactions", label: "Reactions", icon: <Zap className="h-4 w-4" aria-hidden="true" />, agg: "sum" },
+    { key: "comments", label: "Comments", icon: <Send className="h-4 w-4" aria-hidden="true" />, agg: "sum" },
+    { key: "followers", label: "Followers", icon: <TrendingUp className="h-4 w-4" aria-hidden="true" />, agg: "last" },
+    {
+      key: "profileViews",
+      label: isYouTube ? "Channel Views" : "Profile Views",
+      icon: <Eye className="h-4 w-4" aria-hidden="true" />,
+      agg: "sum",
+    },
+  ];
+  const comparing = chartView === "comparison";
+
+  /** Passer en mode comparaison : les deux éléments doivent être différents. */
+  const changeChartView = (v: ChartView) => {
+    if (v === "comparison" && metricA === metricB) {
+      const other = METRIC_OPTIONS.find((m) => m.key !== metricA);
+      if (other) setMetricB(other.key);
+    }
+    setChartView(v);
   };
-  const activeSeries = SERIES[metricTab];
+
+  /** Un élément déjà choisi n'apparaît jamais dans la liste. */
+  const optionsFor = (own: NumKey, other: NumKey | null) =>
+    METRIC_OPTIONS.filter((m) => m.key !== own && m.key !== other);
+
+  const pickedKeys: NumKey[] = comparing ? [metricA, metricB] : [metricA];
+  const activeSeries: SeriesDef[] = pickedKeys.map((k, i) => {
+    const o = METRIC_OPTIONS.find((m) => m.key === k) ?? METRIC_OPTIONS[0];
+    return { key: o.key, label: o.label, tone: (i === 0 ? 0 : 1) as 0 | 1, agg: o.agg };
+  });
 
   const chartSeries: ChartSeries[] = useMemo(
     () =>
@@ -1785,30 +1891,22 @@ export default function Insights() {
   const seriesTotal = (s: SeriesDef) =>
     s.agg === "sum" ? current.reduce((a, p) => a + p[s.key], 0) : current[days - 1]?.[s.key] ?? 0;
 
-  const METRIC_TABS: { key: MetricTab; label: string; icon: ReactNode; trailing?: ReactNode }[] = [
-    {
-      key: "posts",
-      label: "Posts",
-      icon: <Copy className="h-4 w-4" aria-hidden="true" />,
-      trailing: <ChevronDown className="ml-1 h-3.5 w-3.5 opacity-70" aria-hidden="true" />,
-    },
-    { key: "impact", label: "Content Impact", icon: <Zap className="h-4 w-4" aria-hidden="true" /> },
-    { key: "growth", label: "Audience Growth", icon: <TrendingUp className="h-4 w-4" aria-hidden="true" /> },
-    { key: "visibility", label: "Visibility", icon: <Eye className="h-4 w-4" aria-hidden="true" /> },
-  ];
-
   const CHART_VIEWS: { key: ChartView; label: string; icon?: ReactNode }[] = [
     {
       key: "this",
-      label: "This Period",
+      label: "Single",
       icon: <span className="h-2.5 w-2.5 rounded-[3px] bg-current" aria-hidden="true" />,
     },
     {
       key: "comparison",
       label: "Comparison",
-      icon: <span className="h-2.5 w-2.5 rounded-[3px] border border-dashed border-current" aria-hidden="true" />,
+      icon: (
+        <span className="flex gap-0.5" aria-hidden="true">
+          <span className="h-2.5 w-2.5 rounded-[3px] bg-current" />
+          <span className="h-2.5 w-2.5 rounded-[3px] border border-current" />
+        </span>
+      ),
     },
-    { key: "both", label: "Both" },
   ];
 
   /* ── Tableau des posts ── */
@@ -2484,7 +2582,7 @@ export default function Insights() {
                         Metrics
                       </h3>
                       <p className={sectionSub}>
-                        {periodLabel} · {compareLabel}
+                        {periodLabel}
                       </p>
                     </div>
                     <IconBtn label="Share metrics" boxed t={t} align="end">
@@ -2492,15 +2590,28 @@ export default function Insights() {
                     </IconBtn>
                   </div>
 
-                  <div className="mt-4">
-                    <Segmented<MetricTab>
-                      label="Metric group"
-                      value={metricTab}
-                      onChange={setMetricTab}
+                  <div className="mt-4 flex flex-wrap items-center gap-2">
+                    <MetricSelect
+                      label="First element"
+                      value={metricA}
+                      all={METRIC_OPTIONS}
+                      options={optionsFor(metricA, comparing ? metricB : null)}
+                      onChange={setMetricA}
                       t={t}
-                      size="lg"
-                      options={METRIC_TABS}
                     />
+                    {comparing && (
+                      <>
+                        <span className={`text-[11px] font-medium ${t.muted}`}>vs</span>
+                        <MetricSelect
+                          label="Second element"
+                          value={metricB}
+                          all={METRIC_OPTIONS}
+                          options={optionsFor(metricB, metricA)}
+                          onChange={setMetricB}
+                          t={t}
+                        />
+                      </>
+                    )}
                   </div>
 
                   <div className={`mt-3 rounded-xl border p-4 ${t.panel}`}>
@@ -2525,7 +2636,7 @@ export default function Insights() {
                       <Segmented<ChartView>
                         label="Chart view"
                         value={chartView}
-                        onChange={setChartView}
+                        onChange={changeChartView}
                         t={t}
                         size="lg"
                         options={CHART_VIEWS}
@@ -2535,7 +2646,7 @@ export default function Insights() {
                     <div className="mt-6">
                       <InsightsChart
                         data={chartData}
-                        view={chartView}
+                        view="this"
                         isDark={isDark}
                         seriesLabel={activeSeries[0]?.label ?? "Metric"}
                         seriesLabel2={activeSeries[1]?.label}
