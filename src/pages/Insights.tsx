@@ -2122,12 +2122,15 @@ export default function Insights() {
                 {/* ── HERO : bannière sombre avec ruban lumineux ── */}
                 <section
                   aria-label="Insights"
-                  className="relative isolate h-[300px] overflow-hidden rounded-[36px] bg-black ring-1 ring-inset ring-white/10 md:h-[340px]"
+                  className={`relative isolate h-[300px] overflow-hidden rounded-[36px] ring-1 ring-inset md:h-[340px] ${
+                    isDark ? "bg-white ring-black/10" : "bg-black ring-white/10"
+                  }`}
                 >
                   {/* Anneaux lumineux arrondis, noir et blanc (SVG pur) */}
                   <div
                     aria-hidden="true"
                     className="pointer-events-none absolute inset-y-0 right-0 w-[72%] [mask-image:linear-gradient(to_right,transparent,black_35%)]"
+                    style={isDark ? { filter: "invert(1)" } : undefined}
                   >
                     <svg
                       viewBox="0 0 600 340"
@@ -2179,11 +2182,19 @@ export default function Insights() {
 
                   {/* Texte en bas à gauche */}
                   <div className="absolute bottom-0 left-0 z-10 flex max-w-[480px] flex-col gap-1.5 p-7 md:p-10">
-                    <p className="text-[11px] font-medium text-white/60">Insights</p>
-                    <h2 className="text-[clamp(26px,3vw,38px)] font-semibold leading-[1.05] tracking-[-0.035em] text-white">
+                    <p className={`text-[11px] font-medium ${isDark ? "text-neutral-500" : "text-white/60"}`}>Insights</p>
+                    <h2
+                      className={`text-[clamp(26px,3vw,38px)] font-semibold leading-[1.05] tracking-[-0.035em] ${
+                        isDark ? "text-neutral-900" : "text-white"
+                      }`}
+                    >
                       Know what works best.
                     </h2>
-                    <p className="max-w-[380px] text-[12.5px] leading-relaxed text-white/60">
+                    <p
+                      className={`max-w-[380px] text-[12.5px] leading-relaxed ${
+                        isDark ? "text-neutral-500" : "text-white/60"
+                      }`}
+                    >
                       Insights shows which posts, formats and hours perform best, so your next post is a
                       decision, not a guess.
                     </p>
