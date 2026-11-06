@@ -1601,6 +1601,8 @@ export default function Insights() {
   const { theme } = useTheme();
   const isDark = theme === "dark";
   const t = useMemo(() => tokens(isDark), [isDark]);
+  /** La bannière « Next move » est blanche dans les deux thèmes. */
+  const lightT = useMemo(() => tokens(false), []);
   const sidebarOffset = useSidebarOffset();
   const channels = useConnectedChannels();
 
@@ -1817,12 +1819,6 @@ export default function Insights() {
     [summary.reactions, summary.comments, prevTotals.reactions, prevTotals.comments]
   );
 
-  const headline =
-    behind > 0
-      ? `You're ${behind} post${behind > 1 ? "s" : ""} behind this week.`
-      : topPost
-        ? `${topPost.label} is still your strongest move.`
-        : "Publish a little, and Stone starts choosing the next move.";
   const subhead = heatmap.sample === 0
     ? "As soon as a few posts land, we map the hour that actually works for you — then send it to Schedule."
     : `Your best window is ${heatmap.label}. Don't guess the slot — fill it.`;
@@ -2150,25 +2146,29 @@ export default function Insights() {
                   </p>
                 )}
 
-                {/* ── NEXT MOVE : hero + 3 takeaways actionnables ── */}
-                <section className={`relative overflow-hidden rounded-xl border ${t.card}`}>
-                  <div className="relative z-10 flex flex-col gap-5 px-6 py-6">
-                    <div className="flex flex-wrap items-start justify-between gap-4">
+                {/* ── NEXT MOVE : mini pub minimaliste, blanche ── */}
+                <section className="relative overflow-hidden rounded-2xl border border-black/[0.06] bg-white text-neutral-900">
+                  <div className="flex flex-col gap-8 px-6 py-8 md:px-10 md:py-10">
+                    <div className="flex flex-wrap items-end justify-between gap-6">
                       <div className="max-w-[640px]">
-                        <p className={`text-[11px] font-semibold uppercase tracking-[0.14em] ${t.muted}`}>
-                          Next move
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-neutral-400">
+                          Insights
                         </p>
-                        <h2 className={`mt-1.5 text-[22px] font-semibold tracking-[-0.03em] ${t.text}`}>
-                          {headline}
+                        <h2 className="mt-3 text-[clamp(28px,3.4vw,44px)] font-semibold leading-[1.05] tracking-[-0.04em] text-neutral-900">
+                          Know what works best.
+                          <br />
+                          Then do more of it.
                         </h2>
-                        <p className={`mt-2 max-w-[520px] text-[13px] leading-relaxed ${t.soft}`}>
-                          {subhead}
+                        <p className="mt-4 max-w-[480px] text-[14px] leading-relaxed text-neutral-500">
+                          Insights shows which posts, formats and hours perform best, so your next
+                          post is a decision, not a guess.
                         </p>
+                        <p className="mt-3 text-[12px] font-medium text-neutral-400">{subhead}</p>
                       </div>
                       <button
                         type="button"
                         onClick={() => openComposer({ reason: "manual", channelKey: channel?.key })}
-                        className={`flex w-fit items-center gap-1.5 rounded-md px-4 py-2.5 text-[12px] font-semibold transition-all duration-150 active:scale-[0.98] ${t.ring} ${t.primaryBtn}`}
+                        className={`flex w-fit items-center gap-1.5 rounded-full px-5 py-3 text-[12px] font-semibold transition-all duration-150 active:scale-[0.98] ${lightT.ring} ${lightT.primaryBtn}`}
                       >
                         <Plus className="h-3.5 w-3.5" aria-hidden="true" />
                         {behind > 0 ? "Schedule the gap" : "Create Post"}
@@ -2187,7 +2187,7 @@ export default function Insights() {
                       {takeaways.map((tk) => (
                         <MoveCard
                           key={tk.id}
-                          t={t}
+                          t={lightT}
                           icon={tk.icon}
                           title={tk.title}
                           text={tk.detail}
