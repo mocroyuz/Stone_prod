@@ -634,7 +634,8 @@ function postScore(p: PostRow) {
   return p.reactions + p.comments * 2.4 + p.videoViews * 0.02;
 }
 
-const hourLabel = (h: number) => `${h % 12 === 0 ? 12 : h % 12} ${h < 12 ? "AM" : "PM"}`;
+/** Heure au format 24 h à la française, comme dans la page Calendar (ex. « 08:00 », « 19:00 »). */
+const hourLabel = (h: number) => `${String(h).padStart(2, "0")}:00`;
 
 /* ── Best time to post ──────────────────────────────────────
    Stratégie (3 étapes) :
@@ -787,7 +788,8 @@ function buildBestTimes(posts: PostRow[], platform: string): BestTimes {
 
 /** Rose pâle → violet profond (comme une heatmap d'engagement). */
 const heatColor = (v: number) => `hsla(320, 85%, ${72 - 20 * v}%, ${0.1 + 0.9 * v})`;
-const shortHour = (h: number) => `${h % 12 === 0 ? 12 : h % 12}${h < 12 ? "a" : "p"}`;
+/** Libellé d'axe : même format 24 h que le calendrier. */
+const shortHour = (h: number) => hourLabel(h);
 
 function pctDelta(now: number, prev: number) {
   if (!Number.isFinite(now) || !Number.isFinite(prev)) return null;
@@ -1592,6 +1594,9 @@ const SUMMARY_INFO: Record<string, string> = {
 
 const TABLE_GRID = "grid-cols-[minmax(0,2.3fr)_1fr_1fr_1fr_1fr_44px]";
 
+/** 24 colonnes égales : la heatmap remplit toute la largeur de sa carte. */
+const HEAT_COLS = "grid-cols-[repeat(24,minmax(0,1fr))]";
+
 export default function Insights() {
   const { theme } = useTheme();
   const isDark = theme === "dark";
@@ -2194,58 +2199,6 @@ export default function Insights() {
                   </div>
                 </section>
 
-                {/* ── RECYCLE (duplicate) ── */}
-                <section className={sectionCard} aria-labelledby="recycle-title">
-                  <div className="flex flex-wrap items-start justify-between gap-3 px-1">
-                    <div>
-                      <h3 id="recycle-title" className={sectionTitle}>
-                        Recycle these
-                      </h3>
-                      <p className={sectionSub}>Posts still outperforming the rest — duplicate the angle</p>
-                    </div>
-                  </div>
-                  {remixable.length === 0 ? (
-                    <p className={`mt-4 text-[12px] ${t.soft}`}>
-                      After a few published posts, the ones worth remaking show up here.
-                    </p>
-                  ) : (
-                    <div className="mt-4 grid gap-2.5 md:grid-cols-3">
-                      {remixable.map((p, i) => (
-                        <div key={p.id} className={`flex gap-3 rounded-xl border p-3 ${t.inner}`}>
-                          <span className={`flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg ${t.iconBox}`}>
-                            {p.thumbnailUrl ? (
-                              <img
-                                src={p.thumbnailUrl}
-                                alt=""
-                                referrerPolicy="no-referrer"
-                                className="h-full w-full object-cover"
-                              />
-                            ) : (
-                              mediaIcon(p.media)
-                            )}
-                          </span>
-                          <div className="min-w-0 flex-1">
-                            <p className={`text-[10px] font-semibold uppercase tracking-wide ${t.muted}`}>
-                              #{i + 1} · {p.media}
-                            </p>
-                            <p className={`mt-0.5 truncate text-[13px] font-semibold ${t.text}`}>{p.label}</p>
-                            <p className={`mt-1 text-[11px] ${t.soft}`}>
-                              {nf(p.reactions)} reactions · {p.engRate.toFixed(1)}% eng
-                            </p>
-                            <button
-                              type="button"
-                              onClick={() => duplicatePost(p)}
-                              className={`mt-2 text-[11px] font-semibold ${t.text}`}
-                            >
-                              Duplicate →
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </section>
-
                 {/* ── NUMBERS ── */}
                 <section aria-labelledby="all-title" className="flex flex-col gap-4">
                   <div>
@@ -2518,85 +2471,155 @@ export default function Insights() {
                   </div>
                 </section>
 
-                {/* ── BEST TIME TO POST ── */}
-                <section className={sectionCard} aria-labelledby="besttime-title">
-                  <div className="flex flex-wrap items-start justify-between gap-3 px-1">
-                    <div>
-                      <h3 id="besttime-title" className={sectionTitle}>
-                        Best time to post
-                      </h3>
-                      <p className={sectionSub}>
-                        {bestTimesNote} · Peak {heatmap.label}
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => scheduleFromSlot(heatmap.best)}
-                      className={`rounded-md px-3 py-1.5 text-[11px] font-semibold ${t.ring} ${t.outlineBtn}`}
-                    >
-                      Use {heatmap.label}
-                    </button>
-                  </div>
-
-                  <div className="mt-5 overflow-x-auto px-1 pb-1">
-                    <div className="w-max">
-                      <div className="mb-1.5 flex items-end gap-1">
-                        <span className="w-9 shrink-0" />
-                        {Array.from({ length: 24 }, (_, h) => (
-                          <span key={h} className="relative h-3 w-4 shrink-0">
-                            {h % 3 === 0 && (
-                              <span className={`absolute bottom-0 left-0 whitespace-nowrap text-[10px] ${t.muted}`}>
-                                {shortHour(h)}
-                              </span>
-                            )}
-                          </span>
-                        ))}
-                        <span className="ml-3 w-12 shrink-0" />
+                {/* ── BEST TIME TO POST (gauche) + RECYCLE (droite) ── */}
+                <div className="grid items-stretch gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+                  {/* BEST TIME TO POST */}
+                  <section className={`${sectionCard} min-w-0`} aria-labelledby="besttime-title">
+                    <div className="flex flex-wrap items-start justify-between gap-3 px-1">
+                      <div>
+                        <h3 id="besttime-title" className={sectionTitle}>
+                          Best time to post
+                        </h3>
+                        <p className={sectionSub}>
+                          {bestTimesNote} · Peak {heatmap.label}
+                        </p>
                       </div>
+                      <button
+                        type="button"
+                        onClick={() => scheduleFromSlot(heatmap.best)}
+                        className={`rounded-md px-3 py-1.5 text-[11px] font-semibold ${t.ring} ${t.outlineBtn}`}
+                      >
+                        Use {heatmap.label}
+                      </button>
+                    </div>
 
-                      <div className="flex flex-col gap-1">
-                        {DAY_LABELS.map((day, d) => (
-                          <div key={day} className="flex items-center gap-1">
-                            <span className={`w-9 shrink-0 text-[10px] ${t.muted}`}>{day}</span>
-                            {Array.from({ length: 24 }, (_, h) => {
-                              const cell = heatmap.grid[d][h];
-                              const isBest = heatmap.bestByDay[d].hour === h;
-                              return (
-                                <button
-                                  key={h}
-                                  type="button"
-                                  title={`${day} ${hourLabel(h)}${isBest ? " · best of the day" : ""}`}
-                                  aria-label={`Schedule ${day} at ${hourLabel(h)}`}
-                                  onClick={() => scheduleFromSlot({ day: d, hour: h })}
-                                  className={`h-4 w-4 shrink-0 rounded-[3px] transition-transform hover:scale-125 ${t.ring} ${
-                                    isBest ? `ring-[1.5px] ring-offset-1 ${isDark ? "ring-white ring-offset-[#0a0a0c]" : "ring-neutral-900 ring-offset-white"}` : ""
-                                  }`}
-                                  style={{ background: heatColor(cell.norm) }}
+                    <div className="mt-5 overflow-x-auto px-1 pb-1">
+                      <div className="min-w-[560px]">
+                        {/* Axe des heures (24 h) */}
+                        <div className="mb-1.5 flex items-end gap-2">
+                          <span className="w-9 shrink-0" />
+                          <div className={`grid flex-1 gap-1 ${HEAT_COLS}`}>
+                            {Array.from({ length: 24 }, (_, h) => (
+                              <span key={h} className="relative h-3">
+                                {h % 3 === 0 && (
+                                  <span
+                                    className={`absolute bottom-0 left-0 whitespace-nowrap text-[10px] tabular-nums ${t.muted}`}
+                                  >
+                                    {shortHour(h)}
+                                  </span>
+                                )}
+                              </span>
+                            ))}
+                          </div>
+                          <span className="w-12 shrink-0" />
+                        </div>
+
+                        <div className="flex flex-col gap-1">
+                          {DAY_LABELS.map((day, d) => (
+                            <div key={day} className="flex items-center gap-2">
+                              <span className={`w-9 shrink-0 text-[10px] ${t.muted}`}>{day}</span>
+                              <div className={`grid flex-1 gap-1 ${HEAT_COLS}`}>
+                                {Array.from({ length: 24 }, (_, h) => {
+                                  const cell = heatmap.grid[d][h];
+                                  const isBest = heatmap.bestByDay[d].hour === h;
+                                  return (
+                                    <button
+                                      key={h}
+                                      type="button"
+                                      title={`${day} ${hourLabel(h)}${isBest ? " · best of the day" : ""}`}
+                                      aria-label={`Schedule ${day} at ${hourLabel(h)}`}
+                                      onClick={() => scheduleFromSlot({ day: d, hour: h })}
+                                      className={`h-5 w-full rounded-[3px] transition-transform hover:scale-125 ${t.ring} ${
+                                        isBest
+                                          ? `ring-[1.5px] ring-offset-1 ${
+                                              isDark
+                                                ? "ring-white ring-offset-[#0a0a0c]"
+                                                : "ring-neutral-900 ring-offset-white"
+                                            }`
+                                          : ""
+                                      }`}
+                                      style={{ background: heatColor(cell.norm) }}
+                                    />
+                                  );
+                                })}
+                              </div>
+                              <span
+                                className={`w-12 shrink-0 text-right text-[10px] font-semibold tabular-nums ${t.soft}`}
+                              >
+                                {hourLabel(heatmap.bestByDay[d].hour)}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+
+                        <div className="mt-4 flex items-center justify-end gap-1.5">
+                          <span className={`mr-1 text-[10px] ${t.muted}`}>Lower</span>
+                          {[0, 0.25, 0.5, 0.75, 1].map((v) => (
+                            <span
+                              key={v}
+                              className="h-3 w-3 rounded-[3px]"
+                              style={{ background: heatColor(v) }}
+                              aria-hidden="true"
+                            />
+                          ))}
+                          <span className={`ml-1 text-[10px] ${t.muted}`}>Higher</span>
+                        </div>
+                      </div>
+                    </div>
+                  </section>
+
+                  {/* RECYCLE (duplicate) */}
+                  <section className={`${sectionCard} min-w-0`} aria-labelledby="recycle-title">
+                    <div className="px-1">
+                      <h3 id="recycle-title" className={sectionTitle}>
+                        Recycle these
+                      </h3>
+                      <p className={sectionSub}>Posts still outperforming the rest — duplicate the angle</p>
+                    </div>
+                    {remixable.length === 0 ? (
+                      <p className={`mt-4 text-[12px] ${t.soft}`}>
+                        After a few published posts, the ones worth remaking show up here.
+                      </p>
+                    ) : (
+                      <div className="mt-4 flex flex-col gap-2.5">
+                        {remixable.map((p, i) => (
+                          <div key={p.id} className={`flex gap-3 rounded-xl border p-3 ${t.inner}`}>
+                            <span
+                              className={`flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg ${t.iconBox}`}
+                            >
+                              {p.thumbnailUrl ? (
+                                <img
+                                  src={p.thumbnailUrl}
+                                  alt=""
+                                  referrerPolicy="no-referrer"
+                                  className="h-full w-full object-cover"
                                 />
-                              );
-                            })}
-                            <span className={`ml-3 w-12 shrink-0 text-[10px] font-semibold tabular-nums ${t.soft}`}>
-                              {hourLabel(heatmap.bestByDay[d].hour)}
+                              ) : (
+                                mediaIcon(p.media)
+                              )}
                             </span>
+                            <div className="min-w-0 flex-1">
+                              <p className={`text-[10px] font-semibold uppercase tracking-wide ${t.muted}`}>
+                                #{i + 1} · {p.media}
+                              </p>
+                              <p className={`mt-0.5 truncate text-[13px] font-semibold ${t.text}`}>{p.label}</p>
+                              <p className={`mt-1 text-[11px] ${t.soft}`}>
+                                {nf(p.reactions)} reactions · {p.engRate.toFixed(1)}% eng
+                              </p>
+                              <button
+                                type="button"
+                                onClick={() => duplicatePost(p)}
+                                className={`mt-2 rounded text-[11px] font-semibold ${t.ring} ${t.text}`}
+                              >
+                                Duplicate →
+                              </button>
+                            </div>
                           </div>
                         ))}
                       </div>
-
-                      <div className="mt-4 flex items-center justify-end gap-1.5">
-                        <span className={`mr-1 text-[10px] ${t.muted}`}>Lower</span>
-                        {[0, 0.25, 0.5, 0.75, 1].map((v) => (
-                          <span
-                            key={v}
-                            className="h-3 w-3 rounded-[3px]"
-                            style={{ background: heatColor(v) }}
-                            aria-hidden="true"
-                          />
-                        ))}
-                        <span className={`ml-1 text-[10px] ${t.muted}`}>Higher</span>
-                      </div>
-                    </div>
-                  </div>
-                </section>
+                    )}
+                  </section>
+                </div>
 
                 {/* ── METRICS ── */}
                 <section className={sectionCard} aria-labelledby="metrics-title">
