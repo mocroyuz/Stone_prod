@@ -334,6 +334,7 @@ type ScheduledEntry = { ids: ReadonlySet<string>; at: number };
 
 const scheduledCache = new Map<string, ScheduledEntry>();
 const SCHEDULED_FRESH_MS = 2 * 60_000;
+const SCHEDULED_TIMEOUT_MS = 10_000;
 
 function useScheduledVideoIds(
   channelKey: string | undefined,
@@ -375,6 +376,7 @@ function useScheduledVideoIds(
     if (!forceReload && !stale) return;
 
     let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
 
     fetchYouTubeVideos()
       .then((r) => {
@@ -391,10 +393,19 @@ function useScheduledVideoIds(
       })
       .catch(() => {
         if (!cancelled) setReady(true);
+      })
+      .finally(() => {
+        if (timer) clearTimeout(timer);
       });
+
+    // Filet de sécurité : on ne bloque pas l'UI indéfiniment.
+    timer = setTimeout(() => {
+      if (!cancelled) setReady(true);
+    }, SCHEDULED_TIMEOUT_MS);
 
     return () => {
       cancelled = true;
+      if (timer) clearTimeout(timer);
     };
   }, [active, channelKey, reloadKey]);
 
@@ -798,7 +809,9 @@ const shortHour = (h: number) => hourLabel(h);
 
 function pctDelta(now: number, prev: number) {
   if (!Number.isFinite(now) || !Number.isFinite(prev)) return null;
-  if (prev === 0) return now === 0 ? 0 : 100;
+  // Deux périodes vides → pas de comparaison pertinente : on masque le chip.
+  if (now === 0 && prev === 0) return null;
+  if (prev === 0) return 100;
   return Math.round(((now - prev) / Math.abs(prev)) * 100);
 }
 
@@ -857,7 +870,7 @@ function buildTakeaways(args: {
     out.push({
       id: "engagement",
       icon: down ? (
-        <TrendingUp className="h-3.5 w-3.5 -scale-y-100" />
+        <TrendingDown className="h-3.5 w-3.5" />
       ) : (
         <TrendingUp className="h-3.5 w-3.5" />
       ),
@@ -867,7 +880,7 @@ function buildTakeaways(args: {
       detail: down
         ? "Revenez à ce qui fonctionne encore avant d'ajouter du volume."
         : "Répétez ce qui fonctionne — le reste est du bruit.",
-      cta: args.topPost ? "Dupliquer un gagnant" : "Voir les meilleurs posts",
+      cta: args.topPost ? "Dupliquer un gagnant" : "Créer un post",
       action: args.topPost
         ? () => args.onDuplicate(args.topPost as PostRow)
         : args.onCreate,
@@ -1299,7 +1312,6 @@ function RangePicker({
   end,
   onStartChange,
   onEndChange,
-  onRangeChange,
   t,
   isDark,
 }: {
@@ -1308,7 +1320,6 @@ function RangePicker({
   end: Date;
   onStartChange: (d: Date) => void;
   onEndChange: (d: Date) => void;
-  onRangeChange: (r: Range) => void;
   t: Tokens;
   isDark: boolean;
 }) {
@@ -1354,7 +1365,6 @@ function RangePicker({
   };
 
   const openPicker = (nextField: "from" | "to") => {
-    if (range !== "custom") onRangeChange("custom");
     setField(nextField);
     setOpen(true);
   };
@@ -1625,7 +1635,8 @@ export default function Insights() {
   useEffect(() => {
     let cancelled = false;
     const now = new Date();
-    listPosts(start, addDays(now, 21))
+    // Fenêtre large : les brouillons peuvent être vieux, on veut tous les voir.
+    listPosts(addDays(now, -365), addDays(now, 21))
       .catch(() => [] as CalendarPost[])
       .then((all) => {
         if (cancelled) return;
@@ -1640,7 +1651,7 @@ export default function Insights() {
     return () => {
       cancelled = true;
     };
-  }, [start, reloadKey]);
+  }, [reloadKey]);
 
   const days = current.length;
   const dates = current.map((p) => p.date);
@@ -1673,7 +1684,6 @@ export default function Insights() {
   const postsThisWeek = posts.filter((p) => p.date >= weekStart).length;
   const goalKey = channel?.key ?? channels[0]?.key ?? "youtube";
   const goal = readPostingGoal(goalKey) ?? readPostingGoal("youtube") ?? 3;
-  const behind = Math.max(0, goal - postsThisWeek);
   const platformKey = (channel?.platform ?? "default").toLowerCase();
   const heatmap = useMemo(() => buildBestTimes(posts, platformKey), [posts, platformKey]);
   const bestTimesNote =
@@ -1695,7 +1705,7 @@ export default function Insights() {
     : queue.filter((p) => !channel || p.network === channel.platform || p.channelKey === channel.key);
   const draftsCount = queuedForChannel.filter((p) => p.status === "draft").length;
   const draftReady = draftsCount > 0 || hasComposerDraft();
-  void draftReady;
+  const draftsForActions = draftReady ? Math.max(1, draftsCount) : 0;
 
   const engagementDelta = useMemo(
     () =>
@@ -1715,7 +1725,7 @@ export default function Insights() {
       buildTakeaways({
         postsThisWeek,
         goal,
-        draftsCount,
+        draftsCount: draftsForActions,
         engagementDelta,
         topPost,
         topMultiplier,
@@ -1728,7 +1738,7 @@ export default function Insights() {
     [
       postsThisWeek,
       goal,
-      draftsCount,
+      draftsForActions,
       engagementDelta,
       topPost,
       topMultiplier,
@@ -1745,10 +1755,6 @@ export default function Insights() {
       ? "Aucun post n'a été publié sur cette période."
       : `Vous avez publié ${nf(summary.posts)} post${summary.posts > 1 ? "s" : ""} et reçu ${nf(summary.reactions)} réaction${summary.reactions === 1 ? "" : "s"} et ${nf(summary.comments)} commentaire${summary.comments === 1 ? "" : "s"}.`;
 
-  void takeaways;
-  void behind;
-  void subhead;
-
   const TONES: [string, string] = [isDark ? "#ffffff" : "#111111", isDark ? "#7c7c85" : "#a3a3a3"];
   const METRIC_OPTIONS: MetricOption[] = [
     { key: "posts", label: "Posts", icon: <Copy className="h-4 w-4" aria-hidden="true" />, agg: "sum" },
@@ -1764,11 +1770,11 @@ export default function Insights() {
   ];
   const chartView: ChartView = compare ? "both" : "this";
 
-  const pickedKeys: NumKey[] = [metricA];
-  const activeSeries: SeriesDef[] = pickedKeys.map((k, i) => {
-    const o = METRIC_OPTIONS.find((m) => m.key === k) ?? METRIC_OPTIONS[0];
-    return { key: o.key, label: o.label, tone: (i === 0 ? 0 : 1) as 0 | 1, agg: o.agg };
-  });
+  const activeSeries: SeriesDef[] = useMemo(() => {
+    const o = METRIC_OPTIONS.find((m) => m.key === metricA) ?? METRIC_OPTIONS[0];
+    return [{ key: o.key, label: o.label, tone: 0, agg: o.agg }];
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [metricA, isYouTube]);
 
   const chartSeries: ChartSeries[] = useMemo(
     () =>
@@ -1789,8 +1795,6 @@ export default function Insights() {
         fullDate: fmtFull(d),
         left_this: chartSeries[0]?.values[i] ?? 0,
         left_prev: chartSeries[0]?.prev[i] ?? 0,
-        right_this: chartSeries[1]?.values[i],
-        right_prev: chartSeries[1]?.prev[i],
       })),
     [dates, chartSeries]
   );
@@ -1879,6 +1883,12 @@ export default function Insights() {
   const sectionCard = `rounded-3xl border p-5 md:p-6 ${t.card}`;
   const sectionTitle = `text-[17px] font-semibold tracking-[-0.02em] ${t.text}`;
   const sectionSub = `mt-1 text-[12px] ${t.muted}`;
+
+  const heroUid = useId().replace(/[:]/g, "");
+  const heroId = (name: string) => `hero-${name}-${heroUid}`;
+
+  const goalPct = goal > 0 ? Math.min(100, Math.round((postsThisWeek / goal) * 100)) : 0;
+  const goalReached = postsThisWeek >= goal;
 
   return (
     <main
@@ -2039,43 +2049,43 @@ export default function Insights() {
                       className="h-full w-full"
                     >
                       <defs>
-                        <linearGradient id="hero-ring" x1="0" y1="0" x2="1" y2="1">
+                        <linearGradient id={heroId("ring")} x1="0" y1="0" x2="1" y2="1">
                           <stop offset="0%" stopColor="#ffffff" />
                           <stop offset="55%" stopColor="#a3a3a3" />
                           <stop offset="100%" stopColor="#262626" />
                         </linearGradient>
-                        <linearGradient id="hero-ring-2" x1="1" y1="0" x2="0" y2="1">
+                        <linearGradient id={heroId("ring-2")} x1="1" y1="0" x2="0" y2="1">
                           <stop offset="0%" stopColor="#525252" />
                           <stop offset="50%" stopColor="#f5f5f5" />
                           <stop offset="100%" stopColor="#404040" />
                         </linearGradient>
-                        <radialGradient id="hero-glow" cx="70%" cy="50%" r="55%">
+                        <radialGradient id={heroId("glow")} cx="70%" cy="50%" r="55%">
                           <stop offset="0%" stopColor="#ffffff" stopOpacity="0.22" />
                           <stop offset="60%" stopColor="#737373" stopOpacity="0.07" />
                           <stop offset="100%" stopColor="#000" stopOpacity="0" />
                         </radialGradient>
-                        <filter id="hero-blur" x="-30%" y="-30%" width="160%" height="160%">
+                        <filter id={heroId("blur")} x="-30%" y="-30%" width="160%" height="160%">
                           <feGaussianBlur stdDeviation="10" />
                         </filter>
-                        <filter id="hero-soft" x="-30%" y="-30%" width="160%" height="160%">
+                        <filter id={heroId("soft")} x="-30%" y="-30%" width="160%" height="160%">
                           <feGaussianBlur stdDeviation="1.6" />
                         </filter>
                       </defs>
 
-                      <rect width="600" height="340" fill="url(#hero-glow)" />
+                      <rect width="600" height="340" fill={`url(#${heroId("glow")})`} />
 
                       <g transform="translate(440 170)" fill="none">
-                        <g filter="url(#hero-blur)" opacity="0.85">
-                          <ellipse rx="170" ry="120" transform="rotate(-28)" stroke="url(#hero-ring)" strokeWidth="44" />
-                          <ellipse rx="125" ry="84" transform="rotate(-28)" stroke="url(#hero-ring-2)" strokeWidth="36" />
-                          <ellipse rx="80" ry="50" transform="rotate(-28)" stroke="url(#hero-ring)" strokeWidth="28" />
+                        <g filter={`url(#${heroId("blur")})`} opacity="0.85">
+                          <ellipse rx="170" ry="120" transform="rotate(-28)" stroke={`url(#${heroId("ring")})`} strokeWidth="44" />
+                          <ellipse rx="125" ry="84" transform="rotate(-28)" stroke={`url(#${heroId("ring-2")})`} strokeWidth="36" />
+                          <ellipse rx="80" ry="50" transform="rotate(-28)" stroke={`url(#${heroId("ring")})`} strokeWidth="28" />
                         </g>
-                        <g filter="url(#hero-soft)">
-                          <ellipse rx="170" ry="120" transform="rotate(-28)" stroke="url(#hero-ring)" strokeWidth="8" />
+                        <g filter={`url(#${heroId("soft")})`}>
+                          <ellipse rx="170" ry="120" transform="rotate(-28)" stroke={`url(#${heroId("ring")})`} strokeWidth="8" />
                           <ellipse rx="148" ry="102" transform="rotate(-28)" stroke="#ffffff" strokeOpacity="0.7" strokeWidth="2.5" />
-                          <ellipse rx="125" ry="84" transform="rotate(-28)" stroke="url(#hero-ring-2)" strokeWidth="7" />
+                          <ellipse rx="125" ry="84" transform="rotate(-28)" stroke={`url(#${heroId("ring-2")})`} strokeWidth="7" />
                           <ellipse rx="102" ry="67" transform="rotate(-28)" stroke="#d4d4d4" strokeOpacity="0.7" strokeWidth="2.5" />
-                          <ellipse rx="80" ry="50" transform="rotate(-28)" stroke="url(#hero-ring)" strokeWidth="6" />
+                          <ellipse rx="80" ry="50" transform="rotate(-28)" stroke={`url(#${heroId("ring")})`} strokeWidth="6" />
                         </g>
                       </g>
                     </svg>
@@ -2159,7 +2169,6 @@ export default function Insights() {
                           end={end}
                           onStartChange={setCustomStart}
                           onEndChange={setCustomEnd}
-                          onRangeChange={setRange}
                           t={t}
                           isDark={isDark}
                         />
@@ -2179,12 +2188,26 @@ export default function Insights() {
 
                   {/* ── SUMMARY : petits carreaux gris séparés ── */}
                   <div className={sectionCard}>
-                    <div className="flex items-start justify-between gap-3 px-1">
+                    <div className="flex flex-wrap items-start justify-between gap-3 px-1">
                       <div>
                         <h3 className={sectionTitle}>Résumé</h3>
                         <p className={sectionSub}>
                           {periodLabel} · {compareLabel}
                         </p>
+                      </div>
+                      {/* Progression objectif hebdo */}
+                      <div className="flex items-center gap-2" aria-label={`Objectif : ${postsThisWeek} sur ${goal} cette semaine`}>
+                        <div className={`h-1.5 w-24 overflow-hidden rounded-full ${t.inner}`}>
+                          <div
+                            className={`h-full rounded-full transition-[width] duration-300 ${
+                              goalReached ? "bg-emerald-500" : "bg-amber-500"
+                            }`}
+                            style={{ width: `${goalPct}%` }}
+                          />
+                        </div>
+                        <span className={`text-[11px] font-semibold tabular-nums ${t.soft}`}>
+                          {postsThisWeek}/{goal} cette semaine
+                        </span>
                       </div>
                     </div>
 
@@ -2203,6 +2226,46 @@ export default function Insights() {
                         />
                       ))}
                     </div>
+                  </div>
+                </section>
+
+                {/* ── PROCHAINES ACTIONS ── */}
+                <section aria-labelledby="actions-title" className="flex flex-col gap-4">
+                  <div>
+                    <h2 id="actions-title" className={`text-[28px] font-semibold tracking-[-0.03em] ${t.text}`}>
+                      Prochaines actions
+                    </h2>
+                    <p className={`mt-0.5 text-[12px] ${t.muted}`}>
+                      Ce que Stone suggère de faire ensuite
+                    </p>
+                  </div>
+
+                  <div className="grid gap-3 md:grid-cols-3">
+                    {takeaways.map((a) => (
+                      <article
+                        key={a.id}
+                        className={`flex min-w-0 flex-col gap-3 rounded-3xl border p-5 ${t.card}`}
+                      >
+                        <span
+                          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${t.iconBox}`}
+                          aria-hidden="true"
+                        >
+                          {a.icon}
+                        </span>
+                        <div className="min-w-0">
+                          <h3 className={`text-[14px] font-semibold leading-snug ${t.text}`}>{a.title}</h3>
+                          <p className={`mt-1 text-[12px] leading-relaxed ${t.soft}`}>{a.detail}</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={a.action}
+                          className={`mt-auto flex items-center justify-between gap-2 rounded-full px-4 py-2 text-[12px] font-semibold transition-colors ${t.ring} ${t.primaryBtn}`}
+                        >
+                          <span className="truncate">{a.cta}</span>
+                          <ExternalLink className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                        </button>
+                      </article>
+                    ))}
                   </div>
                 </section>
 
@@ -2303,18 +2366,17 @@ export default function Insights() {
                   {/* BEST TIME TO POST */}
                   <section className={`${sectionCard} min-w-0`} aria-labelledby="besttime-title">
                     <div className="flex flex-wrap items-start justify-between gap-3 px-1">
-                      <div>
+                      <div className="min-w-0">
                         <h3 id="besttime-title" className={sectionTitle}>
                           Meilleur moment pour publier
                         </h3>
-                        <p className={sectionSub}>
-                          {bestTimesNote} · Pic {heatmap.label}
-                        </p>
+                        <p className={sectionSub}>{subhead}</p>
+                        <p className={`mt-1 text-[10.5px] ${t.muted}`}>{bestTimesNote}</p>
                       </div>
                       <button
                         type="button"
                         onClick={() => scheduleFromSlot(heatmap.best)}
-                        className={`rounded-full px-3.5 py-1.5 text-[11px] font-semibold ${t.ring} ${t.outlineBtn}`}
+                        className={`shrink-0 rounded-full px-3.5 py-1.5 text-[11px] font-semibold ${t.ring} ${t.outlineBtn}`}
                       >
                         Utiliser {heatmap.label}
                       </button>
@@ -2326,7 +2388,7 @@ export default function Insights() {
 
                     <div className="mt-4 overflow-x-auto px-1 pb-1">
                       <div className="min-w-[480px]">
-                        {/* Axe des heures (24 h) : un libellé par carré */}
+                        {/* Axe des heures : libellé toutes les 3 h (aligné sur la heatmap) */}
                         <div className="mb-1.5 flex items-end gap-2">
                           <span className="w-9 shrink-0" />
                           <div className={`grid flex-1 gap-[5px] ${HEAT_COLS}`}>
@@ -2334,9 +2396,9 @@ export default function Insights() {
                               <span
                                 key={h}
                                 title={hourLabel(h)}
-                                className={`text-center text-[9px] leading-none tabular-nums ${t.muted}`}
+                                className={`text-center text-[10px] leading-none tabular-nums ${t.muted}`}
                               >
-                                {String(h).padStart(2, "0")}
+                                {h % 3 === 0 ? String(h).padStart(2, "0") : ""}
                               </span>
                             ))}
                           </div>
@@ -2650,12 +2712,6 @@ export default function Insights() {
         isDark={isDark}
         onSubmit={handleCreatePost}
         onRequestOpen={() => setIsNewPostOpen(true)}
-        /*
-         * Le composer reçoit son contexte de préremplissage (créneau, canal,
-         * duplication) via cette prop optionnelle. Tant que `NewPostModal` ne
-         * la déclare pas dans son type, elle est ignorée à l'exécution mais
-         * aucune erreur n'est levée — l'UI fonctionne comme avant.
-         */
         {...({ initialContext: composerContext } as Record<string, unknown>)}
       />
       <HelpChatButton isDark={isDark} />
