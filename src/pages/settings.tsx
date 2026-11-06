@@ -87,6 +87,7 @@ import {
   deleteSavedReply,
   type SavedReply,
 } from "../services/supabase";
+
 /* ── Tokens (classes complètes, compatibles Tailwind v3/v4) ── */
 const DARK = {
   pageBg: "bg-[#050505]",
@@ -128,6 +129,7 @@ const DARK = {
   dangerBtn: "bg-red-600 text-white hover:bg-red-500",
 };
 type Tokens = Record<keyof typeof DARK, string>;
+
 const LIGHT: Tokens = {
   pageBg: "bg-[#fafaf9]",
   card: "bg-white",
@@ -167,8 +169,10 @@ const LIGHT: Tokens = {
   dangerTitle: "text-red-600",
   dangerBtn: "bg-red-600 text-white hover:bg-red-500",
 };
+
 const cx = (...parts: (string | false | null | undefined)[]) =>
   parts.filter(Boolean).join(" ");
+
 /* ── Icons ── */
 const svgBase = {
   viewBox: "0 0 24 24",
@@ -187,6 +191,7 @@ const mkIcon =
         {paths}
       </svg>
     );
+
 const UserIcon = mkIcon(
   <>
     <circle cx="12" cy="8" r="4" />
@@ -342,6 +347,7 @@ const BoltIcon = mkIcon(
   <path d="M13 2.5 5 13.2h5.6L9.5 21.5l8-10.7h-5.6L13 2.5Z" />,
   "h-6 w-6"
 );
+
 /* ── Hooks ── */
 function usePref(key: string, initial: boolean) {
   const [value, setValue] = useState<boolean>(() => {
@@ -362,6 +368,7 @@ function usePref(key: string, initial: boolean) {
   }, [key, value]);
   return [value, setValue] as const;
 }
+
 /* ── UI de base ── */
 function Field({
   label,
@@ -445,6 +452,7 @@ function Field({
     </label>
   );
 }
+
 function Toggle({
   checked,
   onChange,
@@ -479,6 +487,7 @@ function Toggle({
     </button>
   );
 }
+
 function Row({
   title,
   description,
@@ -504,6 +513,7 @@ function Row({
     </div>
   );
 }
+
 function Button({
   variant = "primary",
   tokens,
@@ -532,6 +542,7 @@ function Button({
     />
   );
 }
+
 function SectionCard({
   title,
   description,
@@ -587,6 +598,7 @@ function SectionCard({
     </section>
   );
 }
+
 /* ── Sidebar ── */
 type SectionKey =
   | "profile"
@@ -599,6 +611,7 @@ type SectionKey =
   | "tags"
   | "savedReplies"
   | "danger";
+
 const SIDEBAR_GROUPS: {
   label: string;
   items: { key: SectionKey; label: string; icon: ReactNode; badge?: string }[];
@@ -632,6 +645,7 @@ const SIDEBAR_GROUPS: {
     ],
   },
 ];
+
 const SECTION_TITLES: Record<SectionKey, string> = {
   profile: "Profile",
   account: "Security",
@@ -644,6 +658,7 @@ const SECTION_TITLES: Record<SectionKey, string> = {
   savedReplies: "Saved Replies",
   danger: "Danger zone",
 };
+
 const SECTION_SLUGS: Record<SectionKey, string> = {
   profile: "profile",
   account: "security",
@@ -656,13 +671,16 @@ const SECTION_SLUGS: Record<SectionKey, string> = {
   savedReplies: "saved-replies",
   danger: "danger-zone",
 };
+
 export const settingsPath = (key: SectionKey) =>
   `settings/${SECTION_SLUGS[key]}`;
+
 export function sectionFromSlug(slug?: string | null): SectionKey | undefined {
   return (Object.keys(SECTION_SLUGS) as SectionKey[]).find(
     (key) => SECTION_SLUGS[key] === slug
   );
 }
+
 function SettingsSidebar({
   active,
   onSelect,
@@ -763,6 +781,7 @@ function SettingsSidebar({
     </aside>
   );
 }
+
 /* ── Page ── */
 type SettingsProps = {
   theme?: Theme;
@@ -770,6 +789,7 @@ type SettingsProps = {
   initialSection?: SectionKey;
 };
 type Notify = (message: string, kind?: "success" | "error") => void;
+
 /**
  * Fallback pour `/settings` (sans slug) :
  * - retour OAuth (TikTok / Pinterest / YouTube) → Channels
@@ -817,10 +837,12 @@ function initialSection(): SectionKey {
   // 3. Défaut
   return "profile";
 }
+
 export default function Settings(_props: SettingsProps) {
   const { theme, toggle } = useTheme();
   const isDark = theme === "dark";
   const tokens = useMemo<Tokens>(() => (isDark ? DARK : LIGHT), [isDark]);
+
   // La section active vient de l'URL : soit passée par le routeur,
   // soit déduite du slug / des query params OAuth.
   const returning =
@@ -836,12 +858,14 @@ export default function Settings(_props: SettingsProps) {
   const active: SectionKey = returning
     ? "channels"
     : _props.initialSection ?? initialSection();
+
   const [toast, setToast] = useState<{
     message: string;
     kind: "success" | "error";
   } | null>(null);
   const toastTimer = useRef<number | null>(null);
   const titleRef = useRef<HTMLHeadingElement | null>(null);
+
   const notify = useCallback<Notify>((message, kind) => {
     const resolved =
       kind ??
@@ -855,24 +879,29 @@ export default function Settings(_props: SettingsProps) {
       toastTimer.current = null;
     }, 3000);
   }, []);
+
   useEffect(
     () => () => {
       if (toastTimer.current !== null) window.clearTimeout(toastTimer.current);
     },
     []
   );
+
   const handleSelectTheme = useCallback(
     (next: "light" | "dark", origin?: { x: number; y: number }) => {
       if (next !== theme) toggle(origin);
     },
     [theme, toggle]
   );
+
   const handleSelect = useCallback((key: SectionKey) => {
     navigate(settingsPath(key));
     window.scrollTo({ top: 0 });
     titleRef.current?.focus();
   }, []);
+
   const handleBack = useCallback(() => navigate("home"), []);
+
   return (
     <main
       className={cx(
@@ -949,6 +978,7 @@ export default function Settings(_props: SettingsProps) {
           </div>
         </div>
       </div>
+
       <div
         aria-live="polite"
         className="pointer-events-none fixed bottom-6 left-1/2 z-[110] -translate-x-1/2 px-4"
@@ -979,6 +1009,7 @@ export default function Settings(_props: SettingsProps) {
     </main>
   );
 }
+
 /* ── Profile ── */
 function ProfileSection({
   tokens,
@@ -995,6 +1026,7 @@ function ProfileSection({
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
   const [uploading, setUploading] = useState(false);
+
   useEffect(() => {
     let mounted = true;
     (async () => {
@@ -1017,16 +1049,19 @@ function ProfileSection({
       mounted = false;
     };
   }, [notify]);
+
   const dirty =
     !!user &&
     (first.trim() !== (user.first_name || "") ||
       last.trim() !== (user.last_name || ""));
+
   useEffect(() => {
     if (!dirty) return;
     const warn = (e: BeforeUnloadEvent) => e.preventDefault();
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
   }, [dirty]);
+
   const handleFileUpload = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.target.value = "";
@@ -1075,6 +1110,7 @@ function ProfileSection({
       setUploading(false);
     }
   };
+
   const handleRemoveAvatar = async () => {
     if (!user || !avatarUrl || uploading) return;
     setUploading(true);
@@ -1106,6 +1142,7 @@ function ProfileSection({
       setUploading(false);
     }
   };
+
   const handleSave = async () => {
     if (!user || saving || !dirty) return;
     setSaving(true);
@@ -1134,7 +1171,9 @@ function ProfileSection({
       setSaving(false);
     }
   };
+
   const description = "This information is visible to your teammates.";
+
   if (loading) {
     return (
       <SectionCard title="Profile" description={description} tokens={tokens}>
@@ -1154,6 +1193,7 @@ function ProfileSection({
       </SectionCard>
     );
   }
+
   if (!user) {
     return (
       <SectionCard title="Profile" description={description} tokens={tokens}>
@@ -1168,8 +1208,10 @@ function ProfileSection({
       </SectionCard>
     );
   }
+
   const initials = `${first.charAt(0)}${last.charAt(0)}`.toUpperCase() || "U";
   const showImage = Boolean(avatarUrl) && !avatarLoadFailed;
+
   return (
     <SectionCard
       title="Profile"
@@ -1276,6 +1318,7 @@ function ProfileSection({
     </SectionCard>
   );
 }
+
 /* ── Security ── */
 const STRENGTH_LABELS = ["Too weak", "Weak", "Fair", "Good", "Strong"];
 const STRENGTH_COLORS = [
@@ -1285,6 +1328,7 @@ const STRENGTH_COLORS = [
   "bg-lime-500",
   "bg-emerald-500",
 ];
+
 function passwordScore(value: string): number {
   if (!value) return 0;
   let score = 0;
@@ -1294,6 +1338,7 @@ function passwordScore(value: string): number {
   if (/\d/.test(value) && /[^A-Za-z0-9]/.test(value)) score++;
   return Math.min(score, 4);
 }
+
 /* ── 2FA : garde MFA + modale de challenge (app ou email) ── */
 type MfaGate = {
   method: MfaMethod;
@@ -1301,6 +1346,7 @@ type MfaGate = {
   /** Action à rejouer une fois la session passée en AAL2. */
   run: () => Promise<void>;
 };
+
 const TOTP_RE = /^\d{6}$/;
 const formatWait = (seconds: number) =>
   seconds >= 60 ? `${Math.ceil(seconds / 60)} min` : `${seconds} s`;
@@ -1314,6 +1360,7 @@ const formatDate = (iso?: string | null): string | null => {
     day: "numeric",
   });
 };
+
 function MfaChallengeModal({
   gate,
   onClose,
@@ -1343,6 +1390,7 @@ function MfaChallengeModal({
   const verified = useRef(false);
   const sentFor = useRef<MfaGate | null>(null);
   const method: MfaMethod = gate?.method ?? "totp";
+
   const sendCode = useCallback(async () => {
     setSending(true);
     setError(null);
@@ -1362,6 +1410,7 @@ function MfaChallengeModal({
       setSending(false);
     }
   }, []);
+
   useEffect(() => {
     setFactorId(gate?.factors[0]?.id ?? "");
     setCode("");
@@ -1377,6 +1426,7 @@ function MfaChallengeModal({
     }
     if (!gate) sentFor.current = null;
   }, [gate, sendCode]);
+
   useEffect(() => {
     if (Math.max(lockedUntil, resendAt) <= Date.now()) return;
     const timer = window.setInterval(() => {
@@ -1386,9 +1436,11 @@ function MfaChallengeModal({
     }, 500);
     return () => window.clearInterval(timer);
   }, [lockedUntil, resendAt]);
+
   const waitLeft = Math.max(0, Math.ceil((lockedUntil - now) / 1000));
   const resendLeft = Math.max(0, Math.ceil((resendAt - now) / 1000));
   const ready = verified.current || TOTP_RE.test(code);
+
   const submit = async () => {
     if (!gate || busy || waitLeft > 0) return;
     if (!ready) {
@@ -1427,13 +1479,16 @@ function MfaChallengeModal({
       setBusy(false);
     }
   };
+
   useEffect(() => {
     if (code.length === 6 && !busy && waitLeft === 0 && !verified.current) {
       void submit();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [code]);
+
   const factors = gate?.factors ?? [];
+
   return (
     <Modal
       open={!!gate}
@@ -1553,6 +1608,7 @@ function MfaChallengeModal({
     </Modal>
   );
 }
+
 function useMfaGate({
   tokens,
   notify,
@@ -1608,6 +1664,7 @@ function useMfaGate({
   );
   return { guard, modal };
 }
+
 /* ── Security (AccountSection) ── */
 function AccountSection({
   tokens,
@@ -1630,6 +1687,7 @@ function AccountSection({
   const [confirmNext, setConfirmNext] = useState("");
   const [show, setShow] = useState(false);
   const [updatingPassword, setUpdatingPassword] = useState(false);
+
   const { guard, modal: mfaModal } = useMfaGate({
     tokens,
     notify,
@@ -1637,6 +1695,7 @@ function AccountSection({
     title: "Two-factor verification required",
     description: "Enter a verification code to change your password.",
   });
+
   useEffect(() => {
     let mounted = true;
     (async () => {
@@ -1659,6 +1718,7 @@ function AccountSection({
       mounted = false;
     };
   }, [notify]);
+
   const handleSendVerification = async () => {
     if (loadingAccount || verified || sendingVerification) return;
     setSendingVerification(true);
@@ -1680,6 +1740,7 @@ function AccountSection({
       setSendingVerification(false);
     }
   };
+
   const handleUpdatePassword = async () => {
     if (updatingPassword || loadingAccount) return;
     if (hasPassword && !current) return notify("Enter your current password");
@@ -1717,6 +1778,7 @@ function AccountSection({
       setUpdatingPassword(false);
     }
   };
+
   const trailing = (
     <button
       type="button"
@@ -1734,12 +1796,14 @@ function AccountSection({
       {show ? <EyeOffIcon /> : <EyeIcon />}
     </button>
   );
+
   const providerLabel =
     provider === "google" ? "Google" : provider === "github" ? "GitHub" : null;
   const isOAuthOnly = !hasPassword;
   const score = passwordScore(next);
   const mismatch = confirmNext.length > 0 && next !== confirmNext;
   const pwType = show ? "text" : "password";
+
   const passwordDescription = loadingAccount
     ? "Loading your account details..."
     : isOAuthOnly
@@ -1749,6 +1813,7 @@ function AccountSection({
     : mfaEnabled
     ? "Two-factor authentication is on. Changing your password requires a verification code."
     : "Use at least 8 characters. Mix letters, numbers, and symbols.";
+
   return (
     <>
       <SectionCard
@@ -1801,6 +1866,7 @@ function AccountSection({
           )}
         </div>
       </SectionCard>
+
       <SectionCard
         title={isOAuthOnly ? "Set a password" : "Password"}
         description={passwordDescription}
@@ -1904,6 +1970,7 @@ function AccountSection({
     </>
   );
 }
+
 /* ── MFA (une seule méthode : app d'authentification OU code par email) ── */
 function MfaSection({
   tokens,
@@ -1919,6 +1986,7 @@ function MfaSection({
   const [emailHint, setEmailHint] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [starting, setStarting] = useState<null | "totp" | "email">(null);
+
   // Activation TOTP (QR) ou email (code reçu)
   const [enrollment, setEnrollment] = useState<{
     factorId: string;
@@ -1936,6 +2004,7 @@ function MfaSection({
     null | { type: "totp"; id: string } | { type: "email" }
   >(null);
   const [disabling, setDisabling] = useState(false);
+
   const { guard, modal: mfaModal } = useMfaGate({
     tokens,
     notify,
@@ -1943,10 +2012,12 @@ function MfaSection({
     title: "Verify it's you",
     description: "Enter a verification code to continue.",
   });
+
   const enrollmentRef = useRef<typeof enrollment>(null);
   useEffect(() => {
     enrollmentRef.current = enrollment;
   }, [enrollment]);
+
   // Annule l'enrôlement TOTP abandonné si on quitte la page.
   useEffect(
     () => () => {
@@ -1955,6 +2026,7 @@ function MfaSection({
     },
     []
   );
+
   useEffect(() => {
     if (resendAt <= Date.now()) return;
     const timer = window.setInterval(() => {
@@ -1964,6 +2036,7 @@ function MfaSection({
     }, 500);
     return () => window.clearInterval(timer);
   }, [resendAt]);
+
   const loadAll = useCallback(async () => {
     const status = await getMfaStatus();
     const current = status?.method ?? null;
@@ -1971,6 +2044,7 @@ function MfaSection({
     setEmailHint(status?.email_hint ?? null);
     setFactors(current === "totp" ? await listMfaFactors() : []);
   }, []);
+
   useEffect(() => {
     (async () => {
       try {
@@ -1983,13 +2057,16 @@ function MfaSection({
       }
     })();
   }, [loadAll, notify]);
+
   const errorMessage = (e: unknown, fallback: string) =>
     isRateLimitError(e)
       ? `Too many attempts. Try again in ${formatWait(e.retryAfterSeconds)}.`
       : e instanceof Error
       ? e.message
       : fallback;
+
   const resendLeft = Math.max(0, Math.ceil((resendAt - now) / 1000));
+
   /* ----- Activer : app d'authentification ------------------------------------ */
   const handleStartTotp = async () => {
     if (starting) return;
@@ -2006,6 +2083,7 @@ function MfaSection({
       setStarting(null);
     }
   };
+
   /* ----- Activer : code par email --------------------------------------------- */
   const sendEnrollEmail = async () => {
     const sent = await sendEmailMfaCode("enroll", { force: true });
@@ -2014,6 +2092,7 @@ function MfaSection({
     setNow(Date.now());
     setCode("");
   };
+
   const handleStartEmail = async () => {
     if (starting) return;
     setStarting("email");
@@ -2026,6 +2105,7 @@ function MfaSection({
       setStarting(null);
     }
   };
+
   const handleResendEnroll = async () => {
     if (resendLeft > 0 || confirming) return;
     try {
@@ -2035,6 +2115,7 @@ function MfaSection({
       notify(errorMessage(e, "Failed to send the code"), "error");
     }
   };
+
   /* ----- Annuler / confirmer --------------------------------------------------- */
   const handleCancel = async () => {
     const pending = enrollment;
@@ -2050,6 +2131,7 @@ function MfaSection({
       }
     }
   };
+
   const handleConfirm = async () => {
     if ((!enrollment && !emailEnroll) || confirming) return;
     if (!TOTP_RE.test(code)) {
@@ -2078,12 +2160,14 @@ function MfaSection({
       setConfirming(false);
     }
   };
+
   useEffect(() => {
     if ((enrollment || emailEnroll) && code.length === 6 && !confirming) {
       void handleConfirm();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [code]);
+
   /* ----- Désactiver -------------------------------------------------------------- */
   const handleDisable = async () => {
     const target = disableTarget;
@@ -2105,11 +2189,13 @@ function MfaSection({
       setDisabling(false);
     }
   };
+
   const factorLabel = (f: MfaFactor) => {
     const n = f.friendlyName;
     if (!n || /^Authenticator \d+$/.test(n)) return "Authenticator app";
     return n;
   };
+
   const copySecret = async () => {
     if (!enrollment) return;
     try {
@@ -2119,6 +2205,7 @@ function MfaSection({
       notify("Copy failed", "error");
     }
   };
+
   /* ----- Rendu -------------------------------------------------------------------- */
   if (loading) {
     return (
@@ -2133,6 +2220,7 @@ function MfaSection({
       </SectionCard>
     );
   }
+
   if (enrollment) {
     return (
       <>
@@ -2206,6 +2294,7 @@ function MfaSection({
       </>
     );
   }
+
   if (emailEnroll) {
     return (
       <>
@@ -2266,7 +2355,9 @@ function MfaSection({
       </>
     );
   }
+
   const otherActive = (self: MfaMethod) => method !== null && method !== self;
+
   return (
     <>
       <SectionCard
@@ -2342,6 +2433,7 @@ function MfaSection({
           </div>
         )}
       </SectionCard>
+
       <SectionCard
         title="Email code"
         description="We email you a 6-digit code every time you sign in."
@@ -2400,6 +2492,7 @@ function MfaSection({
           </div>
         )}
       </SectionCard>
+
       <Modal
         open={!!disableTarget}
         onClose={() => setDisableTarget(null)}
@@ -2426,6 +2519,7 @@ function MfaSection({
     </>
   );
 }
+
 /* ── Appearance ── */
 function ThemePreview({ dark }: { dark: boolean }) {
   const frame = dark
@@ -2456,6 +2550,7 @@ function ThemePreview({ dark }: { dark: boolean }) {
     </div>
   );
 }
+
 function AppearanceSection({
   tokens,
   isDark,
@@ -2476,6 +2571,7 @@ function AppearanceSection({
       window.matchMedia("(prefers-reduced-motion: reduce)").matches
   );
   const [compact, setCompact] = usePref("compact", false);
+
   return (
     <SectionCard
       title="Appearance"
@@ -2530,6 +2626,7 @@ function AppearanceSection({
           })}
         </div>
       </div>
+
       <Row
         title="Reduce motion"
         description="Disable non-essential animations across the app."
@@ -2557,11 +2654,75 @@ function AppearanceSection({
     </SectionCard>
   );
 }
+
 /* ── Preferences ── */
-const LANGUAGES: { value: string; label: string }[] = [
-  { value: "en", label: "English" },
-  { value: "fr", label: "Français" },
+const LANGUAGES: { value: "fr" | "zh"; native: string }[] = [
+  { value: "fr", native: "Français" },
+  { value: "zh", native: "中文" },
 ];
+
+const LANGUAGE_STORAGE_KEY = "stone:language";
+
+function detectPreferredLanguage(): "fr" | "zh" {
+  try {
+    const stored = localStorage.getItem(LANGUAGE_STORAGE_KEY);
+    if (stored === "fr" || stored === "zh") return stored;
+  } catch {
+    /* stockage indisponible */
+  }
+  try {
+    const nav = (navigator.language || "fr").toLowerCase();
+    if (nav.startsWith("zh")) return "zh";
+  } catch {
+    /* ignore */
+  }
+  return "fr";
+}
+
+function LanguagePicker({
+  value,
+  onChange,
+  tokens,
+}: {
+  value: "fr" | "zh";
+  onChange: (value: "fr" | "zh") => void;
+  tokens: Tokens;
+}) {
+  return (
+    <div
+      role="radiogroup"
+      aria-label="Interface language"
+      className={cx(
+        "inline-flex items-center gap-0.5 rounded-full border p-0.5",
+        tokens.inputBorder
+      )}
+    >
+      {LANGUAGES.map((lang) => {
+        const isActive = lang.value === value;
+        return (
+          <button
+            key={lang.value}
+            type="button"
+            role="radio"
+            aria-checked={isActive}
+            aria-label={lang.native}
+            onClick={() => onChange(lang.value)}
+            className={cx(
+              "rounded-full px-3.5 py-1.5 text-[13px] font-medium transition-colors",
+              tokens.ring,
+              isActive
+                ? tokens.itemActive
+                : `${tokens.item} ${tokens.itemHover}`
+            )}
+          >
+            {lang.native}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 const NOTIFICATION_ITEMS: {
   key: string;
   title: string;
@@ -2594,6 +2755,7 @@ const NOTIFICATION_ITEMS: {
     description: "Tips, offers, and occasional product news.",
   },
 ];
+
 function PreferencesSection({
   tokens,
   notify,
@@ -2601,7 +2763,9 @@ function PreferencesSection({
   tokens: Tokens;
   notify: Notify;
 }) {
-  const [language, setLanguage] = useState("en");
+  const [language, setLanguage] = useState<"fr" | "zh">(() =>
+    detectPreferredLanguage()
+  );
   const [prefs, setPrefs] = useState<Record<string, boolean>>({
     productUpdates: true,
     securityAlerts: true,
@@ -2613,12 +2777,24 @@ function PreferencesSection({
   const dirty =
     language !== saved.current.language ||
     JSON.stringify(prefs) !== JSON.stringify(saved.current.prefs);
+
   const save = () => {
+    try {
+      localStorage.setItem(LANGUAGE_STORAGE_KEY, language);
+    } catch {
+      /* stockage indisponible */
+    }
+    try {
+      document.documentElement.lang = language;
+    } catch {
+      /* ignore */
+    }
     saved.current = { language, prefs };
     // Force un re-render pour recalculer `dirty`.
     setPrefs((prev) => ({ ...prev }));
     notify("Preferences saved");
   };
+
   return (
     <SectionCard
       title="Preferences"
@@ -2642,21 +2818,11 @@ function PreferencesSection({
         description="Language used across the interface."
         tokens={tokens}
       >
-        <select
+        <LanguagePicker
           value={language}
-          onChange={(e) => setLanguage(e.target.value)}
-          aria-label="Interface language"
-          className={cx(
-            "cursor-pointer rounded-full border border-black bg-black px-4 py-2 text-[13px] font-medium text-white outline-none transition hover:bg-neutral-900",
-            tokens.inputFocus
-          )}
-        >
-          {LANGUAGES.map((lang) => (
-            <option key={lang.value} value={lang.value}>
-              {lang.label}
-            </option>
-          ))}
-        </select>
+          onChange={setLanguage}
+          tokens={tokens}
+        />
       </Row>
       {NOTIFICATION_ITEMS.map((item) => (
         <Row
@@ -2678,6 +2844,7 @@ function PreferencesSection({
     </SectionCard>
   );
 }
+
 /* ── Billing ── */
 function BillingSection({
   tokens,
@@ -2747,6 +2914,7 @@ function BillingSection({
     </>
   );
 }
+
 /* ── Utils · Channels ── */
 type StatusResponse = {
   connected: boolean;
@@ -2759,6 +2927,7 @@ type StatusResponse = {
     | null
     | undefined;
 };
+
 type ChannelTokens = {
   text: string;
   muted: string;
@@ -2767,7 +2936,9 @@ type ChannelTokens = {
   ring: string;
   avatarBadgeBg: string;
 };
+
 export const INSIGHT_ROUTE = "insights";
+
 const initialConnections: ConnectionState = {
   instagram: { connected: false },
   facebook: { connected: false },
@@ -2776,6 +2947,7 @@ const initialConnections: ConnectionState = {
   pinterest: { connected: false },
   threads: { connected: false },
 };
+
 function formatOAuthError(provider: string, error: unknown): string {
   const raw = error instanceof Error ? error.message : "";
   if (/failed to fetch|networkerror|load failed/i.test(raw)) {
@@ -2785,6 +2957,7 @@ function formatOAuthError(provider: string, error: unknown): string {
     ? `Unable to connect to ${provider}. ${raw}`
     : `Unable to connect to ${provider}.`;
 }
+
 function mockHandleFor(key: ChannelKey): string {
   const handles: Record<ChannelKey, string> = {
     instagram: "@ronan.studio",
@@ -2796,6 +2969,7 @@ function mockHandleFor(key: ChannelKey): string {
   };
   return handles[key];
 }
+
 function toConnection(status: StatusResponse): Connection {
   if (!status.connected) {
     return { connected: false };
@@ -2807,7 +2981,9 @@ function toConnection(status: StatusResponse): Connection {
     avatarUrl: account?.avatar_url ?? account?.avatarUrl ?? undefined,
   };
 }
+
 const RETURN_KEY = "stone:oauth-returned";
+
 function readReturned(): CacheProvider[] {
   try {
     const parsed = JSON.parse(sessionStorage.getItem(RETURN_KEY) ?? "[]");
@@ -2816,6 +2992,7 @@ function readReturned(): CacheProvider[] {
     return [];
   }
 }
+
 function writeReturned(list: CacheProvider[]) {
   try {
     if (list.length === 0) sessionStorage.removeItem(RETURN_KEY);
@@ -2824,9 +3001,11 @@ function writeReturned(list: CacheProvider[]) {
     /* storage indisponible */
   }
 }
+
 function markReturning(provider: CacheProvider) {
   writeReturned(Array.from(new Set([...readReturned(), provider])));
 }
+
 function buildAccount(
   channel: Channel,
   connection: Connection
@@ -2839,6 +3018,7 @@ function buildAccount(
     avatarUrl: connection.avatarUrl,
   };
 }
+
 const channelTokens = (isDark: boolean): ChannelTokens =>
   isDark
     ? {
@@ -2857,6 +3037,7 @@ const channelTokens = (isDark: boolean): ChannelTokens =>
         ring: "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/25",
         avatarBadgeBg: "bg-white text-black ring-white",
       };
+
 function ChannelAvatar({
   channel,
   connection,
@@ -2869,9 +3050,11 @@ function ChannelAvatar({
   const Icon = channel.icon;
   const [imageFailed, setImageFailed] = useState(false);
   const hasAvatar = Boolean(connection.avatarUrl) && !imageFailed;
+
   useEffect(() => {
     setImageFailed(false);
   }, [connection.avatarUrl]);
+
   if (connection.connected && hasAvatar) {
     return (
       <span className="relative h-11 w-11 shrink-0">
@@ -2905,6 +3088,7 @@ function ChannelAvatar({
     </div>
   );
 }
+
 function ChannelRow({
   channel,
   connection,
@@ -2927,6 +3111,7 @@ function ChannelRow({
   const isConnected = connection.connected;
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     if (!menuOpen) return;
     const onPointerDown = (event: MouseEvent) => {
@@ -2944,6 +3129,7 @@ function ChannelRow({
       document.removeEventListener("keydown", onKeyDown);
     };
   }, [menuOpen]);
+
   return (
     <div
       onClick={() => !isConnected && !disabled && !pending && onToggle()}
@@ -3046,6 +3232,7 @@ function ChannelRow({
     </div>
   );
 }
+
 /* ── Utils · Channels ── */
 function ChannelsSection({
   tokens,
@@ -3059,6 +3246,7 @@ function ChannelsSection({
   const { user } = useUser();
   const userId = user?.id ?? null;
   const t = useMemo(() => channelTokens(isDark), [isDark]);
+
   const [connections, setConnections] = useState<ConnectionState>(() => {
     if (!userId) return initialConnections;
     const tiktok = readCache(userId, "tiktok");
@@ -3079,6 +3267,7 @@ function ChannelsSection({
   const tiktokBusy = useRef(false);
   const pinterestBusy = useRef(false);
   const youtubeBusy = useRef(false);
+
   /* ---- Onboarding ---- */
   // Ouvre l'étape 1 (ConfirmAccountModal). Appelée après chaque connexion réussie.
   const startOnboarding = (key: ChannelKey, connection: Connection) => {
@@ -3089,6 +3278,7 @@ function ChannelsSection({
     setOnboardingAccount(buildAccount(channel, connection));
     notify(`${channel.name} connected successfully!`, "success");
   };
+
   // Bouton "Finish Connection" : ferme l'étape 1, va sur /insights, ouvre l'étape 2.
   const handleConfirmAccount = () => {
     if (!onboardingAccount || confirming) return;
@@ -3101,16 +3291,19 @@ function ChannelsSection({
       window.setTimeout(() => openFrequencyOnboarding(account, isDark), 150);
     }, 300);
   };
+
   const handleRejectAccount = () => {
     if (!onboardingAccount) return;
     const key = onboardingAccount.key;
     setOnboardingAccount(null);
     handleToggle(key);
   };
+
   const handleCloseOnboarding = () => {
     setOnboardingAccount(null);
     setConfirming(false);
   };
+
   /* ---- Derived ---- */
   const connectedCount = useMemo(
     () => CHANNELS.filter((c) => connections[c.key].connected).length,
@@ -3118,6 +3311,7 @@ function ChannelsSection({
   );
   const limitReached = connectedCount >= PLAN.maxChannels;
   const slotsLeft = Math.max(0, PLAN.maxChannels - connectedCount);
+
   /* ---- Sync OAuth (retour de TikTok / Pinterest / YouTube) ---- */
   useEffect(() => {
     if (!userId) {
@@ -3158,9 +3352,11 @@ function ChannelsSection({
       setErrorMessage(`Unable to connect to Pinterest. ${pinterestError}`);
     if (youtubeError)
       setErrorMessage(`Unable to connect to YouTube Shorts. ${youtubeError}`);
+
     if (returned.tiktok) clearCache(userId, "tiktok");
     if (returned.pinterest) clearCache(userId, "pinterest");
     if (returned.youtube) clearCache(userId, "youtube");
+
     if (fromUrl.tiktok || fromUrl.pinterest || fromUrl.youtube) {
       [
         "tiktok",
@@ -3231,6 +3427,7 @@ function ChannelsSection({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
+
   useEffect(() => {
     if (!userId) return;
     const refreshConnections = () => {
@@ -3248,6 +3445,7 @@ function ChannelsSection({
     return () =>
       window.removeEventListener(CHANNELS_CHANGED_EVENT, refreshConnections);
   }, [userId]);
+
   /* ---- OAuth ---- */
   const handleTikTokToggle = async (isReconnect = false) => {
     if (tiktokBusy.current) return;
@@ -3280,6 +3478,7 @@ function ChannelsSection({
       }
     }
   };
+
   const handlePinterestToggle = async (isReconnect = false) => {
     if (pinterestBusy.current) return;
     pinterestBusy.current = true;
@@ -3328,6 +3527,7 @@ function ChannelsSection({
       }
     }
   };
+
   const handleYouTubeToggle = async (isReconnect = false) => {
     if (youtubeBusy.current) return;
     youtubeBusy.current = true;
@@ -3359,6 +3559,7 @@ function ChannelsSection({
       }
     }
   };
+
   /* ---- Canaux simulés (Instagram / Facebook / Threads) ---- */
   const handlePlaceholderToggle = (key: ChannelKey) => {
     const wasConnected = connections[key].connected;
@@ -3382,6 +3583,7 @@ function ChannelsSection({
       setPendingKey(null);
     }, 450);
   };
+
   const handlePlaceholderReconnect = (key: ChannelKey) => {
     setPendingKey(key);
     window.setTimeout(() => {
@@ -3394,6 +3596,7 @@ function ChannelsSection({
       setPendingKey(null);
     }, 450);
   };
+
   function handleToggle(key: ChannelKey) {
     setErrorMessage(null);
     if (!connections[key].connected && limitReached) {
@@ -3407,6 +3610,7 @@ function ChannelsSection({
     if (key === "youtube") return void handleYouTubeToggle();
     handlePlaceholderToggle(key);
   }
+
   function handleReconnect(key: ChannelKey) {
     setErrorMessage(null);
     if (key === "tiktok") return void handleTikTokToggle(true);
@@ -3414,17 +3618,21 @@ function ChannelsSection({
     if (key === "youtube") return void handleYouTubeToggle(true);
     handlePlaceholderReconnect(key);
   }
+
   const handleUpgrade = () => console.log("[Stone] Upgrade clicked");
+
   const panelSurface = isDark
     ? "border-white/[0.07] bg-white/[0.03]"
     : "border-black/[0.06] bg-[#f6f4f0]";
   const mutedText = isDark ? "text-neutral-500" : "text-neutral-400";
   const strongText = isDark ? "text-white" : "text-neutral-900";
+
   return (
     <>
       <p className={cx("text-[13px]", mutedText)}>
         Your connected accounts at a glance. Click on a channel to connect it.
       </p>
+
       {/* Bannière plan */}
       <div
         className={cx(
@@ -3458,6 +3666,7 @@ function ChannelsSection({
           Upgrade Plan
         </Button>
       </div>
+
       {/* Erreur */}
       {errorMessage && (
         <div
@@ -3476,6 +3685,7 @@ function ChannelsSection({
           </button>
         </div>
       )}
+
       {/* Grille des channels */}
       <div className="grid grid-cols-1 gap-2 md:grid-cols-2 lg:gap-4">
         {CHANNELS.map((channel) => (
@@ -3492,9 +3702,11 @@ function ChannelsSection({
           />
         ))}
       </div>
+
       <div className={cx("flex items-center justify-between text-[11px]", mutedText)}>
         <span>Secure OAuth connections</span>
       </div>
+
       {/* Étape 1 de l'onboarding : s'ouvre après chaque connexion réussie */}
       {onboardingAccount && (
         <ConfirmAccountModal
@@ -3509,6 +3721,7 @@ function ChannelsSection({
     </>
   );
 }
+
 /* ── Utils · Tags ── */
 const TAG_COLORS = [
   "bg-[#6366f1]",
@@ -3530,6 +3743,7 @@ const TAG_COLORS = [
   "bg-[#1e3a8a]",
   "bg-[#171717]",
 ];
+
 function TagsSection({
   tokens,
   notify,
@@ -3548,6 +3762,7 @@ function TagsSection({
   const [draft, setDraft] = useState("");
   const [color, setColor] = useState(TAG_COLORS[0]);
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
+
   useEffect(() => {
     let mounted = true;
     (async () => {
@@ -3565,25 +3780,30 @@ function TagsSection({
       mounted = false;
     };
   }, [notify]);
+
   const filtered = tags.filter((t) =>
     t.label.toLowerCase().includes(search.trim().toLowerCase())
   );
+
   const openCreate = () => {
     setEditing(null);
     setDraft("");
     setColor(TAG_COLORS[0]);
     setModalOpen(true);
   };
+
   const openEdit = (tag: Tag) => {
     setEditing(tag);
     setDraft(tag.label);
     setColor(tag.color);
     setModalOpen(true);
   };
+
   const closeModal = () => {
     setModalOpen(false);
     setEditing(null);
   };
+
   const handleSave = async () => {
     if (busy) return;
     const label = draft.trim();
@@ -3619,6 +3839,7 @@ function TagsSection({
       setBusy(false);
     }
   };
+
   const handleDelete = async (id: string) => {
     setMenuOpenId(null);
     const previous = tags;
@@ -3632,6 +3853,7 @@ function TagsSection({
       notify("Failed to delete tag", "error");
     }
   };
+
   const duplicateTag = async (tag: Tag) => {
     setMenuOpenId(null);
     try {
@@ -3647,12 +3869,14 @@ function TagsSection({
       );
     }
   };
+
   const iconBtn = cx(
     "flex h-8 w-8 items-center justify-center rounded-md transition",
     tokens.subtle,
     tokens.ghostHover,
     tokens.ring
   );
+
   return (
     <>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -3675,6 +3899,7 @@ function TagsSection({
           </Button>
         </div>
       </div>
+
       <div className="relative">
         <span className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-neutral-500">
           <SearchIcon className="h-4 w-4" />
@@ -3694,6 +3919,7 @@ function TagsSection({
           )}
         />
       </div>
+
       {loading ? (
         <div className="animate-pulse space-y-2" aria-busy="true">
           {[0, 1, 2].map((i) => (
@@ -3792,6 +4018,7 @@ function TagsSection({
           ))}
         </div>
       )}
+
       <Modal
         open={modalOpen}
         onClose={closeModal}
@@ -3862,6 +4089,7 @@ function TagsSection({
     </>
   );
 }
+
 /* ── Utils · Saved replies ── */
 function SavedRepliesSection({
   tokens,
@@ -3879,6 +4107,7 @@ function SavedRepliesSection({
   const [editing, setEditing] = useState<SavedReply | null>(null);
   const [name, setName] = useState("");
   const [content, setContent] = useState("");
+
   useEffect(() => {
     let mounted = true;
     (async () => {
@@ -3896,23 +4125,27 @@ function SavedRepliesSection({
       mounted = false;
     };
   }, [notify]);
+
   const openCreate = () => {
     setEditing(null);
     setName("");
     setContent("");
     setModalOpen(true);
   };
+
   const openEdit = (reply: SavedReply) => {
     setEditing(reply);
     setName(reply.name);
     setContent(reply.content);
     setModalOpen(true);
   };
+
   const closeModal = () => {
     if (busy) return;
     setModalOpen(false);
     setEditing(null);
   };
+
   const handleSave = async () => {
     if (busy) return;
     const cleanName = name.trim();
@@ -3947,6 +4180,7 @@ function SavedRepliesSection({
       setBusy(false);
     }
   };
+
   const handleDelete = async (id: string) => {
     const previous = replies;
     setReplies((prev) => prev.filter((r) => r.id !== id)); // optimiste
@@ -3959,18 +4193,22 @@ function SavedRepliesSection({
       notify("Failed to delete saved reply", "error");
     }
   };
+
   const iconBtn = cx(
     "flex h-8 w-8 items-center justify-center rounded-md transition",
     tokens.subtle,
     tokens.ghostHover,
     tokens.ring
   );
+
   const emptyCircle = isDark ? "bg-white/[0.05]" : "bg-neutral-100";
+
   return (
     <>
       <p className={cx("text-[13.5px] leading-relaxed", tokens.body)}>
         Saved Replies are visible to everyone in your organization.
       </p>
+
       {loading ? (
         <div className="animate-pulse space-y-2" aria-busy="true">
           {[0, 1, 2].map((i) => (
@@ -4056,6 +4294,7 @@ function SavedRepliesSection({
           </div>
         </div>
       )}
+
       <Modal
         open={modalOpen}
         onClose={closeModal}
@@ -4128,6 +4367,7 @@ function SavedRepliesSection({
     </>
   );
 }
+
 /* ── Danger zone ── */
 function DangerSection({
   tokens,
