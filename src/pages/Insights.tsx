@@ -289,13 +289,13 @@ function resolveRange(range: Range, customStart: Date, customEnd: Date) {
  * pour préremplir le composer quand on clique sur une cellule de heatmap.
  * Renvoie la prochaine occurrence strictement dans le futur.
  */
-function nextDateForSlot(dayIdxMon: number, slotIdx: number): Date {
+function nextDateForSlot(dayIdxMon: number, hour: number): Date {
   const now = new Date();
   const today = startOfDay(now);
   const todayIdx = (today.getDay() + 6) % 7; // 0 = lundi
-  const slotHour = SLOT_HOURS[slotIdx] ?? 18;
+  const slotHour = hour;
   let delta = (dayIdxMon - todayIdx + 7) % 7;
-  if (delta === 0 && now.getHours() >= slotHour + 3) delta = 7;
+  if (delta === 0 && now.getHours() >= slotHour) delta = 7;
   const date = addDays(today, delta);
   date.setHours(slotHour, 0, 0, 0);
   if (date.getTime() <= now.getTime()) date.setDate(date.getDate() + 7);
@@ -621,45 +621,169 @@ function mergeInsights(parts: InsightsData[]): InsightsData {
   };
 }
 
-const SLOT_HOURS = [0, 3, 6, 9, 12, 15, 18, 21] as const;
-const SLOT_LABELS = ["12a", "3a", "6a", "9a", "12p", "3p", "6p", "9p"];
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 function dayIndexMon(d: Date) {
   return (d.getDay() + 6) % 7;
 }
 
-function slotIndex(d: Date) {
-  return Math.min(7, Math.floor(d.getHours() / 3));
-}
-
 function postScore(p: PostRow) {
   return p.reactions + p.comments * 2.4 + p.videoViews * 0.02;
 }
 
-function buildHeatmap(posts: PostRow[]) {
-  const cells = Array.from({ length: 7 }, () =>
-    Array.from({ length: 8 }, () => ({ score: 0, count: 0 }))
-  );
+const hourLabel = (h: number) => `${h % 12 === 0 ? 12 : h % 12} ${h < 12 ? "AM" : "PM"}`;
+
+/* ── Best time to post ──────────────────────────────────────
+   Stratégie (3 étapes) :
+   1. LIFT : chaque post est comparé à la médiane de tes posts (robuste aux
+      outliers, plafonné à 4×) → on mesure « mieux/moins bien que d'habitude »,
+      pas un volume brut.
+   2. LISSAGE : un post à 18h informe aussi 17h/19h (noyau ±2h) et, plus
+      faiblement, la même heure les autres jours → une cellule vide n'est pas
+      un « zéro », elle hérite de ses voisines.
+   3. PRIOR BAYÉSIEN : on mélange avec une courbe d'activité typique par réseau
+      (semaine / week-end). Peu de posts → le prior domine ; plus tu publies,
+      plus tes données prennent le dessus (poids n / (n + K)).
+------------------------------------------------------------ */
+
+type Peak = [hour: number, weight: number, spread: number];
+type Curve = { weekday: Peak[]; weekend: Peak[] };
+
+/** Courbes d'activité typiques — point de départ, jamais une vérité absolue. */
+const BASELINE: Record<string, Curve> = {
+  default: {
+    weekday: [[8, 0.4, 1.5], [12.5, 0.5, 1.5], [19, 0.9, 2]],
+    weekend: [[10.5, 0.6, 2], [19.5, 0.8, 2.5]],
+  },
+  youtube: {
+    weekday: [[12, 0.35, 1.5], [16.5, 0.8, 2], [20, 0.6, 2]],
+    weekend: [[10, 0.7, 2], [17, 0.6, 2.5]],
+  },
+  tiktok: {
+    weekday: [[12.5, 0.4, 1.5], [19.5, 0.9, 2], [22, 0.5, 1.5]],
+    weekend: [[11, 0.5, 2], [20, 0.8, 2.5]],
+  },
+  instagram: {
+    weekday: [[8, 0.3, 1.2], [12, 0.6, 1.5], [19, 0.8, 2]],
+    weekend: [[10, 0.6, 2], [19, 0.6, 2.5]],
+  },
+  pinterest: {
+    weekday: [[14, 0.4, 2], [20.5, 0.8, 2]],
+    weekend: [[11, 0.5, 2], [15, 0.5, 2], [21, 0.7, 2]],
+  },
+  linkedin: {
+    weekday: [[8, 0.7, 1.2], [12, 0.6, 1.3], [17.5, 0.5, 1.5]],
+    weekend: [[10, 0.2, 2]],
+  },
+  facebook: {
+    weekday: [[9, 0.4, 1.5], [13, 0.6, 2], [19, 0.6, 2]],
+    weekend: [[10, 0.6, 2], [14, 0.4, 2]],
+  },
+};
+
+function priorLift(platform: string, dayIdx: number, hour: number): number {
+  const curve = BASELINE[platform] ?? BASELINE.default;
+  const peaks = dayIdx >= 5 ? curve.weekend : curve.weekday;
+  let v = 0.3;
+  for (const [h, w, s] of peaks) {
+    const raw = Math.abs(hour - h);
+    const d = Math.min(raw, 24 - raw);
+    v += w * Math.exp(-(d * d) / (2 * s * s));
+  }
+  return v;
+}
+
+const PRIOR_STRENGTH = 2.5; // « K » : poids du prior, en posts équivalents
+const HOUR_KERNEL = [1, 0.5, 0.2]; // poids pour ±0h, ±1h, ±2h
+const CROSS_DAY_SHARE = 0.15; // part d'info partagée entre jours (même heure)
+
+type BestTimes = {
+  /** grid[jour][heure] — norm ∈ [0,1] pour la couleur */
+  grid: { value: number; norm: number; count: number }[][];
+  bestByDay: { day: number; hour: number }[];
+  best: { day: number; hour: number };
+  label: string;
+  sample: number;
+  confidence: "baseline" | "early" | "solid";
+};
+
+function buildBestTimes(posts: PostRow[], platform: string): BestTimes {
+  const n = posts.length;
+  const scores = posts.map(postScore).sort((a, b) => a - b);
+  const median = n ? scores[Math.floor(n / 2)] : 0;
+  const mean = n ? scores.reduce((a, s) => a + s, 0) / n : 0;
+  const ref = median > 0 ? median : mean > 0 ? mean : 1;
+
+  const mk = () => Array.from({ length: 7 }, () => new Array<number>(24).fill(0));
+  const sum = mk();
+  const wt = mk();
+  const raw = mk();
+
   for (const p of posts) {
     const d = dayIndexMon(p.date);
-    const s = slotIndex(p.date);
-    cells[d][s].score += postScore(p);
-    cells[d][s].count += 1;
-  }
-  let best = { day: 2, slot: 6, score: 0, count: 0 };
-  let max = 0;
-  cells.forEach((row, d) =>
-    row.forEach((cell, s) => {
-      if (cell.score > max) {
-        max = cell.score;
-        best = { day: d, slot: s, score: cell.score, count: cell.count };
+    const h = p.date.getHours();
+    const lift = Math.min(4, postScore(p) / ref);
+    raw[d][h] += 1;
+    HOUR_KERNEL.forEach((w, o) => {
+      const offsets = o === 0 ? [0] : [-o, o];
+      for (const off of offsets) {
+        const hh = (h + off + 24) % 24;
+        sum[d][hh] += lift * w;
+        wt[d][hh] += w;
       }
+    });
+  }
+
+  const hourSum = new Array<number>(24).fill(0);
+  const hourWt = new Array<number>(24).fill(0);
+  for (let d = 0; d < 7; d++) {
+    for (let h = 0; h < 24; h++) {
+      hourSum[h] += sum[d][h];
+      hourWt[h] += wt[d][h];
+    }
+  }
+
+  let min = Infinity;
+  let max = -Infinity;
+  const values = Array.from({ length: 7 }, (_, d) =>
+    Array.from({ length: 24 }, (_, h) => {
+      const s = sum[d][h] + CROSS_DAY_SHARE * (hourSum[h] - sum[d][h]);
+      const c = wt[d][h] + CROSS_DAY_SHARE * (hourWt[h] - wt[d][h]);
+      const v = (PRIOR_STRENGTH * priorLift(platform, d, h) + s) / (PRIOR_STRENGTH + c);
+      if (v < min) min = v;
+      if (v > max) max = v;
+      return v;
     })
   );
-  const label = `${DAY_LABELS[best.day]} ${SLOT_LABELS[best.slot]}–${SLOT_LABELS[(best.slot + 1) % 8]}`;
-  return { cells, max, best, label, empty: max === 0 };
+
+  const span = max - min || 1;
+  const grid = values.map((row, d) =>
+    row.map((value, h) => ({ value, norm: (value - min) / span, count: raw[d][h] }))
+  );
+
+  const bestByDay = grid.map((row, day) => {
+    let hour = 0;
+    row.forEach((cell, h) => {
+      if (cell.value > row[hour].value) hour = h;
+    });
+    return { day, hour };
+  });
+  const best = bestByDay.reduce((a, b) =>
+    grid[b.day][b.hour].value > grid[a.day][a.hour].value ? b : a
+  );
+
+  return {
+    grid,
+    bestByDay,
+    best,
+    label: `${DAY_LABELS[best.day]} ${hourLabel(best.hour)}`,
+    sample: n,
+    confidence: n < 5 ? "baseline" : n < 15 ? "early" : "solid",
+  };
 }
+
+/** Rose pâle → violet profond (comme une heatmap d'engagement). */
+const heatColor = (v: number) => `hsla(292, 88%, ${66 - 24 * v}%, ${0.1 + 0.9 * v})`;
 
 function pctDelta(now: number, prev: number) {
   if (!Number.isFinite(now) || !Number.isFinite(prev)) return null;
@@ -686,8 +810,8 @@ function buildTakeaways(args: {
   engagementDelta: number | null;
   topPost: PostRow | undefined;
   topMultiplier: number;
-  heatmap: ReturnType<typeof buildHeatmap>;
-  onScheduleSlot: (slot: { day: number; slot: number }) => void;
+  heatmap: BestTimes;
+  onScheduleSlot: (slot: { day: number; hour: number }) => void;
   onDuplicate: (post: PostRow) => void;
   onCreate: () => void;
   onSchedule: () => void;
@@ -739,14 +863,14 @@ function buildTakeaways(args: {
     });
   }
 
-  if (!args.heatmap.empty) {
+  if (args.heatmap.sample > 0) {
     out.push({
       id: "slot",
       icon: <Clock3 className="h-3.5 w-3.5" />,
       title: `Book ${args.heatmap.label}`,
-      detail: "This slot beat the rest of your week — drop the next post there.",
+      detail: "Your posts land best then — drop the next one there.",
       cta: "Use this slot",
-      action: () => args.onScheduleSlot({ day: args.heatmap.best.day, slot: args.heatmap.best.slot }),
+      action: () => args.onScheduleSlot({ day: args.heatmap.best.day, hour: args.heatmap.best.hour }),
     });
   }
 
@@ -1418,9 +1542,9 @@ export default function Insights() {
   useNewPostRequest(() => openComposer({ reason: "manual" }));
 
   const scheduleFromSlot = useCallback(
-    (slot: { day: number; slot: number }) => {
+    (slot: { day: number; hour: number }) => {
       openComposer({
-        scheduledAt: nextDateForSlot(slot.day, slot.slot),
+        scheduledAt: nextDateForSlot(slot.day, slot.hour),
         channelKey: channel?.key,
         reason: "heatmap",
       });
@@ -1542,7 +1666,14 @@ export default function Insights() {
   const goalKey = channel?.key ?? channels[0]?.key ?? "youtube";
   const goal = readPostingGoal(goalKey) ?? readPostingGoal("youtube") ?? 3;
   const behind = Math.max(0, goal - postsThisWeek);
-  const heatmap = useMemo(() => buildHeatmap(posts), [posts]);
+  const platformKey = (channel?.platform ?? "default").toLowerCase();
+  const heatmap = useMemo(() => buildBestTimes(posts, platformKey), [posts, platformKey]);
+  const bestTimesNote =
+    heatmap.confidence === "baseline"
+      ? "Based on typical audience activity — it sharpens as you publish"
+      : heatmap.confidence === "early"
+        ? `Typical activity blended with your ${heatmap.sample} posts`
+        : `Based on your ${heatmap.sample} posts, smoothed by hour and weekday`;
   const ranked = useMemo(
     () => [...posts].sort((a, b) => postScore(b) - postScore(a)),
     [posts]
@@ -1573,7 +1704,7 @@ export default function Insights() {
       : topPost
         ? `${topPost.label} is still your strongest move.`
         : "Publish a little, and Stone starts choosing the next move.";
-  const subhead = heatmap.empty
+  const subhead = heatmap.sample === 0
     ? "As soon as a few posts land, we map the hour that actually works for you — then send it to Schedule."
     : `Your best window is ${heatmap.label}. Don't guess the slot — fill it.`;
 
@@ -1949,65 +2080,87 @@ export default function Insights() {
                   </div>
                 </section>
 
-                {/* ── HEATMAP ── */}
-                <section className={sectionCard} aria-labelledby="heatmap-title">
-                  <div className="flex items-start justify-between gap-3 px-1">
+                {/* ── BEST TIME TO POST ── */}
+                <section className={sectionCard} aria-labelledby="besttime-title">
+                  <div className="flex flex-wrap items-start justify-between gap-3 px-1">
                     <div>
-                      <h3 id="heatmap-title" className={sectionTitle}>
-                        Hours that actually work
+                      <h3 id="besttime-title" className={sectionTitle}>
+                        Best time to post
                       </h3>
                       <p className={sectionSub}>
-                        {heatmap.empty ? "Publishing activity by day and hour" : `Peak · ${heatmap.label}`}
+                        {bestTimesNote} · Peak {heatmap.label}
                       </p>
                     </div>
                     <button
                       type="button"
-                      onClick={() =>
-                        heatmap.empty
-                          ? openComposer({ reason: "manual", channelKey: channel?.key })
-                          : scheduleFromSlot({ day: heatmap.best.day, slot: heatmap.best.slot })
-                      }
+                      onClick={() => scheduleFromSlot(heatmap.best)}
                       className={`rounded-lg px-3 py-1.5 text-[11px] font-semibold ${t.ring} ${t.outlineBtn}`}
                     >
-                      {heatmap.empty ? "Create Post" : "Use this slot"}
+                      Use {heatmap.label}
                     </button>
                   </div>
+
                   <div className="mt-4 overflow-x-auto">
                     <div className="min-w-[420px]">
-                      <div className="mb-1 grid grid-cols-[36px_repeat(7,minmax(0,1fr))] gap-1">
+                      <div className="mb-1.5 grid grid-cols-[40px_repeat(7,minmax(0,1fr))] gap-1">
                         <span />
                         {DAY_LABELS.map((d) => (
-                          <span key={d} className={`text-center text-[10px] font-medium ${t.muted}`}>
+                          <span key={d} className={`text-center text-[11px] font-medium ${t.soft}`}>
                             {d}
                           </span>
                         ))}
                       </div>
-                      {SLOT_HOURS.map((hour, s) => (
-                        <div key={hour} className="mb-1 grid grid-cols-[36px_repeat(7,minmax(0,1fr))] gap-1">
-                          <span className={`flex items-center text-[9px] ${t.muted}`}>{SLOT_LABELS[s]}</span>
+
+                      {Array.from({ length: 24 }, (_, h) => (
+                        <div key={h} className="mb-px grid grid-cols-[40px_repeat(7,minmax(0,1fr))] gap-1">
+                          <span className={`flex items-center justify-end pr-1 text-[9px] ${t.muted}`}>
+                            {h % 3 === 0 ? hourLabel(h) : ""}
+                          </span>
                           {DAY_LABELS.map((_, d) => {
-                            const cell = heatmap.cells[d][s];
-                            const intensity = heatmap.max ? cell.score / heatmap.max : 0;
-                            const isBest = heatmap.best.day === d && heatmap.best.slot === s && !heatmap.empty;
+                            const cell = heatmap.grid[d][h];
+                            const isBest = heatmap.bestByDay[d].hour === h;
                             return (
                               <button
-                                key={`${d}-${s}`}
+                                key={`${d}-${h}`}
                                 type="button"
-                                title={`${DAY_LABELS[d]} ${SLOT_LABELS[s]} · ${cell.count} post${cell.count === 1 ? "" : "s"}`}
-                                onClick={() => scheduleFromSlot({ day: d, slot: s })}
-                                className={`h-7 rounded-md transition-transform ${t.ring} ${
-                                  isBest ? "ring-1 ring-current scale-[1.04]" : ""
+                                title={`${DAY_LABELS[d]} ${hourLabel(h)} · ${Math.round(cell.norm * 100)}/100${isBest ? " · best of the day" : ""}`}
+                                aria-label={`Schedule ${DAY_LABELS[d]} at ${hourLabel(h)}`}
+                                onClick={() => scheduleFromSlot({ day: d, hour: h })}
+                                className={`relative h-3.5 rounded-[3px] transition-transform hover:scale-y-125 ${t.ring} ${
+                                  isBest ? `z-10 ring-2 ${isDark ? "ring-white" : "ring-neutral-900"}` : ""
                                 }`}
-                                style={{
-                                  background: isDark
-                                    ? `rgba(255,255,255,${0.06 + intensity * 0.72})`
-                                    : `rgba(17,17,17,${0.06 + intensity * 0.72})`,
-                                }}
+                                style={{ background: heatColor(cell.norm) }}
                               />
                             );
                           })}
                         </div>
                       ))}
+
+                      <div className={`mt-3 grid grid-cols-[40px_repeat(7,minmax(0,1fr))] gap-1 border-t pt-3 ${t.border}`}>
+                        <span className={`flex items-center justify-end pr-1 text-[9px] ${t.muted}`}>Best</span>
+                        {heatmap.bestByDay.map((b) => (
+                          <button
+                            key={b.day}
+                            type="button"
+                            onClick={() => scheduleFromSlot(b)}
+                            className={`rounded-md border py-1.5 text-center text-[10px] font-semibold ${t.inner} ${t.hover} ${t.ring} ${t.text}`}
+                          >
+                            {hourLabel(b.hour)}
+                          </button>
+                        ))}
+                      </div>
+
+                      <div className="mt-3 flex items-center justify-end gap-2">
+                        <span className={`text-[10px] ${t.muted}`}>Lower</span>
+                        <span
+                          className="h-2 w-28 rounded-full"
+                          style={{
+                            background: `linear-gradient(to right, ${heatColor(0)}, ${heatColor(0.5)}, ${heatColor(1)})`,
+                          }}
+                          aria-hidden="true"
+                        />
+                        <span className={`text-[10px] ${t.muted}`}>Higher</span>
+                      </div>
                     </div>
                   </div>
                 </section>
