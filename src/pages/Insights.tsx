@@ -2472,7 +2472,7 @@ export default function Insights() {
                 </section>
 
                 {/* ── BEST TIME TO POST (gauche) + RECYCLE (droite) ── */}
-                <div className="grid items-stretch gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+                <div className="grid items-stretch gap-4 xl:grid-cols-2">
                   {/* BEST TIME TO POST */}
                   <section className={`${sectionCard} min-w-0`} aria-labelledby="besttime-title">
                     <div className="flex flex-wrap items-start justify-between gap-3 px-1">
@@ -2494,24 +2494,21 @@ export default function Insights() {
                     </div>
 
                     <div className="mt-5 overflow-x-auto px-1 pb-1">
-                      <div className="min-w-[560px]">
-                        {/* Axe des heures (24 h) */}
+                      <div className="min-w-[480px]">
+                        {/* Axe des heures (24 h) : un libellé par carré */}
                         <div className="mb-1.5 flex items-end gap-2">
                           <span className="w-9 shrink-0" />
                           <div className={`grid flex-1 gap-1 ${HEAT_COLS}`}>
                             {Array.from({ length: 24 }, (_, h) => (
-                              <span key={h} className="relative h-3">
-                                {h % 3 === 0 && (
-                                  <span
-                                    className={`absolute bottom-0 left-0 whitespace-nowrap text-[10px] tabular-nums ${t.muted}`}
-                                  >
-                                    {shortHour(h)}
-                                  </span>
-                                )}
+                              <span
+                                key={h}
+                                title={hourLabel(h)}
+                                className={`text-center text-[9px] leading-none tabular-nums ${t.muted}`}
+                              >
+                                {String(h).padStart(2, "0")}
                               </span>
                             ))}
                           </div>
-                          <span className="w-12 shrink-0" />
                         </div>
 
                         <div className="flex flex-col gap-1">
@@ -2529,7 +2526,7 @@ export default function Insights() {
                                       title={`${day} ${hourLabel(h)}${isBest ? " · best of the day" : ""}`}
                                       aria-label={`Schedule ${day} at ${hourLabel(h)}`}
                                       onClick={() => scheduleFromSlot({ day: d, hour: h })}
-                                      className={`h-5 w-full rounded-[3px] transition-transform hover:scale-125 ${t.ring} ${
+                                      className={`aspect-square w-full rounded-[3px] transition-transform hover:scale-125 ${t.ring} ${
                                         isBest
                                           ? `ring-[1.5px] ring-offset-1 ${
                                               isDark
@@ -2543,11 +2540,6 @@ export default function Insights() {
                                   );
                                 })}
                               </div>
-                              <span
-                                className={`w-12 shrink-0 text-right text-[10px] font-semibold tabular-nums ${t.soft}`}
-                              >
-                                {hourLabel(heatmap.bestByDay[d].hour)}
-                              </span>
                             </div>
                           ))}
                         </div>
