@@ -51,6 +51,339 @@ import {
 } from "../components/IntegrationIcons";
 
 /* ============================================================
+   LANGUAGE / I18N
+============================================================ */
+
+type Lang = "fr" | "en";
+
+const LANGUAGE_STORAGE_KEY = "stone:language";
+
+/** Lit la langue dans le localStorage. Anglais par défaut si absent. */
+function detectLanguage(): Lang {
+  if (typeof window === "undefined") return "en";
+  try {
+    const stored = window.localStorage.getItem(LANGUAGE_STORAGE_KEY);
+    if (stored === "fr" || stored === "en") return stored;
+  } catch {
+    /* stockage indisponible */
+  }
+  return "en";
+}
+
+/** Hook réactif : se resynchronise sur storage / focus / hashchange. */
+function useLanguage(): Lang {
+  const [lang, setLang] = useState<Lang>(() => detectLanguage());
+
+  useEffect(() => {
+    const refresh = () => setLang(detectLanguage());
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === LANGUAGE_STORAGE_KEY) refresh();
+    };
+    window.addEventListener("storage", onStorage);
+    window.addEventListener("focus", refresh);
+    window.addEventListener("hashchange", refresh);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("focus", refresh);
+      window.removeEventListener("hashchange", refresh);
+    };
+  }, []);
+
+  return lang;
+}
+
+const intlLocale = (lang: Lang) => (lang === "fr" ? "fr-FR" : "en-GB");
+const numLocale = (lang: Lang) => (lang === "fr" ? "fr-FR" : "en-US");
+
+/* ============================================================
+   TRANSLATIONS
+============================================================ */
+
+type GreetingKey = "morning" | "afternoon" | "evening" | "night";
+
+type Copy = {
+  greeting: Record<GreetingKey, string>;
+  goals: {
+    weekStreak: string;
+    postingGoals: string;
+    commentScore: string;
+  };
+  hints: {
+    weekStreak: string;
+    postingGoals: string;
+    commentScore: string;
+    followers: string;
+    likes: string;
+    comments: string;
+  };
+  subtitle: {
+    streakHit: string;
+    streakEmpty: string;
+    goalReached: string;
+    goalProgress: (done: number, target: number) => string;
+    fromLastWeek: string;
+  };
+  overview: {
+    title: string;
+    subtitle: string;
+    followers: string;
+    likes: string;
+    comments: string;
+  };
+  channels: {
+    title: string;
+    subtitle: string;
+    connectFirst: string;
+    connectFirstHint: string;
+    connected: (n: number) => string;
+    readyToPublish: string;
+    connect: string;
+    manage: string;
+    connectAria: string;
+    connectAnotherAria: string;
+  };
+  upNext: {
+    title: string;
+    meta: (n: number) => string;
+    line1: string;
+    line2: string;
+    createPost: string;
+    viewAll: string;
+  };
+  insights: {
+    metricTabs: {
+      posts: string;
+      impact: string;
+      growth: string;
+      visibility: string;
+    };
+    labels: {
+      channelViews: string;
+      reactions: string;
+      followers: string;
+      posts: string;
+    };
+    units: {
+      views: string;
+      reactions: string;
+      followers: string;
+      posts: string;
+    };
+    lastDays: (n: number) => string;
+    loading: string;
+    noData: string;
+    nothingConnected: string;
+    publishHint: (channel: string, unit: string) => string;
+    connectHint: string;
+    connectChannel: string;
+    viewAll: string;
+    switchChannel: (name: string) => string;
+    ariaChart: (unit: string, days: number) => string;
+  };
+  blog: {
+    title: string;
+    viewAll: string;
+    label: string;
+  };
+};
+
+const COPY: Record<Lang, Copy> = {
+  en: {
+    greeting: {
+      morning: "Good morning",
+      afternoon: "Good afternoon",
+      evening: "Good evening",
+      night: "Good night",
+    },
+    goals: {
+      weekStreak: "Week Streak",
+      postingGoals: "Posting Goals",
+      commentScore: "Comment Score",
+    },
+    hints: {
+      weekStreak: "Consecutive weeks in which you reached your posting goal.",
+      postingGoals: "Posts published this week compared to your weekly goal.",
+      commentScore: "Your engagement score based on the comments you answer.",
+      followers:
+        "Total followers across all your connected channels, compared to the previous period.",
+      likes:
+        "Total likes received on your posts across all channels, compared to the previous period.",
+      comments:
+        "Total comments received on your posts across all channels, compared to the previous period.",
+    },
+    subtitle: {
+      streakHit: "Streak hit, keep going!",
+      streakEmpty: "Hit your goal to start a streak.",
+      goalReached: "Goal reached, great work!",
+      goalProgress: (done, target) => `${done} of ${target}, so close!`,
+      fromLastWeek: "from last week",
+    },
+    overview: {
+      title: "Overview",
+      subtitle: "Example metrics · not connected to live channels",
+      followers: "Followers",
+      likes: "Likes",
+      comments: "Comments",
+    },
+    channels: {
+      title: "Channels",
+      subtitle: "Your connected accounts",
+      connectFirst: "Connect your first channel",
+      connectFirstHint: "Start publishing to social networks.",
+      connected: (n) => `${n} ${n === 1 ? "channel" : "channels"} connected`,
+      readyToPublish: "Ready to publish",
+      connect: "Connect",
+      manage: "Manage",
+      connectAria: "Connect a channel",
+      connectAnotherAria: "Connect another channel",
+    },
+    upNext: {
+      title: "Up Next",
+      meta: (n) => `${n} posts scheduled`,
+      line1: "No posts scheduled yet.",
+      line2: "You'll see upcoming posts here.",
+      createPost: "Create Post",
+      viewAll: "View All",
+    },
+    insights: {
+      metricTabs: {
+        posts: "Posts",
+        impact: "Impact",
+        growth: "Growth",
+        visibility: "Visibility",
+      },
+      labels: {
+        channelViews: "Channel Views",
+        reactions: "Reactions",
+        followers: "Followers",
+        posts: "Posts",
+      },
+      units: {
+        views: "views",
+        reactions: "reactions",
+        followers: "followers",
+        posts: "posts",
+      },
+      lastDays: (n) => `Last ${n} days`,
+      loading: "Loading insights",
+      noData: "No data yet",
+      nothingConnected: "Nothing connected",
+      publishHint: (channel, unit) =>
+        `Publish a post on ${channel} and your ${unit} will appear here.`,
+      connectHint: "Connect a channel to see your insights here.",
+      connectChannel: "Connect a channel",
+      viewAll: "View all",
+      switchChannel: (name) => `Switch channel (${name})`,
+      ariaChart: (unit, days) => `${unit} over the last ${days} days`,
+    },
+    blog: {
+      title: "From the Blog",
+      viewAll: "View All Articles",
+      label: "Blog post",
+    },
+  },
+  fr: {
+    greeting: {
+      morning: "Bonjour",
+      afternoon: "Bon après-midi",
+      evening: "Bonsoir",
+      night: "Bonne nuit",
+    },
+    goals: {
+      weekStreak: "Série actuelle",
+      postingGoals: "Objectifs de publication",
+      commentScore: "Score de commentaires",
+    },
+    hints: {
+      weekStreak:
+        "Nombre de semaines consécutives où vous avez atteint votre objectif de publication.",
+      postingGoals:
+        "Publications de cette semaine comparées à votre objectif hebdomadaire.",
+      commentScore:
+        "Votre score d'engagement basé sur les commentaires auxquels vous répondez.",
+      followers:
+        "Total d'abonnés sur tous vos canaux connectés, comparé à la période précédente.",
+      likes:
+        "Total de mentions J'aime reçues sur vos publications, comparé à la période précédente.",
+      comments:
+        "Total de commentaires reçus sur vos publications, comparé à la période précédente.",
+    },
+    subtitle: {
+      streakHit: "Série en cours, continuez !",
+      streakEmpty: "Atteignez votre objectif pour lancer une série.",
+      goalReached: "Objectif atteint, excellent travail !",
+      goalProgress: (done, target) => `${done} sur ${target}, presque là !`,
+      fromLastWeek: "depuis la semaine dernière",
+    },
+    overview: {
+      title: "Aperçu",
+      subtitle: "Métriques d'exemple · non connectées aux canaux actifs",
+      followers: "Abonnés",
+      likes: "Mentions J'aime",
+      comments: "Commentaires",
+    },
+    channels: {
+      title: "Canaux",
+      subtitle: "Vos comptes connectés",
+      connectFirst: "Connectez votre premier canal",
+      connectFirstHint: "Commencez à publier sur les réseaux sociaux.",
+      connected: (n) =>
+        `${n} ${n === 1 ? "canal connecté" : "canaux connectés"}`,
+      readyToPublish: "Prêt à publier",
+      connect: "Connecter",
+      manage: "Gérer",
+      connectAria: "Connecter un canal",
+      connectAnotherAria: "Connecter un autre canal",
+    },
+    upNext: {
+      title: "À venir",
+      meta: (n) =>
+        `${n} publication${n === 1 ? "" : "s"} planifiée${n === 1 ? "" : "s"}`,
+      line1: "Aucune publication planifiée pour l'instant.",
+      line2: "Vos prochaines publications apparaîtront ici.",
+      createPost: "Créer une publication",
+      viewAll: "Tout voir",
+    },
+    insights: {
+      metricTabs: {
+        posts: "Publications",
+        impact: "Impact",
+        growth: "Croissance",
+        visibility: "Visibilité",
+      },
+      labels: {
+        channelViews: "Vues du canal",
+        reactions: "Réactions",
+        followers: "Abonnés",
+        posts: "Publications",
+      },
+      units: {
+        views: "vues",
+        reactions: "réactions",
+        followers: "abonnés",
+        posts: "publications",
+      },
+      lastDays: (n) => `${n} derniers jours`,
+      loading: "Chargement des statistiques",
+      noData: "Aucune donnée pour l'instant",
+      nothingConnected: "Aucun canal connecté",
+      publishHint: (channel, unit) =>
+        `Publiez sur ${channel} et vos ${unit} apparaîtront ici.`,
+      connectHint: "Connectez un canal pour voir vos statistiques ici.",
+      connectChannel: "Connecter un canal",
+      viewAll: "Tout voir",
+      switchChannel: (name) => `Changer de canal (${name})`,
+      ariaChart: (unit, days) => `${unit} sur les ${days} derniers jours`,
+    },
+    blog: {
+      title: "Sur le blog",
+      viewAll: "Tous les articles",
+      label: "Article",
+    },
+  },
+};
+
+/* ============================================================
    LAYOUT
 ============================================================ */
 
@@ -84,13 +417,8 @@ const strongClass = (isDark: boolean) =>
 const softClass = (isDark: boolean) =>
   isDark ? "text-neutral-400" : "text-neutral-500";
 
-/** Couleur discrète alignée sur les titres "Channels" / "Overview". */
 const subtleTitleClass = (isDark: boolean) =>
   isDark ? "text-neutral-500" : "text-neutral-400";
-
-/** Couleur encore plus discrète alignée sur "Your connected accounts". */
-const verySubtleClass = (isDark: boolean) =>
-  isDark ? "text-neutral-700" : "text-neutral-400";
 
 const focusRingClass = (isDark: boolean) =>
   isDark
@@ -153,7 +481,6 @@ function getNetworkId(channel: ConnectedChannel): SocialNetworkKey | null {
 
 type BlogPost = {
   title: string;
-  label: string;
   date: string;
   image?: string;
   url: string;
@@ -164,28 +491,24 @@ const BLOG_URL = "#";
 const BLOG_POSTS: BlogPost[] = [
   {
     title: "The Best Time to Post on TikTok in 2026",
-    label: "Blog post",
     date: "Jul 20, 2026",
     image: "/images/blog/best-time-tiktok.jpg",
     url: BLOG_URL,
   },
   {
     title: "The 11 Best AI Video Editors: I Tested Them All",
-    label: "Blog post",
     date: "Jul 22, 2026",
     image: "/images/blog/ai-video-editors.jpg",
     url: BLOG_URL,
   },
   {
     title: "How to Create a Social Media Content Calendar",
-    label: "Blog post",
     date: "Jul 24, 2026",
     image: "/images/blog/content-calendar.jpg",
     url: BLOG_URL,
   },
   {
     title: "17 Best AI Tools for Social Media Content",
-    label: "Blog post",
     date: "Aug 3, 2026",
     image: "/images/blog/ai-tools.jpg",
     url: BLOG_URL,
@@ -199,13 +522,12 @@ const linkProps = (url: string) =>
    GREETING
 ============================================================ */
 
-function getGreeting(date: Date = new Date()): string {
+function getGreetingKey(date: Date = new Date()): GreetingKey {
   const hour = date.getHours();
-
-  if (hour >= 5 && hour < 12) return "Good morning";
-  if (hour >= 12 && hour < 18) return "Good afternoon";
-  if (hour >= 18 && hour < 22) return "Good evening";
-  return "Good night";
+  if (hour >= 5 && hour < 12) return "morning";
+  if (hour >= 12 && hour < 18) return "afternoon";
+  if (hour >= 18 && hour < 22) return "evening";
+  return "night";
 }
 
 /* ============================================================
@@ -266,13 +588,23 @@ function GreetingAvatar({
    CLOCK
 ============================================================ */
 
-function ClockDisplay({ isDark, now }: { isDark: boolean; now: Date }) {
-  const time = now.toLocaleTimeString("en-GB", {
+function ClockDisplay({
+  isDark,
+  now,
+  lang,
+}: {
+  isDark: boolean;
+  now: Date;
+  lang: Lang;
+}) {
+  const locale = intlLocale(lang);
+
+  const time = now.toLocaleTimeString(locale, {
     hour: "2-digit",
     minute: "2-digit",
   });
 
-  const date = now.toLocaleDateString("en-GB", {
+  const date = now.toLocaleDateString(locale, {
     weekday: "short",
     day: "numeric",
     month: "short",
@@ -606,6 +938,7 @@ function Stat({
 
 type HomeOverviewProps = {
   isDark: boolean;
+  lang: Lang;
   weekStreak: number;
   postingGoal: { done: number; target: number };
   commentScore: { value: number; changePct: number };
@@ -613,10 +946,12 @@ type HomeOverviewProps = {
 
 function HomeOverview({
   isDark,
+  lang,
   weekStreak,
   postingGoal,
   commentScore,
 }: HomeOverviewProps) {
+  const c = COPY[lang];
   const goalRatio =
     postingGoal.target > 0 ? postingGoal.done / postingGoal.target : 0;
   const goalReached =
@@ -633,12 +968,10 @@ function HomeOverview({
       >
         <GoalItem
           isDark={isDark}
-          title="Week Streak"
-          hint="Consecutive weeks in which you reached your posting goal."
+          title={c.goals.weekStreak}
+          hint={c.hints.weekStreak}
           subtitle={
-            weekStreak > 0
-              ? "Streak hit, keep going!"
-              : "Hit your goal to start a streak."
+            weekStreak > 0 ? c.subtitle.streakHit : c.subtitle.streakEmpty
           }
           ring={
             <Ring isDark={isDark} progress={weekStreak > 0 ? 1 : 0}>
@@ -651,12 +984,12 @@ function HomeOverview({
 
         <GoalItem
           isDark={isDark}
-          title="Posting Goals"
-          hint="Posts published this week compared to your weekly goal."
+          title={c.goals.postingGoals}
+          hint={c.hints.postingGoals}
           subtitle={
             goalReached
-              ? "Goal reached, great work!"
-              : `${postingGoal.done} of ${postingGoal.target}, so close!`
+              ? c.subtitle.goalReached
+              : c.subtitle.goalProgress(postingGoal.done, postingGoal.target)
           }
           ring={
             <Ring isDark={isDark} progress={goalRatio}>
@@ -670,12 +1003,12 @@ function HomeOverview({
 
         <GoalItem
           isDark={isDark}
-          title="Comment Score"
-          hint="Your engagement score based on the comments you answer."
+          title={c.goals.commentScore}
+          hint={c.hints.commentScore}
           subtitle={
             <>
               <Trend isDark={isDark} change={commentScore.changePct} />
-              <span>from last week</span>
+              <span>{c.subtitle.fromLastWeek}</span>
             </>
           }
           ring={
@@ -771,13 +1104,16 @@ function ChannelAvatar({
 
 function Channels({
   isDark,
+  lang,
   channels,
   onAdd,
 }: {
   isDark: boolean;
+  lang: Lang;
   channels: ConnectedChannel[];
   onAdd: () => void;
 }) {
+  const c = COPY[lang];
   return (
     <div
       className={[
@@ -789,7 +1125,7 @@ function Channels({
         <div className="flex items-center gap-3">
           <button
             type="button"
-            aria-label="Connect a channel"
+            aria-label={c.channels.connectAria}
             onClick={onAdd}
             className={[
               "flex h-9 w-9 items-center justify-center rounded-xl transition",
@@ -813,12 +1149,12 @@ function Channels({
                 strongClass(isDark),
               ].join(" ")}
             >
-              Connect your first channel
+              {c.channels.connectFirst}
             </p>
             <p
               className={["mt-0.5 text-[10px]", mutedClass(isDark)].join(" ")}
             >
-              Start publishing to social networks.
+              {c.channels.connectFirstHint}
             </p>
           </div>
         </div>
@@ -852,8 +1188,8 @@ function Channels({
 
             <button
               type="button"
-              aria-label="Connect another channel"
-              title="Connect another channel"
+              aria-label={c.channels.connectAnotherAria}
+              title={c.channels.connectAnotherAria}
               onClick={onAdd}
               className={[
                 "-ml-2 flex h-9 w-9 shrink-0 items-center justify-center",
@@ -877,11 +1213,10 @@ function Channels({
                 strongClass(isDark),
               ].join(" ")}
             >
-              {channels.length}{" "}
-              {channels.length === 1 ? "channel" : "channels"} connected
+              {c.channels.connected(channels.length)}
             </p>
             <p className={["text-[10px]", mutedClass(isDark)].join(" ")}>
-              Ready to publish
+              {c.channels.readyToPublish}
             </p>
           </div>
         </div>
@@ -903,7 +1238,7 @@ function Channels({
             : "text-neutral-900 hover:bg-black/[0.04]",
         ].join(" ")}
       >
-        {channels.length === 0 ? "Connect" : "Manage"}
+        {channels.length === 0 ? c.channels.connect : c.channels.manage}
         <ArrowUpRight className="h-3 w-3" />
       </button>
     </div>
@@ -918,6 +1253,7 @@ function Panel({
   isDark,
   title,
   meta,
+  viewAllLabel,
   onViewAll,
   icon,
   line1,
@@ -927,6 +1263,7 @@ function Panel({
   isDark: boolean;
   title: string;
   meta: string;
+  viewAllLabel: string;
   onViewAll?: () => void;
   icon: ReactNode;
   line1: string;
@@ -966,7 +1303,7 @@ function Panel({
               : "text-neutral-500 enabled:hover:text-neutral-900",
           ].join(" ")}
         >
-          View All
+          {viewAllLabel}
           <ChevronRight className="h-3.5 w-3.5" />
         </button>
       </div>
@@ -1019,10 +1356,7 @@ function Panel({
 }
 
 /* ============================================================
-   INSIGHTS PANEL (graphique identique à la page Insights)
-   - YouTube : vraies données via useYouTubeInsights
-   - Sélecteur de canal (icône swap) + onglets métrique sur la même ligne
-   - Persistance de l'onglet et du canal via localStorage
+   INSIGHTS PANEL
 ============================================================ */
 
 const INSIGHTS_DAYS = 30;
@@ -1039,10 +1373,10 @@ const insightsAddDays = (d: Date, n: number) => {
   return x;
 };
 
-const insightsFmt = (d: Date) =>
-  d.toLocaleDateString("en-US", { day: "numeric", month: "short" });
+const insightsFmt = (d: Date, lang: Lang) =>
+  d.toLocaleDateString(numLocale(lang), { day: "numeric", month: "short" });
 
-const insightsNf = (n: number) => n.toLocaleString("en-US");
+const insightsNf = (n: number, lang: Lang) => n.toLocaleString(numLocale(lang));
 
 function smoothPath(pts: [number, number][]): string {
   const n = pts.length;
@@ -1094,11 +1428,13 @@ function InsightsMiniChart({
   dates,
   values,
   isDark,
+  lang,
   unit = "views",
 }: {
   dates: Date[];
   values: number[];
   isDark: boolean;
+  lang: Lang;
   unit?: string;
 }) {
   const [hover, setHover] = useState<number | null>(null);
@@ -1134,6 +1470,8 @@ function InsightsMiniChart({
     setHover(Math.max(0, Math.min(n - 1, i)));
   };
 
+  const c = COPY[lang];
+
   return (
     <div className="relative">
       <svg
@@ -1143,7 +1481,7 @@ function InsightsMiniChart({
         onPointerDown={onPointer}
         onPointerLeave={() => setHover(null)}
         role="img"
-        aria-label={`${unit} over the last 30 days`}
+        aria-label={c.insights.ariaChart(unit, INSIGHTS_DAYS)}
       >
         <defs>
           <linearGradient id={gradId} x1="0" x2="0" y1="0" y2="1">
@@ -1180,7 +1518,7 @@ function InsightsMiniChart({
             fill={axis}
             textAnchor={i === 0 ? "start" : i === n - 1 ? "end" : "middle"}
           >
-            {insightsFmt(dates[i])}
+            {insightsFmt(dates[i], lang)}
           </text>
         ))}
 
@@ -1230,8 +1568,9 @@ function InsightsMiniChart({
             transform: `translateX(${hover > n / 2 ? "-110%" : "10%"})`,
           }}
         >
-          <div className="opacity-50">{insightsFmt(dates[hover])}</div>
-          <b className="tabular-nums">{insightsNf(values[hover])}</b> {unit}
+          <div className="opacity-50">{insightsFmt(dates[hover], lang)}</div>
+          <b className="tabular-nums">{insightsNf(values[hover], lang)}</b>{" "}
+          {unit}
         </div>
       )}
     </div>
@@ -1239,7 +1578,7 @@ function InsightsMiniChart({
 }
 
 /* ------------------------------------------------------------------
-   MiniChannelAvatar + onglets de métrique
+   MiniChannelAvatar
 ------------------------------------------------------------------ */
 
 function MiniChannelAvatar({
@@ -1298,16 +1637,18 @@ function MiniChannelAvatar({
   );
 }
 
-type HomeMetricTab = "posts" | "impact" | "growth" | "visibility";
+/* ------------------------------------------------------------------
+   Persistance de l'état Insights (onglet + canal)
+------------------------------------------------------------------ */
 
-const HOME_METRIC_TABS: { key: HomeMetricTab; label: string }[] = [
-  { key: "posts", label: "Posts" },
-  { key: "impact", label: "Impact" },
-  { key: "growth", label: "Growth" },
-  { key: "visibility", label: "Visibility" },
-];
+const HOME_METRIC_TAB_KEYS = [
+  "posts",
+  "impact",
+  "growth",
+  "visibility",
+] as const;
 
-/* --- Persistance de l'état Insights (onglet + canal) --- */
+type HomeMetricTab = (typeof HOME_METRIC_TAB_KEYS)[number];
 
 const HOME_METRIC_TAB_STORAGE_KEY = "home.insights.metricTab";
 const HOME_CHANNEL_STORAGE_KEY = "home.insights.channelKey";
@@ -1316,7 +1657,7 @@ function readStoredMetricTab(): HomeMetricTab {
   if (typeof window === "undefined") return "visibility";
   try {
     const raw = window.localStorage.getItem(HOME_METRIC_TAB_STORAGE_KEY);
-    if (raw && HOME_METRIC_TABS.some((t) => t.key === raw)) {
+    if (raw && (HOME_METRIC_TAB_KEYS as readonly string[]).includes(raw)) {
       return raw as HomeMetricTab;
     }
   } catch {
@@ -1336,13 +1677,16 @@ function readStoredChannelKey(): string | null {
 
 function InsightsPanel({
   isDark,
+  lang,
   channels,
   onConnect,
 }: {
   isDark: boolean;
+  lang: Lang;
   channels: ConnectedChannel[];
   onConnect: () => void;
 }) {
+  const c = COPY[lang];
   const [selectedKey, setSelectedKey] = useState<string | null>(
     readStoredChannelKey
   );
@@ -1352,7 +1696,6 @@ function InsightsPanel({
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  // Persiste l'onglet métrique (survit au refresh)
   useEffect(() => {
     try {
       window.localStorage.setItem(HOME_METRIC_TAB_STORAGE_KEY, metricTab);
@@ -1361,7 +1704,6 @@ function InsightsPanel({
     }
   }, [metricTab]);
 
-  // Persiste le canal sélectionné (survit au refresh)
   useEffect(() => {
     try {
       if (selectedKey) {
@@ -1436,34 +1778,34 @@ function InsightsPanel({
     switch (metricTab) {
       case "visibility":
         return {
-          label: "Channel Views",
-          unit: "views",
+          label: c.insights.labels.channelViews,
+          unit: c.insights.units.views,
           values: current.map((p) => p.profileViews),
           total: current.reduce((acc, p) => acc + p.profileViews, 0),
         };
       case "impact":
         return {
-          label: "Reactions",
-          unit: "reactions",
+          label: c.insights.labels.reactions,
+          unit: c.insights.units.reactions,
           values: current.map((p) => p.reactions),
           total: current.reduce((acc, p) => acc + p.reactions, 0),
         };
       case "growth":
         return {
-          label: "Followers",
-          unit: "followers",
+          label: c.insights.labels.followers,
+          unit: c.insights.units.followers,
           values: current.map((p) => p.followers),
           total: last?.followers ?? 0,
         };
       case "posts":
         return {
-          label: "Posts",
-          unit: "posts",
+          label: c.insights.labels.posts,
+          unit: c.insights.units.posts,
           values: current.map((p) => p.posts),
           total: current.reduce((acc, p) => acc + p.posts, 0),
         };
     }
-  }, [data, metricTab]);
+  }, [data, metricTab, c]);
 
   const channelName = selectedChannel
     ? (selectedChannel.handle || selectedChannel.name || "Channel").replace(
@@ -1483,13 +1825,10 @@ function InsightsPanel({
         Insights
       </h2>
 
-      {/* En-tête sur une ligne :
-          [Avatar + Nom ⟳] | [Posts][Impact][Growth][Visibility]   [View all ›] */}
       <div className="mb-2 flex shrink-0 flex-wrap items-center justify-between gap-2">
         <div className="flex min-w-0 flex-wrap items-center gap-1.5">
           {selectedChannel ? (
             <>
-              {/* Sélecteur de canal AVEC icône swap — placé à gauche des onglets */}
               <div ref={menuRef} className="relative">
                 <button
                   type="button"
@@ -1497,7 +1836,9 @@ function InsightsPanel({
                   aria-expanded={menuOpen}
                   disabled={!canSwitch}
                   title={
-                    canSwitch ? `Switch channel (${channelName})` : channelName
+                    canSwitch
+                      ? c.insights.switchChannel(channelName)
+                      : channelName
                   }
                   onClick={() => setMenuOpen((o) => !o)}
                   className={[
@@ -1540,20 +1881,20 @@ function InsightsPanel({
                         : "border-black/10 bg-white",
                     ].join(" ")}
                   >
-                    {channels.map((c) => {
-                      const active = c.key === selectedChannel?.key;
-                      const name = (c.handle || c.name || "Channel").replace(
+                    {channels.map((ch) => {
+                      const active = ch.key === selectedChannel?.key;
+                      const name = (ch.handle || ch.name || "Channel").replace(
                         /^@/,
                         ""
                       );
                       return (
                         <button
-                          key={c.key}
+                          key={ch.key}
                           type="button"
                           role="menuitemradio"
                           aria-checked={active}
                           onClick={() => {
-                            setSelectedKey(c.key);
+                            setSelectedKey(ch.key);
                             setMenuOpen(false);
                           }}
                           className={[
@@ -1565,7 +1906,7 @@ function InsightsPanel({
                           ].join(" ")}
                         >
                           <MiniChannelAvatar
-                            channel={c}
+                            channel={ch}
                             isDark={isDark}
                             size={20}
                           />
@@ -1593,7 +1934,6 @@ function InsightsPanel({
                 )}
               </div>
 
-              {/* Séparateur vertical */}
               <span
                 className={[
                   "h-4 w-px shrink-0",
@@ -1602,21 +1942,20 @@ function InsightsPanel({
                 aria-hidden="true"
               />
 
-              {/* Onglets de métrique (Posts en premier) */}
               <div
                 role="tablist"
                 aria-label="Insight metric"
                 className="flex min-w-0 gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
               >
-                {HOME_METRIC_TABS.map((tab) => {
-                  const active = metricTab === tab.key;
+                {HOME_METRIC_TAB_KEYS.map((tabKey) => {
+                  const active = metricTab === tabKey;
                   return (
                     <button
-                      key={tab.key}
+                      key={tabKey}
                       type="button"
                       role="tab"
                       aria-selected={active}
-                      onClick={() => setMetricTab(tab.key)}
+                      onClick={() => setMetricTab(tabKey)}
                       className={[
                         "whitespace-nowrap rounded-lg px-2 py-1 text-[10.5px] font-semibold transition-colors",
                         focusRingClass(isDark),
@@ -1629,7 +1968,7 @@ function InsightsPanel({
                             : "text-neutral-500 hover:bg-black/[0.04] hover:text-neutral-900",
                       ].join(" ")}
                     >
-                      {tab.label}
+                      {c.insights.metricTabs[tabKey]}
                     </button>
                   );
                 })}
@@ -1648,7 +1987,7 @@ function InsightsPanel({
               ].join(" ")}
             >
               <Plus className="h-3 w-3" aria-hidden="true" />
-              Connect a channel
+              {c.insights.connectChannel}
             </button>
           )}
         </div>
@@ -1670,12 +2009,11 @@ function InsightsPanel({
               : "text-neutral-500 hover:text-neutral-900",
           ].join(" ")}
         >
-          View all
+          {c.insights.viewAll}
           <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
         </button>
       </div>
 
-      {/* Contenu : loading / graphique / état vide */}
       {loading ? (
         <div
           className={[
@@ -1683,7 +2021,7 @@ function InsightsPanel({
             panelSurfaceClass(isDark),
           ].join(" ")}
           role="status"
-          aria-label="Loading insights"
+          aria-label={c.insights.loading}
         />
       ) : showChart && data && metricData ? (
         <div
@@ -1698,7 +2036,7 @@ function InsightsPanel({
             >
               {metricData.label}
               <span className="ml-1 opacity-60">
-                · Last {INSIGHTS_DAYS} days
+                · {c.insights.lastDays(INSIGHTS_DAYS)}
               </span>
             </p>
             <p
@@ -1707,13 +2045,14 @@ function InsightsPanel({
                 strongClass(isDark),
               ].join(" ")}
             >
-              {insightsNf(metricData.total)}
+              {insightsNf(metricData.total, lang)}
             </p>
           </div>
           <InsightsMiniChart
             dates={data.current.map((p) => p.date)}
             values={metricData.values}
             isDark={isDark}
+            lang={lang}
             unit={metricData.unit}
           />
         </div>
@@ -1740,7 +2079,9 @@ function InsightsPanel({
               " "
             )}
           >
-            {selectedChannel ? "No data yet" : "Nothing connected"}
+            {selectedChannel
+              ? c.insights.noData
+              : c.insights.nothingConnected}
           </p>
           <p
             className={[
@@ -1749,10 +2090,11 @@ function InsightsPanel({
             ].join(" ")}
           >
             {selectedChannel
-              ? `Publish a post on ${channelName} and your ${
-                  metricData?.unit ?? "insights"
-                } will appear here.`
-              : "Connect a channel to see your insights here."}
+              ? c.insights.publishHint(
+                  channelName,
+                  metricData?.unit ?? c.insights.units.views
+                )
+              : c.insights.connectHint}
           </p>
           {!selectedChannel && (
             <button
@@ -1767,7 +2109,7 @@ function InsightsPanel({
               ].join(" ")}
             >
               <Plus className="h-3.5 w-3.5" aria-hidden="true" />
-              Connect a channel
+              {c.insights.connectChannel}
             </button>
           )}
         </div>
@@ -1814,7 +2156,8 @@ function BlogImage({ src, isDark }: { src?: string; isDark: boolean }) {
    BLOG SECTION
 ============================================================ */
 
-function BlogSection({ isDark }: { isDark: boolean }) {
+function BlogSection({ isDark, lang }: { isDark: boolean; lang: Lang }) {
+  const c = COPY[lang];
   return (
     <section>
       <div className="mb-3 flex items-center justify-between">
@@ -1824,7 +2167,7 @@ function BlogSection({ isDark }: { isDark: boolean }) {
             isDark ? "text-neutral-300" : "text-neutral-700",
           ].join(" ")}
         >
-          From the Blog
+          {c.blog.title}
         </p>
 
         <a
@@ -1838,7 +2181,7 @@ function BlogSection({ isDark }: { isDark: boolean }) {
               : "text-neutral-500 hover:text-neutral-900",
           ].join(" ")}
         >
-          View All Articles
+          {c.blog.viewAll}
           <ChevronRight className="h-3.5 w-3.5" />
         </a>
       </div>
@@ -1867,7 +2210,7 @@ function BlogSection({ isDark }: { isDark: boolean }) {
                     : "bg-blue-50 text-blue-700",
                 ].join(" ")}
               >
-                {post.label}
+                {c.blog.label}
               </span>
               <span
                 className={["text-[10px]", mutedClass(isDark)].join(" ")}
@@ -1915,6 +2258,8 @@ export default function Home() {
   const { theme } = useTheme();
   const isDark = theme === "dark";
   const sidebarOffset = useSidebarOffset();
+  const lang = useLanguage();
+  const c = COPY[lang];
 
   const [query, setQuery] = useState("");
   const [isNewPostOpen, setIsNewPostOpen] = useState(false);
@@ -1963,13 +2308,14 @@ export default function Home() {
       (user?.last_name || "")[0] || ""
     }`.toUpperCase() || "U";
 
-  const greeting = getGreeting(now);
+  const greeting = c.greeting[getGreetingKey(now)];
 
-  const formattedDate = `${now.toLocaleDateString("en-US", {
+  const formattedDate = now.toLocaleDateString(intlLocale(lang), {
     weekday: "short",
-  })}, ${now.toLocaleDateString("en-US", {
     month: "short",
-  })} ${now.getDate()} ${now.getFullYear()}`;
+    day: "numeric",
+    year: "numeric",
+  });
 
   const displayName = fullName || "adamnolke";
 
@@ -2046,8 +2392,7 @@ export default function Home() {
                       strongClass(isDark),
                     ].join(" ")}
                   >
-                    {greeting.charAt(0).toUpperCase() + greeting.slice(1)},{" "}
-                    {displayName}!
+                    {greeting}, {displayName}!
                   </h1>
                   <p
                     className={[
@@ -2059,11 +2404,12 @@ export default function Home() {
                   </p>
                 </div>
               </div>
-              <ClockDisplay isDark={isDark} now={now} />
+              <ClockDisplay isDark={isDark} now={now} lang={lang} />
             </header>
 
             <HomeOverview
               isDark={isDark}
+              lang={lang}
               weekStreak={1}
               postingGoal={{ done: 1, target: 2 }}
               commentScore={{ value: 13, changePct: 100 }}
@@ -2077,7 +2423,7 @@ export default function Home() {
                     isDark ? "text-neutral-500" : "text-neutral-400",
                   ].join(" ")}
                 >
-                  Overview
+                  {c.overview.title}
                 </p>
                 <p
                   className={[
@@ -2085,7 +2431,7 @@ export default function Home() {
                     isDark ? "text-neutral-400" : "text-neutral-500",
                   ].join(" ")}
                 >
-                  Example metrics · not connected to live channels
+                  {c.overview.subtitle}
                 </p>
               </div>
 
@@ -2098,26 +2444,35 @@ export default function Home() {
               >
                 <Stat
                   isDark={isDark}
-                  label="Followers"
-                  value="27K"
+                  label={c.overview.followers}
+                  value={new Intl.NumberFormat(numLocale(lang), {
+                    notation: "compact",
+                    maximumFractionDigits: 1,
+                  }).format(27000)}
                   change="-2%"
-                  hint="Total followers across all your connected channels, compared to the previous period."
+                  hint={c.hints.followers}
                   icon={<Users className="h-4 w-4" />}
                 />
                 <Stat
                   isDark={isDark}
-                  label="Likes"
-                  value="12.4K"
+                  label={c.overview.likes}
+                  value={new Intl.NumberFormat(numLocale(lang), {
+                    notation: "compact",
+                    maximumFractionDigits: 1,
+                  }).format(12400)}
                   change="+16%"
-                  hint="Total likes received on your posts across all channels, compared to the previous period."
+                  hint={c.hints.likes}
                   icon={<Heart className="h-4 w-4" />}
                 />
                 <Stat
                   isDark={isDark}
-                  label="Comments"
-                  value="342"
+                  label={c.overview.comments}
+                  value={new Intl.NumberFormat(numLocale(lang), {
+                    notation: "compact",
+                    maximumFractionDigits: 1,
+                  }).format(342)}
                   change="+5%"
-                  hint="Total comments received on your posts across all channels, compared to the previous period."
+                  hint={c.hints.comments}
                   icon={<MessageCircle className="h-4 w-4" />}
                 />
               </div>
@@ -2132,7 +2487,7 @@ export default function Home() {
                       isDark ? "text-neutral-500" : "text-neutral-400",
                     ].join(" ")}
                   >
-                    Channels
+                    {c.channels.title}
                   </p>
                   <p
                     className={[
@@ -2140,13 +2495,14 @@ export default function Home() {
                       isDark ? "text-neutral-700" : "text-neutral-400",
                     ].join(" ")}
                   >
-                    Your connected accounts
+                    {c.channels.subtitle}
                   </p>
                 </div>
               </div>
 
               <Channels
                 isDark={isDark}
+                lang={lang}
                 channels={connectedChannels}
                 onAdd={() => navigateToSettingsSection("channels")}
               />
@@ -2155,26 +2511,28 @@ export default function Home() {
             <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2">
               <InsightsPanel
                 isDark={isDark}
+                lang={lang}
                 channels={connectedChannels}
                 onConnect={() => navigateToSettingsSection("channels")}
               />
               <Panel
                 isDark={isDark}
-                title="Up Next"
-                meta="0 posts scheduled"
+                title={c.upNext.title}
+                meta={c.upNext.meta(0)}
+                viewAllLabel={c.upNext.viewAll}
                 onViewAll={() => navigate("calendar")}
                 icon={<CalendarDays className="h-5 w-5" />}
-                line1="No posts scheduled yet."
-                line2="You'll see upcoming posts here."
+                line1={c.upNext.line1}
+                line2={c.upNext.line2}
                 action={{
-                  label: "Create Post",
+                  label: c.upNext.createPost,
                   onClick: () => setIsNewPostOpen(true),
                 }}
               />
             </div>
 
             <div className="mt-8">
-              <BlogSection isDark={isDark} />
+              <BlogSection isDark={isDark} lang={lang} />
             </div>
           </div>
         </div>
