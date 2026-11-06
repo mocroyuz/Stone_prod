@@ -1264,14 +1264,14 @@ function MetricBox({
   const up = delta != null && delta > 0;
   const down = delta != null && delta < 0;
   return (
-    <div className={`flex flex-col gap-2 rounded-lg border px-3.5 py-3 ${t.inner}`}>
+    <div className="flex flex-col gap-2.5 px-4 py-4">
       <span className={`flex items-center justify-between gap-2 text-[10px] font-medium ${t.soft}`}>
         <span className="truncate">{label}</span>
         <span title={info} role="img" aria-label={info} className={`shrink-0 ${t.muted}`}>
           <Info className="h-3.5 w-3.5" aria-hidden="true" />
         </span>
       </span>
-      <span className={`text-[20px] font-bold leading-none tracking-tight tabular-nums ${t.text}`}>{value}</span>
+      <span className={`text-[22px] font-semibold leading-none tracking-[-0.02em] tabular-nums ${t.text}`}>{value}</span>
       {delta != null && (
         <span
           className={`text-[10px] font-semibold tabular-nums ${
@@ -2316,18 +2316,25 @@ export default function Insights() {
                       </div>
                     </div>
                     <div
-                      className={`mt-4 grid grid-cols-2 gap-2.5 rounded-xl border p-3 sm:grid-cols-3 lg:grid-cols-6 ${t.panel}`}
+                      className={`mt-4 overflow-hidden rounded-2xl border ${t.border}`}
                     >
-                      {summaryBoxes.map((b) => (
-                        <MetricBox
-                          key={b.label}
-                          label={b.label}
-                          value={b.value}
-                          info={SUMMARY_INFO[b.label] ?? b.label}
-                          t={t}
-                          delta={b.delta}
-                        />
-                      ))}
+                      <div
+                        className={`grid grid-cols-2 gap-px md:grid-cols-5 ${
+                          isDark ? "bg-white/[0.05]" : "bg-black/[0.05]"
+                        }`}
+                      >
+                        {summaryBoxes.map((b) => (
+                          <div key={b.label} className={isDark ? "bg-[#0a0a0c]" : "bg-white"}>
+                            <MetricBox
+                              label={b.label}
+                              value={b.value}
+                              info={SUMMARY_INFO[b.label] ?? b.label}
+                              t={t}
+                              delta={b.delta}
+                            />
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 </section>
