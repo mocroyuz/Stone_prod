@@ -7,7 +7,6 @@
   type ChangeEvent,
   type ReactNode,
 } from "react";
-
 import { navigate } from "../hooks/useHashRoute";
 import { useTheme, type Theme } from "../hooks/useTheme";
 import { useUser } from "../contexts/UserContext";
@@ -24,7 +23,6 @@ import {
   openFrequencyOnboarding,
   type OnboardingAccount,
 } from "../components/OnboardingModals";
-
 import {
   getTikTokStatus,
   startTikTokLogin,
@@ -50,7 +48,6 @@ import {
   type CacheProvider,
   type Connection,
 } from "../services/channelsCache";
-
 import {
   getCurrentUser,
   updateUserProfile,
@@ -90,9 +87,7 @@ import {
   deleteSavedReply,
   type SavedReply,
 } from "../services/supabase";
-
 /* ── Tokens (classes complètes, compatibles Tailwind v3/v4) ── */
-
 const DARK = {
   pageBg: "bg-[#050505]",
   card: "bg-[#0a0a0a]",
@@ -132,9 +127,7 @@ const DARK = {
   dangerTitle: "text-red-400",
   dangerBtn: "bg-red-600 text-white hover:bg-red-500",
 };
-
 type Tokens = Record<keyof typeof DARK, string>;
-
 const LIGHT: Tokens = {
   pageBg: "bg-[#fafaf9]",
   card: "bg-white",
@@ -174,12 +167,9 @@ const LIGHT: Tokens = {
   dangerTitle: "text-red-600",
   dangerBtn: "bg-red-600 text-white hover:bg-red-500",
 };
-
 const cx = (...parts: (string | false | null | undefined)[]) =>
   parts.filter(Boolean).join(" ");
-
 /* ── Icons ── */
-
 const svgBase = {
   viewBox: "0 0 24 24",
   fill: "none",
@@ -189,7 +179,6 @@ const svgBase = {
   strokeLinejoin: "round" as const,
   "aria-hidden": true,
 };
-
 const mkIcon =
   (paths: ReactNode, size = "h-[18px] w-[18px]") =>
   ({ className = size }: { className?: string }) =>
@@ -198,7 +187,6 @@ const mkIcon =
         {paths}
       </svg>
     );
-
 const UserIcon = mkIcon(
   <>
     <circle cx="12" cy="8" r="4" />
@@ -303,7 +291,6 @@ const MoreIcon = mkIcon(
     <circle cx="19" cy="12" r="1.5" fill="currentColor" stroke="none" />
   </>
 );
-
 /* Icône Preferences (sliders) */
 const SlidersIcon = mkIcon(
   <>
@@ -318,9 +305,7 @@ const SlidersIcon = mkIcon(
     <line x1="17" y1="16" x2="23" y2="16" />
   </>
 );
-
 /* Icônes Channels */
-
 const ChannelsIcon = mkIcon(
   <>
     <circle cx="7.5" cy="7.5" r="2.5" />
@@ -357,9 +342,7 @@ const BoltIcon = mkIcon(
   <path d="M13 2.5 5 13.2h5.6L9.5 21.5l8-10.7h-5.6L13 2.5Z" />,
   "h-6 w-6"
 );
-
 /* ── Hooks ── */
-
 function usePref(key: string, initial: boolean) {
   const [value, setValue] = useState<boolean>(() => {
     try {
@@ -369,7 +352,6 @@ function usePref(key: string, initial: boolean) {
       return initial;
     }
   });
-
   useEffect(() => {
     try {
       localStorage.setItem(key, value ? "1" : "0");
@@ -378,12 +360,9 @@ function usePref(key: string, initial: boolean) {
     }
     document.documentElement.dataset[key] = value ? "true" : "false";
   }, [key, value]);
-
   return [value, setValue] as const;
 }
-
 /* ── UI de base ── */
-
 function Field({
   label,
   type = "text",
@@ -424,7 +403,6 @@ function Field({
       >
         {label}
       </span>
-
       <div className="relative">
         <input
           type={type}
@@ -451,14 +429,12 @@ function Field({
             error ? "border-red-500" : tokens.inputBorder
           )}
         />
-
         {trailing && (
           <span className="absolute top-1/2 right-2 -translate-y-1/2">
             {trailing}
           </span>
         )}
       </div>
-
       {error ? (
         <span className="mt-1.5 block text-[12px] text-red-500">{error}</span>
       ) : hint ? (
@@ -469,7 +445,6 @@ function Field({
     </label>
   );
 }
-
 function Toggle({
   checked,
   onChange,
@@ -504,7 +479,6 @@ function Toggle({
     </button>
   );
 }
-
 function Row({
   title,
   description,
@@ -530,7 +504,6 @@ function Row({
     </div>
   );
 }
-
 function Button({
   variant = "primary",
   tokens,
@@ -546,7 +519,6 @@ function Button({
       : variant === "danger"
       ? tokens.dangerBtn
       : tokens.secondary;
-
   return (
     <button
       type="button"
@@ -560,7 +532,6 @@ function Button({
     />
   );
 }
-
 function SectionCard({
   title,
   description,
@@ -600,10 +571,8 @@ function SectionCard({
             </p>
           )}
         </header>
-
         <div className={cx("divide-y", tokens.divide)}>{children}</div>
       </div>
-
       {footer && (
         <div
           className={cx(
@@ -618,9 +587,7 @@ function SectionCard({
     </section>
   );
 }
-
 /* ── Sidebar ── */
-
 type SectionKey =
   | "profile"
   | "account"
@@ -632,7 +599,6 @@ type SectionKey =
   | "tags"
   | "savedReplies"
   | "danger";
-
 const SIDEBAR_GROUPS: {
   label: string;
   items: { key: SectionKey; label: string; icon: ReactNode; badge?: string }[];
@@ -666,7 +632,6 @@ const SIDEBAR_GROUPS: {
     ],
   },
 ];
-
 const SECTION_TITLES: Record<SectionKey, string> = {
   profile: "Profile",
   account: "Security",
@@ -679,7 +644,6 @@ const SECTION_TITLES: Record<SectionKey, string> = {
   savedReplies: "Saved Replies",
   danger: "Danger zone",
 };
-
 const SECTION_SLUGS: Record<SectionKey, string> = {
   profile: "profile",
   account: "security",
@@ -692,16 +656,13 @@ const SECTION_SLUGS: Record<SectionKey, string> = {
   savedReplies: "saved-replies",
   danger: "danger-zone",
 };
-
 export const settingsPath = (key: SectionKey) =>
   `settings/${SECTION_SLUGS[key]}`;
-
 export function sectionFromSlug(slug?: string | null): SectionKey | undefined {
   return (Object.keys(SECTION_SLUGS) as SectionKey[]).find(
     (key) => SECTION_SLUGS[key] === slug
   );
 }
-
 function SettingsSidebar({
   active,
   onSelect,
@@ -745,7 +706,6 @@ function SettingsSidebar({
           Settings
         </h2>
       </div>
-
       <nav
         aria-label="Settings sections"
         className="px-3 pb-4 max-md:flex max-md:gap-1 max-md:overflow-x-auto max-md:pb-3"
@@ -763,7 +723,6 @@ function SettingsSidebar({
             >
               {group.label}
             </p>
-
             <ul className="flex flex-col gap-0.5 max-md:flex-row">
               {group.items.map((item) => {
                 const isActive = active === item.key;
@@ -804,17 +763,13 @@ function SettingsSidebar({
     </aside>
   );
 }
-
 /* ── Page ── */
-
 type SettingsProps = {
   theme?: Theme;
   onToggleTheme?: () => void;
   initialSection?: SectionKey;
 };
-
 type Notify = (message: string, kind?: "success" | "error") => void;
-
 /**
  * Fallback pour `/settings` (sans slug) :
  * - retour OAuth (TikTok / Pinterest / YouTube) → Channels
@@ -832,7 +787,6 @@ function initialSection(): SectionKey {
       const fromSlug = sectionFromSlug(hashParts[1]);
       if (fromSlug) return fromSlug;
     }
-
     const pathParts = window.location.pathname.split("/").filter(Boolean);
     const idx = pathParts.lastIndexOf("settings");
     if (idx >= 0 && pathParts[idx + 1]) {
@@ -842,7 +796,6 @@ function initialSection(): SectionKey {
   } catch {
     /* ignore */
   }
-
   // 2. Retour OAuth → Channels
   try {
     const params = new URLSearchParams(window.location.search);
@@ -861,79 +814,65 @@ function initialSection(): SectionKey {
   } catch {
     /* ignore */
   }
-
   // 3. Défaut
   return "profile";
 }
-
 export default function Settings(_props: SettingsProps) {
   const { theme, toggle } = useTheme();
   const isDark = theme === "dark";
   const tokens = useMemo<Tokens>(() => (isDark ? DARK : LIGHT), [isDark]);
-
   // La section active vient de l'URL : soit passée par le routeur,
   // soit déduite du slug / des query params OAuth.
-const returning =
-  typeof window !== "undefined" &&
-  (() => {
-    try {
-      const parsed = JSON.parse(sessionStorage.getItem(RETURN_KEY) ?? "[]");
-      return Array.isArray(parsed) && parsed.length > 0;
-    } catch {
-      return false;
-    }
-  })();
-
-const active: SectionKey = returning
-  ? "channels"
-  : _props.initialSection ?? initialSection();
-
+  const returning =
+    typeof window !== "undefined" &&
+    (() => {
+      try {
+        const parsed = JSON.parse(sessionStorage.getItem(RETURN_KEY) ?? "[]");
+        return Array.isArray(parsed) && parsed.length > 0;
+      } catch {
+        return false;
+      }
+    })();
+  const active: SectionKey = returning
+    ? "channels"
+    : _props.initialSection ?? initialSection();
   const [toast, setToast] = useState<{
     message: string;
     kind: "success" | "error";
   } | null>(null);
   const toastTimer = useRef<number | null>(null);
   const titleRef = useRef<HTMLHeadingElement | null>(null);
-
   const notify = useCallback<Notify>((message, kind) => {
     const resolved =
       kind ??
       (/fail|error|must|enter|do not|different/i.test(message)
         ? "error"
         : "success");
-
     setToast({ message, kind: resolved });
-
     if (toastTimer.current !== null) window.clearTimeout(toastTimer.current);
-
     toastTimer.current = window.setTimeout(() => {
       setToast(null);
       toastTimer.current = null;
     }, 3000);
   }, []);
-
   useEffect(
     () => () => {
       if (toastTimer.current !== null) window.clearTimeout(toastTimer.current);
     },
     []
   );
-
   const handleSelectTheme = useCallback(
     (next: "light" | "dark", origin?: { x: number; y: number }) => {
       if (next !== theme) toggle(origin);
     },
     [theme, toggle]
   );
-
   const handleSelect = useCallback((key: SectionKey) => {
     navigate(settingsPath(key));
     window.scrollTo({ top: 0 });
     titleRef.current?.focus();
   }, []);
-
   const handleBack = useCallback(() => navigate("home"), []);
-
   return (
     <main
       className={cx(
@@ -948,7 +887,6 @@ const active: SectionKey = returning
           onBack={handleBack}
           tokens={tokens}
         />
-
         <div
           className={cx(
             "mx-auto w-full min-w-0 flex-1 px-[clamp(16px,4vw,48px)] py-[clamp(24px,4vw,56px)]",
@@ -965,7 +903,6 @@ const active: SectionKey = returning
           >
             {SECTION_TITLES[active]}
           </h1>
-
           <div className="flex flex-col gap-5">
             {active === "profile" && (
               <ProfileSection tokens={tokens} notify={notify} />
@@ -1012,7 +949,6 @@ const active: SectionKey = returning
           </div>
         </div>
       </div>
-
       <div
         aria-live="polite"
         className="pointer-events-none fixed bottom-6 left-1/2 z-[110] -translate-x-1/2 px-4"
@@ -1043,9 +979,7 @@ const active: SectionKey = returning
     </main>
   );
 }
-
 /* ── Profile ── */
-
 function ProfileSection({
   tokens,
   notify,
@@ -1061,15 +995,12 @@ function ProfileSection({
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
   const [uploading, setUploading] = useState(false);
-
   useEffect(() => {
     let mounted = true;
-
     (async () => {
       try {
         const data = await getCurrentUser();
         if (!mounted || !data) return;
-
         setUser(data);
         setFirst(data.first_name || "");
         setLast(data.last_name || "");
@@ -1082,62 +1013,48 @@ function ProfileSection({
         if (mounted) setLoading(false);
       }
     })();
-
     return () => {
       mounted = false;
     };
   }, [notify]);
-
   const dirty =
     !!user &&
     (first.trim() !== (user.first_name || "") ||
       last.trim() !== (user.last_name || ""));
-
   useEffect(() => {
     if (!dirty) return;
     const warn = (e: BeforeUnloadEvent) => e.preventDefault();
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
   }, [dirty]);
-
   const handleFileUpload = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.target.value = "";
-
     if (!file || !user) return;
-
     if (file.size > 2 * 1024 * 1024) {
       notify("File size must be less than 2MB", "error");
       return;
     }
-
     if (!file.type.startsWith("image/")) {
       notify("File must be an image", "error");
       return;
     }
-
     setUploading(true);
     const previous = avatarUrl;
-
     try {
       const publicUrl = await uploadAvatar(file, user.id);
-
       if (!publicUrl) {
         notify("Failed to upload image", "error");
         return;
       }
-
       setAvatarUrl(publicUrl);
       setAvatarLoadFailed(false);
-
       const ok = await updateUserProfile({ avatar_url: publicUrl });
-
       if (!ok) {
         setAvatarUrl(previous);
         notify("Image uploaded but profile update failed", "error");
         return;
       }
-
       if (previous && previous !== publicUrl) {
         try {
           await deleteAvatar(previous);
@@ -1145,7 +1062,6 @@ function ProfileSection({
           console.warn("Old avatar could not be deleted:", e);
         }
       }
-
       setUser((c) => (c ? { ...c, avatar_url: publicUrl } : c));
       notify("Profile picture updated");
     } catch (error) {
@@ -1159,26 +1075,20 @@ function ProfileSection({
       setUploading(false);
     }
   };
-
   const handleRemoveAvatar = async () => {
     if (!user || !avatarUrl || uploading) return;
-
     setUploading(true);
     const previous = avatarUrl;
-
     try {
       const ok = await updateUserProfile({ avatar_url: "" });
-
       if (!ok) {
         notify("Failed to remove profile picture", "error");
         return;
       }
-
       setAvatarUrl(null);
       setAvatarLoadFailed(false);
       setUser((c) => (c ? { ...c, avatar_url: undefined } : c));
       notify("Profile picture removed");
-
       try {
         await deleteAvatar(previous);
       } catch (e) {
@@ -1196,28 +1106,22 @@ function ProfileSection({
       setUploading(false);
     }
   };
-
   const handleSave = async () => {
     if (!user || saving || !dirty) return;
-
     setSaving(true);
-
     const next = {
       first_name: first.trim(),
       last_name: last.trim(),
     };
-
     try {
       const ok = await updateUserProfile({
         ...next,
         avatar_url: avatarUrl || undefined,
       });
-
       if (!ok) {
         notify("Failed to save profile", "error");
         return;
       }
-
       setUser({ ...user, ...next, avatar_url: avatarUrl || undefined });
       notify("Profile saved");
     } catch (error) {
@@ -1230,9 +1134,7 @@ function ProfileSection({
       setSaving(false);
     }
   };
-
   const description = "This information is visible to your teammates.";
-
   if (loading) {
     return (
       <SectionCard title="Profile" description={description} tokens={tokens}>
@@ -1252,7 +1154,6 @@ function ProfileSection({
       </SectionCard>
     );
   }
-
   if (!user) {
     return (
       <SectionCard title="Profile" description={description} tokens={tokens}>
@@ -1267,10 +1168,8 @@ function ProfileSection({
       </SectionCard>
     );
   }
-
   const initials = `${first.charAt(0)}${last.charAt(0)}`.toUpperCase() || "U";
   const showImage = Boolean(avatarUrl) && !avatarLoadFailed;
-
   return (
     <SectionCard
       title="Profile"
@@ -1317,7 +1216,6 @@ function ProfileSection({
               {initials}
             </div>
           )}
-
           <div>
             <p className={cx("text-[14px] font-medium", tokens.heading)}>
               Profile picture
@@ -1327,7 +1225,6 @@ function ProfileSection({
             </p>
           </div>
         </div>
-
         <div className="flex gap-2">
           <input
             type="file"
@@ -1337,7 +1234,6 @@ function ProfileSection({
             id="avatar-upload"
             disabled={uploading}
           />
-
           <label
             htmlFor="avatar-upload"
             className={cx(
@@ -1348,7 +1244,6 @@ function ProfileSection({
           >
             {uploading ? "Uploading..." : avatarUrl ? "Change" : "Upload"}
           </label>
-
           {avatarUrl && (
             <Button
               tokens={tokens}
@@ -1362,7 +1257,6 @@ function ProfileSection({
           )}
         </div>
       </div>
-
       <div className="grid gap-3 pt-5 sm:grid-cols-2">
         <Field
           label="First name"
@@ -1382,9 +1276,7 @@ function ProfileSection({
     </SectionCard>
   );
 }
-
 /* ── Security ── */
-
 const STRENGTH_LABELS = ["Too weak", "Weak", "Fair", "Good", "Strong"];
 const STRENGTH_COLORS = [
   "bg-red-500",
@@ -1393,7 +1285,6 @@ const STRENGTH_COLORS = [
   "bg-lime-500",
   "bg-emerald-500",
 ];
-
 function passwordScore(value: string): number {
   if (!value) return 0;
   let score = 0;
@@ -1403,21 +1294,16 @@ function passwordScore(value: string): number {
   if (/\d/.test(value) && /[^A-Za-z0-9]/.test(value)) score++;
   return Math.min(score, 4);
 }
-
 /* ── 2FA : garde MFA + modale de challenge (app ou email) ── */
-
 type MfaGate = {
   method: MfaMethod;
   factors: MfaFactor[];
   /** Action à rejouer une fois la session passée en AAL2. */
   run: () => Promise<void>;
 };
-
 const TOTP_RE = /^\d{6}$/;
-
 const formatWait = (seconds: number) =>
   seconds >= 60 ? `${Math.ceil(seconds / 60)} min` : `${seconds} s`;
-
 const formatDate = (iso?: string | null): string | null => {
   if (!iso) return null;
   const d = new Date(iso);
@@ -1428,7 +1314,6 @@ const formatDate = (iso?: string | null): string | null => {
     day: "numeric",
   });
 };
-
 function MfaChallengeModal({
   gate,
   onClose,
@@ -1457,9 +1342,7 @@ function MfaChallengeModal({
   const [now, setNow] = useState(() => Date.now());
   const verified = useRef(false);
   const sentFor = useRef<MfaGate | null>(null);
-
   const method: MfaMethod = gate?.method ?? "totp";
-
   const sendCode = useCallback(async () => {
     setSending(true);
     setError(null);
@@ -1479,7 +1362,6 @@ function MfaChallengeModal({
       setSending(false);
     }
   }, []);
-
   useEffect(() => {
     setFactorId(gate?.factors[0]?.id ?? "");
     setCode("");
@@ -1488,7 +1370,6 @@ function MfaChallengeModal({
     setResendAt(0);
     setSentTo(null);
     verified.current = false;
-
     // Méthode email : envoie le code dès l'ouverture de la modale.
     if (gate?.method === "email" && sentFor.current !== gate) {
       sentFor.current = gate;
@@ -1496,7 +1377,6 @@ function MfaChallengeModal({
     }
     if (!gate) sentFor.current = null;
   }, [gate, sendCode]);
-
   useEffect(() => {
     if (Math.max(lockedUntil, resendAt) <= Date.now()) return;
     const timer = window.setInterval(() => {
@@ -1506,28 +1386,23 @@ function MfaChallengeModal({
     }, 500);
     return () => window.clearInterval(timer);
   }, [lockedUntil, resendAt]);
-
   const waitLeft = Math.max(0, Math.ceil((lockedUntil - now) / 1000));
   const resendLeft = Math.max(0, Math.ceil((resendAt - now) / 1000));
   const ready = verified.current || TOTP_RE.test(code);
-
   const submit = async () => {
     if (!gate || busy || waitLeft > 0) return;
     if (!ready) {
       setError("Enter the 6-digit code");
       return;
     }
-
     setBusy(true);
     setError(null);
-
     try {
       if (!verified.current) {
         if (method === "email") await verifyEmailMfaCode(code);
         else await verifyMfaFactorCode(factorId, code);
         verified.current = true;
       }
-
       await gate.run();
       onDone();
     } catch (e) {
@@ -1552,16 +1427,13 @@ function MfaChallengeModal({
       setBusy(false);
     }
   };
-
   useEffect(() => {
     if (code.length === 6 && !busy && waitLeft === 0 && !verified.current) {
       void submit();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [code]);
-
   const factors = gate?.factors ?? [];
-
   return (
     <Modal
       open={!!gate}
@@ -1604,7 +1476,6 @@ function MfaChallengeModal({
             </select>
           </label>
         )}
-
         {verified.current ? (
           <p className={cx("text-[13px]", tokens.body)}>
             Code accepted. Retry to finish the action.
@@ -1626,11 +1497,9 @@ function MfaChallengeModal({
             tokens={tokens}
           />
         )}
-
         {verified.current && error && (
           <span className="text-[12px] text-red-500">{error}</span>
         )}
-
         {waitLeft > 0 && (
           <p
             role="alert"
@@ -1639,7 +1508,6 @@ function MfaChallengeModal({
             Too many attempts. Try again in {formatWait(waitLeft)}.
           </p>
         )}
-
         {method === "email" && !verified.current && (
           <button
             type="button"
@@ -1658,7 +1526,6 @@ function MfaChallengeModal({
               : "Resend code"}
           </button>
         )}
-
         <div
           className={cx("flex justify-end gap-2 border-t pt-4", tokens.cardBorder)}
         >
@@ -1686,7 +1553,6 @@ function MfaChallengeModal({
     </Modal>
   );
 }
-
 function useMfaGate({
   tokens,
   notify,
@@ -1701,17 +1567,14 @@ function useMfaGate({
   description?: string;
 }) {
   const [gate, setGate] = useState<MfaGate | null>(null);
-
   const guard = useCallback(
     async (run: () => Promise<void>) => {
       try {
         await run();
       } catch (error) {
         if (!isMfaRequiredError(error)) throw error;
-
         const status = await getMfaStatus();
         const method = status?.method;
-
         if (!method) {
           notify(
             "Two-factor authentication is enabled but no method was found. Set it up again and retry.",
@@ -1719,9 +1582,7 @@ function useMfaGate({
           );
           return;
         }
-
         const factors = method === "totp" ? await listMfaFactors() : [];
-
         if (method === "totp" && factors.length === 0) {
           notify(
             "No authenticator was found. Set up 2FA again and retry.",
@@ -1729,13 +1590,11 @@ function useMfaGate({
           );
           return;
         }
-
         setGate({ method, factors, run });
       }
     },
     [notify]
   );
-
   const modal = (
     <MfaChallengeModal
       gate={gate}
@@ -1747,12 +1606,9 @@ function useMfaGate({
       isDark={isDark}
     />
   );
-
   return { guard, modal };
 }
-
 /* ── Security (AccountSection) ── */
-
 function AccountSection({
   tokens,
   notify,
@@ -1769,13 +1625,11 @@ function AccountSection({
   const [provider, setProvider] = useState<string>("email");
   const [hasPassword, setHasPassword] = useState(true);
   const [mfaEnabled, setMfaEnabled] = useState(false);
-
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
   const [confirmNext, setConfirmNext] = useState("");
   const [show, setShow] = useState(false);
   const [updatingPassword, setUpdatingPassword] = useState(false);
-
   const { guard, modal: mfaModal } = useMfaGate({
     tokens,
     notify,
@@ -1783,15 +1637,12 @@ function AccountSection({
     title: "Two-factor verification required",
     description: "Enter a verification code to change your password.",
   });
-
   useEffect(() => {
     let mounted = true;
-
     (async () => {
       try {
         const data = await getCurrentUser();
         if (!mounted || !data) return;
-
         setEmail(data.email || "");
         setVerified(Boolean(data.email_confirmed_at));
         setProvider(data.provider ?? "email");
@@ -1804,17 +1655,13 @@ function AccountSection({
         if (mounted) setLoadingAccount(false);
       }
     })();
-
     return () => {
       mounted = false;
     };
   }, [notify]);
-
   const handleSendVerification = async () => {
     if (loadingAccount || verified || sendingVerification) return;
-
     setSendingVerification(true);
-
     try {
       const ok = await resendVerificationEmail();
       notify(
@@ -1833,10 +1680,8 @@ function AccountSection({
       setSendingVerification(false);
     }
   };
-
   const handleUpdatePassword = async () => {
     if (updatingPassword || loadingAccount) return;
-
     if (hasPassword && !current) return notify("Enter your current password");
     if (!next)
       return notify(hasPassword ? "Enter a new password" : "Enter a password");
@@ -1845,13 +1690,10 @@ function AccountSection({
     if (hasPassword && next === current)
       return notify("New password must be different from the current one");
     if (next !== confirmNext) return notify("Passwords do not match");
-
     setUpdatingPassword(true);
-
     const currentPassword = hasPassword ? current : null;
     const newPassword = next;
     const wasSetting = !hasPassword;
-
     try {
       await guard(async () => {
         await updatePassword(currentPassword, newPassword);
@@ -1875,7 +1717,6 @@ function AccountSection({
       setUpdatingPassword(false);
     }
   };
-
   const trailing = (
     <button
       type="button"
@@ -1893,15 +1734,12 @@ function AccountSection({
       {show ? <EyeOffIcon /> : <EyeIcon />}
     </button>
   );
-
   const providerLabel =
     provider === "google" ? "Google" : provider === "github" ? "GitHub" : null;
-
   const isOAuthOnly = !hasPassword;
   const score = passwordScore(next);
   const mismatch = confirmNext.length > 0 && next !== confirmNext;
   const pwType = show ? "text" : "password";
-
   const passwordDescription = loadingAccount
     ? "Loading your account details..."
     : isOAuthOnly
@@ -1911,7 +1749,6 @@ function AccountSection({
     : mfaEnabled
     ? "Two-factor authentication is on. Changing your password requires a verification code."
     : "Use at least 8 characters. Mix letters, numbers, and symbols.";
-
   return (
     <>
       <SectionCard
@@ -1941,7 +1778,6 @@ function AccountSection({
           hint="Contact support to change your email address."
           tokens={tokens}
         />
-
         <div className="flex items-center gap-2 pt-4">
           <span
             className={cx(
@@ -1952,7 +1788,6 @@ function AccountSection({
             {verified && <CheckIcon className="h-3 w-3" />}
             {loadingAccount ? "Checking..." : verified ? "Verified" : "Unverified"}
           </span>
-
           {mfaEnabled && (
             <span
               className={cx(
@@ -1966,7 +1801,6 @@ function AccountSection({
           )}
         </div>
       </SectionCard>
-
       <SectionCard
         title={isOAuthOnly ? "Set a password" : "Password"}
         description={passwordDescription}
@@ -2000,7 +1834,6 @@ function AccountSection({
               tokens={tokens}
             />
           )}
-
           <div>
             <Field
               label={isOAuthOnly ? "Password" : "New password"}
@@ -2013,7 +1846,6 @@ function AccountSection({
               tokens={tokens}
               trailing={trailing}
             />
-
             {next && (
               <div className="mt-2.5" aria-live="polite">
                 <div className="flex gap-1.5">
@@ -2033,7 +1865,6 @@ function AccountSection({
               </div>
             )}
           </div>
-
           <Field
             label="Confirm password"
             type={pwType}
@@ -2046,7 +1877,6 @@ function AccountSection({
             tokens={tokens}
           />
         </div>
-
         {isOAuthOnly && providerLabel && (
           <p className={cx("pt-4 text-[12.5px] leading-relaxed", tokens.body)}>
             You can still sign in with {providerLabel}. To manage that account,
@@ -2070,14 +1900,11 @@ function AccountSection({
           </p>
         )}
       </SectionCard>
-
       {mfaModal}
     </>
   );
 }
-
 /* ── MFA (une seule méthode : app d'authentification OU code par email) ── */
-
 function MfaSection({
   tokens,
   notify,
@@ -2092,7 +1919,6 @@ function MfaSection({
   const [emailHint, setEmailHint] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [starting, setStarting] = useState<null | "totp" | "email">(null);
-
   // Activation TOTP (QR) ou email (code reçu)
   const [enrollment, setEnrollment] = useState<{
     factorId: string;
@@ -2106,12 +1932,10 @@ function MfaSection({
   const [now, setNow] = useState(() => Date.now());
   const [code, setCode] = useState("");
   const [confirming, setConfirming] = useState(false);
-
   const [disableTarget, setDisableTarget] = useState<
     null | { type: "totp"; id: string } | { type: "email" }
   >(null);
   const [disabling, setDisabling] = useState(false);
-
   const { guard, modal: mfaModal } = useMfaGate({
     tokens,
     notify,
@@ -2119,12 +1943,10 @@ function MfaSection({
     title: "Verify it's you",
     description: "Enter a verification code to continue.",
   });
-
   const enrollmentRef = useRef<typeof enrollment>(null);
   useEffect(() => {
     enrollmentRef.current = enrollment;
   }, [enrollment]);
-
   // Annule l'enrôlement TOTP abandonné si on quitte la page.
   useEffect(
     () => () => {
@@ -2133,7 +1955,6 @@ function MfaSection({
     },
     []
   );
-
   useEffect(() => {
     if (resendAt <= Date.now()) return;
     const timer = window.setInterval(() => {
@@ -2143,7 +1964,6 @@ function MfaSection({
     }, 500);
     return () => window.clearInterval(timer);
   }, [resendAt]);
-
   const loadAll = useCallback(async () => {
     const status = await getMfaStatus();
     const current = status?.method ?? null;
@@ -2151,7 +1971,6 @@ function MfaSection({
     setEmailHint(status?.email_hint ?? null);
     setFactors(current === "totp" ? await listMfaFactors() : []);
   }, []);
-
   useEffect(() => {
     (async () => {
       try {
@@ -2164,16 +1983,13 @@ function MfaSection({
       }
     })();
   }, [loadAll, notify]);
-
   const errorMessage = (e: unknown, fallback: string) =>
     isRateLimitError(e)
       ? `Too many attempts. Try again in ${formatWait(e.retryAfterSeconds)}.`
       : e instanceof Error
       ? e.message
       : fallback;
-
   const resendLeft = Math.max(0, Math.ceil((resendAt - now) / 1000));
-
   /* ----- Activer : app d'authentification ------------------------------------ */
   const handleStartTotp = async () => {
     if (starting) return;
@@ -2190,7 +2006,6 @@ function MfaSection({
       setStarting(null);
     }
   };
-
   /* ----- Activer : code par email --------------------------------------------- */
   const sendEnrollEmail = async () => {
     const sent = await sendEmailMfaCode("enroll", { force: true });
@@ -2199,7 +2014,6 @@ function MfaSection({
     setNow(Date.now());
     setCode("");
   };
-
   const handleStartEmail = async () => {
     if (starting) return;
     setStarting("email");
@@ -2212,7 +2026,6 @@ function MfaSection({
       setStarting(null);
     }
   };
-
   const handleResendEnroll = async () => {
     if (resendLeft > 0 || confirming) return;
     try {
@@ -2222,7 +2035,6 @@ function MfaSection({
       notify(errorMessage(e, "Failed to send the code"), "error");
     }
   };
-
   /* ----- Annuler / confirmer --------------------------------------------------- */
   const handleCancel = async () => {
     const pending = enrollment;
@@ -2238,14 +2050,12 @@ function MfaSection({
       }
     }
   };
-
   const handleConfirm = async () => {
     if ((!enrollment && !emailEnroll) || confirming) return;
     if (!TOTP_RE.test(code)) {
       notify("Enter the 6-digit code", "error");
       return;
     }
-
     setConfirming(true);
     try {
       if (enrollment) {
@@ -2256,7 +2066,6 @@ function MfaSection({
         await confirmEmailMfaEnrollment(code);
         setEmailEnroll(null);
       }
-
       setCode("");
       await loadAll();
       void revokeOtherSessions();
@@ -2269,22 +2078,18 @@ function MfaSection({
       setConfirming(false);
     }
   };
-
   useEffect(() => {
     if ((enrollment || emailEnroll) && code.length === 6 && !confirming) {
       void handleConfirm();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [code]);
-
   /* ----- Désactiver -------------------------------------------------------------- */
   const handleDisable = async () => {
     const target = disableTarget;
     if (!target || disabling) return;
-
     setDisableTarget(null);
     setDisabling(true);
-
     try {
       await guard(async () => {
         if (target.type === "email") await disableEmailMfa();
@@ -2300,13 +2105,11 @@ function MfaSection({
       setDisabling(false);
     }
   };
-
   const factorLabel = (f: MfaFactor) => {
     const n = f.friendlyName;
     if (!n || /^Authenticator \d+$/.test(n)) return "Authenticator app";
     return n;
   };
-
   const copySecret = async () => {
     if (!enrollment) return;
     try {
@@ -2316,7 +2119,6 @@ function MfaSection({
       notify("Copy failed", "error");
     }
   };
-
   /* ----- Rendu -------------------------------------------------------------------- */
   if (loading) {
     return (
@@ -2331,7 +2133,6 @@ function MfaSection({
       </SectionCard>
     );
   }
-
   if (enrollment) {
     return (
       <>
@@ -2370,7 +2171,6 @@ function MfaSection({
                 </Button>
               </div>
             </div>
-
             <Field
               label="Verification code"
               type="text"
@@ -2383,7 +2183,6 @@ function MfaSection({
               tokens={tokens}
               hint="Enter the 6-digit code from your authenticator app."
             />
-
             <div className="flex justify-end gap-2">
               <Button
                 tokens={tokens}
@@ -2403,12 +2202,10 @@ function MfaSection({
             </div>
           </div>
         </SectionCard>
-
         {mfaModal}
       </>
     );
   }
-
   if (emailEnroll) {
     return (
       <>
@@ -2432,7 +2229,6 @@ function MfaSection({
               tokens={tokens}
               hint="The code expires in 10 minutes."
             />
-
             <button
               type="button"
               onClick={() => void handleResendEnroll()}
@@ -2447,7 +2243,6 @@ function MfaSection({
                 ? `Resend code in ${formatWait(resendLeft)}`
                 : "Resend code"}
             </button>
-
             <div className="flex justify-end gap-2">
               <Button
                 tokens={tokens}
@@ -2467,14 +2262,11 @@ function MfaSection({
             </div>
           </div>
         </SectionCard>
-
         {mfaModal}
       </>
     );
   }
-
   const otherActive = (self: MfaMethod) => method !== null && method !== self;
-
   return (
     <>
       <SectionCard
@@ -2550,7 +2342,6 @@ function MfaSection({
           </div>
         )}
       </SectionCard>
-
       <SectionCard
         title="Email code"
         description="We email you a 6-digit code every time you sign in."
@@ -2609,7 +2400,6 @@ function MfaSection({
           </div>
         )}
       </SectionCard>
-
       <Modal
         open={!!disableTarget}
         onClose={() => setDisableTarget(null)}
@@ -2632,14 +2422,11 @@ function MfaSection({
           </Button>
         </div>
       </Modal>
-
       {mfaModal}
     </>
   );
 }
-
 /* ── Appearance ── */
-
 function ThemePreview({ dark }: { dark: boolean }) {
   const frame = dark
     ? "border-white/10 bg-[#0b0b0c]"
@@ -2648,7 +2435,6 @@ function ThemePreview({ dark }: { dark: boolean }) {
   const line = dark ? "bg-white/15" : "bg-neutral-400/40";
   const faint = dark ? "bg-white/[0.08]" : "bg-neutral-400/25";
   const accent = dark ? "bg-white" : "bg-neutral-900";
-
   return (
     <div
       className={cx(
@@ -2670,7 +2456,6 @@ function ThemePreview({ dark }: { dark: boolean }) {
     </div>
   );
 }
-
 function AppearanceSection({
   tokens,
   isDark,
@@ -2684,16 +2469,13 @@ function AppearanceSection({
     { key: "light", label: "Light" },
     { key: "dark", label: "Dark" },
   ];
-
   const selected = isDark ? "dark" : "light";
-
   const [reduceMotion, setReduceMotion] = usePref(
     "reduceMotion",
     typeof window !== "undefined" &&
       window.matchMedia("(prefers-reduced-motion: reduce)").matches
   );
   const [compact, setCompact] = usePref("compact", false);
-
   return (
     <SectionCard
       title="Appearance"
@@ -2704,7 +2486,6 @@ function AppearanceSection({
         <p className={cx("mb-2.5 text-[13px] font-medium", tokens.label)}>
           Theme
         </p>
-
         <div
           role="radiogroup"
           aria-label="Theme"
@@ -2712,7 +2493,6 @@ function AppearanceSection({
         >
           {options.map((option) => {
             const isActive = selected === option.key;
-
             return (
               <button
                 key={option.key}
@@ -2732,7 +2512,6 @@ function AppearanceSection({
                 )}
               >
                 <ThemePreview dark={option.key === "dark"} />
-
                 <span
                   className={cx(
                     "mt-2.5 text-[13px] font-medium",
@@ -2741,7 +2520,6 @@ function AppearanceSection({
                 >
                   {option.label}
                 </span>
-
                 {isActive && (
                   <span className="absolute top-5 right-5 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 text-white shadow">
                     <CheckIcon className="h-3 w-3" />
@@ -2752,7 +2530,6 @@ function AppearanceSection({
           })}
         </div>
       </div>
-
       <Row
         title="Reduce motion"
         description="Disable non-essential animations across the app."
@@ -2765,7 +2542,6 @@ function AppearanceSection({
           tokens={tokens}
         />
       </Row>
-
       <Row
         title="Compact mode"
         description="Show more content with tighter spacing."
@@ -2781,24 +2557,11 @@ function AppearanceSection({
     </SectionCard>
   );
 }
-
 /* ── Preferences ── */
-
 const LANGUAGES: { value: string; label: string }[] = [
   { value: "en", label: "English" },
   { value: "fr", label: "Français" },
-  { value: "es", label: "Español" },
-  { value: "de", label: "Deutsch" },
-  { value: "it", label: "Italiano" },
-  { value: "pt", label: "Português" },
-  { value: "nl", label: "Nederlands" },
-  { value: "ja", label: "日本語" },
-  { value: "ko", label: "한국어" },
-  { value: "zh", label: "中文" },
-  { value: "ru", label: "Русский" },
-  { value: "ar", label: "العربية" },
 ];
-
 const NOTIFICATION_ITEMS: {
   key: string;
   title: string;
@@ -2831,7 +2594,6 @@ const NOTIFICATION_ITEMS: {
     description: "Tips, offers, and occasional product news.",
   },
 ];
-
 function PreferencesSection({
   tokens,
   notify,
@@ -2847,19 +2609,16 @@ function PreferencesSection({
     mentions: true,
     marketing: false,
   });
-
   const saved = useRef({ language, prefs });
   const dirty =
     language !== saved.current.language ||
     JSON.stringify(prefs) !== JSON.stringify(saved.current.prefs);
-
   const save = () => {
     saved.current = { language, prefs };
     // Force un re-render pour recalculer `dirty`.
     setPrefs((prev) => ({ ...prev }));
     notify("Preferences saved");
   };
-
   return (
     <SectionCard
       title="Preferences"
@@ -2888,10 +2647,7 @@ function PreferencesSection({
           onChange={(e) => setLanguage(e.target.value)}
           aria-label="Interface language"
           className={cx(
-            "cursor-pointer rounded-[10px] border px-3 py-2 text-[13px] outline-none transition",
-            tokens.inputBg,
-            tokens.inputText,
-            tokens.inputBorder,
+            "cursor-pointer rounded-full border border-black bg-black px-4 py-2 text-[13px] font-medium text-white outline-none transition hover:bg-neutral-900",
             tokens.inputFocus
           )}
         >
@@ -2902,7 +2658,6 @@ function PreferencesSection({
           ))}
         </select>
       </Row>
-
       {NOTIFICATION_ITEMS.map((item) => (
         <Row
           key={item.key}
@@ -2923,9 +2678,7 @@ function PreferencesSection({
     </SectionCard>
   );
 }
-
 /* ── Billing ── */
-
 function BillingSection({
   tokens,
   notify,
@@ -2934,7 +2687,6 @@ function BillingSection({
   notify: Notify;
 }) {
   const soon = () => notify("Billing isn't available yet", "error");
-
   return (
     <>
       <SectionCard
@@ -2961,13 +2713,11 @@ function BillingSection({
               No card on file.
             </p>
           </div>
-
           <Button tokens={tokens} onClick={soon}>
             Upgrade plan
           </Button>
         </div>
       </SectionCard>
-
       <SectionCard
         title="Payment method"
         description="Cards are only charged when a paid plan is active."
@@ -2987,7 +2737,6 @@ function BillingSection({
           </Button>
         </div>
       </SectionCard>
-
       <SectionCard
         title="Invoices"
         description="Download past receipts."
@@ -2998,9 +2747,7 @@ function BillingSection({
     </>
   );
 }
-
 /* ── Utils · Channels ── */
-
 type StatusResponse = {
   connected: boolean;
   account:
@@ -3012,7 +2759,6 @@ type StatusResponse = {
     | null
     | undefined;
 };
-
 type ChannelTokens = {
   text: string;
   muted: string;
@@ -3021,9 +2767,7 @@ type ChannelTokens = {
   ring: string;
   avatarBadgeBg: string;
 };
-
 export const INSIGHT_ROUTE = "insights";
-
 const initialConnections: ConnectionState = {
   instagram: { connected: false },
   facebook: { connected: false },
@@ -3032,7 +2776,6 @@ const initialConnections: ConnectionState = {
   pinterest: { connected: false },
   threads: { connected: false },
 };
-
 function formatOAuthError(provider: string, error: unknown): string {
   const raw = error instanceof Error ? error.message : "";
   if (/failed to fetch|networkerror|load failed/i.test(raw)) {
@@ -3042,7 +2785,6 @@ function formatOAuthError(provider: string, error: unknown): string {
     ? `Unable to connect to ${provider}. ${raw}`
     : `Unable to connect to ${provider}.`;
 }
-
 function mockHandleFor(key: ChannelKey): string {
   const handles: Record<ChannelKey, string> = {
     instagram: "@ronan.studio",
@@ -3054,7 +2796,6 @@ function mockHandleFor(key: ChannelKey): string {
   };
   return handles[key];
 }
-
 function toConnection(status: StatusResponse): Connection {
   if (!status.connected) {
     return { connected: false };
@@ -3066,9 +2807,7 @@ function toConnection(status: StatusResponse): Connection {
     avatarUrl: account?.avatar_url ?? account?.avatarUrl ?? undefined,
   };
 }
-
 const RETURN_KEY = "stone:oauth-returned";
-
 function readReturned(): CacheProvider[] {
   try {
     const parsed = JSON.parse(sessionStorage.getItem(RETURN_KEY) ?? "[]");
@@ -3077,7 +2816,6 @@ function readReturned(): CacheProvider[] {
     return [];
   }
 }
-
 function writeReturned(list: CacheProvider[]) {
   try {
     if (list.length === 0) sessionStorage.removeItem(RETURN_KEY);
@@ -3086,11 +2824,9 @@ function writeReturned(list: CacheProvider[]) {
     /* storage indisponible */
   }
 }
-
 function markReturning(provider: CacheProvider) {
   writeReturned(Array.from(new Set([...readReturned(), provider])));
 }
-
 function buildAccount(
   channel: Channel,
   connection: Connection
@@ -3103,7 +2839,6 @@ function buildAccount(
     avatarUrl: connection.avatarUrl,
   };
 }
-
 const channelTokens = (isDark: boolean): ChannelTokens =>
   isDark
     ? {
@@ -3122,7 +2857,6 @@ const channelTokens = (isDark: boolean): ChannelTokens =>
         ring: "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/25",
         avatarBadgeBg: "bg-white text-black ring-white",
       };
-
 function ChannelAvatar({
   channel,
   connection,
@@ -3135,11 +2869,9 @@ function ChannelAvatar({
   const Icon = channel.icon;
   const [imageFailed, setImageFailed] = useState(false);
   const hasAvatar = Boolean(connection.avatarUrl) && !imageFailed;
-
   useEffect(() => {
     setImageFailed(false);
   }, [connection.avatarUrl]);
-
   if (connection.connected && hasAvatar) {
     return (
       <span className="relative h-11 w-11 shrink-0">
@@ -3162,7 +2894,6 @@ function ChannelAvatar({
       </span>
     );
   }
-
   return (
     <div
       className={cx(
@@ -3174,7 +2905,6 @@ function ChannelAvatar({
     </div>
   );
 }
-
 function ChannelRow({
   channel,
   connection,
@@ -3197,7 +2927,6 @@ function ChannelRow({
   const isConnected = connection.connected;
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
-
   useEffect(() => {
     if (!menuOpen) return;
     const onPointerDown = (event: MouseEvent) => {
@@ -3215,7 +2944,6 @@ function ChannelRow({
       document.removeEventListener("keydown", onKeyDown);
     };
   }, [menuOpen]);
-
   return (
     <div
       onClick={() => !isConnected && !disabled && !pending && onToggle()}
@@ -3230,7 +2958,6 @@ function ChannelRow({
       )}
     >
       <ChannelAvatar channel={channel} connection={connection} t={t} />
-
       <div className="flex min-w-0 flex-1 flex-col">
         <span className={cx("text-[14px] font-semibold", t.text)}>
           {isConnected ? connection.handle || channel.name : channel.name}
@@ -3239,7 +2966,6 @@ function ChannelRow({
           {isConnected ? "Connected" : channel.subtitle}
         </span>
       </div>
-
       {isConnected ? (
         <div ref={menuRef} className="relative shrink-0">
           <button
@@ -3260,7 +2986,6 @@ function ChannelRow({
           >
             <MoreIcon className="h-4 w-4" />
           </button>
-
           {menuOpen && (
             <div
               className={cx(
@@ -3288,14 +3013,12 @@ function ChannelRow({
                 <RefreshIcon />
                 Reconnect
               </button>
-
               <div
                 className={cx(
                   "my-1 h-px",
                   isDark ? "bg-white/[0.06]" : "bg-black/[0.06]"
                 )}
               />
-
               <button
                 type="button"
                 disabled={pending}
@@ -3323,9 +3046,7 @@ function ChannelRow({
     </div>
   );
 }
-
 /* ── Utils · Channels ── */
-
 function ChannelsSection({
   tokens,
   notify,
@@ -3338,7 +3059,6 @@ function ChannelsSection({
   const { user } = useUser();
   const userId = user?.id ?? null;
   const t = useMemo(() => channelTokens(isDark), [isDark]);
-
   const [connections, setConnections] = useState<ConnectionState>(() => {
     if (!userId) return initialConnections;
     const tiktok = readCache(userId, "tiktok");
@@ -3351,19 +3071,15 @@ function ChannelsSection({
       ...(youtube ? { youtube: youtube.connection } : {}),
     };
   });
-
   const [pendingKey, setPendingKey] = useState<ChannelKey | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [onboardingAccount, setOnboardingAccount] =
     useState<OnboardingAccount | null>(null);
   const [confirming, setConfirming] = useState(false);
-
   const tiktokBusy = useRef(false);
   const pinterestBusy = useRef(false);
   const youtubeBusy = useRef(false);
-
   /* ---- Onboarding ---- */
-
   // Ouvre l'étape 1 (ConfirmAccountModal). Appelée après chaque connexion réussie.
   const startOnboarding = (key: ChannelKey, connection: Connection) => {
     const channel = CHANNELS.find((c) => c.key === key);
@@ -3373,13 +3089,11 @@ function ChannelsSection({
     setOnboardingAccount(buildAccount(channel, connection));
     notify(`${channel.name} connected successfully!`, "success");
   };
-
   // Bouton "Finish Connection" : ferme l'étape 1, va sur /insights, ouvre l'étape 2.
   const handleConfirmAccount = () => {
     if (!onboardingAccount || confirming) return;
     const account = onboardingAccount;
     setConfirming(true);
-
     window.setTimeout(() => {
       setOnboardingAccount(null);
       setConfirming(false);
@@ -3387,43 +3101,34 @@ function ChannelsSection({
       window.setTimeout(() => openFrequencyOnboarding(account, isDark), 150);
     }, 300);
   };
-
   const handleRejectAccount = () => {
     if (!onboardingAccount) return;
     const key = onboardingAccount.key;
     setOnboardingAccount(null);
     handleToggle(key);
   };
-
   const handleCloseOnboarding = () => {
     setOnboardingAccount(null);
     setConfirming(false);
   };
-
   /* ---- Derived ---- */
-
   const connectedCount = useMemo(
     () => CHANNELS.filter((c) => connections[c.key].connected).length,
     [connections]
   );
   const limitReached = connectedCount >= PLAN.maxChannels;
   const slotsLeft = Math.max(0, PLAN.maxChannels - connectedCount);
-
   /* ---- Sync OAuth (retour de TikTok / Pinterest / YouTube) ---- */
-
   useEffect(() => {
     if (!userId) {
       console.log("[Stone] sync ignoré : userId absent");
       return;
     }
-
     const basePath = window.location.pathname;
     const params = new URLSearchParams(window.location.search);
-
     const tiktokError = params.get("tiktok_error");
     const pinterestError = params.get("pinterest_error");
     const youtubeError = params.get("youtube_error");
-
     const fromUrl: Record<CacheProvider, boolean> = {
       tiktok: params.has("tiktok") || Boolean(tiktokError),
       pinterest: params.has("pinterest") || Boolean(pinterestError),
@@ -3434,7 +3139,6 @@ function ChannelsSection({
       pinterest: pinterestError,
       youtube: youtubeError,
     };
-
     const providers: CacheProvider[] = ["tiktok", "pinterest", "youtube"];
     const pendingReturn = new Set<CacheProvider>(readReturned());
     providers.forEach((p) => {
@@ -3442,26 +3146,21 @@ function ChannelsSection({
       if (oauthErrors[p]) pendingReturn.delete(p);
     });
     writeReturned([...pendingReturn]);
-
     const returned: Record<CacheProvider, boolean> = {
       tiktok: pendingReturn.has("tiktok"),
       pinterest: pendingReturn.has("pinterest"),
       youtube: pendingReturn.has("youtube"),
     };
-
     console.log("[Stone] sync démarré", { fromUrl, returned });
-
     if (tiktokError)
       setErrorMessage(`Unable to connect to TikTok. ${tiktokError}`);
     if (pinterestError)
       setErrorMessage(`Unable to connect to Pinterest. ${pinterestError}`);
     if (youtubeError)
       setErrorMessage(`Unable to connect to YouTube Shorts. ${youtubeError}`);
-
     if (returned.tiktok) clearCache(userId, "tiktok");
     if (returned.pinterest) clearCache(userId, "pinterest");
     if (returned.youtube) clearCache(userId, "youtube");
-
     if (fromUrl.tiktok || fromUrl.pinterest || fromUrl.youtube) {
       [
         "tiktok",
@@ -3478,9 +3177,7 @@ function ChannelsSection({
         `${basePath}${qs ? `?${qs}` : ""}${window.location.hash}`
       );
     }
-
     let cancelled = false;
-
     const sync = (
       provider: CacheProvider,
       justReturned: boolean,
@@ -3494,26 +3191,21 @@ function ChannelsSection({
         }));
         if (Date.now() - cached.savedAt < CACHE_MAX_AGE_MS) return;
       }
-
       void (async () => {
         try {
           const status = await fetchStatus();
           console.log("[Stone] status", provider, { justReturned, status });
           if (cancelled) return;
-
           if (justReturned) {
             writeReturned(readReturned().filter((p) => p !== provider));
           }
-
           const connection = toConnection(status);
           if (connection.connected) writeCache(userId, connection, provider);
           else clearCache(userId, provider);
-
           setConnections((current) => ({
             ...current,
             [provider]: connection,
           }));
-
           if (justReturned && connection.connected) {
             startOnboarding(provider, connection);
           } else if (justReturned) {
@@ -3531,20 +3223,16 @@ function ChannelsSection({
         }
       })();
     };
-
     sync("tiktok", returned.tiktok, getTikTokStatus);
     sync("pinterest", returned.pinterest, getPinterestStatus);
     sync("youtube", returned.youtube, getYouTubeStatus);
-
     return () => {
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
-
   useEffect(() => {
     if (!userId) return;
-
     const refreshConnections = () => {
       setConnections((current) => ({
         ...current,
@@ -3556,14 +3244,11 @@ function ChannelsSection({
           readCache(userId, "youtube")?.connection ?? { connected: false },
       }));
     };
-
     window.addEventListener(CHANNELS_CHANGED_EVENT, refreshConnections);
     return () =>
       window.removeEventListener(CHANNELS_CHANGED_EVENT, refreshConnections);
   }, [userId]);
-
   /* ---- OAuth ---- */
-
   const handleTikTokToggle = async (isReconnect = false) => {
     if (tiktokBusy.current) return;
     tiktokBusy.current = true;
@@ -3595,7 +3280,6 @@ function ChannelsSection({
       }
     }
   };
-
   const handlePinterestToggle = async (isReconnect = false) => {
     if (pinterestBusy.current) return;
     pinterestBusy.current = true;
@@ -3644,7 +3328,6 @@ function ChannelsSection({
       }
     }
   };
-
   const handleYouTubeToggle = async (isReconnect = false) => {
     if (youtubeBusy.current) return;
     youtubeBusy.current = true;
@@ -3676,9 +3359,7 @@ function ChannelsSection({
       }
     }
   };
-
   /* ---- Canaux simulés (Instagram / Facebook / Threads) ---- */
-
   const handlePlaceholderToggle = (key: ChannelKey) => {
     const wasConnected = connections[key].connected;
     const name = CHANNELS.find((c) => c.key === key)?.name ?? key;
@@ -3701,7 +3382,6 @@ function ChannelsSection({
       setPendingKey(null);
     }, 450);
   };
-
   const handlePlaceholderReconnect = (key: ChannelKey) => {
     setPendingKey(key);
     window.setTimeout(() => {
@@ -3714,7 +3394,6 @@ function ChannelsSection({
       setPendingKey(null);
     }, 450);
   };
-
   function handleToggle(key: ChannelKey) {
     setErrorMessage(null);
     if (!connections[key].connected && limitReached) {
@@ -3728,7 +3407,6 @@ function ChannelsSection({
     if (key === "youtube") return void handleYouTubeToggle();
     handlePlaceholderToggle(key);
   }
-
   function handleReconnect(key: ChannelKey) {
     setErrorMessage(null);
     if (key === "tiktok") return void handleTikTokToggle(true);
@@ -3736,21 +3414,17 @@ function ChannelsSection({
     if (key === "youtube") return void handleYouTubeToggle(true);
     handlePlaceholderReconnect(key);
   }
-
   const handleUpgrade = () => console.log("[Stone] Upgrade clicked");
-
   const panelSurface = isDark
     ? "border-white/[0.07] bg-white/[0.03]"
     : "border-black/[0.06] bg-[#f6f4f0]";
   const mutedText = isDark ? "text-neutral-500" : "text-neutral-400";
   const strongText = isDark ? "text-white" : "text-neutral-900";
-
   return (
     <>
       <p className={cx("text-[13px]", mutedText)}>
         Your connected accounts at a glance. Click on a channel to connect it.
       </p>
-
       {/* Bannière plan */}
       <div
         className={cx(
@@ -3780,12 +3454,10 @@ function ChannelsSection({
             </p>
           </div>
         </div>
-
         <Button tokens={tokens} onClick={handleUpgrade} className="shrink-0">
           Upgrade Plan
         </Button>
       </div>
-
       {/* Erreur */}
       {errorMessage && (
         <div
@@ -3804,7 +3476,6 @@ function ChannelsSection({
           </button>
         </div>
       )}
-
       {/* Grille des channels */}
       <div className="grid grid-cols-1 gap-2 md:grid-cols-2 lg:gap-4">
         {CHANNELS.map((channel) => (
@@ -3821,11 +3492,9 @@ function ChannelsSection({
           />
         ))}
       </div>
-
       <div className={cx("flex items-center justify-between text-[11px]", mutedText)}>
         <span>Secure OAuth connections</span>
       </div>
-
       {/* Étape 1 de l'onboarding : s'ouvre après chaque connexion réussie */}
       {onboardingAccount && (
         <ConfirmAccountModal
@@ -3840,9 +3509,7 @@ function ChannelsSection({
     </>
   );
 }
-
 /* ── Utils · Tags ── */
-
 const TAG_COLORS = [
   "bg-[#6366f1]",
   "bg-[#ec4899]",
@@ -3863,7 +3530,6 @@ const TAG_COLORS = [
   "bg-[#1e3a8a]",
   "bg-[#171717]",
 ];
-
 function TagsSection({
   tokens,
   notify,
@@ -3882,7 +3548,6 @@ function TagsSection({
   const [draft, setDraft] = useState("");
   const [color, setColor] = useState(TAG_COLORS[0]);
   const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
-
   useEffect(() => {
     let mounted = true;
     (async () => {
@@ -3900,41 +3565,34 @@ function TagsSection({
       mounted = false;
     };
   }, [notify]);
-
   const filtered = tags.filter((t) =>
     t.label.toLowerCase().includes(search.trim().toLowerCase())
   );
-
   const openCreate = () => {
     setEditing(null);
     setDraft("");
     setColor(TAG_COLORS[0]);
     setModalOpen(true);
   };
-
   const openEdit = (tag: Tag) => {
     setEditing(tag);
     setDraft(tag.label);
     setColor(tag.color);
     setModalOpen(true);
   };
-
   const closeModal = () => {
     setModalOpen(false);
     setEditing(null);
   };
-
   const handleSave = async () => {
     if (busy) return;
     const label = draft.trim();
     if (!label) return notify("Enter a tag name", "error");
-
     const duplicate = tags.some(
       (t) =>
         t.label.toLowerCase() === label.toLowerCase() && t.id !== editing?.id
     );
     if (duplicate) return notify("Tag already exists", "error");
-
     setBusy(true);
     try {
       if (editing) {
@@ -3961,7 +3619,6 @@ function TagsSection({
       setBusy(false);
     }
   };
-
   const handleDelete = async (id: string) => {
     setMenuOpenId(null);
     const previous = tags;
@@ -3975,7 +3632,6 @@ function TagsSection({
       notify("Failed to delete tag", "error");
     }
   };
-
   const duplicateTag = async (tag: Tag) => {
     setMenuOpenId(null);
     try {
@@ -3991,14 +3647,12 @@ function TagsSection({
       );
     }
   };
-
   const iconBtn = cx(
     "flex h-8 w-8 items-center justify-center rounded-md transition",
     tokens.subtle,
     tokens.ghostHover,
     tokens.ring
   );
-
   return (
     <>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -4015,14 +3669,12 @@ function TagsSection({
             Learn more ↗
           </a>
         </p>
-
         <div className="sm:shrink-0">
           <Button tokens={tokens} onClick={openCreate}>
             + New Tag
           </Button>
         </div>
       </div>
-
       <div className="relative">
         <span className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-neutral-500">
           <SearchIcon className="h-4 w-4" />
@@ -4042,7 +3694,6 @@ function TagsSection({
           )}
         />
       </div>
-
       {loading ? (
         <div className="animate-pulse space-y-2" aria-busy="true">
           {[0, 1, 2].map((i) => (
@@ -4082,7 +3733,6 @@ function TagsSection({
               >
                 {tag.label}
               </span>
-
               <button
                 type="button"
                 onClick={() => openEdit(tag)}
@@ -4091,7 +3741,6 @@ function TagsSection({
               >
                 <PencilIcon />
               </button>
-
               <button
                 type="button"
                 onClick={() => handleDelete(tag.id)}
@@ -4100,7 +3749,6 @@ function TagsSection({
               >
                 <TrashIcon />
               </button>
-
               <div className="relative">
                 <button
                   type="button"
@@ -4112,7 +3760,6 @@ function TagsSection({
                 >
                   <MoreIcon />
                 </button>
-
                 {menuOpenId === tag.id && (
                   <>
                     <div
@@ -4145,7 +3792,6 @@ function TagsSection({
           ))}
         </div>
       )}
-
       <Modal
         open={modalOpen}
         onClose={closeModal}
@@ -4167,7 +3813,6 @@ function TagsSection({
             autoFocus
             tokens={tokens}
           />
-
           <div>
             <p className={cx("mb-2 text-[13px] font-medium", tokens.label)}>
               Color
@@ -4195,7 +3840,6 @@ function TagsSection({
               ))}
             </div>
           </div>
-
           <div
             className={cx(
               "flex justify-end gap-2 border-t pt-4",
@@ -4218,9 +3862,7 @@ function TagsSection({
     </>
   );
 }
-
 /* ── Utils · Saved replies ── */
-
 function SavedRepliesSection({
   tokens,
   notify,
@@ -4237,10 +3879,8 @@ function SavedRepliesSection({
   const [editing, setEditing] = useState<SavedReply | null>(null);
   const [name, setName] = useState("");
   const [content, setContent] = useState("");
-
   useEffect(() => {
     let mounted = true;
-
     (async () => {
       try {
         const data = await listSavedReplies();
@@ -4252,43 +3892,34 @@ function SavedRepliesSection({
         if (mounted) setLoading(false);
       }
     })();
-
     return () => {
       mounted = false;
     };
   }, [notify]);
-
   const openCreate = () => {
     setEditing(null);
     setName("");
     setContent("");
     setModalOpen(true);
   };
-
   const openEdit = (reply: SavedReply) => {
     setEditing(reply);
     setName(reply.name);
     setContent(reply.content);
     setModalOpen(true);
   };
-
   const closeModal = () => {
     if (busy) return;
     setModalOpen(false);
     setEditing(null);
   };
-
   const handleSave = async () => {
     if (busy) return;
-
     const cleanName = name.trim();
     const cleanContent = content.trim();
-
     if (!cleanName) return notify("Enter a name", "error");
     if (!cleanContent) return notify("Enter the reply content", "error");
-
     setBusy(true);
-
     try {
       if (editing) {
         const updated = await updateSavedReply(editing.id, {
@@ -4304,7 +3935,6 @@ function SavedRepliesSection({
         setReplies((prev) => [...prev, created]);
         notify("Saved reply created");
       }
-
       setModalOpen(false);
       setEditing(null);
     } catch (e) {
@@ -4317,11 +3947,9 @@ function SavedRepliesSection({
       setBusy(false);
     }
   };
-
   const handleDelete = async (id: string) => {
     const previous = replies;
     setReplies((prev) => prev.filter((r) => r.id !== id)); // optimiste
-
     try {
       await deleteSavedReply(id);
       notify("Saved reply deleted");
@@ -4331,22 +3959,18 @@ function SavedRepliesSection({
       notify("Failed to delete saved reply", "error");
     }
   };
-
   const iconBtn = cx(
     "flex h-8 w-8 items-center justify-center rounded-md transition",
     tokens.subtle,
     tokens.ghostHover,
     tokens.ring
   );
-
   const emptyCircle = isDark ? "bg-white/[0.05]" : "bg-neutral-100";
-
   return (
     <>
       <p className={cx("text-[13.5px] leading-relaxed", tokens.body)}>
         Saved Replies are visible to everyone in your organization.
       </p>
-
       {loading ? (
         <div className="animate-pulse space-y-2" aria-busy="true">
           {[0, 1, 2].map((i) => (
@@ -4363,7 +3987,6 @@ function SavedRepliesSection({
           >
             <ClipboardIcon className="h-10 w-10 text-neutral-500" />
           </div>
-
           <p
             className={cx(
               "max-w-md text-[15px] leading-relaxed",
@@ -4373,7 +3996,6 @@ function SavedRepliesSection({
             Save information you share often to quickly insert it to your
             replies.
           </p>
-
           <Button tokens={tokens} onClick={openCreate}>
             + New Saved Reply
           </Button>
@@ -4385,7 +4007,6 @@ function SavedRepliesSection({
               + New Saved Reply
             </Button>
           </div>
-
           <div
             className={cx(
               "rounded-2xl border divide-y",
@@ -4412,7 +4033,6 @@ function SavedRepliesSection({
                     {reply.content}
                   </p>
                 </div>
-
                 <div className="flex shrink-0 gap-1">
                   <button
                     type="button"
@@ -4436,7 +4056,6 @@ function SavedRepliesSection({
           </div>
         </div>
       )}
-
       <Modal
         open={modalOpen}
         onClose={closeModal}
@@ -4457,7 +4076,6 @@ function SavedRepliesSection({
             autoFocus
             tokens={tokens}
           />
-
           <div className="flex flex-col gap-1.5">
             <span className={cx("text-[13px] font-medium", tokens.label)}>
               Content
@@ -4483,7 +4101,6 @@ function SavedRepliesSection({
               </span>
             </div>
           </div>
-
           <div
             className={cx(
               "flex justify-end gap-2 border-t pt-4",
@@ -4511,9 +4128,7 @@ function SavedRepliesSection({
     </>
   );
 }
-
 /* ── Danger zone ── */
-
 function DangerSection({
   tokens,
   notify,
@@ -4523,12 +4138,10 @@ function DangerSection({
 }) {
   const [confirm, setConfirm] = useState("");
   const canDelete = confirm.trim().toLowerCase() === "delete";
-
   const handleDelete = () => {
     if (!canDelete) return;
     notify("Account deletion is disabled in this demo", "error");
   };
-
   return (
     <>
       <SectionCard
@@ -4550,7 +4163,6 @@ function DangerSection({
           </Button>
         </div>
       </SectionCard>
-
       <SectionCard
         title="Delete account"
         description="This permanently removes your account, workspace, and all data. This cannot be undone."
