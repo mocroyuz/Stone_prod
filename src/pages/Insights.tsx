@@ -185,6 +185,7 @@ type Tokens = {
   card: string;
   panel: string;
   inner: string;
+  tile: string;
   border: string;
   head: string;
   primaryBtn: string;
@@ -208,6 +209,7 @@ const tokens = (isDark: boolean): Tokens =>
         card: "border-white/[0.05] bg-transparent",
         panel: "border-white/[0.05] bg-white/[0.015]",
         inner: "border-white/[0.05] bg-white/[0.02]",
+        tile: "border-white/[0.04] bg-white/[0.045]",
         border: "border-white/[0.05]",
         head: "bg-white/[0.02]",
         primaryBtn: "bg-white text-black hover:bg-neutral-200",
@@ -228,6 +230,7 @@ const tokens = (isDark: boolean): Tokens =>
         card: "border-black/[0.05] bg-transparent",
         panel: "border-black/[0.05] bg-neutral-50",
         inner: "border-black/[0.05] bg-white",
+        tile: "border-black/[0.04] bg-neutral-100",
         border: "border-black/[0.05]",
         head: "bg-neutral-50",
         primaryBtn: "bg-neutral-900 text-white hover:bg-neutral-700",
@@ -1248,6 +1251,7 @@ function MoveCard({
   );
 }
 
+/** Petit carreau gris autonome (Summary) — ne touche jamais ses voisins. */
 function MetricBox({
   label,
   value,
@@ -1264,7 +1268,7 @@ function MetricBox({
   const up = delta != null && delta > 0;
   const down = delta != null && delta < 0;
   return (
-    <div className="flex flex-col gap-2.5 px-4 py-4">
+    <div className={`flex h-full flex-col gap-2.5 rounded-xl border px-3.5 py-3.5 ${t.tile}`}>
       <span className={`flex items-center justify-between gap-2 text-[10px] font-medium ${t.soft}`}>
         <span className="truncate">{label}</span>
         <span title={info} role="img" aria-label={info} className={`shrink-0 ${t.muted}`}>
@@ -2298,6 +2302,7 @@ export default function Insights() {
                     </button>
                   </div>
 
+                  {/* ── SUMMARY : petits carreaux gris séparés ── */}
                   <div className={sectionCard}>
                     <div className="flex items-start justify-between gap-3 px-1">
                       <div>
@@ -2315,26 +2320,18 @@ export default function Insights() {
                         </IconBtn>
                       </div>
                     </div>
-                    <div
-                      className={`mt-4 overflow-hidden rounded-2xl border ${t.border}`}
-                    >
-                      <div
-                        className={`grid grid-cols-2 gap-px md:grid-cols-5 ${
-                          isDark ? "bg-white/[0.05]" : "bg-black/[0.05]"
-                        }`}
-                      >
-                        {summaryBoxes.map((b) => (
-                          <div key={b.label} className={isDark ? "bg-[#0a0a0c]" : "bg-white"}>
-                            <MetricBox
-                              label={b.label}
-                              value={b.value}
-                              info={SUMMARY_INFO[b.label] ?? b.label}
-                              t={t}
-                              delta={b.delta}
-                            />
-                          </div>
-                        ))}
-                      </div>
+
+                    <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-5">
+                      {summaryBoxes.map((b) => (
+                        <MetricBox
+                          key={b.label}
+                          label={b.label}
+                          value={b.value}
+                          info={SUMMARY_INFO[b.label] ?? b.label}
+                          t={t}
+                          delta={b.delta}
+                        />
+                      ))}
                     </div>
                   </div>
                 </section>
