@@ -1225,35 +1225,6 @@ function IconBtn({
   );
 }
 
-function MoveCard({
-  t,
-  icon,
-  title,
-  text,
-  cta,
-  onClick,
-}: {
-  t: Tokens;
-  icon: ReactNode;
-  title: string;
-  text: string;
-  cta: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`flex flex-col items-start rounded-xl border p-4 text-left transition-colors ${t.inner} ${t.hover} ${t.ring}`}
-    >
-      <span className={`flex h-7 w-7 items-center justify-center rounded-md ${t.iconBox}`}>{icon}</span>
-      <span className={`mt-3 text-[13px] font-semibold tracking-[-0.02em] ${t.text}`}>{title}</span>
-      <span className={`mt-1 text-[12px] leading-relaxed ${t.soft}`}>{text}</span>
-      <span className={`mt-3 text-[11px] font-semibold ${t.text}`}>{cta} →</span>
-    </button>
-  );
-}
-
 /** Petit carreau gris autonome (Summary) — ne touche jamais ses voisins. */
 function MetricBox({
   label,
@@ -1601,8 +1572,6 @@ export default function Insights() {
   const { theme } = useTheme();
   const isDark = theme === "dark";
   const t = useMemo(() => tokens(isDark), [isDark]);
-  /** La bannière « Next move » est blanche dans les deux thèmes. */
-  const lightT = useMemo(() => tokens(false), []);
   const sidebarOffset = useSidebarOffset();
   const channels = useConnectedChannels();
 
@@ -1852,6 +1821,9 @@ export default function Insights() {
       channel?.key,
     ]
   );
+
+  void takeaways;
+  void behind;
 
   const TONES: [string, string] = [isDark ? "#ffffff" : "#111111", isDark ? "#7c7c85" : "#a3a3a3"];
   const METRIC_OPTIONS: MetricOption[] = [
@@ -2165,36 +2137,6 @@ export default function Insights() {
                         </p>
                         <p className="mt-3 text-[12px] font-medium text-neutral-400">{subhead}</p>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => openComposer({ reason: "manual", channelKey: channel?.key })}
-                        className={`flex w-fit items-center gap-1.5 rounded-full px-5 py-3 text-[12px] font-semibold transition-all duration-150 active:scale-[0.98] ${lightT.ring} ${lightT.primaryBtn}`}
-                      >
-                        <Plus className="h-3.5 w-3.5" aria-hidden="true" />
-                        {behind > 0 ? "Schedule the gap" : "Create Post"}
-                      </button>
-                    </div>
-
-                    <div
-                      className={`grid gap-2.5 ${
-                        takeaways.length >= 3
-                          ? "md:grid-cols-3"
-                          : takeaways.length === 2
-                            ? "md:grid-cols-2"
-                            : ""
-                      }`}
-                    >
-                      {takeaways.map((tk) => (
-                        <MoveCard
-                          key={tk.id}
-                          t={lightT}
-                          icon={tk.icon}
-                          title={tk.title}
-                          text={tk.detail}
-                          cta={tk.cta}
-                          onClick={tk.action}
-                        />
-                      ))}
                     </div>
                   </div>
                 </section>
