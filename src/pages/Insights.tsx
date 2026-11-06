@@ -35,6 +35,7 @@ import {
   Sparkles,
   Tag,
   Target,
+  TrendingDown,
   TrendingUp,
   Zap,
 } from "lucide-react";
@@ -1258,12 +1259,14 @@ function MetricBox({
   info,
   t,
   delta,
+  isDark,
 }: {
   label: string;
   value: string;
   info: string;
   t: Tokens;
   delta?: number | null;
+  isDark: boolean;
 }) {
   const up = delta != null && delta > 0;
   const down = delta != null && delta < 0;
@@ -1278,10 +1281,26 @@ function MetricBox({
       <span className={`text-[22px] font-semibold leading-none tracking-[-0.02em] tabular-nums ${t.text}`}>{value}</span>
       {delta != null && (
         <span
-          className={`text-[10px] font-semibold tabular-nums ${
-            up ? "text-emerald-500" : down ? "text-red-400" : t.muted
-          }`}
+          className={[
+            "inline-flex w-fit items-center gap-0.5 rounded-full px-1.5 py-0.5",
+            "text-[9px] font-semibold tabular-nums",
+            up
+              ? isDark
+                ? "bg-emerald-500/10 text-emerald-400"
+                : "bg-emerald-500/10 text-emerald-600"
+              : down
+                ? isDark
+                  ? "bg-rose-500/10 text-rose-400"
+                  : "bg-rose-500/10 text-rose-600"
+                : t.muted,
+          ].join(" ")}
         >
+          {up ? (
+            <TrendingUp className="h-2.5 w-2.5" aria-hidden="true" />
+          ) : down ? (
+            <TrendingDown className="h-2.5 w-2.5" aria-hidden="true" />
+          ) : null}
+          <span className="sr-only">{up ? "Up " : down ? "Down " : ""}</span>
           {up ? "+" : ""}
           {delta}% vs last period
         </span>
@@ -2330,6 +2349,7 @@ export default function Insights() {
                           info={SUMMARY_INFO[b.label] ?? b.label}
                           t={t}
                           delta={b.delta}
+                          isDark={isDark}
                         />
                       ))}
                     </div>
