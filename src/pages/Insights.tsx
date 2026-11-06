@@ -69,7 +69,6 @@ import {
   type ConnectedChannel,
 } from "../hooks/useConnectedChannels";
 import { createPosts, listPosts, type CalendarPost } from "../services/posts";
-import { listTags, type Tag as ApiTag } from "../services/supabase";
 import { fetchYouTubeVideos, useYouTubeInsights } from "../services/youtube";
 import { readPostingGoal } from "../components/OnboardingModals";
 import { useNewPostRequest } from "../services/Newpostbus";
@@ -315,21 +314,6 @@ function useHashChannel(): string | null {
 function isYouTubeChannel(c?: ConnectedChannel): boolean {
   if (!c) return false;
   return c.platform === "youtube" || c.key.toLowerCase().startsWith("youtube");
-}
-
-/** KPI mis en avant pour chaque réseau (au lieu d'un score générique). */
-function networkKpiLabel(platform: string): string {
-  switch (platform.toLowerCase()) {
-    case "youtube":
-    case "tiktok":
-      return "views";
-    case "instagram":
-    case "facebook":
-    case "linkedin":
-      return "reach";
-    default:
-      return "reactions";
-  }
 }
 
 /* ============================================================
@@ -595,7 +579,6 @@ function ratePct(num: number, den: number) {
 function mergeInsights(parts: InsightsData[]): InsightsData {
   if (parts.length === 0) return emptyInsights(startOfDay(new Date()), startOfDay(new Date()));
   if (parts.length === 1) return parts[0];
-  const days = parts[0].current.length;
   const current = parts[0].current.map((pt, i) => ({
     date: pt.date,
     posts: parts.reduce((a, p) => a + (p.current[i]?.posts ?? 0), 0),
@@ -690,24 +673,6 @@ function hasComposerDraft() {
   } catch {
     return false;
   }
-}
-
-function formatMix(posts: PostRow[]) {
-  const groups: Record<PostRow["media"], { count: number; score: number }> = {
-    image: { count: 0, score: 0 },
-    video: { count: 0, score: 0 },
-    text: { count: 0, score: 0 },
-  };
-  for (const p of posts) {
-    groups[p.media].count += 1;
-    groups[p.media].score += postScore(p);
-  }
-  return (["video", "image", "text"] as const).map((key) => ({
-    key,
-    label: key === "video" ? "Video / Shorts" : key === "image" ? "Image" : "Text",
-    count: groups[key].count,
-    avg: groups[key].count ? groups[key].score / groups[key].count : 0,
-  }));
 }
 
 /**
@@ -1436,8 +1401,6 @@ export default function Insights() {
   const [query, setQuery] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
   const [queue, setQueue] = useState<CalendarPost[]>([]);
-  const [tags, setTags] = useState<ApiTag[]>([]);
-  const [taggedPosts, setTaggedPosts] = useState<CalendarPost[]>([]);
 
   /* ── Composer ── */
 
@@ -1526,21 +1489,18 @@ export default function Insights() {
   useEffect(() => {
     let cancelled = false;
     const now = new Date();
-    Promise.all([
-      listPosts(start, addDays(now, 21)).catch(() => [] as CalendarPost[]),
-      listTags().catch(() => [] as ApiTag[]),
-    ]).then(([all, nextTags]) => {
-      if (cancelled) return;
-      setQueue(
-        all.filter(
-          (p) =>
-            (p.status === "scheduled" || p.status === "draft") &&
-            new Date(p.scheduledAt).getTime() >= now.getTime()
-        )
-      );
-      setTaggedPosts(all);
-      setTags(nextTags);
-    });
+    listPosts(start, addDays(now, 21))
+      .catch(() => [] as CalendarPost[])
+      .then((all) => {
+        if (cancelled) return;
+        setQueue(
+          all.filter(
+            (p) =>
+              (p.status === "scheduled" || p.status === "draft") &&
+              new Date(p.scheduledAt).getTime() >= now.getTime()
+          )
+        );
+      });
     return () => {
       cancelled = true;
     };
@@ -1583,7 +1543,6 @@ export default function Insights() {
   const goal = readPostingGoal(goalKey) ?? readPostingGoal("youtube") ?? 3;
   const behind = Math.max(0, goal - postsThisWeek);
   const heatmap = useMemo(() => buildHeatmap(posts), [posts]);
-  const mixes = useMemo(() => formatMix(posts), [posts]);
   const ranked = useMemo(
     () => [...posts].sort((a, b) => postScore(b) - postScore(a)),
     [posts]
@@ -1597,6 +1556,7 @@ export default function Insights() {
     : queue.filter((p) => !channel || p.network === channel.platform || p.channelKey === channel.key);
   const draftsCount = queuedForChannel.filter((p) => p.status === "draft").length;
   const draftReady = draftsCount > 0 || hasComposerDraft();
+  void draftReady;
 
   const engagementDelta = useMemo(
     () =>
@@ -1606,56 +1566,6 @@ export default function Insights() {
       ),
     [summary.reactions, summary.comments, prevTotals.reactions, prevTotals.comments]
   );
-
-  /** Perf par tag : score moyen (réactions + commentaires + vues) croisé avec les PostRow. */
-  const tagPerf = useMemo(() => {
-    if (!tags.length) return [];
-    const byId = new Map<string, { label: string; count: number; score: number }>();
-    for (const tag of tags) byId.set(tag.id, { label: tag.label, count: 0, score: 0 });
-
-    const perfByPost = new Map<string, number>();
-    for (const p of posts) perfByPost.set(p.id, postScore(p));
-
-    for (const tp of taggedPosts) {
-      const s = perfByPost.get(tp.id) ?? 0;
-      for (const id of tp.tagIds ?? []) {
-        const row = byId.get(id);
-        if (row) {
-          row.count += 1;
-          row.score += s;
-        }
-      }
-    }
-    return [...byId.values()]
-      .filter((t) => t.count > 0)
-      .map((t) => ({
-        label: t.label,
-        count: t.count,
-        avg: t.count ? t.score / t.count : 0,
-      }))
-      .sort((a, b) => b.avg - a.avg || b.count - a.count)
-      .slice(0, 5);
-  }, [tags, taggedPosts, posts]);
-
-  const networkRows = useMemo(() => {
-    return channels.map((c) => {
-      const d = perChannel[c.key];
-      const score = (d?.summary.reactions ?? 0) + (d?.summary.comments ?? 0) * 2;
-      return {
-        channel: c,
-        posts: d?.summary.posts ?? 0,
-        reactions: d?.summary.reactions ?? 0,
-        comments: d?.summary.comments ?? 0,
-        followers: d?.summary.followers ?? 0,
-        videoViews: d?.summary.videoViews ?? 0,
-        reach: d?.summary.reach ?? 0,
-        score,
-        live: isYouTubeChannel(c),
-        kpiLabel: networkKpiLabel(c.platform),
-      };
-    });
-  }, [channels, perChannel]);
-  const maxNetworkScore = Math.max(1, ...networkRows.map((r) => r.score));
 
   const headline =
     behind > 0
@@ -2039,130 +1949,68 @@ export default function Insights() {
                   </div>
                 </section>
 
-                {/* ── CADENCE + HEATMAP ── */}
-                <div className="grid gap-4 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,1.35fr)]">
-                  <section className={sectionCard} aria-labelledby="cadence-title">
-                    <div className="flex items-start justify-between gap-3 px-1">
-                      <div>
-                        <h3 id="cadence-title" className={sectionTitle}>
-                          Cadence
-                        </h3>
-                        <p className={sectionSub}>Goal vs published vs already queued</p>
-                      </div>
-                      <span className={`rounded-lg px-2 py-1 text-[11px] font-semibold ${t.inner} ${t.soft}`}>
-                        {postsThisWeek}/{goal} week
-                      </span>
+                {/* ── HEATMAP ── */}
+                <section className={sectionCard} aria-labelledby="heatmap-title">
+                  <div className="flex items-start justify-between gap-3 px-1">
+                    <div>
+                      <h3 id="heatmap-title" className={sectionTitle}>
+                        Hours that actually work
+                      </h3>
+                      <p className={sectionSub}>
+                        {heatmap.empty ? "Publishing activity by day and hour" : `Peak · ${heatmap.label}`}
+                      </p>
                     </div>
-                    <div className={`mt-4 h-2 overflow-hidden rounded-full ${isDark ? "bg-white/10" : "bg-black/10"}`}>
-                      <div
-                        className={`h-full rounded-full ${isDark ? "bg-white" : "bg-neutral-900"}`}
-                        style={{ width: `${Math.min(100, Math.round((postsThisWeek / Math.max(1, goal)) * 100))}%` }}
-                      />
-                    </div>
-                    <div className="mt-4 grid grid-cols-7 gap-1.5">
-                      {Array.from({ length: 7 }, (_, i) => {
-                        const day = addDays(weekStart, i);
-                        const count = posts.filter(
-                          (p) => startOfDay(p.date).getTime() === startOfDay(day).getTime()
-                        ).length;
-                        return (
-                          <div key={i} className="flex flex-col items-center gap-1.5">
-                            <span
-                              className={`flex h-9 w-full items-center justify-center rounded-lg text-[11px] font-semibold tabular-nums ${
-                                count ? t.sel : `${t.inner} ${t.muted}`
-                              }`}
-                            >
-                              {count || "·"}
-                            </span>
-                            <span className={`text-[10px] ${t.muted}`}>{DAY_LABELS[i].slice(0, 2)}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                    <div className={`mt-4 space-y-2 border-t pt-3 ${t.border}`}>
-                      {queuedForChannel.slice(0, 3).map((p) => (
-                        <button
-                          key={p.id}
-                          type="button"
-                          onClick={() => navigate("schedule")}
-                          className={`flex w-full items-center justify-between gap-3 rounded-xl px-2 py-1.5 text-left ${t.hover} ${t.ring}`}
-                        >
-                          <span className={`truncate text-[12px] font-medium ${t.text}`}>
-                            {p.title || p.content || "Untitled"}
+                    <button
+                      type="button"
+                      onClick={() =>
+                        heatmap.empty
+                          ? openComposer({ reason: "manual", channelKey: channel?.key })
+                          : scheduleFromSlot({ day: heatmap.best.day, slot: heatmap.best.slot })
+                      }
+                      className={`rounded-lg px-3 py-1.5 text-[11px] font-semibold ${t.ring} ${t.outlineBtn}`}
+                    >
+                      {heatmap.empty ? "Create Post" : "Use this slot"}
+                    </button>
+                  </div>
+                  <div className="mt-4 overflow-x-auto">
+                    <div className="min-w-[420px]">
+                      <div className="mb-1 grid grid-cols-[36px_repeat(7,minmax(0,1fr))] gap-1">
+                        <span />
+                        {DAY_LABELS.map((d) => (
+                          <span key={d} className={`text-center text-[10px] font-medium ${t.muted}`}>
+                            {d}
                           </span>
-                          <span className={`shrink-0 text-[11px] ${t.muted}`}>
-                            {fmt(new Date(p.scheduledAt))}
-                          </span>
-                        </button>
-                      ))}
-                      {queuedForChannel.length === 0 && (
-                        <p className={`text-[12px] ${t.soft}`}>Nothing queued. Fill the empty days above.</p>
-                      )}
-                    </div>
-                  </section>
-
-                  <section className={sectionCard} aria-labelledby="heatmap-title">
-                    <div className="flex items-start justify-between gap-3 px-1">
-                      <div>
-                        <h3 id="heatmap-title" className={sectionTitle}>
-                          Hours that actually work
-                        </h3>
-                        <p className={sectionSub}>
-                          {heatmap.empty ? "Publishing activity by day and hour" : `Peak · ${heatmap.label}`}
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          heatmap.empty
-                            ? openComposer({ reason: "manual", channelKey: channel?.key })
-                            : scheduleFromSlot({ day: heatmap.best.day, slot: heatmap.best.slot })
-                        }
-                        className={`rounded-lg px-3 py-1.5 text-[11px] font-semibold ${t.ring} ${t.outlineBtn}`}
-                      >
-                        {heatmap.empty ? "Create Post" : "Use this slot"}
-                      </button>
-                    </div>
-                    <div className="mt-4 overflow-x-auto">
-                      <div className="min-w-[420px]">
-                        <div className="mb-1 grid grid-cols-[36px_repeat(7,minmax(0,1fr))] gap-1">
-                          <span />
-                          {DAY_LABELS.map((d) => (
-                            <span key={d} className={`text-center text-[10px] font-medium ${t.muted}`}>
-                              {d}
-                            </span>
-                          ))}
-                        </div>
-                        {SLOT_HOURS.map((hour, s) => (
-                          <div key={hour} className="mb-1 grid grid-cols-[36px_repeat(7,minmax(0,1fr))] gap-1">
-                            <span className={`flex items-center text-[9px] ${t.muted}`}>{SLOT_LABELS[s]}</span>
-                            {DAY_LABELS.map((_, d) => {
-                              const cell = heatmap.cells[d][s];
-                              const intensity = heatmap.max ? cell.score / heatmap.max : 0;
-                              const isBest = heatmap.best.day === d && heatmap.best.slot === s && !heatmap.empty;
-                              return (
-                                <button
-                                  key={`${d}-${s}`}
-                                  type="button"
-                                  title={`${DAY_LABELS[d]} ${SLOT_LABELS[s]} · ${cell.count} post${cell.count === 1 ? "" : "s"}`}
-                                  onClick={() => scheduleFromSlot({ day: d, slot: s })}
-                                  className={`h-7 rounded-md transition-transform ${t.ring} ${
-                                    isBest ? "ring-1 ring-current scale-[1.04]" : ""
-                                  }`}
-                                  style={{
-                                    background: isDark
-                                      ? `rgba(255,255,255,${0.06 + intensity * 0.72})`
-                                      : `rgba(17,17,17,${0.06 + intensity * 0.72})`,
-                                  }}
-                                />
-                              );
-                            })}
-                          </div>
                         ))}
                       </div>
+                      {SLOT_HOURS.map((hour, s) => (
+                        <div key={hour} className="mb-1 grid grid-cols-[36px_repeat(7,minmax(0,1fr))] gap-1">
+                          <span className={`flex items-center text-[9px] ${t.muted}`}>{SLOT_LABELS[s]}</span>
+                          {DAY_LABELS.map((_, d) => {
+                            const cell = heatmap.cells[d][s];
+                            const intensity = heatmap.max ? cell.score / heatmap.max : 0;
+                            const isBest = heatmap.best.day === d && heatmap.best.slot === s && !heatmap.empty;
+                            return (
+                              <button
+                                key={`${d}-${s}`}
+                                type="button"
+                                title={`${DAY_LABELS[d]} ${SLOT_LABELS[s]} · ${cell.count} post${cell.count === 1 ? "" : "s"}`}
+                                onClick={() => scheduleFromSlot({ day: d, slot: s })}
+                                className={`h-7 rounded-md transition-transform ${t.ring} ${
+                                  isBest ? "ring-1 ring-current scale-[1.04]" : ""
+                                }`}
+                                style={{
+                                  background: isDark
+                                    ? `rgba(255,255,255,${0.06 + intensity * 0.72})`
+                                    : `rgba(17,17,17,${0.06 + intensity * 0.72})`,
+                                }}
+                              />
+                            );
+                          })}
+                        </div>
+                      ))}
                     </div>
-                  </section>
-                </div>
+                  </div>
+                </section>
 
                 {/* ── RECYCLE (duplicate) ── */}
                 <section className={sectionCard} aria-labelledby="recycle-title">
@@ -2215,121 +2063,6 @@ export default function Insights() {
                     </div>
                   )}
                 </section>
-
-                {/* ── MULTI-RÉSEAUX ── */}
-                {networkRows.length > 1 && (
-                  <section className={sectionCard} aria-labelledby="mix-title">
-                    <div className="px-1">
-                      <h3 id="mix-title" className={sectionTitle}>
-                        Where to spend the week
-                      </h3>
-                      <p className={sectionSub}>
-                        Same period, every connected network — put time on the one that pays back
-                      </p>
-                    </div>
-                    <div className="mt-4 space-y-3">
-                      {networkRows
-                        .slice()
-                        .sort((a, b) => b.score - a.score)
-                        .map((row) => {
-                          const kpiValue =
-                            row.kpiLabel === "views"
-                              ? `${nf(row.videoViews)} views`
-                              : row.kpiLabel === "reach"
-                                ? `${nf(row.reach)} reach`
-                                : `${nf(row.reactions)} reactions`;
-                          return (
-                            <button
-                              key={row.channel.key}
-                              type="button"
-                              onClick={() => goChannel(row.channel.key)}
-                              className={`flex w-full flex-col gap-2 rounded-2xl border px-3 py-3 text-left ${t.inner} ${t.hover} ${t.ring}`}
-                            >
-                              <div className="flex items-center justify-between gap-3">
-                                <span className={`text-[13px] font-semibold ${t.text}`}>
-                                  {row.channel.handle || row.channel.name}
-                                </span>
-                                <span className={`text-[11px] ${t.muted}`}>
-                                  {row.posts} posts · {kpiValue}
-                                  {!row.live ? " · sample" : ""}
-                                </span>
-                              </div>
-                              <div className={`h-1.5 overflow-hidden rounded-full ${isDark ? "bg-white/10" : "bg-black/10"}`}>
-                                <div
-                                  className={`h-full rounded-full ${isDark ? "bg-white" : "bg-neutral-900"}`}
-                                  style={{ width: `${Math.round((row.score / maxNetworkScore) * 100)}%` }}
-                                />
-                              </div>
-                            </button>
-                          );
-                        })}
-                    </div>
-                  </section>
-                )}
-
-                {/* ── FORMATS + TAGS ── */}
-                <div className="grid gap-4 md:grid-cols-2">
-                  <section className={sectionCard}>
-                    <h3 className={sectionTitle}>Formats that land</h3>
-                    <p className={sectionSub}>Average score per published format</p>
-                    <div className="mt-4 space-y-3">
-                      {mixes.map((m) => {
-                        const max = Math.max(1, ...mixes.map((x) => x.avg));
-                        return (
-                          <div key={m.key}>
-                            <div className="flex items-center justify-between text-[12px]">
-                              <span className={t.text}>{m.label}</span>
-                              <span className={t.muted}>
-                                {m.count} · {m.avg ? m.avg.toFixed(0) : "—"}
-                              </span>
-                            </div>
-                            <div className={`mt-1.5 h-1.5 overflow-hidden rounded-full ${isDark ? "bg-white/10" : "bg-black/10"}`}>
-                              <div
-                                className={`h-full rounded-full ${isDark ? "bg-white" : "bg-neutral-900"}`}
-                                style={{ width: `${Math.round((m.avg / max) * 100)}%` }}
-                              />
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </section>
-                  <section className={sectionCard}>
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <h3 className={sectionTitle}>Tags in the calendar</h3>
-                        <p className={sectionSub}>Usage vs performance per theme</p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => navigate("tags")}
-                        className={`text-[11px] font-semibold ${t.soft}`}
-                      >
-                        Manage
-                      </button>
-                    </div>
-                    <div className="mt-4 flex flex-wrap gap-2">
-                      {tagPerf.length === 0 ? (
-                        <p className={`text-[12px] ${t.soft}`}>
-                          Tag upcoming posts in Schedule to see which themes ship.
-                        </p>
-                      ) : (
-                        tagPerf.map((tag) => (
-                          <span
-                            key={tag.label}
-                            className={`rounded-full border px-3 py-1.5 text-[12px] font-medium ${t.inner} ${t.text}`}
-                          >
-                            {tag.label}
-                            <span className={`ml-1.5 ${t.muted}`}>{tag.count}</span>
-                            {tag.avg > 0 && (
-                              <span className={`ml-1 text-[10px] ${t.muted}`}>· {tag.avg.toFixed(0)}</span>
-                            )}
-                          </span>
-                        ))
-                      )}
-                    </div>
-                  </section>
-                </div>
 
                 {/* ── NUMBERS ── */}
                 <section aria-labelledby="all-title" className="flex flex-col gap-4">
