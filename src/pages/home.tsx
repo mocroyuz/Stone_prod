@@ -319,7 +319,7 @@ const COPY: Record<Lang, Copy> = {
       title: "Aperçu",
       subtitle: "Métriques d'exemple · non connectées aux canaux actifs",
       followers: "Abonnés",
-      likes: "Mentions J'aime",
+      likes: "J'aime",
       comments: "Commentaires",
     },
     channels: {
