@@ -2122,12 +2122,12 @@ export default function Insights() {
                 {/* ── HERO : bannière sombre avec ruban lumineux ── */}
                 <section
                   aria-label="Insights"
-                  className="relative isolate h-[300px] overflow-hidden rounded-2xl bg-black ring-1 ring-inset ring-white/10 md:h-[340px]"
+                  className="relative isolate h-[300px] overflow-hidden rounded-[36px] bg-black ring-1 ring-inset ring-white/10 md:h-[340px]"
                 >
-                  {/* Ruban lumineux abstrait (SVG pur, aucune image externe) */}
+                  {/* Anneaux lumineux arrondis, noir et blanc (SVG pur) */}
                   <div
                     aria-hidden="true"
-                    className="pointer-events-none absolute inset-y-0 right-0 w-[72%] [mask-image:linear-gradient(to_right,transparent,black_38%)]"
+                    className="pointer-events-none absolute inset-y-0 right-0 w-[72%] [mask-image:linear-gradient(to_right,transparent,black_35%)]"
                   >
                     <svg
                       viewBox="0 0 600 340"
@@ -2135,51 +2135,50 @@ export default function Insights() {
                       className="h-full w-full"
                     >
                       <defs>
-                        <linearGradient id="hero-ribbon" x1="0" y1="0" x2="1" y2="1">
-                          <stop offset="0%" stopColor="#ff9a2e" />
-                          <stop offset="35%" stopColor="#ff3d81" />
-                          <stop offset="70%" stopColor="#8b3dff" />
-                          <stop offset="100%" stopColor="#3b82f6" />
+                        <linearGradient id="hero-ring" x1="0" y1="0" x2="1" y2="1">
+                          <stop offset="0%" stopColor="#ffffff" />
+                          <stop offset="55%" stopColor="#a3a3a3" />
+                          <stop offset="100%" stopColor="#262626" />
                         </linearGradient>
-                        <linearGradient id="hero-ribbon-2" x1="1" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#6d5bff" />
-                          <stop offset="50%" stopColor="#d946ef" />
-                          <stop offset="100%" stopColor="#ffb347" />
+                        <linearGradient id="hero-ring-2" x1="1" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#525252" />
+                          <stop offset="50%" stopColor="#f5f5f5" />
+                          <stop offset="100%" stopColor="#404040" />
                         </linearGradient>
-                        <radialGradient id="hero-glow" cx="68%" cy="48%" r="55%">
-                          <stop offset="0%" stopColor="#7c3aed" stopOpacity="0.55" />
-                          <stop offset="55%" stopColor="#be185d" stopOpacity="0.18" />
+                        <radialGradient id="hero-glow" cx="70%" cy="50%" r="55%">
+                          <stop offset="0%" stopColor="#ffffff" stopOpacity="0.22" />
+                          <stop offset="60%" stopColor="#737373" stopOpacity="0.07" />
                           <stop offset="100%" stopColor="#000" stopOpacity="0" />
                         </radialGradient>
-                        <filter id="hero-blur" x="-20%" y="-20%" width="140%" height="140%">
-                          <feGaussianBlur stdDeviation="9" />
+                        <filter id="hero-blur" x="-30%" y="-30%" width="160%" height="160%">
+                          <feGaussianBlur stdDeviation="10" />
                         </filter>
-                        <filter id="hero-soft" x="-20%" y="-20%" width="140%" height="140%">
-                          <feGaussianBlur stdDeviation="2" />
+                        <filter id="hero-soft" x="-30%" y="-30%" width="160%" height="160%">
+                          <feGaussianBlur stdDeviation="1.6" />
                         </filter>
                       </defs>
 
                       <rect width="600" height="340" fill="url(#hero-glow)" />
 
-                      <g fill="none" strokeLinecap="round">
-                        <g filter="url(#hero-blur)" opacity="0.9">
-                          <path d="M360 -30 C230 70 240 270 410 370" stroke="url(#hero-ribbon)" strokeWidth="46" />
-                          <path d="M440 -30 C330 80 335 260 500 370" stroke="url(#hero-ribbon-2)" strokeWidth="42" />
-                          <path d="M520 -30 C440 90 450 250 590 370" stroke="url(#hero-ribbon)" strokeWidth="38" />
+                      <g transform="translate(440 170)" fill="none">
+                        <g filter="url(#hero-blur)" opacity="0.85">
+                          <ellipse rx="170" ry="120" transform="rotate(-28)" stroke="url(#hero-ring)" strokeWidth="44" />
+                          <ellipse rx="125" ry="84" transform="rotate(-28)" stroke="url(#hero-ring-2)" strokeWidth="36" />
+                          <ellipse rx="80" ry="50" transform="rotate(-28)" stroke="url(#hero-ring)" strokeWidth="28" />
                         </g>
                         <g filter="url(#hero-soft)">
-                          <path d="M360 -30 C230 70 240 270 410 370" stroke="url(#hero-ribbon)" strokeWidth="9" />
-                          <path d="M395 -30 C275 75 280 265 450 370" stroke="#ffd2a1" strokeOpacity="0.85" strokeWidth="3" />
-                          <path d="M440 -30 C330 80 335 260 500 370" stroke="url(#hero-ribbon-2)" strokeWidth="8" />
-                          <path d="M480 -30 C385 85 392 255 545 370" stroke="#c4b5fd" strokeOpacity="0.8" strokeWidth="3" />
-                          <path d="M520 -30 C440 90 450 250 590 370" stroke="url(#hero-ribbon)" strokeWidth="7" />
+                          <ellipse rx="170" ry="120" transform="rotate(-28)" stroke="url(#hero-ring)" strokeWidth="8" />
+                          <ellipse rx="148" ry="102" transform="rotate(-28)" stroke="#ffffff" strokeOpacity="0.7" strokeWidth="2.5" />
+                          <ellipse rx="125" ry="84" transform="rotate(-28)" stroke="url(#hero-ring-2)" strokeWidth="7" />
+                          <ellipse rx="102" ry="67" transform="rotate(-28)" stroke="#d4d4d4" strokeOpacity="0.7" strokeWidth="2.5" />
+                          <ellipse rx="80" ry="50" transform="rotate(-28)" stroke="url(#hero-ring)" strokeWidth="6" />
                         </g>
                       </g>
                     </svg>
                   </div>
 
                   {/* Texte en bas à gauche */}
-                  <div className="absolute bottom-0 left-0 z-10 flex max-w-[480px] flex-col gap-1.5 p-6 md:p-8">
+                  <div className="absolute bottom-0 left-0 z-10 flex max-w-[480px] flex-col gap-1.5 p-7 md:p-10">
                     <p className="text-[11px] font-medium text-white/60">Insights</p>
                     <h2 className="text-[clamp(26px,3vw,38px)] font-semibold leading-[1.05] tracking-[-0.035em] text-white">
                       Know what works best.
