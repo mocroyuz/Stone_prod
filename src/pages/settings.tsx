@@ -220,12 +220,6 @@ const SunIcon = mkIcon(
     <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
   </>
 );
-const BellIcon = mkIcon(
-  <>
-    <path d="M6 8a6 6 0 0 1 12 0c0 7 3 8 3 8H3s3-1 3-8" />
-    <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
-  </>
-);
 const CardIcon = mkIcon(
   <>
     <rect x="2" y="5" width="20" height="14" rx="2" />
@@ -307,6 +301,21 @@ const MoreIcon = mkIcon(
     <circle cx="5" cy="12" r="1.5" fill="currentColor" stroke="none" />
     <circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none" />
     <circle cx="19" cy="12" r="1.5" fill="currentColor" stroke="none" />
+  </>
+);
+
+/* Icône Preferences (sliders) */
+const SlidersIcon = mkIcon(
+  <>
+    <line x1="4" y1="21" x2="4" y2="14" />
+    <line x1="4" y1="10" x2="4" y2="3" />
+    <line x1="12" y1="21" x2="12" y2="12" />
+    <line x1="12" y1="8" x2="12" y2="3" />
+    <line x1="20" y1="21" x2="20" y2="16" />
+    <line x1="20" y1="12" x2="20" y2="3" />
+    <line x1="1" y1="14" x2="7" y2="14" />
+    <line x1="9" y1="8" x2="15" y2="8" />
+    <line x1="17" y1="16" x2="23" y2="16" />
   </>
 );
 
@@ -617,7 +626,7 @@ type SectionKey =
   | "account"
   | "mfa"
   | "appearance"
-  | "notifications"
+  | "preferences"
   | "billing"
   | "channels"
   | "tags"
@@ -634,7 +643,7 @@ const SIDEBAR_GROUPS: {
       { key: "profile", label: "Profile", icon: <UserIcon /> },
       { key: "account", label: "Security", icon: <ShieldIcon /> },
       { key: "mfa", label: "Two-factor auth", icon: <LockIcon /> },
-      { key: "notifications", label: "Notifications", icon: <BellIcon /> },
+      { key: "preferences", label: "Preferences", icon: <SlidersIcon /> },
     ],
   },
   {
@@ -663,7 +672,7 @@ const SECTION_TITLES: Record<SectionKey, string> = {
   account: "Security",
   mfa: "Two-factor authentication",
   appearance: "Appearance",
-  notifications: "Notifications",
+  preferences: "Preferences",
   billing: "Billing",
   channels: "Channels",
   tags: "Tags",
@@ -676,7 +685,7 @@ const SECTION_SLUGS: Record<SectionKey, string> = {
   account: "security",
   mfa: "two-factor",
   appearance: "appearance",
-  notifications: "notifications",
+  preferences: "preferences",
   billing: "billing",
   channels: "channels",
   tags: "tags",
@@ -978,8 +987,8 @@ const active: SectionKey = returning
                 setTheme={handleSelectTheme}
               />
             )}
-            {active === "notifications" && (
-              <NotificationsSection tokens={tokens} notify={notify} />
+            {active === "preferences" && (
+              <PreferencesSection tokens={tokens} notify={notify} />
             )}
             {active === "billing" && (
               <BillingSection tokens={tokens} notify={notify} />
@@ -2773,7 +2782,22 @@ function AppearanceSection({
   );
 }
 
-/* ── Notifications ── */
+/* ── Preferences ── */
+
+const LANGUAGES: { value: string; label: string }[] = [
+  { value: "en", label: "English" },
+  { value: "fr", label: "Français" },
+  { value: "es", label: "Español" },
+  { value: "de", label: "Deutsch" },
+  { value: "it", label: "Italiano" },
+  { value: "pt", label: "Português" },
+  { value: "nl", label: "Nederlands" },
+  { value: "ja", label: "日本語" },
+  { value: "ko", label: "한국어" },
+  { value: "zh", label: "中文" },
+  { value: "ru", label: "Русский" },
+  { value: "ar", label: "العربية" },
+];
 
 const NOTIFICATION_ITEMS: {
   key: string;
@@ -2808,13 +2832,14 @@ const NOTIFICATION_ITEMS: {
   },
 ];
 
-function NotificationsSection({
+function PreferencesSection({
   tokens,
   notify,
 }: {
   tokens: Tokens;
   notify: Notify;
 }) {
+  const [language, setLanguage] = useState("en");
   const [prefs, setPrefs] = useState<Record<string, boolean>>({
     productUpdates: true,
     securityAlerts: true,
@@ -2823,19 +2848,22 @@ function NotificationsSection({
     marketing: false,
   });
 
-  const saved = useRef(prefs);
-  const dirty = JSON.stringify(prefs) !== JSON.stringify(saved.current);
+  const saved = useRef({ language, prefs });
+  const dirty =
+    language !== saved.current.language ||
+    JSON.stringify(prefs) !== JSON.stringify(saved.current.prefs);
 
   const save = () => {
-    saved.current = prefs;
-    setPrefs({ ...prefs });
+    saved.current = { language, prefs };
+    // Force un re-render pour recalculer `dirty`.
+    setPrefs((prev) => ({ ...prev }));
     notify("Preferences saved");
   };
 
   return (
     <SectionCard
-      title="Notifications"
-      description="Choose what we should email you about."
+      title="Preferences"
+      description="Choose your display language and what we email you about."
       tokens={tokens}
       footer={
         <>
@@ -2850,6 +2878,31 @@ function NotificationsSection({
         </>
       }
     >
+      <Row
+        title="Language"
+        description="Language used across the interface."
+        tokens={tokens}
+      >
+        <select
+          value={language}
+          onChange={(e) => setLanguage(e.target.value)}
+          aria-label="Interface language"
+          className={cx(
+            "cursor-pointer rounded-[10px] border px-3 py-2 text-[13px] outline-none transition",
+            tokens.inputBg,
+            tokens.inputText,
+            tokens.inputBorder,
+            tokens.inputFocus
+          )}
+        >
+          {LANGUAGES.map((lang) => (
+            <option key={lang.value} value={lang.value}>
+              {lang.label}
+            </option>
+          ))}
+        </select>
+      </Row>
+
       {NOTIFICATION_ITEMS.map((item) => (
         <Row
           key={item.key}
@@ -3271,15 +3324,7 @@ function ChannelRow({
   );
 }
 
-/* ── Utils · Channels ──
- *
- * À COLLER dans Settings.tsx en remplaçant l'ancienne fonction ChannelsSection
- * (de "function ChannelsSection({" jusqu'à son "}" de fermeture, juste avant
- * "/* ── Utils · Tags ── *\/").
- *
- * N'oublie pas de changer aussi, plus haut dans le fichier :
- *   export const INSIGHT_ROUTE = "insights";   // sans le "/" au début
- */
+/* ── Utils · Channels ── */
 
 function ChannelsSection({
   tokens,
