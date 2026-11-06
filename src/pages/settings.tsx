@@ -343,6 +343,7 @@ const CloseIcon = mkIcon(
   "h-4 w-4"
 );
 const ChevronRightIcon = mkIcon(<path d="m9 18 6-6-6-6" />, "h-4 w-4");
+const ChevronDownIcon = mkIcon(<path d="m6 9 6 6 6-6" />, "h-4 w-4");
 const BoltIcon = mkIcon(
   <path d="M13 2.5 5 13.2h5.6L9.5 21.5l8-10.7h-5.6L13 2.5Z" />,
   "h-6 w-6"
@@ -2656,23 +2657,24 @@ function AppearanceSection({
 }
 
 /* ── Preferences ── */
-const LANGUAGES: { value: "fr" | "zh"; native: string; code: string }[] = [
-  { value: "fr", native: "Français", code: "FR" },
-  { value: "zh", native: "中文", code: "中" },
+const LANGUAGES: { value: "fr" | "en"; native: string }[] = [
+  { value: "fr", native: "Français" },
+  { value: "en", native: "English" },
 ];
 
 const LANGUAGE_STORAGE_KEY = "stone:language";
 
-function detectPreferredLanguage(): "fr" | "zh" {
+function detectPreferredLanguage(): "fr" | "en" {
   try {
     const stored = localStorage.getItem(LANGUAGE_STORAGE_KEY);
-    if (stored === "fr" || stored === "zh") return stored;
+    if (stored === "fr" || stored === "en") return stored;
   } catch {
     /* stockage indisponible */
   }
   try {
     const nav = (navigator.language || "fr").toLowerCase();
-    if (nav.startsWith("zh")) return "zh";
+    if (nav.startsWith("en")) return "en";
+    if (nav.startsWith("fr")) return "fr";
   } catch {
     /* ignore */
   }
@@ -2684,57 +2686,37 @@ function LanguagePicker({
   onChange,
   tokens,
 }: {
-  value: "fr" | "zh";
-  onChange: (value: "fr" | "zh") => void;
+  value: "fr" | "en";
+  onChange: (value: "fr" | "en") => void;
   tokens: Tokens;
 }) {
   return (
-    <div
-      role="radiogroup"
-      aria-label="Interface language"
-      className="flex gap-2"
-    >
-      {LANGUAGES.map((lang) => {
-        const isActive = lang.value === value;
-        return (
-          <button
-            key={lang.value}
-            type="button"
-            role="radio"
-            aria-checked={isActive}
-            aria-label={lang.native}
-            onClick={() => onChange(lang.value)}
-            className={cx(
-              "group relative flex min-w-[120px] flex-col items-start gap-0.5 rounded-xl border px-3.5 py-2.5 text-left transition-all",
-              tokens.ring,
-              isActive
-                ? cx(tokens.itemActive, "border-transparent")
-                : cx(
-                    tokens.inputBg,
-                    tokens.inputBorder,
-                    "hover:border-neutral-400/40"
-                  )
-            )}
-          >
-            <span
-              className={cx(
-                "text-[10.5px] font-semibold tracking-[0.08em] uppercase",
-                isActive ? "opacity-70" : tokens.subtle
-              )}
-            >
-              {lang.code}
-            </span>
-            <span className={cx("text-[14px] font-medium", tokens.heading)}>
-              {lang.native}
-            </span>
-            {isActive && (
-              <span className="absolute top-2 right-2 flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500 text-white shadow-sm">
-                <CheckIcon className="h-2.5 w-2.5" />
-              </span>
-            )}
-          </button>
-        );
-      })}
+    <div className="relative">
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value as "fr" | "en")}
+        aria-label="Interface language"
+        className={cx(
+          "cursor-pointer appearance-none rounded-[10px] border py-2.5 pr-10 pl-3.5 text-[13.5px] font-medium outline-none transition",
+          tokens.inputBg,
+          tokens.inputText,
+          tokens.inputBorder,
+          tokens.inputFocus,
+          tokens.ring
+        )}
+      >
+        {LANGUAGES.map((lang) => (
+          <option key={lang.value} value={lang.value}>
+            {lang.native}
+          </option>
+        ))}
+      </select>
+      <ChevronDownIcon
+        className={cx(
+          "pointer-events-none absolute top-1/2 right-3 -translate-y-1/2",
+          tokens.subtle
+        )}
+      />
     </div>
   );
 }
@@ -2779,7 +2761,7 @@ function PreferencesSection({
   tokens: Tokens;
   notify: Notify;
 }) {
-  const [language, setLanguage] = useState<"fr" | "zh">(() =>
+  const [language, setLanguage] = useState<"fr" | "en">(() =>
     detectPreferredLanguage()
   );
   const [prefs, setPrefs] = useState<Record<string, boolean>>({
