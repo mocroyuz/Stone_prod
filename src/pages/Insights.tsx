@@ -206,11 +206,11 @@ const tokens = (isDark: boolean): Tokens =>
         text: "text-white",
         muted: "text-neutral-600",
         soft: "text-neutral-400",
-        card: "border-white/[0.07] bg-[#0f0f11]",
-        panel: "border-white/[0.07] bg-white/[0.025]",
-        inner: "border-white/[0.07] bg-white/[0.03]",
-        border: "border-white/[0.07]",
-        head: "bg-white/[0.03]",
+        card: "border-white/[0.05] bg-transparent",
+        panel: "border-white/[0.05] bg-white/[0.015]",
+        inner: "border-white/[0.05] bg-white/[0.02]",
+        border: "border-white/[0.05]",
+        head: "bg-white/[0.02]",
         primaryBtn: "bg-white text-black hover:bg-neutral-200",
         outlineBtn: "border border-white/10 text-white hover:bg-white/[0.07]",
         iconBox: "bg-white/[0.07] text-neutral-300",
@@ -226,11 +226,11 @@ const tokens = (isDark: boolean): Tokens =>
         text: "text-neutral-900",
         muted: "text-neutral-400",
         soft: "text-neutral-500",
-        card: "border-black/[0.06] bg-white",
-        panel: "border-black/[0.06] bg-[#f6f4f0]",
-        inner: "border-black/[0.06] bg-white",
-        border: "border-black/[0.06]",
-        head: "bg-[#f6f4f0]",
+        card: "border-black/[0.05] bg-transparent",
+        panel: "border-black/[0.05] bg-neutral-50",
+        inner: "border-black/[0.05] bg-white",
+        border: "border-black/[0.05]",
+        head: "bg-neutral-50",
         primaryBtn: "bg-neutral-900 text-white hover:bg-neutral-700",
         outlineBtn: "border border-black/10 text-neutral-900 hover:bg-neutral-100",
         iconBox: "bg-neutral-200/70 text-neutral-600",
@@ -944,7 +944,7 @@ function ChartTooltip({
 
   return (
     <div
-      className={`min-w-[160px] rounded-xl px-3.5 py-2.5 text-[12px] shadow-[0_8px_30px_rgba(0,0,0,0.35)] ${
+      className={`min-w-[160px] rounded-lg px-3.5 py-2.5 text-[12px] shadow-[0_8px_30px_rgba(0,0,0,0.35)] ${
         isDark
           ? "bg-[#101012] text-white ring-1 ring-white/10"
           : "bg-white text-neutral-900 ring-1 ring-black/10"
@@ -1140,7 +1140,7 @@ function Segmented<T extends string>({
     <div
       role="group"
       aria-label={label}
-      className={`inline-flex flex-wrap items-center gap-0.5 rounded-xl border p-1 ${t.panel}`}
+      className={`inline-flex flex-wrap items-center gap-0.5 rounded-lg border p-1 ${t.panel}`}
     >
       {options.map((o) => {
         const active = value === o.key;
@@ -1150,7 +1150,7 @@ function Segmented<T extends string>({
             type="button"
             aria-pressed={active}
             onClick={() => onChange(o.key)}
-            className={`flex items-center gap-1.5 whitespace-nowrap rounded-lg px-3 ${
+            className={`flex items-center gap-1.5 whitespace-nowrap rounded-md px-3 ${
               size === "lg" ? "py-2 text-[13px]" : "py-1.5 text-[12px]"
             } font-semibold transition-colors motion-reduce:transition-none ${t.ring} ${active ? t.sel : t.idle}`}
           >
@@ -1186,7 +1186,7 @@ function IconBtn({
   className?: string;
 }) {
   const cls = [
-    "flex shrink-0 items-center justify-center rounded-xl transition-colors motion-reduce:transition-none disabled:cursor-not-allowed disabled:opacity-40",
+    "flex shrink-0 items-center justify-center rounded-lg transition-colors motion-reduce:transition-none disabled:cursor-not-allowed disabled:opacity-40",
     t.ring,
     t.soft,
     boxed ? `border ${t.inner} ${t.hover}` : t.hover,
@@ -1208,7 +1208,7 @@ function IconBtn({
       <span
         role="tooltip"
         className={[
-          "pointer-events-none absolute top-full z-50 mt-2 w-max max-w-[240px] rounded-lg px-3 py-2 text-[12.5px] font-medium leading-snug text-white opacity-0 shadow-lg transition-opacity duration-150 motion-reduce:transition-none group-hover:opacity-100 group-hover:delay-300 group-focus-within:opacity-100",
+          "pointer-events-none absolute top-full z-50 mt-2 w-max max-w-[240px] rounded-md px-3 py-2 text-[12.5px] font-medium leading-snug text-white opacity-0 shadow-lg transition-opacity duration-150 motion-reduce:transition-none group-hover:opacity-100 group-hover:delay-300 group-focus-within:opacity-100",
           t.tip,
           align === "end" ? "right-0" : "left-1/2 -translate-x-1/2",
         ].join(" ")}
@@ -1238,9 +1238,9 @@ function MoveCard({
     <button
       type="button"
       onClick={onClick}
-      className={`flex flex-col items-start rounded-2xl border p-4 text-left transition-colors ${t.inner} ${t.hover} ${t.ring}`}
+      className={`flex flex-col items-start rounded-xl border p-4 text-left transition-colors ${t.inner} ${t.hover} ${t.ring}`}
     >
-      <span className={`flex h-7 w-7 items-center justify-center rounded-lg ${t.iconBox}`}>{icon}</span>
+      <span className={`flex h-7 w-7 items-center justify-center rounded-md ${t.iconBox}`}>{icon}</span>
       <span className={`mt-3 text-[13px] font-semibold tracking-[-0.02em] ${t.text}`}>{title}</span>
       <span className={`mt-1 text-[12px] leading-relaxed ${t.soft}`}>{text}</span>
       <span className={`mt-3 text-[11px] font-semibold ${t.text}`}>{cta} →</span>
@@ -1264,7 +1264,7 @@ function MetricBox({
   const up = delta != null && delta > 0;
   const down = delta != null && delta < 0;
   return (
-    <div className={`flex flex-col gap-2 rounded-xl border px-3.5 py-3 ${t.inner}`}>
+    <div className={`flex flex-col gap-2 rounded-lg border px-3.5 py-3 ${t.inner}`}>
       <span className={`flex items-center justify-between gap-2 text-[10px] font-medium ${t.soft}`}>
         <span className="truncate">{label}</span>
         <span title={info} role="img" aria-label={info} className={`shrink-0 ${t.muted}`}>
@@ -1365,7 +1365,7 @@ function RangePicker({
         type="button"
         aria-pressed={active}
         onClick={() => openPicker(id)}
-        className={`flex-1 whitespace-nowrap rounded-lg px-3 py-1.5 text-[11px] font-semibold transition-colors motion-reduce:transition-none ${t.ring} ${
+        className={`flex-1 whitespace-nowrap rounded-md px-3 py-1.5 text-[11px] font-semibold transition-colors motion-reduce:transition-none ${t.ring} ${
           active ? t.sel : t.idle
         }`}
       >
@@ -1381,7 +1381,7 @@ function RangePicker({
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => (open ? setOpen(false) : openPicker("from"))}
-        className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-[12px] font-semibold transition-colors ${t.ring} ${t.panel} ${t.hover} ${t.text}`}
+        className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-[12px] font-semibold transition-colors ${t.ring} ${t.panel} ${t.hover} ${t.text}`}
       >
         <CalendarClock className={`h-3.5 w-3.5 ${t.muted}`} aria-hidden="true" />
         <span className="whitespace-nowrap">{label}</span>
@@ -1393,7 +1393,7 @@ function RangePicker({
 
       {open && (
         <div
-          className={`absolute left-0 top-full z-30 mt-2 w-[300px] overflow-hidden rounded-2xl border shadow-[0_12px_40px_rgba(0,0,0,0.5)] ${t.popover}`}
+          className={`absolute left-0 top-full z-30 mt-2 w-[300px] overflow-hidden rounded-xl border shadow-[0_12px_40px_rgba(0,0,0,0.5)] ${t.popover}`}
         >
           <div className={`flex gap-1 border-b p-2 ${t.border}`}>
             {fieldTab("from")}
@@ -1421,14 +1421,14 @@ function RangePicker({
             <button
               type="button"
               onClick={() => setField((f) => (f === "from" ? "to" : "from"))}
-              className={`rounded-md px-1 text-[12px] font-semibold transition-colors ${t.ring} ${t.hover} ${t.text}`}
+              className={`rounded px-1 text-[12px] font-semibold transition-colors ${t.ring} ${t.hover} ${t.text}`}
             >
               {field === "from" ? "Next: To" : "Back: From"}
             </button>
             <button
               type="button"
               onClick={() => setOpen(false)}
-              className={`flex items-center gap-1.5 rounded-md px-1 text-[12px] font-semibold transition-colors ${t.ring} ${t.hover} ${t.text}`}
+              className={`flex items-center gap-1.5 rounded px-1 text-[12px] font-semibold transition-colors ${t.ring} ${t.hover} ${t.text}`}
             >
               <Check className="h-3.5 w-3.5" strokeWidth={3} aria-hidden="true" />
               Done
@@ -1879,7 +1879,7 @@ export default function Insights() {
       <ImageIcon className="h-4 w-4" />
     );
 
-  const sectionCard = `rounded-2xl border p-4 ${t.card}`;
+  const sectionCard = `rounded-xl border p-4 ${t.card}`;
   const sectionTitle = `text-[15px] font-semibold tracking-[-0.02em] ${t.text}`;
   const sectionSub = `mt-1 text-[11px] ${t.muted}`;
 
@@ -1905,10 +1905,10 @@ export default function Insights() {
         <div
           className={[
             "h-full overflow-y-auto overflow-x-hidden",
-            "rounded-[28px] border",
+            "rounded-2xl border",
             "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
             "transition-colors duration-300",
-            isDark ? "border-white/[0.07] bg-[#0a0a0c]" : "border-black/[0.06] bg-white",
+            isDark ? "border-white/[0.05] bg-[#0a0a0c]" : "border-black/[0.05] bg-white",
           ].join(" ")}
         >
           <div
@@ -1922,7 +1922,7 @@ export default function Insights() {
             <div className="relative z-40 flex shrink-0 flex-wrap items-center justify-between gap-3">
               <div className="flex min-w-0 items-center gap-2.5">
                 <span
-                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border ${t.inner} ${t.soft}`}
+                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border ${t.inner} ${t.soft}`}
                 >
                   <InsightsIcon />
                 </span>
@@ -1955,7 +1955,7 @@ export default function Insights() {
                     type="button"
                     onClick={exportCsv}
                     disabled={!channels.length}
-                    className={`flex h-9 items-center gap-2 rounded-xl px-3.5 text-[12px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${t.ring} ${t.outlineBtn}`}
+                    className={`flex h-9 items-center gap-2 rounded-lg px-3.5 text-[12px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${t.ring} ${t.outlineBtn}`}
                   >
                     <Download className="h-4 w-4" aria-hidden="true" />
                     Export
@@ -1969,7 +1969,7 @@ export default function Insights() {
                   title={saved ? "Remove from favorites" : "Add to favorites"}
                   onClick={() => toggleFavorite(PAGE_ROUTE)}
                   className={[
-                    "ml-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-colors motion-reduce:transition-none",
+                    "ml-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors motion-reduce:transition-none",
                     t.ring,
                     t.soft,
                     t.hover,
@@ -1982,7 +1982,7 @@ export default function Insights() {
 
             {!channels.length ? (
               <section
-                className={`flex flex-col items-center gap-3 rounded-2xl border px-6 py-20 text-center ${t.panel}`}
+                className={`flex flex-col items-center gap-3 rounded-xl border px-6 py-20 text-center ${t.panel}`}
               >
                 <span className={`flex h-11 w-11 items-center justify-center rounded-full ${t.iconBox}`}>
                   <Activity className="h-5 w-5" aria-hidden="true" />
@@ -1994,7 +1994,7 @@ export default function Insights() {
                 <button
                   type="button"
                   onClick={() => navigateToSettingsSection("channels")}
-                  className={`mt-2 flex items-center gap-1.5 rounded-lg px-4 py-2 text-[11px] font-semibold ${t.ring} ${t.primaryBtn}`}
+                  className={`mt-2 flex items-center gap-1.5 rounded-md px-4 py-2 text-[11px] font-semibold ${t.ring} ${t.primaryBtn}`}
                 >
                   <Plus className="h-3.5 w-3.5" aria-hidden="true" />
                   Connect a channel
@@ -2005,13 +2005,13 @@ export default function Insights() {
                 {fetchYouTube && yt.error && (
                   <div
                     role="alert"
-                    className={`flex flex-wrap items-center justify-between gap-3 rounded-2xl border px-4 py-3 ${t.panel}`}
+                    className={`flex flex-wrap items-center justify-between gap-3 rounded-xl border px-4 py-3 ${t.panel}`}
                   >
                     <p className="text-[12.5px] text-red-500">Could not load YouTube insights: {yt.error}</p>
                     <button
                       type="button"
                       onClick={() => setReloadKey((k) => k + 1)}
-                      className={`rounded-lg px-3 py-1.5 text-[11px] font-semibold transition-colors ${t.ring} ${t.outlineBtn}`}
+                      className={`rounded-md px-3 py-1.5 text-[11px] font-semibold transition-colors ${t.ring} ${t.outlineBtn}`}
                     >
                       Retry
                     </button>
@@ -2024,22 +2024,14 @@ export default function Insights() {
                 )}
 
                 {/* ── NEXT MOVE : hero + 3 takeaways actionnables ── */}
-                <section className={`relative overflow-hidden rounded-2xl border ${t.card}`}>
-                  <div
-                    aria-hidden="true"
-                    className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${
-                      isDark
-                        ? "from-white/[0.05] via-transparent to-transparent"
-                        : "from-black/[0.03] via-transparent to-transparent"
-                    }`}
-                  />
+                <section className={`relative overflow-hidden rounded-xl border ${t.card}`}>
                   <div className="relative z-10 flex flex-col gap-5 px-6 py-6">
                     <div className="flex flex-wrap items-start justify-between gap-4">
                       <div className="max-w-[640px]">
                         <p className={`text-[11px] font-semibold uppercase tracking-[0.14em] ${t.muted}`}>
                           Next move
                         </p>
-                        <h2 className={`mt-1.5 text-[26px] font-semibold tracking-[-0.04em] ${t.text}`}>
+                        <h2 className={`mt-1.5 text-[22px] font-semibold tracking-[-0.03em] ${t.text}`}>
                           {headline}
                         </h2>
                         <p className={`mt-2 max-w-[520px] text-[13px] leading-relaxed ${t.soft}`}>
@@ -2049,7 +2041,7 @@ export default function Insights() {
                       <button
                         type="button"
                         onClick={() => openComposer({ reason: "manual", channelKey: channel?.key })}
-                        className={`flex w-fit items-center gap-1.5 rounded-lg px-4 py-2.5 text-[12px] font-semibold transition-all duration-150 active:scale-[0.98] ${t.ring} ${t.primaryBtn}`}
+                        className={`flex w-fit items-center gap-1.5 rounded-md px-4 py-2.5 text-[12px] font-semibold transition-all duration-150 active:scale-[0.98] ${t.ring} ${t.primaryBtn}`}
                       >
                         <Plus className="h-3.5 w-3.5" aria-hidden="true" />
                         {behind > 0 ? "Schedule the gap" : "Create Post"}
@@ -2080,6 +2072,329 @@ export default function Insights() {
                   </div>
                 </section>
 
+                {/* ── RECYCLE (duplicate) ── */}
+                <section className={sectionCard} aria-labelledby="recycle-title">
+                  <div className="flex flex-wrap items-start justify-between gap-3 px-1">
+                    <div>
+                      <h3 id="recycle-title" className={sectionTitle}>
+                        Recycle these
+                      </h3>
+                      <p className={sectionSub}>Posts still outperforming the rest — duplicate the angle</p>
+                    </div>
+                  </div>
+                  {remixable.length === 0 ? (
+                    <p className={`mt-4 text-[12px] ${t.soft}`}>
+                      After a few published posts, the ones worth remaking show up here.
+                    </p>
+                  ) : (
+                    <div className="mt-4 grid gap-2.5 md:grid-cols-3">
+                      {remixable.map((p, i) => (
+                        <div key={p.id} className={`flex gap-3 rounded-xl border p-3 ${t.inner}`}>
+                          <span className={`flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg ${t.iconBox}`}>
+                            {p.thumbnailUrl ? (
+                              <img
+                                src={p.thumbnailUrl}
+                                alt=""
+                                referrerPolicy="no-referrer"
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              mediaIcon(p.media)
+                            )}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <p className={`text-[10px] font-semibold uppercase tracking-wide ${t.muted}`}>
+                              #{i + 1} · {p.media}
+                            </p>
+                            <p className={`mt-0.5 truncate text-[13px] font-semibold ${t.text}`}>{p.label}</p>
+                            <p className={`mt-1 text-[11px] ${t.soft}`}>
+                              {nf(p.reactions)} reactions · {p.engRate.toFixed(1)}% eng
+                            </p>
+                            <button
+                              type="button"
+                              onClick={() => duplicatePost(p)}
+                              className={`mt-2 text-[11px] font-semibold ${t.text}`}
+                            >
+                              Duplicate →
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </section>
+
+                {/* ── NUMBERS ── */}
+                <section aria-labelledby="all-title" className="flex flex-col gap-4">
+                  <div>
+                    <h2 id="all-title" className={`text-[20px] font-semibold tracking-[-0.03em] ${t.text}`}>
+                      The numbers
+                    </h2>
+                    <p className={`mt-0.5 text-[10px] ${t.muted}`}>Proof behind the next move</p>
+                  </div>
+
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex flex-wrap items-center gap-3">
+                      <div
+                        role="tablist"
+                        aria-label="Date range"
+                        className={`inline-flex flex-wrap items-center gap-0.5 rounded-lg border p-1 ${t.panel}`}
+                      >
+                        {RANGES.map((o) => {
+                          const active = range === o.key;
+                          return (
+                            <button
+                              key={o.key}
+                              type="button"
+                              role="tab"
+                              aria-selected={active}
+                              onClick={() => setRange(o.key)}
+                              className={`flex items-center gap-2 whitespace-nowrap rounded-md px-3.5 py-2 text-[13px] font-semibold transition-colors ${t.ring} ${
+                                active ? t.sel : t.idle
+                              }`}
+                            >
+                              {o.label}
+                              {o.key === "custom" && (
+                                <span
+                                  className={`flex h-5 w-5 items-center justify-center rounded-full ${
+                                    active
+                                      ? isDark
+                                        ? "bg-black/15 text-black"
+                                        : "bg-white/20 text-white"
+                                      : isDark
+                                        ? "bg-white/15 text-white"
+                                        : "bg-black/10 text-black"
+                                  }`}
+                                  aria-hidden="true"
+                                >
+                                  <Zap className="h-3 w-3 fill-current" />
+                                </span>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {range === "custom" && (
+                        <RangePicker
+                          range={range}
+                          start={start}
+                          end={end}
+                          onStartChange={setCustomStart}
+                          onEndChange={setCustomEnd}
+                          onRangeChange={setRange}
+                          t={t}
+                          isDark={isDark}
+                        />
+                      )}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => navigate("tags")}
+                      className={`flex items-center gap-2 rounded-md px-3 py-2 text-[13px] font-semibold transition-colors ${t.ring} ${t.hover} ${t.text}`}
+                    >
+                      <Tag className="h-4 w-4" aria-hidden="true" />
+                      Tags
+                      <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
+                    </button>
+                  </div>
+
+                  <div className={sectionCard}>
+                    <div className="flex items-start justify-between gap-3 px-1">
+                      <div>
+                        <h3 className={sectionTitle}>Summary</h3>
+                        <p className={sectionSub}>
+                          {periodLabel} · {compareLabel}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 print:hidden">
+                        <IconBtn label="Share summary" boxed t={t}>
+                          <Send className="h-4 w-4" aria-hidden="true" />
+                        </IconBtn>
+                        <IconBtn label="Open summary" boxed t={t} align="end">
+                          <ExternalLink className="h-4 w-4" aria-hidden="true" />
+                        </IconBtn>
+                      </div>
+                    </div>
+                    <div
+                      className={`mt-4 grid grid-cols-2 gap-2.5 rounded-xl border p-3 sm:grid-cols-3 lg:grid-cols-6 ${t.panel}`}
+                    >
+                      {summaryBoxes.map((b) => (
+                        <MetricBox
+                          key={b.label}
+                          label={b.label}
+                          value={b.value}
+                          info={SUMMARY_INFO[b.label] ?? b.label}
+                          t={t}
+                          delta={b.delta}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </section>
+
+                {/* ── PERFORMANCE PER POST ── */}
+                <section className={sectionCard} aria-labelledby="perf-title">
+                  <div className="flex flex-wrap items-start justify-between gap-3 px-1">
+                    <div>
+                      <h3 id="perf-title" className={sectionTitle}>
+                        Performance per Post
+                      </h3>
+                      <p className={sectionSub}>
+                        {postsPeriod === "this" ? periodLabel : fmtRange(prevStart, prevEnd)}
+                        {hiddenScheduled > 0 && ` · ${hiddenScheduled} scheduled not shown`}
+                      </p>
+                    </div>
+                    <Segmented<PostsPeriod>
+                      label="Posts period"
+                      value={postsPeriod}
+                      onChange={setPostsPeriod}
+                      t={t}
+                      size="lg"
+                      options={[
+                        { key: "this", label: "This Period" },
+                        { key: "previous", label: "Previous Period" },
+                      ]}
+                    />
+                  </div>
+
+                  <div className={`mt-4 overflow-x-auto rounded-xl border ${t.panel}`}>
+                    <div className="min-w-[720px]">
+                      <div
+                        className={`grid ${TABLE_GRID} items-center gap-2 px-4 py-3 text-[12px] font-semibold ${t.head} ${t.text}`}
+                      >
+                        <span>Posts · {sortedRows.length}</span>
+                        {columns.map((c) => (
+                          <button
+                            key={c.key}
+                            type="button"
+                            onClick={() => toggleSort(c.key)}
+                            aria-label={`Sort by ${c.label}`}
+                            className={`flex w-fit items-center gap-1 rounded text-left ${t.ring}`}
+                          >
+                            {c.label}
+                            <ChevronDown
+                              className={`h-3.5 w-3.5 transition-transform ${t.muted} ${
+                                sort?.key === c.key && sort.dir === "asc" ? "rotate-180" : ""
+                              } ${sort?.key === c.key ? "opacity-100" : "opacity-70"}`}
+                              aria-hidden="true"
+                            />
+                          </button>
+                        ))}
+                        <button
+                          type="button"
+                          aria-label="Customize columns"
+                          title="Customize columns"
+                          className={`flex h-9 w-9 items-center justify-center rounded-lg border ${t.inner} ${t.soft} ${t.hover} ${t.ring}`}
+                        >
+                          <Columns className="h-4 w-4" aria-hidden="true" />
+                        </button>
+                      </div>
+
+                      {sortedRows.length === 0 ? (
+                        <div
+                          className={`flex flex-col items-center gap-2 border-t px-6 py-10 text-center ${t.border}`}
+                        >
+                          <span
+                            className={`flex h-11 w-11 items-center justify-center rounded-full ${t.iconBox}`}
+                          >
+                            <Activity className="h-5 w-5" aria-hidden="true" />
+                          </span>
+                          <p className={`text-[12px] font-medium ${t.text}`}>
+                            {youtubeLoading
+                              ? "Loading videos…"
+                              : needle
+                                ? "No posts match your search"
+                                : "No posts in this period"}
+                          </p>
+                          {!youtubeLoading && !needle && (
+                            <p className={`max-w-[360px] text-[12px] ${t.soft}`}>
+                              Choose a longer range to see how your earlier posts performed.
+                            </p>
+                          )}
+                          {!youtubeLoading && !needle && days < 30 && (
+                            <button
+                              type="button"
+                              onClick={() => setRange("30d")}
+                              className={`mt-2 rounded-md px-3 py-1.5 text-[11px] font-semibold transition-colors ${t.ring} ${t.outlineBtn}`}
+                            >
+                              Show last 30 days
+                            </button>
+                          )}
+                        </div>
+                      ) : (
+                        sortedRows.map((p, idx) => (
+                          <div
+                            key={p.id}
+                            className={`grid ${TABLE_GRID} items-center gap-2 border-t px-4 py-3 text-[13px] ${t.border} ${t.text}`}
+                          >
+                            <div className="flex min-w-0 items-center gap-3">
+                              <span className={`w-5 shrink-0 text-[12px] ${t.muted}`}>#{idx + 1}</span>
+                              <span
+                                className={`flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg ${t.iconBox}`}
+                              >
+                                {p.thumbnailUrl ? (
+                                  <img
+                                    src={p.thumbnailUrl}
+                                    alt=""
+                                    referrerPolicy="no-referrer"
+                                    loading="lazy"
+                                    className="h-full w-full object-cover"
+                                  />
+                                ) : (
+                                  mediaIcon(p.media)
+                                )}
+                              </span>
+                              <div className="min-w-0">
+                                {isYouTube ? (
+                                  <a
+                                    href={`https://www.youtube.com/watch?v=${p.id}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className={`block truncate rounded text-[14px] font-medium hover:underline ${t.soft} ${t.ring}`}
+                                  >
+                                    {p.label}
+                                  </a>
+                                ) : (
+                                  <p className={`truncate text-[14px] font-medium ${t.soft}`}>{p.label}</p>
+                                )}
+                                <p className={`text-[11px] ${t.muted}`}>{fmtFull(p.date)}</p>
+                              </div>
+                            </div>
+                            {columns.map((c) => (
+                              <span key={c.key} className="tabular-nums">
+                                {c.render(p)}
+                              </span>
+                            ))}
+                            {isYouTube ? (
+                              <a
+                                href={`https://www.youtube.com/watch?v=${p.id}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                aria-label="Open on YouTube"
+                                title="Open on YouTube"
+                                className={`flex h-8 w-8 items-center justify-center rounded-md ${t.soft} ${t.hover} ${t.ring}`}
+                              >
+                                <ExternalLink className="h-4 w-4" aria-hidden="true" />
+                              </a>
+                            ) : (
+                              <button
+                                type="button"
+                                aria-label="Duplicate this post"
+                                title="Duplicate this post"
+                                onClick={() => duplicatePost(p)}
+                                className={`flex h-8 w-8 items-center justify-center rounded-md ${t.soft} ${t.hover} ${t.ring}`}
+                              >
+                                <MoreVertical className="h-4 w-4" aria-hidden="true" />
+                              </button>
+                            )}
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                </section>
+
                 {/* ── BEST TIME TO POST ── */}
                 <section className={sectionCard} aria-labelledby="besttime-title">
                   <div className="flex flex-wrap items-start justify-between gap-3 px-1">
@@ -2094,7 +2409,7 @@ export default function Insights() {
                     <button
                       type="button"
                       onClick={() => scheduleFromSlot(heatmap.best)}
-                      className={`rounded-lg px-3 py-1.5 text-[11px] font-semibold ${t.ring} ${t.outlineBtn}`}
+                      className={`rounded-md px-3 py-1.5 text-[11px] font-semibold ${t.ring} ${t.outlineBtn}`}
                     >
                       Use {heatmap.label}
                     </button>
@@ -2143,7 +2458,7 @@ export default function Insights() {
                             key={b.day}
                             type="button"
                             onClick={() => scheduleFromSlot(b)}
-                            className={`rounded-md border py-1.5 text-center text-[10px] font-semibold ${t.inner} ${t.hover} ${t.ring} ${t.text}`}
+                            className={`rounded border py-1.5 text-center text-[10px] font-semibold ${t.inner} ${t.hover} ${t.ring} ${t.text}`}
                           >
                             {hourLabel(b.hour)}
                           </button>
@@ -2161,329 +2476,6 @@ export default function Insights() {
                         />
                         <span className={`text-[10px] ${t.muted}`}>Higher</span>
                       </div>
-                    </div>
-                  </div>
-                </section>
-
-                {/* ── RECYCLE (duplicate) ── */}
-                <section className={sectionCard} aria-labelledby="recycle-title">
-                  <div className="flex flex-wrap items-start justify-between gap-3 px-1">
-                    <div>
-                      <h3 id="recycle-title" className={sectionTitle}>
-                        Recycle these
-                      </h3>
-                      <p className={sectionSub}>Posts still outperforming the rest — duplicate the angle</p>
-                    </div>
-                  </div>
-                  {remixable.length === 0 ? (
-                    <p className={`mt-4 text-[12px] ${t.soft}`}>
-                      After a few published posts, the ones worth remaking show up here.
-                    </p>
-                  ) : (
-                    <div className="mt-4 grid gap-2.5 md:grid-cols-3">
-                      {remixable.map((p, i) => (
-                        <div key={p.id} className={`flex gap-3 rounded-2xl border p-3 ${t.inner}`}>
-                          <span className={`flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl ${t.iconBox}`}>
-                            {p.thumbnailUrl ? (
-                              <img
-                                src={p.thumbnailUrl}
-                                alt=""
-                                referrerPolicy="no-referrer"
-                                className="h-full w-full object-cover"
-                              />
-                            ) : (
-                              mediaIcon(p.media)
-                            )}
-                          </span>
-                          <div className="min-w-0 flex-1">
-                            <p className={`text-[10px] font-semibold uppercase tracking-wide ${t.muted}`}>
-                              #{i + 1} · {p.media}
-                            </p>
-                            <p className={`mt-0.5 truncate text-[13px] font-semibold ${t.text}`}>{p.label}</p>
-                            <p className={`mt-1 text-[11px] ${t.soft}`}>
-                              {nf(p.reactions)} reactions · {p.engRate.toFixed(1)}% eng
-                            </p>
-                            <button
-                              type="button"
-                              onClick={() => duplicatePost(p)}
-                              className={`mt-2 text-[11px] font-semibold ${t.text}`}
-                            >
-                              Duplicate →
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </section>
-
-                {/* ── NUMBERS ── */}
-                <section aria-labelledby="all-title" className="flex flex-col gap-4">
-                  <div>
-                    <h2 id="all-title" className={`text-[20px] font-semibold tracking-[-0.03em] ${t.text}`}>
-                      The numbers
-                    </h2>
-                    <p className={`mt-0.5 text-[10px] ${t.muted}`}>Proof behind the next move</p>
-                  </div>
-
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div className="flex flex-wrap items-center gap-3">
-                      <div
-                        role="tablist"
-                        aria-label="Date range"
-                        className={`inline-flex flex-wrap items-center gap-0.5 rounded-xl border p-1 ${t.panel}`}
-                      >
-                        {RANGES.map((o) => {
-                          const active = range === o.key;
-                          return (
-                            <button
-                              key={o.key}
-                              type="button"
-                              role="tab"
-                              aria-selected={active}
-                              onClick={() => setRange(o.key)}
-                              className={`flex items-center gap-2 whitespace-nowrap rounded-lg px-3.5 py-2 text-[13px] font-semibold transition-colors ${t.ring} ${
-                                active ? t.sel : t.idle
-                              }`}
-                            >
-                              {o.label}
-                              {o.key === "custom" && (
-                                <span
-                                  className={`flex h-5 w-5 items-center justify-center rounded-full ${
-                                    active
-                                      ? isDark
-                                        ? "bg-black/15 text-black"
-                                        : "bg-white/20 text-white"
-                                      : isDark
-                                        ? "bg-white/15 text-white"
-                                        : "bg-black/10 text-black"
-                                  }`}
-                                  aria-hidden="true"
-                                >
-                                  <Zap className="h-3 w-3 fill-current" />
-                                </span>
-                              )}
-                            </button>
-                          );
-                        })}
-                      </div>
-                      {range === "custom" && (
-                        <RangePicker
-                          range={range}
-                          start={start}
-                          end={end}
-                          onStartChange={setCustomStart}
-                          onEndChange={setCustomEnd}
-                          onRangeChange={setRange}
-                          t={t}
-                          isDark={isDark}
-                        />
-                      )}
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => navigate("tags")}
-                      className={`flex items-center gap-2 rounded-lg px-3 py-2 text-[13px] font-semibold transition-colors ${t.ring} ${t.hover} ${t.text}`}
-                    >
-                      <Tag className="h-4 w-4" aria-hidden="true" />
-                      Tags
-                      <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
-                    </button>
-                  </div>
-
-                  <div className={sectionCard}>
-                    <div className="flex items-start justify-between gap-3 px-1">
-                      <div>
-                        <h3 className={sectionTitle}>Summary</h3>
-                        <p className={sectionSub}>
-                          {periodLabel} · {compareLabel}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2 print:hidden">
-                        <IconBtn label="Share summary" boxed t={t}>
-                          <Send className="h-4 w-4" aria-hidden="true" />
-                        </IconBtn>
-                        <IconBtn label="Open summary" boxed t={t} align="end">
-                          <ExternalLink className="h-4 w-4" aria-hidden="true" />
-                        </IconBtn>
-                      </div>
-                    </div>
-                    <div
-                      className={`mt-4 grid grid-cols-2 gap-2.5 rounded-2xl border p-3 sm:grid-cols-3 lg:grid-cols-6 ${t.panel}`}
-                    >
-                      {summaryBoxes.map((b) => (
-                        <MetricBox
-                          key={b.label}
-                          label={b.label}
-                          value={b.value}
-                          info={SUMMARY_INFO[b.label] ?? b.label}
-                          t={t}
-                          delta={b.delta}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                </section>
-
-                {/* ── PERFORMANCE PER POST ── */}
-                <section className={sectionCard} aria-labelledby="perf-title">
-                  <div className="flex flex-wrap items-start justify-between gap-3 px-1">
-                    <div>
-                      <h3 id="perf-title" className={sectionTitle}>
-                        Performance per Post
-                      </h3>
-                      <p className={sectionSub}>
-                        {postsPeriod === "this" ? periodLabel : fmtRange(prevStart, prevEnd)}
-                        {hiddenScheduled > 0 && ` · ${hiddenScheduled} scheduled not shown`}
-                      </p>
-                    </div>
-                    <Segmented<PostsPeriod>
-                      label="Posts period"
-                      value={postsPeriod}
-                      onChange={setPostsPeriod}
-                      t={t}
-                      size="lg"
-                      options={[
-                        { key: "this", label: "This Period" },
-                        { key: "previous", label: "Previous Period" },
-                      ]}
-                    />
-                  </div>
-
-                  <div className={`mt-4 overflow-x-auto rounded-2xl border ${t.panel}`}>
-                    <div className="min-w-[720px]">
-                      <div
-                        className={`grid ${TABLE_GRID} items-center gap-2 px-4 py-3 text-[12px] font-semibold ${t.head} ${t.text}`}
-                      >
-                        <span>Posts · {sortedRows.length}</span>
-                        {columns.map((c) => (
-                          <button
-                            key={c.key}
-                            type="button"
-                            onClick={() => toggleSort(c.key)}
-                            aria-label={`Sort by ${c.label}`}
-                            className={`flex w-fit items-center gap-1 rounded-md text-left ${t.ring}`}
-                          >
-                            {c.label}
-                            <ChevronDown
-                              className={`h-3.5 w-3.5 transition-transform ${t.muted} ${
-                                sort?.key === c.key && sort.dir === "asc" ? "rotate-180" : ""
-                              } ${sort?.key === c.key ? "opacity-100" : "opacity-70"}`}
-                              aria-hidden="true"
-                            />
-                          </button>
-                        ))}
-                        <button
-                          type="button"
-                          aria-label="Customize columns"
-                          title="Customize columns"
-                          className={`flex h-9 w-9 items-center justify-center rounded-xl border ${t.inner} ${t.soft} ${t.hover} ${t.ring}`}
-                        >
-                          <Columns className="h-4 w-4" aria-hidden="true" />
-                        </button>
-                      </div>
-
-                      {sortedRows.length === 0 ? (
-                        <div
-                          className={`flex flex-col items-center gap-2 border-t px-6 py-10 text-center ${t.border}`}
-                        >
-                          <span
-                            className={`flex h-11 w-11 items-center justify-center rounded-full ${t.iconBox}`}
-                          >
-                            <Activity className="h-5 w-5" aria-hidden="true" />
-                          </span>
-                          <p className={`text-[12px] font-medium ${t.text}`}>
-                            {youtubeLoading
-                              ? "Loading videos…"
-                              : needle
-                                ? "No posts match your search"
-                                : "No posts in this period"}
-                          </p>
-                          {!youtubeLoading && !needle && (
-                            <p className={`max-w-[360px] text-[12px] ${t.soft}`}>
-                              Choose a longer range to see how your earlier posts performed.
-                            </p>
-                          )}
-                          {!youtubeLoading && !needle && days < 30 && (
-                            <button
-                              type="button"
-                              onClick={() => setRange("30d")}
-                              className={`mt-2 rounded-lg px-3 py-1.5 text-[11px] font-semibold transition-colors ${t.ring} ${t.outlineBtn}`}
-                            >
-                              Show last 30 days
-                            </button>
-                          )}
-                        </div>
-                      ) : (
-                        sortedRows.map((p, idx) => (
-                          <div
-                            key={p.id}
-                            className={`grid ${TABLE_GRID} items-center gap-2 border-t px-4 py-3 text-[13px] ${t.border} ${t.text}`}
-                          >
-                            <div className="flex min-w-0 items-center gap-3">
-                              <span className={`w-5 shrink-0 text-[12px] ${t.muted}`}>#{idx + 1}</span>
-                              <span
-                                className={`flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl ${t.iconBox}`}
-                              >
-                                {p.thumbnailUrl ? (
-                                  <img
-                                    src={p.thumbnailUrl}
-                                    alt=""
-                                    referrerPolicy="no-referrer"
-                                    loading="lazy"
-                                    className="h-full w-full object-cover"
-                                  />
-                                ) : (
-                                  mediaIcon(p.media)
-                                )}
-                              </span>
-                              <div className="min-w-0">
-                                {isYouTube ? (
-                                  <a
-                                    href={`https://www.youtube.com/watch?v=${p.id}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className={`block truncate rounded text-[14px] font-medium hover:underline ${t.soft} ${t.ring}`}
-                                  >
-                                    {p.label}
-                                  </a>
-                                ) : (
-                                  <p className={`truncate text-[14px] font-medium ${t.soft}`}>{p.label}</p>
-                                )}
-                                <p className={`text-[11px] ${t.muted}`}>{fmtFull(p.date)}</p>
-                              </div>
-                            </div>
-                            {columns.map((c) => (
-                              <span key={c.key} className="tabular-nums">
-                                {c.render(p)}
-                              </span>
-                            ))}
-                            {isYouTube ? (
-                              <a
-                                href={`https://www.youtube.com/watch?v=${p.id}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                aria-label="Open on YouTube"
-                                title="Open on YouTube"
-                                className={`flex h-8 w-8 items-center justify-center rounded-lg ${t.soft} ${t.hover} ${t.ring}`}
-                              >
-                                <ExternalLink className="h-4 w-4" aria-hidden="true" />
-                              </a>
-                            ) : (
-                              <button
-                                type="button"
-                                aria-label="Duplicate this post"
-                                title="Duplicate this post"
-                                onClick={() => duplicatePost(p)}
-                                className={`flex h-8 w-8 items-center justify-center rounded-lg ${t.soft} ${t.hover} ${t.ring}`}
-                              >
-                                <MoreVertical className="h-4 w-4" aria-hidden="true" />
-                              </button>
-                            )}
-                          </div>
-                        ))
-                      )}
                     </div>
                   </div>
                 </section>
@@ -2515,7 +2507,7 @@ export default function Insights() {
                     />
                   </div>
 
-                  <div className={`mt-3 rounded-2xl border p-4 ${t.panel}`}>
+                  <div className={`mt-3 rounded-xl border p-4 ${t.panel}`}>
                     <div className="flex flex-wrap items-start justify-between gap-4">
                       <div className="flex flex-wrap gap-x-10 gap-y-3 pl-2">
                         {activeSeries.map((s) => (
