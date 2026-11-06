@@ -348,6 +348,14 @@ const BoltIcon = mkIcon(
   <path d="M13 2.5 5 13.2h5.6L9.5 21.5l8-10.7h-5.6L13 2.5Z" />,
   "h-6 w-6"
 );
+const GlobeIcon = mkIcon(
+  <>
+    <circle cx="12" cy="12" r="10" />
+    <path d="M2 12h20" />
+    <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10Z" />
+  </>,
+  "h-4 w-4"
+);
 
 /* ── Hooks ── */
 function usePref(key: string, initial: boolean) {
@@ -2657,9 +2665,9 @@ function AppearanceSection({
 }
 
 /* ── Preferences ── */
-const LANGUAGES: { value: "fr" | "en"; native: string }[] = [
-  { value: "fr", native: "Français" },
-  { value: "en", native: "English" },
+const LANGUAGES: { value: "fr" | "en"; native: string; short: string }[] = [
+  { value: "fr", native: "Français", short: "FR" },
+  { value: "en", native: "English", short: "EN" },
 ];
 
 const LANGUAGE_STORAGE_KEY = "stone:language";
@@ -2690,14 +2698,38 @@ function LanguagePicker({
   onChange: (value: "fr" | "en") => void;
   tokens: Tokens;
 }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const current = LANGUAGES.find((l) => l.value === value) ?? LANGUAGES[0];
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (e: MouseEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
   return (
-    <div className="relative">
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value as "fr" | "en")}
+    <div ref={ref} className="relative inline-block">
+      {/* Trigger */}
+      <button
+        type="button"
+        aria-haspopup="listbox"
+        aria-expanded={open}
         aria-label="Interface language"
+        onClick={() => setOpen((v) => !v)}
         className={cx(
-          "cursor-pointer appearance-none rounded-[10px] border py-2.5 pr-10 pl-3.5 text-[13.5px] font-medium outline-none transition",
+          "group flex h-10 min-w-[170px] items-center gap-2.5 rounded-full border px-3.5 text-[13px] font-medium transition-all duration-200",
+          "hover:shadow-[0_1px_2px_rgba(0,0,0,0.04)]",
           tokens.inputBg,
           tokens.inputText,
           tokens.inputBorder,
@@ -2705,18 +2737,74 @@ function LanguagePicker({
           tokens.ring
         )}
       >
-        {LANGUAGES.map((lang) => (
-          <option key={lang.value} value={lang.value}>
-            {lang.native}
-          </option>
-        ))}
-      </select>
-      <ChevronDownIcon
-        className={cx(
-          "pointer-events-none absolute top-1/2 right-3 -translate-y-1/2",
-          tokens.subtle
-        )}
-      />
+        <span className={cx("shrink-0 transition-colors", tokens.subtle)}>
+          <GlobeIcon className="h-[15px] w-[15px]" />
+        </span>
+        <span className="flex-1 text-left">{current.native}</span>
+        <ChevronDownIcon
+          className={cx(
+            "h-3.5 w-3.5 shrink-0 transition-transform duration-200",
+            tokens.subtle,
+            open && "rotate-180"
+          )}
+        />
+      </button>
+
+      {/* Popover */}
+      {open && (
+        <div
+          role="listbox"
+          aria-label="Available languages"
+          className={cx(
+            "absolute top-[calc(100%+6px)] right-0 z-50 w-[210px] overflow-hidden rounded-xl border shadow-xl",
+            "animate-[fadeSlideIn_150ms_ease-out]",
+            tokens.card,
+            tokens.cardBorder
+          )}
+          style={{
+            animation: "fadeSlideIn 150ms ease-out",
+          }}
+        >
+          <ul className="p-1">
+            {LANGUAGES.map((lang) => {
+              const isActive = lang.value === value;
+              return (
+                <li key={lang.value}>
+                  <button
+                    type="button"
+                    role="option"
+                    aria-selected={isActive}
+                    onClick={() => {
+                      onChange(lang.value);
+                      setOpen(false);
+                    }}
+                    className={cx(
+                      "flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[13px] font-medium transition-colors",
+                      tokens.ring,
+                      isActive
+                        ? tokens.itemActive
+                        : `${tokens.item} ${tokens.itemHover}`
+                    )}
+                  >
+                    <span
+                      className={cx(
+                        "w-6 shrink-0 text-center text-[10.5px] font-semibold tracking-[0.06em] uppercase",
+                        isActive ? "opacity-80" : tokens.subtle
+                      )}
+                    >
+                      {lang.short}
+                    </span>
+                    <span className="flex-1">{lang.native}</span>
+                    {isActive && (
+                      <CheckIcon className="h-3.5 w-3.5 shrink-0" />
+                    )}
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }
