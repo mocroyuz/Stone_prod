@@ -2656,9 +2656,9 @@ function AppearanceSection({
 }
 
 /* ── Preferences ── */
-const LANGUAGES: { value: "fr" | "zh"; native: string }[] = [
-  { value: "fr", native: "Français" },
-  { value: "zh", native: "中文" },
+const LANGUAGES: { value: "fr" | "zh"; native: string; code: string }[] = [
+  { value: "fr", native: "Français", code: "FR" },
+  { value: "zh", native: "中文", code: "中" },
 ];
 
 const LANGUAGE_STORAGE_KEY = "stone:language";
@@ -2692,10 +2692,7 @@ function LanguagePicker({
     <div
       role="radiogroup"
       aria-label="Interface language"
-      className={cx(
-        "inline-flex items-center gap-0.5 rounded-full border p-0.5",
-        tokens.inputBorder
-      )}
+      className="flex gap-2"
     >
       {LANGUAGES.map((lang) => {
         const isActive = lang.value === value;
@@ -2708,14 +2705,33 @@ function LanguagePicker({
             aria-label={lang.native}
             onClick={() => onChange(lang.value)}
             className={cx(
-              "rounded-full px-3.5 py-1.5 text-[13px] font-medium transition-colors",
+              "group relative flex min-w-[120px] flex-col items-start gap-0.5 rounded-xl border px-3.5 py-2.5 text-left transition-all",
               tokens.ring,
               isActive
-                ? tokens.itemActive
-                : `${tokens.item} ${tokens.itemHover}`
+                ? cx(tokens.itemActive, "border-transparent")
+                : cx(
+                    tokens.inputBg,
+                    tokens.inputBorder,
+                    "hover:border-neutral-400/40"
+                  )
             )}
           >
-            {lang.native}
+            <span
+              className={cx(
+                "text-[10.5px] font-semibold tracking-[0.08em] uppercase",
+                isActive ? "opacity-70" : tokens.subtle
+              )}
+            >
+              {lang.code}
+            </span>
+            <span className={cx("text-[14px] font-medium", tokens.heading)}>
+              {lang.native}
+            </span>
+            {isActive && (
+              <span className="absolute top-2 right-2 flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500 text-white shadow-sm">
+                <CheckIcon className="h-2.5 w-2.5" />
+              </span>
+            )}
           </button>
         );
       })}
