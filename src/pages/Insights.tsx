@@ -1545,7 +1545,7 @@ export default function Insights() {
   );
   const topPost = ranked[0];
   const avgScore = posts.length ? posts.reduce((a, p) => a + postScore(p), 0) / posts.length : 0;
-  const remixable = ranked.filter((p) => postScore(p) >= avgScore * 1.25).slice(0, 2);
+  const remixable = ranked.filter((p) => postScore(p) >= avgScore * 1.25).slice(0, 3);
 
   const subhead = heatmap.sample === 0
     ? "Dès que quelques posts arrivent, nous cartographions l'heure qui fonctionne vraiment pour vous — puis l'envoyons au calendrier."
@@ -2120,7 +2120,7 @@ export default function Insights() {
                 </section>
 
                 {/* ── BEST TIME TO POST (gauche) + RECYCLER (droite) ── */}
-                <div className="grid items-stretch gap-4 xl:grid-cols-2">
+                <div className="grid items-start gap-4 xl:grid-cols-2">
                   {/* BEST TIME TO POST */}
                   <section className={`${sectionCard} min-w-0`} aria-labelledby="besttime-title">
                     <div className="flex flex-wrap items-start justify-between gap-3 px-1">
@@ -2139,10 +2139,6 @@ export default function Insights() {
                         Utiliser {heatmap.label}
                       </button>
                     </div>
-
-                    <p className={`mt-3 px-1 text-[12px] ${t.soft}`}>
-                      Les carrés plus foncés sont les meilleurs moments pour publier. Cliquez sur un carré pour programmer un post à ce moment.
-                    </p>
 
                     <div className="mt-4 overflow-x-auto px-1 pb-1">
                       <div className="min-w-[480px]">
