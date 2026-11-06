@@ -29,6 +29,204 @@ import {
   type Tag,
 } from "../services/supabase";
 
+/* ───────── Language ───────── */
+
+type Lang = "fr" | "en";
+
+const LANGUAGE_STORAGE_KEY = "stone:language";
+
+/** Lit la langue dans le localStorage. Anglais par défaut si absent. */
+function detectLanguage(): Lang {
+  if (typeof window === "undefined") return "en";
+  try {
+    const stored = window.localStorage.getItem(LANGUAGE_STORAGE_KEY);
+    if (stored === "fr" || stored === "en") return stored;
+  } catch {
+    /* stockage indisponible */
+  }
+  return "en";
+}
+
+/** Hook réactif : se resynchronise sur storage / focus / hashchange. */
+function useLanguage(): Lang {
+  const [lang, setLang] = useState<Lang>(() => detectLanguage());
+
+  useEffect(() => {
+    const refresh = () => setLang(detectLanguage());
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === LANGUAGE_STORAGE_KEY) refresh();
+    };
+    window.addEventListener("storage", onStorage);
+    window.addEventListener("focus", refresh);
+    window.addEventListener("hashchange", refresh);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("focus", refresh);
+      window.removeEventListener("hashchange", refresh);
+    };
+  }, []);
+
+  return lang;
+}
+
+/* ───────── Copy ───────── */
+
+type Copy = {
+  pageTitle: string;
+  header: {
+    addFavorite: string;
+    removeFavorite: string;
+    autoReplies: string;
+  };
+  tabs: {
+    ideas: string;
+    templates: string;
+    ariaLabel: string;
+  };
+  tagsMenu: {
+    label: string;
+    createPlaceholder: string;
+    createAria: string;
+    closeMenu: string;
+  };
+  view: {
+    board: string;
+    gallery: string;
+    ariaLabel: string;
+  };
+  templatesEmpty: {
+    title: string;
+    description: string;
+  };
+  board: {
+    newTag: string;
+    tagNamePlaceholder: string;
+    cancel: string;
+    tagOptions: string;
+    renameTag: string;
+    moveAllToUnassigned: string;
+    deleteTag: string;
+    closeMenu: string;
+  };
+  ideaCard: {
+    options: string;
+    delete: string;
+    closeMenu: string;
+  };
+  galleryEmpty: {
+    title: string;
+    description: string;
+  };
+  bottomBar: {
+    newIdea: string;
+  };
+};
+
+const COPY: Record<Lang, Copy> = {
+  en: {
+    pageTitle: "Create",
+    header: {
+      addFavorite: "Add to favorites",
+      removeFavorite: "Remove from favorites",
+      autoReplies: "Auto-replies",
+    },
+    tabs: {
+      ideas: "Ideas",
+      templates: "Templates",
+      ariaLabel: "Create sections",
+    },
+    tagsMenu: {
+      label: "Tags",
+      createPlaceholder: "Create a tag…",
+      createAria: "Create tag",
+      closeMenu: "Close menu",
+    },
+    view: {
+      board: "Board",
+      gallery: "Gallery",
+      ariaLabel: "View",
+    },
+    templatesEmpty: {
+      title: "No templates yet",
+      description: "Save a post as a template to reuse it later.",
+    },
+    board: {
+      newTag: "New tag",
+      tagNamePlaceholder: "Tag name…",
+      cancel: "Cancel",
+      tagOptions: "Tag options",
+      renameTag: "Rename tag",
+      moveAllToUnassigned: "Move all to Unassigned",
+      deleteTag: "Delete tag",
+      closeMenu: "Close menu",
+    },
+    ideaCard: {
+      options: "Idea options",
+      delete: "Delete",
+      closeMenu: "Close menu",
+    },
+    galleryEmpty: {
+      title: "No ideas yet",
+      description: "Capture your next post idea before it gets away.",
+    },
+    bottomBar: {
+      newIdea: "New Idea",
+    },
+  },
+  fr: {
+    pageTitle: "Create",
+    header: {
+      addFavorite: "Ajouter aux favoris",
+      removeFavorite: "Retirer des favoris",
+      autoReplies: "Réponses auto",
+    },
+    tabs: {
+      ideas: "Idées",
+      templates: "Modèles",
+      ariaLabel: "Sections Create",
+    },
+    tagsMenu: {
+      label: "Tags",
+      createPlaceholder: "Créer un tag…",
+      createAria: "Créer le tag",
+      closeMenu: "Fermer le menu",
+    },
+    view: {
+      board: "Tableau",
+      gallery: "Galerie",
+      ariaLabel: "Affichage",
+    },
+    templatesEmpty: {
+      title: "Aucun modèle pour l'instant",
+      description:
+        "Enregistrez un post comme modèle pour le réutiliser plus tard.",
+    },
+    board: {
+      newTag: "Nouveau tag",
+      tagNamePlaceholder: "Nom du tag…",
+      cancel: "Annuler",
+      tagOptions: "Options du tag",
+      renameTag: "Renommer le tag",
+      moveAllToUnassigned: "Tout déplacer vers Unassigned",
+      deleteTag: "Supprimer le tag",
+      closeMenu: "Fermer le menu",
+    },
+    ideaCard: {
+      options: "Options de l'idée",
+      delete: "Supprimer",
+      closeMenu: "Fermer le menu",
+    },
+    galleryEmpty: {
+      title: "Aucune idée pour l'instant",
+      description:
+        "Capturez votre prochaine idée de post avant qu'elle ne s'échappe.",
+    },
+    bottomBar: {
+      newIdea: "Nouvelle idée",
+    },
+  },
+};
+
 /* ───────── Types ───────── */
 
 type Tab = "ideas" | "templates";
@@ -49,6 +247,10 @@ const UNASSIGNED = "unassigned";
 /** Route de cette page dans la sidebar (doit exister dans navItems). */
 const PAGE_ROUTE = "create";
 
+/**
+ * Tag système figé en première colonne. Son libellé n'est pas traduit
+ * (c'est un nom de tag) — voir consigne « ne pas traduire les tags ».
+ */
 const UNASSIGNED_TAG: Tag = {
   id: UNASSIGNED,
   label: "Unassigned",
@@ -57,24 +259,21 @@ const UNASSIGNED_TAG: Tag = {
 
 const DEFAULT_ORDER = ["to do", "in progress"];
 const NEW_TAG_COLORS = [
-  "bg-[#6366f1]", "bg-[#ec4899]", "bg-[#14b8a6]",
-  "bg-[#eab308]", "bg-[#84cc16]", "bg-[#0ea5e9]",
-];
-
-const TABS: { key: Tab; label: string }[] = [
-  { key: "ideas", label: "Ideas" },
-  { key: "templates", label: "Templates" },
+  "bg-[#6366f1]",
+  "bg-[#ec4899]",
+  "bg-[#14b8a6]",
+  "bg-[#eab308]",
+  "bg-[#84cc16]",
+  "bg-[#0ea5e9]",
 ];
 
 /* ───────── Onglet ↔ URL (#/create, #/create/templates, …) ───────── */
 
-/** Lit l'onglet depuis le hash courant. */
 function tabFromHash(): Tab {
   const m = window.location.hash.match(/create\/(ideas|templates)/);
   return (m?.[1] as Tab | undefined) ?? "ideas";
 }
 
-/** Met à jour l'URL sans déclencher de navigation (pas de remontage). */
 function writeTabToHash(tab: Tab) {
   const current = window.location.hash;
   const prefix = current.startsWith("#/") ? "#/" : "#";
@@ -82,18 +281,7 @@ function writeTabToHash(tab: Tab) {
   if (current !== next) history.replaceState(null, "", next);
 }
 
-/* ───────── Persistance des préférences UI (survit au refresh) ─────────
- *
- * L'onglet (Ideas / Templates) est déjà persisté via le hash.
- * On persiste ici :
- *   - le mode d'affichage (Board / Gallery)
- *   - les tags masqués dans le filtre « Tags »
- *   - l'ORDRE des tags (déplacements de colonnes via drag)
- *
- * Comme pour la page Home / Insights, ces préférences sont lues une fois
- * au montage (ou lors du fetch initial pour l'ordre) puis écrites à chaque
- * changement. Un reload conserve donc exactement l'état.
- */
+/* ───────── Persistance des préférences UI ───────── */
 
 const CREATE_VIEW_STORAGE_KEY = "create.view";
 const CREATE_HIDDEN_TAGS_STORAGE_KEY = "create.hiddenTags";
@@ -157,22 +345,14 @@ function writeStoredTagOrder(ids: string[]) {
   }
 }
 
-/**
- * Réordonne les tags selon l'ordre stocké.
- *
- * - « Unassigned » reste TOUJOURS en premier (colonne figée).
- * - Les tags présents dans l'ordre stocké sont triés selon leur position.
- * - Les tags absents de l'ordre stocké (nouveaux, ou anciens supprimés
- *   côté serveur) sont laissés à la fin, dans leur ordre d'origine.
- * - Les IDs stockés qui n'existent plus côté serveur sont simplement ignorés.
- */
 function applyStoredTagOrder(tags: Tag[]): Tag[] {
   if (tags.length === 0) return tags;
   const stored = readStoredTagOrder();
   if (stored.length === 0) return tags;
 
   const position = new Map(stored.map((id, i) => [id, i] as const));
-  const posOf = (id: string) => position.get(id) ?? Number.POSITIVE_INFINITY;
+  const posOf = (id: string) =>
+    position.get(id) ?? Number.POSITIVE_INFINITY;
 
   const unassigned = tags.find((t) => t.id === UNASSIGNED);
   const rest = tags.filter((t) => t.id !== UNASSIGNED);
@@ -183,19 +363,7 @@ function applyStoredTagOrder(tags: Tag[]): Tag[] {
   return unassigned ? [unassigned, ...known, ...unknown] : [...known, ...unknown];
 }
 
-/* ───────── Cache module-level des tags ─────────
- *
- * Les tags sont chargés depuis Supabase UNE SEULE FOIS par session.
- *
- * - `tagsCache` est `null` tant que le premier fetch n'a pas abouti.
- * - Une fois rempli, il survit à tous les unmount/remount (navigation hash)
- *   et n'est réinitialisé que par un reload complet de la page.
- * - `tagsLoadPromise` évite les fetch concurrents si deux montages se
- *   chevauchent.
- * - Un setter dédié (`setTags`) met à jour le cache EN MÊME TEMPS que l'état
- *   React, pour que toutes les mutations (création, renommage, suppression,
- *   réordonnancement) restent persistées d'une visite à l'autre.
- */
+/* ───────── Cache module-level des tags ───────── */
 
 let tagsCache: Tag[] | null = null;
 let tagsLoadPromise: Promise<Tag[]> | null = null;
@@ -212,9 +380,6 @@ async function fetchTagsOnce(): Promise<Tag[]> {
       return i === -1 ? DEFAULT_ORDER.length : i;
     };
     const sorted = [...server].sort((a, b) => rank(a) - rank(b));
-    // Si une mutation a déjà rempli le cache pendant le fetch (cas très rare),
-    // on respecte le cache existant plutôt que de l'écraser.
-    // Sinon, on applique l'ordre personnalisé sauvegardé (drag des colonnes).
     if (!tagsCache) {
       tagsCache = applyStoredTagOrder([UNASSIGNED_TAG, ...sorted]);
     }
@@ -228,18 +393,14 @@ async function fetchTagsOnce(): Promise<Tag[]> {
   }
 }
 
-/* ───────── Données (persistées côté backend via services/supabase) ───────── */
+/* ───────── Données ───────── */
 
 function useBoard() {
-  // Initialisation SYNCHRONE depuis le cache s'il existe : pas de flash de
-  // la colonne « Unassigned » seule quand on revient sur la page.
   const [tags, setTagsState] = useState<Tag[]>(
     () => tagsCache ?? [UNASSIGNED_TAG]
   );
   const [ideas, setIdeas] = useState<Idea[]>([]);
 
-  // Setter qui maintient `tagsCache` synchronisé avec l'état React.
-  // Toutes les mutations passent par lui → le cache reste à jour.
   const setTags = useCallback(
     (updater: Tag[] | ((prev: Tag[]) => Tag[])) => {
       const prev = tagsCache ?? [UNASSIGNED_TAG];
@@ -254,7 +415,6 @@ function useBoard() {
   );
 
   useEffect(() => {
-    // Cache déjà rempli (visite précédente) : on NE refetch PAS.
     if (tagsCache) return;
     let mounted = true;
     fetchTagsOnce()
@@ -270,7 +430,9 @@ function useBoard() {
   const addTag = async (label: string): Promise<string | null> => {
     const l = label.trim();
     if (!l) return null;
-    const existing = tags.find((t) => t.label.toLowerCase() === l.toLowerCase());
+    const existing = tags.find(
+      (t) => t.label.toLowerCase() === l.toLowerCase()
+    );
     if (existing) return existing.id;
     try {
       const color = NEW_TAG_COLORS[(tags.length - 1) % NEW_TAG_COLORS.length];
@@ -287,7 +449,9 @@ function useBoard() {
     const l = label.trim();
     const tag = tags.find((t) => t.id === id);
     if (!l || !tag || id === UNASSIGNED || l === tag.label) return;
-    setTags((prev) => prev.map((t) => (t.id === id ? { ...t, label: l } : t)));
+    setTags((prev) =>
+      prev.map((t) => (t.id === id ? { ...t, label: l } : t))
+    );
     try {
       await apiUpdateTag(id, { label: l, color: tag.color });
     } catch (e) {
@@ -313,14 +477,6 @@ function useBoard() {
     }
   };
 
-  /**
-   * Déplace un tag et persiste le nouvel ordre dans localStorage.
-   *
-   * On lit `tagsCache` (source de vérité synchrone) pour calculer le nouvel
-   * ordre, puis on écrit d'abord dans localStorage et enfin dans le state
-   * React. Ça évite tout problème de double-invocation Strict Mode qui
-   * toucherait un effet de bord placé dans un updater React.
-   */
   const moveTag = (id: string, toId: string) => {
     const current = tagsCache ?? [UNASSIGNED_TAG];
     const from = current.findIndex((t) => t.id === id);
@@ -358,7 +514,9 @@ function useBoard() {
     setIdeas((prev) => prev.filter((i) => i.id !== id));
 
   const moveAll = (from: string, to: string) =>
-    setIdeas((prev) => prev.map((i) => (i.tagId === from ? { ...i, tagId: to } : i)));
+    setIdeas((prev) =>
+      prev.map((i) => (i.tagId === from ? { ...i, tagId: to } : i))
+    );
 
   return {
     tags,
@@ -521,12 +679,14 @@ function IconButton({
 function CreateTagInput({
   onCreate,
   isDark,
-  placeholder = "Create a tag…",
+  placeholder,
+  submitAria,
   autoFocus,
 }: {
   onCreate: (label: string) => void;
   isDark: boolean;
-  placeholder?: string;
+  placeholder: string;
+  submitAria: string;
   autoFocus?: boolean;
 }) {
   const [value, setValue] = useState("");
@@ -556,12 +716,14 @@ function CreateTagInput({
         placeholder={placeholder}
         maxLength={30}
         className={`min-w-0 flex-1 bg-transparent py-2 text-[13px] outline-none ${
-          isDark ? "placeholder:text-neutral-600" : "placeholder:text-neutral-400"
+          isDark
+            ? "placeholder:text-neutral-600"
+            : "placeholder:text-neutral-400"
         }`}
       />
       <button
         type="button"
-        aria-label="Create tag"
+        aria-label={submitAria}
         onClick={submit}
         disabled={!value.trim()}
         className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md transition-colors disabled:opacity-30 ${
@@ -582,6 +744,7 @@ function TagsMenu({
   onCreate,
   isDark,
   ghost,
+  c,
 }: {
   tags: Tag[];
   hidden: string[];
@@ -589,6 +752,7 @@ function TagsMenu({
   onCreate: (label: string) => void;
   isDark: boolean;
   ghost: string;
+  c: Copy;
 }) {
   const [open, setOpen] = useState(false);
   return (
@@ -603,7 +767,7 @@ function TagsMenu({
         }`}
       >
         <TagIcon className="h-4 w-4" />
-        Tags
+        {c.tagsMenu.label}
         {hidden.length > 0 && (
           <span
             className={`rounded-full px-1.5 text-[11px] tabular-nums ${
@@ -620,7 +784,7 @@ function TagsMenu({
         <>
           <button
             type="button"
-            aria-label="Close menu"
+            aria-label={c.tagsMenu.closeMenu}
             tabIndex={-1}
             className="fixed inset-0 z-30 cursor-default"
             onClick={() => setOpen(false)}
@@ -641,7 +805,9 @@ function TagsMenu({
                       type="button"
                       onClick={() => onToggle(t.id)}
                       className={`flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left text-[13px] font-medium transition-colors ${
-                        isDark ? "hover:bg-white/[0.06]" : "hover:bg-black/[0.04]"
+                        isDark
+                          ? "hover:bg-white/[0.06]"
+                          : "hover:bg-black/[0.04]"
                       }`}
                     >
                       <span className="flex min-w-0 items-center gap-2">
@@ -673,7 +839,12 @@ function TagsMenu({
                 isDark ? "border-white/[0.07]" : "border-black/[0.06]"
               }`}
             >
-              <CreateTagInput onCreate={onCreate} isDark={isDark} />
+              <CreateTagInput
+                onCreate={onCreate}
+                isDark={isDark}
+                placeholder={c.tagsMenu.createPlaceholder}
+                submitAria={c.tagsMenu.createAria}
+              />
             </div>
           </div>
         </>
@@ -693,6 +864,7 @@ function IdeaCard({
   placeholder,
   onPointerDown,
   onDelete,
+  c,
 }: {
   idea: Idea;
   tagLabel?: string;
@@ -703,6 +875,7 @@ function IdeaCard({
   placeholder?: boolean;
   onPointerDown?: (e: RPointerEvent) => void;
   onDelete?: () => void;
+  c: Copy;
 }) {
   const [menu, setMenu] = useState(false);
   const hasMenu = !!onDelete;
@@ -721,7 +894,9 @@ function IdeaCard({
           : ""
       } ${
         placeholder
-          ? `${isDark ? "bg-white/[0.06]" : "bg-black/[0.05]"} [&>*]:invisible`
+          ? `${
+              isDark ? "bg-white/[0.06]" : "bg-black/[0.05]"
+            } [&>*]:invisible`
           : ""
       }`}
     >
@@ -751,7 +926,7 @@ function IdeaCard({
               <div className="relative -my-1 -mr-2 shrink-0">
                 <button
                   type="button"
-                  aria-label="Idea options"
+                  aria-label={c.ideaCard.options}
                   aria-haspopup="menu"
                   aria-expanded={menu}
                   onClick={() => setMenu((v) => !v)}
@@ -770,7 +945,7 @@ function IdeaCard({
                   <>
                     <button
                       type="button"
-                      aria-label="Close menu"
+                      aria-label={c.ideaCard.closeMenu}
                       tabIndex={-1}
                       className="fixed inset-0 z-30 cursor-default"
                       onClick={() => setMenu(false)}
@@ -796,7 +971,7 @@ function IdeaCard({
                           }`}
                         >
                           <TrashIcon className="h-4 w-4" />
-                          Delete
+                          {c.ideaCard.delete}
                         </button>
                       )}
                     </div>
@@ -817,7 +992,9 @@ function IdeaCard({
                 isDark ? "bg-white/[0.06]" : "bg-black/[0.05]"
               }`}
             >
-              {tagColor && <span className={`h-2 w-2 rounded-full ${tagColor}`} />}
+              {tagColor && (
+                <span className={`h-2 w-2 rounded-full ${tagColor}`} />
+              )}
               {tagLabel}
             </span>
           )}
@@ -829,7 +1006,6 @@ function IdeaCard({
 
 /* ───────── Page ───────── */
 
-/** Style commun des « fantômes » flottants (colonne ou carte attrapée). */
 function styleGhost(
   el: HTMLElement,
   rect: DOMRect,
@@ -861,8 +1037,9 @@ export default function Create() {
   const isDark = theme === "dark";
   const sidebarOffset = useSidebarOffset();
 
-  // Favoris partagés avec la sidebar : cliquer sur le marque-page ajoute /
-  // retire cette page de la section « Favorite » de la sidebar.
+  const lang = useLanguage();
+  const c = COPY[lang];
+
   const { isFavorite, toggle: toggleFavorite } = useFavorites();
   const saved = isFavorite(PAGE_ROUTE);
 
@@ -880,13 +1057,11 @@ export default function Create() {
   } = useBoard();
 
   const [tab, setTab] = useState<Tab>(tabFromHash);
-  // Préférences UI persistées (survivent au refresh).
   const [view, setView] = useState<View>(readStoredView);
   const [hidden, setHidden] = useState<string[]>(readStoredHiddenTags);
   const [query, setQuery] = useState("");
   const [isFolderOpen, setIsFolderOpen] = useState(false);
 
-  // Persiste le mode d'affichage (Board / Gallery).
   useEffect(() => {
     try {
       window.localStorage.setItem(CREATE_VIEW_STORAGE_KEY, view);
@@ -895,7 +1070,6 @@ export default function Create() {
     }
   }, [view]);
 
-  // Persiste les tags masqués (filtre « Tags »).
   useEffect(() => {
     try {
       window.localStorage.setItem(
@@ -927,7 +1101,6 @@ export default function Create() {
     writeTabToHash(next);
   };
 
-  // Retour / avance du navigateur, ou lien direct vers un onglet Create.
   useEffect(() => {
     const onHash = () => {
       if (/create(\/|$)/.test(window.location.hash)) {
@@ -943,7 +1116,7 @@ export default function Create() {
     return () => window.removeEventListener("hashchange", onHash);
   }, []);
 
-  /* ───────── Shell tokens (alignés sur Home — dark plus profond) ───────── */
+  /* ───────── Shell tokens ───────── */
 
   const page = isDark ? "bg-[#050505]" : "bg-[#f5f3ef]";
   const panel = isDark
@@ -1114,12 +1287,12 @@ export default function Create() {
 
       const y = ev.clientY - lr.top + list.scrollTop;
       let before: string | undefined;
-      for (const c of Array.from(
+      for (const el of Array.from(
         list.querySelectorAll<HTMLElement>("[data-card]")
       )) {
-        if (c.dataset.card === ideaId) continue;
-        if (y < c.offsetTop + c.offsetHeight / 2) {
-          before = c.dataset.card;
+        if (el.dataset.card === ideaId) continue;
+        if (y < el.offsetTop + el.offsetHeight / 2) {
+          before = el.dataset.card;
           break;
         }
       }
@@ -1150,14 +1323,17 @@ export default function Create() {
 
   /** FLIP : anime les colonnes et les cartes qui changent de place. */
   useLayoutEffect(() => {
-    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const reduce = window.matchMedia(
+      "(prefers-reduced-motion: reduce)"
+    ).matches;
 
     const play = (el: HTMLElement, from: string) => {
       if (reduce) return;
       el.style.transition = "none";
       el.style.transform = from;
       el.getBoundingClientRect();
-      el.style.transition = "transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1)";
+      el.style.transition =
+        "transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1)";
       el.style.transform = "";
       el.addEventListener(
         "transitionend",
@@ -1181,7 +1357,8 @@ export default function Create() {
       ?.querySelectorAll<HTMLElement>("[data-card]")
       .forEach((el) => {
         const id = el.dataset.card as string;
-        const col = el.closest<HTMLElement>("[data-col]")?.dataset.col ?? "";
+        const col =
+          el.closest<HTMLElement>("[data-col]")?.dataset.col ?? "";
         const y = el.offsetTop;
         nextCards.set(id, { y, col });
         const prev = prevCards.current.get(id);
@@ -1206,6 +1383,26 @@ export default function Create() {
     setIsFolderOpen((open) => !open);
   };
 
+  const tabs: { key: Tab; label: string }[] = [
+    { key: "ideas", label: c.tabs.ideas },
+    { key: "templates", label: c.tabs.templates },
+  ];
+
+  const viewOptions: { key: View; label: string; icon: ReactNode }[] = [
+    { key: "board", label: c.view.board, icon: <BoardIcon className="h-4 w-4" /> },
+    {
+      key: "gallery",
+      label: c.view.gallery,
+      icon: <GalleryIcon className="h-4 w-4" />,
+    },
+  ];
+
+  const columnMenuItems = [
+    { label: c.board.renameTag, run: () => setEditing("") },
+    { label: c.board.moveAllToUnassigned, run: () => {} },
+    { label: c.board.deleteTag, run: () => {} },
+  ];
+
   return (
     <main
       className={[
@@ -1216,7 +1413,6 @@ export default function Create() {
     >
       <DashboardSidebar theme={theme} />
 
-      {/* Zone à droite de la sidebar : marge autour du panneau arrondi */}
       <div
         className={[
           "h-full py-3 pr-3",
@@ -1226,7 +1422,6 @@ export default function Create() {
         ].join(" ")}
         style={{ paddingLeft: sidebarOffset }}
       >
-        {/* PANNEAU ARRONDI (comme Home). Pour la board on garde h-full flex. */}
         <div
           className={[
             "flex h-full flex-col overflow-hidden",
@@ -1242,7 +1437,7 @@ export default function Create() {
               "pb-6 pt-[clamp(18px,3vw,30px)]",
             ].join(" ")}
           >
-            {/* HEADER COMPACT */}
+            {/* HEADER */}
             <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 pb-4">
               <div className="flex min-w-0 items-center gap-2.5">
                 <span
@@ -1261,12 +1456,14 @@ export default function Create() {
                     strong,
                   ].join(" ")}
                 >
-                  Create
+                  {c.pageTitle}
                 </h1>
               </div>
               <div className="flex items-center gap-2">
                 <IconButton
-                  label={saved ? "Remove from favorites" : "Add to favorites"}
+                  label={
+                    saved ? c.header.removeFavorite : c.header.addFavorite
+                  }
                   onClick={() => toggleFavorite(PAGE_ROUTE)}
                   ghost={ghost}
                   isDark={isDark}
@@ -1275,7 +1472,7 @@ export default function Create() {
                   <BookmarkIcon className="h-5 w-5" filled={saved} />
                 </IconButton>
                 <IconButton
-                  label="Auto-replies"
+                  label={c.header.autoReplies}
                   ghost={ghost}
                   isDark={isDark}
                   className="h-9 w-9"
@@ -1292,19 +1489,23 @@ export default function Create() {
                 line,
               ].join(" ")}
             >
-              <div role="tablist" aria-label="Create" className="flex gap-6">
-                {TABS.map((t) => (
+              <div
+                role="tablist"
+                aria-label={c.tabs.ariaLabel}
+                className="flex gap-6"
+              >
+                {tabs.map((tb) => (
                   <button
-                    key={t.key}
+                    key={tb.key}
                     type="button"
                     role="tab"
-                    aria-selected={tab === t.key}
-                    onClick={() => selectTab(t.key)}
+                    aria-selected={tab === tb.key}
+                    onClick={() => selectTab(tb.key)}
                     className={[
                       "-mb-px border-b-2 px-1 pb-3 pt-2 text-[14px] font-medium transition-colors motion-reduce:transition-none",
                       "focus-visible:outline-none focus-visible:ring-2",
                       ring,
-                      tab === t.key
+                      tab === tb.key
                         ? isDark
                           ? "border-white text-white"
                           : "border-neutral-900 text-neutral-900"
@@ -1315,7 +1516,7 @@ export default function Create() {
                           }`,
                     ].join(" ")}
                   >
-                    {t.label}
+                    {tb.label}
                   </button>
                 ))}
               </div>
@@ -1329,29 +1530,17 @@ export default function Create() {
                     onCreate={(l) => void createTag(l)}
                     isDark={isDark}
                     ghost={ghost}
+                    c={c}
                   />
                   <div
                     role="tablist"
-                    aria-label="View"
+                    aria-label={c.view.ariaLabel}
                     className={[
                       "inline-flex gap-1 rounded-xl border p-1",
                       line,
                     ].join(" ")}
                   >
-                    {(
-                      [
-                        {
-                          key: "board",
-                          label: "Board",
-                          icon: <BoardIcon className="h-4 w-4" />,
-                        },
-                        {
-                          key: "gallery",
-                          label: "Gallery",
-                          icon: <GalleryIcon className="h-4 w-4" />,
-                        },
-                      ] as { key: View; label: string; icon: ReactNode }[]
-                    ).map((o) => (
+                    {viewOptions.map((o) => (
                       <button
                         key={o.key}
                         type="button"
@@ -1382,7 +1571,7 @@ export default function Create() {
 
             {/* Body */}
             <div className="flex min-h-0 flex-1 flex-col pt-5">
-              {/* ───── Templates ───── */}
+              {/* Templates */}
               {tab === "templates" && (
                 <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center">
                   <h2
@@ -1391,7 +1580,7 @@ export default function Create() {
                       strong,
                     ].join(" ")}
                   >
-                    No templates yet
+                    {c.templatesEmpty.title}
                   </h2>
                   <p
                     className={[
@@ -1399,12 +1588,12 @@ export default function Create() {
                       muted,
                     ].join(" ")}
                   >
-                    Save a post as a template to reuse it later.
+                    {c.templatesEmpty.description}
                   </p>
                 </div>
               )}
 
-              {/* ───── Board ───── */}
+              {/* Board */}
               {tab === "ideas" && view === "board" && (
                 <div
                   ref={boardRef}
@@ -1414,7 +1603,8 @@ export default function Create() {
                     const items = ideas.filter((i) => i.tagId === tag.id);
                     const fixed = tag.id === UNASSIGNED;
                     const isPlaceholder = colDrag === tag.id;
-                    const ideaTarget = cardDrag !== null && overCol === tag.id;
+                    const ideaTarget =
+                      cardDrag !== null && overCol === tag.id;
 
                     return (
                       <section
@@ -1429,7 +1619,9 @@ export default function Create() {
                           "transition-colors motion-reduce:transition-none",
                           isPlaceholder
                             ? `${
-                                isDark ? "bg-white/[0.06]" : "bg-black/[0.05]"
+                                isDark
+                                  ? "bg-white/[0.06]"
+                                  : "bg-black/[0.05]"
                               } [&>*]:invisible`
                             : ideaTarget
                               ? isDark
@@ -1448,7 +1640,6 @@ export default function Create() {
                           </span>
                         )}
 
-                        {/* En-tête : attraper ici pour déplacer la colonne */}
                         <div
                           onPointerDown={(e) =>
                             !fixed &&
@@ -1476,7 +1667,8 @@ export default function Create() {
                                   setEditing(null);
                                 }}
                                 onKeyDown={(e) => {
-                                  if (e.key === "Enter") e.currentTarget.blur();
+                                  if (e.key === "Enter")
+                                    e.currentTarget.blur();
                                   if (e.key === "Escape") setEditing(null);
                                 }}
                                 className={[
@@ -1507,10 +1699,10 @@ export default function Create() {
                             {!fixed && (
                               <>
                                 <IconButton
-                                  label="Tag options"
+                                  label={c.board.tagOptions}
                                   onClick={() =>
-                                    setColMenu((c) =>
-                                      c === tag.id ? null : tag.id
+                                    setColMenu((cur) =>
+                                      cur === tag.id ? null : tag.id
                                     )
                                   }
                                   ghost={ghost}
@@ -1523,7 +1715,7 @@ export default function Create() {
                                   <>
                                     <button
                                       type="button"
-                                      aria-label="Close menu"
+                                      aria-label={c.board.closeMenu}
                                       tabIndex={-1}
                                       className="fixed inset-0 z-30 cursor-default"
                                       onClick={() => setColMenu(null)}
@@ -1537,16 +1729,16 @@ export default function Create() {
                                     >
                                       {[
                                         {
-                                          label: "Rename tag",
+                                          label: c.board.renameTag,
                                           run: () => setEditing(tag.id),
                                         },
                                         {
-                                          label: "Move all to Unassigned",
+                                          label: c.board.moveAllToUnassigned,
                                           run: () =>
                                             moveAll(tag.id, UNASSIGNED),
                                         },
                                         {
-                                          label: "Delete tag",
+                                          label: c.board.deleteTag,
                                           run: () => void deleteTag(tag.id),
                                         },
                                       ].map((o) => (
@@ -1574,7 +1766,6 @@ export default function Create() {
                           </div>
                         </div>
 
-                        {/* Liste */}
                         <div
                           data-list
                           className="relative flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto"
@@ -1591,6 +1782,7 @@ export default function Create() {
                                 onCardPointerDown(e, idea.id)
                               }
                               onDelete={() => deleteIdea(idea.id)}
+                              c={c}
                             />
                           ))}
                         </div>
@@ -1605,7 +1797,8 @@ export default function Create() {
                         <CreateTagInput
                           autoFocus
                           isDark={isDark}
-                          placeholder="Tag name…"
+                          placeholder={c.board.tagNamePlaceholder}
+                          submitAria={c.tagsMenu.createAria}
                           onCreate={(l) => {
                             void createTag(l);
                             setAddingCol(false);
@@ -1616,7 +1809,7 @@ export default function Create() {
                           onClick={() => setAddingCol(false)}
                           className={`mt-2 w-full rounded-lg px-3 py-1.5 text-[13px] font-medium ${muted} ${ghost}`}
                         >
-                          Cancel
+                          {c.board.cancel}
                         </button>
                       </div>
                     ) : (
@@ -1633,14 +1826,14 @@ export default function Create() {
                         ].join(" ")}
                       >
                         <PlusIcon className="h-[18px] w-[18px]" />
-                        New tag
+                        {c.board.newTag}
                       </button>
                     )}
                   </div>
                 </div>
               )}
 
-              {/* ───── Gallery ───── */}
+              {/* Gallery */}
               {tab === "ideas" && view === "gallery" && (
                 <div className="min-h-0 flex-1 overflow-y-auto">
                   {visibleIdeas.length === 0 ? (
@@ -1651,7 +1844,7 @@ export default function Create() {
                           strong,
                         ].join(" ")}
                       >
-                        No ideas yet
+                        {c.galleryEmpty.title}
                       </h2>
                       <p
                         className={[
@@ -1659,7 +1852,7 @@ export default function Create() {
                           muted,
                         ].join(" ")}
                       >
-                        Capture your next post idea before it gets away.
+                        {c.galleryEmpty.description}
                       </p>
                     </div>
                   ) : (
@@ -1673,6 +1866,7 @@ export default function Create() {
                           isDark={isDark}
                           muted={muted}
                           onDelete={() => deleteIdea(idea.id)}
+                          c={c}
                         />
                       ))}
                     </div>
@@ -1695,7 +1889,7 @@ export default function Create() {
         isDark={isDark}
         offsetLeft={sidebarOffset}
         active={isFolderOpen ? "files" : null}
-        addLabel="New Idea"
+        addLabel={c.bottomBar.newIdea}
         onChange={handleBottomBarChange}
         onSubmitIdea={({ title, notes }) =>
           addIdea({ title, description: notes, tagId: UNASSIGNED })
@@ -1707,7 +1901,6 @@ export default function Create() {
         onQueryChange={setQuery}
       />
 
-      {/* HELP — même bouton que sur Home */}
       <HelpChatButton isDark={isDark} />
     </main>
   );
