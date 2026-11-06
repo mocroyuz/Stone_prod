@@ -2757,7 +2757,6 @@ function LanguagePicker({
           aria-label="Available languages"
           className={cx(
             "absolute top-[calc(100%+6px)] right-0 z-50 w-[210px] overflow-hidden rounded-xl border shadow-xl",
-            "animate-[fadeSlideIn_150ms_ease-out]",
             tokens.card,
             tokens.cardBorder
           )}
@@ -2849,7 +2848,7 @@ function PreferencesSection({
   tokens: Tokens;
   notify: Notify;
 }) {
-  const [language, setLanguage] = useState<"fr" | "en">(() =>
+  const [language, setLanguageState] = useState<"fr" | "en">(() =>
     detectPreferredLanguage()
   );
   const [prefs, setPrefs] = useState<Record<string, boolean>>({
@@ -2859,24 +2858,33 @@ function PreferencesSection({
     mentions: true,
     marketing: false,
   });
-  const saved = useRef({ language, prefs });
-  const dirty =
-    language !== saved.current.language ||
-    JSON.stringify(prefs) !== JSON.stringify(saved.current.prefs);
+  // On ne suit que les prefs de notifications pour `dirty` ;
+  // la langue est persistée immédiatement à chaque changement.
+  const savedPrefs = useRef(prefs);
+  const dirty = JSON.stringify(prefs) !== JSON.stringify(savedPrefs.current);
 
-  const save = () => {
+  /** Change la langue et la persiste immédiatement (pas de Save requis). */
+  const setLanguage = (lang: "fr" | "en") => {
+    if (lang === language) return;
+    setLanguageState(lang);
     try {
-      localStorage.setItem(LANGUAGE_STORAGE_KEY, language);
+      localStorage.setItem(LANGUAGE_STORAGE_KEY, lang);
     } catch {
       /* stockage indisponible */
     }
     try {
-      document.documentElement.lang = language;
+      document.documentElement.lang = lang;
     } catch {
       /* ignore */
     }
-    saved.current = { language, prefs };
-    // Force un re-render pour recalculer `dirty`.
+    notify(
+      lang === "fr" ? "Langue mise à jour" : "Language updated",
+      "success"
+    );
+  };
+
+  const save = () => {
+    savedPrefs.current = prefs;
     setPrefs((prev) => ({ ...prev }));
     notify("Preferences saved");
   };
