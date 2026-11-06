@@ -1,5 +1,5 @@
 // src/pages/Insights.tsx
-// Analyses = moteur de prochaine action (pas un clone d'analytics).
+// Insights = moteur de prochaine action (pas un clone d'analytics).
 // YouTube : données réelles. Autres réseaux : démo en attendant leur API.
 
 import {
@@ -17,7 +17,6 @@ import {
   CalendarClock,
   Check,
   ChevronDown,
-  Clock3,
   Copy,
   Download,
   ExternalLink,
@@ -29,11 +28,8 @@ import {
   Play,
   Plus,
   RefreshCw,
-  Repeat2,
   Send,
-  Sparkles,
   Tag,
-  Target,
   TrendingDown,
   TrendingUp,
   Zap,
@@ -68,7 +64,7 @@ import {
   useConnectedChannels,
   type ConnectedChannel,
 } from "../hooks/useConnectedChannels";
-import { createPosts, listPosts, type CalendarPost } from "../services/posts";
+import { createPosts } from "../services/posts";
 import { fetchYouTubeVideos, useYouTubeInsights } from "../services/youtube";
 import { readPostingGoal } from "../components/OnboardingModals";
 import { useNewPostRequest } from "../services/Newpostbus";
@@ -76,7 +72,6 @@ import { useNewPostRequest } from "../services/Newpostbus";
 /** Route de cette page dans la sidebar (section Favoris). */
 const PAGE_ROUTE = "insights";
 const ALL_KEY = "all";
-const COMPOSER_DRAFT_KEY = "newpost:draft:v1";
 
 /* ============================================================
    TYPES
@@ -154,16 +149,6 @@ type ComposerContext = {
   channelKey?: string;
   duplicateFrom?: PostRow;
   reason?: "heatmap" | "duplicate" | "insight" | "manual";
-};
-
-/** Un takeaway = un insight actionnable avec un seul bouton. */
-type Takeaway = {
-  id: string;
-  icon: ReactNode;
-  title: string;
-  detail: string;
-  cta: string;
-  action: () => void;
 };
 
 const RANGES: { key: Range; label: string }[] = [
@@ -804,8 +789,6 @@ function buildBestTimes(posts: PostRow[], platform: string): BestTimes {
 
 /** Rose pâle → violet profond (comme une heatmap d'engagement). */
 const heatColor = (v: number) => `hsla(320, 85%, ${72 - 20 * v}%, ${0.1 + 0.9 * v})`;
-/** Libellé d'axe : même format 24 h que le calendrier. */
-const shortHour = (h: number) => hourLabel(h);
 
 function pctDelta(now: number, prev: number) {
   if (!Number.isFinite(now) || !Number.isFinite(prev)) return null;
@@ -813,114 +796,6 @@ function pctDelta(now: number, prev: number) {
   if (now === 0 && prev === 0) return null;
   if (prev === 0) return 100;
   return Math.round(((now - prev) / Math.abs(prev)) * 100);
-}
-
-function hasComposerDraft() {
-  try {
-    return Boolean(localStorage.getItem(COMPOSER_DRAFT_KEY));
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Génère les takeaways hebdomadaires — chacun avec un bouton contexte-aware.
- * Priorité : cadence > brouillons > tendance engagement > créneau > top post.
- */
-function buildTakeaways(args: {
-  postsThisWeek: number;
-  goal: number;
-  draftsCount: number;
-  engagementDelta: number | null;
-  topPost: PostRow | undefined;
-  topMultiplier: number;
-  heatmap: BestTimes;
-  onScheduleSlot: (slot: { day: number; hour: number }) => void;
-  onDuplicate: (post: PostRow) => void;
-  onCreate: () => void;
-  onSchedule: () => void;
-}): Takeaway[] {
-  const out: Takeaway[] = [];
-
-  if (args.postsThisWeek < args.goal) {
-    const behind = args.goal - args.postsThisWeek;
-    out.push({
-      id: "cadence",
-      icon: <Target className="h-3.5 w-3.5" />,
-      title: `${behind} post${behind > 1 ? "s" : ""} en dessous de votre objectif hebdomadaire`,
-      detail: `Vous avez publié ${args.postsThisWeek} sur ${args.goal}. Comblez l'écart au lieu de deviner le créneau.`,
-      cta: "Programmer l'écart",
-      action: args.onSchedule,
-    });
-  }
-
-  if (args.draftsCount > 0) {
-    out.push({
-      id: "drafts",
-      icon: <Sparkles className="h-3.5 w-3.5" />,
-      title: `${args.draftsCount} brouillon${args.draftsCount > 1 ? "s" : ""} non programmé${args.draftsCount > 1 ? "s" : ""}`,
-      detail: "Terminez ce que vous avez commencé au lieu d'ouvrir un compositeur vide.",
-      cta: "Ouvrir les brouillons",
-      action: args.onCreate,
-    });
-  }
-
-  if (args.engagementDelta != null && Math.abs(args.engagementDelta) >= 10) {
-    const down = args.engagementDelta < 0;
-    out.push({
-      id: "engagement",
-      icon: down ? (
-        <TrendingDown className="h-3.5 w-3.5" />
-      ) : (
-        <TrendingUp className="h-3.5 w-3.5" />
-      ),
-      title: down
-        ? `L'engagement a baissé de ${Math.abs(args.engagementDelta)}% vs la période précédente`
-        : `L'engagement a augmenté de ${args.engagementDelta}% vs la période précédente`,
-      detail: down
-        ? "Revenez à ce qui fonctionne encore avant d'ajouter du volume."
-        : "Répétez ce qui fonctionne — le reste est du bruit.",
-      cta: args.topPost ? "Dupliquer un gagnant" : "Créer un post",
-      action: args.topPost
-        ? () => args.onDuplicate(args.topPost as PostRow)
-        : args.onCreate,
-    });
-  }
-
-  if (args.heatmap.sample > 0) {
-    out.push({
-      id: "slot",
-      icon: <Clock3 className="h-3.5 w-3.5" />,
-      title: `Réservez ${args.heatmap.label}`,
-      detail: "Vos posts performent mieux à ce moment — placez le prochain là.",
-      cta: "Utiliser ce créneau",
-      action: () => args.onScheduleSlot({ day: args.heatmap.best.day, hour: args.heatmap.best.hour }),
-    });
-  }
-
-  if (args.topPost && args.topMultiplier >= 1.5) {
-    out.push({
-      id: "topPost",
-      icon: <Repeat2 className="h-3.5 w-3.5" />,
-      title: `« ${args.topPost.label} » est ${args.topMultiplier.toFixed(1)}× votre moyenne`,
-      detail: "Dupliquez l'angle, pas la légende. Essayez un format différent.",
-      cta: "Dupliquer le post",
-      action: () => args.onDuplicate(args.topPost as PostRow),
-    });
-  }
-
-  if (out.length === 0) {
-    out.push({
-      id: "empty",
-      icon: <Target className="h-3.5 w-3.5" />,
-      title: "Publiez un peu, et Stone commence à choisir le prochain mouvement",
-      detail: "Dès que quelques posts arrivent, les analyses apparaissent ici.",
-      cta: "Créer un post",
-      action: args.onCreate,
-    });
-  }
-
-  return out.slice(0, 3);
 }
 
 /* ============================================================
@@ -1508,15 +1383,6 @@ export default function Insights() {
     if (hashChannel) setSelectedKey(hashChannel);
   }, [hashChannel]);
 
-  /* ── Titre de l'onglet navigateur ── */
-  useEffect(() => {
-    const previous = document.title;
-    document.title = "Analyses · Stone";
-    return () => {
-      document.title = previous;
-    };
-  }, []);
-
   const viewingAll =
     selectedKey === ALL_KEY || (selectedKey == null && channels.length > 1);
   const channel = viewingAll
@@ -1546,7 +1412,6 @@ export default function Insights() {
   const [composerContext, setComposerContext] = useState<ComposerContext | null>(null);
   const [query, setQuery] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
-  const [queue, setQueue] = useState<CalendarPost[]>([]);
 
   /* ── Composer ── */
 
@@ -1632,27 +1497,6 @@ export default function Insights() {
 
   const youtubeLoading = fetchYouTube && ((yt.loading && !yt.data) || !scheduled.ready);
 
-  useEffect(() => {
-    let cancelled = false;
-    const now = new Date();
-    // Fenêtre large : les brouillons peuvent être vieux, on veut tous les voir.
-    listPosts(addDays(now, -365), addDays(now, 21))
-      .catch(() => [] as CalendarPost[])
-      .then((all) => {
-        if (cancelled) return;
-        setQueue(
-          all.filter(
-            (p) =>
-              (p.status === "scheduled" || p.status === "draft") &&
-              new Date(p.scheduledAt).getTime() >= now.getTime()
-          )
-        );
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [reloadKey]);
-
   const days = current.length;
   const dates = current.map((p) => p.date);
   const prevStart = previous[0]?.date ?? addDays(start, -days);
@@ -1684,6 +1528,9 @@ export default function Insights() {
   const postsThisWeek = posts.filter((p) => p.date >= weekStart).length;
   const goalKey = channel?.key ?? channels[0]?.key ?? "youtube";
   const goal = readPostingGoal(goalKey) ?? readPostingGoal("youtube") ?? 3;
+  const goalPct = goal > 0 ? Math.min(100, Math.round((postsThisWeek / goal) * 100)) : 0;
+  const goalReached = postsThisWeek >= goal;
+
   const platformKey = (channel?.platform ?? "default").toLowerCase();
   const heatmap = useMemo(() => buildBestTimes(posts, platformKey), [posts, platformKey]);
   const bestTimesNote =
@@ -1698,57 +1545,11 @@ export default function Insights() {
   );
   const topPost = ranked[0];
   const avgScore = posts.length ? posts.reduce((a, p) => a + postScore(p), 0) / posts.length : 0;
-  const topMultiplier = topPost && avgScore > 0 ? postScore(topPost) / avgScore : 0;
   const remixable = ranked.filter((p) => postScore(p) >= avgScore * 1.25).slice(0, 2);
-  const queuedForChannel = viewingAll
-    ? queue
-    : queue.filter((p) => !channel || p.network === channel.platform || p.channelKey === channel.key);
-  const draftsCount = queuedForChannel.filter((p) => p.status === "draft").length;
-  const draftReady = draftsCount > 0 || hasComposerDraft();
-  const draftsForActions = draftReady ? Math.max(1, draftsCount) : 0;
-
-  const engagementDelta = useMemo(
-    () =>
-      pctDelta(
-        summary.reactions + summary.comments,
-        prevTotals.reactions + prevTotals.comments
-      ),
-    [summary.reactions, summary.comments, prevTotals.reactions, prevTotals.comments]
-  );
 
   const subhead = heatmap.sample === 0
     ? "Dès que quelques posts arrivent, nous cartographions l'heure qui fonctionne vraiment pour vous — puis l'envoyons au calendrier."
     : `Votre meilleure fenêtre est ${heatmap.label}. Ne devinez pas le créneau — remplissez-le.`;
-
-  const takeaways = useMemo(
-    () =>
-      buildTakeaways({
-        postsThisWeek,
-        goal,
-        draftsCount: draftsForActions,
-        engagementDelta,
-        topPost,
-        topMultiplier,
-        heatmap,
-        onScheduleSlot: scheduleFromSlot,
-        onDuplicate: duplicatePost,
-        onCreate: () => openComposer({ reason: "insight", channelKey: channel?.key }),
-        onSchedule: () => navigate("schedule"),
-      }),
-    [
-      postsThisWeek,
-      goal,
-      draftsForActions,
-      engagementDelta,
-      topPost,
-      topMultiplier,
-      heatmap,
-      scheduleFromSlot,
-      duplicatePost,
-      openComposer,
-      channel?.key,
-    ]
-  );
 
   const glance =
     summary.posts === 0
@@ -1848,7 +1649,7 @@ export default function Insights() {
         previous[i]?.followers ?? 0,
       ])
     );
-    downloadCsv(`analyses-${toInput(start)}-${toInput(end)}.csv`, rowsCsv);
+    downloadCsv(`insights-${toInput(start)}-${toInput(end)}.csv`, rowsCsv);
   };
 
   /* ── Barre du bas / nouveau post ── */
@@ -1886,9 +1687,6 @@ export default function Insights() {
 
   const heroUid = useId().replace(/[:]/g, "");
   const heroId = (name: string) => `hero-${name}-${heroUid}`;
-
-  const goalPct = goal > 0 ? Math.min(100, Math.round((postsThisWeek / goal) * 100)) : 0;
-  const goalReached = postsThisWeek >= goal;
 
   return (
     <main
@@ -1934,7 +1732,7 @@ export default function Insights() {
                   <InsightsIcon />
                 </span>
                 <h1 className={`truncate text-[20px] font-semibold tracking-[-0.03em] ${t.text}`}>
-                  Analyses
+                  Insights
                 </h1>
               </div>
 
@@ -1950,7 +1748,7 @@ export default function Insights() {
 
                 <div className="flex items-center gap-2">
                   {fetchYouTube && (
-                    <IconBtn label="Rafraîchir les analyses" t={t} onClick={() => setReloadKey((k) => k + 1)}>
+                    <IconBtn label="Rafraîchir les insights" t={t} onClick={() => setReloadKey((k) => k + 1)}>
                       <RefreshCw
                         className={`h-[18px] w-[18px] ${yt.loading ? "animate-spin motion-reduce:animate-none" : ""}`}
                         aria-hidden="true"
@@ -1994,7 +1792,7 @@ export default function Insights() {
                 <span className={`flex h-11 w-11 items-center justify-center rounded-full ${t.iconBox}`}>
                   <Activity className="h-5 w-5" aria-hidden="true" />
                 </span>
-                <h2 className={`text-[14px] font-semibold ${t.text}`}>Connectez un canal pour voir les analyses</h2>
+                <h2 className={`text-[14px] font-semibold ${t.text}`}>Connectez un canal pour voir les insights</h2>
                 <p className={`max-w-[360px] text-[12px] ${t.soft}`}>
                   Les abonnés, la portée et l'engagement apparaissent ici une fois un compte social connecté.
                 </p>
@@ -2014,7 +1812,7 @@ export default function Insights() {
                     role="alert"
                     className={`flex flex-wrap items-center justify-between gap-3 rounded-xl border px-4 py-3 ${t.panel}`}
                   >
-                    <p className="text-[12.5px] text-red-500">Impossible de charger les analyses YouTube : {yt.error}</p>
+                    <p className="text-[12.5px] text-red-500">Impossible de charger les insights YouTube : {yt.error}</p>
                     <button
                       type="button"
                       onClick={() => setReloadKey((k) => k + 1)}
@@ -2026,13 +1824,13 @@ export default function Insights() {
                 )}
                 {youtubeLoading && (
                   <p className={`text-[12.5px] ${t.soft}`} role="status" aria-live="polite">
-                    Chargement des analyses YouTube…
+                    Chargement des insights YouTube…
                   </p>
                 )}
 
                 {/* ── HERO : bannière sombre avec ruban lumineux ── */}
                 <section
-                  aria-label="Analyses"
+                  aria-label="Insights"
                   className={`relative isolate h-[300px] overflow-hidden rounded-[36px] ring-1 ring-inset md:h-[340px] ${
                     isDark ? "bg-white ring-black/10" : "bg-black ring-white/10"
                   }`}
@@ -2093,7 +1891,7 @@ export default function Insights() {
 
                   {/* Texte en bas à gauche */}
                   <div className="absolute bottom-0 left-0 z-10 flex max-w-[480px] flex-col gap-1.5 p-7 md:p-10">
-                    <p className={`text-[11px] font-medium ${isDark ? "text-neutral-500" : "text-white/60"}`}>Analyses</p>
+                    <p className={`text-[11px] font-medium ${isDark ? "text-neutral-500" : "text-white/60"}`}>Insights</p>
                     <h2
                       className={`text-[clamp(26px,3vw,38px)] font-semibold leading-[1.05] tracking-[-0.035em] ${
                         isDark ? "text-neutral-900" : "text-white"
@@ -2106,7 +1904,7 @@ export default function Insights() {
                         isDark ? "text-neutral-500" : "text-white/60"
                       }`}
                     >
-                      Les analyses montrent quels posts, formats et horaires performent le mieux,
+                      Les insights montrent quels posts, formats et horaires performent le mieux,
                       pour que votre prochaine publication soit une décision, pas un pari.
                     </p>
                   </div>
@@ -2226,46 +2024,6 @@ export default function Insights() {
                         />
                       ))}
                     </div>
-                  </div>
-                </section>
-
-                {/* ── PROCHAINES ACTIONS ── */}
-                <section aria-labelledby="actions-title" className="flex flex-col gap-4">
-                  <div>
-                    <h2 id="actions-title" className={`text-[28px] font-semibold tracking-[-0.03em] ${t.text}`}>
-                      Prochaines actions
-                    </h2>
-                    <p className={`mt-0.5 text-[12px] ${t.muted}`}>
-                      Ce que Stone suggère de faire ensuite
-                    </p>
-                  </div>
-
-                  <div className="grid gap-3 md:grid-cols-3">
-                    {takeaways.map((a) => (
-                      <article
-                        key={a.id}
-                        className={`flex min-w-0 flex-col gap-3 rounded-3xl border p-5 ${t.card}`}
-                      >
-                        <span
-                          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${t.iconBox}`}
-                          aria-hidden="true"
-                        >
-                          {a.icon}
-                        </span>
-                        <div className="min-w-0">
-                          <h3 className={`text-[14px] font-semibold leading-snug ${t.text}`}>{a.title}</h3>
-                          <p className={`mt-1 text-[12px] leading-relaxed ${t.soft}`}>{a.detail}</p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={a.action}
-                          className={`mt-auto flex items-center justify-between gap-2 rounded-full px-4 py-2 text-[12px] font-semibold transition-colors ${t.ring} ${t.primaryBtn}`}
-                        >
-                          <span className="truncate">{a.cta}</span>
-                          <ExternalLink className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                        </button>
-                      </article>
-                    ))}
                   </div>
                 </section>
 
