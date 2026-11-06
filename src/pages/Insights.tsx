@@ -1498,6 +1498,15 @@ export default function Insights() {
     if (hashChannel) setSelectedKey(hashChannel);
   }, [hashChannel]);
 
+  /* ── Titre de l'onglet navigateur ── */
+  useEffect(() => {
+    const previous = document.title;
+    document.title = "Analyses · Stone";
+    return () => {
+      document.title = previous;
+    };
+  }, []);
+
   const viewingAll =
     selectedKey === ALL_KEY || (selectedKey == null && channels.length > 1);
   const channel = viewingAll
@@ -2421,10 +2430,10 @@ export default function Insights() {
                                 <button
                                   type="button"
                                   onClick={() => duplicatePost(p)}
-                                  className={`shrink-0 rounded-md border px-2.5 py-1 text-[11px] font-semibold ${t.ring} ${
+                                  className={`shrink-0 rounded-md border px-2.5 py-1 text-[11px] font-semibold transition-colors motion-reduce:transition-none ${t.ring} ${
                                     isDark
-                                      ? "border-white/10 text-white"
-                                      : "border-black/10 text-neutral-900"
+                                      ? "border-white/10 text-white hover:border-white/25 hover:bg-white/[0.08]"
+                                      : "border-black/10 text-neutral-900 hover:border-black/25 hover:bg-black/[0.06]"
                                   }`}
                                 >
                                   Dupliquer →
