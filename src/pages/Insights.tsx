@@ -206,8 +206,8 @@ const tokens = (isDark: boolean): Tokens =>
         text: "text-white",
         muted: "text-neutral-600",
         soft: "text-neutral-400",
-        card: "border-white/[0.05] bg-transparent",
-        panel: "border-white/[0.05] bg-white/[0.015]",
+        card: "border-white/[0.06] bg-white/[0.02]",
+        panel: "border-white/[0.06] bg-white/[0.03]",
         inner: "border-white/[0.05] bg-white/[0.02]",
         tile: "border-white/[0.04] bg-white/[0.045]",
         border: "border-white/[0.05]",
@@ -227,10 +227,10 @@ const tokens = (isDark: boolean): Tokens =>
         text: "text-neutral-900",
         muted: "text-neutral-400",
         soft: "text-neutral-500",
-        card: "border-black/[0.05] bg-transparent",
-        panel: "border-black/[0.05] bg-neutral-50",
+        card: "border-black/[0.05] bg-neutral-50/70",
+        panel: "border-black/[0.05] bg-white",
         inner: "border-black/[0.05] bg-white",
-        tile: "border-black/[0.04] bg-neutral-100",
+        tile: "border-black/[0.04] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]",
         border: "border-black/[0.05]",
         head: "bg-neutral-50",
         primaryBtn: "bg-neutral-900 text-white hover:bg-neutral-700",
@@ -1012,7 +1012,7 @@ function InsightsChart({
         >
           <defs>
             <linearGradient id={gradLeft} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={seriesColor} stopOpacity={0.14} />
+              <stop offset="0%" stopColor={seriesColor} stopOpacity={0.22} />
               <stop offset="100%" stopColor={seriesColor} stopOpacity={0} />
             </linearGradient>
             {hasSecondAxis && seriesColor2 && (
@@ -1145,7 +1145,7 @@ function Segmented<T extends string>({
     <div
       role="group"
       aria-label={label}
-      className={`inline-flex flex-wrap items-center gap-0.5 rounded-lg border p-1 ${t.panel}`}
+      className={`inline-flex flex-wrap items-center gap-0.5 rounded-full border p-1 ${t.panel}`}
     >
       {options.map((o) => {
         const active = value === o.key;
@@ -1155,7 +1155,7 @@ function Segmented<T extends string>({
             type="button"
             aria-pressed={active}
             onClick={() => onChange(o.key)}
-            className={`flex items-center gap-1.5 whitespace-nowrap rounded-md px-3 ${
+            className={`flex items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 ${
               size === "lg" ? "py-2 text-[13px]" : "py-1.5 text-[12px]"
             } font-semibold transition-colors motion-reduce:transition-none ${t.ring} ${active ? t.sel : t.idle}`}
           >
@@ -1243,14 +1243,14 @@ function MetricBox({
   const up = delta != null && delta > 0;
   const down = delta != null && delta < 0;
   return (
-    <div className={`flex h-full flex-col gap-2.5 rounded-xl border px-3.5 py-3.5 ${t.tile}`}>
-      <span className={`flex items-center justify-between gap-2 text-[10px] font-medium ${t.soft}`}>
+    <div className={`flex h-full flex-col gap-2.5 rounded-2xl border px-4 py-4 ${t.tile}`}>
+      <span className={`flex items-center justify-between gap-2 text-[11px] font-medium ${t.soft}`}>
         <span className="truncate">{label}</span>
         <span title={info} role="img" aria-label={info} className={`shrink-0 ${t.muted}`}>
           <Info className="h-3.5 w-3.5" aria-hidden="true" />
         </span>
       </span>
-      <span className={`text-[22px] font-semibold leading-none tracking-[-0.02em] tabular-nums ${t.text}`}>{value}</span>
+      <span className={`text-[30px] font-semibold leading-none tracking-[-0.03em] tabular-nums ${t.text}`}>{value}</span>
       {delta != null && (
         <span
           className={[
@@ -1362,7 +1362,7 @@ function RangePicker({
         type="button"
         aria-pressed={active}
         onClick={() => openPicker(id)}
-        className={`flex-1 whitespace-nowrap rounded-md px-3 py-1.5 text-[11px] font-semibold transition-colors motion-reduce:transition-none ${t.ring} ${
+        className={`flex-1 whitespace-nowrap rounded-full px-3.5 py-1.5 text-[11px] font-semibold transition-colors motion-reduce:transition-none ${t.ring} ${
           active ? t.sel : t.idle
         }`}
       >
@@ -1861,9 +1861,9 @@ export default function Insights() {
       <ImageIcon className="h-4 w-4" />
     );
 
-  const sectionCard = `rounded-xl border p-4 ${t.card}`;
-  const sectionTitle = `text-[15px] font-semibold tracking-[-0.02em] ${t.text}`;
-  const sectionSub = `mt-1 text-[11px] ${t.muted}`;
+  const sectionCard = `rounded-3xl border p-5 md:p-6 ${t.card}`;
+  const sectionTitle = `text-[17px] font-semibold tracking-[-0.02em] ${t.text}`;
+  const sectionSub = `mt-1 text-[12px] ${t.muted}`;
 
   return (
     <main
@@ -1887,7 +1887,7 @@ export default function Insights() {
         <div
           className={[
             "h-full overflow-y-auto overflow-x-hidden",
-            "rounded-2xl border",
+            "rounded-[28px] border",
             "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
             "transition-colors duration-300",
             isDark ? "border-white/[0.05] bg-[#0a0a0c]" : "border-black/[0.05] bg-white",
@@ -1896,7 +1896,7 @@ export default function Insights() {
           <div
             className={[
               "mx-auto flex w-full max-w-[1720px]",
-              "flex-col gap-6 px-[clamp(18px,3vw,48px)]",
+              "flex-col gap-8 px-[clamp(18px,3vw,48px)]",
               "pb-[120px] pt-[clamp(18px,3vw,30px)]",
             ].join(" ")}
           >
@@ -1937,7 +1937,7 @@ export default function Insights() {
                     type="button"
                     onClick={exportCsv}
                     disabled={!channels.length}
-                    className={`flex h-9 items-center gap-2 rounded-lg px-3.5 text-[12px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${t.ring} ${t.outlineBtn}`}
+                    className={`flex h-9 items-center gap-2 rounded-full px-4 text-[12px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${t.ring} ${t.outlineBtn}`}
                   >
                     <Download className="h-4 w-4" aria-hidden="true" />
                     Export
@@ -1993,7 +1993,7 @@ export default function Insights() {
                     <button
                       type="button"
                       onClick={() => setReloadKey((k) => k + 1)}
-                      className={`rounded-md px-3 py-1.5 text-[11px] font-semibold transition-colors ${t.ring} ${t.outlineBtn}`}
+                      className={`rounded-full px-3.5 py-1.5 text-[11px] font-semibold transition-colors ${t.ring} ${t.outlineBtn}`}
                     >
                       Retry
                     </button>
@@ -2090,7 +2090,7 @@ export default function Insights() {
                 {/* ── NUMBERS ── */}
                 <section aria-labelledby="all-title" className="flex flex-col gap-4">
                   <div>
-                    <h2 id="all-title" className={`text-[20px] font-semibold tracking-[-0.03em] ${t.text}`}>
+                    <h2 id="all-title" className={`text-[28px] font-semibold tracking-[-0.03em] ${t.text}`}>
                       Overview
                     </h2>
                     <p className={`mt-0.5 text-[12px] ${t.muted}`}>Choose a period — everything below updates with it</p>
@@ -2101,7 +2101,7 @@ export default function Insights() {
                       <div
                         role="tablist"
                         aria-label="Date range"
-                        className={`inline-flex flex-wrap items-center gap-0.5 rounded-lg border p-1 ${t.panel}`}
+                        className={`inline-flex flex-wrap items-center gap-0.5 rounded-full border p-1 ${t.panel}`}
                       >
                         {RANGES.map((o) => {
                           const active = range === o.key;
@@ -2112,7 +2112,7 @@ export default function Insights() {
                               role="tab"
                               aria-selected={active}
                               onClick={() => setRange(o.key)}
-                              className={`flex items-center gap-2 whitespace-nowrap rounded-md px-3.5 py-2 text-[13px] font-semibold transition-colors ${t.ring} ${
+                              className={`flex items-center gap-2 whitespace-nowrap rounded-full px-4 py-2 text-[13px] font-semibold transition-colors ${t.ring} ${
                                 active ? t.sel : t.idle
                               }`}
                             >
@@ -2230,7 +2230,7 @@ export default function Insights() {
                     />
                   </div>
 
-                  <div className={`mt-3 rounded-xl border p-4 ${t.panel}`}>
+                  <div className={`mt-3 rounded-2xl border p-5 ${t.panel}`}>
                     <div className="flex flex-wrap items-end justify-between gap-4 pl-2">
                       <div>
                         <p className={`text-[11px] font-medium ${t.soft}`}>
@@ -2298,7 +2298,7 @@ export default function Insights() {
                       <button
                         type="button"
                         onClick={() => scheduleFromSlot(heatmap.best)}
-                        className={`rounded-md px-3 py-1.5 text-[11px] font-semibold ${t.ring} ${t.outlineBtn}`}
+                        className={`rounded-full px-3.5 py-1.5 text-[11px] font-semibold ${t.ring} ${t.outlineBtn}`}
                       >
                         Use {heatmap.label}
                       </button>
@@ -2313,7 +2313,7 @@ export default function Insights() {
                         {/* Axe des heures (24 h) : un libellé par carré */}
                         <div className="mb-1.5 flex items-end gap-2">
                           <span className="w-9 shrink-0" />
-                          <div className={`grid flex-1 gap-1 ${HEAT_COLS}`}>
+                          <div className={`grid flex-1 gap-[5px] ${HEAT_COLS}`}>
                             {Array.from({ length: 24 }, (_, h) => (
                               <span
                                 key={h}
@@ -2330,7 +2330,7 @@ export default function Insights() {
                           {DAY_LABELS.map((day, d) => (
                             <div key={day} className="flex items-center gap-2">
                               <span className={`w-9 shrink-0 text-[10px] ${t.muted}`}>{day}</span>
-                              <div className={`grid flex-1 gap-1 ${HEAT_COLS}`}>
+                              <div className={`grid flex-1 gap-[5px] ${HEAT_COLS}`}>
                                 {Array.from({ length: 24 }, (_, h) => {
                                   const cell = heatmap.grid[d][h];
                                   const isBest = heatmap.bestByDay[d].hour === h;
@@ -2341,7 +2341,7 @@ export default function Insights() {
                                       title={`${day} ${hourLabel(h)}${isBest ? " · best of the day" : ""}`}
                                       aria-label={`Schedule ${day} at ${hourLabel(h)}`}
                                       onClick={() => scheduleFromSlot({ day: d, hour: h })}
-                                      className={`aspect-square w-full rounded-[3px] transition-transform hover:scale-125 ${t.ring} ${
+                                      className={`aspect-square w-full rounded-[6px] transition-transform hover:scale-125 ${t.ring} ${
                                         isBest
                                           ? `ring-[1.5px] ring-offset-1 ${
                                               isDark
@@ -2390,9 +2390,9 @@ export default function Insights() {
                     ) : (
                       <div className="mt-4 flex flex-col gap-2.5">
                         {remixable.map((p, i) => (
-                          <div key={p.id} className={`flex gap-3 rounded-xl border p-3 ${t.inner}`}>
+                          <div key={p.id} className={`group flex gap-3 rounded-2xl border p-3.5 transition-transform duration-150 hover:-translate-y-0.5 ${t.inner}`}>
                             <span
-                              className={`flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg ${t.iconBox}`}
+                              className={`flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl ${t.iconBox}`}
                             >
                               {p.thumbnailUrl ? (
                                 <img
@@ -2416,7 +2416,7 @@ export default function Insights() {
                               <button
                                 type="button"
                                 onClick={() => duplicatePost(p)}
-                                className={`mt-2 rounded text-[11px] font-semibold ${t.ring} ${t.text}`}
+                                className={`mt-2.5 rounded-full px-3 py-1 text-[11px] font-semibold transition-colors ${t.ring} ${t.outlineBtn}`}
                               >
                                 Duplicate →
                               </button>
@@ -2453,7 +2453,7 @@ export default function Insights() {
                     />
                   </div>
 
-                  <div className={`mt-4 overflow-x-auto rounded-xl border ${t.panel}`}>
+                  <div className={`mt-4 overflow-x-auto rounded-2xl border ${t.panel}`}>
                     <div className="min-w-[720px]">
                       <div
                         className={`grid ${TABLE_GRID} items-center gap-2 px-4 py-3 text-[12px] font-semibold ${t.head} ${t.text}`}
@@ -2504,7 +2504,7 @@ export default function Insights() {
                             <button
                               type="button"
                               onClick={() => setRange("30d")}
-                              className={`mt-2 rounded-md px-3 py-1.5 text-[11px] font-semibold transition-colors ${t.ring} ${t.outlineBtn}`}
+                              className={`mt-2 rounded-full px-3.5 py-1.5 text-[11px] font-semibold transition-colors ${t.ring} ${t.outlineBtn}`}
                             >
                               Show last 30 days
                             </button>
@@ -2514,7 +2514,7 @@ export default function Insights() {
                         visibleRows.map((p, idx) => (
                           <div
                             key={p.id}
-                            className={`grid ${TABLE_GRID} items-center gap-2 border-t px-4 py-3 text-[13px] ${t.border} ${t.text}`}
+                            className={`grid ${TABLE_GRID} items-center gap-2 border-t px-4 py-3 text-[13px] transition-colors ${t.border} ${t.text} ${t.hover}`}
                           >
                             <div className="flex min-w-0 items-center gap-3">
                               <span className={`w-5 shrink-0 text-[12px] ${t.muted}`}>#{idx + 1}</span>
@@ -2592,7 +2592,7 @@ export default function Insights() {
                           <button
                             type="button"
                             onClick={() => setShowAllPosts((v) => !v)}
-                            className={`rounded-md px-3 py-1.5 text-[11px] font-semibold transition-colors ${t.ring} ${t.outlineBtn}`}
+                            className={`rounded-full px-3.5 py-1.5 text-[11px] font-semibold transition-colors ${t.ring} ${t.outlineBtn}`}
                           >
                             {showAllPosts ? "Show fewer posts" : `Show all ${sortedRows.length} posts`}
                           </button>
