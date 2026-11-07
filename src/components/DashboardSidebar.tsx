@@ -424,10 +424,6 @@ const SIDEBAR_KEYFRAMES = `
   from { opacity: 0; transform: scale(0.4); }
   to { opacity: 1; transform: scale(1); }
 }
-@keyframes sbSubOpen {
-  from { opacity: 0; transform: translateY(-4px); }
-  to { opacity: 1; transform: none; }
-}
 .sb-menu { animation: sbMenuIn 160ms cubic-bezier(0.32, 0.72, 0, 1) both; }
 .sb-tip { animation: sbTipIn 140ms cubic-bezier(0.32, 0.72, 0, 1) both; }
 .sb-fade { animation: sbFadeIn 220ms ease-out both; }
@@ -438,7 +434,6 @@ const SIDEBAR_KEYFRAMES = `
 .sb-backdrop { animation: sbFadeIn 200ms ease-out both; }
 .sb-sheet { animation: sbSheetIn 340ms cubic-bezier(0.32, 0.72, 0, 1) backwards; }
 .sb-dot { animation: sbDotPop 220ms cubic-bezier(0.34, 1.56, 0.64, 1) both; }
-.sb-sub { animation: sbSubOpen 220ms cubic-bezier(0.22, 1, 0.36, 1) both; }
 #app-sidebar button,
 #app-sidebar svg,
 #app-sidebar img {
@@ -447,7 +442,7 @@ const SIDEBAR_KEYFRAMES = `
   -webkit-tap-highlight-color: transparent;
 }
 @media (prefers-reduced-motion: reduce) {
-  .sb-menu, .sb-tip, .sb-fade, .sb-label, .sb-backdrop, .sb-sheet, .sb-dot, .sb-sub { animation: none; }
+  .sb-menu, .sb-tip, .sb-fade, .sb-label, .sb-backdrop, .sb-sheet, .sb-dot { animation: none; }
 }
 `;
 
@@ -1060,15 +1055,17 @@ function NavItemViewImpl({
           aria-keyshortcuts={letter ? ariaShortcut(letter) : undefined}
           onClick={() => onNavigate(item.route)}
           className={[
-            "group relative flex items-center rounded-xl text-[13px] font-medium",
+            "group relative flex items-center rounded-xl text-[13px] max-md:text-[14.5px] font-medium",
             "transition-[background-color,color,transform] duration-200",
             "active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:scale-100",
-            compact ? "h-10 w-10 justify-center" : "h-9 w-full gap-2.5 px-2.5",
+            compact
+              ? "h-10 w-10 justify-center"
+              : "h-9 max-md:h-11 w-full gap-2.5 max-md:gap-3 px-2.5 max-md:px-3",
             focus,
             isActive ? t.navActive : t.navIdle,
           ].join(" ")}
         >
-          <Icon className="h-[18px] w-[18px] shrink-0" />
+          <Icon className="h-[18px] w-[18px] max-md:h-5 max-md:w-5 shrink-0" />
           {!compact && (
             <>
               <span
@@ -1082,7 +1079,7 @@ function NavItemViewImpl({
               {item.badge && (
                 <span
                   className={[
-                    "flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1.5 text-[10px] font-semibold leading-none opacity-80",
+                    "flex h-[18px] min-w-[18px] max-md:h-5 max-md:min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] max-md:text-[11px] font-semibold leading-none opacity-80",
                     t.badge,
                   ].join(" ")}
                 >
@@ -1269,7 +1266,10 @@ function ChannelAvatar({
 
   const label = channel.handle || channel.name;
   const initial = label.replace(/^@/, "").charAt(0).toUpperCase() || "?";
-  const box = size === "lg" ? "h-8 w-8" : "h-6 w-6";
+  const box =
+    size === "lg"
+      ? "h-8 w-8 max-md:h-9 max-md:w-9"
+      : "h-6 w-6 max-md:h-7 max-md:w-7";
   const radius = "rounded-lg";
 
   return (
@@ -1288,7 +1288,7 @@ function ChannelAvatar({
           className={[
             "flex h-full w-full items-center justify-center bg-neutral-700",
             radius,
-            "text-[10px] font-semibold text-white",
+            "text-[10px] max-md:text-[11px] font-semibold text-white",
           ].join(" ")}
         >
           {initial}
@@ -1298,7 +1298,7 @@ function ChannelAvatar({
         <span
           aria-hidden="true"
           className={[
-            "absolute -left-0.5 -top-0.5 h-2.5 w-2.5 rounded-full ring-2",
+            "absolute -left-0.5 -top-0.5 h-2.5 w-2.5 max-md:h-3 max-md:w-3 rounded-full ring-2",
             unreadDot,
             dotRing,
           ].join(" ")}
@@ -1307,12 +1307,12 @@ function ChannelAvatar({
       {NetworkIcon && (
         <span
           className={[
-            "absolute -bottom-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center",
+            "absolute -bottom-0.5 -right-0.5 flex h-3.5 w-3.5 max-md:h-4 max-md:w-4 items-center justify-center",
             "rounded-[4px] bg-white shadow-[0_0_0_1px_rgba(0,0,0,0.12)] ring-2",
             dotRing,
           ].join(" ")}
         >
-          <NetworkIcon className="h-2.5 w-2.5" />
+          <NetworkIcon className="h-2.5 w-2.5 max-md:h-3 max-md:w-3" />
         </span>
       )}
     </span>
@@ -1720,11 +1720,11 @@ function FavoriteRowImpl({
       {editing ? (
         <div
           className={[
-            "flex h-9 w-full items-center gap-2.5 rounded-xl px-2.5",
+            "flex h-9 max-md:h-11 w-full items-center gap-2.5 rounded-xl px-2.5 max-md:px-3",
             t.navActive,
           ].join(" ")}
         >
-          <BookmarkIcon className="h-[18px] w-[18px] shrink-0" filled />
+          <BookmarkIcon className="h-[18px] w-[18px] max-md:h-5 max-md:w-5 shrink-0" filled />
           <input
             autoFocus
             defaultValue={label}
@@ -1749,7 +1749,7 @@ function FavoriteRowImpl({
                 setEditing(false);
               }
             }}
-            className="min-w-0 flex-1 bg-transparent text-[13px] font-medium outline-none"
+            className="min-w-0 flex-1 bg-transparent text-[13px] max-md:text-[14.5px] font-medium outline-none"
           />
         </div>
       ) : (
@@ -1759,21 +1759,21 @@ function FavoriteRowImpl({
             aria-current={isActive ? "page" : undefined}
             onClick={() => onNavigate(item.route)}
             className={[
-              "flex h-9 w-full items-center gap-2.5 rounded-xl pl-2.5 pr-9 text-[13px] font-medium",
+              "flex h-9 max-md:h-11 w-full items-center gap-2.5 max-md:gap-3 rounded-xl pl-2.5 max-md:pl-3 pr-9 max-md:pr-11 text-[13px] max-md:text-[14.5px] font-medium",
               "transition-[background-color,color,transform] duration-200",
               "active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:scale-100",
               focus,
               isActive ? t.navActive : t.navIdle,
             ].join(" ")}
           >
-            <BookmarkIcon className="h-[18px] w-[18px] shrink-0" filled />
+            <BookmarkIcon className="h-[18px] w-[18px] max-md:h-5 max-md:w-5 shrink-0" filled />
             <span className="sb-fade min-w-0 flex-1 truncate text-left">
               {label}
             </span>
             {badge && (
               <span
                 className={[
-                  "flex h-[18px] min-w-[18px] shrink-0 items-center justify-center rounded-full px-1.5 text-[10px] font-semibold leading-none opacity-80",
+                  "flex h-[18px] min-w-[18px] max-md:h-5 max-md:min-w-5 shrink-0 items-center justify-center rounded-full px-1.5 text-[10px] max-md:text-[11px] font-semibold leading-none opacity-80",
                   t.badge,
                 ].join(" ")}
               >
@@ -1789,7 +1789,7 @@ function FavoriteRowImpl({
             aria-expanded={menuOpen}
             onClick={() => (menuOpen ? setMenuPos(null) : openMenu())}
             className={[
-              "absolute right-1 top-1/2 z-10 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-lg",
+              "absolute right-1 top-1/2 z-10 flex h-7 max-md:h-8 w-7 max-md:w-8 -translate-y-1/2 items-center justify-center rounded-lg",
               "transition-[opacity,background-color,color] duration-150 motion-reduce:transition-none",
               "focus-visible:opacity-100 [@media(hover:none)]:opacity-100",
               menuOpen
@@ -1800,7 +1800,7 @@ function FavoriteRowImpl({
               t.row,
             ].join(" ")}
           >
-            <MoreIcon className="h-4 w-4" />
+            <MoreIcon className="h-4 w-4 max-md:h-[18px] max-md:w-[18px]" />
           </button>
         </>
       )}
@@ -2009,7 +2009,6 @@ function SidebarChannelsImpl({
   const channelsRef = useRef(channels);
   channelsRef.current = channels;
 
-  // Drag-to-reorder : désactivé sur mobile (interfère avec le tap pour ouvrir)
   const canReorder = !compact && !isMobile && channels.length > 1;
 
   const commitOrder = useCallback(
@@ -2318,8 +2317,8 @@ function SidebarChannelsImpl({
                 aria-controls="sidebar-favorites"
                 onClick={toggleFav}
                 className={[
-                  "sb-fade group/fav-head mt-3 flex h-6 w-full items-center gap-1 rounded-lg px-2.5",
-                  "text-left text-[12px] font-medium transition-colors duration-150 motion-reduce:transition-none",
+                  "sb-fade group/fav-head mt-3 flex h-6 max-md:h-7 w-full items-center gap-1 rounded-lg px-2.5 max-md:px-3",
+                  "text-left text-[12px] max-md:text-[13px] font-medium transition-colors duration-150 motion-reduce:transition-none",
                   focus,
                   t.muted,
                   "hover:opacity-80",
@@ -2328,7 +2327,7 @@ function SidebarChannelsImpl({
                 <span>{c.sections.favorites}</span>
                 <ChevronDownIcon
                   className={[
-                    "h-3 w-3 shrink-0",
+                    "h-3 w-3 max-md:h-3.5 max-md:w-3.5 shrink-0",
                     "transition-transform duration-300 motion-reduce:transition-none",
                     favOpen ? "rotate-0" : "-rotate-90",
                   ].join(" ")}
@@ -2391,15 +2390,17 @@ function SidebarChannelsImpl({
                 aria-current={isActive ? "page" : undefined}
                 onClick={() => onNavigate(link.route)}
                 className={[
-                  "group relative flex items-center rounded-xl text-[13px] font-medium",
+                  "group relative flex items-center rounded-xl text-[13px] max-md:text-[14.5px] font-medium",
                   "transition-[background-color,color,transform] duration-200",
                   "active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:scale-100",
-                  compact ? "h-10 w-10 justify-center" : "h-9 w-full gap-2.5 px-2.5",
+                  compact
+                    ? "h-10 w-10 justify-center"
+                    : "h-9 max-md:h-11 w-full gap-2.5 max-md:gap-3 px-2.5 max-md:px-3",
                   focus,
                   isActive ? t.navActive : t.navIdle,
                 ].join(" ")}
               >
-                <Icon className="h-[18px] w-[18px] shrink-0" />
+                <Icon className="h-[18px] w-[18px] max-md:h-5 max-md:w-5 shrink-0" />
                 {!compact && (
                   <>
                     <span className="sb-fade flex-1 truncate text-left">
@@ -2408,7 +2409,7 @@ function SidebarChannelsImpl({
                     {link.badge && (
                       <span
                         className={[
-                          "flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1.5 text-[10px] font-semibold leading-none opacity-80",
+                          "flex h-[18px] min-w-[18px] max-md:h-5 max-md:min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] max-md:text-[11px] font-semibold leading-none opacity-80",
                           t.badge,
                         ].join(" ")}
                       >
@@ -2437,8 +2438,8 @@ function SidebarChannelsImpl({
       )}
 
       {!compact && (
-        <div className="sb-fade group/channels mt-3 flex h-6 items-center justify-between px-2.5">
-          <span className={["text-[12px] font-medium", t.muted].join(" ")}>
+        <div className="sb-fade group/channels mt-3 flex h-6 max-md:h-7 items-center justify-between px-2.5 max-md:px-3">
+          <span className={["text-[12px] max-md:text-[13px] font-medium", t.muted].join(" ")}>
             {channels.length === 0
               ? c.sections.connectChannels
               : c.sections.channels}
@@ -2458,28 +2459,28 @@ function SidebarChannelsImpl({
               aria-label={c.actions.channelsSettingsAria}
               onClick={() => onNavigate("channels")}
               className={[
-                "flex h-6 w-6 items-center justify-center rounded-lg",
+                "flex h-6 max-md:h-7 w-6 max-md:w-7 items-center justify-center rounded-lg",
                 "transition-colors duration-150 motion-reduce:transition-none",
                 focus,
                 t.menuIcon,
                 t.row,
               ].join(" ")}
             >
-              <SettingsIcon className="h-[15px] w-[15px]" />
+              <SettingsIcon className="h-[15px] w-[15px] max-md:h-4 max-md:w-4" />
             </button>
             <button
               type="button"
               aria-label={c.actions.connectChannelAria}
               onClick={onConnect}
               className={[
-                "flex h-6 w-6 items-center justify-center rounded-lg",
+                "flex h-6 max-md:h-7 w-6 max-md:w-7 items-center justify-center rounded-lg",
                 "transition-colors duration-150 motion-reduce:transition-none",
                 focus,
                 t.menuIcon,
                 t.row,
               ].join(" ")}
             >
-              <PlusIcon className="h-[15px] w-[15px]" />
+              <PlusIcon className="h-[15px] w-[15px] max-md:h-4 max-md:w-4" />
             </button>
           </span>
         </div>
@@ -2555,7 +2556,7 @@ function SidebarChannelsImpl({
                     onNewPost(channel.key);
                   }}
                   className={[
-                    "absolute right-2 top-1/2 z-10 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-lg",
+                    "absolute right-2 max-md:right-2.5 top-1/2 z-10 flex h-6 max-md:h-7 w-6 max-md:w-7 -translate-y-1/2 items-center justify-center rounded-lg",
                     "opacity-0 transition-[opacity,background-color,color,transform] duration-150",
                     "active:scale-90 motion-reduce:transition-none motion-reduce:active:scale-100",
                     "group-hover/row:opacity-100 group-focus-within/row:opacity-100 focus-visible:opacity-100",
@@ -2565,7 +2566,7 @@ function SidebarChannelsImpl({
                     t.menuIcon,
                   ].join(" ")}
                 >
-                  <PlusIcon className="h-[15px] w-[15px]" />
+                  <PlusIcon className="h-[15px] w-[15px] max-md:h-4 max-md:w-4" />
                 </button>
               )}
               <ChannelHoverCard
@@ -2629,12 +2630,12 @@ function SidebarChannelsImpl({
                   }}
                   className={[
                     "select-none [-webkit-touch-callout:none]",
-                    "group relative flex items-center rounded-xl text-[13px] font-medium",
+                    "group relative flex items-center rounded-xl text-[13px] max-md:text-[14.5px] font-medium",
                     "transition-[background-color,color,transform,padding] duration-200",
                     "active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:scale-100",
                     compact
                       ? "h-10 w-10 justify-center"
-                      : "h-9 w-full gap-2.5 px-2.5",
+                      : "h-9 max-md:h-11 w-full gap-2.5 max-md:gap-3 px-2.5 max-md:px-3",
                     canReorder
                       ? isDragging
                         ? "pl-3.5"
@@ -2658,19 +2659,13 @@ function SidebarChannelsImpl({
                       <span
                         className={[
                           "sb-fade min-w-0 flex-1 truncate text-left",
-                          // Sur mobile : toujours pr-8 pour réserver la place
-                          // du bouton "+" (toujours visible via media query
-                          // hover:none), même sans chevron affiché.
                           isMobile
-                            ? "pr-8"
+                            ? "pr-9"
                             : "pr-0 group-hover/row:pr-8 group-focus-within/row:pr-8",
                         ].join(" ")}
                       >
                         {cleanLabel}
                       </span>
-                      {/* Chevron visible UNIQUEMENT sur desktop (non-collapsed).
-                          Sur mobile : caché, la rangée entière reste tapable
-                          et un seul clic ouvre la sub-nav. */}
                       {!isMobile && (
                         <ChevronDownIcon
                           className={[
@@ -2696,7 +2691,7 @@ function SidebarChannelsImpl({
                 <div className="overflow-hidden">
                   <div
                     className={[
-                      "ml-[20px] mt-1 flex flex-col gap-0.5 border-l pl-2.5",
+                      "ml-[20px] max-md:ml-[24px] mt-1 flex flex-col gap-0.5 max-md:gap-1 border-l pl-2.5 max-md:pl-3",
                       t.rail,
                     ].join(" ")}
                   >
@@ -2721,19 +2716,19 @@ function SidebarChannelsImpl({
                           aria-current={active ? "page" : undefined}
                           onClick={() => onNavigate(target)}
                           className={[
-                            "group flex h-8 w-full items-center gap-2.5 whitespace-nowrap",
-                            "rounded-lg px-2 text-left text-[12.5px] font-medium",
+                            "group flex h-8 max-md:h-10 w-full items-center gap-2.5 max-md:gap-3 whitespace-nowrap",
+                            "rounded-lg px-2 max-md:px-2.5 text-left text-[12.5px] max-md:text-[14px] font-medium",
                             "transition-colors duration-150 motion-reduce:transition-none",
                             focus,
                             active ? t.subActive : t.sub,
                           ].join(" ")}
                         >
-                          <Icon className="h-4 w-4 shrink-0 opacity-70 group-hover:opacity-100" />
+                          <Icon className="h-4 w-4 max-md:h-[18px] max-md:w-[18px] shrink-0 opacity-70 group-hover:opacity-100" />
                           <span className="flex-1">{link.label}</span>
                           {link.badge && (
                             <span
                               className={[
-                                "flex h-[18px] min-w-[18px] items-center justify-center rounded-full px-1.5 text-[10px] font-semibold leading-none opacity-80",
+                                "flex h-[18px] min-w-[18px] max-md:h-5 max-md:min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] max-md:text-[11px] font-semibold leading-none opacity-80",
                                 t.badge,
                               ].join(" ")}
                             >
@@ -2951,9 +2946,6 @@ export default function DashboardSidebar({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  /* ------------------------------------------------------------------
-  Drag-to-dismiss du bottom sheet mobile (smooth + spring)
-  ------------------------------------------------------------------ */
   const sheetRef = useRef<HTMLDivElement>(null);
   const sheetDragRef = useRef<{
     startY: number;
@@ -3040,8 +3032,6 @@ export default function DashboardSidebar({
     sheetOffset > 0
       ? Math.max(0.08, 1 - sheetOffset / (sheetRef.current?.offsetHeight ?? 400))
       : undefined;
-
-  /* ------------------------------------------------------------------ */
 
   useEffect(() => {
     let mounted = true;
@@ -3380,7 +3370,7 @@ export default function DashboardSidebar({
               setMobileOpen((value) => !value);
             }}
             className={[
-              "relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl",
+              "relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl",
               "transition-[background-color,transform] duration-200 active:scale-[0.94] motion-reduce:transition-none",
               focus,
               t.menuIcon,
@@ -3388,16 +3378,16 @@ export default function DashboardSidebar({
             ].join(" ")}
           >
             {mobileOpen ? (
-              <CloseIcon className="h-[22px] w-[22px]" />
+              <CloseIcon className="h-6 w-6" />
             ) : (
-              <MenuIcon className="h-[22px] w-[22px]" />
+              <MenuIcon className="h-6 w-6" />
             )}
             {!mobileOpen && showMfaNudge && (
               <span
                 aria-hidden="true"
                 title="2FA"
                 className={[
-                  "sb-dot pointer-events-none absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-amber-400 ring-2",
+                  "sb-dot pointer-events-none absolute right-1 top-1 h-2.5 w-2.5 rounded-full bg-amber-400 ring-2",
                   t.dotRing,
                 ].join(" ")}
               />
@@ -3408,7 +3398,7 @@ export default function DashboardSidebar({
             aria-label={c.actions.stoneHome}
             onClick={() => handleNavigate("home")}
             className={[
-              "flex h-10 items-center gap-2 rounded-xl px-1.5",
+              "flex h-11 items-center gap-2 rounded-xl px-1.5",
               "transition-transform duration-200 active:scale-[0.97] motion-reduce:transition-none",
               focus,
               t.title,
@@ -3418,9 +3408,9 @@ export default function DashboardSidebar({
               src={isDark ? "/images/icon_nav.png" : "/images/icon.png"}
               alt=""
               draggable={false}
-              className="h-8 w-7 shrink-0 select-none object-contain"
+              className="h-9 w-8 shrink-0 select-none object-contain"
             />
-            <span className="select-none text-[18px] font-semibold leading-none tracking-tight">
+            <span className="select-none text-[19px] font-semibold leading-none tracking-tight">
               Stone
             </span>
           </button>
@@ -3474,31 +3464,31 @@ export default function DashboardSidebar({
             >
               <div className="flex justify-center pb-2 pt-3">
                 <span
-                  className={["h-1 w-9 rounded-full", t.divider].join(" ")}
+                  className={["h-1.5 w-10 rounded-full", t.divider].join(" ")}
                 />
               </div>
               <div className="px-5 pb-4 pt-1">
-                <div className={["truncate text-[13px]", t.muted].join(" ")}>
+                <div className={["truncate text-[13.5px]", t.muted].join(" ")}>
                   {account.email}
                 </div>
-                <div className="mt-3 truncate text-[16px] font-semibold">
+                <div className="mt-3 truncate text-[17px] font-semibold">
                   {account.organization}
                 </div>
-                <div className={["mt-0.5 text-[13px]", t.muted].join(" ")}>
+                <div className={["mt-0.5 text-[13.5px]", t.muted].join(" ")}>
                   {account.plan} · {c.actions.nChannels(account.channels)}
                 </div>
                 <button
                   type="button"
                   onClick={() => handleNavigate("pricing")}
                   className={[
-                    "mt-4 flex h-11 w-full items-center justify-center gap-2",
-                    "rounded-xl border text-[14px] font-semibold",
+                    "mt-4 flex h-12 w-full items-center justify-center gap-2",
+                    "rounded-xl border text-[15px] font-semibold",
                     "transition-[background-color,transform] duration-150 active:scale-[0.98]",
                     focus,
                     planFull ? t.accentSolid : t.upgrade,
                   ].join(" ")}
                 >
-                  <BoltIcon className="h-4 w-4" />
+                  <BoltIcon className="h-[18px] w-[18px]" />
                   {planFull
                     ? c.actions.upgradeAddMore
                     : c.actions.upgradePlan}
@@ -3508,7 +3498,7 @@ export default function DashboardSidebar({
             {menuGroups.map((group, groupIndex) => (
               <div
                 key={group[0]?.label ?? groupIndex}
-                className={["border-t px-2.5 py-2", t.menuDivider].join(" ")}
+                className={["border-t px-2.5 py-2.5", t.menuDivider].join(" ")}
               >
                 {group.map((item) => {
                   const Icon = item.icon;
@@ -3529,8 +3519,8 @@ export default function DashboardSidebar({
                         if (item.route) handleNavigate(item.route);
                       }}
                       className={[
-                        "flex h-11 w-full items-center gap-3 rounded-xl px-3",
-                        "text-left text-[14.5px] font-medium",
+                        "flex h-12 w-full items-center gap-3.5 rounded-xl px-3.5",
+                        "text-left text-[15px] font-medium",
                         "transition-[background-color,transform] duration-150 active:scale-[0.98]",
                         "disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100",
                         focus,
@@ -3539,7 +3529,7 @@ export default function DashboardSidebar({
                     >
                       <Icon
                         className={[
-                          "h-[18px] w-[18px] shrink-0 opacity-80",
+                          "h-5 w-5 shrink-0 opacity-80",
                           t.menuIcon,
                         ].join(" ")}
                       />
@@ -3551,7 +3541,7 @@ export default function DashboardSidebar({
                       {item.badge && (
                         <span
                           className={[
-                            "rounded-full px-2 py-0.5 text-[11px] font-semibold opacity-80",
+                            "rounded-full px-2 py-0.5 text-[12px] font-semibold opacity-80",
                             t.badge,
                           ].join(" ")}
                         >
@@ -3561,7 +3551,7 @@ export default function DashboardSidebar({
                       {item.route === "settings" && showMfaNudge && (
                         <span
                           aria-label="2FA"
-                          className="h-2 w-2 shrink-0 rounded-full bg-amber-400"
+                          className="h-2.5 w-2.5 shrink-0 rounded-full bg-amber-400"
                         />
                       )}
                     </button>
@@ -3631,7 +3621,7 @@ export default function DashboardSidebar({
           className={[
             "flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto overflow-x-hidden pb-3",
             isMobile ? "pt-3" : "pt-4",
-            compact ? "items-center px-3" : "px-2",
+            compact ? "items-center px-3" : "px-2 max-md:px-2.5",
             "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden overscroll-contain",
           ].join(" ")}
         >
@@ -3673,7 +3663,7 @@ export default function DashboardSidebar({
             "relative shrink-0 py-2.5",
             compact
               ? "flex flex-col items-center gap-2"
-              : "flex items-center gap-1.5 px-2",
+              : "flex items-center gap-1.5 max-md:gap-2 px-2 max-md:px-2.5",
             isMobile ? "pb-[max(10px,env(safe-area-inset-bottom))]" : "",
           ].join(" ")}
         >
@@ -3897,7 +3887,7 @@ export default function DashboardSidebar({
                   "active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:scale-100",
                   compact
                     ? "h-10 w-10 justify-center"
-                    : "h-10 w-full gap-2.5 px-1.5",
+                    : "h-10 max-md:h-12 w-full gap-2.5 max-md:gap-3 px-1.5 max-md:px-2",
                   focus,
                   menuOpen ? t.rowOpen : t.row,
                 ].join(" ")}
@@ -3909,14 +3899,14 @@ export default function DashboardSidebar({
                       src={account.avatarUrl}
                       alt="Profile"
                       draggable={false}
-                      className="h-8 w-8 shrink-0 select-none rounded-lg object-cover"
+                      className="h-8 w-8 max-md:h-10 max-md:w-10 shrink-0 select-none rounded-lg max-md:rounded-xl object-cover"
                       onError={() => setAvatarLoadFailed(true)}
                     />
                   ) : (
                     <span
                       className={[
-                        "flex h-8 w-8 shrink-0 select-none items-center justify-center rounded-lg",
-                        "text-[11px] font-semibold",
+                        "flex h-8 w-8 max-md:h-10 max-md:w-10 shrink-0 select-none items-center justify-center rounded-lg max-md:rounded-xl",
+                        "text-[11px] max-md:text-[13px] font-semibold",
                         t.avatar,
                       ].join(" ")}
                     >
@@ -3936,7 +3926,7 @@ export default function DashboardSidebar({
                 {!compact && (
                   <span
                     className={[
-                      "sb-fade min-w-0 flex-1 truncate text-left text-[13px] font-medium",
+                      "sb-fade min-w-0 flex-1 truncate text-left text-[13px] max-md:text-[14.5px] font-medium",
                       t.title,
                     ].join(" ")}
                   >
