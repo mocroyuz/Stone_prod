@@ -916,7 +916,7 @@ const COPY: Record<Lang, Copy> = {
       sections: {
         profile: "Profil",
         account: "Sécurité",
-        mfa: "2FA",
+        mfa: "2fa",
         appearance: "Apparence",
         preferences: "Préférences",
         billing: "Facturation",
