@@ -844,7 +844,7 @@ const COPY: Record<Lang, Copy> = {
     draft: {
       resumeTitle: "Reprendre votre brouillon ?",
       resumeDesc: "Vous avez un post en cours. Reprenez où vous en étiez, ou repartez de zéro.",
-      startFresh: "Repartir de zéro",
+      startFresh: "Abandonnez",
       resume: "Reprendre",
     },
     connectPrompt: {

@@ -1254,7 +1254,7 @@ const COPY: Record<Lang, Copy> = {
     tags: {
       visible: "Les tags sont visibles par tous les membres de votre organisation.",
       learnMore: "En savoir plus ↗",
-      newTag: "+ Nouveau tag",
+      newTag: "Nouveau tag",
       search: "Rechercher des tags…",
       noTags: "Aucun tag pour l'instant.",
       noMatch: "Aucun tag trouvé.",
