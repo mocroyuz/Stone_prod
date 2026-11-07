@@ -10,6 +10,7 @@
 import { navigate } from "../hooks/useHashRoute";
 import { useTheme, type Theme } from "../hooks/useTheme";
 import { useUser } from "../contexts/UserContext";
+import { notifyMfaStatusChanged, useMfaNudge } from "../hooks/useMfaNudge";
 import {
   CHANNELS,
   PLAN,
@@ -268,6 +269,10 @@ type Copy = {
     title: string;
     description: string;
     loadFailed: string;
+    nudge: {
+      text: string;
+      skip: string;
+    };
     authenticator: {
       title: string;
       description: string;
@@ -629,6 +634,10 @@ const COPY: Record<Lang, Copy> = {
       title: "Two-factor authentication",
       description: "Add an extra layer of security to your account.",
       loadFailed: "Failed to load security settings",
+      nudge: {
+        text: "Protect your account by enabling two-factor authentication.",
+        skip: "Skip",
+      },
       authenticator: {
         title: "Authenticator app",
         description:
@@ -916,7 +925,7 @@ const COPY: Record<Lang, Copy> = {
       sections: {
         profile: "Profil",
         account: "Sécurité",
-        mfa: "2fa",
+        mfa: "2FA",
         appearance: "Apparence",
         preferences: "Préférences",
         billing: "Facturation",
@@ -1050,6 +1059,10 @@ const COPY: Record<Lang, Copy> = {
       description:
         "Ajoutez une couche de sécurité supplémentaire à votre compte.",
       loadFailed: "Impossible de charger les paramètres de sécurité",
+      nudge: {
+        text: "Protégez votre compte en activant l'authentification à deux facteurs.",
+        skip: "Ignorer",
+      },
       authenticator: {
         title: "Application d'authentification",
         description:
@@ -1963,6 +1976,7 @@ function SettingsSidebar({
   c: Copy;
 }) {
   const groups = buildSidebarGroups(c);
+  const { show: showMfaNudge } = useMfaNudge();
   return (
     <aside
       className={cx(
@@ -2040,6 +2054,12 @@ function SettingsSidebar({
                         >
                           {item.badge}
                         </span>
+                      )}
+                      {item.key === "mfa" && showMfaNudge && (
+                        <span
+                          aria-hidden="true"
+                          className="h-2 w-2 shrink-0 rounded-full bg-amber-400"
+                        />
                       )}
                     </button>
                   </li>
@@ -3333,6 +3353,8 @@ function MfaSection({
   >(null);
   const [disabling, setDisabling] = useState(false);
 
+  const { show: showMfaNudge, skip: skipMfaNudge } = useMfaNudge();
+
   const { guard, modal: mfaModal } = useMfaGate({
     tokens,
     notify,
@@ -3370,6 +3392,8 @@ function MfaSection({
     setMethod(current);
     setEmailHint(status?.email_hint ?? null);
     setFactors(current === "totp" ? await listMfaFactors() : []);
+    // Synchronise la notification (rond jaune) avec l'état réel de la 2FA.
+    if (status) notifyMfaStatusChanged(current !== null);
   }, []);
 
   useEffect(() => {
@@ -3687,6 +3711,34 @@ function MfaSection({
 
   return (
     <>
+      {showMfaNudge && method === null && (
+        <div
+          className={cx(
+            "flex flex-col gap-3 rounded-2xl border px-5 py-4 sm:flex-row sm:items-center sm:justify-between",
+            tokens.card,
+            tokens.cardBorder
+          )}
+        >
+          <div className="flex items-center gap-3">
+            <span
+              aria-hidden="true"
+              className="h-2.5 w-2.5 shrink-0 rounded-full bg-amber-400"
+            />
+            <p className={cx("text-[13px]", tokens.body)}>
+              {c.mfa.nudge.text}
+            </p>
+          </div>
+          <Button
+            tokens={tokens}
+            variant="secondary"
+            onClick={skipMfaNudge}
+            className="!px-3 !py-1.5 !text-[12.5px] sm:shrink-0"
+          >
+            {c.mfa.nudge.skip}
+          </Button>
+        </div>
+      )}
+
       <SectionCard
         title={c.mfa.authenticator.title}
         description={c.mfa.authenticator.description}

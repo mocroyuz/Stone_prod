@@ -40,6 +40,7 @@ import {
 import { PLAN } from "../data/channelConfig";
 import { requestNewPost } from "../services/Newpostbus";
 import { fetchYouTubeComments } from "../services/youtube";
+import { useMfaNudge } from "../hooks/useMfaNudge";
 
 /* ============================================================================ 
    Language / i18n
@@ -2968,6 +2969,8 @@ export default function DashboardSidebar({
 
   const isMobile = useIsMobile();
 
+  const { show: showMfaNudge } = useMfaNudge();
+
   const unreadCounts = useUnreadCounts();
   const totalUnread = Object.values(unreadCounts).reduce(
     (sum, count) => sum + count,
@@ -3676,6 +3679,13 @@ export default function DashboardSidebar({
                             {item.badge}
                           </span>
                         )}
+
+                        {item.route === "settings" && showMfaNudge && (
+                          <span
+                            aria-label="2FA"
+                            className="h-2 w-2 shrink-0 rounded-full bg-amber-400"
+                          />
+                        )}
                       </button>
                     );
                   })}
@@ -3732,6 +3742,16 @@ export default function DashboardSidebar({
                     >
                       {account.initials}
                     </span>
+                  )}
+
+                  {showMfaNudge && (
+                    <span
+                      aria-hidden="true"
+                      className={[
+                        "absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-amber-400 ring-2",
+                        t.dotRing,
+                      ].join(" ")}
+                    />
                   )}
                 </span>
 
