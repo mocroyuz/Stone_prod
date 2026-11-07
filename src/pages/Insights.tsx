@@ -2564,7 +2564,8 @@ export default function Insights() {
             ].join(" ")}
           >
             {/* HEADER COMPACT */}
-            <div className="relative z-40 flex shrink-0 flex-wrap items-center justify-between gap-3">
+            {/* HEADER COMPACT */}
+              <div className="relative z-20 flex shrink-0 flex-wrap items-center justify-between gap-3">
               <div className="flex min-w-0 items-center gap-2.5">
                 <span
                   className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border sm:h-9 sm:w-9 ${t.inner} ${t.soft}`}
