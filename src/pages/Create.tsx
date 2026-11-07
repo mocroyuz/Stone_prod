@@ -1,6 +1,13 @@
 // src/pages/Create.tsx
 // Page Create (routes "create", "create/ideas", "create/templates").
 // Shell visuel aligné sur Home : fond de page + panneau arrondi à la jointure de la sidebar.
+//
+// Deux notions distinctes :
+//  - GROUPES : les colonnes du board (Unassigned, To Do, In Progress…).
+//              Présents par défaut, gérés par l'utilisateur (créer / renommer /
+//              réordonner / supprimer). Une idée est dans exactement 1 groupe.
+//  - TAGS    : étiquettes libres. AUCUN par défaut : c'est l'utilisateur qui
+//              les crée, les assigne aux idées (0..n par idée) et filtre avec.
 
 import {
   useCallback,
@@ -21,11 +28,15 @@ import Folder from "../components/Folder";
 import HelpChatButton from "../components/Helpchatbutton";
 import { requestNewPost } from "../services/Newpostbus";
 import {
-  ensureDefaultTags,
+  ensureDefaultGroups,
+  listGroups,
+  createGroup as apiCreateGroup,
+  updateGroup as apiUpdateGroup,
+  deleteGroup as apiDeleteGroup,
   listTags,
   createTag as apiCreateTag,
-  updateTag as apiUpdateTag,
   deleteTag as apiDeleteTag,
+  type Group,
   type Tag,
 } from "../services/supabase";
 
@@ -83,11 +94,19 @@ type Copy = {
     templates: string;
     ariaLabel: string;
   };
+  groupsMenu: {
+    label: string;
+    createPlaceholder: string;
+    createAria: string;
+    closeMenu: string;
+  };
   tagsMenu: {
     label: string;
     createPlaceholder: string;
     createAria: string;
     closeMenu: string;
+    empty: string;
+    deleteTag: string;
   };
   view: {
     board: string;
@@ -99,19 +118,21 @@ type Copy = {
     description: string;
   };
   board: {
-    newTag: string;
-    tagNamePlaceholder: string;
+    newGroup: string;
+    groupNamePlaceholder: string;
     cancel: string;
-    tagOptions: string;
-    renameTag: string;
+    groupOptions: string;
+    renameGroup: string;
     moveAllToUnassigned: string;
-    deleteTag: string;
+    deleteGroup: string;
     closeMenu: string;
   };
   ideaCard: {
     options: string;
     delete: string;
     closeMenu: string;
+    tags: string;
+    noTags: string;
   };
   galleryEmpty: {
     title: string;
@@ -135,11 +156,19 @@ const COPY: Record<Lang, Copy> = {
       templates: "Templates",
       ariaLabel: "Create sections",
     },
+    groupsMenu: {
+      label: "Groups",
+      createPlaceholder: "Create a group…",
+      createAria: "Create group",
+      closeMenu: "Close menu",
+    },
     tagsMenu: {
       label: "Tags",
       createPlaceholder: "Create a tag…",
       createAria: "Create tag",
       closeMenu: "Close menu",
+      empty: "No tags yet. Create your first one below.",
+      deleteTag: "Delete tag",
     },
     view: {
       board: "Board",
@@ -151,19 +180,21 @@ const COPY: Record<Lang, Copy> = {
       description: "Save a post as a template to reuse it later.",
     },
     board: {
-      newTag: "New tag",
-      tagNamePlaceholder: "Tag name…",
+      newGroup: "New group",
+      groupNamePlaceholder: "Group name…",
       cancel: "Cancel",
-      tagOptions: "Tag options",
-      renameTag: "Rename tag",
+      groupOptions: "Group options",
+      renameGroup: "Rename group",
       moveAllToUnassigned: "Move all to Unassigned",
-      deleteTag: "Delete tag",
+      deleteGroup: "Delete group",
       closeMenu: "Close menu",
     },
     ideaCard: {
       options: "Idea options",
       delete: "Delete",
       closeMenu: "Close menu",
+      tags: "Tags",
+      noTags: "No tags yet. Create one from the Tags menu.",
     },
     galleryEmpty: {
       title: "No ideas yet",
@@ -185,11 +216,19 @@ const COPY: Record<Lang, Copy> = {
       templates: "Modèles",
       ariaLabel: "Sections Create",
     },
+    groupsMenu: {
+      label: "Groupes",
+      createPlaceholder: "Créer un groupe…",
+      createAria: "Créer le groupe",
+      closeMenu: "Fermer le menu",
+    },
     tagsMenu: {
       label: "Tags",
       createPlaceholder: "Créer un tag…",
       createAria: "Créer le tag",
       closeMenu: "Fermer le menu",
+      empty: "Aucun tag pour l'instant. Créez le premier ci-dessous.",
+      deleteTag: "Supprimer le tag",
     },
     view: {
       board: "Tableau",
@@ -202,19 +241,21 @@ const COPY: Record<Lang, Copy> = {
         "Enregistrez un post comme modèle pour le réutiliser plus tard.",
     },
     board: {
-      newTag: "Nouveau tag",
-      tagNamePlaceholder: "Nom du tag…",
+      newGroup: "Nouveau groupe",
+      groupNamePlaceholder: "Nom du groupe…",
       cancel: "Annuler",
-      tagOptions: "Options du tag",
-      renameTag: "Renommer le tag",
+      groupOptions: "Options du groupe",
+      renameGroup: "Renommer le groupe",
       moveAllToUnassigned: "Tout déplacer vers Unassigned",
-      deleteTag: "Supprimer le tag",
+      deleteGroup: "Supprimer le groupe",
       closeMenu: "Fermer le menu",
     },
     ideaCard: {
       options: "Options de l'idée",
       delete: "Supprimer",
       closeMenu: "Fermer le menu",
+      tags: "Tags",
+      noTags: "Aucun tag. Créez-en un depuis le menu Tags.",
     },
     galleryEmpty: {
       title: "Aucune idée pour l'instant",
@@ -237,7 +278,10 @@ type Idea = {
   title: string;
   description: string;
   imageUrl?: string;
-  tagId: string;
+  /** Colonne du board (exactement une). */
+  groupId: string;
+  /** Étiquettes libres (0..n). */
+  tagIds: string[];
 };
 
 type IconProps = { className?: string };
@@ -248,17 +292,19 @@ const UNASSIGNED = "unassigned";
 const PAGE_ROUTE = "create";
 
 /**
- * Tag système figé en première colonne. Son libellé n'est pas traduit
- * (c'est un nom de tag) — voir consigne « ne pas traduire les tags ».
+ * Groupe système figé en première colonne (non renommable, non supprimable,
+ * non déplaçable). Son libellé n'est pas traduit.
  */
-const UNASSIGNED_TAG: Tag = {
+const UNASSIGNED_GROUP: Group = {
   id: UNASSIGNED,
   label: "Unassigned",
   color: "bg-neutral-400",
 };
 
-const DEFAULT_ORDER = ["to do", "in progress"];
-const NEW_TAG_COLORS = [
+const DEFAULT_GROUP_ORDER = ["to do", "in progress"];
+
+/** Palette utilisée pour les nouveaux groupes ET les nouveaux tags. */
+const NEW_COLORS = [
   "bg-[#6366f1]",
   "bg-[#ec4899]",
   "bg-[#14b8a6]",
@@ -284,8 +330,8 @@ function writeTabToHash(tab: Tab) {
 /* ───────── Persistance des préférences UI ───────── */
 
 const CREATE_VIEW_STORAGE_KEY = "create.view";
-const CREATE_HIDDEN_TAGS_STORAGE_KEY = "create.hiddenTags";
-const CREATE_TAG_ORDER_STORAGE_KEY = "create.tagOrder";
+const CREATE_HIDDEN_GROUPS_STORAGE_KEY = "create.hiddenGroups";
+const CREATE_GROUP_ORDER_STORAGE_KEY = "create.groupOrder";
 
 function readStoredView(): View {
   if (typeof window === "undefined") return "board";
@@ -298,10 +344,10 @@ function readStoredView(): View {
   return "board";
 }
 
-function readStoredHiddenTags(): string[] {
+function readStoredIds(key: string): string[] {
   if (typeof window === "undefined") return [];
   try {
-    const raw = window.localStorage.getItem(CREATE_HIDDEN_TAGS_STORAGE_KEY);
+    const raw = window.localStorage.getItem(key);
     if (!raw) return [];
     const parsed: unknown = JSON.parse(raw);
     if (
@@ -316,94 +362,91 @@ function readStoredHiddenTags(): string[] {
   return [];
 }
 
-function readStoredTagOrder(): string[] {
-  if (typeof window === "undefined") return [];
+function writeStoredIds(key: string, ids: string[]) {
   try {
-    const raw = window.localStorage.getItem(CREATE_TAG_ORDER_STORAGE_KEY);
-    if (!raw) return [];
-    const parsed: unknown = JSON.parse(raw);
-    if (
-      Array.isArray(parsed) &&
-      parsed.every((x): x is string => typeof x === "string")
-    ) {
-      return parsed;
-    }
-  } catch {
-    /* ignore */
-  }
-  return [];
-}
-
-function writeStoredTagOrder(ids: string[]) {
-  try {
-    window.localStorage.setItem(
-      CREATE_TAG_ORDER_STORAGE_KEY,
-      JSON.stringify(ids)
-    );
+    window.localStorage.setItem(key, JSON.stringify(ids));
   } catch {
     /* ignore */
   }
 }
 
-function applyStoredTagOrder(tags: Tag[]): Tag[] {
-  if (tags.length === 0) return tags;
-  const stored = readStoredTagOrder();
-  if (stored.length === 0) return tags;
+const readStoredHiddenGroups = () =>
+  readStoredIds(CREATE_HIDDEN_GROUPS_STORAGE_KEY);
+
+function applyStoredGroupOrder(groups: Group[]): Group[] {
+  if (groups.length === 0) return groups;
+  const stored = readStoredIds(CREATE_GROUP_ORDER_STORAGE_KEY);
+  if (stored.length === 0) return groups;
 
   const position = new Map(stored.map((id, i) => [id, i] as const));
   const posOf = (id: string) =>
     position.get(id) ?? Number.POSITIVE_INFINITY;
 
-  const unassigned = tags.find((t) => t.id === UNASSIGNED);
-  const rest = tags.filter((t) => t.id !== UNASSIGNED);
-  const known = rest.filter((t) => position.has(t.id));
-  const unknown = rest.filter((t) => !position.has(t.id));
+  const unassigned = groups.find((g) => g.id === UNASSIGNED);
+  const rest = groups.filter((g) => g.id !== UNASSIGNED);
+  const known = rest.filter((g) => position.has(g.id));
+  const unknown = rest.filter((g) => !position.has(g.id));
   known.sort((a, b) => posOf(a.id) - posOf(b.id));
 
   return unassigned ? [unassigned, ...known, ...unknown] : [...known, ...unknown];
 }
 
-/* ───────── Cache module-level des tags ───────── */
+/* ───────── Caches module-level ───────── */
 
+let groupsCache: Group[] | null = null;
+let groupsLoadPromise: Promise<Group[]> | null = null;
 let tagsCache: Tag[] | null = null;
-let tagsLoadPromise: Promise<Tag[]> | null = null;
 
-async function fetchTagsOnce(): Promise<Tag[]> {
-  if (tagsCache) return tagsCache;
-  if (tagsLoadPromise) return tagsLoadPromise;
+async function fetchGroupsOnce(): Promise<Group[]> {
+  if (groupsCache) return groupsCache;
+  if (groupsLoadPromise) return groupsLoadPromise;
 
-  tagsLoadPromise = (async () => {
-    await ensureDefaultTags();
-    const server = await listTags();
-    const rank = (t: Tag) => {
-      const i = DEFAULT_ORDER.indexOf(t.label.trim().toLowerCase());
-      return i === -1 ? DEFAULT_ORDER.length : i;
+  groupsLoadPromise = (async () => {
+    await ensureDefaultGroups();
+    const server = await listGroups();
+    const rank = (g: Group) => {
+      const i = DEFAULT_GROUP_ORDER.indexOf(g.label.trim().toLowerCase());
+      return i === -1 ? DEFAULT_GROUP_ORDER.length : i;
     };
     const sorted = [...server].sort((a, b) => rank(a) - rank(b));
-    if (!tagsCache) {
-      tagsCache = applyStoredTagOrder([UNASSIGNED_TAG, ...sorted]);
+    if (!groupsCache) {
+      groupsCache = applyStoredGroupOrder([UNASSIGNED_GROUP, ...sorted]);
     }
-    return tagsCache;
+    return groupsCache;
   })();
 
   try {
-    return await tagsLoadPromise;
+    return await groupsLoadPromise;
   } finally {
-    tagsLoadPromise = null;
+    groupsLoadPromise = null;
   }
 }
 
 /* ───────── Données ───────── */
 
 function useBoard() {
-  const [tags, setTagsState] = useState<Tag[]>(
-    () => tagsCache ?? [UNASSIGNED_TAG]
+  const [groups, setGroupsState] = useState<Group[]>(
+    () => groupsCache ?? [UNASSIGNED_GROUP]
   );
+  const [tags, setTagsState] = useState<Tag[]>(() => tagsCache ?? []);
   const [ideas, setIdeas] = useState<Idea[]>([]);
+
+  const setGroups = useCallback(
+    (updater: Group[] | ((prev: Group[]) => Group[])) => {
+      const prev = groupsCache ?? [UNASSIGNED_GROUP];
+      const next =
+        typeof updater === "function"
+          ? (updater as (p: Group[]) => Group[])(prev)
+          : updater;
+      groupsCache = next;
+      setGroupsState(next);
+    },
+    []
+  );
 
   const setTags = useCallback(
     (updater: Tag[] | ((prev: Tag[]) => Tag[])) => {
-      const prev = tagsCache ?? [UNASSIGNED_TAG];
+      const prev = tagsCache ?? [];
       const next =
         typeof updater === "function"
           ? (updater as (p: Tag[]) => Tag[])(prev)
@@ -415,10 +458,24 @@ function useBoard() {
   );
 
   useEffect(() => {
+    if (groupsCache) return;
+    let mounted = true;
+    fetchGroupsOnce()
+      .then((loaded) => {
+        if (mounted) setGroupsState(loaded);
+      })
+      .catch((e) => console.error("Error loading groups:", e));
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
     if (tagsCache) return;
     let mounted = true;
-    fetchTagsOnce()
+    listTags()
       .then((loaded) => {
+        tagsCache = loaded;
         if (mounted) setTagsState(loaded);
       })
       .catch((e) => console.error("Error loading tags:", e));
@@ -426,6 +483,77 @@ function useBoard() {
       mounted = false;
     };
   }, []);
+
+  /* ── Groupes ── */
+
+  const addGroup = async (label: string): Promise<string | null> => {
+    const l = label.trim();
+    if (!l) return null;
+    const existing = groups.find(
+      (g) => g.label.toLowerCase() === l.toLowerCase()
+    );
+    if (existing) return existing.id;
+    try {
+      const color = NEW_COLORS[(groups.length - 1) % NEW_COLORS.length];
+      const created = await apiCreateGroup(l, color);
+      setGroups((prev) => [...prev, created]);
+      return created.id;
+    } catch (e) {
+      console.error("Error creating group:", e);
+      return null;
+    }
+  };
+
+  const renameGroup = async (id: string, label: string) => {
+    const l = label.trim();
+    const group = groups.find((g) => g.id === id);
+    if (!l || !group || id === UNASSIGNED || l === group.label) return;
+    setGroups((prev) =>
+      prev.map((g) => (g.id === id ? { ...g, label: l } : g))
+    );
+    try {
+      await apiUpdateGroup(id, { label: l, color: group.color });
+    } catch (e) {
+      console.error("Error renaming group:", e);
+      setGroups((prev) => prev.map((g) => (g.id === id ? group : g)));
+    }
+  };
+
+  const deleteGroup = async (id: string) => {
+    if (id === UNASSIGNED) return;
+    const prevGroups = groups;
+    const prevIdeas = ideas;
+    setIdeas((prev) =>
+      prev.map((i) => (i.groupId === id ? { ...i, groupId: UNASSIGNED } : i))
+    );
+    setGroups((prev) => prev.filter((g) => g.id !== id));
+    try {
+      await apiDeleteGroup(id);
+    } catch (e) {
+      console.error("Error deleting group:", e);
+      setGroups(prevGroups);
+      setIdeas(prevIdeas);
+    }
+  };
+
+  const moveGroup = (id: string, toId: string) => {
+    const current = groupsCache ?? [UNASSIGNED_GROUP];
+    const from = current.findIndex((g) => g.id === id);
+    const to = current.findIndex((g) => g.id === toId);
+    if (from < 1 || to < 1 || from === to) return;
+
+    const next = [...current];
+    const [m] = next.splice(from, 1);
+    next.splice(to, 0, m);
+
+    writeStoredIds(
+      CREATE_GROUP_ORDER_STORAGE_KEY,
+      next.map((g) => g.id)
+    );
+    setGroups(next);
+  };
+
+  /* ── Tags (vides par défaut, créés par l'utilisateur) ── */
 
   const addTag = async (label: string): Promise<string | null> => {
     const l = label.trim();
@@ -435,7 +563,7 @@ function useBoard() {
     );
     if (existing) return existing.id;
     try {
-      const color = NEW_TAG_COLORS[(tags.length - 1) % NEW_TAG_COLORS.length];
+      const color = NEW_COLORS[tags.length % NEW_COLORS.length];
       const created = await apiCreateTag(l, color);
       setTags((prev) => [...prev, created]);
       return created.id;
@@ -445,27 +573,11 @@ function useBoard() {
     }
   };
 
-  const renameTag = async (id: string, label: string) => {
-    const l = label.trim();
-    const tag = tags.find((t) => t.id === id);
-    if (!l || !tag || id === UNASSIGNED || l === tag.label) return;
-    setTags((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, label: l } : t))
-    );
-    try {
-      await apiUpdateTag(id, { label: l, color: tag.color });
-    } catch (e) {
-      console.error("Error renaming tag:", e);
-      setTags((prev) => prev.map((t) => (t.id === id ? tag : t)));
-    }
-  };
-
   const deleteTag = async (id: string) => {
-    if (id === UNASSIGNED) return;
     const prevTags = tags;
     const prevIdeas = ideas;
     setIdeas((prev) =>
-      prev.map((i) => (i.tagId === id ? { ...i, tagId: UNASSIGNED } : i))
+      prev.map((i) => ({ ...i, tagIds: i.tagIds.filter((t) => t !== id) }))
     );
     setTags((prev) => prev.filter((t) => t.id !== id));
     try {
@@ -477,29 +589,17 @@ function useBoard() {
     }
   };
 
-  const moveTag = (id: string, toId: string) => {
-    const current = tagsCache ?? [UNASSIGNED_TAG];
-    const from = current.findIndex((t) => t.id === id);
-    const to = current.findIndex((t) => t.id === toId);
-    if (from < 1 || to < 1 || from === to) return;
-
-    const next = [...current];
-    const [m] = next.splice(from, 1);
-    next.splice(to, 0, m);
-
-    writeStoredTagOrder(next.map((t) => t.id));
-    setTags(next);
-  };
+  /* ── Idées ── */
 
   const addIdea = (idea: Omit<Idea, "id">) =>
     setIdeas((prev) => [{ ...idea, id: crypto.randomUUID() }, ...prev]);
 
-  const moveIdea = (id: string, tagId: string, beforeId?: string) =>
+  const moveIdea = (id: string, groupId: string, beforeId?: string) =>
     setIdeas((prev) => {
       const idea = prev.find((i) => i.id === id);
       if (!idea) return prev;
       const rest = prev.filter((i) => i.id !== id);
-      const moved = { ...idea, tagId };
+      const moved = { ...idea, groupId };
       if (beforeId && beforeId !== id) {
         const at = rest.findIndex((i) => i.id === beforeId);
         if (at >= 0) {
@@ -515,20 +615,38 @@ function useBoard() {
 
   const moveAll = (from: string, to: string) =>
     setIdeas((prev) =>
-      prev.map((i) => (i.tagId === from ? { ...i, tagId: to } : i))
+      prev.map((i) => (i.groupId === from ? { ...i, groupId: to } : i))
+    );
+
+  const toggleIdeaTag = (ideaId: string, tagId: string) =>
+    setIdeas((prev) =>
+      prev.map((i) =>
+        i.id !== ideaId
+          ? i
+          : {
+              ...i,
+              tagIds: i.tagIds.includes(tagId)
+                ? i.tagIds.filter((t) => t !== tagId)
+                : [...i.tagIds, tagId],
+            }
+      )
     );
 
   return {
+    groups,
     tags,
     ideas,
+    addGroup,
+    renameGroup,
+    deleteGroup,
+    moveGroup,
     addTag,
-    renameTag,
     deleteTag,
-    moveTag,
     addIdea,
     deleteIdea,
     moveIdea,
     moveAll,
+    toggleIdeaTag,
   };
 }
 
@@ -675,8 +793,8 @@ function IconButton({
   );
 }
 
-/** Champ « créer un tag » : Entrée ou clic sur + pour valider. */
-function CreateTagInput({
+/** Champ « créer un groupe / un tag » : Entrée ou clic sur + pour valider. */
+function CreateNameInput({
   onCreate,
   isDark,
   placeholder,
@@ -736,9 +854,28 @@ function CreateTagInput({
   );
 }
 
-/** Menu « Tags » de la barre d'outils. */
-function TagsMenu({
-  tags,
+/** Case à cocher visuelle (✓) des menus. */
+function CheckBox({ on, isDark }: { on: boolean; isDark: boolean }) {
+  return (
+    <span
+      className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[10px] ${
+        on
+          ? isDark
+            ? "border-white bg-white text-black"
+            : "border-black bg-black text-white"
+          : isDark
+            ? "border-white/25"
+            : "border-black/25"
+      }`}
+    >
+      {on ? "✓" : ""}
+    </span>
+  );
+}
+
+/** Menu « Groupes » de la barre d'outils : affiche / masque les colonnes. */
+function GroupsMenu({
+  groups,
   hidden,
   onToggle,
   onCreate,
@@ -746,7 +883,7 @@ function TagsMenu({
   ghost,
   c,
 }: {
-  tags: Tag[];
+  groups: Group[];
   hidden: string[];
   onToggle: (id: string) => void;
   onCreate: (label: string) => void;
@@ -766,15 +903,122 @@ function TagsMenu({
           isDark ? "focus-visible:ring-white/30" : "focus-visible:ring-black/25"
         }`}
       >
-        <TagIcon className="h-4 w-4" />
-        {c.tagsMenu.label}
+        <BoardIcon className="h-4 w-4" />
+        {c.groupsMenu.label}
         {hidden.length > 0 && (
           <span
             className={`rounded-full px-1.5 text-[11px] tabular-nums ${
               isDark ? "bg-white text-black" : "bg-black text-white"
             }`}
           >
-            {tags.length - hidden.length}/{tags.length}
+            {groups.length - hidden.length}/{groups.length}
+          </span>
+        )}
+        <ChevronDownIcon className="h-4 w-4 opacity-60" />
+      </button>
+
+      {open && (
+        <>
+          <button
+            type="button"
+            aria-label={c.groupsMenu.closeMenu}
+            tabIndex={-1}
+            className="fixed inset-0 z-30 cursor-default"
+            onClick={() => setOpen(false)}
+          />
+          <div
+            className={`absolute right-0 z-40 mt-2 w-[240px] rounded-xl border p-1 shadow-lg ${
+              isDark
+                ? "border-white/[0.08] bg-[#101012]"
+                : "border-black/[0.06] bg-white"
+            }`}
+          >
+            <ul className="max-h-[260px] overflow-y-auto">
+              {groups.map((g) => {
+                const on = !hidden.includes(g.id);
+                return (
+                  <li key={g.id}>
+                    <button
+                      type="button"
+                      onClick={() => onToggle(g.id)}
+                      className={`flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left text-[13px] font-medium transition-colors ${
+                        isDark
+                          ? "hover:bg-white/[0.06]"
+                          : "hover:bg-black/[0.04]"
+                      }`}
+                    >
+                      <span className="flex min-w-0 items-center gap-2">
+                        <span
+                          className={`h-2.5 w-2.5 shrink-0 rounded-full ${g.color}`}
+                        />
+                        <span className="truncate">{g.label}</span>
+                      </span>
+                      <CheckBox on={on} isDark={isDark} />
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+            <div
+              className={`mt-1 border-t p-1 pt-2 ${
+                isDark ? "border-white/[0.07]" : "border-black/[0.06]"
+              }`}
+            >
+              <CreateNameInput
+                onCreate={onCreate}
+                isDark={isDark}
+                placeholder={c.groupsMenu.createPlaceholder}
+                submitAria={c.groupsMenu.createAria}
+              />
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+/** Menu « Tags » : filtre les idées par tag, crée / supprime des tags. */
+function TagsMenu({
+  tags,
+  active,
+  onToggle,
+  onCreate,
+  onDelete,
+  isDark,
+  ghost,
+  c,
+}: {
+  tags: Tag[];
+  active: string[];
+  onToggle: (id: string) => void;
+  onCreate: (label: string) => void;
+  onDelete: (id: string) => void;
+  isDark: boolean;
+  ghost: string;
+  c: Copy;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+        className={`flex items-center gap-2 rounded-xl px-3 py-2 text-[13px] font-medium transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 ${ghost} ${
+          isDark ? "focus-visible:ring-white/30" : "focus-visible:ring-black/25"
+        }`}
+      >
+        <TagIcon className="h-4 w-4" />
+        {c.tagsMenu.label}
+        {active.length > 0 && (
+          <span
+            className={`rounded-full px-1.5 text-[11px] tabular-nums ${
+              isDark ? "bg-white text-black" : "bg-black text-white"
+            }`}
+          >
+            {active.length}
           </span>
         )}
         <ChevronDownIcon className="h-4 w-4 opacity-60" />
@@ -790,56 +1034,66 @@ function TagsMenu({
             onClick={() => setOpen(false)}
           />
           <div
-            className={`absolute right-0 z-40 mt-2 w-[240px] rounded-xl border p-1 shadow-lg ${
+            className={`absolute right-0 z-40 mt-2 w-[260px] rounded-xl border p-1 shadow-lg ${
               isDark
                 ? "border-white/[0.08] bg-[#101012]"
                 : "border-black/[0.06] bg-white"
             }`}
           >
-            <ul className="max-h-[260px] overflow-y-auto">
-              {tags.map((t) => {
-                const on = !hidden.includes(t.id);
-                return (
-                  <li key={t.id}>
-                    <button
-                      type="button"
-                      onClick={() => onToggle(t.id)}
-                      className={`flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left text-[13px] font-medium transition-colors ${
-                        isDark
-                          ? "hover:bg-white/[0.06]"
-                          : "hover:bg-black/[0.04]"
-                      }`}
-                    >
-                      <span className="flex min-w-0 items-center gap-2">
-                        <span
-                          className={`h-2.5 w-2.5 shrink-0 rounded-full ${t.color}`}
-                        />
-                        <span className="truncate">{t.label}</span>
-                      </span>
-                      <span
-                        className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[10px] ${
-                          on
-                            ? isDark
-                              ? "border-white bg-white text-black"
-                              : "border-black bg-black text-white"
-                            : isDark
-                              ? "border-white/25"
-                              : "border-black/25"
+            {tags.length === 0 ? (
+              <p
+                className={`px-3 py-3 text-[13px] ${
+                  isDark ? "text-neutral-500" : "text-neutral-400"
+                }`}
+              >
+                {c.tagsMenu.empty}
+              </p>
+            ) : (
+              <ul className="max-h-[260px] overflow-y-auto">
+                {tags.map((t) => {
+                  const on = active.includes(t.id);
+                  return (
+                    <li key={t.id} className="group/tag flex items-center">
+                      <button
+                        type="button"
+                        onClick={() => onToggle(t.id)}
+                        className={`flex min-w-0 flex-1 items-center justify-between gap-3 rounded-lg px-3 py-2 text-left text-[13px] font-medium transition-colors ${
+                          isDark
+                            ? "hover:bg-white/[0.06]"
+                            : "hover:bg-black/[0.04]"
                         }`}
                       >
-                        {on ? "✓" : ""}
-                      </span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
+                        <span className="flex min-w-0 items-center gap-2">
+                          <span
+                            className={`h-2.5 w-2.5 shrink-0 rounded-full ${t.color}`}
+                          />
+                          <span className="truncate">{t.label}</span>
+                        </span>
+                        <CheckBox on={on} isDark={isDark} />
+                      </button>
+                      <button
+                        type="button"
+                        aria-label={c.tagsMenu.deleteTag}
+                        onClick={() => onDelete(t.id)}
+                        className={`ml-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg opacity-0 transition-opacity focus-visible:opacity-100 group-hover/tag:opacity-100 [@media(hover:none)]:opacity-100 ${
+                          isDark
+                            ? "text-rose-400 hover:bg-white/[0.06]"
+                            : "text-rose-600 hover:bg-black/[0.04]"
+                        }`}
+                      >
+                        <TrashIcon className="h-4 w-4" />
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
             <div
               className={`mt-1 border-t p-1 pt-2 ${
                 isDark ? "border-white/[0.07]" : "border-black/[0.06]"
               }`}
             >
-              <CreateTagInput
+              <CreateNameInput
                 onCreate={onCreate}
                 isDark={isDark}
                 placeholder={c.tagsMenu.createPlaceholder}
@@ -856,32 +1110,45 @@ function TagsMenu({
 /** Carte d'idée (board : déplaçable aux pointer events ; galerie : statique). */
 function IdeaCard({
   idea,
-  tagLabel,
-  tagColor,
+  groupLabel,
+  groupColor,
+  ideaTags,
+  allTags,
   isDark,
   muted,
   draggable,
   placeholder,
   onPointerDown,
   onDelete,
+  onToggleTag,
   c,
 }: {
   idea: Idea;
-  tagLabel?: string;
-  tagColor?: string;
+  /** Affichés en galerie uniquement (en board, la colonne = le groupe). */
+  groupLabel?: string;
+  groupColor?: string;
+  /** Tags de CETTE idée. */
+  ideaTags: Tag[];
+  /** Tous les tags existants (sous-menu d'assignation). */
+  allTags: Tag[];
   isDark: boolean;
   muted: string;
   draggable?: boolean;
   placeholder?: boolean;
   onPointerDown?: (e: RPointerEvent) => void;
   onDelete?: () => void;
+  onToggleTag?: (tagId: string) => void;
   c: Copy;
 }) {
   const [menu, setMenu] = useState(false);
-  const hasMenu = !!onDelete;
+  const hasMenu = !!onDelete || !!onToggleTag;
 
   const item = `flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-[13px] font-medium transition-colors ${
     isDark ? "hover:bg-white/[0.06]" : "hover:bg-black/[0.04]"
+  }`;
+
+  const chipClass = `inline-flex w-fit items-center gap-1.5 rounded-md px-2 py-0.5 text-[11px] font-medium ${
+    isDark ? "bg-white/[0.06]" : "bg-black/[0.05]"
   }`;
 
   return (
@@ -952,12 +1219,58 @@ function IdeaCard({
                     />
                     <div
                       role="menu"
-                      className={`absolute right-0 top-full z-40 mt-1 min-w-[140px] rounded-xl border p-1 shadow-lg ${
+                      onPointerDown={(e) => e.stopPropagation()}
+                      className={`absolute right-0 top-full z-40 mt-1 min-w-[190px] rounded-xl border p-1 shadow-lg ${
                         isDark
                           ? "border-white/[0.08] bg-[#101012]"
                           : "border-black/[0.06] bg-white"
                       }`}
                     >
+                      {onToggleTag && (
+                        <>
+                          <p
+                            className={`px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide ${muted}`}
+                          >
+                            {c.ideaCard.tags}
+                          </p>
+                          {allTags.length === 0 ? (
+                            <p className={`px-3 pb-2 text-[12px] ${muted}`}>
+                              {c.ideaCard.noTags}
+                            </p>
+                          ) : (
+                            allTags.map((t) => {
+                              const on = ideaTags.some((x) => x.id === t.id);
+                              return (
+                                <button
+                                  key={t.id}
+                                  type="button"
+                                  role="menuitemcheckbox"
+                                  aria-checked={on}
+                                  onClick={() => onToggleTag(t.id)}
+                                  className={`${item} justify-between`}
+                                >
+                                  <span className="flex min-w-0 items-center gap-2">
+                                    <span
+                                      className={`h-2.5 w-2.5 shrink-0 rounded-full ${t.color}`}
+                                    />
+                                    <span className="truncate">{t.label}</span>
+                                  </span>
+                                  <CheckBox on={on} isDark={isDark} />
+                                </button>
+                              );
+                            })
+                          )}
+                          {onDelete && (
+                            <div
+                              className={`my-1 border-t ${
+                                isDark
+                                  ? "border-white/[0.07]"
+                                  : "border-black/[0.06]"
+                              }`}
+                            />
+                          )}
+                        </>
+                      )}
                       {onDelete && (
                         <button
                           type="button"
@@ -986,17 +1299,24 @@ function IdeaCard({
               {idea.description}
             </p>
           )}
-          {tagLabel && (
-            <span
-              className={`mt-2 inline-flex w-fit items-center gap-1.5 rounded-md px-2 py-0.5 text-[11px] font-medium ${
-                isDark ? "bg-white/[0.06]" : "bg-black/[0.05]"
-              }`}
-            >
-              {tagColor && (
-                <span className={`h-2 w-2 rounded-full ${tagColor}`} />
+
+          {(groupLabel || ideaTags.length > 0) && (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {groupLabel && (
+                <span className={chipClass}>
+                  {groupColor && (
+                    <span className={`h-2 w-2 rounded-full ${groupColor}`} />
+                  )}
+                  {groupLabel}
+                </span>
               )}
-              {tagLabel}
-            </span>
+              {ideaTags.map((t) => (
+                <span key={t.id} className={chipClass}>
+                  <span className={`h-2 w-2 rounded-full ${t.color}`} />
+                  {t.label}
+                </span>
+              ))}
+            </div>
           )}
         </div>
       </article>
@@ -1044,21 +1364,29 @@ export default function Create() {
   const saved = isFavorite(PAGE_ROUTE);
 
   const {
+    groups,
     tags,
     ideas,
+    addGroup,
+    renameGroup,
+    deleteGroup,
+    moveGroup,
     addTag,
-    renameTag,
     deleteTag,
-    moveTag,
     addIdea,
     deleteIdea,
     moveIdea,
     moveAll,
+    toggleIdeaTag,
   } = useBoard();
 
   const [tab, setTab] = useState<Tab>(tabFromHash);
   const [view, setView] = useState<View>(readStoredView);
-  const [hidden, setHidden] = useState<string[]>(readStoredHiddenTags);
+  const [hiddenGroups, setHiddenGroups] = useState<string[]>(
+    readStoredHiddenGroups
+  );
+  /** Filtre par tags (vide = pas de filtre). Non persisté. */
+  const [activeTags, setActiveTags] = useState<string[]>([]);
   const [query, setQuery] = useState("");
   const [isFolderOpen, setIsFolderOpen] = useState(false);
 
@@ -1071,15 +1399,8 @@ export default function Create() {
   }, [view]);
 
   useEffect(() => {
-    try {
-      window.localStorage.setItem(
-        CREATE_HIDDEN_TAGS_STORAGE_KEY,
-        JSON.stringify(hidden)
-      );
-    } catch {
-      /* ignore */
-    }
-  }, [hidden]);
+    writeStoredIds(CREATE_HIDDEN_GROUPS_STORAGE_KEY, hiddenGroups);
+  }, [hiddenGroups]);
 
   const [colDrag, setColDrag] = useState<string | null>(null);
   const [cardDrag, setCardDrag] = useState<string | null>(null);
@@ -1088,7 +1409,7 @@ export default function Create() {
   const colRefs = useRef(new Map<string, HTMLElement>());
   const prevLefts = useRef(new Map<string, number>());
   const prevCards = useRef(new Map<string, { y: number; col: string }>());
-  const visibleRef = useRef<Tag[]>([]);
+  const visibleRef = useRef<Group[]>([]);
 
   const [colMenu, setColMenu] = useState<string | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
@@ -1132,28 +1453,49 @@ export default function Create() {
   const chip = isDark ? "bg-white/[0.06]" : "bg-black/[0.05]";
   const strong = isDark ? "text-white" : "text-neutral-900";
 
-  const visibleTags = tags.filter((t) => !hidden.includes(t.id));
-  visibleRef.current = visibleTags;
-  const tagLabel = (id: string) => tags.find((t) => t.id === id)?.label;
-  const tagColor = (id: string) => tags.find((t) => t.id === id)?.color;
+  /* ───────── Dérivés groupes / tags ───────── */
 
-  const toggleHidden = (id: string) =>
-    setHidden((prev) =>
+  const visibleGroups = groups.filter((g) => !hiddenGroups.includes(g.id));
+  visibleRef.current = visibleGroups;
+
+  const groupLabel = (id: string) => groups.find((g) => g.id === id)?.label;
+  const groupColor = (id: string) => groups.find((g) => g.id === id)?.color;
+  const tagsOf = (idea: Idea): Tag[] =>
+    idea.tagIds
+      .map((id) => tags.find((t) => t.id === id))
+      .filter((t): t is Tag => Boolean(t));
+
+  /** Filtre par tags : l'idée doit avoir au moins un des tags actifs. */
+  const matchesTagFilter = (idea: Idea) =>
+    activeTags.length === 0 || idea.tagIds.some((id) => activeTags.includes(id));
+
+  const toggleHiddenGroup = (id: string) =>
+    setHiddenGroups((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
     );
 
-  const createTag = async (label: string) => {
-    const id = await addTag(label);
-    if (id) setHidden((prev) => prev.filter((x) => x !== id));
+  const toggleActiveTag = (id: string) =>
+    setActiveTags((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+
+  const createGroup = async (label: string) => {
+    const id = await addGroup(label);
+    if (id) setHiddenGroups((prev) => prev.filter((x) => x !== id));
     return id;
   };
 
-  /* ── Drag d'une colonne ── */
+  const removeTag = async (id: string) => {
+    setActiveTags((prev) => prev.filter((x) => x !== id));
+    await deleteTag(id);
+  };
 
-  const onHeaderPointerDown = (e: RPointerEvent, tagId: string) => {
+  /* ── Drag d'une colonne (groupe) ── */
+
+  const onHeaderPointerDown = (e: RPointerEvent, groupId: string) => {
     if (e.button !== 0) return;
     if ((e.target as HTMLElement).closest("button,input")) return;
-    const section = colRefs.current.get(tagId);
+    const section = colRefs.current.get(groupId);
     if (!section) return;
 
     const rect = section.getBoundingClientRect();
@@ -1181,7 +1523,7 @@ export default function Create() {
         document.body.appendChild(ghostEl);
         document.body.style.cursor = "grabbing";
         document.body.style.userSelect = "none";
-        setColDrag(tagId);
+        setColDrag(groupId);
       }
 
       ghostEl.style.left = `${ev.clientX - offX}px`;
@@ -1196,7 +1538,7 @@ export default function Create() {
 
       const x = ev.clientX - b.left + board.scrollLeft;
       const order = visibleRef.current;
-      const from = order.findIndex((t) => t.id === tagId);
+      const from = order.findIndex((g) => g.id === groupId);
       let target: number | null = null;
       for (let i = 1; i < order.length; i++) {
         if (i === from) continue;
@@ -1206,7 +1548,7 @@ export default function Create() {
         if (i > from && x > mid) target = i;
         else if (i < from && x < mid && target === null) target = i;
       }
-      if (target !== null) moveTag(tagId, order[target].id);
+      if (target !== null) moveGroup(groupId, order[target].id);
     };
 
     const onUp = () => {
@@ -1275,8 +1617,8 @@ export default function Create() {
         }
       }
       if (!section) return;
-      const tagId = section.dataset.col as string;
-      setOverCol(tagId);
+      const groupId = section.dataset.col as string;
+      setOverCol(groupId);
 
       const list = section.querySelector<HTMLElement>("[data-list]");
       if (!list) return;
@@ -1297,10 +1639,10 @@ export default function Create() {
         }
       }
 
-      const key = `${tagId}:${before ?? ""}`;
+      const key = `${groupId}:${before ?? ""}`;
       if (key !== last) {
         last = key;
-        moveIdea(ideaId, tagId, before);
+        moveIdea(ideaId, groupId, before);
       }
     };
 
@@ -1368,14 +1710,20 @@ export default function Create() {
     prevCards.current = nextCards;
   });
 
+  /* ───────── Idées visibles (galerie) ───────── */
+
   const searchTerm = query.trim().toLowerCase();
   const visibleIdeas = ideas.filter((idea) => {
-    if (hidden.includes(idea.tagId)) return false;
+    if (hiddenGroups.includes(idea.groupId)) return false;
+    if (!matchesTagFilter(idea)) return false;
     if (!searchTerm) return true;
 
-    return [idea.title, idea.description, tagLabel(idea.tagId) ?? ""].some(
-      (value) => value.toLowerCase().includes(searchTerm)
-    );
+    return [
+      idea.title,
+      idea.description,
+      groupLabel(idea.groupId) ?? "",
+      ...tagsOf(idea).map((t) => t.label),
+    ].some((value) => value.toLowerCase().includes(searchTerm));
   });
 
   const handleBottomBarChange = (id: BottomBarTab) => {
@@ -1395,12 +1743,6 @@ export default function Create() {
       label: c.view.gallery,
       icon: <GalleryIcon className="h-4 w-4" />,
     },
-  ];
-
-  const columnMenuItems = [
-    { label: c.board.renameTag, run: () => setEditing("") },
-    { label: c.board.moveAllToUnassigned, run: () => {} },
-    { label: c.board.deleteTag, run: () => {} },
   ];
 
   return (
@@ -1523,11 +1865,21 @@ export default function Create() {
 
               {tab === "ideas" && (
                 <div className="flex items-center gap-2 pb-2">
+                  <GroupsMenu
+                    groups={groups}
+                    hidden={hiddenGroups}
+                    onToggle={toggleHiddenGroup}
+                    onCreate={(l) => void createGroup(l)}
+                    isDark={isDark}
+                    ghost={ghost}
+                    c={c}
+                  />
                   <TagsMenu
                     tags={tags}
-                    hidden={hidden}
-                    onToggle={toggleHidden}
-                    onCreate={(l) => void createTag(l)}
+                    active={activeTags}
+                    onToggle={toggleActiveTag}
+                    onCreate={(l) => void addTag(l)}
+                    onDelete={(id) => void removeTag(id)}
                     isDark={isDark}
                     ghost={ghost}
                     c={c}
@@ -1599,20 +1951,22 @@ export default function Create() {
                   ref={boardRef}
                   className="relative flex min-h-0 flex-1 gap-4 overflow-x-auto pb-2"
                 >
-                  {visibleTags.map((tag) => {
-                    const items = ideas.filter((i) => i.tagId === tag.id);
-                    const fixed = tag.id === UNASSIGNED;
-                    const isPlaceholder = colDrag === tag.id;
+                  {visibleGroups.map((group) => {
+                    const items = ideas.filter(
+                      (i) => i.groupId === group.id && matchesTagFilter(i)
+                    );
+                    const fixed = group.id === UNASSIGNED;
+                    const isPlaceholder = colDrag === group.id;
                     const ideaTarget =
-                      cardDrag !== null && overCol === tag.id;
+                      cardDrag !== null && overCol === group.id;
 
                     return (
                       <section
-                        key={tag.id}
-                        data-col={tag.id}
+                        key={group.id}
+                        data-col={group.id}
                         ref={(el) => {
-                          if (el) colRefs.current.set(tag.id, el);
-                          else colRefs.current.delete(tag.id);
+                          if (el) colRefs.current.set(group.id, el);
+                          else colRefs.current.delete(group.id);
                         }}
                         className={[
                           "group/col relative flex min-h-0 w-[min(300px,85vw)] shrink-0 flex-col rounded-2xl p-3",
@@ -1643,8 +1997,8 @@ export default function Create() {
                         <div
                           onPointerDown={(e) =>
                             !fixed &&
-                            editing !== tag.id &&
-                            onHeaderPointerDown(e, tag.id)
+                            editing !== group.id &&
+                            onHeaderPointerDown(e, group.id)
                           }
                           className={[
                             "flex items-center justify-between px-2 pb-3 pt-3",
@@ -1655,15 +2009,15 @@ export default function Create() {
                         >
                           <div className="flex min-w-0 items-center gap-2.5">
                             <span
-                              className={`h-2.5 w-2.5 shrink-0 rounded-full ${tag.color}`}
+                              className={`h-2.5 w-2.5 shrink-0 rounded-full ${group.color}`}
                             />
-                            {editing === tag.id ? (
+                            {editing === group.id ? (
                               <input
                                 autoFocus
-                                defaultValue={tag.label}
+                                defaultValue={group.label}
                                 maxLength={30}
                                 onBlur={(e) => {
-                                  void renameTag(tag.id, e.target.value);
+                                  void renameGroup(group.id, e.target.value);
                                   setEditing(null);
                                 }}
                                 onKeyDown={(e) => {
@@ -1685,7 +2039,7 @@ export default function Create() {
                                   strong,
                                 ].join(" ")}
                               >
-                                {tag.label}
+                                {group.label}
                               </h2>
                             )}
                             <span
@@ -1699,10 +2053,10 @@ export default function Create() {
                             {!fixed && (
                               <>
                                 <IconButton
-                                  label={c.board.tagOptions}
+                                  label={c.board.groupOptions}
                                   onClick={() =>
                                     setColMenu((cur) =>
-                                      cur === tag.id ? null : tag.id
+                                      cur === group.id ? null : group.id
                                     )
                                   }
                                   ghost={ghost}
@@ -1711,7 +2065,7 @@ export default function Create() {
                                 >
                                   <DotsIcon className="h-[18px] w-[18px]" />
                                 </IconButton>
-                                {colMenu === tag.id && (
+                                {colMenu === group.id && (
                                   <>
                                     <button
                                       type="button"
@@ -1729,17 +2083,17 @@ export default function Create() {
                                     >
                                       {[
                                         {
-                                          label: c.board.renameTag,
-                                          run: () => setEditing(tag.id),
+                                          label: c.board.renameGroup,
+                                          run: () => setEditing(group.id),
                                         },
                                         {
                                           label: c.board.moveAllToUnassigned,
                                           run: () =>
-                                            moveAll(tag.id, UNASSIGNED),
+                                            moveAll(group.id, UNASSIGNED),
                                         },
                                         {
-                                          label: c.board.deleteTag,
-                                          run: () => void deleteTag(tag.id),
+                                          label: c.board.deleteGroup,
+                                          run: () => void deleteGroup(group.id),
                                         },
                                       ].map((o) => (
                                         <button
@@ -1774,6 +2128,11 @@ export default function Create() {
                             <IdeaCard
                               key={idea.id}
                               idea={idea}
+                              ideaTags={tagsOf(idea)}
+                              allTags={tags}
+                              onToggleTag={(tid) =>
+                                toggleIdeaTag(idea.id, tid)
+                              }
                               isDark={isDark}
                               muted={muted}
                               draggable
@@ -1790,17 +2149,17 @@ export default function Create() {
                     );
                   })}
 
-                  {/* Ajouter une colonne */}
+                  {/* Ajouter un groupe */}
                   <div className="w-[min(260px,80vw)] shrink-0">
                     {addingCol ? (
                       <div className={`rounded-2xl p-3 ${column}`}>
-                        <CreateTagInput
+                        <CreateNameInput
                           autoFocus
                           isDark={isDark}
-                          placeholder={c.board.tagNamePlaceholder}
-                          submitAria={c.tagsMenu.createAria}
+                          placeholder={c.board.groupNamePlaceholder}
+                          submitAria={c.groupsMenu.createAria}
                           onCreate={(l) => {
-                            void createTag(l);
+                            void createGroup(l);
                             setAddingCol(false);
                           }}
                         />
@@ -1826,7 +2185,7 @@ export default function Create() {
                         ].join(" ")}
                       >
                         <PlusIcon className="h-[18px] w-[18px]" />
-                        {c.board.newTag}
+                        {c.board.newGroup}
                       </button>
                     )}
                   </div>
@@ -1861,8 +2220,11 @@ export default function Create() {
                         <IdeaCard
                           key={idea.id}
                           idea={idea}
-                          tagLabel={tagLabel(idea.tagId)}
-                          tagColor={tagColor(idea.tagId)}
+                          groupLabel={groupLabel(idea.groupId)}
+                          groupColor={groupColor(idea.groupId)}
+                          ideaTags={tagsOf(idea)}
+                          allTags={tags}
+                          onToggleTag={(tid) => toggleIdeaTag(idea.id, tid)}
                           isDark={isDark}
                           muted={muted}
                           onDelete={() => deleteIdea(idea.id)}
@@ -1892,7 +2254,12 @@ export default function Create() {
         addLabel={c.bottomBar.newIdea}
         onChange={handleBottomBarChange}
         onSubmitIdea={({ title, notes }) =>
-          addIdea({ title, description: notes, tagId: UNASSIGNED })
+          addIdea({
+            title,
+            description: notes,
+            groupId: UNASSIGNED,
+            tagIds: [],
+          })
         }
         onCreatePost={() => {
           if (!requestNewPost("")) navigate("schedule");

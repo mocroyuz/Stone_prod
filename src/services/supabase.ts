@@ -89,11 +89,18 @@ export type EmailCodeSent = { sentTo: string | null; resendIn: number };
 type EmailPurpose = "login" | "enroll" | "challenge";
 
 /**
- * Tag côté front : `label` + classe Tailwind ("bg-[#6366f1]").
+ * Tag côté front : étiquette libre créée par l'utilisateur (aucun par défaut).
+ * `label` + classe Tailwind ("bg-[#6366f1]").
  * Le backend utilise `name` + couleur hex ("#6366f1") : la conversion
  * est faite dans la section TAGS plus bas.
  */
 export type Tag = { id: string; label: string; color: string };
+
+/**
+ * Groupe côté front : colonne du board (To Do, In Progress…).
+ * Mêmes champs qu'un Tag, mais table et endpoints séparés (/api/groups).
+ */
+export type Group = { id: string; label: string; color: string };
 
 /** Résultat de la consommation d'un retour OAuth (Google / GitHub). */
 export type OAuthRedirectResult = "none" | "ready" | "mfa" | "error";
@@ -471,7 +478,7 @@ export async function signUp(
     body: JSON.stringify({ email, password, firstName, lastName }),
   });
   saveSession(result.session);
-  if (result.session) void ensureDefaultTags().catch(() => {});
+  if (result.session) void ensureDefaultGroups().catch(() => {});
   return result;
 }
 
@@ -1316,8 +1323,12 @@ export async function disableEmailMfa(): Promise<void> {
 }
 
 // ============================================================
-// TAGS
+// TAGS (étiquettes libres, AUCUN tag par défaut)
 // ============================================================
+//
+// Les tags sont créés uniquement par l'utilisateur. Les colonnes du board
+// (To Do, In Progress, Unassigned…) sont des GROUPES : voir la section
+// GROUPS plus bas.
 //
 // `user_id` n'est JAMAIS envoyé : il est géré côté backend.
 //
@@ -1330,14 +1341,14 @@ export async function disableEmailMfa(): Promise<void> {
 //
 // Le front manipule `label` + une classe Tailwind ("bg-[#6366f1]") ;
 // le backend manipule `name` + une couleur hex ("#6366f1").
-// Les conversions sont faites ici, donc l'UI (Settings.tsx) ne change pas.
+// Les conversions sont faites ici.
 //
 // Conflit d'unicité : le backend renvoie HTTP 409 + code "TAG_DUPLICATE"
 // (cf. `isDuplicateError`).
 
 const DEFAULT_TAG_CLASS = "bg-[#6366f1]";
 
-/** Forme d'un tag telle que renvoyée par le backend. */
+/** Forme d'un tag / groupe telle que renvoyée par le backend. */
 type ServerTag = {
   id: string;
   name: string;
@@ -1354,7 +1365,7 @@ const tagColorToClass = (hex?: string | null): string =>
     ? `bg-[${hex.toLowerCase()}]`
     : DEFAULT_TAG_CLASS;
 
-/** Tag backend → Tag front. */
+/** Tag / groupe backend → forme front. */
 const fromServerTag = (t: ServerTag): Tag => ({
   id: t.id,
   label: t.name,
@@ -1426,14 +1437,21 @@ export async function deleteTag(id: string): Promise<void> {
 /**
  * Détecte une violation d'unicité côté backend.
  * Reconnaît :
- *   - code "TAG_DUPLICATE" (backend) ou "23505" (unique_violation Postgres)
+ *   - code "TAG_DUPLICATE" / "GROUP_DUPLICATE" (backend) ou "23505"
+ *     (unique_violation Postgres)
  *   - status HTTP 409 (Conflict)
  *   - message contenant duplicate / already exists / unique
  */
 export const isDuplicateError = (e: unknown): boolean => {
   if (typeof e === "object" && e !== null) {
     const obj = e as { code?: unknown; status?: unknown };
-    if (obj.code === "TAG_DUPLICATE" || obj.code === "23505") return true;
+    if (
+      obj.code === "TAG_DUPLICATE" ||
+      obj.code === "GROUP_DUPLICATE" ||
+      obj.code === "23505"
+    ) {
+      return true;
+    }
     if (obj.status === 409) return true;
   }
 
@@ -1444,43 +1462,113 @@ export const isDuplicateError = (e: unknown): boolean => {
 };
 
 // ============================================================
-// DEFAULT TAGS SEED
+// GROUPS (colonnes du board : To Do, In Progress, …)
+// ============================================================
+//
+// Contrat backend (server.js) — même forme que /api/tags :
+//
+//   GET    /api/groups           → { success, groups: [{ id, name, color }] }
+//   POST   /api/groups           → { success, group }  body: { name, color }
+//   PUT    /api/groups           → { success, group }  body: { id, name, color }
+//   DELETE /api/groups?id=<id>   → { success }
+//
+// Conflit d'unicité : HTTP 409 + code "GROUP_DUPLICATE".
+
+/** Extrait un Group d'une réponse `{ group }` (ou d'un groupe brut). */
+function parseGroupResponse(data: unknown): Group {
+  const raw = (data as { group?: ServerTag })?.group ?? (data as ServerTag);
+
+  if (!raw || typeof raw.id !== "string" || typeof raw.name !== "string") {
+    throw new Error("Invalid group response from server.");
+  }
+
+  return fromServerTag(raw);
+}
+
+/** Liste les groupes de l'utilisateur courant. */
+export async function listGroups(): Promise<Group[]> {
+  const data = await apiRequest<{ success?: boolean; groups?: ServerTag[] }>(
+    "/api/groups",
+    { method: "GET" }
+  );
+
+  return (data?.groups ?? []).map(fromServerTag);
+}
+
+/** Crée un groupe (peut throw une erreur reconnue par `isDuplicateError`). */
+export async function createGroup(label: string, color: string): Promise<Group> {
+  const data = await apiRequest<unknown>("/api/groups", {
+    method: "POST",
+    body: JSON.stringify({ name: label, color: tagColorToHex(color) }),
+  });
+
+  return parseGroupResponse(data);
+}
+
+/** Met à jour un groupe (l'`id` part dans le body). */
+export async function updateGroup(
+  id: string,
+  patch: { label: string; color: string }
+): Promise<Group> {
+  const data = await apiRequest<unknown>("/api/groups", {
+    method: "PUT",
+    body: JSON.stringify({
+      id,
+      name: patch.label,
+      color: tagColorToHex(patch.color),
+    }),
+  });
+
+  return parseGroupResponse(data);
+}
+
+/** Supprime un groupe. */
+export async function deleteGroup(id: string): Promise<void> {
+  await apiRequest(`/api/groups?id=${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
+}
+
+// ============================================================
+// DEFAULT GROUPS SEED
 // ============================================================
 
-const DEFAULT_TAG_SEEDS = [
+const DEFAULT_GROUP_SEEDS = [
   { label: "To Do", color: "bg-[#0ea5e9]" },
   { label: "In Progress", color: "bg-[#f97316]" },
 ];
-const DEFAULT_TAGS_SEEDED_KEY = "crossflow_default_tags_seeded";
+// Nouvelle clé : l'ancien flag "crossflow_default_tags_seeded" concernait
+// la table des tags.
+const DEFAULT_GROUPS_SEEDED_KEY = "crossflow_default_groups_seeded";
 
 let seedPromise: Promise<void> | null = null;
 
 /**
- * Crée "To Do" et "In Progress" si le compte ne les a jamais eus.
+ * Crée les groupes "To Do" et "In Progress" si le compte ne les a jamais eus.
  * Idempotent, et ne les recrée pas si l'utilisateur les supprime ensuite
  * (flag par utilisateur). Couvre aussi les comptes existants.
  */
-export function ensureDefaultTags(): Promise<void> {
+export function ensureDefaultGroups(): Promise<void> {
   if (seedPromise) return seedPromise;
 
   seedPromise = (async () => {
     const user = await getCurrentUser();
     if (!user) return;
 
-    const flag = `${DEFAULT_TAGS_SEEDED_KEY}:${user.id}`;
+    const flag = `${DEFAULT_GROUPS_SEEDED_KEY}:${user.id}`;
     try {
       if (localStorage.getItem(flag) === "1") return;
     } catch {
       /* stockage indisponible */
     }
 
-    const existing = await listTags();
-    const names = new Set(existing.map((t) => t.label.trim().toLowerCase()));
+    const existing = await listGroups();
+    const names = new Set(existing.map((g) => g.label.trim().toLowerCase()));
 
-    for (const seed of DEFAULT_TAG_SEEDS) {
+    for (const seed of DEFAULT_GROUP_SEEDS) {
       if (names.has(seed.label.toLowerCase())) continue;
       try {
-        await createTag(seed.label, seed.color);
+        await createGroup(seed.label, seed.color);
       } catch (e) {
         if (!isDuplicateError(e)) throw e;
       }
@@ -1497,6 +1585,16 @@ export function ensureDefaultTags(): Promise<void> {
   });
 
   return seedPromise;
+}
+
+/**
+ * @deprecated Les tags n'ont plus de valeurs par défaut (ce sont les
+ * GROUPES qui sont semés : voir `ensureDefaultGroups`). Conservé en no-op
+ * pour ne pas casser d'éventuels imports existants ; à supprimer une fois
+ * les appels retirés.
+ */
+export async function ensureDefaultTags(): Promise<void> {
+  /* volontairement vide */
 }
 
 // ============================================================
