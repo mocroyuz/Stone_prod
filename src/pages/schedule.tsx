@@ -2719,7 +2719,8 @@ export default function Schedule() {
   return (
     <main
       className={[
-        "relative h-screen w-full overflow-hidden",
+        // 100dvh (pas h-screen) : corrige le viewport mobile (barres d'URL)
+        "relative h-[100dvh] w-full overflow-hidden",
         "transition-colors duration-300",
         pageBgClass(isDark),
       ].join(" ")}
@@ -2728,7 +2729,8 @@ export default function Schedule() {
 
       <div
         className={[
-          "h-full py-3 pr-3",
+          // max-md:pt-14 : place pour la barre mobile h-14 (z-30)
+          "h-full py-3 pr-3 max-md:pt-14",
           "transition-[padding-left] duration-[380ms]",
           "ease-[cubic-bezier(0.4,0,0.2,1)]",
           "motion-reduce:transition-none",
@@ -2747,10 +2749,14 @@ export default function Schedule() {
             className={[
               "flex min-h-0 w-full flex-1 flex-col",
               "px-[clamp(18px,3vw,48px)]",
-              "pb-4 pt-[clamp(18px,3vw,30px)]",
+              // pb-[104px] : place pour la BottomBar flottante mobile
+              "pb-[104px] pt-[clamp(18px,3vw,30px)] sm:pb-4",
             ].join(" ")}
           >
-            <div className="relative z-40 mb-3 flex shrink-0 flex-wrap items-center justify-between gap-3">
+            {/* HEADER COMPACT — z-20 : passe SOUS le tiroir mobile (z-40) et
+                SOUS la barre mobile (z-30), tout en restant AU-DESSUS des
+                sections de page (z-auto). */}
+            <div className="relative z-20 mb-3 flex shrink-0 flex-wrap items-center justify-between gap-3">
               <div className="flex min-w-0 items-center gap-2.5">
                 <span
                   className={[

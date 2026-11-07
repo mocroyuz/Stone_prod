@@ -1257,7 +1257,7 @@ export default function Community() {
   return (
     <main
       className={[
-        "relative h-screen w-full overflow-hidden",
+        "relative h-[100dvh] w-full overflow-hidden",
         "transition-colors duration-300",
         pageBgClass(isDark),
       ].join(" ")}
@@ -1266,7 +1266,7 @@ export default function Community() {
 
       <div
         className={[
-          "h-full py-3 pr-3",
+          "h-full py-3 pr-3 max-md:pt-14",
           "transition-[padding-left] duration-[380ms]",
           "ease-[cubic-bezier(0.4,0,0.2,1)]",
           "motion-reduce:transition-none",
@@ -1285,11 +1285,13 @@ export default function Community() {
             className={[
               "flex min-h-0 w-full flex-1 flex-col",
               "px-[clamp(18px,3vw,48px)]",
-              "pb-6 pt-[clamp(18px,3vw,30px)]",
+              "pb-[104px] pt-[clamp(18px,3vw,30px)] sm:pb-6",
             ].join(" ")}
           >
-            {/* HEADER COMPACT */}
-            <div className="relative z-40 flex shrink-0 flex-wrap items-center justify-between gap-3 pb-4">
+            {/* HEADER COMPACT — z-20 pour passer SOUS le tiroir mobile (z-40)
+                et SOUS la barre mobile (z-30), tout en restant AU-DESSUS
+                des sections de page (z-auto). */}
+            <div className="relative z-20 flex shrink-0 flex-wrap items-center justify-between gap-3 pb-4">
               <div className="flex min-w-0 items-center gap-2.5">
                 <span
                   className={[
