@@ -1,5 +1,4 @@
-﻿// src/components/DashboardSidebar.tsx
-import React, {
+﻿import React, {
   memo,
   useCallback,
   useEffect,
@@ -9,10 +8,8 @@ import React, {
   useState,
   useSyncExternalStore,
 } from "react";
-
 import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
-
 import { useTheme, type Theme } from "../hooks/useTheme";
 import { navigate, useHashRoute } from "../hooks/useHashRoute";
 import { useSubscription } from "../hooks/useSubscription";
@@ -42,12 +39,10 @@ import { requestNewPost } from "../services/Newpostbus";
 import { fetchYouTubeComments } from "../services/youtube";
 import { useMfaNudge } from "../hooks/useMfaNudge";
 
-/* ============================================================================ 
-   Language / i18n
+/* ============================================================================
+Language / i18n
 ============================================================================ */
-
 type Lang = "fr" | "en";
-
 const LANGUAGE_STORAGE_KEY = "stone:language";
 
 function detectLanguage(): Lang {
@@ -63,7 +58,6 @@ function detectLanguage(): Lang {
 
 function useLanguage(): Lang {
   const [lang, setLang] = useState<Lang>(() => detectLanguage());
-
   useEffect(() => {
     const refresh = () => setLang(detectLanguage());
     const onStorage = (e: StorageEvent) => {
@@ -78,7 +72,6 @@ function useLanguage(): Lang {
       window.removeEventListener("hashchange", refresh);
     };
   }, []);
-
   return lang;
 }
 
@@ -291,20 +284,17 @@ const COPY: Record<Lang, Copy> = {
   },
 };
 
-/* ============================================================================ 
-   Types 
+/* ============================================================================
+Types
 ============================================================================ */
-
 type IconProps = { className?: string; mono?: MonoTone };
 type IconComponent = (props: IconProps) => React.ReactElement;
-
 type NavItem = {
   label: string;
   icon: IconComponent;
   route: string;
   badge?: string;
 };
-
 type MenuItem = {
   label: string;
   icon: IconComponent;
@@ -313,7 +303,6 @@ type MenuItem = {
   action?: "logout";
   disabled?: boolean;
 };
-
 type ThemeTokens = {
   aside: string;
   divider: string;
@@ -340,19 +329,16 @@ type ThemeTokens = {
   accentSolid: string;
 };
 
-/* ============================================================================ 
-   Dimensions 
+/* ============================================================================
+Dimensions
 ============================================================================ */
-
 export const SIDEBAR_COLLAPSED_OFFSET = 64;
 export const SIDEBAR_EXPANDED_OFFSET = 240;
 
-/* ============================================================================ 
-   Notifications : commentaires non lus par canal
+/* ============================================================================
+Notifications : commentaires non lus par canal
 ============================================================================ */
-
 type UnreadCounts = Record<string, number>;
-
 const EMPTY_UNREAD: UnreadCounts = Object.freeze({}) as UnreadCounts;
 const LEGACY_UNREAD_KEY = "stone.unread-counts";
 
@@ -371,11 +357,9 @@ function emitUnread() {
 export function setChannelUnreadCount(channelKey: string, count: number) {
   const next = Math.max(0, Math.floor(count) || 0);
   if ((unreadStore[channelKey] ?? 0) === next) return;
-
   const updated = { ...unreadStore };
   if (next > 0) updated[channelKey] = next;
   else delete updated[channelKey];
-
   unreadStore = updated;
   emitUnread();
 }
@@ -404,27 +388,22 @@ function useUnreadCounts(): UnreadCounts {
     readUnreadSnapshot,
     () => EMPTY_UNREAD
   );
-
   const [shown, setShown] = useState<UnreadCounts>(live);
   const shownRef = useRef<UnreadCounts>(live);
 
   useEffect(() => {
     const previous = shownRef.current;
-
     const apply = () => {
       shownRef.current = live;
       setShown(live);
     };
-
     const decreased = Object.keys(previous).some(
       (key) => (live[key] ?? 0) < previous[key]
     );
-
     if (!decreased) {
       apply();
       return;
     }
-
     const id = window.setTimeout(apply, UNREAD_SETTLE_MS);
     return () => window.clearTimeout(id);
   }, [live]);
@@ -432,10 +411,9 @@ function useUnreadCounts(): UnreadCounts {
   return shown;
 }
 
-/* ============================================================================ 
-   Keyframes 
+/* ============================================================================
+Keyframes
 ============================================================================ */
-
 const SIDEBAR_KEYFRAMES = `
 @keyframes sbMenuIn {
   from { opacity: 0; transform: translateY(6px) scale(0.98); }
@@ -466,7 +444,6 @@ const SIDEBAR_KEYFRAMES = `
 .sb-label-3 { animation-delay: 100ms; }
 .sb-backdrop { animation: sbFadeIn 200ms ease-out both; }
 .sb-sheet { animation: sbSheetIn 280ms cubic-bezier(0.32, 0.72, 0, 1) backwards; }
-
 #app-sidebar button,
 #app-sidebar svg,
 #app-sidebar img {
@@ -474,19 +451,16 @@ const SIDEBAR_KEYFRAMES = `
   user-select: none;
   -webkit-tap-highlight-color: transparent;
 }
-
 @media (prefers-reduced-motion: reduce) {
   .sb-menu, .sb-tip, .sb-fade, .sb-label, .sb-backdrop, .sb-sheet { animation: none; }
 }
 `;
 
-/* ============================================================================ 
-   Raccourcis clavier 
+/* ============================================================================
+Raccourcis clavier
 ============================================================================ */
-
 const IS_MAC =
   typeof navigator !== "undefined" && /mac|iphone|ipad/i.test(navigator.platform);
-
 const TOGGLE_SHORTCUT_LABEL = IS_MAC ? "⌘B" : "Ctrl B";
 
 const SHORTCUT_ROUTES: Record<string, string> = {
@@ -537,10 +511,9 @@ function Kbd({ children, className }: { children: ReactNode; className?: string 
   );
 }
 
-/* ============================================================================ 
-   Responsive 
+/* ============================================================================
+Responsive
 ============================================================================ */
-
 const MOBILE_QUERY = "(max-width: 767px)";
 
 function subscribeMobile(listener: () => void) {
@@ -560,10 +533,9 @@ function useIsMobile(): boolean {
   return useSyncExternalStore(subscribeMobile, getMobileSnapshot, () => false);
 }
 
-/* ============================================================================ 
-   Icons 
+/* ============================================================================
+Icons
 ============================================================================ */
-
 function Svg({
   className = "h-4 w-4",
   children,
@@ -590,21 +562,18 @@ const HomeIcon = (p: IconProps) => (
     <path d="M6 10.5V18h12v-7.5" />
   </Svg>
 );
-
 const CalendarIcon = (p: IconProps) => (
   <Svg {...p}>
     <rect x="3.5" y="5.5" width="17" height="15" rx="2.5" />
     <path d="M8 3.5v4M16 3.5v4M3.5 9.5h17" />
   </Svg>
 );
-
 const SettingsIcon = (p: IconProps) => (
   <Svg {...p}>
     <circle cx="12" cy="12" r="3" />
     <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
   </Svg>
 );
-
 const ChannelsIcon = (p: IconProps) => (
   <Svg {...p}>
     <circle cx="7.5" cy="7.5" r="2.5" />
@@ -613,28 +582,24 @@ const ChannelsIcon = (p: IconProps) => (
     <circle cx="16.5" cy="16.5" r="2.5" />
   </Svg>
 );
-
 const BillingIcon = (p: IconProps) => (
   <Svg {...p}>
     <circle cx="12" cy="12" r="8.5" />
     <path d="M14.5 9.5c-.4-.9-1.4-1.5-2.5-1.5-1.4 0-2.5.8-2.5 1.9 0 2.6 5 1.2 5 4 0 1.1-1.1 1.9-2.5 1.9-1.2 0-2.2-.6-2.6-1.6M12 6.5V8M12 16v1.5" />
   </Svg>
 );
-
 const HelpIcon = (p: IconProps) => (
   <Svg {...p}>
     <circle cx="12" cy="12" r="8.5" />
     <path d="M9.6 9.5a2.5 2.5 0 0 1 4.8.9c0 1.6-2.4 2.1-2.4 3.6M12 16.8v.1" />
   </Svg>
 );
-
 const LightbulbIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="M9 18h6M10 21h4" />
     <path d="M12 3a6 6 0 0 0-4 10.5c.6.6 1 1.4 1 2.3V16h6v-.2c0-.9.4-1.7 1-2.3A6 6 0 0 0 12 3Z" />
   </Svg>
 );
-
 const BookmarkIcon = ({
   className,
   filled = false,
@@ -646,7 +611,6 @@ const BookmarkIcon = ({
     />
   </Svg>
 );
-
 const AppsIcon = (p: IconProps) => (
   <Svg {...p}>
     <rect x="4" y="4" width="6.5" height="6.5" rx="1.5" />
@@ -655,60 +619,50 @@ const AppsIcon = (p: IconProps) => (
     <rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.5" />
   </Svg>
 );
-
 const BetaIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="M9.5 4h5M10.5 4v5.2L5.6 17.6A2 2 0 0 0 7.3 20.5h9.4a2 2 0 0 0 1.7-2.9l-4.9-8.4V4" />
     <path d="M8 15h8" />
   </Svg>
 );
-
 const LogoutIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="M10 4.5H6.5a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2H10" />
     <path d="M14 8.5 18 12l-4 3.5M18 12H9.5" />
   </Svg>
 );
-
 const BoltIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="M13 3.5 5.5 13.2h5.6L10 20.5l7.5-9.7h-5.6L13 3.5Z" />
   </Svg>
 );
-
 const ChevronDownIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="m6 9 6 6 6-6" />
   </Svg>
 );
-
 const PlusIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="M12 5v14M5 12h14" />
   </Svg>
 );
-
 const MenuIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="M4 7h16M4 12h16M4 17h16" />
   </Svg>
 );
-
 const CloseIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="M6 6l12 12M18 6 6 18" />
   </Svg>
 );
-
 const PublishIcon = CalendarIcon;
-
 const CommunityIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="M4 5.5h10a1.5 1.5 0 0 1 1.5 1.5v5a1.5 1.5 0 0 1-1.5 1.5H8.5L5.5 16v-2.5H4A1.5 1.5 0 0 1 2.5 12V7A1.5 1.5 0 0 1 4 5.5Z" />
     <path d="M18.5 9.5H20a1.5 1.5 0 0 1 1.5 1.5v5a1.5 1.5 0 0 1-1.5 1.5h-1.5V20l-3-2.5H11" />
   </Svg>
 );
-
 const InsightsIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="M3 3v18h18" />
@@ -758,10 +712,9 @@ function SidebarToggleIcon({ className, open }: IconProps & { open: boolean }) {
   );
 }
 
-/* ============================================================================ 
-   Tooltip 
+/* ============================================================================
+Tooltip
 ============================================================================ */
-
 const TIP_DELAY_MS = 280;
 
 function Tip({
@@ -814,7 +767,6 @@ function Tip({
       className="flex w-full justify-center"
     >
       {children}
-
       {pos &&
         typeof document !== "undefined" &&
         createPortal(
@@ -837,12 +789,10 @@ function Tip({
   );
 }
 
-/* ============================================================================ 
-   Navigation data — construit à partir de COPY[lang]
+/* ============================================================================
+Navigation data — construit à partir de COPY[lang]
 ============================================================================ */
-
 const PER_CHANNEL_NAV_ROUTES = new Set(["schedule", "community"]);
-
 const FAVORITABLE_ROUTES = [
   "home",
   "schedule",
@@ -900,10 +850,9 @@ function buildMenuGroups(c: Copy): MenuItem[][] {
   ];
 }
 
-/* ============================================================================ 
-   Favorites storage
+/* ============================================================================
+Favorites storage
 ============================================================================ */
-
 const FAVORITES_STORAGE_PREFIX = "stone.sidebar.favorites";
 
 function favoritesStorageKey(userId: string | null): string {
@@ -912,11 +861,9 @@ function favoritesStorageKey(userId: string | null): string {
 
 function readStoredFavorites(userId: string | null): string[] {
   if (typeof window === "undefined") return [];
-
   try {
     const raw = window.localStorage.getItem(favoritesStorageKey(userId));
     const parsed: unknown = raw ? JSON.parse(raw) : [];
-
     return Array.isArray(parsed)
       ? parsed.filter(
           (route): route is string =>
@@ -943,15 +890,11 @@ function favoriteNamesStorageKey(userId: string | null): string {
 
 function readStoredFavoriteNames(userId: string | null): Record<string, string> {
   if (typeof window === "undefined") return {};
-
   try {
     const raw = window.localStorage.getItem(favoriteNamesStorageKey(userId));
     const parsed: unknown = raw ? JSON.parse(raw) : {};
-
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
-
     const result: Record<string, string> = {};
-
     Object.entries(parsed as Record<string, unknown>).forEach(([route, name]) => {
       if (
         typeof name === "string" &&
@@ -961,7 +904,6 @@ function readStoredFavoriteNames(userId: string | null): Record<string, string> 
         result[route] = name.trim().slice(0, FAVORITE_NAME_MAX);
       }
     });
-
     return result;
   } catch {
     return {};
@@ -1012,11 +954,9 @@ export function useFavorites() {
       setRoutes(readStoredFavorites(userId));
       setNames(readStoredFavoriteNames(userId));
     };
-
     sync();
     window.addEventListener(FAVORITES_EVENT, sync);
     window.addEventListener("storage", sync);
-
     return () => {
       window.removeEventListener(FAVORITES_EVENT, sync);
       window.removeEventListener("storage", sync);
@@ -1030,10 +970,8 @@ export function useFavorites() {
       const next = removing
         ? current.filter((r) => r !== route)
         : [...current, route];
-
       writeStoredFavorites(userId, next);
       setRoutes(next);
-
       if (removing) {
         const currentNames = readStoredFavoriteNames(userId);
         if (route in currentNames) {
@@ -1042,7 +980,6 @@ export function useFavorites() {
           setNames(rest);
         }
       }
-
       window.dispatchEvent(new Event(FAVORITES_EVENT));
     },
     [userId]
@@ -1052,10 +989,8 @@ export function useFavorites() {
     (route: string, name: string) => {
       const trimmed = name.trim().slice(0, FAVORITE_NAME_MAX);
       const next = { ...readStoredFavoriteNames(userId) };
-
       if (trimmed) next[route] = trimmed;
       else delete next[route];
-
       writeStoredFavoriteNames(userId, next);
       setNames(next);
       window.dispatchEvent(new Event(FAVORITES_EVENT));
@@ -1087,7 +1022,6 @@ function formatPlanLabel(
 ): string | null {
   const normalized = name?.trim().toLowerCase();
   if (!normalized) return null;
-
   const labels: Record<string, string> = {
     starter: c.plans.starter,
     pro: c.plans.professional,
@@ -1095,14 +1029,12 @@ function formatPlanLabel(
     enterprise: c.plans.enterprise,
     free: c.plans.free,
   };
-
   return labels[normalized] ?? name?.trim() ?? null;
 }
 
-/* ============================================================================ 
-   Navigation item 
+/* ============================================================================
+Navigation item
 ============================================================================ */
-
 function NavItemViewImpl({
   item,
   currentRoute,
@@ -1148,7 +1080,6 @@ function NavItemViewImpl({
           ].join(" ")}
         >
           <Icon className="h-[18px] w-[18px] shrink-0" />
-
           {!compact && (
             <>
               <span
@@ -1171,7 +1102,6 @@ function NavItemViewImpl({
               )}
             </>
           )}
-
           {compact && item.badge && (
             <span
               aria-hidden="true"
@@ -1190,10 +1120,9 @@ function NavItemViewImpl({
 
 const NavItemView = memo(NavItemViewImpl);
 
-/* ============================================================================ 
-   Channels (réseaux connectés) 
+/* ============================================================================
+Channels (réseaux connectés)
 ============================================================================ */
-
 type NetworkKey =
   | "x"
   | "facebook"
@@ -1222,7 +1151,6 @@ function getNetworkId(channel: ConnectedChannel): NetworkKey | null {
   const raw = String(c.platform ?? c.network ?? c.provider ?? channel.key)
     .toLowerCase()
     .trim();
-
   if (raw.includes("tiktok")) return "tiktok";
   if (raw.includes("insta")) return "instagram";
   if (raw.includes("youtube") || raw === "yt") return "youtube";
@@ -1236,14 +1164,12 @@ function getNetworkId(channel: ConnectedChannel): NetworkKey | null {
 
 function getHashChannel(): string | null {
   if (typeof window === "undefined") return null;
-
   const hash = window.location.hash;
   const qIndex = hash.indexOf("?");
   if (qIndex !== -1) {
     const fromHash = new URLSearchParams(hash.slice(qIndex + 1)).get("channel");
     if (fromHash) return fromHash;
   }
-
   return new URLSearchParams(window.location.search).get("channel");
 }
 
@@ -1281,7 +1207,6 @@ function buildStandaloneLinks(c: Copy): ChannelLink[] {
 }
 
 const CHANNEL_ROUTES = new Set(["insights", "community", "schedule"]);
-
 const formatUnread = (count: number) => (count > 9 ? "9+" : String(count));
 
 function withUnreadBadge<T extends { route: string; badge?: string }>(
@@ -1322,9 +1247,7 @@ function applyOrder(
   order: string[]
 ): ConnectedChannel[] {
   if (order.length === 0) return channels;
-
   const rank = new Map(order.map((key, index) => [key, index]));
-
   return channels
     .map((channel, index) => ({ channel, index }))
     .sort((a, b) => {
@@ -1351,7 +1274,6 @@ function ChannelAvatar({
   hasUnread?: boolean;
 }) {
   const [failed, setFailed] = useState(false);
-
   useEffect(() => {
     setFailed(false);
   }, [channel.avatarUrl]);
@@ -1383,7 +1305,6 @@ function ChannelAvatar({
           {initial}
         </span>
       )}
-
       {hasUnread && (
         <span
           aria-hidden="true"
@@ -1394,7 +1315,6 @@ function ChannelAvatar({
           ].join(" ")}
         />
       )}
-
       {NetworkIcon && (
         <span
           className={[
@@ -1453,7 +1373,6 @@ function ChannelHoverCard({
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
 
   const cancelHide = useCallback(() => window.clearTimeout(hideTimer.current), []);
-
   const openNow = useCallback(() => {
     const rect = anchorRef.current?.getBoundingClientRect();
     if (rect) setPos({ top: rect.top, left: rect.right + 10 });
@@ -1514,13 +1433,11 @@ function ChannelHoverCard({
 
   const onAnchorKeyDown = (event: React.KeyboardEvent) => {
     if (!anchorRef.current?.contains(event.target as Node)) return;
-
     if (event.key === "Escape" && pos) {
       event.preventDefault();
       setPos(null);
       return;
     }
-
     if (event.key === "ArrowRight" && enabled) {
       event.preventDefault();
       if (!pos) openNow();
@@ -1566,7 +1483,6 @@ function ChannelHoverCard({
       className="relative flex w-full justify-center"
     >
       {children}
-
       {pos &&
         typeof document !== "undefined" &&
         createPortal(
@@ -1600,7 +1516,6 @@ function ChannelHoverCard({
               >
                 {label.replace(/^@/, "")}
               </span>
-
               <button
                 type="button"
                 role="menuitem"
@@ -1620,24 +1535,19 @@ function ChannelHoverCard({
                 <PlusIcon className="h-4 w-4" />
               </button>
             </div>
-
             <div className={["border-t pt-1", t.menuDivider].join(" ")} />
-
             <div className="flex flex-col gap-0.5">
               {links.map((link) => {
                 const Icon = link.icon;
-
                 const target = link.perChannel
                   ? `${link.route}?channel=${encodeURIComponent(channel.key)}`
                   : link.route;
-
                 const active = link.perChannel
                   ? link.route === currentRoute &&
                     (hashChannel === null
                       ? firstChannelKey === channel.key
                       : hashChannel === channel.key)
                   : link.route === currentRoute;
-
                 return (
                   <button
                     key={link.route}
@@ -1679,10 +1589,9 @@ function ChannelHoverCard({
   );
 }
 
-/* ============================================================================ 
-   Favoris 
+/* ============================================================================
+Favoris
 ============================================================================ */
-
 const MoreIcon = (p: IconProps) => (
   <Svg {...p}>
     <circle cx="5.5" cy="12" r="1.1" fill="currentColor" stroke="none" />
@@ -1690,14 +1599,12 @@ const MoreIcon = (p: IconProps) => (
     <circle cx="18.5" cy="12" r="1.1" fill="currentColor" stroke="none" />
   </Svg>
 );
-
 const PencilIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="M4 20h4L19 9a2.1 2.1 0 0 0-3-3L5 17v3Z" />
     <path d="m14.5 7.5 3 3" />
   </Svg>
 );
-
 const TrashIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="M4.5 7h15M10 11v6M14 11v6" />
@@ -1734,7 +1641,6 @@ function FavoriteRowImpl({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const cancelRef = useRef(false);
-
   const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(
     null
   );
@@ -1744,7 +1650,6 @@ function FavoriteRowImpl({
   const openMenu = () => {
     const rect = triggerRef.current?.getBoundingClientRect();
     if (!rect) return;
-
     const left = Math.max(
       8,
       Math.min(
@@ -1752,13 +1657,11 @@ function FavoriteRowImpl({
         window.innerWidth - FAVORITE_MENU_WIDTH - 8
       )
     );
-
     setMenuPos({ top: rect.bottom + 6, left });
   };
 
   useEffect(() => {
     if (!menuOpen) return;
-
     const onPointerDown = (event: PointerEvent) => {
       const target = event.target as Node;
       if (
@@ -1768,7 +1671,6 @@ function FavoriteRowImpl({
         return;
       setMenuPos(null);
     };
-
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         event.stopPropagation();
@@ -1776,20 +1678,16 @@ function FavoriteRowImpl({
         triggerRef.current?.focus();
       }
     };
-
     const dismiss = () => setMenuPos(null);
-
     document.addEventListener("pointerdown", onPointerDown);
     document.addEventListener("keydown", onKeyDown);
     window.addEventListener("resize", dismiss);
     window.addEventListener("scroll", dismiss, true);
-
     const id = requestAnimationFrame(() => {
       menuRef.current
         ?.querySelector<HTMLElement>('[role="menuitem"]')
         ?.focus({ preventScroll: true });
     });
-
     return () => {
       cancelAnimationFrame(id);
       document.removeEventListener("pointerdown", onPointerDown);
@@ -1805,13 +1703,11 @@ function FavoriteRowImpl({
     );
     const current = items.indexOf(document.activeElement as HTMLElement);
     let next = -1;
-
     if (event.key === "ArrowDown") next = (current + 1) % items.length;
     else if (event.key === "ArrowUp")
       next = (current - 1 + items.length) % items.length;
     else if (event.key === "Home") next = 0;
     else if (event.key === "End") next = items.length - 1;
-
     if (next >= 0) {
       event.preventDefault();
       items[next].focus();
@@ -1896,7 +1792,6 @@ function FavoriteRowImpl({
               </span>
             )}
           </button>
-
           <button
             ref={triggerRef}
             type="button"
@@ -1920,7 +1815,6 @@ function FavoriteRowImpl({
           </button>
         </>
       )}
-
       {menuPos &&
         typeof document !== "undefined" &&
         createPortal(
@@ -1955,7 +1849,6 @@ function FavoriteRowImpl({
               />
               <span className="flex-1 truncate">{c.actions.rename}</span>
             </button>
-
             <button
               type="button"
               role="menuitem"
@@ -2072,10 +1965,9 @@ function SidebarChannelsImpl({
   const [openKeys, setOpenKeys] = useState<string[]>(channelsMemory.open);
 
   /* ------------------------------------------------------------------
-     Appui long (drag tactile) + suppression du clic qui suit
+  Appui long (drag tactile) + suppression du clic qui suit
   ------------------------------------------------------------------ */
   const LONG_PRESS_MS = 380;
-
   const suppressClickRef = useRef(false);
   const longPressRef = useRef<{
     timer: number;
@@ -2091,13 +1983,11 @@ function SidebarChannelsImpl({
   }, []);
 
   useEffect(() => cancelLongPress, [cancelLongPress]);
-
   useEffect(() => {
     channelsMemory.open = openKeys;
   }, [openKeys]);
 
   const [favOpen, setFavOpen] = useState<boolean>(readFavoritesOpen);
-
   const toggleFav = useCallback(() => {
     setFavOpen((previous) => {
       writeFavoritesOpen(!previous);
@@ -2115,7 +2005,6 @@ function SidebarChannelsImpl({
 
   const [order, setOrder] = useState<string[]>(() => readStoredOrder(userId));
   const [dragKey, setDragKey] = useState<string | null>(null);
-
   const listRef = useRef<HTMLDivElement>(null);
   const focusKeyRef = useRef<string | null>(null);
   const dragKeyRef = useRef<string | null>(null);
@@ -2129,7 +2018,6 @@ function SidebarChannelsImpl({
     () => applyOrder(rawChannels, order),
     [rawChannels, order]
   );
-
   const channelsRef = useRef(channels);
   channelsRef.current = channels;
 
@@ -2148,9 +2036,7 @@ function SidebarChannelsImpl({
       const keys = channels.map((channel) => channel.key);
       const from = keys.indexOf(key);
       const to = from + delta;
-
       if (from === -1 || to < 0 || to >= keys.length) return;
-
       [keys[from], keys[to]] = [keys[to], keys[from]];
       focusKeyRef.current = key;
       commitOrder(keys);
@@ -2161,9 +2047,7 @@ function SidebarChannelsImpl({
   useEffect(() => {
     const key = focusKeyRef.current;
     if (!key) return;
-
     focusKeyRef.current = null;
-
     listRef.current
       ?.querySelector<HTMLElement>(
         `[data-channel-key="${CSS.escape(key)}"] button[aria-expanded]`
@@ -2177,39 +2061,31 @@ function SidebarChannelsImpl({
     const fromKey = dragKeyRef.current;
     const list = listRef.current;
     if (!fromKey || !list) return;
-
     const currentKeys = channelsRef.current.map((channel) => channel.key);
     const others = currentKeys.filter((key) => key !== fromKey);
-
     const y = clientY - list.getBoundingClientRect().top;
-
     let insertAt = others.length;
-
     for (let i = 0; i < others.length; i++) {
       const el = list.querySelector<HTMLElement>(
         `[data-channel-key="${CSS.escape(others[i])}"]`
       );
       const row = el?.firstElementChild as HTMLElement | null;
       if (!row) continue;
-
       if (y < row.offsetTop + row.offsetHeight / 2) {
         insertAt = i;
         break;
       }
     }
-
     const next = [...others];
     next.splice(insertAt, 0, fromKey);
-
     if (next.every((key, index) => key === currentKeys[index])) return;
-
     liveOrderRef.current = next;
     setOrder(next);
   }, []);
 
   /* ------------------------------------------------------------------
-     startDrag (souris + tactile), onHandlePointerDown,
-     onRowPointerDown (appui long), onRowPointerMove
+  startDrag (souris + tactile), onHandlePointerDown,
+  onRowPointerDown (appui long), onRowPointerMove
   ------------------------------------------------------------------ */
   const startDrag = (
     wrapper: HTMLElement,
@@ -2220,13 +2096,10 @@ function SidebarChannelsImpl({
   ) => {
     const row = wrapper.firstElementChild as HTMLElement | null;
     if (!row) return;
-
     dragCleanupRef.current?.(true);
-
     const rect = row.getBoundingClientRect();
     const offY = startY - rect.top;
     const originalOrder = channelsRef.current.map((channel) => channel.key);
-
     const previousCursor = document.body.style.cursor;
     const previousSelect = document.body.style.userSelect;
     const g = { el: null as HTMLElement | null };
@@ -2234,7 +2107,6 @@ function SidebarChannelsImpl({
     const createGhost = () => {
       const ghost = row.cloneNode(true) as HTMLElement;
       ghost.setAttribute("aria-hidden", "true");
-
       Object.assign(ghost.style, {
         position: "fixed",
         margin: "0",
@@ -2255,21 +2127,17 @@ function SidebarChannelsImpl({
           ? "0 18px 40px rgba(0,0,0,0.7)"
           : "0 18px 40px rgba(0,0,0,0.18)",
       } as Partial<CSSStyleDeclaration>);
-
       const grip = ghost.querySelector<HTMLElement>("[data-grip]");
       if (grip) {
         grip.style.opacity = "1";
         grip.style.transform = "none";
         grip.style.transition = "none";
       }
-
       const plus = ghost.querySelector<HTMLElement>("[data-new-post]");
       if (plus) plus.style.display = "none";
-
       document.body.appendChild(ghost);
       document.body.style.cursor = "grabbing";
       document.body.style.userSelect = "none";
-
       g.el = ghost;
       dragKeyRef.current = key;
       liveOrderRef.current = null;
@@ -2282,16 +2150,13 @@ function SidebarChannelsImpl({
         createGhost();
       }
       if (!g.el) return;
-
       g.el.style.top = `${ev.clientY - offY}px`;
-
       const nav = listRef.current?.closest("nav");
       if (nav) {
         const nr = nav.getBoundingClientRect();
         if (ev.clientY > nr.bottom - 40) nav.scrollTop += 10;
         else if (ev.clientY < nr.top + 40) nav.scrollTop -= 10;
       }
-
       moveLive(ev.clientY);
     };
 
@@ -2310,13 +2175,11 @@ function SidebarChannelsImpl({
       window.removeEventListener("pointercancel", onUp);
       window.removeEventListener("keydown", onKey);
       window.removeEventListener("touchmove", onTouchMove);
-
       g.el?.remove();
       g.el = null;
       document.body.style.cursor = previousCursor;
       document.body.style.userSelect = previousSelect;
       dragCleanupRef.current = null;
-
       if (dragKeyRef.current) {
         if (cancel) {
           setOrder(originalOrder);
@@ -2324,11 +2187,9 @@ function SidebarChannelsImpl({
           writeStoredOrder(userId, liveOrderRef.current);
         }
       }
-
       liveOrderRef.current = null;
       dragKeyRef.current = null;
       setDragKey(null);
-
       // Evite que le relachement declenche un clic (ouverture/fermeture).
       window.setTimeout(() => {
         suppressClickRef.current = false;
@@ -2343,7 +2204,6 @@ function SidebarChannelsImpl({
     window.addEventListener("keydown", onKey);
     window.addEventListener("touchmove", onTouchMove, { passive: false });
     dragCleanupRef.current = finish;
-
     if (immediate) createGhost();
   };
 
@@ -2351,12 +2211,10 @@ function SidebarChannelsImpl({
   const onHandlePointerDown = (event: React.PointerEvent, key: string) => {
     if (!canReorder) return;
     if (event.pointerType === "mouse" && event.button !== 0) return;
-
     const wrapper = (event.currentTarget as HTMLElement).closest<HTMLElement>(
       "[data-channel-key]"
     );
     if (!wrapper) return;
-
     event.preventDefault();
     startDrag(wrapper, key, event.clientX, event.clientY, false);
   };
@@ -2364,17 +2222,13 @@ function SidebarChannelsImpl({
   // Tactile : appui long sur la ligne du canal.
   const onRowPointerDown = (event: React.PointerEvent, key: string) => {
     if (!canReorder || event.pointerType === "mouse") return;
-
     const target = event.currentTarget as HTMLElement;
     const wrapper = target.closest<HTMLElement>("[data-channel-key]");
     if (!wrapper) return;
-
     cancelLongPress();
-
     const x = event.clientX;
     const y = event.clientY;
     const pointerId = event.pointerId;
-
     const timer = window.setTimeout(() => {
       longPressRef.current = null;
       suppressClickRef.current = true;
@@ -2386,7 +2240,6 @@ function SidebarChannelsImpl({
       navigator.vibrate?.(12);
       startDrag(wrapper, key, x, y, true);
     }, LONG_PRESS_MS);
-
     longPressRef.current = { timer, x, y };
   };
 
@@ -2402,7 +2255,6 @@ function SidebarChannelsImpl({
   useEffect(() => {
     if (!canReorder) dragCleanupRef.current?.(true);
   }, [canReorder]);
-
   useEffect(() => () => dragCleanupRef.current?.(true), []);
 
   const prevTops = useRef(new Map<string, number>());
@@ -2411,19 +2263,15 @@ function SidebarChannelsImpl({
   useLayoutEffect(() => {
     const list = listRef.current;
     if (!list) return;
-
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const orderKey = channels.map((channel) => channel.key).join("|");
     const orderChanged = orderKey !== prevOrderKey.current;
     const next = new Map<string, number>();
-
     list.querySelectorAll<HTMLElement>("[data-channel-key]").forEach((el) => {
       const key = el.dataset.channelKey as string;
       const top = el.offsetTop;
       next.set(key, top);
-
       const prev = prevTops.current.get(key);
-
       if (!reduce && orderChanged && prev !== undefined && prev !== top) {
         el.style.transition = "none";
         el.style.transform = `translateY(${prev - top}px)`;
@@ -2436,7 +2284,6 @@ function SidebarChannelsImpl({
         });
       }
     });
-
     prevTops.current = next;
     prevOrderKey.current = orderKey;
   });
@@ -2444,13 +2291,12 @@ function SidebarChannelsImpl({
   const hashChannel = CHANNEL_ROUTES.has(currentRoute) ? getHashChannel() : null;
 
   /* ------------------------------------------------------------------
-     toggleKey — version d'origine (mobile et desktop identiques)
+  toggleKey — version d'origine (mobile et desktop identiques)
   ------------------------------------------------------------------ */
   const toggleKey = (key: string) =>
     setOpenKeys((prev) =>
       prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
     );
-
   const openKey = (key: string) =>
     setOpenKeys((prev) => (prev.includes(key) ? prev : [...prev, key]));
 
@@ -2511,7 +2357,6 @@ function SidebarChannelsImpl({
                   ].join(" ")}
                 />
               </button>
-
               <div
                 id="sidebar-favorites"
                 {...(favOpen ? {} : ({ inert: "" } as Record<string, unknown>))}
@@ -2555,7 +2400,6 @@ function SidebarChannelsImpl({
           const link = withUnreadBadge(rawLink, totalUnread);
           const Icon = link.icon;
           const isActive = link.route === currentRoute;
-
           return (
             <Tip
               key={link.route}
@@ -2579,7 +2423,6 @@ function SidebarChannelsImpl({
                 ].join(" ")}
               >
                 <Icon className="h-[18px] w-[18px] shrink-0" />
-
                 {!compact && (
                   <>
                     <span className="sb-fade flex-1 truncate text-left">
@@ -2597,7 +2440,6 @@ function SidebarChannelsImpl({
                     )}
                   </>
                 )}
-
                 {compact && link.badge && (
                   <span
                     aria-hidden="true"
@@ -2624,7 +2466,6 @@ function SidebarChannelsImpl({
               ? c.sections.connectChannels
               : c.sections.channels}
           </span>
-
           <span
             className={[
               "flex items-center gap-0.5",
@@ -2649,7 +2490,6 @@ function SidebarChannelsImpl({
             >
               <SettingsIcon className="h-[15px] w-[15px]" />
             </button>
-
             <button
               type="button"
               aria-label={c.actions.connectChannelAria}
@@ -2677,15 +2517,12 @@ function SidebarChannelsImpl({
 
         /* isOpen — version d'origine (mobile et desktop identiques) */
         const isOpen = openKeys.includes(groupKey) && !compact;
-
         const isActiveChannel =
           CHANNEL_ROUTES.has(currentRoute) &&
           (hashChannel === null
             ? channels[0]?.key === channel.key
             : hashChannel === channel.key);
-
         const isDragging = dragKey === channel.key;
-
         const unreadCount = unreadCounts[channel.key] ?? 0;
         const hasUnread = unreadCount > 0;
         const channelLinks = channelLinksBase.map((link) =>
@@ -2731,7 +2568,6 @@ function SidebarChannelsImpl({
                   <GripIcon className="h-4 w-2" />
                 </span>
               )}
-
               {!compact && (
                 <button
                   type="button"
@@ -2756,7 +2592,6 @@ function SidebarChannelsImpl({
                   <PlusIcon className="h-[15px] w-[15px]" />
                 </button>
               )}
-
               <ChannelHoverCard
                 channel={channel}
                 label={label}
@@ -2774,7 +2609,7 @@ function SidebarChannelsImpl({
                 hasUnread={hasUnread}
               >
                 {/* Handlers de drag tactile + suppression du clic
-                    apres un long-press */}
+                apres un long-press */}
                 <button
                   type="button"
                   aria-expanded={isOpen}
@@ -2791,7 +2626,6 @@ function SidebarChannelsImpl({
                     if (!canReorder || !event.altKey) return;
                     if (event.key !== "ArrowUp" && event.key !== "ArrowDown")
                       return;
-
                     event.preventDefault();
                     shiftChannel(
                       channel.key,
@@ -2845,7 +2679,6 @@ function SidebarChannelsImpl({
                     size={compact ? "lg" : "md"}
                     hasUnread={hasUnread}
                   />
-
                   {!compact && (
                     <>
                       <span className="sb-fade min-w-0 flex-1 truncate pr-0 text-left group-hover/row:pr-7 group-focus-within/row:pr-7">
@@ -2863,7 +2696,6 @@ function SidebarChannelsImpl({
                 </button>
               </ChannelHoverCard>
             </div>
-
             {!compact && (
               <div
                 className={[
@@ -2881,20 +2713,17 @@ function SidebarChannelsImpl({
                   >
                     {channelLinks.map((link) => {
                       const Icon = link.icon;
-
                       const target = link.perChannel
                         ? `${link.route}?channel=${encodeURIComponent(
                             channel.key
                           )}`
                         : link.route;
-
                       const active = link.perChannel
                         ? link.route === currentRoute &&
                           (hashChannel === null
                             ? channels[0]?.key === channel.key
                             : hashChannel === channel.key)
                         : link.route === currentRoute;
-
                       return (
                         <button
                           key={link.route}
@@ -2938,10 +2767,9 @@ function SidebarChannelsImpl({
 
 const SidebarChannels = memo(SidebarChannelsImpl);
 
-/* ============================================================================ 
-   Sidebar memory 
+/* ============================================================================
+Sidebar memory
 ============================================================================ */
-
 const SIDEBAR_STORAGE_KEY = "stone.sidebar.collapsed";
 
 function readStoredCollapsed(): boolean {
@@ -2995,15 +2823,13 @@ export function useSidebarOffset(): number {
     () => true
   );
   const isMobile = useIsMobile();
-
   if (isMobile) return 0;
   return collapsed ? SIDEBAR_COLLAPSED_OFFSET : SIDEBAR_EXPANDED_OFFSET;
 }
 
-/* ============================================================================ 
-   Recalcul des non-lus à l'ouverture
+/* ============================================================================
+Recalcul des non-lus à l'ouverture
 ============================================================================ */
-
 const UNREAD_POLL_MS = 60_000;
 const UNREAD_MAX_PAGES = 3;
 
@@ -3017,18 +2843,15 @@ function useUnreadSync(channels: ConnectedChannel[]) {
 
   useEffect(() => {
     if (!youtubeKey) return;
-
     let cancelled = false;
     let busy = false;
 
     const refresh = async () => {
       if (busy || document.hidden) return;
       busy = true;
-
       try {
         let total = 0;
         let pageToken: string | null = null;
-
         for (let page = 0; page < UNREAD_MAX_PAGES; page++) {
           const r = await fetchYouTubeComments({
             filter: "unread",
@@ -3036,14 +2859,11 @@ function useUnreadSync(channels: ConnectedChannel[]) {
             ...(pageToken ? { pageToken } : {}),
           });
           if (cancelled) return;
-
           const list = Array.isArray(r?.comments) ? r.comments : [];
           total += list.filter((c) => !c.is_read && !c.is_own).length;
-
           pageToken = r?.next_page_token ?? null;
           if (!pageToken) break;
         }
-
         setChannelUnreadCount(youtubeKey, total);
       } catch {
         /* silencieux */
@@ -3053,13 +2873,11 @@ function useUnreadSync(channels: ConnectedChannel[]) {
     };
 
     void refresh();
-
     const timer = window.setInterval(refresh, UNREAD_POLL_MS);
     const onVisible = () => {
       if (!document.hidden) void refresh();
     };
     document.addEventListener("visibilitychange", onVisible);
-
     return () => {
       cancelled = true;
       window.clearInterval(timer);
@@ -3068,10 +2886,9 @@ function useUnreadSync(channels: ConnectedChannel[]) {
   }, [youtubeKey]);
 }
 
-/* ============================================================================ 
-   Sidebar 
+/* ============================================================================
+Sidebar
 ============================================================================ */
-
 type DashboardSidebarProps = {
   theme?: Theme;
   onToggleTheme?: (origin?: { x: number; y: number }) => void;
@@ -3083,17 +2900,12 @@ export default function DashboardSidebar({
   const themeContext = useTheme();
   const theme = themeProp ?? themeContext.theme;
   const isDark = theme === "dark";
-
   const lang = useLanguage();
   const c = COPY[lang];
-
   const currentRoute = useHashRoute();
   const connectedChannels = useConnectedChannels();
-
   useUnreadSync(connectedChannels);
-
   const isMobile = useIsMobile();
-
   const { show: showMfaNudge } = useMfaNudge();
 
   const unreadCounts = useUnreadCounts();
@@ -3105,7 +2917,6 @@ export default function DashboardSidebar({
     totalUnread > 0 ? formatUnread(totalUnread) : undefined;
 
   const hasChannels = connectedChannels.length > 0;
-
   const navItems = useMemo(() => buildNavItems(c), [c]);
   const extraFavoritable = useMemo(() => buildExtraFavoritable(c), [c]);
   const favoritableItems = useMemo(
@@ -3118,7 +2929,6 @@ export default function DashboardSidebar({
     const base = hasChannels
       ? navItems.filter((item) => !PER_CHANNEL_NAV_ROUTES.has(item.route))
       : navItems;
-
     return base.map((item) =>
       item.route === "community"
         ? { ...item, badge: communityNavBadge }
@@ -3129,6 +2939,7 @@ export default function DashboardSidebar({
   const { user } = useUser();
   const { subscription, hasActive: hasActiveSubscription } = useSubscription();
   const userId = user?.id ?? null;
+
   const {
     routes: favoriteRoutes,
     names: favoriteNames,
@@ -3158,7 +2969,7 @@ export default function DashboardSidebar({
   const menuRef = useRef<HTMLDivElement>(null);
 
   /* ------------------------------------------------------------------
-     Drag-to-dismiss du bottom sheet mobile
+  Drag-to-dismiss du bottom sheet mobile
   ------------------------------------------------------------------ */
   const sheetRef = useRef<HTMLDivElement>(null);
   const sheetDragRef = useRef<{
@@ -3207,9 +3018,7 @@ export default function DashboardSidebar({
   const onSheetPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
     const drag = sheetDragRef.current;
     if (!drag) return;
-
     const dy = event.clientY - drag.startY;
-
     if (!drag.active) {
       // On ne capture le pointeur qu'apres un vrai mouvement,
       // pour ne pas casser le clic sur le bouton "Upgrade".
@@ -3218,12 +3027,10 @@ export default function DashboardSidebar({
       event.currentTarget.setPointerCapture(drag.pointerId);
       setSheetDragging(true);
     }
-
     const now = performance.now();
     drag.velocity = (event.clientY - drag.lastY) / Math.max(1, now - drag.lastT);
     drag.lastY = event.clientY;
     drag.lastT = now;
-
     updateSheetOffset(Math.max(0, dy));
   };
 
@@ -3231,9 +3038,7 @@ export default function DashboardSidebar({
     const drag = sheetDragRef.current;
     sheetDragRef.current = null;
     if (!drag?.active) return;
-
     setSheetDragging(false);
-
     const height = sheetRef.current?.offsetHeight ?? 400;
     if (sheetOffsetRef.current > height * 0.25 || drag.velocity > 0.6) {
       closeSheetAnimated();
@@ -3244,11 +3049,9 @@ export default function DashboardSidebar({
 
   useEffect(() => {
     let mounted = true;
-
     const loadUserProfile = async () => {
       try {
         const userData = await getCurrentUser();
-
         if (mounted && userData) {
           userProfileCache.profile = userData;
           setUserProfile(userData);
@@ -3258,9 +3061,7 @@ export default function DashboardSidebar({
         console.error("Error loading user profile in sidebar:", error);
       }
     };
-
     loadUserProfile();
-
     return () => {
       mounted = false;
     };
@@ -3283,31 +3084,21 @@ export default function DashboardSidebar({
   // et ferme avec Echap (le sheet du compte garde la priorite).
   useEffect(() => {
     if (!mobileOpen) return;
-
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape" && !menuOpen) {
         setMobileOpen(false);
       }
     };
-
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
     window.addEventListener("keydown", onKeyDown);
-
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      window.removeEventListener("keydown", onKeyDown);
-    };
+    return () => window.removeEventListener("keydown", onKeyDown);
   }, [mobileOpen, menuOpen]);
 
   // Mobile : Echap ferme le sheet du compte (avec animation).
   useEffect(() => {
     if (!isMobile || !menuOpen) return;
-
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") closeSheetAnimated();
     };
-
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -3316,29 +3107,24 @@ export default function DashboardSidebar({
   // Desktop : popover du compte (clic exterieur + Echap + navigation clavier).
   useEffect(() => {
     if (!menuOpen || isMobile) return;
-
     const onPointerDown = (event: PointerEvent) => {
       if (!profileRef.current?.contains(event.target as Node)) {
         setMenuOpen(false);
       }
     };
-
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         setMenuOpen(false);
         triggerRef.current?.focus();
       }
     };
-
     document.addEventListener("pointerdown", onPointerDown);
     document.addEventListener("keydown", onKeyDown);
-
     const id = requestAnimationFrame(() => {
       menuRef.current
         ?.querySelector<HTMLElement>('[role="menuitem"]:not([disabled])')
         ?.focus({ preventScroll: true });
     });
-
     return () => {
       cancelAnimationFrame(id);
       document.removeEventListener("pointerdown", onPointerDown);
@@ -3353,18 +3139,14 @@ export default function DashboardSidebar({
           '[role="menuitem"]:not([disabled])'
         )
       );
-
       if (items.length === 0) return;
-
       const current = items.indexOf(document.activeElement as HTMLElement);
       let next = -1;
-
       if (event.key === "ArrowDown") next = (current + 1) % items.length;
       else if (event.key === "ArrowUp")
         next = (current - 1 + items.length) % items.length;
       else if (event.key === "Home") next = 0;
       else if (event.key === "End") next = items.length - 1;
-
       if (next >= 0) {
         event.preventDefault();
         items[next].focus();
@@ -3446,12 +3228,10 @@ export default function DashboardSidebar({
 
   const toggleCollapsed = useCallback(() => {
     setMenuOpen(false);
-
     if (isMobile) {
       setMobileOpen((previous) => !previous);
       return;
     }
-
     setIsCollapsed((previous) => !previous);
   }, [isMobile]);
 
@@ -3465,13 +3245,10 @@ export default function DashboardSidebar({
       ) {
         return;
       }
-
       if (isTypingTarget(event.target)) return;
-
       event.preventDefault();
       toggleCollapsed();
     };
-
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [toggleCollapsed]);
@@ -3504,27 +3281,21 @@ export default function DashboardSidebar({
       if (!event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) {
         return;
       }
-
       if (isTypingTarget(event.target)) return;
-
       const key = shortcutKey(event);
       if (!key) return;
-
       if (key === "p") {
         event.preventDefault();
         setMenuOpen((value) => !value);
         return;
       }
-
       const route = SHORTCUT_ROUTES[key];
-
       if (route) {
         event.preventDefault();
         setMenuOpen(false);
         handleNavigate(route);
       }
     };
-
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [handleNavigate]);
@@ -3533,10 +3304,8 @@ export default function DashboardSidebar({
 
   const handleLogout = useCallback(async () => {
     if (loggingOut) return;
-
     setMenuOpen(false);
     setLoggingOut(true);
-
     try {
       await signOut();
     } catch (error) {
@@ -3548,10 +3317,8 @@ export default function DashboardSidebar({
   }, [loggingOut]);
 
   let menuItemIndex = 0;
-
   const hasLivePlan =
     hasActiveSubscription || subscription?.status === "past_due";
-
   const accountPlan = hasLivePlan
     ? formatPlanLabel(
         subscription?.plan_name ?? subscription?.plan ?? subscription?.plan_key,
@@ -3581,7 +3348,6 @@ export default function DashboardSidebar({
       };
 
   const showAvatarImage = Boolean(account.avatarUrl) && !avatarLoadFailed;
-
   const planMax = Number.isFinite(PLAN.maxChannels) ? PLAN.maxChannels : 0;
   const planPct =
     planMax > 0
@@ -3596,9 +3362,8 @@ export default function DashboardSidebar({
   return (
     <>
       <style>{SIDEBAR_KEYFRAMES}</style>
-
       {/* ------------------------------------------------------------------
-          MOBILE : barre du haut (hamburger / croix + logo Stone)
+      MOBILE : barre du haut (hamburger / croix + logo Stone)
       ------------------------------------------------------------------ */}
       {isMobile && (
         <header
@@ -3630,7 +3395,6 @@ export default function DashboardSidebar({
               <MenuIcon className="h-[22px] w-[22px]" />
             )}
           </button>
-
           <button
             type="button"
             aria-label={c.actions.stoneHome}
@@ -3656,7 +3420,7 @@ export default function DashboardSidebar({
       )}
 
       {/* ------------------------------------------------------------------
-          MOBILE : bottom sheet du compte (drag-to-dismiss)
+      MOBILE : bottom sheet du compte (drag-to-dismiss)
       ------------------------------------------------------------------ */}
       {isMobile && menuOpen && (
         <>
@@ -3665,7 +3429,6 @@ export default function DashboardSidebar({
             onClick={() => closeSheetAnimated()}
             className="sb-backdrop fixed inset-0 z-[55] bg-black/50"
           />
-
           <div
             ref={sheetRef}
             id="mobile-sheet"
@@ -3698,7 +3461,6 @@ export default function DashboardSidebar({
               <div className="flex justify-center pb-2 pt-3">
                 <span className={["h-1 w-9 rounded-full", t.divider].join(" ")} />
               </div>
-
               {/* Bloc compte */}
               <div className="px-5 pb-4 pt-1">
                 <div className={["truncate text-[13px]", t.muted].join(" ")}>
@@ -3710,7 +3472,6 @@ export default function DashboardSidebar({
                 <div className={["mt-0.5 text-[13px]", t.muted].join(" ")}>
                   {account.plan} · {c.actions.nChannels(account.channels)}
                 </div>
-
                 <button
                   type="button"
                   onClick={() => handleNavigate("pricing")}
@@ -3729,7 +3490,6 @@ export default function DashboardSidebar({
                 </button>
               </div>
             </div>
-
             {/* Groupes du menu : inchanges (Settings, Channels, Plans...) */}
             {menuGroups.map((group, groupIndex) => (
               <div
@@ -3742,7 +3502,6 @@ export default function DashboardSidebar({
                   const isDisabled =
                     Boolean(item.disabled) || (isLogout && loggingOut);
                   const isActive = item.route === currentRoute;
-
                   return (
                     <button
                       key={item.label}
@@ -3775,7 +3534,6 @@ export default function DashboardSidebar({
                           ? c.menu.loggingOut
                           : item.label}
                       </span>
-
                       {item.badge && (
                         <span
                           className={[
@@ -3786,7 +3544,6 @@ export default function DashboardSidebar({
                           {item.badge}
                         </span>
                       )}
-
                       {item.route === "settings" && showMfaNudge && (
                         <span
                           aria-label="2FA"
@@ -3803,8 +3560,8 @@ export default function DashboardSidebar({
       )}
 
       {/* ------------------------------------------------------------------
-          SIDEBAR : desktop = colonne fixe a gauche
-                    mobile  = panneau plein ecran sous la barre du haut
+      SIDEBAR : desktop = colonne fixe a gauche
+      mobile  = panneau plein ecran sous la barre du haut
       ------------------------------------------------------------------ */}
       <aside
         id="app-sidebar"
@@ -3849,7 +3606,6 @@ export default function DashboardSidebar({
               draggable={false}
               className="h-8 w-7 shrink-0 select-none object-contain"
             />
-
             {!compact && (
               <span className="sb-fade select-none text-[18px] font-semibold leading-none tracking-tight">
                 Stone
@@ -3864,7 +3620,7 @@ export default function DashboardSidebar({
             "flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto overflow-x-hidden pb-3",
             isMobile ? "pt-3" : "pt-4",
             compact ? "items-center px-3" : "px-2",
-            "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+            "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden overscroll-contain",
           ].join(" ")}
         >
           {visibleNavItems.map((item) => (
@@ -3878,7 +3634,6 @@ export default function DashboardSidebar({
               onNavigate={handleNavigate}
             />
           ))}
-
           <SidebarChannels
             channels={connectedChannels}
             favorites={favoriteItems}
@@ -3962,11 +3717,9 @@ export default function DashboardSidebar({
                 <div className={["truncate text-[11px]", t.muted].join(" ")}>
                   {account.email}
                 </div>
-
                 <div className="mt-2.5 truncate text-[14px] font-semibold">
                   {account.name}
                 </div>
-
                 <div className="mt-2">
                   <div
                     className={[
@@ -3981,7 +3734,6 @@ export default function DashboardSidebar({
                         : c.actions.nChannels(account.channels)}
                     </span>
                   </div>
-
                   {planMax > 0 && (
                     <div
                       role="progressbar"
@@ -4009,7 +3761,6 @@ export default function DashboardSidebar({
                     </div>
                   )}
                 </div>
-
                 <button
                   type="button"
                   role="menuitem"
@@ -4030,7 +3781,6 @@ export default function DashboardSidebar({
                   {planFull ? c.actions.upgradeAddMore : c.actions.upgradePlan}
                 </button>
               </div>
-
               {menuGroups.map((group, groupIndex) => (
                 <div
                   key={group[0]?.label ?? groupIndex}
@@ -4043,7 +3793,6 @@ export default function DashboardSidebar({
                     const isLogout = item.action === "logout";
                     const isDisabled =
                       Boolean(item.disabled) || (isLogout && loggingOut);
-
                     return (
                       <button
                         key={item.label}
@@ -4056,13 +3805,10 @@ export default function DashboardSidebar({
                             void handleLogout();
                             return;
                           }
-
                           setMenuOpen(false);
-
                           if (event.detail === 0) {
                             triggerRef.current?.focus();
                           }
-
                           if (item.route) navigate(item.route);
                         }}
                         className={[
@@ -4083,13 +3829,11 @@ export default function DashboardSidebar({
                             t.menuIcon,
                           ].join(" ")}
                         />
-
                         <span className="flex-1 truncate">
                           {isLogout && loggingOut
                             ? c.menu.loggingOut
                             : item.label}
                         </span>
-
                         {item.badge && (
                           <span
                             className={[
@@ -4100,7 +3844,6 @@ export default function DashboardSidebar({
                             {item.badge}
                           </span>
                         )}
-
                         {item.route === "settings" && showMfaNudge && (
                           <span
                             aria-label="2FA"
@@ -4170,7 +3913,6 @@ export default function DashboardSidebar({
                       {account.initials}
                     </span>
                   )}
-
                   {showMfaNudge && (
                     <span
                       aria-hidden="true"
@@ -4181,7 +3923,6 @@ export default function DashboardSidebar({
                     />
                   )}
                 </span>
-
                 {!compact && (
                   <span
                     className={[

@@ -51,11 +51,9 @@ import {
 } from "../components/IntegrationIcons";
 
 /* ============================================================
-   LANGUAGE / I18N
+LANGUAGE / I18N
 ============================================================ */
-
 type Lang = "fr" | "en";
-
 const LANGUAGE_STORAGE_KEY = "stone:language";
 
 /** Lit la langue dans le localStorage. Anglais par défaut si absent. */
@@ -73,7 +71,6 @@ function detectLanguage(): Lang {
 /** Hook réactif : se resynchronise sur storage / focus / hashchange. */
 function useLanguage(): Lang {
   const [lang, setLang] = useState<Lang>(() => detectLanguage());
-
   useEffect(() => {
     const refresh = () => setLang(detectLanguage());
     const onStorage = (e: StorageEvent) => {
@@ -88,7 +85,6 @@ function useLanguage(): Lang {
       window.removeEventListener("hashchange", refresh);
     };
   }, []);
-
   return lang;
 }
 
@@ -96,11 +92,9 @@ const intlLocale = (lang: Lang) => (lang === "fr" ? "fr-FR" : "en-GB");
 const numLocale = (lang: Lang) => (lang === "fr" ? "fr-FR" : "en-US");
 
 /* ============================================================
-   TRANSLATIONS
+TRANSLATIONS
 ============================================================ */
-
 type GreetingKey = "morning" | "afternoon" | "evening" | "night";
-
 type Copy = {
   greeting: Record<GreetingKey, string>;
   goals: {
@@ -390,59 +384,47 @@ const COPY: Record<Lang, Copy> = {
 };
 
 /* ============================================================
-   LAYOUT
+LAYOUT
 ============================================================ */
-
 const pageBgClass = (isDark: boolean) =>
   isDark ? "bg-[#050505]" : "bg-[#f5f3ef]";
-
 const mainPanelClass = (isDark: boolean) =>
   isDark
     ? "border-white/[0.07] bg-[#0a0a0c]"
     : "border-black/[0.06] bg-white";
-
 const cardClass = (isDark: boolean) =>
   isDark
     ? "border-white/[0.07] bg-[#0f0f11]"
     : "border-black/[0.06] bg-white";
-
 const panelSurfaceClass = (isDark: boolean) =>
   isDark
     ? "border-white/[0.07] bg-white/[0.025]"
     : "border-black/[0.06] bg-[#f6f4f0]";
-
 const panelRingClass = (isDark: boolean) =>
   isDark ? "ring-[#101012]" : "ring-[#f6f4f0]";
-
 const mutedClass = (isDark: boolean) =>
   isDark ? "text-neutral-600" : "text-neutral-400";
-
 const strongClass = (isDark: boolean) =>
   isDark ? "text-white" : "text-neutral-900";
-
 const softClass = (isDark: boolean) =>
   isDark ? "text-neutral-400" : "text-neutral-500";
-
 const subtleTitleClass = (isDark: boolean) =>
   isDark ? "text-neutral-500" : "text-neutral-400";
-
 const focusRingClass = (isDark: boolean) =>
   isDark
     ? "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
     : "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/25";
 
 /* ============================================================
-   USER CACHE
+USER CACHE
 ============================================================ */
-
 const userProfileCache = {
   profile: null as UserProfile | null,
 };
 
 /* ============================================================
-   NETWORKS
+NETWORKS
 ============================================================ */
-
 type SocialNetworkKey =
   | "x"
   | "facebook"
@@ -470,7 +452,6 @@ function getNetworkId(channel: ConnectedChannel): SocialNetworkKey | null {
   const raw = String(c.platform ?? c.network ?? c.provider ?? channel.key)
     .toLowerCase()
     .trim();
-
   if (raw.includes("tiktok")) return "tiktok";
   if (raw.includes("insta")) return "instagram";
   if (raw.includes("youtube") || raw === "yt") return "youtube";
@@ -482,9 +463,8 @@ function getNetworkId(channel: ConnectedChannel): SocialNetworkKey | null {
 }
 
 /* ============================================================
-   BLOG
+BLOG
 ============================================================ */
-
 type BlogPost = {
   title: string;
   date: string;
@@ -493,7 +473,6 @@ type BlogPost = {
 };
 
 const BLOG_URL = "#";
-
 const BLOG_POSTS: BlogPost[] = [
   {
     title: "The Best Time to Post on TikTok in 2026",
@@ -525,9 +504,8 @@ const linkProps = (url: string) =>
   /^https?:\/\//.test(url) ? { target: "_blank", rel: "noreferrer" } : {};
 
 /* ============================================================
-   GREETING
+GREETING
 ============================================================ */
-
 function getGreetingKey(date: Date = new Date()): GreetingKey {
   const hour = date.getHours();
   if (hour >= 5 && hour < 12) return "morning";
@@ -537,9 +515,8 @@ function getGreetingKey(date: Date = new Date()): GreetingKey {
 }
 
 /* ============================================================
-   AVATAR
+AVATAR
 ============================================================ */
-
 function GreetingAvatar({
   avatarUrl,
   initials,
@@ -552,7 +529,6 @@ function GreetingAvatar({
   loading?: boolean;
 }) {
   const [failed, setFailed] = useState(false);
-
   useEffect(() => {
     setFailed(false);
   }, [avatarUrl]);
@@ -591,9 +567,8 @@ function GreetingAvatar({
 }
 
 /* ============================================================
-   CLOCK
+CLOCK
 ============================================================ */
-
 function ClockDisplay({
   isDark,
   now,
@@ -604,12 +579,10 @@ function ClockDisplay({
   lang: Lang;
 }) {
   const locale = intlLocale(lang);
-
   const time = now.toLocaleTimeString(locale, {
     hour: "2-digit",
     minute: "2-digit",
   });
-
   const date = now.toLocaleDateString(locale, {
     weekday: "short",
     day: "numeric",
@@ -639,9 +612,8 @@ function ClockDisplay({
 }
 
 /* ============================================================
-   OVERVIEW
+OVERVIEW
 ============================================================ */
-
 function GoalInfoHint({ isDark, text }: { isDark: boolean; text: string }) {
   return (
     <span className="group relative flex shrink-0 items-center">
@@ -671,7 +643,6 @@ function GoalInfoHint({ isDark, text }: { isDark: boolean; text: string }) {
           <path d="M12 7.6v.1" strokeWidth="2.6" />
         </svg>
       </button>
-
       <span
         role="tooltip"
         className={[
@@ -719,7 +690,6 @@ function Ring({
         ].join(" ")}
         style={{ inset: stroke }}
       />
-
       <svg
         width={size}
         height={size}
@@ -750,7 +720,6 @@ function Ring({
           ].join(" ")}
         />
       </svg>
-
       <div
         className={[
           "absolute inset-0 flex items-center justify-center",
@@ -766,9 +735,12 @@ function Ring({
 function Trend({ isDark, change }: { isDark: boolean; change: number }) {
   const up = change >= 0;
   const Icon = up ? TrendingUp : TrendingDown;
-
   return (
-    <span className={["inline-flex items-center gap-1", strongClass(isDark)].join(" ")}>
+    <span
+      className={["inline-flex items-center gap-1", strongClass(isDark)].join(
+        " "
+      )}
+    >
       <Icon className="h-3 w-3" aria-hidden="true" />
       <span className="sr-only">{up ? "Up " : "Down "}</span>
       {up ? "+" : ""}
@@ -856,7 +828,6 @@ function InfoHint({
           <path d="M12 16.6v.1" strokeWidth="2.6" />
         </svg>
       </button>
-
       <span
         role="tooltip"
         className={[
@@ -894,7 +865,6 @@ function Stat({
   vsLabel: string;
 }) {
   const positive = change.startsWith("+");
-
   return (
     <div
       className={[
@@ -948,8 +918,8 @@ function Stat({
                   ? "bg-emerald-500/10 text-emerald-400"
                   : "bg-emerald-500/10 text-emerald-600"
                 : isDark
-                  ? "bg-rose-500/10 text-rose-400"
-                  : "bg-rose-500/10 text-rose-600",
+                ? "bg-rose-500/10 text-rose-400"
+                : "bg-rose-500/10 text-rose-600",
             ].join(" ")}
           >
             {positive ? (
@@ -1022,7 +992,6 @@ function HomeOverview({
             </Ring>
           }
         />
-
         <GoalItem
           isDark={isDark}
           title={c.goals.postingGoals}
@@ -1041,7 +1010,6 @@ function HomeOverview({
             </Ring>
           }
         />
-
         <GoalItem
           isDark={isDark}
           title={c.goals.commentScore}
@@ -1071,9 +1039,8 @@ function HomeOverview({
 }
 
 /* ============================================================
-   CHANNEL AVATAR
+CHANNEL AVATAR
 ============================================================ */
-
 function ChannelAvatar({
   channel,
   isDark,
@@ -1084,7 +1051,6 @@ function ChannelAvatar({
   overlap: boolean;
 }) {
   const [failed, setFailed] = useState(false);
-
   useEffect(() => {
     setFailed(false);
   }, [channel.avatarUrl]);
@@ -1123,7 +1089,6 @@ function ChannelAvatar({
           {initial}
         </div>
       )}
-
       {NetworkIcon && (
         <span
           className={[
@@ -1140,9 +1105,8 @@ function ChannelAvatar({
 }
 
 /* ============================================================
-   CHANNELS
+CHANNELS
 ============================================================ */
-
 function Channels({
   isDark,
   lang,
@@ -1213,7 +1177,6 @@ function Channels({
                 overlap={index > 0}
               />
             ))}
-
             {channels.length > 6 && (
               <span
                 title={`${channels.length - 6} more ${
@@ -1229,7 +1192,6 @@ function Channels({
                 +{channels.length - 6}
               </span>
             )}
-
             <button
               type="button"
               aria-label={c.channels.connectAnotherAria}
@@ -1249,7 +1211,6 @@ function Channels({
               <Plus className="h-[15px] w-[15px]" strokeWidth={1.8} />
             </button>
           </div>
-
           <div className="min-w-0">
             <p
               className={[
@@ -1270,7 +1231,6 @@ function Channels({
           </div>
         </div>
       )}
-
       <button
         type="button"
         onClick={() =>
@@ -1295,9 +1255,8 @@ function Channels({
 }
 
 /* ============================================================
-   PANEL (Up Next / Calendar)
+PANEL (Up Next / Calendar)
 ============================================================ */
-
 function Panel({
   isDark,
   title,
@@ -1338,7 +1297,6 @@ function Panel({
             · {meta}
           </span>
         </p>
-
         <button
           type="button"
           disabled={!onViewAll}
@@ -1356,7 +1314,6 @@ function Panel({
           <ChevronRight className="h-3.5 w-3.5" />
         </button>
       </div>
-
       <div
         className={[
           "flex min-h-[150px] flex-1 flex-col items-center justify-center sm:min-h-[130px]",
@@ -1374,7 +1331,6 @@ function Panel({
         >
           {icon}
         </div>
-
         <p
           className={["text-[13px] font-medium sm:text-[12px]", strongClass(isDark)].join(
             " "
@@ -1383,7 +1339,6 @@ function Panel({
           {line1}
         </p>
         <p className="text-[13px] text-neutral-500 sm:text-[12px]">{line2}</p>
-
         {action && (
           <button
             type="button"
@@ -1407,26 +1362,21 @@ function Panel({
 }
 
 /* ============================================================
-   INSIGHTS PANEL
+INSIGHTS PANEL
 ============================================================ */
-
 const INSIGHTS_DAYS = 30;
-
 const insightsStartOfDay = (d: Date) => {
   const x = new Date(d);
   x.setHours(0, 0, 0, 0);
   return x;
 };
-
 const insightsAddDays = (d: Date, n: number) => {
   const x = new Date(d);
   x.setDate(x.getDate() + n);
   return x;
 };
-
 const insightsFmt = (d: Date, lang: Lang) =>
   d.toLocaleDateString(numLocale(lang), { day: "numeric", month: "short" });
-
 const insightsNf = (n: number, lang: Lang) => n.toLocaleString(numLocale(lang));
 
 function smoothPath(pts: [number, number][]): string {
@@ -1497,7 +1447,6 @@ function InsightsMiniChart({
   const iw = W - pad.l - pad.r;
   const ih = H - pad.t - pad.b;
   const n = dates.length;
-
   const max = Math.max(4, ...values);
   const color = isDark ? "#ffffff" : "#111111";
   const axis = isDark ? "#6b6b72" : "#a3a3a3";
@@ -1510,6 +1459,7 @@ function InsightsMiniChart({
   const area = `${line} L${x(n - 1).toFixed(1)},${pad.t + ih} L${x(0).toFixed(
     1
   )},${pad.t + ih} Z`;
+
   const labelIdx = Array.from(
     new Set([0, 0.5, 1].map((r) => Math.round(r * (n - 1))))
   );
@@ -1531,6 +1481,10 @@ function InsightsMiniChart({
         onPointerMove={onPointer}
         onPointerDown={onPointer}
         onPointerLeave={() => setHover(null)}
+        onPointerCancel={() => setHover(null)}
+        onPointerUp={(e) => {
+          if (e.pointerType !== "mouse") setHover(null);
+        }}
         role="img"
         aria-label={c.insights.ariaChart(unit, INSIGHTS_DAYS)}
       >
@@ -1629,9 +1583,8 @@ function InsightsMiniChart({
 }
 
 /* ------------------------------------------------------------------
-   MiniChannelAvatar
+MiniChannelAvatar
 ------------------------------------------------------------------ */
-
 function MiniChannelAvatar({
   channel,
   isDark,
@@ -1689,16 +1642,14 @@ function MiniChannelAvatar({
 }
 
 /* ------------------------------------------------------------------
-   Persistance de l'état Insights (onglet + canal)
+Persistance de l'état Insights (onglet + canal)
 ------------------------------------------------------------------ */
-
 const HOME_METRIC_TAB_KEYS = [
   "posts",
   "impact",
   "growth",
   "visibility",
 ] as const;
-
 type HomeMetricTab = (typeof HOME_METRIC_TAB_KEYS)[number];
 
 const HOME_METRIC_TAB_STORAGE_KEY = "home.insights.metricTab";
@@ -1825,7 +1776,6 @@ function InsightsPanel({
     if (!data) return null;
     const current = data.current;
     const last = current[current.length - 1];
-
     switch (metricTab) {
       case "visibility":
         return {
@@ -1864,7 +1814,6 @@ function InsightsPanel({
         ""
       )
     : "No channel";
-
   const canSwitch = channels.length > 1;
 
   return (
@@ -1875,7 +1824,6 @@ function InsightsPanel({
       <h2 id="home-insights-title" className="sr-only">
         Insights
       </h2>
-
       <div className="mb-2 flex shrink-0 flex-wrap items-center justify-between gap-2">
         <div className="flex min-w-0 max-w-full flex-1 flex-wrap items-center gap-1.5">
           {selectedChannel ? (
@@ -1921,7 +1869,6 @@ function InsightsPanel({
                     />
                   )}
                 </button>
-
                 {menuOpen && (
                   <div
                     role="menu"
@@ -1984,7 +1931,6 @@ function InsightsPanel({
                   </div>
                 )}
               </div>
-
               <span
                 className={[
                   "hidden h-4 w-px shrink-0 sm:block",
@@ -1992,7 +1938,6 @@ function InsightsPanel({
                 ].join(" ")}
                 aria-hidden="true"
               />
-
               <div
                 role="tablist"
                 aria-label="Insight metric"
@@ -2015,8 +1960,8 @@ function InsightsPanel({
                             ? "bg-white text-black"
                             : "bg-neutral-900 text-white"
                           : isDark
-                            ? "text-neutral-400 hover:bg-white/[0.06] hover:text-white"
-                            : "text-neutral-500 hover:bg-black/[0.04] hover:text-neutral-900",
+                          ? "text-neutral-400 hover:bg-white/[0.06] hover:text-white"
+                          : "text-neutral-500 hover:bg-black/[0.04] hover:text-neutral-900",
                       ].join(" ")}
                     >
                       {c.insights.metricTabs[tabKey]}
@@ -2042,7 +1987,6 @@ function InsightsPanel({
             </button>
           )}
         </div>
-
         <button
           type="button"
           onClick={() =>
@@ -2172,12 +2116,10 @@ function InsightsPanel({
 }
 
 /* ============================================================
-   BLOG IMAGE
+BLOG IMAGE
 ============================================================ */
-
 function BlogImage({ src, isDark }: { src?: string; isDark: boolean }) {
   const [failed, setFailed] = useState(false);
-
   useEffect(() => {
     setFailed(false);
   }, [src]);
@@ -2206,9 +2148,8 @@ function BlogImage({ src, isDark }: { src?: string; isDark: boolean }) {
 }
 
 /* ============================================================
-   BLOG SECTION
+BLOG SECTION
 ============================================================ */
-
 function BlogSection({ isDark, lang }: { isDark: boolean; lang: Lang }) {
   const c = COPY[lang];
   return (
@@ -2222,7 +2163,6 @@ function BlogSection({ isDark, lang }: { isDark: boolean; lang: Lang }) {
         >
           {c.blog.title}
         </p>
-
         <a
           href={BLOG_URL}
           {...linkProps(BLOG_URL)}
@@ -2238,11 +2178,11 @@ function BlogSection({ isDark, lang }: { isDark: boolean; lang: Lang }) {
           <ChevronRight className="h-3.5 w-3.5" />
         </a>
       </div>
-
       {/* Mobile : carrousel horizontal à défilement magnétique. sm+ : grille. */}
       <div
         className={[
           "-mx-[clamp(18px,3vw,48px)] flex snap-x snap-mandatory gap-3 overflow-x-auto px-[clamp(18px,3vw,48px)] pb-1",
+          "overscroll-x-contain touch-pan-x touch-pan-y",
           "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
           "sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 sm:pb-0 xl:grid-cols-4",
         ].join(" ")}
@@ -2261,7 +2201,6 @@ function BlogSection({ isDark, lang }: { isDark: boolean; lang: Lang }) {
             ].join(" ")}
           >
             <BlogImage src={post.image} isDark={isDark} />
-
             <div className="mt-3.5 flex items-center justify-between gap-2 px-0.5">
               <span
                 className={[
@@ -2279,7 +2218,6 @@ function BlogSection({ isDark, lang }: { isDark: boolean; lang: Lang }) {
                 {post.date}
               </span>
             </div>
-
             <h3
               className={[
                 "mt-2.5 px-0.5 text-[14px] font-semibold leading-snug",
@@ -2295,7 +2233,6 @@ function BlogSection({ isDark, lang }: { isDark: boolean; lang: Lang }) {
             >
               {post.title}
             </h3>
-
             <div className="mt-3 flex justify-end px-0.5">
               <ArrowRight
                 className={[
@@ -2312,9 +2249,8 @@ function BlogSection({ isDark, lang }: { isDark: boolean; lang: Lang }) {
 }
 
 /* ============================================================
-   HOME
+HOME
 ============================================================ */
-
 const WEEK_STREAK = 1;
 
 export default function Home() {
@@ -2341,11 +2277,9 @@ export default function Home() {
 
   useEffect(() => {
     let mounted = true;
-
     async function loadUser() {
       try {
         const userData = await getCurrentUser();
-
         if (mounted && userData) {
           userProfileCache.profile = userData;
           setUser(userData);
@@ -2356,23 +2290,18 @@ export default function Home() {
         if (mounted) setUserLoaded(true);
       }
     }
-
     loadUser();
-
     return () => {
       mounted = false;
     };
   }, []);
 
   const fullName = `${user?.first_name || ""} ${user?.last_name || ""}`.trim();
-
   const initials =
     `${(user?.first_name || "")[0] || ""}${
       (user?.last_name || "")[0] || ""
     }`.toUpperCase() || "U";
-
   const greeting = c.greeting[getGreetingKey(now)];
-
   const formattedDate = now.toLocaleDateString(intlLocale(lang), {
     weekday: "short",
     month: "short",
@@ -2391,7 +2320,6 @@ export default function Home() {
   }, [now, lang]);
 
   const displayName = fullName || "adamnolke";
-
   const compact = (n: number) =>
     new Intl.NumberFormat(numLocale(lang), {
       notation: "compact",
@@ -2403,7 +2331,6 @@ export default function Home() {
       await createPosts(payload);
       return;
     }
-
     throw new Error(unavailablePostActionMessage(payload));
   };
 
@@ -2430,7 +2357,6 @@ export default function Home() {
       ].join(" ")}
     >
       <DashboardSidebar theme={theme} />
-
       <div
         className={[
           "h-full py-3 pr-3 max-md:pt-14",
@@ -2483,7 +2409,6 @@ export default function Home() {
                   </p>
                 </div>
               </div>
-
               <div className="hidden sm:block">
                 <ClockDisplay isDark={isDark} now={now} lang={lang} />
               </div>
@@ -2520,7 +2445,6 @@ export default function Home() {
                     {c.overview.subtitle}
                   </p>
                 </div>
-
                 <button
                   type="button"
                   onClick={() => navigate("insights")}
@@ -2536,7 +2460,6 @@ export default function Home() {
                   <ChevronRight className="h-4 w-4" aria-hidden="true" />
                 </button>
               </div>
-
               <div
                 className={[
                   "grid grid-cols-1 gap-3",
@@ -2601,7 +2524,6 @@ export default function Home() {
                   </p>
                 </div>
               </div>
-
               <Channels
                 isDark={isDark}
                 lang={lang}
@@ -2646,7 +2568,6 @@ export default function Home() {
         isDark={isDark}
         offsetLeft={sidebarOffset}
       />
-
       <BottomBar
         isDark={isDark}
         offsetLeft={sidebarOffset}
@@ -2656,7 +2577,6 @@ export default function Home() {
         query={query}
         onQueryChange={setQuery}
       />
-
       <NewPostModal
         isOpen={isNewPostOpen}
         onClose={() => setIsNewPostOpen(false)}
@@ -2664,7 +2584,6 @@ export default function Home() {
         onSubmit={handleCreatePost}
         onRequestOpen={() => setIsNewPostOpen(true)}
       />
-
       <HelpChatButton isDark={isDark} />
     </main>
   );
