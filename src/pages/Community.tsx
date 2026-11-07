@@ -29,6 +29,297 @@ import {
   type YouTubeReply,
 } from "../services/youtube";
 
+/* ───────── Language ───────── */
+
+type Lang = "fr" | "en";
+
+const LANGUAGE_STORAGE_KEY = "stone:language";
+const LANGUAGE_CHANGED_EVENT = "stone:language-changed";
+
+function detectLanguage(): Lang {
+  if (typeof window === "undefined") return "en";
+  try {
+    const stored = window.localStorage.getItem(LANGUAGE_STORAGE_KEY);
+    if (stored === "fr" || stored === "en") return stored;
+  } catch {
+    /* stockage indisponible */
+  }
+  return "en";
+}
+
+function useLanguage(): Lang {
+  const [lang, setLang] = useState<Lang>(() => detectLanguage());
+
+  useEffect(() => {
+    const refresh = () => setLang(detectLanguage());
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === LANGUAGE_STORAGE_KEY) refresh();
+    };
+    window.addEventListener("storage", onStorage);
+    window.addEventListener("focus", refresh);
+    window.addEventListener("hashchange", refresh);
+    window.addEventListener(LANGUAGE_CHANGED_EVENT, refresh);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("focus", refresh);
+      window.removeEventListener("hashchange", refresh);
+      window.removeEventListener(LANGUAGE_CHANGED_EVENT, refresh);
+    };
+  }, []);
+
+  return lang;
+}
+
+const intlLocale = (lang: Lang) => (lang === "fr" ? "fr-FR" : "en-GB");
+
+/* ───────── Copy ───────── */
+
+type Copy = {
+  page: {
+    title: string;
+  };
+  header: {
+    autoReplies: string;
+    refresh: string;
+    layoutAria: string;
+    byPost: string;
+    list: string;
+    addFavorite: string;
+    removeFavorite: string;
+  };
+  tabs: {
+    ariaLabel: string;
+    comments: string;
+    mentions: string;
+  };
+  filters: {
+    ariaLabel: string;
+    all: string;
+    unread: string;
+    unanswered: string;
+    answered: string;
+    sortFilter: string;
+    markAllRead: (n: number) => string;
+    markAllReadPlain: string;
+    closeMenu: string;
+  };
+  posts: {
+    title: string;
+    bringToTop: string;
+    onlyWithComments: string;
+    showAll: string;
+    hidePanel: string;
+    showPanel: string;
+    loadError: (err: string) => string;
+    unavailableTitle: string;
+    unavailableHint: string;
+    emptyTitle: string;
+    emptyHint: string;
+    showAllCta: string;
+  };
+  inbox: {
+    selectedVideo: string;
+    commentsCount: (n: number) => string;
+    loading: string;
+    loadMore: string;
+    loadingMore: string;
+  };
+  comment: {
+    unread: string;
+    you: string;
+    answered: string;
+    likes: (n: number) => string;
+    replies: (n: number) => string;
+    reply: string;
+    markRead: string;
+    markUnread: string;
+    openOnYouTube: string;
+    replyTo: (name: string) => string;
+    ctrlEnter: string;
+    cancel: string;
+    sendReply: string;
+    sending: string;
+  };
+  empty: {
+    listeningComments: string;
+    listeningMentions: string;
+    listeningCommentsHint: string;
+    listeningMentionsHint: string;
+    meanwhile: string;
+    postNewTitle: string;
+    postNewHint: string;
+    connectTitle: string;
+    connectHint: string;
+  };
+};
+
+const COPY: Record<Lang, Copy> = {
+  en: {
+    page: { title: "Community" },
+    header: {
+      autoReplies: "Auto-replies",
+      refresh: "Refresh comments",
+      layoutAria: "Layout",
+      byPost: "By post",
+      list: "List",
+      addFavorite: "Add to favorites",
+      removeFavorite: "Remove from favorites",
+    },
+    tabs: {
+      ariaLabel: "Inbox",
+      comments: "Comments",
+      mentions: "Mentions",
+    },
+    filters: {
+      ariaLabel: "Filter",
+      all: "All",
+      unread: "Unread",
+      unanswered: "Unanswered",
+      answered: "Answered",
+      sortFilter: "Sort and filter",
+      markAllRead: (n) => `Mark all as read (${n})`,
+      markAllReadPlain: "Mark all as read",
+      closeMenu: "Close menu",
+    },
+    posts: {
+      title: "Posts",
+      bringToTop:
+        "Bring posts with the newest unanswered comments to the top.",
+      onlyWithComments: "Only posts with comments",
+      showAll: "Show all posts",
+      hidePanel: "Hide posts panel",
+      showPanel: "Show posts panel",
+      loadError: (err) => `Could not load videos: ${err}`,
+      unavailableTitle: "Videos unavailable",
+      unavailableHint: "We couldn't load your videos. Try refreshing.",
+      emptyTitle: "No posts found",
+      emptyHint:
+        "When your posts receive comments, they'll appear here. Want to see all your posts?",
+      showAllCta: "Show all posts",
+    },
+    inbox: {
+      selectedVideo: "Selected video",
+      commentsCount: (n) => `${n} comments`,
+      loading: "Loading comments…",
+      loadMore: "Load more",
+      loadingMore: "Loading…",
+    },
+    comment: {
+      unread: "Unread",
+      you: "You",
+      answered: "Answered",
+      likes: (n) => `${n} ${n === 1 ? "like" : "likes"}`,
+      replies: (n) => `${n} ${n === 1 ? "reply" : "replies"}`,
+      reply: "Reply",
+      markRead: "Mark as read",
+      markUnread: "Mark as unread",
+      openOnYouTube: "Open on YouTube",
+      replyTo: (name) => `Reply to ${name}…`,
+      ctrlEnter: "Ctrl/⌘ + Enter to send",
+      cancel: "Cancel",
+      sendReply: "Send reply",
+      sending: "Sending…",
+    },
+    empty: {
+      listeningComments: "We're listening for new comments",
+      listeningMentions: "We're listening for new mentions",
+      listeningCommentsHint:
+        "We'll let you know when someone comments on your posts.",
+      listeningMentionsHint: "We'll let you know when someone mentions you.",
+      meanwhile: "In the meantime, keep exploring:",
+      postNewTitle: "Post something new",
+      postNewHint:
+        "Use templates to create content that starts conversations. Pro tip: ask a question.",
+      connectTitle: "Connect more channels",
+      connectHint:
+        "Manage conversations from all your channels in a single, distraction-free inbox.",
+    },
+  },
+  fr: {
+    page: { title: "Communauté" },
+    header: {
+      autoReplies: "Réponses auto",
+      refresh: "Rafraîchir les commentaires",
+      layoutAria: "Disposition",
+      byPost: "Par publication",
+      list: "Liste",
+      addFavorite: "Ajouter aux favoris",
+      removeFavorite: "Retirer des favoris",
+    },
+    tabs: {
+      ariaLabel: "Boîte de réception",
+      comments: "Commentaires",
+      mentions: "Mentions",
+    },
+    filters: {
+      ariaLabel: "Filtre",
+      all: "Tous",
+      unread: "Non lus",
+      unanswered: "Sans réponse",
+      answered: "Répondus",
+      sortFilter: "Trier et filtrer",
+      markAllRead: (n) => `Tout marquer comme lu (${n})`,
+      markAllReadPlain: "Tout marquer comme lu",
+      closeMenu: "Fermer le menu",
+    },
+    posts: {
+      title: "Publications",
+      bringToTop:
+        "Faire remonter les publications avec les commentaires sans réponse les plus récents.",
+      onlyWithComments: "Seulement les publications avec commentaires",
+      showAll: "Afficher toutes les publications",
+      hidePanel: "Masquer le panneau des publications",
+      showPanel: "Afficher le panneau des publications",
+      loadError: (err) => `Impossible de charger les vidéos : ${err}`,
+      unavailableTitle: "Vidéos indisponibles",
+      unavailableHint:
+        "Impossible de charger vos vidéos. Essayez de rafraîchir.",
+      emptyTitle: "Aucune publication trouvée",
+      emptyHint:
+        "Lorsque vos publications reçoivent des commentaires, ils apparaîtront ici. Voulez-vous voir toutes vos publications ?",
+      showAllCta: "Afficher toutes les publications",
+    },
+    inbox: {
+      selectedVideo: "Vidéo sélectionnée",
+      commentsCount: (n) => `${n} commentaire${n === 1 ? "" : "s"}`,
+      loading: "Chargement des commentaires…",
+      loadMore: "Charger plus",
+      loadingMore: "Chargement…",
+    },
+    comment: {
+      unread: "Non lu",
+      you: "Vous",
+      answered: "Répondu",
+      likes: (n) => `${n} mention${n === 1 ? "" : "s"} J'aime`,
+      replies: (n) => `${n} réponse${n === 1 ? "" : "s"}`,
+      reply: "Répondre",
+      markRead: "Marquer comme lu",
+      markUnread: "Marquer comme non lu",
+      openOnYouTube: "Ouvrir sur YouTube",
+      replyTo: (name) => `Répondre à ${name}…`,
+      ctrlEnter: "Ctrl/⌘ + Entrée pour envoyer",
+      cancel: "Annuler",
+      sendReply: "Envoyer la réponse",
+      sending: "Envoi…",
+    },
+    empty: {
+      listeningComments: "Nous guettons les nouveaux commentaires",
+      listeningMentions: "Nous guettons les nouvelles mentions",
+      listeningCommentsHint:
+        "Nous vous préviendrons quand quelqu'un commentera vos publications.",
+      listeningMentionsHint:
+        "Nous vous préviendrons quand quelqu'un vous mentionnera.",
+      meanwhile: "En attendant, continuez à explorer :",
+      postNewTitle: "Publier quelque chose de nouveau",
+      postNewHint:
+        "Utilisez des modèles pour créer du contenu qui lance des conversations. Astuce : posez une question.",
+      connectTitle: "Connecter plus de canaux",
+      connectHint:
+        "Gérez les conversations de tous vos canaux dans une seule boîte de réception sans distraction.",
+    },
+  },
+};
+
 /* ───────── Types ───────── */
 
 type Tab = "comments" | "mentions";
@@ -40,24 +331,10 @@ type Post = {
   title: string;
   commentCount: number;
   thumbnail: string | null;
-  /** Statut du post renvoyé par le backend ("scheduled" | "published" | …).
-   *  Absent → considéré comme publié (compat ancien backend). */
   status?: string;
 };
 
 type IconProps = { className?: string };
-
-const TABS: { key: Tab; label: string }[] = [
-  { key: "comments", label: "Comments" },
-  { key: "mentions", label: "Mentions" },
-];
-
-const FILTERS: { key: Filter; label: string }[] = [
-  { key: "all", label: "All" },
-  { key: "unread", label: "Unread" },
-  { key: "unanswered", label: "Unanswered" },
-  { key: "answered", label: "Answered" },
-];
 
 const PAGE_ROUTE = "community";
 const COMMENTS_POLL_MS = 60_000;
@@ -170,7 +447,6 @@ function useCommunity(
   const lastVideosReloadRef = useRef(reloadKey);
   const lastCommentsReloadRef = useRef(reloadKey);
 
-  /* ── Posts (vidéos) ── */
   useEffect(() => {
     const forceReload = reloadKey !== lastVideosReloadRef.current;
     lastVideosReloadRef.current = reloadKey;
@@ -203,9 +479,6 @@ function useCommunity(
             title: v.title,
             commentCount: v.comment_count,
             thumbnail: v.thumbnail,
-            // Le backend doit renvoyer `status` ("scheduled" | "published").
-            // Si absent (ancien backend), on laisse `undefined`
-            // → l'élément sera considéré comme publié et restera visible.
             status: (v as { status?: string }).status,
           }));
           setPosts(mapped);
@@ -233,7 +506,6 @@ function useCommunity(
     };
   }, [isYouTube, channelKey, reloadKey]);
 
-  /* ── Commentaires : chargement initial ── */
   useEffect(() => {
     const forceReload = reloadKey !== lastCommentsReloadRef.current;
     lastCommentsReloadRef.current = reloadKey;
@@ -297,7 +569,6 @@ function useCommunity(
     };
   }, [isYouTube, channelKey, tab, filter, postId, reloadKey]);
 
-  /* ── Commentaires : polling ── */
   useEffect(() => {
     if (!isYouTube || tab !== "comments" || !channelKey) return;
 
@@ -411,7 +682,10 @@ function useCommunity(
         setComments(revert);
         const entry = commentsCache.get(key);
         if (entry)
-          commentsCache.set(key, { ...entry, comments: revert(entry.comments) });
+          commentsCache.set(key, {
+            ...entry,
+            comments: revert(entry.comments),
+          });
         throw e;
       }
     },
@@ -601,6 +875,7 @@ function Menu<T extends string>({
   icon,
   isDark,
   ghost,
+  closeLabel,
 }: {
   value: T;
   options: { key: T; label: string; icon?: ReactNode }[];
@@ -608,6 +883,7 @@ function Menu<T extends string>({
   icon: ReactNode;
   isDark: boolean;
   ghost: string;
+  closeLabel: string;
 }) {
   const [open, setOpen] = useState(false);
   const current = options.find((o) => o.key === value);
@@ -634,7 +910,7 @@ function Menu<T extends string>({
         <>
           <button
             type="button"
-            aria-label="Close menu"
+            aria-label={closeLabel}
             tabIndex={-1}
             className="fixed inset-0 z-30 cursor-default"
             onClick={() => setOpen(false)}
@@ -796,6 +1072,8 @@ export default function Community() {
   const isDark = theme === "dark";
   const sidebarOffset = useSidebarOffset();
   const channels = useConnectedChannels();
+  const lang = useLanguage();
+  const c = COPY[lang];
 
   const { isFavorite, toggle: toggleFavorite } = useFavorites();
   const saved = isFavorite(PAGE_ROUTE);
@@ -808,8 +1086,8 @@ export default function Community() {
   }, [hashChannel]);
 
   const channel =
-    channels.find((c) => c.key === selectedKey) ??
-    channels.find((c) => c.platform === "youtube") ??
+    channels.find((ch) => ch.key === selectedKey) ??
+    channels.find((ch) => ch.platform === "youtube") ??
     channels[0];
 
   const [tab, setTab] = useState<Tab>("comments");
@@ -841,14 +1119,11 @@ export default function Community() {
     addReply,
   } = useCommunity(channel?.key, tab, filter, selectedPostId, reloadKey);
 
-  // ⚠️ Ne mettre à jour le badge global QUE depuis la vue complète
-  // (filtre "all" et aucune vidéo sélectionnée). Sinon le compteur
-  // refléterait seulement la sous-liste visible et deviendrait faux.
   useEffect(() => {
     if (!channel?.key) return;
     if (loading) return;
-    if (filter !== "all" || selectedPostId) return; // vue partielle : ne pas toucher au badge
-    const unread = comments.filter((c) => !c.is_read && !c.is_own).length;
+    if (filter !== "all" || selectedPostId) return;
+    const unread = comments.filter((cm) => !cm.is_read && !cm.is_own).length;
     setChannelUnreadCount(channel.key, unread);
   }, [channel?.key, comments, loading, filter, selectedPostId]);
 
@@ -862,13 +1137,13 @@ export default function Community() {
 
   const shownComments = useMemo(
     () =>
-      (filter === "unread" ? comments.filter((c) => !c.is_read) : comments)
-        .filter((c) => !c.is_own),
+      (filter === "unread" ? comments.filter((cm) => !cm.is_read) : comments)
+        .filter((cm) => !cm.is_own),
     [comments, filter]
   );
 
   const unreadIds = useMemo(
-    () => comments.filter((c) => !c.is_read && !c.is_own).map((c) => c.id),
+    () => comments.filter((cm) => !cm.is_read && !cm.is_own).map((cm) => cm.id),
     [comments]
   );
 
@@ -890,6 +1165,18 @@ export default function Community() {
     ? "border-white/[0.10] bg-[#0a0a0c] text-white placeholder:text-neutral-600"
     : "border-black/[0.10] bg-white text-neutral-900 placeholder:text-neutral-400";
 
+  const TABS: { key: Tab; label: string }[] = [
+    { key: "comments", label: c.tabs.comments },
+    { key: "mentions", label: c.tabs.mentions },
+  ];
+
+  const FILTERS: { key: Filter; label: string }[] = [
+    { key: "all", label: c.filters.all },
+    { key: "unread", label: c.filters.unread },
+    { key: "unanswered", label: c.filters.unanswered },
+    { key: "answered", label: c.filters.answered },
+  ];
+
   const goChannel = (key: string) => {
     setSelectedKey(key);
     setSelectedPostId(null);
@@ -901,18 +1188,11 @@ export default function Community() {
     );
   };
 
-  // ── Filtre des posts du panneau de gauche ──
-  // • Mode par défaut : uniquement les posts qui ont au moins un commentaire.
-  // • « Show all posts » : tous les posts SAUF ceux qui sont encore programmés
-  //   (status = "scheduled"). Un post sans `status` (ancien backend) est
-  //   considéré comme publié et reste visible.
   const visiblePosts = (
     showAll
       ? posts.filter((p) => p.status !== "scheduled")
       : posts.filter((p) => p.commentCount > 0)
   ).filter((post) => post.title.toLowerCase().includes(needle));
-
-  /* ── Actions ── */
 
   const handleMarkRead = async (ids: string[], read: boolean) => {
     setActionError(null);
@@ -1027,7 +1307,7 @@ export default function Community() {
                     strongClass(isDark),
                   ].join(" ")}
                 >
-                  Community
+                  {c.page.title}
                 </h1>
               </div>
 
@@ -1041,7 +1321,7 @@ export default function Community() {
 
                 <div className="flex items-center gap-2">
                   <IconButton
-                    label="Auto-replies"
+                    label={c.header.autoReplies}
                     ghost={ghost}
                     isDark={isDark}
                     className="h-9 w-9"
@@ -1049,7 +1329,7 @@ export default function Community() {
                     <ChatHeartIcon className="h-5 w-5" />
                   </IconButton>
                   <IconButton
-                    label="Refresh comments"
+                    label={c.header.refresh}
                     onClick={() => setReloadKey((k) => k + 1)}
                     ghost={ghost}
                     isDark={isDark}
@@ -1060,7 +1340,7 @@ export default function Community() {
 
                   <div
                     role="tablist"
-                    aria-label="Layout"
+                    aria-label={c.header.layoutAria}
                     className={[
                       "ml-2 inline-flex gap-1 rounded-xl border p-1",
                       line,
@@ -1070,12 +1350,12 @@ export default function Community() {
                       [
                         {
                           key: "post",
-                          label: "By post",
+                          label: c.header.byPost,
                           icon: <PanelIcon className="h-4 w-4" />,
                         },
                         {
                           key: "list",
-                          label: "List",
+                          label: c.header.list,
                           icon: <ListIcon className="h-4 w-4" />,
                         },
                       ] as { key: Layout; label: string; icon: ReactNode }[]
@@ -1107,9 +1387,11 @@ export default function Community() {
 
                 <button
                   type="button"
-                  aria-label={saved ? "Remove from favorites" : "Add to favorites"}
+                  aria-label={
+                    saved ? c.header.removeFavorite : c.header.addFavorite
+                  }
                   aria-pressed={saved}
-                  title={saved ? "Remove from favorites" : "Add to favorites"}
+                  title={saved ? c.header.removeFavorite : c.header.addFavorite}
                   onClick={() => toggleFavorite(PAGE_ROUTE)}
                   className={[
                     "ml-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-colors motion-reduce:transition-none",
@@ -1129,7 +1411,11 @@ export default function Community() {
                 line,
               ].join(" ")}
             >
-              <div role="tablist" aria-label="Inbox" className="flex gap-6">
+              <div
+                role="tablist"
+                aria-label={c.tabs.ariaLabel}
+                className="flex gap-6"
+              >
                 {TABS.map((t) => (
                   <button
                     key={t.key}
@@ -1144,7 +1430,11 @@ export default function Community() {
                         ? isDark
                           ? "border-white text-white"
                           : "border-neutral-900 text-neutral-900"
-                        : `border-transparent ${muted} ${isDark ? "hover:text-white" : "hover:text-neutral-900"}`,
+                        : `border-transparent ${muted} ${
+                            isDark
+                              ? "hover:text-white"
+                              : "hover:text-neutral-900"
+                          }`,
                     ].join(" ")}
                   >
                     {t.label}
@@ -1152,7 +1442,9 @@ export default function Community() {
                       <span
                         className={[
                           "rounded-full px-1.5 py-0.5 text-[10px] font-semibold leading-none",
-                          isDark ? "bg-white text-black" : "bg-neutral-900 text-white",
+                          isDark
+                            ? "bg-white text-black"
+                            : "bg-neutral-900 text-white",
                         ].join(" ")}
                       >
                         {unreadIds.length > 99 ? "99+" : unreadIds.length}
@@ -1170,9 +1462,10 @@ export default function Community() {
                   icon={<BubbleIcon className="h-4 w-4" />}
                   isDark={isDark}
                   ghost={ghost}
+                  closeLabel={c.filters.closeMenu}
                 />
                 <IconButton
-                  label="Sort and filter"
+                  label={c.filters.sortFilter}
                   ghost={ghost}
                   isDark={isDark}
                   className="h-9 w-9"
@@ -1182,8 +1475,8 @@ export default function Community() {
                 <IconButton
                   label={
                     unreadIds.length > 0
-                      ? `Mark all as read (${unreadIds.length})`
-                      : "Mark all as read"
+                      ? c.filters.markAllRead(unreadIds.length)
+                      : c.filters.markAllReadPlain
                   }
                   onClick={() => void handleMarkRead(unreadIds, true)}
                   disabled={unreadIds.length === 0}
@@ -1207,12 +1500,14 @@ export default function Community() {
                   ].join(" ")}
                 >
                   <div className="flex items-center justify-between">
-                    <h2 className={["text-[14px] font-medium", muted].join(" ")}>
-                      Posts
+                    <h2
+                      className={["text-[14px] font-medium", muted].join(" ")}
+                    >
+                      {c.posts.title}
                     </h2>
                     <div className="flex items-center">
                       <IconButton
-                        label="Bring posts with the newest unanswered comments to the top."
+                        label={c.posts.bringToTop}
                         ghost={ghost}
                         isDark={isDark}
                         className="h-8 w-8"
@@ -1220,7 +1515,11 @@ export default function Community() {
                         <BringToTopIcon className="h-[18px] w-[18px]" />
                       </IconButton>
                       <IconButton
-                        label={showAll ? "Only posts with comments" : "Show all posts"}
+                        label={
+                          showAll
+                            ? c.posts.onlyWithComments
+                            : c.posts.showAll
+                        }
                         onClick={() => setShowAll((v) => !v)}
                         ghost={ghost}
                         isDark={isDark}
@@ -1229,7 +1528,7 @@ export default function Community() {
                         <StackIcon className="h-[18px] w-[18px]" />
                       </IconButton>
                       <IconButton
-                        label="Hide posts panel"
+                        label={c.posts.hidePanel}
                         onClick={() => setPostsOpen(false)}
                         ghost={ghost}
                         isDark={isDark}
@@ -1245,7 +1544,7 @@ export default function Community() {
                       className="mt-3 px-1 text-[12px] leading-snug text-red-500"
                       role="alert"
                     >
-                      Could not load videos: {postsError}
+                      {c.posts.loadError(postsError)}
                     </p>
                   )}
 
@@ -1257,12 +1556,17 @@ export default function Community() {
                           strongClass(isDark),
                         ].join(" ")}
                       >
-                        {postsError ? "Videos unavailable" : "No posts found"}
-                      </h3>
-                      <p className={["text-[13px] leading-relaxed", muted].join(" ")}>
                         {postsError
-                          ? "We couldn't load your videos. Try refreshing."
-                          : "When your posts receive comments, they\u2019ll appear here. Want to see all your posts?"}
+                          ? c.posts.unavailableTitle
+                          : c.posts.emptyTitle}
+                      </h3>
+                      <p
+                        className={[
+                          "text-[13px] leading-relaxed",
+                          muted,
+                        ].join(" ")}
+                      >
+                        {postsError ? c.posts.unavailableHint : c.posts.emptyHint}
                       </p>
                       {!postsError && (
                         <button
@@ -1274,7 +1578,7 @@ export default function Community() {
                             outline,
                           ].join(" ")}
                         >
-                          Show all posts
+                          {c.posts.showAllCta}
                         </button>
                       )}
                     </div>
@@ -1285,7 +1589,9 @@ export default function Community() {
                           <button
                             type="button"
                             onClick={() =>
-                              setSelectedPostId((cur) => (cur === p.id ? null : p.id))
+                              setSelectedPostId((cur) =>
+                                cur === p.id ? null : p.id
+                              )
                             }
                             aria-pressed={selectedPostId === p.id}
                             className={[
@@ -1305,7 +1611,9 @@ export default function Community() {
                               referrerPolicy="no-referrer"
                               className="aspect-video w-[72px] shrink-0 rounded-md object-cover"
                             />
-                            <span className="min-w-0 flex-1 truncate">{p.title}</span>
+                            <span className="min-w-0 flex-1 truncate">
+                              {p.title}
+                            </span>
                             <span className={["tabular-nums", muted].join(" ")}>
                               {p.commentCount}
                             </span>
@@ -1320,7 +1628,7 @@ export default function Community() {
               {layout === "post" && !postsOpen && (
                 <div className="pt-4 pr-3">
                   <IconButton
-                    label="Show posts panel"
+                    label={c.posts.showPanel}
                     onClick={() => setPostsOpen(true)}
                     ghost={ghost}
                     isDark={isDark}
@@ -1341,7 +1649,10 @@ export default function Community() {
                     ].join(" ")}
                   >
                     <img
-                      src={selectedPost?.thumbnail ?? thumbnailFor(selectedPostId)}
+                      src={
+                        selectedPost?.thumbnail ??
+                        thumbnailFor(selectedPostId)
+                      }
                       alt=""
                       className="h-[72px] w-[128px] shrink-0 rounded-xl object-cover"
                       referrerPolicy="no-referrer"
@@ -1353,11 +1664,11 @@ export default function Community() {
                           strongClass(isDark),
                         ].join(" ")}
                       >
-                        {selectedPost?.title ?? "Selected video"}
+                        {selectedPost?.title ?? c.inbox.selectedVideo}
                       </p>
                       {selectedPost && (
                         <p className={["text-[12px]", muted].join(" ")}>
-                          {selectedPost.commentCount} comments
+                          {c.inbox.commentsCount(selectedPost.commentCount)}
                         </p>
                       )}
                     </div>
@@ -1365,13 +1676,19 @@ export default function Community() {
                 )}
 
                 {error && (
-                  <p className="px-6 pt-4 text-[13px] text-red-500" role="alert">
+                  <p
+                    className="px-6 pt-4 text-[13px] text-red-500"
+                    role="alert"
+                  >
                     {error}
                   </p>
                 )}
 
                 {actionError && (
-                  <p className="px-6 pt-4 text-[13px] text-red-500" role="alert">
+                  <p
+                    className="px-6 pt-4 text-[13px] text-red-500"
+                    role="alert"
+                  >
                     {actionError}
                   </p>
                 )}
@@ -1379,30 +1696,34 @@ export default function Community() {
                 {tab === "comments" && loading && comments.length === 0 ? (
                   <div className="flex min-h-0 flex-1 items-center justify-center px-6 py-10">
                     <p className={["text-[13px]", muted].join(" ")}>
-                      Loading comments…
+                      {c.inbox.loading}
                     </p>
                   </div>
                 ) : tab === "comments" && shownComments.length > 0 ? (
                   <ul className="flex flex-col gap-2 px-6 py-4">
-                    {shownComments.map((c) => {
-                      const video = c.video_id ? postById.get(c.video_id) : undefined;
-                      const replies = c.replies ?? [];
-                      const isReplying = replyingId === c.id;
-                      const youtubeUrl = `https://www.youtube.com/watch?v=${c.video_id}&lc=${c.id}`;
+                    {shownComments.map((cm) => {
+                      const video = cm.video_id
+                        ? postById.get(cm.video_id)
+                        : undefined;
+                      const replies = cm.replies ?? [];
+                      const isReplying = replyingId === cm.id;
+                      const youtubeUrl = `https://www.youtube.com/watch?v=${cm.video_id}&lc=${cm.id}`;
 
-                      // ✅ Lu = grisé (texte + noms + images), non lu = pleine couleur.
-                      const bodyColor = c.is_read ? muted : strongClass(isDark);
-                      const nameColor = c.is_read ? muted : strongClass(isDark);
+                      const bodyColor = cm.is_read
+                        ? muted
+                        : strongClass(isDark);
+                      const nameColor = cm.is_read
+                        ? muted
+                        : strongClass(isDark);
 
-                      // ✅ Filtre gris appliqué aux images quand le commentaire est lu.
-                      const imageStyle: React.CSSProperties = c.is_read
+                      const imageStyle: React.CSSProperties = cm.is_read
                         ? { filter: "grayscale(1)", opacity: 0.55 }
                         : { filter: "none", opacity: 1 };
 
-                      const articleBg = c.is_read ? cardStatic : cardStatic;
+                      const articleBg = cardStatic;
 
                       return (
-                        <li key={c.id}>
+                        <li key={cm.id}>
                           <article
                             className={[
                               "rounded-2xl border p-4 transition-colors",
@@ -1410,9 +1731,9 @@ export default function Community() {
                             ].join(" ")}
                           >
                             <div className="flex items-start gap-3">
-                              {c.author_avatar ? (
+                              {cm.author_avatar ? (
                                 <img
-                                  src={c.author_avatar}
+                                  src={cm.author_avatar}
                                   alt=""
                                   className="h-9 w-9 shrink-0 rounded-full transition-[filter,opacity] duration-200"
                                   style={imageStyle}
@@ -1424,14 +1745,14 @@ export default function Community() {
 
                               <div className="min-w-0 flex-1">
                                 <div className="flex flex-wrap items-center gap-2">
-                                  {!c.is_read && (
+                                  {!cm.is_read && (
                                     <span
                                       className={[
                                         "h-2 w-2 shrink-0 rounded-full",
                                         isDark ? "bg-white" : "bg-neutral-900",
                                       ].join(" ")}
                                       role="img"
-                                      aria-label="Unread"
+                                      aria-label={c.comment.unread}
                                     />
                                   )}
                                   <span
@@ -1440,9 +1761,9 @@ export default function Community() {
                                       nameColor,
                                     ].join(" ")}
                                   >
-                                    {c.author_name}
+                                    {cm.author_name}
                                   </span>
-                                  {c.is_own && (
+                                  {cm.is_own && (
                                     <span
                                       className={[
                                         "rounded-md px-1.5 py-0.5 text-[10px] font-semibold",
@@ -1451,19 +1772,29 @@ export default function Community() {
                                           : "bg-black/[0.06] text-neutral-600",
                                       ].join(" ")}
                                     >
-                                      You
+                                      {c.comment.you}
                                     </span>
                                   )}
-                                  {c.published_at && (
-                                    <span className={["text-[12px]", muted].join(" ")}>
-                                      {new Date(c.published_at).toLocaleDateString()}
-                                    </span>
-                                  )}
-                                  {c.answered && (
+                                  {cm.published_at && (
                                     <span
-                                      className={["text-[11px] font-medium", muted].join(" ")}
+                                      className={[
+                                        "text-[12px]",
+                                        muted,
+                                      ].join(" ")}
                                     >
-                                      · Answered
+                                      {new Date(
+                                        cm.published_at
+                                      ).toLocaleDateString(intlLocale(lang))}
+                                    </span>
+                                  )}
+                                  {cm.answered && (
+                                    <span
+                                      className={[
+                                        "text-[11px] font-medium",
+                                        muted,
+                                      ].join(" ")}
+                                    >
+                                      · {c.comment.answered}
                                     </span>
                                   )}
                                 </div>
@@ -1474,11 +1805,17 @@ export default function Community() {
                                     bodyColor,
                                   ].join(" ")}
                                 >
-                                  {c.text}
+                                  {cm.text}
                                 </p>
 
-                                <p className={["mt-1 text-[12px]", muted].join(" ")}>
-                                  {c.like_count} likes · {c.reply_count} replies
+                                <p
+                                  className={[
+                                    "mt-1 text-[12px]",
+                                    muted,
+                                  ].join(" ")}
+                                >
+                                  {c.comment.likes(cm.like_count)} ·{" "}
+                                  {c.comment.replies(cm.reply_count)}
                                 </p>
 
                                 {replies.length > 0 && (
@@ -1489,7 +1826,10 @@ export default function Community() {
                                     ].join(" ")}
                                   >
                                     {replies.map((r) => (
-                                      <li key={r.id} className="flex items-start gap-2.5">
+                                      <li
+                                        key={r.id}
+                                        className="flex items-start gap-2.5"
+                                      >
                                         {r.author_avatar ? (
                                           <img
                                             src={r.author_avatar}
@@ -1520,7 +1860,7 @@ export default function Community() {
                                                     : "bg-black/[0.06] text-neutral-600",
                                                 ].join(" ")}
                                               >
-                                                You
+                                                {c.comment.you}
                                               </span>
                                             )}
                                           </p>
@@ -1539,10 +1879,10 @@ export default function Community() {
                                 )}
 
                                 <div className="mt-2 -ml-1.5 flex flex-wrap items-center gap-0.5">
-                                  {c.can_reply && !c.is_own && (
+                                  {cm.can_reply && !cm.is_own && (
                                     <ActionIcon
-                                      label="Reply"
-                                      onClick={() => openReply(c.id)}
+                                      label={c.comment.reply}
+                                      onClick={() => openReply(cm.id)}
                                       active={isReplying}
                                       isDark={isDark}
                                     >
@@ -1550,20 +1890,29 @@ export default function Community() {
                                     </ActionIcon>
                                   )}
 
-                                  {!c.is_own && (
+                                  {!cm.is_own && (
                                     <ActionIcon
-                                      label={c.is_read ? "Mark as unread" : "Mark as read"}
-                                      onClick={() => void handleMarkRead([c.id], !c.is_read)}
-                                      active={c.is_read}
+                                      label={
+                                        cm.is_read
+                                          ? c.comment.markUnread
+                                          : c.comment.markRead
+                                      }
+                                      onClick={() =>
+                                        void handleMarkRead(
+                                          [cm.id],
+                                          !cm.is_read
+                                        )
+                                      }
+                                      active={cm.is_read}
                                       isDark={isDark}
                                     >
                                       <CheckCircleIcon className="h-[17px] w-[17px]" />
                                     </ActionIcon>
                                   )}
 
-                                  {c.video_id && (
+                                  {cm.video_id && (
                                     <ActionIcon
-                                      label="Open on YouTube"
+                                      label={c.comment.openOnYouTube}
                                       href={youtubeUrl}
                                       isDark={isDark}
                                     >
@@ -1578,17 +1927,24 @@ export default function Community() {
                                       autoFocus
                                       value={replyText}
                                       onChange={(e) =>
-                                        setReplyText(e.target.value.slice(0, REPLY_MAX))
+                                        setReplyText(
+                                          e.target.value.slice(0, REPLY_MAX)
+                                        )
                                       }
                                       onKeyDown={(e) => {
                                         if (e.key === "Escape") closeReply();
-                                        if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                                        if (
+                                          e.key === "Enter" &&
+                                          (e.metaKey || e.ctrlKey)
+                                        ) {
                                           e.preventDefault();
-                                          void submitReply(c.id);
+                                          void submitReply(cm.id);
                                         }
                                       }}
                                       rows={3}
-                                      placeholder={`Reply to ${c.author_name}…`}
+                                      placeholder={c.comment.replyTo(
+                                        cm.author_name
+                                      )}
                                       disabled={sendingReply}
                                       className={[
                                         "w-full resize-y rounded-xl border px-3 py-2 text-[13px] leading-relaxed",
@@ -1598,14 +1954,22 @@ export default function Community() {
                                     />
 
                                     {replyError && (
-                                      <p className="text-[12px] text-red-500" role="alert">
+                                      <p
+                                        className="text-[12px] text-red-500"
+                                        role="alert"
+                                      >
                                         {replyError}
                                       </p>
                                     )}
 
                                     <div className="flex items-center justify-between gap-3">
-                                      <span className={["text-[11px]", muted].join(" ")}>
-                                        Ctrl/⌘ + Enter to send
+                                      <span
+                                        className={[
+                                          "text-[11px]",
+                                          muted,
+                                        ].join(" ")}
+                                      >
+                                        {c.comment.ctrlEnter}
                                       </span>
                                       <div className="flex items-center gap-2">
                                         <button
@@ -1618,12 +1982,15 @@ export default function Community() {
                                             outline,
                                           ].join(" ")}
                                         >
-                                          Cancel
+                                          {c.comment.cancel}
                                         </button>
                                         <button
                                           type="button"
-                                          onClick={() => void submitReply(c.id)}
-                                          disabled={sendingReply || replyText.trim().length === 0}
+                                          onClick={() => void submitReply(cm.id)}
+                                          disabled={
+                                            sendingReply ||
+                                            replyText.trim().length === 0
+                                          }
                                           className={[
                                             "rounded-lg px-3 py-1.5 text-[12px] font-semibold transition-opacity disabled:cursor-not-allowed disabled:opacity-40",
                                             focusRingClass(isDark),
@@ -1632,7 +1999,9 @@ export default function Community() {
                                               : "bg-neutral-900 text-white",
                                           ].join(" ")}
                                         >
-                                          {sendingReply ? "Sending…" : "Send reply"}
+                                          {sendingReply
+                                            ? c.comment.sending
+                                            : c.comment.sendReply}
                                         </button>
                                       </div>
                                     </div>
@@ -1640,11 +2009,13 @@ export default function Community() {
                                 )}
                               </div>
 
-                              {/* Affiche de la vidéo : grisée aussi quand lu */}
-                              {c.video_id && (
+                              {cm.video_id && (
                                 <span className="hidden w-[120px] shrink-0 flex-col gap-1.5 sm:flex">
                                   <img
-                                    src={video?.thumbnail ?? thumbnailFor(c.video_id)}
+                                    src={
+                                      video?.thumbnail ??
+                                      thumbnailFor(cm.video_id)
+                                    }
                                     alt=""
                                     loading="lazy"
                                     referrerPolicy="no-referrer"
@@ -1681,7 +2052,9 @@ export default function Community() {
                             outline,
                           ].join(" ")}
                         >
-                          {loading ? "Loading…" : "Load more"}
+                          {loading
+                            ? c.inbox.loadingMore
+                            : c.inbox.loadMore}
                         </button>
                       </li>
                     )}
@@ -1707,8 +2080,8 @@ export default function Community() {
                           ].join(" ")}
                         >
                           {tab === "comments"
-                            ? "We\u2019re listening for new comments"
-                            : "We\u2019re listening for new mentions"}
+                            ? c.empty.listeningComments
+                            : c.empty.listeningMentions}
                         </h2>
                         <p
                           className={[
@@ -1717,14 +2090,19 @@ export default function Community() {
                           ].join(" ")}
                         >
                           {tab === "comments"
-                            ? "We\u2019ll let you know when someone comments on your posts."
-                            : "We\u2019ll let you know when someone mentions you."}
+                            ? c.empty.listeningCommentsHint
+                            : c.empty.listeningMentionsHint}
                         </p>
                       </div>
 
                       <div className="flex w-full flex-col gap-3">
-                        <p className={["text-center text-[13px]", muted].join(" ")}>
-                          In the meantime, keep exploring:
+                        <p
+                          className={[
+                            "text-center text-[13px]",
+                            muted,
+                          ].join(" ")}
+                        >
+                          {c.empty.meanwhile}
                         </p>
 
                         <button
@@ -1737,7 +2115,10 @@ export default function Community() {
                           ].join(" ")}
                         >
                           <EditIcon
-                            className={["mt-0.5 h-5 w-5 shrink-0", muted].join(" ")}
+                            className={[
+                              "mt-0.5 h-5 w-5 shrink-0",
+                              muted,
+                            ].join(" ")}
                           />
                           <span>
                             <span
@@ -1746,7 +2127,7 @@ export default function Community() {
                                 strongClass(isDark),
                               ].join(" ")}
                             >
-                              Post something new
+                              {c.empty.postNewTitle}
                             </span>
                             <span
                               className={[
@@ -1754,8 +2135,7 @@ export default function Community() {
                                 muted,
                               ].join(" ")}
                             >
-                              Use templates to create content that starts conversations.
-                              Pro tip: ask a question.
+                              {c.empty.postNewHint}
                             </span>
                           </span>
                         </button>
@@ -1770,7 +2150,10 @@ export default function Community() {
                           ].join(" ")}
                         >
                           <PlusIcon
-                            className={["mt-0.5 h-5 w-5 shrink-0", muted].join(" ")}
+                            className={[
+                              "mt-0.5 h-5 w-5 shrink-0",
+                              muted,
+                            ].join(" ")}
                           />
                           <span>
                             <span
@@ -1779,7 +2162,7 @@ export default function Community() {
                                 strongClass(isDark),
                               ].join(" ")}
                             >
-                              Connect more channels
+                              {c.empty.connectTitle}
                             </span>
                             <span
                               className={[
@@ -1787,8 +2170,7 @@ export default function Community() {
                                 muted,
                               ].join(" ")}
                             >
-                              Manage conversations from all your channels in a single,
-                              distraction-free inbox.
+                              {c.empty.connectHint}
                             </span>
                           </span>
                         </button>

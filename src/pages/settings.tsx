@@ -88,6 +88,1260 @@ import {
   type SavedReply,
 } from "../services/supabase";
 
+/* ── Language ── */
+
+type Lang = "fr" | "en";
+
+const LANGUAGE_STORAGE_KEY = "stone:language";
+const LANGUAGE_CHANGED_EVENT = "stone:language-changed";
+
+function detectLanguage(): Lang {
+  if (typeof window === "undefined") return "en";
+  try {
+    const stored = window.localStorage.getItem(LANGUAGE_STORAGE_KEY);
+    if (stored === "fr" || stored === "en") return stored;
+  } catch {
+    /* stockage indisponible */
+  }
+  return "en";
+}
+
+function useLanguage(): Lang {
+  const [lang, setLang] = useState<Lang>(() => detectLanguage());
+
+  useEffect(() => {
+    const refresh = () => setLang(detectLanguage());
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === LANGUAGE_STORAGE_KEY) refresh();
+    };
+    window.addEventListener("storage", onStorage);
+    window.addEventListener("focus", refresh);
+    window.addEventListener("hashchange", refresh);
+    window.addEventListener(LANGUAGE_CHANGED_EVENT, refresh);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("focus", refresh);
+      window.removeEventListener("hashchange", refresh);
+      window.removeEventListener(LANGUAGE_CHANGED_EVENT, refresh);
+    };
+  }, []);
+
+  return lang;
+}
+
+const intlLocale = (lang: Lang) => (lang === "fr" ? "fr-FR" : "en-GB");
+
+/* ── Copy (translations) ── */
+
+type SidebarGroupKey = "account" | "organization" | "utils" | "other";
+
+type Copy = {
+  sidebar: {
+    title: string;
+    backHome: string;
+    navAria: string;
+    groups: Record<SidebarGroupKey, string>;
+    sections: Record<
+      | "profile"
+      | "account"
+      | "mfa"
+      | "appearance"
+      | "preferences"
+      | "billing"
+      | "channels"
+      | "tags"
+      | "savedReplies"
+      | "danger",
+      string
+    >;
+    newBadge: string;
+  };
+  sectionTitles: Record<
+    | "profile"
+    | "account"
+    | "mfa"
+    | "appearance"
+    | "preferences"
+    | "billing"
+    | "channels"
+    | "tags"
+    | "savedReplies"
+    | "danger",
+    string
+  >;
+  common: {
+    cancel: string;
+    close: string;
+    save: string;
+    saving: string;
+    updating: string;
+    verifying: string;
+    sending: string;
+    remove: string;
+    edit: string;
+    delete: string;
+    loading: string;
+    unsavedChanges: string;
+    tooManyAttempts: (wait: string) => string;
+    formatWaitUnit: (seconds: number) => string;
+  };
+  profile: {
+    title: string;
+    description: string;
+    loadingFailed: string;
+    signIn: string;
+    goHome: string;
+    profilePicture: string;
+    fileHint: string;
+    uploading: string;
+    change: string;
+    upload: string;
+    remove: string;
+    saveChanges: string;
+    savingLabel: string;
+    firstName: string;
+    lastName: string;
+    fileSizeError: string;
+    fileTypeError: string;
+    uploadFailed: string;
+    profileUpdateFailed: string;
+    pictureUpdated: string;
+    pictureRemoved: string;
+    removeFailed: string;
+    saveFailed: string;
+    saved: string;
+  };
+  account: {
+    email: {
+      title: string;
+      description: string;
+      label: string;
+      checking: string;
+      verified: string;
+      unverified: string;
+      twoFaOn: string;
+      sendEmail: string;
+      sending: string;
+      sent: string;
+      sendFailed: string;
+      hint: string;
+    };
+    password: {
+      title: string;
+      titleSet: string;
+      descDefault: string;
+      descLoading: string;
+      descOauth: (provider: string) => string;
+      descMfa: string;
+      current: string;
+      currentPlaceholder: string;
+      new: string;
+      newPlaceholder: string;
+      password: string;
+      confirm: string;
+      mismatch: string;
+      update: string;
+      set: string;
+      updating: string;
+      saving: string;
+      setSuccess: string;
+      updateSuccess: string;
+      enterCurrent: string;
+      enterNew: string;
+      enterPassword: string;
+      tooShort: string;
+      different: string;
+      mismatchNotify: string;
+      updateFailed: string;
+      show: string;
+      hide: string;
+    };
+    oauthFootnote: (provider: string) => string;
+    oauthSettingsLink: (provider: string) => string;
+    strength: [string, string, string, string, string];
+    mfaGate: {
+      title: string;
+      description: string;
+    };
+  };
+  mfa: {
+    title: string;
+    description: string;
+    loadFailed: string;
+    authenticator: {
+      title: string;
+      description: string;
+      active: string;
+      addedOn: (date: string) => string;
+      disable: string;
+      notEnabled: string;
+      blockedByEmail: string;
+      enable: string;
+      starting: string;
+    };
+    email: {
+      title: string;
+      description: string;
+      active: string;
+      yourEmail: string;
+      codesSentHint: string;
+      disable: string;
+      notEnabled: string;
+      blockedByTotp: string;
+      enable: string;
+      sending: string;
+    };
+    setup: {
+      title: string;
+      description: string;
+      cantScan: string;
+      copy: string;
+      codeHint: string;
+      verifyEnable: string;
+    };
+    emailSetup: {
+      title: string;
+      description: (email: string) => string;
+      codeHint: string;
+      resendIn: (wait: string) => string;
+      resend: string;
+      verifyEnable: string;
+    };
+    disableModal: {
+      title: string;
+      description: string;
+      confirm: string;
+    };
+    notifs: {
+      enabled: string;
+      disabled: string;
+      copyOk: string;
+      copyFailed: string;
+      newCode: string;
+      invalidCode: string;
+      enterCode: string;
+      failedStart: string;
+      failedSend: string;
+      failedDisable: string;
+    };
+    challenge: {
+      titleDefault: string;
+      descriptionDefault: string;
+      authenticatorLabel: string;
+      authenticatorN: (n: number) => string;
+      codeAccepted: string;
+      enterCode: string;
+      tooManyAttempts: (wait: string) => string;
+      resendIn: (wait: string) => string;
+      resend: string;
+      cancel: string;
+      verifying: string;
+      retry: string;
+      verifyContinue: string;
+      emailDescription: (sentTo: string | null) => string;
+      expired: string;
+      invalidRetry: string;
+      noMethodError: string;
+      noFactorError: string;
+    };
+  };
+  appearance: {
+    title: string;
+    description: string;
+    theme: string;
+    light: string;
+    dark: string;
+    reduceMotion: string;
+    reduceMotionDesc: string;
+    compact: string;
+    compactDesc: string;
+  };
+  preferences: {
+    title: string;
+    description: string;
+    language: string;
+    languageDesc: string;
+    languageUpdated: string;
+    saved: string;
+    save: string;
+    notifications: Record<
+      "productUpdates" | "securityAlerts" | "mentions" | "weeklyDigest" | "marketing",
+      { title: string; description: string }
+    >;
+  };
+  billing: {
+    plan: {
+      title: string;
+      description: string;
+      proTrial: string;
+      endsOn: string;
+      noCard: string;
+      upgrade: string;
+    };
+    payment: {
+      title: string;
+      description: string;
+      noMethod: string;
+      addCard: string;
+    };
+    invoices: {
+      title: string;
+      description: string;
+      none: string;
+    };
+    notAvailable: string;
+  };
+  channels: {
+    intro: string;
+    plan: {
+      title: (name: string) => string;
+      description: (name: string, max: number) => string;
+      slotsLeft: (n: number) => string;
+      limitReached: string;
+      upgrade: string;
+    };
+    connected: string;
+    reconnect: string;
+    disconnect: string;
+    optionsFor: (name: string) => string;
+    dismiss: string;
+    secureOAuth: string;
+    connectedToast: (name: string) => string;
+    disconnectedToast: (name: string) => string;
+    limitError: (plan: string, max: number) => string;
+    oauthError: (provider: string, raw: string) => string;
+    serverError: string;
+    pinterestTokenPrompt: string;
+    verifyFailed: (provider: string) => string;
+  };
+  tags: {
+    visible: string;
+    learnMore: string;
+    newTag: string;
+    search: string;
+    noTags: string;
+    noMatch: string;
+    edit: (label: string) => string;
+    delete: (label: string) => string;
+    more: (label: string) => string;
+    duplicate: string;
+    modalCreate: { title: string; description: string };
+    modalEdit: { title: string; description: string };
+    tagName: string;
+    tagNamePlaceholder: string;
+    color: string;
+    create: string;
+    saveChanges: string;
+    enterName: string;
+    alreadyExists: string;
+    updated: string;
+    created: string;
+    deleted: string;
+    duplicated: string;
+    copyExists: string;
+    duplicateFailed: string;
+    saveFailed: string;
+    loadFailed: string;
+    deleteFailed: string;
+    useColorAria: (c: string) => string;
+  };
+  savedReplies: {
+    intro: string;
+    emptyHint: string;
+    newReply: string;
+    edit: (name: string) => string;
+    delete: (name: string) => string;
+    modalCreate: { title: string; description: string };
+    modalEdit: { title: string; description: string };
+    name: string;
+    namePlaceholder: string;
+    content: string;
+    contentPlaceholder: string;
+    saveReply: string;
+    saveChanges: string;
+    enterName: string;
+    enterContent: string;
+    updated: string;
+    created: string;
+    deleted: string;
+    saveFailed: string;
+    deleteFailed: string;
+    loadFailed: string;
+  };
+  danger: {
+    exportTitle: string;
+    exportDescription: string;
+    exportHint: string;
+    requestExport: string;
+    exportRequested: string;
+    deleteTitle: string;
+    deleteDescription: string;
+    deleteButton: string;
+    typeToConfirm: (word: string) => string;
+    deleteWord: string;
+    disabledDemo: string;
+  };
+  toast: {
+    successUpdated: string;
+  };
+};
+
+const COPY: Record<Lang, Copy> = {
+  en: {
+    sidebar: {
+      title: "Settings",
+      backHome: "Back to home",
+      navAria: "Settings sections",
+      groups: {
+        account: "Account",
+        organization: "Organization",
+        utils: "Utils",
+        other: "Other",
+      },
+      sections: {
+        profile: "Profile",
+        account: "Security",
+        mfa: "Two-factor auth",
+        appearance: "Appearance",
+        preferences: "Preferences",
+        billing: "Billing",
+        channels: "Channels",
+        tags: "Tags",
+        savedReplies: "Saved replies",
+        danger: "Danger zone",
+      },
+      newBadge: "New",
+    },
+    sectionTitles: {
+      profile: "Profile",
+      account: "Security",
+      mfa: "Two-factor authentication",
+      appearance: "Appearance",
+      preferences: "Preferences",
+      billing: "Billing",
+      channels: "Channels",
+      tags: "Tags",
+      savedReplies: "Saved Replies",
+      danger: "Danger zone",
+    },
+    common: {
+      cancel: "Cancel",
+      close: "Close",
+      save: "Save",
+      saving: "Saving…",
+      updating: "Updating…",
+      verifying: "Verifying…",
+      sending: "Sending…",
+      remove: "Remove",
+      edit: "Edit",
+      delete: "Delete",
+      loading: "Loading…",
+      unsavedChanges: "Unsaved changes",
+      tooManyAttempts: (wait) => `Too many attempts. Try again in ${wait}.`,
+      formatWaitUnit: (s) =>
+        s >= 60 ? `${Math.ceil(s / 60)} min` : `${s} s`,
+    },
+    profile: {
+      title: "Profile",
+      description: "This information is visible to your teammates.",
+      loadingFailed: "Failed to load profile",
+      signIn: "Please sign in to view your profile.",
+      goHome: "Go to home",
+      profilePicture: "Profile picture",
+      fileHint: "PNG, JPG, GIF or WebP, up to 2 MB.",
+      uploading: "Uploading…",
+      change: "Change",
+      upload: "Upload",
+      remove: "Remove",
+      saveChanges: "Save changes",
+      savingLabel: "Saving…",
+      firstName: "First name",
+      lastName: "Last name",
+      fileSizeError: "File size must be less than 2MB",
+      fileTypeError: "File must be an image",
+      uploadFailed: "Failed to upload image",
+      profileUpdateFailed: "Image uploaded but profile update failed",
+      pictureUpdated: "Profile picture updated",
+      pictureRemoved: "Profile picture removed",
+      removeFailed: "Failed to remove profile picture",
+      saveFailed: "Failed to save profile",
+      saved: "Profile saved",
+    },
+    account: {
+      email: {
+        title: "Email",
+        description:
+          "We'll send confirmation links and important notices here.",
+        label: "Email address",
+        checking: "Checking…",
+        verified: "Verified",
+        unverified: "Unverified",
+        twoFaOn: "2FA enabled",
+        sendEmail: "Send verification email",
+        sending: "Sending…",
+        sent: "Verification email sent",
+        sendFailed: "Failed to send verification email",
+        hint: "Contact support to change your email address.",
+      },
+      password: {
+        title: "Password",
+        titleSet: "Set a password",
+        descDefault:
+          "Use at least 8 characters. Mix letters, numbers, and symbols.",
+        descLoading: "Loading your account details…",
+        descOauth: (provider) =>
+          `You signed in with ${provider}. Set a password to also sign in with your email.`,
+        descMfa:
+          "Two-factor authentication is on. Changing your password requires a verification code.",
+        current: "Current password",
+        currentPlaceholder: "••••••••",
+        new: "New password",
+        newPlaceholder: "••••••••",
+        password: "Password",
+        confirm: "Confirm password",
+        mismatch: "Passwords do not match",
+        update: "Update password",
+        set: "Set password",
+        updating: "Updating…",
+        saving: "Saving…",
+        setSuccess: "Password set",
+        updateSuccess: "Password updated",
+        enterCurrent: "Enter your current password",
+        enterNew: "Enter a new password",
+        enterPassword: "Enter a password",
+        tooShort: "Password must be at least 8 characters",
+        different: "New password must be different from the current one",
+        mismatchNotify: "Passwords do not match",
+        updateFailed: "Failed to update password",
+        show: "Show password",
+        hide: "Hide password",
+      },
+      oauthFootnote: (provider) =>
+        `You can still sign in with ${provider}. To manage that account, open your`,
+      oauthSettingsLink: (provider) => `${provider} security settings`,
+      strength: ["Too weak", "Weak", "Fair", "Good", "Strong"],
+      mfaGate: {
+        title: "Two-factor verification required",
+        description: "Enter a verification code to change your password.",
+      },
+    },
+    mfa: {
+      title: "Two-factor authentication",
+      description: "Add an extra layer of security to your account.",
+      loadFailed: "Failed to load security settings",
+      authenticator: {
+        title: "Authenticator app",
+        description:
+          "Use an app (Google Authenticator, 1Password, Authy…) to generate a one-time code at sign-in.",
+        active: "Active",
+        addedOn: (date) => `Added on ${date}`,
+        disable: "Disable",
+        notEnabled: "Not enabled.",
+        blockedByEmail:
+          "Disable email verification first to switch to an authenticator app.",
+        enable: "Enable authenticator app",
+        starting: "Starting…",
+      },
+      email: {
+        title: "Email code",
+        description:
+          "We email you a 6-digit code every time you sign in.",
+        active: "Active",
+        yourEmail: "Your email address",
+        codesSentHint: "Codes are sent to the email on your account.",
+        disable: "Disable",
+        notEnabled: "Not enabled.",
+        blockedByTotp:
+          "Disable the authenticator app first to switch to email codes.",
+        enable: "Enable email code",
+        sending: "Sending…",
+      },
+      setup: {
+        title: "Set up authenticator",
+        description:
+          "Scan the QR code with your authenticator app, then enter the 6-digit code it shows.",
+        cantScan: "Can't scan? Enter this key manually:",
+        copy: "Copy",
+        codeHint: "Enter the 6-digit code from your authenticator app.",
+        verifyEnable: "Verify & enable",
+      },
+      emailSetup: {
+        title: "Verify your email",
+        description: (email) =>
+          `We sent a 6-digit code to ${email}. Enter it to turn on email verification.`,
+        codeHint: "The code expires in 10 minutes.",
+        resendIn: (wait) => `Resend code in ${wait}`,
+        resend: "Resend code",
+        verifyEnable: "Verify & enable",
+      },
+      disableModal: {
+        title: "Disable two-factor authentication?",
+        description:
+          "Your account will be protected by your password only. You'll need to verify with a code to continue.",
+        confirm: "Disable 2FA",
+      },
+      notifs: {
+        enabled: "Two-factor authentication enabled",
+        disabled: "Two-factor authentication disabled",
+        copyOk: "Secret copied",
+        copyFailed: "Copy failed",
+        newCode: "A new code was sent",
+        invalidCode: "Invalid code",
+        enterCode: "Enter the 6-digit code",
+        failedStart: "Failed to start setup",
+        failedSend: "Failed to send the code",
+        failedDisable: "Failed to disable 2FA",
+      },
+      challenge: {
+        titleDefault: "Verify it's you",
+        descriptionDefault: "Enter a verification code to continue.",
+        authenticatorLabel: "Authenticator",
+        authenticatorN: (n) => `Authenticator ${n}`,
+        codeAccepted: "Code accepted. Retry to finish the action.",
+        enterCode: "Enter the 6-digit code",
+        tooManyAttempts: (wait) =>
+          `Too many attempts. Try again in ${wait}.`,
+        resendIn: (wait) => `Resend code in ${wait}`,
+        resend: "Resend code",
+        cancel: "Cancel",
+        verifying: "Verifying…",
+        retry: "Retry",
+        verifyContinue: "Verify & continue",
+        emailDescription: (sentTo) =>
+          `Enter the 6-digit code we emailed${sentTo ? ` to ${sentTo}` : ""}.`,
+        expired: "Verification expired. Enter a new code.",
+        invalidRetry: "Invalid code. Try again.",
+        noMethodError:
+          "Two-factor authentication is enabled but no method was found. Set it up again and retry.",
+        noFactorError:
+          "No authenticator was found. Set up 2FA again and retry.",
+      },
+    },
+    appearance: {
+      title: "Appearance",
+      description: "Customize how the interface looks on this device.",
+      theme: "Theme",
+      light: "Light",
+      dark: "Dark",
+      reduceMotion: "Reduce motion",
+      reduceMotionDesc: "Disable non-essential animations across the app.",
+      compact: "Compact mode",
+      compactDesc: "Show more content with tighter spacing.",
+    },
+    preferences: {
+      title: "Preferences",
+      description:
+        "Choose your display language and what we email you about.",
+      language: "Language",
+      languageDesc: "Language used across the interface.",
+      languageUpdated: "Language updated",
+      saved: "Preferences saved",
+      save: "Save preferences",
+      notifications: {
+        productUpdates: {
+          title: "Product updates",
+          description: "New features, improvements, and release notes.",
+        },
+        securityAlerts: {
+          title: "Security alerts",
+          description:
+            "Sign-ins from new devices and password changes. Recommended.",
+        },
+        mentions: {
+          title: "Mentions",
+          description: "When someone mentions you in a comment or thread.",
+        },
+        weeklyDigest: {
+          title: "Weekly digest",
+          description:
+            "A summary of activity in your workspace, every Monday.",
+        },
+        marketing: {
+          title: "Marketing",
+          description: "Tips, offers, and occasional product news.",
+        },
+      },
+    },
+    billing: {
+      plan: {
+        title: "Plan",
+        description: "You're currently on a free trial.",
+        proTrial: "Pro trial",
+        endsOn: "Ends Oct 19, 2026",
+        noCard: "No card on file.",
+        upgrade: "Upgrade plan",
+      },
+      payment: {
+        title: "Payment method",
+        description: "Cards are only charged when a paid plan is active.",
+        noMethod: "No payment method on file.",
+        addCard: "Add card",
+      },
+      invoices: {
+        title: "Invoices",
+        description: "Download past receipts.",
+        none: "No invoices yet.",
+      },
+      notAvailable: "Billing isn't available yet",
+    },
+    channels: {
+      intro:
+        "Your connected accounts at a glance. Click on a channel to connect it.",
+      plan: {
+        title: (name) => `${name} Plan`,
+        description: (name, max) =>
+          `You are currently on the ${name} plan. You can connect up to ${max} channels.`,
+        slotsLeft: (n) => `${n} slots remaining.`,
+        limitReached: "Limit reached.",
+        upgrade: "Upgrade Plan",
+      },
+      connected: "Connected",
+      reconnect: "Reconnect",
+      disconnect: "Disconnect",
+      optionsFor: (name) => `Options for ${name}`,
+      dismiss: "Dismiss",
+      secureOAuth: "Secure OAuth connections",
+      connectedToast: (name) => `${name} connected successfully!`,
+      disconnectedToast: (name) => `${name} disconnected successfully!`,
+      limitError: (plan, max) =>
+        `Your ${plan} plan allows up to ${max} channels. Upgrade to connect more.`,
+      oauthError: (provider, raw) =>
+        raw
+          ? `Unable to connect to ${provider}. ${raw}`
+          : `Unable to connect to ${provider}.`,
+      serverError:
+        "Unable to reach the server. Check that the backend is running and VITE_API_URL is correct.",
+      pinterestTokenPrompt: "Pinterest access token:",
+      verifyFailed: (provider) =>
+        `Unable to verify the ${provider} connection. Try again.`,
+    },
+    tags: {
+      visible: "Tags are visible to everyone in your organization.",
+      learnMore: "Learn more ↗",
+      newTag: "+ New Tag",
+      search: "Search tags…",
+      noTags: "No tags yet.",
+      noMatch: "No tags found.",
+      edit: (label) => `Edit ${label}`,
+      delete: (label) => `Delete ${label}`,
+      more: (label) => `More options for ${label}`,
+      duplicate: "Duplicate",
+      modalCreate: {
+        title: "New Tag",
+        description:
+          "Create a tag to organize and filter your items.",
+      },
+      modalEdit: {
+        title: "Edit Tag",
+        description: "Update this tag's name or color.",
+      },
+      tagName: "Tag name",
+      tagNamePlaceholder: "e.g. Design",
+      color: "Color",
+      create: "Create tag",
+      saveChanges: "Save changes",
+      enterName: "Enter a tag name",
+      alreadyExists: "Tag already exists",
+      updated: "Tag updated",
+      created: "Tag created",
+      deleted: "Tag deleted",
+      duplicated: "Tag duplicated",
+      copyExists: "A copy already exists",
+      duplicateFailed: "Failed to duplicate tag",
+      saveFailed: "Failed to save tag",
+      loadFailed: "Failed to load tags",
+      deleteFailed: "Failed to delete tag",
+      useColorAria: (c) => `Use color ${c}`,
+    },
+    savedReplies: {
+      intro: "Saved Replies are visible to everyone in your organization.",
+      emptyHint:
+        "Save information you share often to quickly insert it to your replies.",
+      newReply: "+ New Saved Reply",
+      edit: (name) => `Edit ${name}`,
+      delete: (name) => `Delete ${name}`,
+      modalCreate: {
+        title: "New Saved Reply",
+        description: "Create a quick reply to use in your messages.",
+      },
+      modalEdit: {
+        title: "Edit Saved Reply",
+        description: "Update this saved reply.",
+      },
+      name: "Name",
+      namePlaceholder: "e.g. Welcome message",
+      content: "Content",
+      contentPlaceholder: "Write your saved reply",
+      saveReply: "Save reply",
+      saveChanges: "Save changes",
+      enterName: "Enter a name",
+      enterContent: "Enter the reply content",
+      updated: "Saved reply updated",
+      created: "Saved reply created",
+      deleted: "Saved reply deleted",
+      saveFailed: "Failed to save reply",
+      deleteFailed: "Failed to delete saved reply",
+      loadFailed: "Failed to load saved replies",
+    },
+    danger: {
+      exportTitle: "Export data",
+      exportDescription:
+        "Download a copy of everything tied to your account.",
+      exportHint: "You'll receive an email with a download link.",
+      requestExport: "Request export",
+      exportRequested: "Export requested",
+      deleteTitle: "Delete account",
+      deleteDescription:
+        "This permanently removes your account, workspace, and all data. This cannot be undone.",
+      deleteButton: "Delete my account",
+      typeToConfirm: (word) => `Type "${word}" to confirm`,
+      deleteWord: "delete",
+      disabledDemo: "Account deletion is disabled in this demo",
+    },
+    toast: {
+      successUpdated: "Saved",
+    },
+  },
+  fr: {
+    sidebar: {
+      title: "Paramètres",
+      backHome: "Retour à l'accueil",
+      navAria: "Sections des paramètres",
+      groups: {
+        account: "Compte",
+        organization: "Organisation",
+        utils: "Utilitaires",
+        other: "Autre",
+      },
+      sections: {
+        profile: "Profil",
+        account: "Sécurité",
+        mfa: "Authentification à deux facteurs",
+        appearance: "Apparence",
+        preferences: "Préférences",
+        billing: "Facturation",
+        channels: "Canaux",
+        tags: "Tags",
+        savedReplies: "Réponses enregistrées",
+        danger: "Zone de danger",
+      },
+      newBadge: "Nouveau",
+    },
+    sectionTitles: {
+      profile: "Profil",
+      account: "Sécurité",
+      mfa: "Authentification à deux facteurs",
+      appearance: "Apparence",
+      preferences: "Préférences",
+      billing: "Facturation",
+      channels: "Canaux",
+      tags: "Tags",
+      savedReplies: "Réponses enregistrées",
+      danger: "Zone de danger",
+    },
+    common: {
+      cancel: "Annuler",
+      close: "Fermer",
+      save: "Enregistrer",
+      saving: "Enregistrement…",
+      updating: "Mise à jour…",
+      verifying: "Vérification…",
+      sending: "Envoi…",
+      remove: "Retirer",
+      edit: "Modifier",
+      delete: "Supprimer",
+      loading: "Chargement…",
+      unsavedChanges: "Modifications non enregistrées",
+      tooManyAttempts: (wait) =>
+        `Trop de tentatives. Réessayez dans ${wait}.`,
+      formatWaitUnit: (s) =>
+        s >= 60 ? `${Math.ceil(s / 60)} min` : `${s} s`,
+    },
+    profile: {
+      title: "Profil",
+      description:
+        "Ces informations sont visibles par les membres de votre équipe.",
+      loadingFailed: "Impossible de charger le profil",
+      signIn: "Connectez-vous pour voir votre profil.",
+      goHome: "Aller à l'accueil",
+      profilePicture: "Photo de profil",
+      fileHint: "PNG, JPG, GIF ou WebP, jusqu'à 2 Mo.",
+      uploading: "Envoi…",
+      change: "Changer",
+      upload: "Envoyer",
+      remove: "Retirer",
+      saveChanges: "Enregistrer",
+      savingLabel: "Enregistrement…",
+      firstName: "Prénom",
+      lastName: "Nom",
+      fileSizeError: "La taille du fichier doit être inférieure à 2 Mo",
+      fileTypeError: "Le fichier doit être une image",
+      uploadFailed: "Impossible de charger l'image",
+      profileUpdateFailed:
+        "Image envoyée mais la mise à jour du profil a échoué",
+      pictureUpdated: "Photo de profil mise à jour",
+      pictureRemoved: "Photo de profil retirée",
+      removeFailed: "Impossible de retirer la photo de profil",
+      saveFailed: "Impossible d'enregistrer le profil",
+      saved: "Profil enregistré",
+    },
+    account: {
+      email: {
+        title: "E-mail",
+        description:
+          "Nous envoyons ici les liens de confirmation et les notifications importantes.",
+        label: "Adresse e-mail",
+        checking: "Vérification…",
+        verified: "Vérifiée",
+        unverified: "Non vérifiée",
+        twoFaOn: "2FA activée",
+        sendEmail: "Envoyer l'e-mail de vérification",
+        sending: "Envoi…",
+        sent: "E-mail de vérification envoyé",
+        sendFailed: "Impossible d'envoyer l'e-mail de vérification",
+        hint: "Contactez le support pour changer votre adresse e-mail.",
+      },
+      password: {
+        title: "Mot de passe",
+        titleSet: "Définir un mot de passe",
+        descDefault:
+          "Utilisez au moins 8 caractères. Mélangez lettres, chiffres et symboles.",
+        descLoading: "Chargement des informations du compte…",
+        descOauth: (provider) =>
+          `Vous vous êtes connecté avec ${provider}. Définissez un mot de passe pour aussi vous connecter par e-mail.`,
+        descMfa:
+          "L'authentification à deux facteurs est active. Changer votre mot de passe nécessite un code de vérification.",
+        current: "Mot de passe actuel",
+        currentPlaceholder: "••••••••",
+        new: "Nouveau mot de passe",
+        newPlaceholder: "••••••••",
+        password: "Mot de passe",
+        confirm: "Confirmer le mot de passe",
+        mismatch: "Les mots de passe ne correspondent pas",
+        update: "Mettre à jour",
+        set: "Définir le mot de passe",
+        updating: "Mise à jour…",
+        saving: "Enregistrement…",
+        setSuccess: "Mot de passe défini",
+        updateSuccess: "Mot de passe mis à jour",
+        enterCurrent: "Saisissez votre mot de passe actuel",
+        enterNew: "Saisissez un nouveau mot de passe",
+        enterPassword: "Saisissez un mot de passe",
+        tooShort: "Le mot de passe doit faire au moins 8 caractères",
+        different:
+          "Le nouveau mot de passe doit être différent de l'actuel",
+        mismatchNotify: "Les mots de passe ne correspondent pas",
+        updateFailed: "Impossible de mettre à jour le mot de passe",
+        show: "Afficher le mot de passe",
+        hide: "Masquer le mot de passe",
+      },
+      oauthFootnote: (provider) =>
+        `Vous pouvez toujours vous connecter avec ${provider}. Pour gérer ce compte, ouvrez vos`,
+      oauthSettingsLink: (provider) => `paramètres de sécurité ${provider}`,
+      strength: ["Très faible", "Faible", "Moyen", "Bon", "Fort"],
+      mfaGate: {
+        title: "Vérification à deux facteurs requise",
+        description:
+          "Saisissez un code de vérification pour changer votre mot de passe.",
+      },
+    },
+    mfa: {
+      title: "Authentification à deux facteurs",
+      description:
+        "Ajoutez une couche de sécurité supplémentaire à votre compte.",
+      loadFailed: "Impossible de charger les paramètres de sécurité",
+      authenticator: {
+        title: "Application d'authentification",
+        description:
+          "Utilisez une app (Google Authenticator, 1Password, Authy…) pour générer un code à usage unique à la connexion.",
+        active: "Active",
+        addedOn: (date) => `Ajoutée le ${date}`,
+        disable: "Désactiver",
+        notEnabled: "Non activée.",
+        blockedByEmail:
+          "Désactivez d'abord la vérification par e-mail pour passer à une application d'authentification.",
+        enable: "Activer l'application",
+        starting: "Démarrage…",
+      },
+      email: {
+        title: "Code par e-mail",
+        description:
+          "Nous vous envoyons un code à 6 chiffres à chaque connexion.",
+        active: "Actif",
+        yourEmail: "Votre adresse e-mail",
+        codesSentHint:
+          "Les codes sont envoyés à l'adresse e-mail de votre compte.",
+        disable: "Désactiver",
+        notEnabled: "Non activé.",
+        blockedByTotp:
+          "Désactivez d'abord l'application d'authentification pour passer aux codes par e-mail.",
+        enable: "Activer le code par e-mail",
+        sending: "Envoi…",
+      },
+      setup: {
+        title: "Configurer l'application",
+        description:
+          "Scannez le QR code avec votre application d'authentification, puis saisissez le code à 6 chiffres affiché.",
+        cantScan:
+          "Impossible de scanner ? Saisissez cette clé manuellement :",
+        copy: "Copier",
+        codeHint:
+          "Saisissez le code à 6 chiffres de votre application d'authentification.",
+        verifyEnable: "Vérifier & activer",
+      },
+      emailSetup: {
+        title: "Vérifiez votre e-mail",
+        description: (email) =>
+          `Nous avons envoyé un code à 6 chiffres à ${email}. Saisissez-le pour activer la vérification par e-mail.`,
+        codeHint: "Le code expire dans 10 minutes.",
+        resendIn: (wait) => `Renvoyer le code dans ${wait}`,
+        resend: "Renvoyer le code",
+        verifyEnable: "Vérifier & activer",
+      },
+      disableModal: {
+        title: "Désactiver l'authentification à deux facteurs ?",
+        description:
+          "Votre compte sera protégé uniquement par votre mot de passe. Vous devrez vérifier avec un code pour continuer.",
+        confirm: "Désactiver la 2FA",
+      },
+      notifs: {
+        enabled: "Authentification à deux facteurs activée",
+        disabled: "Authentification à deux facteurs désactivée",
+        copyOk: "Secret copié",
+        copyFailed: "Échec de la copie",
+        newCode: "Un nouveau code a été envoyé",
+        invalidCode: "Code invalide",
+        enterCode: "Saisissez le code à 6 chiffres",
+        failedStart: "Impossible de démarrer la configuration",
+        failedSend: "Impossible d'envoyer le code",
+        failedDisable: "Impossible de désactiver la 2FA",
+      },
+      challenge: {
+        titleDefault: "Vérifions que c'est bien vous",
+        descriptionDefault:
+          "Saisissez un code de vérification pour continuer.",
+        authenticatorLabel: "Authentificateur",
+        authenticatorN: (n) => `Authentificateur ${n}`,
+        codeAccepted:
+          "Code accepté. Réessayez pour terminer l'action.",
+        enterCode: "Saisissez le code à 6 chiffres",
+        tooManyAttempts: (wait) =>
+          `Trop de tentatives. Réessayez dans ${wait}.`,
+        resendIn: (wait) => `Renvoyer le code dans ${wait}`,
+        resend: "Renvoyer le code",
+        cancel: "Annuler",
+        verifying: "Vérification…",
+        retry: "Réessayer",
+        verifyContinue: "Vérifier & continuer",
+        emailDescription: (sentTo) =>
+          `Saisissez le code à 6 chiffres que nous avons envoyé${
+            sentTo ? ` à ${sentTo}` : ""
+          }.`,
+        expired: "Vérification expirée. Saisissez un nouveau code.",
+        invalidRetry: "Code invalide. Réessayez.",
+        noMethodError:
+          "L'authentification à deux facteurs est activée mais aucune méthode n'a été trouvée. Reconfigurez-la et réessayez.",
+        noFactorError:
+          "Aucun authentificateur trouvé. Reconfigurez la 2FA et réessayez.",
+      },
+    },
+    appearance: {
+      title: "Apparence",
+      description:
+        "Personnalisez l'apparence de l'interface sur cet appareil.",
+      theme: "Thème",
+      light: "Clair",
+      dark: "Sombre",
+      reduceMotion: "Réduire les animations",
+      reduceMotionDesc:
+        "Désactive les animations non essentielles dans l'application.",
+      compact: "Mode compact",
+      compactDesc:
+        "Affiche plus de contenu avec un espacement plus serré.",
+    },
+    preferences: {
+      title: "Préférences",
+      description:
+        "Choisissez la langue d'affichage et les e-mails que vous recevez.",
+      language: "Langue",
+      languageDesc: "Langue utilisée dans toute l'interface.",
+      languageUpdated: "Langue mise à jour",
+      saved: "Préférences enregistrées",
+      save: "Enregistrer les préférences",
+      notifications: {
+        productUpdates: {
+          title: "Mises à jour produit",
+          description:
+            "Nouvelles fonctionnalités, améliorations et notes de version.",
+        },
+        securityAlerts: {
+          title: "Alertes de sécurité",
+          description:
+            "Connexions depuis de nouveaux appareils et changements de mot de passe. Recommandé.",
+        },
+        mentions: {
+          title: "Mentions",
+          description:
+            "Quand quelqu'un vous mentionne dans un commentaire ou un fil.",
+        },
+        weeklyDigest: {
+          title: "Résumé hebdomadaire",
+          description:
+            "Un résumé de l'activité de votre espace de travail, chaque lundi.",
+        },
+        marketing: {
+          title: "Marketing",
+          description:
+            "Conseils, offres et actualités produit occasionnelles.",
+        },
+      },
+    },
+    billing: {
+      plan: {
+        title: "Offre",
+        description: "Vous êtes actuellement en période d'essai gratuite.",
+        proTrial: "Essai Pro",
+        endsOn: "Se termine le 19 oct. 2026",
+        noCard: "Aucune carte enregistrée.",
+        upgrade: "Mettre à niveau",
+      },
+      payment: {
+        title: "Moyen de paiement",
+        description:
+          "Les cartes ne sont débitées que lorsqu'une offre payante est active.",
+        noMethod: "Aucun moyen de paiement enregistré.",
+        addCard: "Ajouter une carte",
+      },
+      invoices: {
+        title: "Factures",
+        description: "Téléchargez vos reçus passés.",
+        none: "Aucune facture pour l'instant.",
+      },
+      notAvailable: "La facturation n'est pas encore disponible",
+    },
+    channels: {
+      intro:
+        "Vos comptes connectés en un coup d'œil. Cliquez sur un canal pour le connecter.",
+      plan: {
+        title: (name) => `Offre ${name}`,
+        description: (name, max) =>
+          `Vous êtes actuellement sur l'offre ${name}. Vous pouvez connecter jusqu'à ${max} canaux.`,
+        slotsLeft: (n) => `${n} place${n === 1 ? "" : "s"} restante${n === 1 ? "" : "s"}.`,
+        limitReached: "Limite atteinte.",
+        upgrade: "Mettre à niveau",
+      },
+      connected: "Connecté",
+      reconnect: "Reconnecter",
+      disconnect: "Déconnecter",
+      optionsFor: (name) => `Options pour ${name}`,
+      dismiss: "Fermer",
+      secureOAuth: "Connexions OAuth sécurisées",
+      connectedToast: (name) => `${name} connecté avec succès !`,
+      disconnectedToast: (name) => `${name} déconnecté avec succès !`,
+      limitError: (plan, max) =>
+        `Votre offre ${plan} autorise jusqu'à ${max} canaux. Passez à une offre supérieure pour en connecter davantage.`,
+      oauthError: (provider, raw) =>
+        raw
+          ? `Impossible de connecter ${provider}. ${raw}`
+          : `Impossible de connecter ${provider}.`,
+      serverError:
+        "Impossible de joindre le serveur. Vérifiez que le backend est démarré et que VITE_API_URL est correcte.",
+      pinterestTokenPrompt: "Jeton d'accès Pinterest :",
+      verifyFailed: (provider) =>
+        `Impossible de vérifier la connexion ${provider}. Réessayez.`,
+    },
+    tags: {
+      visible: "Les tags sont visibles par tous les membres de votre organisation.",
+      learnMore: "En savoir plus ↗",
+      newTag: "+ Nouveau tag",
+      search: "Rechercher des tags…",
+      noTags: "Aucun tag pour l'instant.",
+      noMatch: "Aucun tag trouvé.",
+      edit: (label) => `Modifier ${label}`,
+      delete: (label) => `Supprimer ${label}`,
+      more: (label) => `Plus d'options pour ${label}`,
+      duplicate: "Dupliquer",
+      modalCreate: {
+        title: "Nouveau tag",
+        description:
+          "Créez un tag pour organiser et filtrer vos éléments.",
+      },
+      modalEdit: {
+        title: "Modifier le tag",
+        description: "Mettez à jour le nom ou la couleur de ce tag.",
+      },
+      tagName: "Nom du tag",
+      tagNamePlaceholder: "ex. Design",
+      color: "Couleur",
+      create: "Créer le tag",
+      saveChanges: "Enregistrer",
+      enterName: "Saisissez un nom de tag",
+      alreadyExists: "Le tag existe déjà",
+      updated: "Tag mis à jour",
+      created: "Tag créé",
+      deleted: "Tag supprimé",
+      duplicated: "Tag dupliqué",
+      copyExists: "Une copie existe déjà",
+      duplicateFailed: "Impossible de dupliquer le tag",
+      saveFailed: "Impossible d'enregistrer le tag",
+      loadFailed: "Impossible de charger les tags",
+      deleteFailed: "Impossible de supprimer le tag",
+      useColorAria: (c) => `Utiliser la couleur ${c}`,
+    },
+    savedReplies: {
+      intro:
+        "Les réponses enregistrées sont visibles par tous les membres de votre organisation.",
+      emptyHint:
+        "Enregistrez les informations que vous partagez souvent pour les insérer rapidement dans vos réponses.",
+      newReply: "+ Nouvelle réponse enregistrée",
+      edit: (name) => `Modifier ${name}`,
+      delete: (name) => `Supprimer ${name}`,
+      modalCreate: {
+        title: "Nouvelle réponse enregistrée",
+        description:
+          "Créez une réponse rapide à utiliser dans vos messages.",
+      },
+      modalEdit: {
+        title: "Modifier la réponse enregistrée",
+        description: "Mettez à jour cette réponse enregistrée.",
+      },
+      name: "Nom",
+      namePlaceholder: "ex. Message de bienvenue",
+      content: "Contenu",
+      contentPlaceholder: "Rédigez votre réponse enregistrée",
+      saveReply: "Enregistrer la réponse",
+      saveChanges: "Enregistrer",
+      enterName: "Saisissez un nom",
+      enterContent: "Saisissez le contenu de la réponse",
+      updated: "Réponse enregistrée mise à jour",
+      created: "Réponse enregistrée créée",
+      deleted: "Réponse enregistrée supprimée",
+      saveFailed: "Impossible d'enregistrer la réponse",
+      deleteFailed: "Impossible de supprimer la réponse enregistrée",
+      loadFailed: "Impossible de charger les réponses enregistrées",
+    },
+    danger: {
+      exportTitle: "Exporter les données",
+      exportDescription:
+        "Téléchargez une copie de tout ce qui est lié à votre compte.",
+      exportHint:
+        "Vous recevrez un e-mail avec un lien de téléchargement.",
+      requestExport: "Demander l'export",
+      exportRequested: "Export demandé",
+      deleteTitle: "Supprimer le compte",
+      deleteDescription:
+        "Cela supprime définitivement votre compte, votre espace de travail et toutes les données. Cette action est irréversible.",
+      deleteButton: "Supprimer mon compte",
+      typeToConfirm: (word) => `Saisissez « ${word} » pour confirmer`,
+      deleteWord: "supprimer",
+      disabledDemo: "La suppression de compte est désactivée dans cette démo",
+    },
+    toast: {
+      successUpdated: "Enregistré",
+    },
+  },
+};
+
 /* ── Tokens (classes complètes, compatibles Tailwind v3/v4) ── */
 const DARK = {
   pageBg: "bg-[#050505]",
@@ -296,7 +1550,6 @@ const MoreIcon = mkIcon(
     <circle cx="19" cy="12" r="1.5" fill="currentColor" stroke="none" />
   </>
 );
-/* Icône Preferences (sliders) */
 const SlidersIcon = mkIcon(
   <>
     <line x1="4" y1="21" x2="4" y2="14" />
@@ -310,7 +1563,6 @@ const SlidersIcon = mkIcon(
     <line x1="17" y1="16" x2="23" y2="16" />
   </>
 );
-/* Icônes Channels */
 const ChannelsIcon = mkIcon(
   <>
     <circle cx="7.5" cy="7.5" r="2.5" />
@@ -621,53 +1873,6 @@ type SectionKey =
   | "savedReplies"
   | "danger";
 
-const SIDEBAR_GROUPS: {
-  label: string;
-  items: { key: SectionKey; label: string; icon: ReactNode; badge?: string }[];
-}[] = [
-  {
-    label: "Account",
-    items: [
-      { key: "profile", label: "Profile", icon: <UserIcon /> },
-      { key: "account", label: "Security", icon: <ShieldIcon /> },
-      { key: "mfa", label: "Two-factor auth", icon: <LockIcon /> },
-      { key: "preferences", label: "Preferences", icon: <SlidersIcon /> },
-    ],
-  },
-  {
-    label: "Organization",
-    items: [{ key: "billing", label: "Billing", icon: <CardIcon /> }],
-  },
-  {
-    label: "Utils",
-    items: [
-      { key: "channels", label: "Channels", icon: <ChannelsIcon /> },
-      { key: "tags", label: "Tags", icon: <TagIcon /> },
-      { key: "savedReplies", label: "Saved replies", icon: <ClipboardIcon /> },
-    ],
-  },
-  {
-    label: "Other",
-    items: [
-      { key: "appearance", label: "Appearance", icon: <SunIcon />, badge: "New" },
-      { key: "danger", label: "Danger zone", icon: <AlertIcon /> },
-    ],
-  },
-];
-
-const SECTION_TITLES: Record<SectionKey, string> = {
-  profile: "Profile",
-  account: "Security",
-  mfa: "Two-factor authentication",
-  appearance: "Appearance",
-  preferences: "Preferences",
-  billing: "Billing",
-  channels: "Channels",
-  tags: "Tags",
-  savedReplies: "Saved Replies",
-  danger: "Danger zone",
-};
-
 const SECTION_SLUGS: Record<SectionKey, string> = {
   profile: "profile",
   account: "security",
@@ -690,17 +1895,73 @@ export function sectionFromSlug(slug?: string | null): SectionKey | undefined {
   );
 }
 
+function buildSidebarGroups(
+  c: Copy
+): {
+  key: SidebarGroupKey;
+  items: { key: SectionKey; label: string; icon: ReactNode; badge?: string }[];
+}[] {
+  return [
+    {
+      key: "account",
+      items: [
+        { key: "profile", label: c.sidebar.sections.profile, icon: <UserIcon /> },
+        { key: "account", label: c.sidebar.sections.account, icon: <ShieldIcon /> },
+        { key: "mfa", label: c.sidebar.sections.mfa, icon: <LockIcon /> },
+        {
+          key: "preferences",
+          label: c.sidebar.sections.preferences,
+          icon: <SlidersIcon />,
+        },
+      ],
+    },
+    {
+      key: "organization",
+      items: [
+        { key: "billing", label: c.sidebar.sections.billing, icon: <CardIcon /> },
+      ],
+    },
+    {
+      key: "utils",
+      items: [
+        { key: "channels", label: c.sidebar.sections.channels, icon: <ChannelsIcon /> },
+        { key: "tags", label: c.sidebar.sections.tags, icon: <TagIcon /> },
+        {
+          key: "savedReplies",
+          label: c.sidebar.sections.savedReplies,
+          icon: <ClipboardIcon />,
+        },
+      ],
+    },
+    {
+      key: "other",
+      items: [
+        {
+          key: "appearance",
+          label: c.sidebar.sections.appearance,
+          icon: <SunIcon />,
+          badge: c.sidebar.newBadge,
+        },
+        { key: "danger", label: c.sidebar.sections.danger, icon: <AlertIcon /> },
+      ],
+    },
+  ];
+}
+
 function SettingsSidebar({
   active,
   onSelect,
   onBack,
   tokens,
+  c,
 }: {
   active: SectionKey;
   onSelect: (key: SectionKey) => void;
   onBack: () => void;
   tokens: Tokens;
+  c: Copy;
 }) {
+  const groups = buildSidebarGroups(c);
   return (
     <aside
       className={cx(
@@ -713,8 +1974,8 @@ function SettingsSidebar({
         <button
           type="button"
           onClick={onBack}
-          aria-label="Back to home"
-          title="Back to home"
+          aria-label={c.sidebar.backHome}
+          title={c.sidebar.backHome}
           className={cx(
             "flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-colors",
             tokens.item,
@@ -730,16 +1991,16 @@ function SettingsSidebar({
             tokens.heading
           )}
         >
-          Settings
+          {c.sidebar.title}
         </h2>
       </div>
       <nav
-        aria-label="Settings sections"
+        aria-label={c.sidebar.navAria}
         className="px-3 pb-4 max-md:flex max-md:gap-1 max-md:overflow-x-auto max-md:pb-3"
       >
-        {SIDEBAR_GROUPS.map((group, index) => (
+        {groups.map((group, index) => (
           <div
-            key={group.label}
+            key={group.key}
             className={cx(index === 0 ? "mt-1" : "mt-5", "max-md:mt-0")}
           >
             <p
@@ -748,7 +2009,7 @@ function SettingsSidebar({
                 tokens.group
               )}
             >
-              {group.label}
+              {c.sidebar.groups[group.key]}
             </p>
             <ul className="flex flex-col gap-0.5 max-md:flex-row">
               {group.items.map((item) => {
@@ -799,16 +2060,7 @@ type SettingsProps = {
 };
 type Notify = (message: string, kind?: "success" | "error") => void;
 
-/**
- * Fallback pour `/settings` (sans slug) :
- * - retour OAuth (TikTok / Pinterest / YouTube) → Channels
- * - sinon → Profile
- *
- * Si l'URL contient un slug valide (`/settings/tags`, `#/settings/tags`…),
- * c'est lui qui prime.
- */
 function initialSection(): SectionKey {
-  // 1. Slug dans l'URL (hash ou path)
   try {
     const hash = window.location.hash.replace(/^#\/?/, "");
     const hashParts = hash.split("/").filter(Boolean);
@@ -825,7 +2077,6 @@ function initialSection(): SectionKey {
   } catch {
     /* ignore */
   }
-  // 2. Retour OAuth → Channels
   try {
     const params = new URLSearchParams(window.location.search);
     if (params.get("section") === "channels") return "channels";
@@ -843,7 +2094,6 @@ function initialSection(): SectionKey {
   } catch {
     /* ignore */
   }
-  // 3. Défaut
   return "profile";
 }
 
@@ -851,9 +2101,9 @@ export default function Settings(_props: SettingsProps) {
   const { theme, toggle } = useTheme();
   const isDark = theme === "dark";
   const tokens = useMemo<Tokens>(() => (isDark ? DARK : LIGHT), [isDark]);
+  const lang = useLanguage();
+  const c = COPY[lang];
 
-  // La section active vient de l'URL : soit passée par le routeur,
-  // soit déduite du slug / des query params OAuth.
   const returning =
     typeof window !== "undefined" &&
     (() => {
@@ -878,7 +2128,9 @@ export default function Settings(_props: SettingsProps) {
   const notify = useCallback<Notify>((message, kind) => {
     const resolved =
       kind ??
-      (/fail|error|must|enter|do not|different/i.test(message)
+      (/fail|error|must|enter|do not|different|impossible|échoué|erreur|requis|saisissez|différent/i.test(
+        message
+      )
         ? "error"
         : "success");
     setToast({ message, kind: resolved });
@@ -924,6 +2176,7 @@ export default function Settings(_props: SettingsProps) {
           onSelect={handleSelect}
           onBack={handleBack}
           tokens={tokens}
+          c={c}
         />
         <div
           className={cx(
@@ -939,50 +2192,75 @@ export default function Settings(_props: SettingsProps) {
               tokens.heading
             )}
           >
-            {SECTION_TITLES[active]}
+            {c.sectionTitles[active]}
           </h1>
           <div className="flex flex-col gap-5">
             {active === "profile" && (
-              <ProfileSection tokens={tokens} notify={notify} />
+              <ProfileSection tokens={tokens} notify={notify} c={c} />
             )}
             {active === "account" && (
               <AccountSection
                 tokens={tokens}
                 notify={notify}
                 isDark={isDark}
+                c={c}
+                lang={lang}
               />
             )}
             {active === "mfa" && (
-              <MfaSection tokens={tokens} notify={notify} isDark={isDark} />
+              <MfaSection
+                tokens={tokens}
+                notify={notify}
+                isDark={isDark}
+                c={c}
+                lang={lang}
+              />
             )}
             {active === "appearance" && (
               <AppearanceSection
                 tokens={tokens}
                 isDark={isDark}
                 setTheme={handleSelectTheme}
+                c={c}
               />
             )}
             {active === "preferences" && (
-              <PreferencesSection tokens={tokens} notify={notify} />
+              <PreferencesSection
+                tokens={tokens}
+                notify={notify}
+                c={c}
+                lang={lang}
+              />
             )}
             {active === "billing" && (
-              <BillingSection tokens={tokens} notify={notify} />
+              <BillingSection tokens={tokens} notify={notify} c={c} />
             )}
             {active === "channels" && (
-              <ChannelsSection tokens={tokens} notify={notify} isDark={isDark} />
+              <ChannelsSection
+                tokens={tokens}
+                notify={notify}
+                isDark={isDark}
+                c={c}
+              />
             )}
             {active === "tags" && (
-              <TagsSection tokens={tokens} notify={notify} isDark={isDark} />
+              <TagsSection
+                tokens={tokens}
+                notify={notify}
+                isDark={isDark}
+                c={c}
+              />
             )}
             {active === "savedReplies" && (
               <SavedRepliesSection
                 tokens={tokens}
                 notify={notify}
                 isDark={isDark}
+                c={c}
               />
             )}
             {active === "danger" && (
-              <DangerSection tokens={tokens} notify={notify} />
+              <DangerSection tokens={tokens} notify={notify} c={c} />
             )}
           </div>
         </div>
@@ -1023,9 +2301,11 @@ export default function Settings(_props: SettingsProps) {
 function ProfileSection({
   tokens,
   notify,
+  c,
 }: {
   tokens: Tokens;
   notify: Notify;
+  c: Copy;
 }) {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -1049,7 +2329,7 @@ function ProfileSection({
         setAvatarLoadFailed(false);
       } catch (error) {
         console.error("Error loading user profile:", error);
-        if (mounted) notify("Failed to load profile", "error");
+        if (mounted) notify(c.profile.loadingFailed, "error");
       } finally {
         if (mounted) setLoading(false);
       }
@@ -1057,7 +2337,7 @@ function ProfileSection({
     return () => {
       mounted = false;
     };
-  }, [notify]);
+  }, [notify, c]);
 
   const dirty =
     !!user &&
@@ -1076,11 +2356,11 @@ function ProfileSection({
     event.target.value = "";
     if (!file || !user) return;
     if (file.size > 2 * 1024 * 1024) {
-      notify("File size must be less than 2MB", "error");
+      notify(c.profile.fileSizeError, "error");
       return;
     }
     if (!file.type.startsWith("image/")) {
-      notify("File must be an image", "error");
+      notify(c.profile.fileTypeError, "error");
       return;
     }
     setUploading(true);
@@ -1088,7 +2368,7 @@ function ProfileSection({
     try {
       const publicUrl = await uploadAvatar(file, user.id);
       if (!publicUrl) {
-        notify("Failed to upload image", "error");
+        notify(c.profile.uploadFailed, "error");
         return;
       }
       setAvatarUrl(publicUrl);
@@ -1096,7 +2376,7 @@ function ProfileSection({
       const ok = await updateUserProfile({ avatar_url: publicUrl });
       if (!ok) {
         setAvatarUrl(previous);
-        notify("Image uploaded but profile update failed", "error");
+        notify(c.profile.profileUpdateFailed, "error");
         return;
       }
       if (previous && previous !== publicUrl) {
@@ -1106,13 +2386,13 @@ function ProfileSection({
           console.warn("Old avatar could not be deleted:", e);
         }
       }
-      setUser((c) => (c ? { ...c, avatar_url: publicUrl } : c));
-      notify("Profile picture updated");
+      setUser((cur) => (cur ? { ...cur, avatar_url: publicUrl } : cur));
+      notify(c.profile.pictureUpdated);
     } catch (error) {
       console.error("Error uploading avatar:", error);
       setAvatarUrl(previous);
       notify(
-        error instanceof Error ? error.message : "Failed to upload image",
+        error instanceof Error ? error.message : c.profile.uploadFailed,
         "error"
       );
     } finally {
@@ -1127,13 +2407,13 @@ function ProfileSection({
     try {
       const ok = await updateUserProfile({ avatar_url: "" });
       if (!ok) {
-        notify("Failed to remove profile picture", "error");
+        notify(c.profile.removeFailed, "error");
         return;
       }
       setAvatarUrl(null);
       setAvatarLoadFailed(false);
-      setUser((c) => (c ? { ...c, avatar_url: undefined } : c));
-      notify("Profile picture removed");
+      setUser((cur) => (cur ? { ...cur, avatar_url: undefined } : cur));
+      notify(c.profile.pictureRemoved);
       try {
         await deleteAvatar(previous);
       } catch (e) {
@@ -1142,9 +2422,7 @@ function ProfileSection({
     } catch (error) {
       console.error("Error removing avatar:", error);
       notify(
-        error instanceof Error
-          ? error.message
-          : "Failed to remove profile picture",
+        error instanceof Error ? error.message : c.profile.removeFailed,
         "error"
       );
     } finally {
@@ -1165,15 +2443,15 @@ function ProfileSection({
         avatar_url: avatarUrl || undefined,
       });
       if (!ok) {
-        notify("Failed to save profile", "error");
+        notify(c.profile.saveFailed, "error");
         return;
       }
       setUser({ ...user, ...next, avatar_url: avatarUrl || undefined });
-      notify("Profile saved");
+      notify(c.profile.saved);
     } catch (error) {
       console.error("Error saving profile:", error);
       notify(
-        error instanceof Error ? error.message : "Failed to save profile",
+        error instanceof Error ? error.message : c.profile.saveFailed,
         "error"
       );
     } finally {
@@ -1181,11 +2459,13 @@ function ProfileSection({
     }
   };
 
-  const description = "This information is visible to your teammates.";
-
   if (loading) {
     return (
-      <SectionCard title="Profile" description={description} tokens={tokens}>
+      <SectionCard
+        title={c.profile.title}
+        description={c.profile.description}
+        tokens={tokens}
+      >
         <div className="animate-pulse space-y-4 py-2" aria-busy="true">
           <div className="flex items-center gap-4">
             <div className={cx("h-16 w-16 rounded-full", tokens.track)} />
@@ -1205,13 +2485,17 @@ function ProfileSection({
 
   if (!user) {
     return (
-      <SectionCard title="Profile" description={description} tokens={tokens}>
+      <SectionCard
+        title={c.profile.title}
+        description={c.profile.description}
+        tokens={tokens}
+      >
         <div className="flex flex-col items-center gap-3 py-8 text-center">
           <p className={cx("text-[13.5px]", tokens.body)}>
-            Please sign in to view your profile.
+            {c.profile.signIn}
           </p>
           <Button tokens={tokens} onClick={() => navigate("home")}>
-            Go to home
+            {c.profile.goHome}
           </Button>
         </div>
       </SectionCard>
@@ -1223,14 +2507,14 @@ function ProfileSection({
 
   return (
     <SectionCard
-      title="Profile"
-      description={description}
+      title={c.profile.title}
+      description={c.profile.description}
       tokens={tokens}
       footer={
         <>
           {dirty && (
             <span className={cx("text-[12.5px]", tokens.subtle)}>
-              Unsaved changes
+              {c.common.unsavedChanges}
             </span>
           )}
           <Button
@@ -1238,7 +2522,7 @@ function ProfileSection({
             onClick={handleSave}
             disabled={!dirty || saving || uploading}
           >
-            {saving ? "Saving..." : "Save changes"}
+            {saving ? c.profile.savingLabel : c.profile.saveChanges}
           </Button>
         </>
       }
@@ -1269,10 +2553,10 @@ function ProfileSection({
           )}
           <div>
             <p className={cx("text-[14px] font-medium", tokens.heading)}>
-              Profile picture
+              {c.profile.profilePicture}
             </p>
             <p className={cx("mt-0.5 text-[12.5px]", tokens.body)}>
-              PNG, JPG, GIF or WebP, up to 2 MB.
+              {c.profile.fileHint}
             </p>
           </div>
         </div>
@@ -1293,7 +2577,11 @@ function ProfileSection({
               tokens.secondary
             )}
           >
-            {uploading ? "Uploading..." : avatarUrl ? "Change" : "Upload"}
+            {uploading
+              ? c.profile.uploading
+              : avatarUrl
+              ? c.profile.change
+              : c.profile.upload}
           </label>
           {avatarUrl && (
             <Button
@@ -1303,21 +2591,21 @@ function ProfileSection({
               disabled={uploading}
               className="!px-3.5 !py-2 !font-medium"
             >
-              Remove
+              {c.profile.remove}
             </Button>
           )}
         </div>
       </div>
       <div className="grid gap-3 pt-5 sm:grid-cols-2">
         <Field
-          label="First name"
+          label={c.profile.firstName}
           value={first}
           onChange={setFirst}
           autoComplete="given-name"
           tokens={tokens}
         />
         <Field
-          label="Last name"
+          label={c.profile.lastName}
           value={last}
           onChange={setLast}
           autoComplete="family-name"
@@ -1329,7 +2617,6 @@ function ProfileSection({
 }
 
 /* ── Security ── */
-const STRENGTH_LABELS = ["Too weak", "Weak", "Fair", "Good", "Strong"];
 const STRENGTH_COLORS = [
   "bg-red-500",
   "bg-red-500",
@@ -1348,22 +2635,21 @@ function passwordScore(value: string): number {
   return Math.min(score, 4);
 }
 
-/* ── 2FA : garde MFA + modale de challenge (app ou email) ── */
+/* ── 2FA : garde MFA + modale de challenge ── */
 type MfaGate = {
   method: MfaMethod;
   factors: MfaFactor[];
-  /** Action à rejouer une fois la session passée en AAL2. */
   run: () => Promise<void>;
 };
 
 const TOTP_RE = /^\d{6}$/;
-const formatWait = (seconds: number) =>
+const formatWait = (seconds: number, c: Copy) =>
   seconds >= 60 ? `${Math.ceil(seconds / 60)} min` : `${seconds} s`;
-const formatDate = (iso?: string | null): string | null => {
+const formatDate = (iso: string | null | undefined, lang: Lang): string | null => {
   if (!iso) return null;
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return null;
-  return d.toLocaleDateString(undefined, {
+  return d.toLocaleDateString(intlLocale(lang), {
     year: "numeric",
     month: "short",
     day: "numeric",
@@ -1378,6 +2664,8 @@ function MfaChallengeModal({
   description,
   tokens,
   isDark,
+  c,
+  lang,
 }: {
   gate: MfaGate | null;
   onClose: () => void;
@@ -1386,6 +2674,8 @@ function MfaChallengeModal({
   description: string;
   tokens: Tokens;
   isDark: boolean;
+  c: Copy;
+  lang: Lang;
 }) {
   const [factorId, setFactorId] = useState("");
   const [code, setCode] = useState("");
@@ -1413,12 +2703,14 @@ function MfaChallengeModal({
         setResendAt(Date.now() + e.retryAfterSeconds * 1000);
         setNow(Date.now());
       } else {
-        setError(e instanceof Error ? e.message : "Could not send the code.");
+        setError(
+          e instanceof Error ? e.message : c.mfa.notifs.failedSend
+        );
       }
     } finally {
       setSending(false);
     }
-  }, []);
+  }, [c]);
 
   useEffect(() => {
     setFactorId(gate?.factors[0]?.id ?? "");
@@ -1428,7 +2720,6 @@ function MfaChallengeModal({
     setResendAt(0);
     setSentTo(null);
     verified.current = false;
-    // Méthode email : envoie le code dès l'ouverture de la modale.
     if (gate?.method === "email" && sentFor.current !== gate) {
       sentFor.current = gate;
       void sendCode();
@@ -1453,7 +2744,7 @@ function MfaChallengeModal({
   const submit = async () => {
     if (!gate || busy || waitLeft > 0) return;
     if (!ready) {
-      setError("Enter the 6-digit code");
+      setError(c.mfa.challenge.enterCode);
       return;
     }
     setBusy(true);
@@ -1472,14 +2763,15 @@ function MfaChallengeModal({
         setNow(Date.now());
       } else if (isMfaRequiredError(e)) {
         verified.current = false;
-        setError("Verification expired. Enter a new code.");
+        setError(c.mfa.challenge.expired);
       } else {
-        const msg = e instanceof Error ? e.message : "Invalid code";
+        const msg =
+          e instanceof Error ? e.message : c.mfa.notifs.invalidCode;
         setError(
           verified.current
             ? msg
             : /invalid|code|expired/i.test(msg)
-            ? "Invalid code. Try again."
+            ? c.mfa.challenge.invalidRetry
             : msg
         );
       }
@@ -1505,7 +2797,7 @@ function MfaChallengeModal({
       title={title}
       description={
         method === "email"
-          ? `Enter the 6-digit code we emailed${sentTo ? ` to ${sentTo}` : ""}.`
+          ? c.mfa.challenge.emailDescription(sentTo)
           : description
       }
       dark={isDark}
@@ -1516,7 +2808,7 @@ function MfaChallengeModal({
             <span
               className={cx("mb-1.5 block text-[13px] font-medium", tokens.label)}
             >
-              Authenticator
+              {c.mfa.challenge.authenticatorLabel}
             </span>
             <select
               value={factorId}
@@ -1531,10 +2823,13 @@ function MfaChallengeModal({
             >
               {factors.map((f, i) => (
                 <option key={f.id} value={f.id}>
-                  {f.friendlyName && !/^Authenticator \d+$/.test(f.friendlyName)
+                  {f.friendlyName &&
+                  !/^Authenticator \d+$/.test(f.friendlyName)
                     ? f.friendlyName
-                    : `Authenticator ${i + 1}`}
-                  {formatDate(f.createdAt) ? ` · ${formatDate(f.createdAt)}` : ""}
+                    : c.mfa.challenge.authenticatorN(i + 1)}
+                  {formatDate(f.createdAt, lang)
+                    ? ` · ${formatDate(f.createdAt, lang)}`
+                    : ""}
                 </option>
               ))}
             </select>
@@ -1542,11 +2837,11 @@ function MfaChallengeModal({
         )}
         {verified.current ? (
           <p className={cx("text-[13px]", tokens.body)}>
-            Code accepted. Retry to finish the action.
+            {c.mfa.challenge.codeAccepted}
           </p>
         ) : (
           <Field
-            label="Verification code"
+            label={c.mfa.setup.codeHint}
             value={code}
             onChange={(v) => {
               setCode(v.replace(/\D/g, "").slice(0, 6));
@@ -1569,7 +2864,7 @@ function MfaChallengeModal({
             role="alert"
             className={cx("rounded-[10px] px-3 py-2 text-[12.5px]", tokens.warn)}
           >
-            Too many attempts. Try again in {formatWait(waitLeft)}.
+            {c.common.tooManyAttempts(formatWait(waitLeft, c))}
           </p>
         )}
         {method === "email" && !verified.current && (
@@ -1584,10 +2879,10 @@ function MfaChallengeModal({
             )}
           >
             {sending
-              ? "Sending..."
+              ? c.common.sending
               : resendLeft > 0
-              ? `Resend code in ${formatWait(resendLeft)}`
-              : "Resend code"}
+              ? c.mfa.challenge.resendIn(formatWait(resendLeft, c))
+              : c.mfa.challenge.resend}
           </button>
         )}
         <div
@@ -1599,7 +2894,7 @@ function MfaChallengeModal({
             onClick={onClose}
             disabled={busy}
           >
-            Cancel
+            {c.common.cancel}
           </Button>
           <Button
             tokens={tokens}
@@ -1607,10 +2902,10 @@ function MfaChallengeModal({
             disabled={busy || waitLeft > 0 || !ready}
           >
             {busy
-              ? "Verifying..."
+              ? c.common.verifying
               : verified.current
-              ? "Retry"
-              : "Verify & continue"}
+              ? c.mfa.challenge.retry
+              : c.mfa.challenge.verifyContinue}
           </Button>
         </div>
       </div>
@@ -1622,12 +2917,16 @@ function useMfaGate({
   tokens,
   notify,
   isDark,
-  title = "Verify it's you",
-  description = "Enter a verification code to continue.",
+  c,
+  lang,
+  title,
+  description,
 }: {
   tokens: Tokens;
   notify: Notify;
   isDark: boolean;
+  c: Copy;
+  lang: Lang;
   title?: string;
   description?: string;
 }) {
@@ -1641,34 +2940,30 @@ function useMfaGate({
         const status = await getMfaStatus();
         const method = status?.method;
         if (!method) {
-          notify(
-            "Two-factor authentication is enabled but no method was found. Set it up again and retry.",
-            "error"
-          );
+          notify(c.mfa.challenge.noMethodError, "error");
           return;
         }
         const factors = method === "totp" ? await listMfaFactors() : [];
         if (method === "totp" && factors.length === 0) {
-          notify(
-            "No authenticator was found. Set up 2FA again and retry.",
-            "error"
-          );
+          notify(c.mfa.challenge.noFactorError, "error");
           return;
         }
         setGate({ method, factors, run });
       }
     },
-    [notify]
+    [notify, c]
   );
   const modal = (
     <MfaChallengeModal
       gate={gate}
       onClose={() => setGate(null)}
       onDone={() => setGate(null)}
-      title={title}
-      description={description}
+      title={title ?? c.mfa.challenge.titleDefault}
+      description={description ?? c.mfa.challenge.descriptionDefault}
       tokens={tokens}
       isDark={isDark}
+      c={c}
+      lang={lang}
     />
   );
   return { guard, modal };
@@ -1679,10 +2974,14 @@ function AccountSection({
   tokens,
   notify,
   isDark,
+  c,
+  lang,
 }: {
   tokens: Tokens;
   notify: Notify;
   isDark: boolean;
+  c: Copy;
+  lang: Lang;
 }) {
   const [email, setEmail] = useState("");
   const [loadingAccount, setLoadingAccount] = useState(true);
@@ -1701,8 +3000,10 @@ function AccountSection({
     tokens,
     notify,
     isDark,
-    title: "Two-factor verification required",
-    description: "Enter a verification code to change your password.",
+    c,
+    lang,
+    title: c.account.mfaGate.title,
+    description: c.account.mfaGate.description,
   });
 
   useEffect(() => {
@@ -1718,7 +3019,7 @@ function AccountSection({
         setMfaEnabled(Boolean(data.mfa_enabled));
       } catch (error) {
         console.error("Error loading account details:", error);
-        if (mounted) notify("Failed to load account details", "error");
+        if (mounted) notify(c.mfa.loadFailed, "error");
       } finally {
         if (mounted) setLoadingAccount(false);
       }
@@ -1726,23 +3027,18 @@ function AccountSection({
     return () => {
       mounted = false;
     };
-  }, [notify]);
+  }, [notify, c]);
 
   const handleSendVerification = async () => {
     if (loadingAccount || verified || sendingVerification) return;
     setSendingVerification(true);
     try {
       const ok = await resendVerificationEmail();
-      notify(
-        ok ? "Verification email sent" : "Failed to send verification email",
-        ok ? "success" : "error"
-      );
+      notify(ok ? c.account.email.sent : c.account.email.sendFailed, ok ? "success" : "error");
     } catch (error) {
       console.error("Error sending verification email:", error);
       notify(
-        error instanceof Error
-          ? error.message
-          : "Failed to send verification email",
+        error instanceof Error ? error.message : c.account.email.sendFailed,
         "error"
       );
     } finally {
@@ -1752,14 +3048,19 @@ function AccountSection({
 
   const handleUpdatePassword = async () => {
     if (updatingPassword || loadingAccount) return;
-    if (hasPassword && !current) return notify("Enter your current password");
+    if (hasPassword && !current)
+      return notify(c.account.password.enterCurrent);
     if (!next)
-      return notify(hasPassword ? "Enter a new password" : "Enter a password");
-    if (next.length < 8)
-      return notify("Password must be at least 8 characters");
+      return notify(
+        hasPassword
+          ? c.account.password.enterNew
+          : c.account.password.enterPassword
+      );
+    if (next.length < 8) return notify(c.account.password.tooShort);
     if (hasPassword && next === current)
-      return notify("New password must be different from the current one");
-    if (next !== confirmNext) return notify("Passwords do not match");
+      return notify(c.account.password.different);
+    if (next !== confirmNext)
+      return notify(c.account.password.mismatchNotify);
     setUpdatingPassword(true);
     const currentPassword = hasPassword ? current : null;
     const newPassword = next;
@@ -1771,16 +3072,20 @@ function AccountSection({
         setNext("");
         setConfirmNext("");
         setHasPassword(true);
-        notify(wasSetting ? "Password set" : "Password updated");
+        notify(
+          wasSetting
+            ? c.account.password.setSuccess
+            : c.account.password.updateSuccess
+        );
       });
     } catch (error) {
       console.error("Error updating password:", error);
       notify(
         isRateLimitError(error)
-          ? `Too many attempts. Try again in ${formatWait(error.retryAfterSeconds)}.`
+          ? c.common.tooManyAttempts(formatWait(error.retryAfterSeconds, c))
           : error instanceof Error
           ? error.message
-          : "Failed to update password",
+          : c.account.password.updateFailed,
         "error"
       );
     } finally {
@@ -1793,8 +3098,8 @@ function AccountSection({
       type="button"
       onMouseDown={(e) => e.preventDefault()}
       onClick={() => setShow((v) => !v)}
-      aria-label={show ? "Hide password" : "Show password"}
-      title={show ? "Hide password" : "Show password"}
+      aria-label={show ? c.account.password.hide : c.account.password.show}
+      title={show ? c.account.password.hide : c.account.password.show}
       className={cx(
         "flex h-7 w-7 items-center justify-center rounded-md transition",
         tokens.subtle,
@@ -1814,20 +3119,18 @@ function AccountSection({
   const pwType = show ? "text" : "password";
 
   const passwordDescription = loadingAccount
-    ? "Loading your account details..."
+    ? c.account.password.descLoading
     : isOAuthOnly
-    ? `You signed in with ${
-        providerLabel ?? "an external provider"
-      }. Set a password to also sign in with your email.`
+    ? c.account.password.descOauth(providerLabel ?? "an external provider")
     : mfaEnabled
-    ? "Two-factor authentication is on. Changing your password requires a verification code."
-    : "Use at least 8 characters. Mix letters, numbers, and symbols.";
+    ? c.account.password.descMfa
+    : c.account.password.descDefault;
 
   return (
     <>
       <SectionCard
-        title="Email"
-        description="We'll send confirmation links and important notices here."
+        title={c.account.email.title}
+        description={c.account.email.description}
         tokens={tokens}
         footer={
           <Button
@@ -1837,19 +3140,21 @@ function AccountSection({
             onClick={handleSendVerification}
             className="!px-3.5 !py-2 !font-medium"
           >
-            {sendingVerification ? "Sending..." : "Send verification email"}
+            {sendingVerification
+              ? c.account.email.sending
+              : c.account.email.sendEmail}
           </Button>
         }
       >
         <Field
-          label="Email address"
+          label={c.account.email.label}
           type="email"
           value={email}
-          placeholder={loadingAccount ? "Loading..." : undefined}
+          placeholder={loadingAccount ? c.common.loading : undefined}
           onChange={() => undefined}
           readOnly
           autoComplete="email"
-          hint="Contact support to change your email address."
+          hint={c.account.email.hint}
           tokens={tokens}
         />
         <div className="flex items-center gap-2 pt-4">
@@ -1860,7 +3165,11 @@ function AccountSection({
             )}
           >
             {verified && <CheckIcon className="h-3 w-3" />}
-            {loadingAccount ? "Checking..." : verified ? "Verified" : "Unverified"}
+            {loadingAccount
+              ? c.account.email.checking
+              : verified
+              ? c.account.email.verified
+              : c.account.email.unverified}
           </span>
           {mfaEnabled && (
             <span
@@ -1870,14 +3179,16 @@ function AccountSection({
               )}
             >
               <LockIcon className="h-3 w-3" />
-              2FA enabled
+              {c.account.email.twoFaOn}
             </span>
           )}
         </div>
       </SectionCard>
 
       <SectionCard
-        title={isOAuthOnly ? "Set a password" : "Password"}
+        title={
+          isOAuthOnly ? c.account.password.titleSet : c.account.password.title
+        }
         description={passwordDescription}
         tokens={tokens}
         footer={
@@ -1888,35 +3199,37 @@ function AccountSection({
           >
             {updatingPassword
               ? isOAuthOnly
-                ? "Saving..."
-                : "Updating..."
+                ? c.account.password.saving
+                : c.account.password.updating
               : isOAuthOnly
-              ? "Set password"
-              : "Update password"}
+              ? c.account.password.set
+              : c.account.password.update}
           </Button>
         }
       >
         <div className="flex flex-col gap-4">
           {!loadingAccount && !isOAuthOnly && (
             <Field
-              label="Current password"
+              label={c.account.password.current}
               type={pwType}
               value={current}
               onChange={setCurrent}
               autoComplete="current-password"
-              placeholder="••••••••"
+              placeholder={c.account.password.currentPlaceholder}
               onEnter={handleUpdatePassword}
               tokens={tokens}
             />
           )}
           <div>
             <Field
-              label={isOAuthOnly ? "Password" : "New password"}
+              label={
+                isOAuthOnly ? c.account.password.password : c.account.password.new
+              }
               type={pwType}
               value={next}
               onChange={setNext}
               autoComplete="new-password"
-              placeholder="••••••••"
+              placeholder={c.account.password.newPlaceholder}
               onEnter={handleUpdatePassword}
               tokens={tokens}
               trailing={trailing}
@@ -1935,27 +3248,26 @@ function AccountSection({
                   ))}
                 </div>
                 <span className={cx("mt-1 block text-[12px]", tokens.subtle)}>
-                  {STRENGTH_LABELS[score]}
+                  {c.account.strength[score]}
                 </span>
               </div>
             )}
           </div>
           <Field
-            label="Confirm password"
+            label={c.account.password.confirm}
             type={pwType}
             value={confirmNext}
             onChange={setConfirmNext}
             autoComplete="new-password"
-            placeholder="••••••••"
-            error={mismatch ? "Passwords do not match" : undefined}
+            placeholder={c.account.password.newPlaceholder}
+            error={mismatch ? c.account.password.mismatch : undefined}
             onEnter={handleUpdatePassword}
             tokens={tokens}
           />
         </div>
         {isOAuthOnly && providerLabel && (
           <p className={cx("pt-4 text-[12.5px] leading-relaxed", tokens.body)}>
-            You can still sign in with {providerLabel}. To manage that account,
-            open your{" "}
+            {c.account.oauthFootnote(providerLabel)}{" "}
             <a
               href={
                 provider === "google"
@@ -1969,7 +3281,7 @@ function AccountSection({
                 tokens.link
               )}
             >
-              {providerLabel} security settings
+              {c.account.oauthSettingsLink(providerLabel)}
             </a>
             .
           </p>
@@ -1980,15 +3292,19 @@ function AccountSection({
   );
 }
 
-/* ── MFA (une seule méthode : app d'authentification OU code par email) ── */
+/* ── MFA ── */
 function MfaSection({
   tokens,
   notify,
   isDark,
+  c,
+  lang,
 }: {
   tokens: Tokens;
   notify: Notify;
   isDark: boolean;
+  c: Copy;
+  lang: Lang;
 }) {
   const [method, setMethod] = useState<MfaMethod | null>(null);
   const [factors, setFactors] = useState<MfaFactor[]>([]);
@@ -1996,7 +3312,6 @@ function MfaSection({
   const [loading, setLoading] = useState(true);
   const [starting, setStarting] = useState<null | "totp" | "email">(null);
 
-  // Activation TOTP (QR) ou email (code reçu)
   const [enrollment, setEnrollment] = useState<{
     factorId: string;
     qrCode: string;
@@ -2018,8 +3333,8 @@ function MfaSection({
     tokens,
     notify,
     isDark,
-    title: "Verify it's you",
-    description: "Enter a verification code to continue.",
+    c,
+    lang,
   });
 
   const enrollmentRef = useRef<typeof enrollment>(null);
@@ -2027,7 +3342,6 @@ function MfaSection({
     enrollmentRef.current = enrollment;
   }, [enrollment]);
 
-  // Annule l'enrôlement TOTP abandonné si on quitte la page.
   useEffect(
     () => () => {
       const pending = enrollmentRef.current;
@@ -2060,23 +3374,22 @@ function MfaSection({
         await loadAll();
       } catch (e) {
         console.error("Error loading MFA settings:", e);
-        notify("Failed to load security settings", "error");
+        notify(c.mfa.loadFailed, "error");
       } finally {
         setLoading(false);
       }
     })();
-  }, [loadAll, notify]);
+  }, [loadAll, notify, c]);
 
   const errorMessage = (e: unknown, fallback: string) =>
     isRateLimitError(e)
-      ? `Too many attempts. Try again in ${formatWait(e.retryAfterSeconds)}.`
+      ? c.common.tooManyAttempts(formatWait(e.retryAfterSeconds, c))
       : e instanceof Error
       ? e.message
       : fallback;
 
   const resendLeft = Math.max(0, Math.ceil((resendAt - now) / 1000));
 
-  /* ----- Activer : app d'authentification ------------------------------------ */
   const handleStartTotp = async () => {
     if (starting) return;
     setStarting("totp");
@@ -2087,13 +3400,12 @@ function MfaSection({
       setCode("");
     } catch (e) {
       console.error("Error starting MFA enrollment:", e);
-      notify(errorMessage(e, "Failed to start setup"), "error");
+      notify(errorMessage(e, c.mfa.notifs.failedStart), "error");
     } finally {
       setStarting(null);
     }
   };
 
-  /* ----- Activer : code par email --------------------------------------------- */
   const sendEnrollEmail = async () => {
     const sent = await sendEmailMfaCode("enroll", { force: true });
     setEmailEnroll({ sentTo: sent.sentTo ?? emailHint });
@@ -2109,7 +3421,7 @@ function MfaSection({
       await sendEnrollEmail();
     } catch (e) {
       console.error("Error starting email MFA:", e);
-      notify(errorMessage(e, "Failed to send the code"), "error");
+      notify(errorMessage(e, c.mfa.notifs.failedSend), "error");
     } finally {
       setStarting(null);
     }
@@ -2119,13 +3431,12 @@ function MfaSection({
     if (resendLeft > 0 || confirming) return;
     try {
       await sendEnrollEmail();
-      notify("A new code was sent");
+      notify(c.mfa.notifs.newCode);
     } catch (e) {
-      notify(errorMessage(e, "Failed to send the code"), "error");
+      notify(errorMessage(e, c.mfa.notifs.failedSend), "error");
     }
   };
 
-  /* ----- Annuler / confirmer --------------------------------------------------- */
   const handleCancel = async () => {
     const pending = enrollment;
     enrollmentRef.current = null;
@@ -2144,7 +3455,7 @@ function MfaSection({
   const handleConfirm = async () => {
     if ((!enrollment && !emailEnroll) || confirming) return;
     if (!TOTP_RE.test(code)) {
-      notify("Enter the 6-digit code", "error");
+      notify(c.mfa.notifs.enterCode, "error");
       return;
     }
     setConfirming(true);
@@ -2160,10 +3471,10 @@ function MfaSection({
       setCode("");
       await loadAll();
       void revokeOtherSessions();
-      notify("Two-factor authentication enabled");
+      notify(c.mfa.notifs.enabled);
     } catch (e) {
       console.error("Error confirming MFA enrollment:", e);
-      notify(errorMessage(e, "Invalid code"), "error");
+      notify(errorMessage(e, c.mfa.notifs.invalidCode), "error");
       setCode("");
     } finally {
       setConfirming(false);
@@ -2177,7 +3488,6 @@ function MfaSection({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [code]);
 
-  /* ----- Désactiver -------------------------------------------------------------- */
   const handleDisable = async () => {
     const target = disableTarget;
     if (!target || disabling) return;
@@ -2189,11 +3499,11 @@ function MfaSection({
         else await disableMfa(target.id);
         await loadAll();
         void revokeOtherSessions();
-        notify("Two-factor authentication disabled");
+        notify(c.mfa.notifs.disabled);
       });
     } catch (e) {
       console.error("Error disabling MFA:", e);
-      notify(errorMessage(e, "Failed to disable 2FA"), "error");
+      notify(errorMessage(e, c.mfa.notifs.failedDisable), "error");
     } finally {
       setDisabling(false);
     }
@@ -2201,7 +3511,8 @@ function MfaSection({
 
   const factorLabel = (f: MfaFactor) => {
     const n = f.friendlyName;
-    if (!n || /^Authenticator \d+$/.test(n)) return "Authenticator app";
+    if (!n || /^Authenticator \d+$/.test(n))
+      return c.mfa.authenticator.title;
     return n;
   };
 
@@ -2209,18 +3520,17 @@ function MfaSection({
     if (!enrollment) return;
     try {
       await navigator.clipboard.writeText(enrollment.secret);
-      notify("Secret copied");
+      notify(c.mfa.notifs.copyOk);
     } catch {
-      notify("Copy failed", "error");
+      notify(c.mfa.notifs.copyFailed, "error");
     }
   };
 
-  /* ----- Rendu -------------------------------------------------------------------- */
   if (loading) {
     return (
       <SectionCard
-        title="Two-factor authentication"
-        description="Add an extra layer of security to your account."
+        title={c.mfa.title}
+        description={c.mfa.description}
         tokens={tokens}
       >
         <div className="animate-pulse space-y-3 py-2" aria-busy="true">
@@ -2234,19 +3544,19 @@ function MfaSection({
     return (
       <>
         <SectionCard
-          title="Set up authenticator"
-          description="Scan the QR code with your authenticator app, then enter the 6-digit code it shows."
+          title={c.mfa.setup.title}
+          description={c.mfa.setup.description}
           tokens={tokens}
         >
           <div className="flex flex-col gap-5 py-1">
             <div className="flex flex-col items-center gap-3">
               <img
                 src={enrollment.qrCode}
-                alt="QR code for authenticator app"
+                alt="QR"
                 className="h-48 w-48 rounded-lg bg-white p-2"
               />
               <p className={cx("text-center text-[12.5px]", tokens.body)}>
-                Can't scan? Enter this key manually:
+                {c.mfa.setup.cantScan}
               </p>
               <div className="flex items-center gap-2">
                 <code
@@ -2264,12 +3574,12 @@ function MfaSection({
                   onClick={copySecret}
                   className="!px-2.5 !py-1.5 !text-[12px]"
                 >
-                  Copy
+                  {c.mfa.setup.copy}
                 </Button>
               </div>
             </div>
             <Field
-              label="Verification code"
+              label={c.mfa.setup.codeHint}
               type="text"
               value={code}
               onChange={(v) => setCode(v.replace(/\D/g, "").slice(0, 6))}
@@ -2278,7 +3588,7 @@ function MfaSection({
               inputMode="numeric"
               onEnter={handleConfirm}
               tokens={tokens}
-              hint="Enter the 6-digit code from your authenticator app."
+              hint={c.mfa.setup.codeHint}
             />
             <div className="flex justify-end gap-2">
               <Button
@@ -2287,14 +3597,16 @@ function MfaSection({
                 onClick={handleCancel}
                 disabled={confirming}
               >
-                Cancel
+                {c.common.cancel}
               </Button>
               <Button
                 tokens={tokens}
                 onClick={handleConfirm}
                 disabled={confirming || code.length !== 6}
               >
-                {confirming ? "Verifying..." : "Verify & enable"}
+                {confirming
+                  ? c.common.verifying
+                  : c.mfa.setup.verifyEnable}
               </Button>
             </div>
           </div>
@@ -2308,15 +3620,15 @@ function MfaSection({
     return (
       <>
         <SectionCard
-          title="Verify your email"
-          description={`We sent a 6-digit code to ${
+          title={c.mfa.emailSetup.title}
+          description={c.mfa.emailSetup.description(
             emailEnroll.sentTo ?? "your email address"
-          }. Enter it to turn on email verification.`}
+          )}
           tokens={tokens}
         >
           <div className="flex flex-col gap-4 py-1">
             <Field
-              label="Verification code"
+              label={c.mfa.emailSetup.codeHint}
               value={code}
               onChange={(v) => setCode(v.replace(/\D/g, "").slice(0, 6))}
               placeholder="000000"
@@ -2325,7 +3637,7 @@ function MfaSection({
               onEnter={handleConfirm}
               autoFocus
               tokens={tokens}
-              hint="The code expires in 10 minutes."
+              hint={c.mfa.emailSetup.codeHint}
             />
             <button
               type="button"
@@ -2338,8 +3650,8 @@ function MfaSection({
               )}
             >
               {resendLeft > 0
-                ? `Resend code in ${formatWait(resendLeft)}`
-                : "Resend code"}
+                ? c.mfa.emailSetup.resendIn(formatWait(resendLeft, c))
+                : c.mfa.emailSetup.resend}
             </button>
             <div className="flex justify-end gap-2">
               <Button
@@ -2348,14 +3660,16 @@ function MfaSection({
                 onClick={handleCancel}
                 disabled={confirming}
               >
-                Cancel
+                {c.common.cancel}
               </Button>
               <Button
                 tokens={tokens}
                 onClick={handleConfirm}
                 disabled={confirming || code.length !== 6}
               >
-                {confirming ? "Verifying..." : "Verify & enable"}
+                {confirming
+                  ? c.common.verifying
+                  : c.mfa.emailSetup.verifyEnable}
               </Button>
             </div>
           </div>
@@ -2370,14 +3684,14 @@ function MfaSection({
   return (
     <>
       <SectionCard
-        title="Authenticator app"
-        description="Use an app (Google Authenticator, 1Password, Authy…) to generate a one-time code at sign-in."
+        title={c.mfa.authenticator.title}
+        description={c.mfa.authenticator.description}
         tokens={tokens}
       >
         {method === "totp" ? (
           <div className="flex flex-col gap-3 py-1">
             {factors.map((f) => {
-              const added = formatDate(f.createdAt);
+              const added = formatDate(f.createdAt, lang);
               return (
                 <div
                   key={f.id}
@@ -2402,12 +3716,12 @@ function MfaSection({
                           tokens.ok
                         )}
                       >
-                        Active
+                        {c.mfa.authenticator.active}
                       </span>
                     </div>
                     {added && (
                       <p className={cx("mt-0.5 text-[12px]", tokens.subtle)}>
-                        Added on {added}
+                        {c.mfa.authenticator.addedOn(added)}
                       </p>
                     )}
                   </div>
@@ -2418,7 +3732,7 @@ function MfaSection({
                     disabled={disabling}
                     className="!px-3 !py-1.5 !text-[12.5px]"
                   >
-                    Disable
+                    {c.mfa.authenticator.disable}
                   </Button>
                 </div>
               );
@@ -2428,8 +3742,8 @@ function MfaSection({
           <div className="flex flex-col gap-3 py-1 sm:flex-row sm:items-center sm:justify-between">
             <p className={cx("text-[12.5px]", tokens.body)}>
               {otherActive("totp")
-                ? "Disable email verification first to switch to an authenticator app."
-                : "Not enabled."}
+                ? c.mfa.authenticator.blockedByEmail
+                : c.mfa.authenticator.notEnabled}
             </p>
             <Button
               tokens={tokens}
@@ -2437,15 +3751,17 @@ function MfaSection({
               disabled={!!starting || otherActive("totp")}
               className="sm:shrink-0"
             >
-              {starting === "totp" ? "Starting..." : "Enable authenticator app"}
+              {starting === "totp"
+                ? c.mfa.authenticator.starting
+                : c.mfa.authenticator.enable}
             </Button>
           </div>
         )}
       </SectionCard>
 
       <SectionCard
-        title="Email code"
-        description="We email you a 6-digit code every time you sign in."
+        title={c.mfa.email.title}
+        description={c.mfa.email.description}
         tokens={tokens}
       >
         {method === "email" ? (
@@ -2458,7 +3774,7 @@ function MfaSection({
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <p className={cx("text-[13.5px] font-medium", tokens.heading)}>
-                  {emailHint ?? "Your email address"}
+                  {emailHint ?? c.mfa.email.yourEmail}
                 </p>
                 <span
                   className={cx(
@@ -2466,11 +3782,11 @@ function MfaSection({
                     tokens.ok
                   )}
                 >
-                  Active
+                  {c.mfa.email.active}
                 </span>
               </div>
               <p className={cx("mt-0.5 text-[12px]", tokens.subtle)}>
-                Codes are sent to the email on your account.
+                {c.mfa.email.codesSentHint}
               </p>
             </div>
             <Button
@@ -2480,15 +3796,15 @@ function MfaSection({
               disabled={disabling}
               className="!px-3 !py-1.5 !text-[12.5px]"
             >
-              Disable
+              {c.mfa.email.disable}
             </Button>
           </div>
         ) : (
           <div className="flex flex-col gap-3 py-1 sm:flex-row sm:items-center sm:justify-between">
             <p className={cx("text-[12.5px]", tokens.body)}>
               {otherActive("email")
-                ? "Disable the authenticator app first to switch to email codes."
-                : "Not enabled."}
+                ? c.mfa.email.blockedByTotp
+                : c.mfa.email.notEnabled}
             </p>
             <Button
               tokens={tokens}
@@ -2496,7 +3812,7 @@ function MfaSection({
               disabled={!!starting || otherActive("email")}
               className="sm:shrink-0"
             >
-              {starting === "email" ? "Sending..." : "Enable email code"}
+              {starting === "email" ? c.mfa.email.sending : c.mfa.email.enable}
             </Button>
           </div>
         )}
@@ -2505,8 +3821,8 @@ function MfaSection({
       <Modal
         open={!!disableTarget}
         onClose={() => setDisableTarget(null)}
-        title="Disable two-factor authentication?"
-        description="Your account will be protected by your password only. You'll need to verify with a code to continue."
+        title={c.mfa.disableModal.title}
+        description={c.mfa.disableModal.description}
         dark={isDark}
       >
         <div
@@ -2517,10 +3833,10 @@ function MfaSection({
             variant="secondary"
             onClick={() => setDisableTarget(null)}
           >
-            Cancel
+            {c.common.cancel}
           </Button>
           <Button tokens={tokens} variant="danger" onClick={handleDisable}>
-            Disable 2FA
+            {c.mfa.disableModal.confirm}
           </Button>
         </div>
       </Modal>
@@ -2564,14 +3880,16 @@ function AppearanceSection({
   tokens,
   isDark,
   setTheme,
+  c,
 }: {
   tokens: Tokens;
   isDark: boolean;
   setTheme: (t: "light" | "dark", origin?: { x: number; y: number }) => void;
+  c: Copy;
 }) {
   const options: { key: "light" | "dark"; label: string }[] = [
-    { key: "light", label: "Light" },
-    { key: "dark", label: "Dark" },
+    { key: "light", label: c.appearance.light },
+    { key: "dark", label: c.appearance.dark },
   ];
   const selected = isDark ? "dark" : "light";
   const [reduceMotion, setReduceMotion] = usePref(
@@ -2583,17 +3901,17 @@ function AppearanceSection({
 
   return (
     <SectionCard
-      title="Appearance"
-      description="Customize how the interface looks on this device."
+      title={c.appearance.title}
+      description={c.appearance.description}
       tokens={tokens}
     >
       <div className="pb-5">
         <p className={cx("mb-2.5 text-[13px] font-medium", tokens.label)}>
-          Theme
+          {c.appearance.theme}
         </p>
         <div
           role="radiogroup"
-          aria-label="Theme"
+          aria-label={c.appearance.theme}
           className="grid gap-3 sm:grid-cols-2"
         >
           {options.map((option) => {
@@ -2637,26 +3955,26 @@ function AppearanceSection({
       </div>
 
       <Row
-        title="Reduce motion"
-        description="Disable non-essential animations across the app."
+        title={c.appearance.reduceMotion}
+        description={c.appearance.reduceMotionDesc}
         tokens={tokens}
       >
         <Toggle
           checked={reduceMotion}
           onChange={setReduceMotion}
-          label="Reduce motion"
+          label={c.appearance.reduceMotion}
           tokens={tokens}
         />
       </Row>
       <Row
-        title="Compact mode"
-        description="Show more content with tighter spacing."
+        title={c.appearance.compact}
+        description={c.appearance.compactDesc}
         tokens={tokens}
       >
         <Toggle
           checked={compact}
           onChange={setCompact}
-          label="Compact mode"
+          label={c.appearance.compact}
           tokens={tokens}
         />
       </Row>
@@ -2670,33 +3988,16 @@ const LANGUAGES: { value: "fr" | "en"; native: string; short: string }[] = [
   { value: "en", native: "English", short: "EN" },
 ];
 
-const LANGUAGE_STORAGE_KEY = "stone:language";
-
-function detectPreferredLanguage(): "fr" | "en" {
-  try {
-    const stored = localStorage.getItem(LANGUAGE_STORAGE_KEY);
-    if (stored === "fr" || stored === "en") return stored;
-  } catch {
-    /* stockage indisponible */
-  }
-  try {
-    const nav = (navigator.language || "fr").toLowerCase();
-    if (nav.startsWith("en")) return "en";
-    if (nav.startsWith("fr")) return "fr";
-  } catch {
-    /* ignore */
-  }
-  return "fr";
-}
-
 function LanguagePicker({
   value,
   onChange,
   tokens,
+  ariaLabel,
 }: {
   value: "fr" | "en";
   onChange: (value: "fr" | "en") => void;
   tokens: Tokens;
+  ariaLabel: string;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -2720,12 +4021,11 @@ function LanguagePicker({
 
   return (
     <div ref={ref} className="relative inline-block">
-      {/* Trigger */}
       <button
         type="button"
         aria-haspopup="listbox"
         aria-expanded={open}
-        aria-label="Interface language"
+        aria-label={ariaLabel}
         onClick={() => setOpen((v) => !v)}
         className={cx(
           "group flex h-10 min-w-[170px] items-center gap-2.5 rounded-full border px-3.5 text-[13px] font-medium transition-all duration-200",
@@ -2750,19 +4050,15 @@ function LanguagePicker({
         />
       </button>
 
-      {/* Popover */}
       {open && (
         <div
           role="listbox"
-          aria-label="Available languages"
           className={cx(
             "absolute top-[calc(100%+6px)] right-0 z-50 w-[210px] overflow-hidden rounded-xl border shadow-xl",
             tokens.card,
             tokens.cardBorder
           )}
-          style={{
-            animation: "fadeSlideIn 150ms ease-out",
-          }}
+          style={{ animation: "fadeSlideIn 150ms ease-out" }}
         >
           <ul className="p-1">
             {LANGUAGES.map((lang) => {
@@ -2808,49 +4104,18 @@ function LanguagePicker({
   );
 }
 
-const NOTIFICATION_ITEMS: {
-  key: string;
-  title: string;
-  description: string;
-}[] = [
-  {
-    key: "productUpdates",
-    title: "Product updates",
-    description: "New features, improvements, and release notes.",
-  },
-  {
-    key: "securityAlerts",
-    title: "Security alerts",
-    description:
-      "Sign-ins from new devices and password changes. Recommended.",
-  },
-  {
-    key: "mentions",
-    title: "Mentions",
-    description: "When someone mentions you in a comment or thread.",
-  },
-  {
-    key: "weeklyDigest",
-    title: "Weekly digest",
-    description: "A summary of activity in your workspace, every Monday.",
-  },
-  {
-    key: "marketing",
-    title: "Marketing",
-    description: "Tips, offers, and occasional product news.",
-  },
-];
-
 function PreferencesSection({
   tokens,
   notify,
+  c,
+  lang,
 }: {
   tokens: Tokens;
   notify: Notify;
+  c: Copy;
+  lang: Lang;
 }) {
-  const [language, setLanguageState] = useState<"fr" | "en">(() =>
-    detectPreferredLanguage()
-  );
+  const [language, setLanguageState] = useState<"fr" | "en">(lang);
   const [prefs, setPrefs] = useState<Record<string, boolean>>({
     productUpdates: true,
     securityAlerts: true,
@@ -2858,83 +4123,95 @@ function PreferencesSection({
     mentions: true,
     marketing: false,
   });
-  // On ne suit que les prefs de notifications pour `dirty` ;
-  // la langue est persistée immédiatement à chaque changement.
+
+  useEffect(() => {
+    setLanguageState(lang);
+  }, [lang]);
+
   const savedPrefs = useRef(prefs);
   const dirty = JSON.stringify(prefs) !== JSON.stringify(savedPrefs.current);
 
-  /** Change la langue et la persiste immédiatement (pas de Save requis). */
-  const setLanguage = (lang: "fr" | "en") => {
-    if (lang === language) return;
-    setLanguageState(lang);
+  const setLanguage = (next: "fr" | "en") => {
+    if (next === language) return;
+    setLanguageState(next);
     try {
-      localStorage.setItem(LANGUAGE_STORAGE_KEY, lang);
+      localStorage.setItem(LANGUAGE_STORAGE_KEY, next);
     } catch {
       /* stockage indisponible */
     }
     try {
-      document.documentElement.lang = lang;
+      document.documentElement.lang = next;
     } catch {
       /* ignore */
     }
-    notify(
-      lang === "fr" ? "Langue mise à jour" : "Language updated",
-      "success"
-    );
+    window.dispatchEvent(new Event(LANGUAGE_CHANGED_EVENT));
+    notify(COPY[next].preferences.languageUpdated, "success");
   };
 
   const save = () => {
     savedPrefs.current = prefs;
     setPrefs((prev) => ({ ...prev }));
-    notify("Preferences saved");
+    notify(c.preferences.saved);
   };
+
+  const NOTIFICATION_KEYS = [
+    "productUpdates",
+    "securityAlerts",
+    "mentions",
+    "weeklyDigest",
+    "marketing",
+  ] as const;
 
   return (
     <SectionCard
-      title="Preferences"
-      description="Choose your display language and what we email you about."
+      title={c.preferences.title}
+      description={c.preferences.description}
       tokens={tokens}
       footer={
         <>
           {dirty && (
             <span className={cx("text-[12.5px]", tokens.subtle)}>
-              Unsaved changes
+              {c.common.unsavedChanges}
             </span>
           )}
           <Button tokens={tokens} onClick={save} disabled={!dirty}>
-            Save preferences
+            {c.preferences.save}
           </Button>
         </>
       }
     >
       <Row
-        title="Language"
-        description="Language used across the interface."
+        title={c.preferences.language}
+        description={c.preferences.languageDesc}
         tokens={tokens}
       >
         <LanguagePicker
           value={language}
           onChange={setLanguage}
           tokens={tokens}
+          ariaLabel={c.preferences.language}
         />
       </Row>
-      {NOTIFICATION_ITEMS.map((item) => (
-        <Row
-          key={item.key}
-          title={item.title}
-          description={item.description}
-          tokens={tokens}
-        >
-          <Toggle
-            checked={prefs[item.key]}
-            onChange={(value) =>
-              setPrefs((prev) => ({ ...prev, [item.key]: value }))
-            }
-            label={item.title}
+      {NOTIFICATION_KEYS.map((key) => {
+        const item = c.preferences.notifications[key];
+        return (
+          <Row
+            key={key}
+            title={item.title}
+            description={item.description}
             tokens={tokens}
-          />
-        </Row>
-      ))}
+          >
+            <Toggle
+              checked={prefs[key]}
+              onChange={(value) =>
+                setPrefs((prev) => ({ ...prev, [key]: value }))
+              }
+              label={item.title}
+              tokens={tokens}
+            />
+          </Row>
+        );
+      })}
     </SectionCard>
   );
 }
@@ -2943,23 +4220,25 @@ function PreferencesSection({
 function BillingSection({
   tokens,
   notify,
+  c,
 }: {
   tokens: Tokens;
   notify: Notify;
+  c: Copy;
 }) {
-  const soon = () => notify("Billing isn't available yet", "error");
+  const soon = () => notify(c.billing.notAvailable, "error");
   return (
     <>
       <SectionCard
-        title="Plan"
-        description="You're currently on a free trial."
+        title={c.billing.plan.title}
+        description={c.billing.plan.description}
         tokens={tokens}
       >
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <div className="flex items-center gap-2">
               <p className={cx("text-[14px] font-medium", tokens.heading)}>
-                Pro trial
+                {c.billing.plan.proTrial}
               </p>
               <span
                 className={cx(
@@ -2967,26 +4246,26 @@ function BillingSection({
                   tokens.warn
                 )}
               >
-                Ends Oct 19, 2026
+                {c.billing.plan.endsOn}
               </span>
             </div>
             <p className={cx("mt-0.5 text-[12.5px]", tokens.body)}>
-              No card on file.
+              {c.billing.plan.noCard}
             </p>
           </div>
           <Button tokens={tokens} onClick={soon}>
-            Upgrade plan
+            {c.billing.plan.upgrade}
           </Button>
         </div>
       </SectionCard>
       <SectionCard
-        title="Payment method"
-        description="Cards are only charged when a paid plan is active."
+        title={c.billing.payment.title}
+        description={c.billing.payment.description}
         tokens={tokens}
       >
         <div className="flex items-center justify-between gap-3">
           <p className={cx("text-[13px]", tokens.body)}>
-            No payment method on file.
+            {c.billing.payment.noMethod}
           </p>
           <Button
             tokens={tokens}
@@ -2994,16 +4273,18 @@ function BillingSection({
             onClick={soon}
             className="!px-3.5 !py-2 !font-medium"
           >
-            Add card
+            {c.billing.payment.addCard}
           </Button>
         </div>
       </SectionCard>
       <SectionCard
-        title="Invoices"
-        description="Download past receipts."
+        title={c.billing.invoices.title}
+        description={c.billing.invoices.description}
         tokens={tokens}
       >
-        <p className={cx("text-[13px]", tokens.body)}>No invoices yet.</p>
+        <p className={cx("text-[13px]", tokens.body)}>
+          {c.billing.invoices.none}
+        </p>
       </SectionCard>
     </>
   );
@@ -3042,14 +4323,12 @@ const initialConnections: ConnectionState = {
   threads: { connected: false },
 };
 
-function formatOAuthError(provider: string, error: unknown): string {
+function formatOAuthError(provider: string, error: unknown, c: Copy): string {
   const raw = error instanceof Error ? error.message : "";
   if (/failed to fetch|networkerror|load failed/i.test(raw)) {
-    return "Unable to reach the server. Check that the backend is running and VITE_API_URL is correct.";
+    return c.channels.serverError;
   }
-  return raw
-    ? `Unable to connect to ${provider}. ${raw}`
-    : `Unable to connect to ${provider}.`;
+  return c.channels.oauthError(provider, raw);
 }
 
 function mockHandleFor(key: ChannelKey): string {
@@ -3192,6 +4471,7 @@ function ChannelRow({
   isDark,
   onToggle,
   onReconnect,
+  c,
 }: {
   channel: Channel;
   connection: Connection;
@@ -3201,6 +4481,7 @@ function ChannelRow({
   isDark: boolean;
   onToggle: () => void;
   onReconnect: () => void;
+  c: Copy;
 }) {
   const isConnected = connection.connected;
   const [menuOpen, setMenuOpen] = useState(false);
@@ -3243,14 +4524,14 @@ function ChannelRow({
           {isConnected ? connection.handle || channel.name : channel.name}
         </span>
         <span className="truncate text-[12.5px] text-neutral-400">
-          {isConnected ? "Connected" : channel.subtitle}
+          {isConnected ? c.channels.connected : channel.subtitle}
         </span>
       </div>
       {isConnected ? (
         <div ref={menuRef} className="relative shrink-0">
           <button
             type="button"
-            aria-label={`Options for ${channel.name}`}
+            aria-label={c.channels.optionsFor(channel.name)}
             onClick={(e) => {
               e.stopPropagation();
               setMenuOpen((value) => !value);
@@ -3291,7 +4572,7 @@ function ChannelRow({
                 )}
               >
                 <RefreshIcon />
-                Reconnect
+                {c.channels.reconnect}
               </button>
               <div
                 className={cx(
@@ -3315,7 +4596,7 @@ function ChannelRow({
                 )}
               >
                 <DisconnectIcon />
-                Disconnect
+                {c.channels.disconnect}
               </button>
             </div>
           )}
@@ -3327,15 +4608,17 @@ function ChannelRow({
   );
 }
 
-/* ── Utils · Channels ── */
+/* ── Channels section ── */
 function ChannelsSection({
   tokens,
   notify,
   isDark,
+  c,
 }: {
   tokens: Tokens;
   notify: Notify;
   isDark: boolean;
+  c: Copy;
 }) {
   const { user } = useUser();
   const userId = user?.id ?? null;
@@ -3362,18 +4645,14 @@ function ChannelsSection({
   const pinterestBusy = useRef(false);
   const youtubeBusy = useRef(false);
 
-  /* ---- Onboarding ---- */
-  // Ouvre l'étape 1 (ConfirmAccountModal). Appelée après chaque connexion réussie.
   const startOnboarding = (key: ChannelKey, connection: Connection) => {
-    const channel = CHANNELS.find((c) => c.key === key);
-    console.log("[Stone] startOnboarding", key, { channel, connection });
+    const channel = CHANNELS.find((ch) => ch.key === key);
     if (!channel) return;
     setConfirming(false);
     setOnboardingAccount(buildAccount(channel, connection));
-    notify(`${channel.name} connected successfully!`, "success");
+    notify(c.channels.connectedToast(channel.name), "success");
   };
 
-  // Bouton "Finish Connection" : ferme l'étape 1, va sur /insights, ouvre l'étape 2.
   const handleConfirmAccount = () => {
     if (!onboardingAccount || confirming) return;
     const account = onboardingAccount;
@@ -3398,20 +4677,15 @@ function ChannelsSection({
     setConfirming(false);
   };
 
-  /* ---- Derived ---- */
   const connectedCount = useMemo(
-    () => CHANNELS.filter((c) => connections[c.key].connected).length,
+    () => CHANNELS.filter((ch) => connections[ch.key].connected).length,
     [connections]
   );
   const limitReached = connectedCount >= PLAN.maxChannels;
   const slotsLeft = Math.max(0, PLAN.maxChannels - connectedCount);
 
-  /* ---- Sync OAuth (retour de TikTok / Pinterest / YouTube) ---- */
   useEffect(() => {
-    if (!userId) {
-      console.log("[Stone] sync ignoré : userId absent");
-      return;
-    }
+    if (!userId) return;
     const basePath = window.location.pathname;
     const params = new URLSearchParams(window.location.search);
     const tiktokError = params.get("tiktok_error");
@@ -3439,13 +4713,12 @@ function ChannelsSection({
       pinterest: pendingReturn.has("pinterest"),
       youtube: pendingReturn.has("youtube"),
     };
-    console.log("[Stone] sync démarré", { fromUrl, returned });
     if (tiktokError)
-      setErrorMessage(`Unable to connect to TikTok. ${tiktokError}`);
+      setErrorMessage(c.channels.oauthError("TikTok", tiktokError));
     if (pinterestError)
-      setErrorMessage(`Unable to connect to Pinterest. ${pinterestError}`);
+      setErrorMessage(c.channels.oauthError("Pinterest", pinterestError));
     if (youtubeError)
-      setErrorMessage(`Unable to connect to YouTube Shorts. ${youtubeError}`);
+      setErrorMessage(c.channels.oauthError("YouTube Shorts", youtubeError));
 
     if (returned.tiktok) clearCache(userId, "tiktok");
     if (returned.pinterest) clearCache(userId, "pinterest");
@@ -3484,7 +4757,6 @@ function ChannelsSection({
       void (async () => {
         try {
           const status = await fetchStatus();
-          console.log("[Stone] status", provider, { justReturned, status });
           if (cancelled) return;
           if (justReturned) {
             writeReturned(readReturned().filter((p) => p !== provider));
@@ -3498,17 +4770,11 @@ function ChannelsSection({
           }));
           if (justReturned && connection.connected) {
             startOnboarding(provider, connection);
-          } else if (justReturned) {
-            console.warn(
-              `[Stone] Retour OAuth ${provider} mais le backend dit connected=false`
-            );
           }
         } catch (error) {
-          console.warn(`[Stone] Could not load ${provider} status:`, error);
+          console.warn(`Could not load ${provider} status:`, error);
           if (justReturned && !cancelled) {
-            setErrorMessage(
-              `Impossible de vérifier la connexion ${provider}. Réessaie.`
-            );
+            setErrorMessage(c.channels.verifyFailed(provider));
           }
         }
       })();
@@ -3520,7 +4786,7 @@ function ChannelsSection({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId]);
+  }, [userId, c]);
 
   useEffect(() => {
     if (!userId) return;
@@ -3540,7 +4806,6 @@ function ChannelsSection({
       window.removeEventListener(CHANNELS_CHANGED_EVENT, refreshConnections);
   }, [userId]);
 
-  /* ---- OAuth ---- */
   const handleTikTokToggle = async (isReconnect = false) => {
     if (tiktokBusy.current) return;
     tiktokBusy.current = true;
@@ -3555,7 +4820,7 @@ function ChannelsSection({
           tiktok: { connected: false },
         }));
         if (!isReconnect) {
-          notify("TikTok disconnected successfully!", "success");
+          notify(c.channels.disconnectedToast("TikTok"), "success");
           return;
         }
       }
@@ -3563,8 +4828,8 @@ function ChannelsSection({
       await startTikTokLogin();
       redirecting = true;
     } catch (error) {
-      console.error("[Stone] TikTok OAuth error:", error);
-      setErrorMessage(formatOAuthError("TikTok", error));
+      console.error("TikTok OAuth error:", error);
+      setErrorMessage(formatOAuthError("TikTok", error, c));
     } finally {
       if (!redirecting) {
         setPendingKey(null);
@@ -3587,12 +4852,12 @@ function ChannelsSection({
           pinterest: { connected: false },
         }));
         if (!isReconnect) {
-          notify("Pinterest disconnected successfully!", "success");
+          notify(c.channels.disconnectedToast("Pinterest"), "success");
           return;
         }
       }
       if (import.meta.env.VITE_PINTEREST_MANUAL_TOKEN === "true") {
-        const token = window.prompt("Pinterest access token:");
+        const token = window.prompt(c.channels.pinterestTokenPrompt);
         if (!token?.trim()) {
           setPendingKey(null);
           return;
@@ -3612,8 +4877,8 @@ function ChannelsSection({
         redirecting = true;
       }
     } catch (error) {
-      console.error("[Stone] Pinterest OAuth error:", error);
-      setErrorMessage(formatOAuthError("Pinterest", error));
+      console.error("Pinterest OAuth error:", error);
+      setErrorMessage(formatOAuthError("Pinterest", error, c));
     } finally {
       if (!redirecting) {
         setPendingKey(null);
@@ -3636,7 +4901,7 @@ function ChannelsSection({
           youtube: { connected: false },
         }));
         if (!isReconnect) {
-          notify("YouTube Shorts disconnected successfully!", "success");
+          notify(c.channels.disconnectedToast("YouTube Shorts"), "success");
           return;
         }
       }
@@ -3644,8 +4909,8 @@ function ChannelsSection({
       await startYouTubeLogin();
       redirecting = true;
     } catch (error) {
-      console.error("[Stone] YouTube OAuth error:", error);
-      setErrorMessage(formatOAuthError("YouTube Shorts", error));
+      console.error("YouTube OAuth error:", error);
+      setErrorMessage(formatOAuthError("YouTube Shorts", error, c));
     } finally {
       if (!redirecting) {
         setPendingKey(null);
@@ -3654,10 +4919,9 @@ function ChannelsSection({
     }
   };
 
-  /* ---- Canaux simulés (Instagram / Facebook / Threads) ---- */
   const handlePlaceholderToggle = (key: ChannelKey) => {
     const wasConnected = connections[key].connected;
-    const name = CHANNELS.find((c) => c.key === key)?.name ?? key;
+    const name = CHANNELS.find((ch) => ch.key === key)?.name ?? key;
     setPendingKey(key);
     window.setTimeout(() => {
       if (wasConnected) {
@@ -3665,7 +4929,7 @@ function ChannelsSection({
           ...current,
           [key]: { connected: false },
         }));
-        notify(`${name} disconnected successfully!`, "success");
+        notify(c.channels.disconnectedToast(name), "success");
       } else {
         const connection: Connection = {
           connected: true,
@@ -3694,9 +4958,7 @@ function ChannelsSection({
   function handleToggle(key: ChannelKey) {
     setErrorMessage(null);
     if (!connections[key].connected && limitReached) {
-      setErrorMessage(
-        `Your ${PLAN.name} plan allows up to ${PLAN.maxChannels} channels. Upgrade to connect more.`
-      );
+      setErrorMessage(c.channels.limitError(PLAN.name, PLAN.maxChannels));
       return;
     }
     if (key === "tiktok") return void handleTikTokToggle();
@@ -3723,11 +4985,8 @@ function ChannelsSection({
 
   return (
     <>
-      <p className={cx("text-[13px]", mutedText)}>
-        Your connected accounts at a glance. Click on a channel to connect it.
-      </p>
+      <p className={cx("text-[13px]", mutedText)}>{c.channels.intro}</p>
 
-      {/* Bannière plan */}
       <div
         className={cx(
           "relative flex flex-col justify-between gap-6 overflow-hidden rounded-2xl border p-6 md:flex-row md:items-center md:p-8",
@@ -3747,21 +5006,21 @@ function ChannelsSection({
           </div>
           <div>
             <h2 className={cx("text-lg font-bold tracking-tight", strongText)}>
-              {PLAN.name} Plan
+              {c.channels.plan.title(PLAN.name)}
             </h2>
             <p className={cx("mt-1 text-[13px]", mutedText)}>
-              You are currently on the {PLAN.name} plan. You can connect up to{" "}
-              {PLAN.maxChannels} channels.
-              {slotsLeft > 0 ? ` ${slotsLeft} slots remaining.` : " Limit reached."}
+              {c.channels.plan.description(PLAN.name, PLAN.maxChannels)}{" "}
+              {slotsLeft > 0
+                ? c.channels.plan.slotsLeft(slotsLeft)
+                : c.channels.plan.limitReached}
             </p>
           </div>
         </div>
         <Button tokens={tokens} onClick={handleUpgrade} className="shrink-0">
-          Upgrade Plan
+          {c.channels.plan.upgrade}
         </Button>
       </div>
 
-      {/* Erreur */}
       {errorMessage && (
         <div
           role="alert"
@@ -3771,7 +5030,7 @@ function ChannelsSection({
           <span className="flex-1">{errorMessage}</span>
           <button
             type="button"
-            aria-label="Dismiss"
+            aria-label={c.channels.dismiss}
             onClick={() => setErrorMessage(null)}
             className="rounded-md p-1 hover:bg-rose-500/10"
           >
@@ -3780,7 +5039,6 @@ function ChannelsSection({
         </div>
       )}
 
-      {/* Grille des channels */}
       <div className="grid grid-cols-1 gap-2 md:grid-cols-2 lg:gap-4">
         {CHANNELS.map((channel) => (
           <ChannelRow
@@ -3793,15 +5051,15 @@ function ChannelsSection({
             isDark={isDark}
             onToggle={() => handleToggle(channel.key)}
             onReconnect={() => handleReconnect(channel.key)}
+            c={c}
           />
         ))}
       </div>
 
       <div className={cx("flex items-center justify-between text-[11px]", mutedText)}>
-        <span>Secure OAuth connections</span>
+        <span>{c.channels.secureOAuth}</span>
       </div>
 
-      {/* Étape 1 de l'onboarding : s'ouvre après chaque connexion réussie */}
       {onboardingAccount && (
         <ConfirmAccountModal
           account={onboardingAccount}
@@ -3816,7 +5074,7 @@ function ChannelsSection({
   );
 }
 
-/* ── Utils · Tags ── */
+/* ── Tags ── */
 const TAG_COLORS = [
   "bg-[#6366f1]",
   "bg-[#ec4899]",
@@ -3842,10 +5100,12 @@ function TagsSection({
   tokens,
   notify,
   isDark,
+  c,
 }: {
   tokens: Tokens;
   notify: Notify;
   isDark: boolean;
+  c: Copy;
 }) {
   const [tags, setTags] = useState<Tag[]>([]);
   const [loading, setLoading] = useState(true);
@@ -3865,7 +5125,7 @@ function TagsSection({
         if (mounted) setTags(data);
       } catch (e) {
         console.error("Error loading tags:", e);
-        if (mounted) notify("Failed to load tags", "error");
+        if (mounted) notify(c.tags.loadFailed, "error");
       } finally {
         if (mounted) setLoading(false);
       }
@@ -3873,7 +5133,7 @@ function TagsSection({
     return () => {
       mounted = false;
     };
-  }, [notify]);
+  }, [notify, c]);
 
   const filtered = tags.filter((t) =>
     t.label.toLowerCase().includes(search.trim().toLowerCase())
@@ -3901,32 +5161,32 @@ function TagsSection({
   const handleSave = async () => {
     if (busy) return;
     const label = draft.trim();
-    if (!label) return notify("Enter a tag name", "error");
+    if (!label) return notify(c.tags.enterName, "error");
     const duplicate = tags.some(
       (t) =>
         t.label.toLowerCase() === label.toLowerCase() && t.id !== editing?.id
     );
-    if (duplicate) return notify("Tag already exists", "error");
+    if (duplicate) return notify(c.tags.alreadyExists, "error");
     setBusy(true);
     try {
       if (editing) {
         const updated = await updateTag(editing.id, { label, color });
         setTags((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
-        notify("Tag updated");
+        notify(c.tags.updated);
       } else {
         const created = await createTag(label, color);
         setTags((prev) => [...prev, created]);
-        notify("Tag created");
+        notify(c.tags.created);
       }
       closeModal();
     } catch (e) {
       console.error("Error saving tag:", e);
       notify(
         isDuplicateError(e)
-          ? "Tag already exists"
+          ? c.tags.alreadyExists
           : e instanceof Error
           ? e.message
-          : "Failed to save tag",
+          : c.tags.saveFailed,
         "error"
       );
     } finally {
@@ -3937,14 +5197,14 @@ function TagsSection({
   const handleDelete = async (id: string) => {
     setMenuOpenId(null);
     const previous = tags;
-    setTags((prev) => prev.filter((t) => t.id !== id)); // optimiste
+    setTags((prev) => prev.filter((t) => t.id !== id));
     try {
       await deleteTag(id);
-      notify("Tag deleted");
+      notify(c.tags.deleted);
     } catch (e) {
       console.error("Error deleting tag:", e);
-      setTags(previous); // rollback
-      notify("Failed to delete tag", "error");
+      setTags(previous);
+      notify(c.tags.deleteFailed, "error");
     }
   };
 
@@ -3953,12 +5213,10 @@ function TagsSection({
     try {
       const created = await createTag(`${tag.label} copy`, tag.color);
       setTags((prev) => [...prev, created]);
-      notify("Tag duplicated");
+      notify(c.tags.duplicated);
     } catch (e) {
       notify(
-        isDuplicateError(e)
-          ? "A copy already exists"
-          : "Failed to duplicate tag",
+        isDuplicateError(e) ? c.tags.copyExists : c.tags.duplicateFailed,
         "error"
       );
     }
@@ -3975,7 +5233,7 @@ function TagsSection({
     <>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p className={cx("text-[13.5px] leading-relaxed", tokens.body)}>
-          Tags are visible to everyone in your organization.{" "}
+          {c.tags.visible}{" "}
           <a
             href="#"
             onClick={(e) => e.preventDefault()}
@@ -3984,12 +5242,12 @@ function TagsSection({
               tokens.link
             )}
           >
-            Learn more ↗
+            {c.tags.learnMore}
           </a>
         </p>
         <div className="sm:shrink-0">
           <Button tokens={tokens} onClick={openCreate}>
-            + New Tag
+            {c.tags.newTag}
           </Button>
         </div>
       </div>
@@ -4002,7 +5260,7 @@ function TagsSection({
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search tags..."
+          placeholder={c.tags.search}
           className={cx(
             "w-full rounded-[10px] border py-3 pr-3.5 pl-10 text-[14px] outline-none transition",
             tokens.inputBg,
@@ -4029,7 +5287,7 @@ function TagsSection({
             tokens.body
           )}
         >
-          {tags.length === 0 ? "No tags yet." : "No tags found."}
+          {tags.length === 0 ? c.tags.noTags : c.tags.noMatch}
         </div>
       ) : (
         <div
@@ -4057,7 +5315,7 @@ function TagsSection({
                 type="button"
                 onClick={() => openEdit(tag)}
                 className={iconBtn}
-                aria-label={`Edit ${tag.label}`}
+                aria-label={c.tags.edit(tag.label)}
               >
                 <PencilIcon />
               </button>
@@ -4065,7 +5323,7 @@ function TagsSection({
                 type="button"
                 onClick={() => handleDelete(tag.id)}
                 className={cx(iconBtn, "hover:!text-red-400")}
-                aria-label={`Delete ${tag.label}`}
+                aria-label={c.tags.delete(tag.label)}
               >
                 <TrashIcon />
               </button>
@@ -4076,7 +5334,7 @@ function TagsSection({
                     setMenuOpenId(menuOpenId === tag.id ? null : tag.id)
                   }
                   className={iconBtn}
-                  aria-label={`More options for ${tag.label}`}
+                  aria-label={c.tags.more(tag.label)}
                 >
                   <MoreIcon />
                 </button>
@@ -4102,7 +5360,7 @@ function TagsSection({
                           tokens.ghostHover
                         )}
                       >
-                        Duplicate
+                        {c.tags.duplicate}
                       </button>
                     </div>
                   </>
@@ -4116,45 +5374,47 @@ function TagsSection({
       <Modal
         open={modalOpen}
         onClose={closeModal}
-        title={editing ? "Edit Tag" : "New Tag"}
+        title={
+          editing ? c.tags.modalEdit.title : c.tags.modalCreate.title
+        }
         description={
           editing
-            ? "Update this tag's name or color."
-            : "Create a tag to organize and filter your items."
+            ? c.tags.modalEdit.description
+            : c.tags.modalCreate.description
         }
         dark={isDark}
       >
         <div className="flex flex-col gap-4">
           <Field
-            label="Tag name"
+            label={c.tags.tagName}
             value={draft}
             onChange={setDraft}
-            placeholder="e.g. Design"
+            placeholder={c.tags.tagNamePlaceholder}
             onEnter={handleSave}
             autoFocus
             tokens={tokens}
           />
           <div>
             <p className={cx("mb-2 text-[13px] font-medium", tokens.label)}>
-              Color
+              {c.tags.color}
             </p>
             <div className="flex flex-wrap gap-2">
-              {TAG_COLORS.map((c) => (
+              {TAG_COLORS.map((cColor) => (
                 <button
-                  key={c}
+                  key={cColor}
                   type="button"
-                  aria-label={`Use color ${c}`}
-                  aria-pressed={color === c}
-                  onClick={() => setColor(c)}
+                  aria-label={c.tags.useColorAria(cColor)}
+                  aria-pressed={color === cColor}
+                  onClick={() => setColor(cColor)}
                   className={cx(
                     "flex h-8 w-8 items-center justify-center rounded-full transition",
-                    c,
-                    color === c
+                    cColor,
+                    color === cColor
                       ? "scale-110 ring-2 ring-white/70 ring-offset-2 ring-offset-transparent"
                       : "opacity-70 hover:opacity-100"
                   )}
                 >
-                  {color === c && (
+                  {color === cColor && (
                     <CheckIcon className="h-3.5 w-3.5 text-white" />
                   )}
                 </button>
@@ -4168,14 +5428,18 @@ function TagsSection({
             )}
           >
             <Button tokens={tokens} variant="secondary" onClick={closeModal}>
-              Cancel
+              {c.common.cancel}
             </Button>
             <Button
               tokens={tokens}
               onClick={handleSave}
               disabled={!draft.trim() || busy}
             >
-              {busy ? "Saving..." : editing ? "Save changes" : "Create tag"}
+              {busy
+                ? c.common.saving
+                : editing
+                ? c.tags.saveChanges
+                : c.tags.create}
             </Button>
           </div>
         </div>
@@ -4184,15 +5448,17 @@ function TagsSection({
   );
 }
 
-/* ── Utils · Saved replies ── */
+/* ── Saved replies ── */
 function SavedRepliesSection({
   tokens,
   notify,
   isDark,
+  c,
 }: {
   tokens: Tokens;
   notify: Notify;
   isDark: boolean;
+  c: Copy;
 }) {
   const [replies, setReplies] = useState<SavedReply[]>([]);
   const [loading, setLoading] = useState(true);
@@ -4210,7 +5476,7 @@ function SavedRepliesSection({
         if (mounted) setReplies(data);
       } catch (e) {
         console.error("Error loading saved replies:", e);
-        if (mounted) notify("Failed to load saved replies", "error");
+        if (mounted) notify(c.savedReplies.loadFailed, "error");
       } finally {
         if (mounted) setLoading(false);
       }
@@ -4218,7 +5484,7 @@ function SavedRepliesSection({
     return () => {
       mounted = false;
     };
-  }, [notify]);
+  }, [notify, c]);
 
   const openCreate = () => {
     setEditing(null);
@@ -4244,8 +5510,8 @@ function SavedRepliesSection({
     if (busy) return;
     const cleanName = name.trim();
     const cleanContent = content.trim();
-    if (!cleanName) return notify("Enter a name", "error");
-    if (!cleanContent) return notify("Enter the reply content", "error");
+    if (!cleanName) return notify(c.savedReplies.enterName, "error");
+    if (!cleanContent) return notify(c.savedReplies.enterContent, "error");
     setBusy(true);
     try {
       if (editing) {
@@ -4256,18 +5522,18 @@ function SavedRepliesSection({
         setReplies((prev) =>
           prev.map((r) => (r.id === updated.id ? updated : r))
         );
-        notify("Saved reply updated");
+        notify(c.savedReplies.updated);
       } else {
         const created = await createSavedReply(cleanName, cleanContent);
         setReplies((prev) => [...prev, created]);
-        notify("Saved reply created");
+        notify(c.savedReplies.created);
       }
       setModalOpen(false);
       setEditing(null);
     } catch (e) {
       console.error("Error saving saved reply:", e);
       notify(
-        e instanceof Error ? e.message : "Failed to save reply",
+        e instanceof Error ? e.message : c.savedReplies.saveFailed,
         "error"
       );
     } finally {
@@ -4277,14 +5543,14 @@ function SavedRepliesSection({
 
   const handleDelete = async (id: string) => {
     const previous = replies;
-    setReplies((prev) => prev.filter((r) => r.id !== id)); // optimiste
+    setReplies((prev) => prev.filter((r) => r.id !== id));
     try {
       await deleteSavedReply(id);
-      notify("Saved reply deleted");
+      notify(c.savedReplies.deleted);
     } catch (e) {
       console.error("Error deleting saved reply:", e);
-      setReplies(previous); // rollback
-      notify("Failed to delete saved reply", "error");
+      setReplies(previous);
+      notify(c.savedReplies.deleteFailed, "error");
     }
   };
 
@@ -4300,7 +5566,7 @@ function SavedRepliesSection({
   return (
     <>
       <p className={cx("text-[13.5px] leading-relaxed", tokens.body)}>
-        Saved Replies are visible to everyone in your organization.
+        {c.savedReplies.intro}
       </p>
 
       {loading ? (
@@ -4325,18 +5591,17 @@ function SavedRepliesSection({
               tokens.heading
             )}
           >
-            Save information you share often to quickly insert it to your
-            replies.
+            {c.savedReplies.emptyHint}
           </p>
           <Button tokens={tokens} onClick={openCreate}>
-            + New Saved Reply
+            {c.savedReplies.newReply}
           </Button>
         </div>
       ) : (
         <div className="flex flex-col gap-4">
           <div className="flex justify-end">
             <Button tokens={tokens} onClick={openCreate}>
-              + New Saved Reply
+              {c.savedReplies.newReply}
             </Button>
           </div>
           <div
@@ -4370,7 +5635,7 @@ function SavedRepliesSection({
                     type="button"
                     onClick={() => openEdit(reply)}
                     className={iconBtn}
-                    aria-label={`Edit ${reply.name}`}
+                    aria-label={c.savedReplies.edit(reply.name)}
                   >
                     <PencilIcon />
                   </button>
@@ -4378,7 +5643,7 @@ function SavedRepliesSection({
                     type="button"
                     onClick={() => handleDelete(reply.id)}
                     className={cx(iconBtn, "hover:!text-red-400")}
-                    aria-label={`Delete ${reply.name}`}
+                    aria-label={c.savedReplies.delete(reply.name)}
                   >
                     <TrashIcon />
                   </button>
@@ -4392,31 +5657,35 @@ function SavedRepliesSection({
       <Modal
         open={modalOpen}
         onClose={closeModal}
-        title={editing ? "Edit Saved Reply" : "New Saved Reply"}
+        title={
+          editing
+            ? c.savedReplies.modalEdit.title
+            : c.savedReplies.modalCreate.title
+        }
         description={
           editing
-            ? "Update this saved reply."
-            : "Create a quick reply to use in your messages."
+            ? c.savedReplies.modalEdit.description
+            : c.savedReplies.modalCreate.description
         }
         dark={isDark}
       >
         <div className="flex flex-col gap-4">
           <Field
-            label="Name"
+            label={c.savedReplies.name}
             value={name}
             onChange={setName}
-            placeholder="e.g. Welcome message"
+            placeholder={c.savedReplies.namePlaceholder}
             autoFocus
             tokens={tokens}
           />
           <div className="flex flex-col gap-1.5">
             <span className={cx("text-[13px] font-medium", tokens.label)}>
-              Content
+              {c.savedReplies.content}
             </span>
             <textarea
               value={content}
               onChange={(e) => setContent(e.target.value)}
-              placeholder="Write your saved reply"
+              placeholder={c.savedReplies.contentPlaceholder}
               rows={4}
               maxLength={1000}
               className={cx(
@@ -4446,14 +5715,18 @@ function SavedRepliesSection({
               onClick={closeModal}
               disabled={busy}
             >
-              Cancel
+              {c.common.cancel}
             </Button>
             <Button
               tokens={tokens}
               onClick={handleSave}
               disabled={!name.trim() || !content.trim() || busy}
             >
-              {busy ? "Saving..." : editing ? "Save changes" : "Save reply"}
+              {busy
+                ? c.common.saving
+                : editing
+                ? c.savedReplies.saveChanges
+                : c.savedReplies.saveReply}
             </Button>
           </div>
         </div>
@@ -4466,40 +5739,42 @@ function SavedRepliesSection({
 function DangerSection({
   tokens,
   notify,
+  c,
 }: {
   tokens: Tokens;
   notify: Notify;
+  c: Copy;
 }) {
   const [confirm, setConfirm] = useState("");
-  const canDelete = confirm.trim().toLowerCase() === "delete";
+  const canDelete = confirm.trim().toLowerCase() === c.danger.deleteWord;
   const handleDelete = () => {
     if (!canDelete) return;
-    notify("Account deletion is disabled in this demo", "error");
+    notify(c.danger.disabledDemo, "error");
   };
   return (
     <>
       <SectionCard
-        title="Export data"
-        description="Download a copy of everything tied to your account."
+        title={c.danger.exportTitle}
+        description={c.danger.exportDescription}
         tokens={tokens}
       >
         <div className="flex items-center justify-between gap-3">
           <p className={cx("text-[13px]", tokens.body)}>
-            You'll receive an email with a download link.
+            {c.danger.exportHint}
           </p>
           <Button
             tokens={tokens}
             variant="secondary"
-            onClick={() => notify("Export requested")}
+            onClick={() => notify(c.danger.exportRequested)}
             className="!px-3.5 !py-2 !font-medium"
           >
-            Request export
+            {c.danger.requestExport}
           </Button>
         </div>
       </SectionCard>
       <SectionCard
-        title="Delete account"
-        description="This permanently removes your account, workspace, and all data. This cannot be undone."
+        title={c.danger.deleteTitle}
+        description={c.danger.deleteDescription}
         tokens={tokens}
         danger
         footer={
@@ -4509,15 +5784,15 @@ function DangerSection({
             disabled={!canDelete}
             onClick={handleDelete}
           >
-            Delete my account
+            {c.danger.deleteButton}
           </Button>
         }
       >
         <Field
-          label='Type "delete" to confirm'
+          label={c.danger.typeToConfirm(c.danger.deleteWord)}
           value={confirm}
           onChange={setConfirm}
-          placeholder="delete"
+          placeholder={c.danger.deleteWord}
           onEnter={handleDelete}
           tokens={tokens}
         />
