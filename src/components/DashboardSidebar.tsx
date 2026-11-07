@@ -397,7 +397,7 @@ function useUnreadCounts(): UnreadCounts {
 }
 
 /* ============================================================================
-Keyframes — animations partagées
+Keyframes
 ============================================================================ */
 const SIDEBAR_KEYFRAMES = `
 @keyframes sbMenuIn {
@@ -424,6 +424,10 @@ const SIDEBAR_KEYFRAMES = `
   from { opacity: 0; transform: scale(0.4); }
   to { opacity: 1; transform: scale(1); }
 }
+@keyframes sbSubOpen {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: none; }
+}
 .sb-menu { animation: sbMenuIn 160ms cubic-bezier(0.32, 0.72, 0, 1) both; }
 .sb-tip { animation: sbTipIn 140ms cubic-bezier(0.32, 0.72, 0, 1) both; }
 .sb-fade { animation: sbFadeIn 220ms ease-out both; }
@@ -434,6 +438,7 @@ const SIDEBAR_KEYFRAMES = `
 .sb-backdrop { animation: sbFadeIn 200ms ease-out both; }
 .sb-sheet { animation: sbSheetIn 340ms cubic-bezier(0.32, 0.72, 0, 1) backwards; }
 .sb-dot { animation: sbDotPop 220ms cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+.sb-sub { animation: sbSubOpen 220ms cubic-bezier(0.22, 1, 0.36, 1) both; }
 #app-sidebar button,
 #app-sidebar svg,
 #app-sidebar img {
@@ -442,7 +447,7 @@ const SIDEBAR_KEYFRAMES = `
   -webkit-tap-highlight-color: transparent;
 }
 @media (prefers-reduced-motion: reduce) {
-  .sb-menu, .sb-tip, .sb-fade, .sb-label, .sb-backdrop, .sb-sheet, .sb-dot { animation: none; }
+  .sb-menu, .sb-tip, .sb-fade, .sb-label, .sb-backdrop, .sb-sheet, .sb-dot, .sb-sub { animation: none; }
 }
 `;
 
@@ -1920,6 +1925,7 @@ function SidebarChannelsImpl({
   userId,
   isDark,
   compact,
+  isMobile,
   currentRoute,
   focus,
   t,
@@ -1937,6 +1943,7 @@ function SidebarChannelsImpl({
   userId: string | null;
   isDark: boolean;
   compact: boolean;
+  isMobile: boolean;
   currentRoute: string;
   focus: string;
   t: ThemeTokens;
@@ -2002,7 +2009,8 @@ function SidebarChannelsImpl({
   const channelsRef = useRef(channels);
   channelsRef.current = channels;
 
-  const canReorder = !compact && channels.length > 1;
+  // Drag-to-reorder : désactivé sur mobile (interfère avec le tap pour ouvrir)
+  const canReorder = !compact && !isMobile && channels.length > 1;
 
   const commitOrder = useCallback(
     (keys: string[]) => {
@@ -2547,7 +2555,7 @@ function SidebarChannelsImpl({
                     onNewPost(channel.key);
                   }}
                   className={[
-                    "absolute right-8 top-1/2 z-10 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-lg",
+                    "absolute right-2 top-1/2 z-10 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-lg",
                     "opacity-0 transition-[opacity,background-color,color,transform] duration-150",
                     "active:scale-90 motion-reduce:transition-none motion-reduce:active:scale-100",
                     "group-hover/row:opacity-100 group-focus-within/row:opacity-100 focus-visible:opacity-100",
@@ -2647,16 +2655,31 @@ function SidebarChannelsImpl({
                   />
                   {!compact && (
                     <>
-                      <span className="sb-fade min-w-0 flex-1 truncate pr-0 text-left group-hover/row:pr-7 group-focus-within/row:pr-7">
+                      <span
+                        className={[
+                          "sb-fade min-w-0 flex-1 truncate text-left",
+                          // Sur mobile : toujours pr-8 pour réserver la place
+                          // du bouton "+" (toujours visible via media query
+                          // hover:none), même sans chevron affiché.
+                          isMobile
+                            ? "pr-8"
+                            : "pr-0 group-hover/row:pr-8 group-focus-within/row:pr-8",
+                        ].join(" ")}
+                      >
                         {cleanLabel}
                       </span>
-                      <ChevronDownIcon
-                        className={[
-                          "h-3.5 w-3.5 shrink-0 opacity-60",
-                          "transition-transform duration-300 motion-reduce:transition-none",
-                          isOpen ? "rotate-0" : "-rotate-90",
-                        ].join(" ")}
-                      />
+                      {/* Chevron visible UNIQUEMENT sur desktop (non-collapsed).
+                          Sur mobile : caché, la rangée entière reste tapable
+                          et un seul clic ouvre la sub-nav. */}
+                      {!isMobile && (
+                        <ChevronDownIcon
+                          className={[
+                            "h-3.5 w-3.5 shrink-0 opacity-60",
+                            "transition-transform duration-300 motion-reduce:transition-none",
+                            isOpen ? "rotate-0" : "-rotate-90",
+                          ].join(" ")}
+                        />
+                      )}
                     </>
                   )}
                 </button>
@@ -2950,7 +2973,6 @@ export default function DashboardSidebar({
     setSheetOffset(value);
   };
 
-  // Reset a chaque ouverture.
   useEffect(() => {
     if (menuOpen) {
       sheetClosingRef.current = false;
@@ -3014,7 +3036,6 @@ export default function DashboardSidebar({
     else updateSheetOffset(0);
   };
 
-  // Backdrop opacity suit le drag (feedback tactile).
   const backdropOpacity =
     sheetOffset > 0
       ? Math.max(0.08, 1 - sheetOffset / (sheetRef.current?.offsetHeight ?? 400))
@@ -3432,8 +3453,8 @@ export default function DashboardSidebar({
               transition: sheetDragging
                 ? "none"
                 : sheetClosingRef.current
-                  ? "transform 240ms cubic-bezier(0.4, 0, 1, 1)" // close : ease-in
-                  : "transform 320ms cubic-bezier(0.34, 1.56, 0.64, 1)", // snap-back : léger rebond
+                  ? "transform 240ms cubic-bezier(0.4, 0, 1, 1)"
+                  : "transform 320ms cubic-bezier(0.34, 1.56, 0.64, 1)",
               willChange: sheetDragging ? "transform" : undefined,
             }}
             className={[
@@ -3444,7 +3465,6 @@ export default function DashboardSidebar({
               t.menu,
             ].join(" ")}
           >
-            {/* Zone de glissement : poignée + infos + bouton Upgrade */}
             <div
               onPointerDown={onSheetPointerDown}
               onPointerMove={onSheetPointerMove}
@@ -3635,6 +3655,7 @@ export default function DashboardSidebar({
             userId={userId}
             isDark={isDark}
             compact={compact}
+            isMobile={isMobile}
             currentRoute={currentRoute}
             focus={focus}
             t={t}
@@ -3646,7 +3667,6 @@ export default function DashboardSidebar({
           />
         </nav>
 
-        {/* Footer : profil (+ toggle desktop) */}
         <div
           ref={profileRef}
           className={[
@@ -3689,7 +3709,6 @@ export default function DashboardSidebar({
             </button>
           )}
 
-          {/* Popover du compte : desktop uniquement */}
           {menuOpen && !isMobile && (
             <div
               ref={menuRef}
