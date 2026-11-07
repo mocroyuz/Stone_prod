@@ -2071,6 +2071,9 @@ function SidebarChannelsImpl({
 }) {
   const [openKeys, setOpenKeys] = useState<string[]>(channelsMemory.open);
 
+  // BLOC 5a — détecte le mode mobile pour toujours déplier les sous-menus.
+  const isMobileView = useIsMobile();
+
   useEffect(() => {
     channelsMemory.open = openKeys;
   }, [openKeys]);
@@ -2578,7 +2581,10 @@ function SidebarChannelsImpl({
         const label = channel.handle || channel.name;
         const cleanLabel = label.replace(/^@/, "");
         const groupKey = `channel:${channel.key}`;
-        const isOpen = openKeys.includes(groupKey) && !compact;
+
+        // BLOC 5b — sur mobile, les sous-menus sont toujours dépliés.
+        const isOpen =
+          !compact && (isMobileView || openKeys.includes(groupKey));
 
         const isActiveChannel =
           CHANNEL_ROUTES.has(currentRoute) &&
@@ -2963,16 +2969,9 @@ type DashboardSidebarProps = {
   onToggleTheme?: (origin?: { x: number; y: number }) => void;
 };
 
-const ALL_NETWORKS: NetworkKey[] = [
-  "instagram",
-  "tiktok",
-  "youtube",
-  "linkedin",
-  "facebook",
-  "x",
-  "pinterest",
-  "threads",
-];
+/* --------------------------------------------------------------------------
+   BLOC 3 — Remplace toute la fonction DashboardSidebar
+-------------------------------------------------------------------------- */
 
 export default function DashboardSidebar({
   theme: themeProp,
@@ -3022,11 +3021,6 @@ export default function DashboardSidebar({
         : item
     );
   }, [hasChannels, navItems, communityNavBadge]);
-
-  const missingNetworks = useMemo(() => {
-    const connected = new Set(connectedChannels.map(getNetworkId));
-    return ALL_NETWORKS.filter((key) => !connected.has(key)).slice(0, 3);
-  }, [connectedChannels]);
 
   const { user } = useUser();
   const { subscription, hasActive: hasActiveSubscription } = useSubscription();
@@ -3661,28 +3655,6 @@ export default function DashboardSidebar({
             "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
           ].join(" ")}
         >
-          {/* Bouton "Nouvelle publication" : mobile uniquement */}
-          {isMobile && (
-            <button
-              type="button"
-              onClick={() =>
-                hasChannels
-                  ? handleNewPost(connectedChannels[0].key)
-                  : openSettingsChannels()
-              }
-              className={[
-                "mb-2 flex h-12 w-full shrink-0 items-center justify-center gap-2",
-                "rounded-full border text-[15px] font-semibold",
-                "transition-transform duration-150 active:scale-[0.98]",
-                focus,
-                t.accentSolid,
-              ].join(" ")}
-            >
-              <PlusIcon className="h-[18px] w-[18px]" />
-              {c.actions.newPost}
-            </button>
-          )}
-
           {visibleNavItems.map((item) => (
             <NavItemView
               key={item.route}
@@ -3713,53 +3685,6 @@ export default function DashboardSidebar({
             onConnect={openSettingsChannels}
             onNewPost={handleNewPost}
           />
-
-          {/* Connecter d'autres canaux : mobile uniquement */}
-          {isMobile && (
-            <div className="mt-4 px-2.5">
-              <div
-                className={["mb-2 text-[12px] font-medium", t.muted].join(" ")}
-              >
-                {c.sections.connectChannels}
-              </div>
-              <div className="flex items-center gap-3">
-                {missingNetworks.map((key) => {
-                  const NetIcon = NETWORK_ICONS[key];
-                  return (
-                    <button
-                      key={key}
-                      type="button"
-                      aria-label={c.actions.connectChannelAria}
-                      onClick={openSettingsChannels}
-                      className={[
-                        "flex h-12 w-12 items-center justify-center rounded-xl border bg-white",
-                        "transition-transform duration-150 active:scale-95",
-                        focus,
-                        t.rail,
-                      ].join(" ")}
-                    >
-                      <NetIcon className="h-6 w-6" />
-                    </button>
-                  );
-                })}
-                <button
-                  type="button"
-                  aria-label={c.actions.connectChannelAria}
-                  onClick={openSettingsChannels}
-                  className={[
-                    "flex h-12 w-12 items-center justify-center rounded-xl border",
-                    "transition-transform duration-150 active:scale-95",
-                    focus,
-                    t.rail,
-                    t.menuIcon,
-                    t.row,
-                  ].join(" ")}
-                >
-                  <PlusIcon className="h-5 w-5" />
-                </button>
-              </div>
-            </div>
-          )}
         </nav>
 
         {/* Footer : profil (+ aide sur mobile) */}
@@ -3767,12 +3692,10 @@ export default function DashboardSidebar({
           ref={profileRef}
           className={[
             "relative shrink-0 py-2.5",
-            isMobile
-              ? "flex items-center gap-1.5 border-t px-3 pb-[max(10px,env(safe-area-inset-bottom))]"
-              : compact
-                ? "flex flex-col items-center gap-2"
-                : "flex items-center gap-1.5 px-2",
-            isMobile ? t.rail : "",
+            compact
+              ? "flex flex-col items-center gap-2"
+              : "flex items-center gap-1.5 px-2",
+            isMobile ? "pb-[max(10px,env(safe-area-inset-bottom))]" : "",
           ].join(" ")}
         >
           {/* Reduire / developper : desktop uniquement */}
@@ -4009,9 +3932,7 @@ export default function DashboardSidebar({
                   "active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:scale-100",
                   compact
                     ? "h-10 w-10 justify-center"
-                    : isMobile
-                      ? "h-12 w-full gap-3 px-1.5"
-                      : "h-10 w-full gap-2.5 px-1.5",
+                    : "h-10 w-full gap-2.5 px-1.5",
                   focus,
                   menuOpen ? t.rowOpen : t.row,
                 ].join(" ")}
@@ -4050,44 +3971,18 @@ export default function DashboardSidebar({
                 </span>
 
                 {!compact && (
-                  <span className="sb-fade flex min-w-0 flex-1 flex-col text-left">
-                    <span
-                      className={[
-                        "truncate text-[13px] font-medium",
-                        t.title,
-                      ].join(" ")}
-                    >
-                      {isMobile ? account.organization : account.name}
-                    </span>
-                    {isMobile && (
-                      <span
-                        className={["truncate text-[11px]", t.muted].join(" ")}
-                      >
-                        {account.plan}
-                      </span>
-                    )}
+                  <span
+                    className={[
+                      "sb-fade min-w-0 flex-1 truncate text-left text-[13px] font-medium",
+                      t.title,
+                    ].join(" ")}
+                  >
+                    {account.name}
                   </span>
                 )}
               </button>
             </Tip>
           </div>
-
-          {/* Aide : mobile uniquement */}
-          {isMobile && (
-            <button
-              type="button"
-              aria-label={c.menu.helpSupport}
-              onClick={() => handleNavigate("faq")}
-              className={[
-                "flex h-11 w-11 shrink-0 items-center justify-center rounded-full",
-                focus,
-                t.menuIcon,
-                t.row,
-              ].join(" ")}
-            >
-              <HelpIcon className="h-5 w-5" />
-            </button>
-          )}
         </div>
       </aside>
     </>
