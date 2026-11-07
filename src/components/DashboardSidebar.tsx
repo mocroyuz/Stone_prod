@@ -244,7 +244,7 @@ const COPY: Record<Lang, Copy> = {
       helpSupport: "Aide et support",
       integrations: "Intégrations",
       betaFeatures: "Fonctionnalités bêta",
-      logout: "Se déconnecter",
+      logout: "Déconnexion",
       loggingOut: "Déconnexion…",
     },
     actions: {
