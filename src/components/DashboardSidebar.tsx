@@ -2963,6 +2963,17 @@ type DashboardSidebarProps = {
   onToggleTheme?: (origin?: { x: number; y: number }) => void;
 };
 
+const ALL_NETWORKS: NetworkKey[] = [
+  "instagram",
+  "tiktok",
+  "youtube",
+  "linkedin",
+  "facebook",
+  "x",
+  "pinterest",
+  "threads",
+];
+
 export default function DashboardSidebar({
   theme: themeProp,
 }: DashboardSidebarProps) {
@@ -3011,6 +3022,11 @@ export default function DashboardSidebar({
         : item
     );
   }, [hasChannels, navItems, communityNavBadge]);
+
+  const missingNetworks = useMemo(() => {
+    const connected = new Set(connectedChannels.map(getNetworkId));
+    return ALL_NETWORKS.filter((key) => !connected.has(key)).slice(0, 3);
+  }, [connectedChannels]);
 
   const { user } = useUser();
   const { subscription, hasActive: hasActiveSubscription } = useSubscription();
@@ -3080,6 +3096,8 @@ export default function DashboardSidebar({
     if (!isMobile) setMobileOpen(false);
   }, [isMobile]);
 
+  // Mobile : bloque le scroll de la page quand le panneau est ouvert
+  // et ferme avec Echap (le sheet du compte garde la priorite).
   useEffect(() => {
     if (!mobileOpen) return;
 
@@ -3099,8 +3117,21 @@ export default function DashboardSidebar({
     };
   }, [mobileOpen, menuOpen]);
 
+  // Mobile : Echap ferme le sheet du compte.
   useEffect(() => {
-    if (!menuOpen) return;
+    if (!isMobile || !menuOpen) return;
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMenuOpen(false);
+    };
+
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [isMobile, menuOpen]);
+
+  // Desktop : popover du compte (clic exterieur + Echap + navigation clavier).
+  useEffect(() => {
+    if (!menuOpen || isMobile) return;
 
     const onPointerDown = (event: PointerEvent) => {
       if (!profileRef.current?.contains(event.target as Node)) {
@@ -3129,7 +3160,7 @@ export default function DashboardSidebar({
       document.removeEventListener("pointerdown", onPointerDown);
       document.removeEventListener("keydown", onKeyDown);
     };
-  }, [menuOpen]);
+  }, [menuOpen, isMobile]);
 
   const onMenuKeyDown = useCallback(
     (event: React.KeyboardEvent<HTMLDivElement>) => {
@@ -3382,6 +3413,9 @@ export default function DashboardSidebar({
     <>
       <style>{SIDEBAR_KEYFRAMES}</style>
 
+      {/* ------------------------------------------------------------------
+          MOBILE : barre du haut (hamburger / croix + logo Stone)
+      ------------------------------------------------------------------ */}
       {isMobile && (
         <header
           className={[
@@ -3392,15 +3426,18 @@ export default function DashboardSidebar({
           <button
             type="button"
             aria-label={mobileOpen ? c.actions.closeNav : c.actions.openNav}
-            aria-controls="mobile-sheet"
+            aria-controls="app-sidebar"
             aria-expanded={mobileOpen}
-            onClick={() => setMobileOpen((v) => !v)}
+            onClick={() => {
+              setMenuOpen(false);
+              setMobileOpen((value) => !value);
+            }}
             className={[
               "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl",
-              "transition-transform duration-200 active:scale-[0.94] motion-reduce:transition-none",
+              "transition-[background-color,transform] duration-200 active:scale-[0.94] motion-reduce:transition-none",
               focus,
               t.menuIcon,
-              t.row,
+              mobileOpen ? t.rowOpen : t.row,
             ].join(" ")}
           >
             {mobileOpen ? (
@@ -3434,12 +3471,15 @@ export default function DashboardSidebar({
         </header>
       )}
 
-      {isMobile && mobileOpen && (
+      {/* ------------------------------------------------------------------
+          MOBILE : bottom sheet du compte (ouvert depuis le profil)
+      ------------------------------------------------------------------ */}
+      {isMobile && menuOpen && (
         <>
           <div
             aria-hidden="true"
-            onClick={() => setMobileOpen(false)}
-            className="sb-backdrop fixed inset-0 z-40 bg-black/50"
+            onClick={() => setMenuOpen(false)}
+            className="sb-backdrop fixed inset-0 z-[55] bg-black/50"
           />
 
           <div
@@ -3448,18 +3488,16 @@ export default function DashboardSidebar({
             aria-modal="true"
             aria-label={c.actions.accountMenuAria}
             className={[
-              "sb-sheet fixed inset-x-0 bottom-0 z-50 max-h-[88dvh] overflow-y-auto",
+              "sb-sheet fixed inset-x-0 bottom-0 z-[60] max-h-[88dvh] overflow-y-auto",
               "rounded-t-3xl border-t pb-[max(12px,env(safe-area-inset-bottom))]",
               "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
               t.menu,
             ].join(" ")}
           >
-            {/* Poignée */}
             <div className="flex justify-center pb-1 pt-2.5">
               <span className={["h-1 w-9 rounded-full", t.divider].join(" ")} />
             </div>
 
-            {/* Compte */}
             <div className="px-5 pb-4 pt-2">
               <div className={["truncate text-[13px]", t.muted].join(" ")}>
                 {account.email}
@@ -3487,11 +3525,10 @@ export default function DashboardSidebar({
               </button>
             </div>
 
-            {/* Groupes du menu */}
             {menuGroups.map((group, groupIndex) => (
               <div
                 key={group[0]?.label ?? groupIndex}
-                className={["mx-0 border-t px-2.5 py-2", t.menuDivider].join(" ")}
+                className={["border-t px-2.5 py-2", t.menuDivider].join(" ")}
               >
                 {group.map((item) => {
                   const Icon = item.icon;
@@ -3521,9 +3558,16 @@ export default function DashboardSidebar({
                         isActive ? t.rowOpen : t.menuItem,
                       ].join(" ")}
                     >
-                      <Icon className={["h-[18px] w-[18px] shrink-0 opacity-80", t.menuIcon].join(" ")} />
+                      <Icon
+                        className={[
+                          "h-[18px] w-[18px] shrink-0 opacity-80",
+                          t.menuIcon,
+                        ].join(" ")}
+                      />
                       <span className="flex-1 truncate">
-                        {isLogout && loggingOut ? c.menu.loggingOut : item.label}
+                        {isLogout && loggingOut
+                          ? c.menu.loggingOut
+                          : item.label}
                       </span>
 
                       {item.badge && (
@@ -3552,61 +3596,93 @@ export default function DashboardSidebar({
         </>
       )}
 
+      {/* ------------------------------------------------------------------
+          SIDEBAR : desktop = colonne fixe a gauche
+                    mobile  = panneau plein ecran sous la barre du haut
+      ------------------------------------------------------------------ */}
       <aside
         id="app-sidebar"
         {...inertProps}
         className={[
-          "fixed inset-y-0 left-0 flex flex-col border-r",
-          isMobile ? "hidden" : "z-20",
-          "transition-[width,transform] duration-[380ms]",
+          "fixed flex flex-col",
+          isMobile
+            ? "inset-x-0 bottom-0 top-14 z-40 border-t"
+            : "inset-y-0 left-0 z-20 border-r border-transparent",
+          "transition-[width,transform,opacity] duration-[380ms]",
           "ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
           t.aside,
-          isMobile ? t.rail : "border-transparent",
-          drawerHidden ? "pointer-events-none -translate-x-full" : "translate-x-0",
-          compact
-            ? "w-[64px]"
-            : isMobile
-              ? "w-[260px] max-w-[85vw]"
-              : "w-[240px]",
+          isMobile ? t.rail : "",
+          isMobile
+            ? drawerHidden
+              ? "pointer-events-none translate-y-2 opacity-0"
+              : "translate-y-0 opacity-100"
+            : "translate-x-0",
+          isMobile ? "" : compact ? "w-[64px]" : "w-[240px]",
         ].join(" ")}
       >
-        <button
-          type="button"
-          aria-label={c.actions.stoneHome}
-          aria-current={currentRoute === "home" ? "page" : undefined}
-          aria-keyshortcuts={ariaShortcut("h")}
-          onClick={() => handleNavigate("home")}
-          className={[
-            "flex h-14 w-full shrink-0 items-center text-left",
-            compact ? "justify-center" : "gap-2 px-4",
-            "transition-transform duration-200 active:scale-[0.98] motion-reduce:transition-none motion-reduce:active:scale-100",
-            focus,
-            "focus-visible:ring-inset",
-            t.title,
-          ].join(" ")}
-        >
-          <img
-            src={isDark ? "/images/icon_nav.png" : "/images/icon.png"}
-            alt=""
-            draggable={false}
-            className="h-8 w-7 shrink-0 select-none object-contain"
-          />
+        {/* Logo : desktop uniquement (sur mobile il est dans la barre du haut) */}
+        {!isMobile && (
+          <button
+            type="button"
+            aria-label={c.actions.stoneHome}
+            aria-current={currentRoute === "home" ? "page" : undefined}
+            aria-keyshortcuts={ariaShortcut("h")}
+            onClick={() => handleNavigate("home")}
+            className={[
+              "flex h-14 w-full shrink-0 items-center text-left",
+              compact ? "justify-center" : "gap-2 px-4",
+              "transition-transform duration-200 active:scale-[0.98] motion-reduce:transition-none motion-reduce:active:scale-100",
+              focus,
+              "focus-visible:ring-inset",
+              t.title,
+            ].join(" ")}
+          >
+            <img
+              src={isDark ? "/images/icon_nav.png" : "/images/icon.png"}
+              alt=""
+              draggable={false}
+              className="h-8 w-7 shrink-0 select-none object-contain"
+            />
 
-          {!compact && (
-            <span className="sb-fade select-none text-[18px] font-semibold leading-none tracking-tight">
-              Stone
-            </span>
-          )}
-        </button>
+            {!compact && (
+              <span className="sb-fade select-none text-[18px] font-semibold leading-none tracking-tight">
+                Stone
+              </span>
+            )}
+          </button>
+        )}
 
         <nav
           aria-label={c.aria.mainNav}
           className={[
-            "flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto overflow-x-hidden pb-3 pt-4",
+            "flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto overflow-x-hidden pb-3",
+            isMobile ? "pt-3" : "pt-4",
             compact ? "items-center px-3" : "px-2",
             "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
           ].join(" ")}
         >
+          {/* Bouton "Nouvelle publication" : mobile uniquement */}
+          {isMobile && (
+            <button
+              type="button"
+              onClick={() =>
+                hasChannels
+                  ? handleNewPost(connectedChannels[0].key)
+                  : openSettingsChannels()
+              }
+              className={[
+                "mb-2 flex h-12 w-full shrink-0 items-center justify-center gap-2",
+                "rounded-full border text-[15px] font-semibold",
+                "transition-transform duration-150 active:scale-[0.98]",
+                focus,
+                t.accentSolid,
+              ].join(" ")}
+            >
+              <PlusIcon className="h-[18px] w-[18px]" />
+              {c.actions.newPost}
+            </button>
+          )}
+
           {visibleNavItems.map((item) => (
             <NavItemView
               key={item.route}
@@ -3637,47 +3713,103 @@ export default function DashboardSidebar({
             onConnect={openSettingsChannels}
             onNewPost={handleNewPost}
           />
+
+          {/* Connecter d'autres canaux : mobile uniquement */}
+          {isMobile && (
+            <div className="mt-4 px-2.5">
+              <div
+                className={["mb-2 text-[12px] font-medium", t.muted].join(" ")}
+              >
+                {c.sections.connectChannels}
+              </div>
+              <div className="flex items-center gap-3">
+                {missingNetworks.map((key) => {
+                  const NetIcon = NETWORK_ICONS[key];
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      aria-label={c.actions.connectChannelAria}
+                      onClick={openSettingsChannels}
+                      className={[
+                        "flex h-12 w-12 items-center justify-center rounded-xl border bg-white",
+                        "transition-transform duration-150 active:scale-95",
+                        focus,
+                        t.rail,
+                      ].join(" ")}
+                    >
+                      <NetIcon className="h-6 w-6" />
+                    </button>
+                  );
+                })}
+                <button
+                  type="button"
+                  aria-label={c.actions.connectChannelAria}
+                  onClick={openSettingsChannels}
+                  className={[
+                    "flex h-12 w-12 items-center justify-center rounded-xl border",
+                    "transition-transform duration-150 active:scale-95",
+                    focus,
+                    t.rail,
+                    t.menuIcon,
+                    t.row,
+                  ].join(" ")}
+                >
+                  <PlusIcon className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
+          )}
         </nav>
 
+        {/* Footer : profil (+ aide sur mobile) */}
         <div
           ref={profileRef}
           className={[
             "relative shrink-0 py-2.5",
-            compact
-              ? "flex flex-col items-center gap-2"
-              : "flex items-center gap-1.5 px-2",
+            isMobile
+              ? "flex items-center gap-1.5 border-t px-3 pb-[max(10px,env(safe-area-inset-bottom))]"
+              : compact
+                ? "flex flex-col items-center gap-2"
+                : "flex items-center gap-1.5 px-2",
+            isMobile ? t.rail : "",
           ].join(" ")}
         >
-          <button
-            type="button"
-            aria-expanded={!compact}
-            aria-controls="app-sidebar"
-            aria-keyshortcuts="Control+B Meta+B"
-            aria-label={
-              isMobile
-                ? c.actions.closeNav
-                : isCollapsed
+          {/* Reduire / developper : desktop uniquement */}
+          {!isMobile && (
+            <button
+              type="button"
+              aria-expanded={!compact}
+              aria-controls="app-sidebar"
+              aria-keyshortcuts="Control+B Meta+B"
+              aria-label={
+                isCollapsed
                   ? c.actions.expandSidebar
                   : c.actions.collapseSidebar
-            }
-            title={`${
-              compact ? c.actions.expand : c.actions.collapse
-            } (${TOGGLE_SHORTCUT_LABEL})`}
-            onClick={toggleCollapsed}
-            className={[
-              "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl",
-              "transition-[background-color,color,transform] duration-200",
-              "active:scale-[0.94] motion-reduce:transition-none motion-reduce:active:scale-100",
-              compact ? "" : "order-last",
-              focus,
-              t.menuIcon,
-              t.row,
-            ].join(" ")}
-          >
-            <SidebarToggleIcon className="h-[18px] w-[18px]" open={!compact} />
-          </button>
+              }
+              title={`${
+                compact ? c.actions.expand : c.actions.collapse
+              } (${TOGGLE_SHORTCUT_LABEL})`}
+              onClick={toggleCollapsed}
+              className={[
+                "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl",
+                "transition-[background-color,color,transform] duration-200",
+                "active:scale-[0.94] motion-reduce:transition-none motion-reduce:active:scale-100",
+                compact ? "" : "order-last",
+                focus,
+                t.menuIcon,
+                t.row,
+              ].join(" ")}
+            >
+              <SidebarToggleIcon
+                className="h-[18px] w-[18px]"
+                open={!compact}
+              />
+            </button>
+          )}
 
-          {menuOpen && (
+          {/* Popover du compte : desktop uniquement */}
+          {menuOpen && !isMobile && (
             <div
               ref={menuRef}
               id="account-menu"
@@ -3859,9 +3991,15 @@ export default function DashboardSidebar({
               <button
                 ref={triggerRef}
                 type="button"
-                aria-haspopup="menu"
+                aria-haspopup={isMobile ? "dialog" : "menu"}
                 aria-expanded={menuOpen}
-                aria-controls={menuOpen ? "account-menu" : undefined}
+                aria-controls={
+                  menuOpen
+                    ? isMobile
+                      ? "mobile-sheet"
+                      : "account-menu"
+                    : undefined
+                }
                 aria-keyshortcuts={ariaShortcut("p")}
                 aria-label={c.actions.openAccountMenu}
                 onClick={() => setMenuOpen((value) => !value)}
@@ -3871,7 +4009,9 @@ export default function DashboardSidebar({
                   "active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:scale-100",
                   compact
                     ? "h-10 w-10 justify-center"
-                    : "h-10 w-full gap-2.5 px-1.5",
+                    : isMobile
+                      ? "h-12 w-full gap-3 px-1.5"
+                      : "h-10 w-full gap-2.5 px-1.5",
                   focus,
                   menuOpen ? t.rowOpen : t.row,
                 ].join(" ")}
@@ -3910,18 +4050,44 @@ export default function DashboardSidebar({
                 </span>
 
                 {!compact && (
-                  <span
-                    className={[
-                      "sb-fade min-w-0 flex-1 truncate text-left text-[13px] font-medium",
-                      t.title,
-                    ].join(" ")}
-                  >
-                    {account.name}
+                  <span className="sb-fade flex min-w-0 flex-1 flex-col text-left">
+                    <span
+                      className={[
+                        "truncate text-[13px] font-medium",
+                        t.title,
+                      ].join(" ")}
+                    >
+                      {isMobile ? account.organization : account.name}
+                    </span>
+                    {isMobile && (
+                      <span
+                        className={["truncate text-[11px]", t.muted].join(" ")}
+                      >
+                        {account.plan}
+                      </span>
+                    )}
                   </span>
                 )}
               </button>
             </Tip>
           </div>
+
+          {/* Aide : mobile uniquement */}
+          {isMobile && (
+            <button
+              type="button"
+              aria-label={c.menu.helpSupport}
+              onClick={() => handleNavigate("faq")}
+              className={[
+                "flex h-11 w-11 shrink-0 items-center justify-center rounded-full",
+                focus,
+                t.menuIcon,
+                t.row,
+              ].join(" ")}
+            >
+              <HelpIcon className="h-5 w-5" />
+            </button>
+          )}
         </div>
       </aside>
     </>
