@@ -2433,7 +2433,7 @@ export default function Home() {
 
       <div
         className={[
-          "h-full py-3 pr-3",
+          "h-full py-3 pr-3 max-md:pt-14",
           "transition-[padding-left] duration-[380ms]",
           "ease-[cubic-bezier(0.4,0,0.2,1)]",
           "motion-reduce:transition-none",

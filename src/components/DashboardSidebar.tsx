@@ -3371,23 +3371,52 @@ export default function DashboardSidebar({
     <>
       <style>{SIDEBAR_KEYFRAMES}</style>
 
-      {isMobile && !mobileOpen && (
-        <button
-          type="button"
-          aria-label={c.actions.openNav}
-          aria-controls="app-sidebar"
-          onClick={() => setMobileOpen(true)}
+      {isMobile && (
+        <header
           className={[
-            "fixed left-3 top-3 z-30 flex h-10 w-10 items-center justify-center rounded-xl border",
-            "transition-transform duration-200 active:scale-[0.94] motion-reduce:transition-none",
-            focus,
+            "fixed inset-x-0 top-0 z-30 flex h-14 items-center gap-2 px-3",
             t.aside,
-            t.rail,
-            t.menuIcon,
           ].join(" ")}
         >
-          <MenuIcon className="h-[18px] w-[18px]" />
-        </button>
+          <button
+            type="button"
+            aria-label={c.actions.openNav}
+            aria-controls="app-sidebar"
+            aria-expanded={mobileOpen}
+            onClick={() => setMobileOpen(true)}
+            className={[
+              "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl",
+              "transition-transform duration-200 active:scale-[0.94] motion-reduce:transition-none",
+              focus,
+              t.menuIcon,
+              t.row,
+            ].join(" ")}
+          >
+            <MenuIcon className="h-[22px] w-[22px]" />
+          </button>
+
+          <button
+            type="button"
+            aria-label={c.actions.stoneHome}
+            onClick={() => handleNavigate("home")}
+            className={[
+              "flex h-10 items-center gap-2 rounded-xl px-1.5",
+              "transition-transform duration-200 active:scale-[0.97] motion-reduce:transition-none",
+              focus,
+              t.title,
+            ].join(" ")}
+          >
+            <img
+              src={isDark ? "/images/icon_nav.png" : "/images/icon.png"}
+              alt=""
+              draggable={false}
+              className="h-8 w-7 shrink-0 select-none object-contain"
+            />
+            <span className="select-none text-[18px] font-semibold leading-none tracking-tight">
+              Stone
+            </span>
+          </button>
+        </header>
       )}
 
       {isMobile && mobileOpen && (
