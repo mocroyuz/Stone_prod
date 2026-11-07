@@ -2072,12 +2072,10 @@ function SidebarChannelsImpl({
   const [openKeys, setOpenKeys] = useState<string[]>(channelsMemory.open);
 
   /* ------------------------------------------------------------------
-     ETAPE 2a — appui long + sous-menus mobiles
+     Appui long (drag tactile) + suppression du clic qui suit
   ------------------------------------------------------------------ */
   const LONG_PRESS_MS = 380;
 
-  const isMobileView = useIsMobile();
-  const [mobileClosed, setMobileClosed] = useState<string[]>([]);
   const suppressClickRef = useRef(false);
   const longPressRef = useRef<{
     timer: number;
@@ -2210,8 +2208,8 @@ function SidebarChannelsImpl({
   }, []);
 
   /* ------------------------------------------------------------------
-     ETAPE 2b — startDrag (souris + tactile), onHandlePointerDown,
-                 onRowPointerDown (appui long), onRowPointerMove
+     startDrag (souris + tactile), onHandlePointerDown,
+     onRowPointerDown (appui long), onRowPointerMove
   ------------------------------------------------------------------ */
   const startDrag = (
     wrapper: HTMLElement,
@@ -2446,19 +2444,12 @@ function SidebarChannelsImpl({
   const hashChannel = CHANNEL_ROUTES.has(currentRoute) ? getHashChannel() : null;
 
   /* ------------------------------------------------------------------
-     ETAPE 2c — toggleKey aware du mode mobile
+     toggleKey — version d'origine (mobile et desktop identiques)
   ------------------------------------------------------------------ */
-  const toggleKey = (key: string) => {
-    if (isMobileView) {
-      setMobileClosed((prev) =>
-        prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
-      );
-      return;
-    }
+  const toggleKey = (key: string) =>
     setOpenKeys((prev) =>
       prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
     );
-  };
 
   const openKey = (key: string) =>
     setOpenKeys((prev) => (prev.includes(key) ? prev : [...prev, key]));
@@ -2684,14 +2675,8 @@ function SidebarChannelsImpl({
         const cleanLabel = label.replace(/^@/, "");
         const groupKey = `channel:${channel.key}`;
 
-        /* ------------------------------------------------------------------
-           ETAPE 2d — mobile : ouvert par defaut, la fleche peut fermer
-        ------------------------------------------------------------------ */
-        const isOpen =
-          !compact &&
-          (isMobileView
-            ? !mobileClosed.includes(groupKey)
-            : openKeys.includes(groupKey));
+        /* isOpen — version d'origine (mobile et desktop identiques) */
+        const isOpen = openKeys.includes(groupKey) && !compact;
 
         const isActiveChannel =
           CHANNEL_ROUTES.has(currentRoute) &&
@@ -2788,7 +2773,7 @@ function SidebarChannelsImpl({
                 onNewPost={onNewPost}
                 hasUnread={hasUnread}
               >
-                {/* ETAPE 2e — handlers de drag tactile + suppression du clic
+                {/* Handlers de drag tactile + suppression du clic
                     apres un long-press */}
                 <button
                   type="button"
@@ -3173,7 +3158,7 @@ export default function DashboardSidebar({
   const menuRef = useRef<HTMLDivElement>(null);
 
   /* ------------------------------------------------------------------
-     ETAPE 3a — drag-to-dismiss du bottom sheet mobile
+     Drag-to-dismiss du bottom sheet mobile
   ------------------------------------------------------------------ */
   const sheetRef = useRef<HTMLDivElement>(null);
   const sheetDragRef = useRef<{
