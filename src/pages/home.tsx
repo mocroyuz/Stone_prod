@@ -34,16 +34,11 @@ import {
   CalendarDays,
   ChevronRight,
   Heart,
-  Home as HomeIcon,
-  Menu,
   MessageCircle,
   Plus,
-  Settings,
-  Sprout,
   TrendingDown,
   TrendingUp,
   Users,
-  X,
 } from "lucide-react";
 import {
   XIcon,
@@ -101,31 +96,6 @@ const intlLocale = (lang: Lang) => (lang === "fr" ? "fr-FR" : "en-GB");
 const numLocale = (lang: Lang) => (lang === "fr" ? "fr-FR" : "en-US");
 
 /* ============================================================
-   RESPONSIVE
-============================================================ */
-
-/** Vrai en dessous de 768px (breakpoint `md` de Tailwind). */
-const MOBILE_QUERY = "(max-width: 767px)";
-
-function useIsMobile(): boolean {
-  const [isMobile, setIsMobile] = useState(() =>
-    typeof window === "undefined"
-      ? false
-      : window.matchMedia(MOBILE_QUERY).matches
-  );
-
-  useEffect(() => {
-    const mq = window.matchMedia(MOBILE_QUERY);
-    const onChange = () => setIsMobile(mq.matches);
-    onChange();
-    mq.addEventListener("change", onChange);
-    return () => mq.removeEventListener("change", onChange);
-  }, []);
-
-  return isMobile;
-}
-
-/* ============================================================
    TRANSLATIONS
 ============================================================ */
 
@@ -133,15 +103,6 @@ type GreetingKey = "morning" | "afternoon" | "evening" | "night";
 
 type Copy = {
   greeting: Record<GreetingKey, string>;
-  nav: {
-    menu: string;
-    close: string;
-    home: string;
-    calendar: string;
-    insights: string;
-    channels: string;
-    streak: string;
-  };
   goals: {
     weekStreak: string;
     postingGoals: string;
@@ -235,15 +196,6 @@ const COPY: Record<Lang, Copy> = {
       afternoon: "Good afternoon",
       evening: "Good evening",
       night: "Good night",
-    },
-    nav: {
-      menu: "Open menu",
-      close: "Close menu",
-      home: "Home",
-      calendar: "Calendar",
-      insights: "Insights",
-      channels: "Channels",
-      streak: "Week streak",
     },
     goals: {
       weekStreak: "Week Streak",
@@ -340,15 +292,6 @@ const COPY: Record<Lang, Copy> = {
       afternoon: "Bonne après-midi",
       evening: "Bonsoir",
       night: "Bonne soirée",
-    },
-    nav: {
-      menu: "Ouvrir le menu",
-      close: "Fermer le menu",
-      home: "Accueil",
-      calendar: "Calendrier",
-      insights: "Statistiques",
-      channels: "Canaux",
-      streak: "Série de semaines",
     },
     goals: {
       weekStreak: "Série actuelle",
@@ -585,15 +528,6 @@ const linkProps = (url: string) =>
    GREETING
 ============================================================ */
 
-const APP_NAME = "Stone";
-
-const GREETING_EMOJI: Record<GreetingKey, string> = {
-  morning: "☀️",
-  afternoon: "🌤️",
-  evening: "🌙",
-  night: "🌙",
-};
-
 function getGreetingKey(date: Date = new Date()): GreetingKey {
   const hour = date.getHours();
   if (hour >= 5 && hour < 12) return "morning";
@@ -656,29 +590,6 @@ function GreetingAvatar({
   );
 }
 
-/** Tuile emoji (mobile) : remplace l'avatar, comme sur la maquette. */
-function GreetingEmojiTile({
-  emoji,
-  isDark,
-}: {
-  emoji: string;
-  isDark: boolean;
-}) {
-  return (
-    <div
-      aria-hidden="true"
-      className={[
-        "flex h-[52px] w-[52px] shrink-0 items-center justify-center rounded-2xl border text-[26px]",
-        isDark
-          ? "border-white/[0.07] bg-white/[0.06]"
-          : "border-sky-100 bg-sky-50",
-      ].join(" ")}
-    >
-      {emoji}
-    </div>
-  );
-}
-
 /* ============================================================
    CLOCK
 ============================================================ */
@@ -723,215 +634,6 @@ function ClockDisplay({
       >
         {date}
       </p>
-    </div>
-  );
-}
-
-/* ============================================================
-   MOBILE TOP BAR + DRAWER
-============================================================ */
-
-function MobileTopBar({
-  isDark,
-  lang,
-  weekStreak,
-  onMenu,
-}: {
-  isDark: boolean;
-  lang: Lang;
-  weekStreak: number;
-  onMenu: () => void;
-}) {
-  const c = COPY[lang];
-
-  return (
-    <div
-      className="flex h-14 shrink-0 items-center justify-between px-4 md:hidden"
-      style={{ paddingTop: "env(safe-area-inset-top, 0px)" }}
-    >
-      <div className="flex items-center gap-3">
-        <button
-          type="button"
-          aria-label={c.nav.menu}
-          onClick={onMenu}
-          className={[
-            "flex h-10 w-10 items-center justify-center rounded-xl transition",
-            focusRingClass(isDark),
-            isDark
-              ? "text-white active:bg-white/[0.08]"
-              : "text-neutral-900 active:bg-black/[0.05]",
-          ].join(" ")}
-        >
-          <Menu className="h-6 w-6" strokeWidth={1.8} />
-        </button>
-        <span
-          className={[
-            "text-[22px] font-bold tracking-[-0.03em]",
-            strongClass(isDark),
-          ].join(" ")}
-        >
-          {APP_NAME}
-        </span>
-      </div>
-
-      <button
-        type="button"
-        aria-label={`${c.nav.streak}: ${weekStreak}`}
-        onClick={() => navigate("insights")}
-        className={[
-          "relative flex h-10 w-10 items-center justify-center rounded-xl transition",
-          focusRingClass(isDark),
-          isDark ? "text-neutral-300" : "text-neutral-700",
-        ].join(" ")}
-      >
-        <Sprout className="h-6 w-6" strokeWidth={1.6} />
-        <span
-          className={[
-            "absolute bottom-0.5 right-0 flex h-[18px] min-w-[18px] items-center justify-center",
-            "rounded-full px-1 text-[10px] font-bold tabular-nums",
-            isDark
-              ? "bg-violet-400/25 text-violet-200"
-              : "bg-violet-100 text-violet-900",
-          ].join(" ")}
-        >
-          {weekStreak}
-        </span>
-      </button>
-    </div>
-  );
-}
-
-function MobileDrawer({
-  isOpen,
-  onClose,
-  isDark,
-  lang,
-}: {
-  isOpen: boolean;
-  onClose: () => void;
-  isDark: boolean;
-  lang: Lang;
-}) {
-  const c = COPY[lang];
-
-  useEffect(() => {
-    if (!isOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [isOpen, onClose]);
-
-  const items: { label: string; icon: ReactNode; onClick: () => void }[] = [
-    {
-      label: c.nav.home,
-      icon: <HomeIcon className="h-[18px] w-[18px]" />,
-      onClick: onClose,
-    },
-    {
-      label: c.nav.calendar,
-      icon: <CalendarDays className="h-[18px] w-[18px]" />,
-      onClick: () => {
-        onClose();
-        navigate("calendar");
-      },
-    },
-    {
-      label: c.nav.insights,
-      icon: <BarChart3 className="h-[18px] w-[18px]" />,
-      onClick: () => {
-        onClose();
-        navigate("insights");
-      },
-    },
-    {
-      label: c.nav.channels,
-      icon: <Settings className="h-[18px] w-[18px]" />,
-      onClick: () => {
-        onClose();
-        navigateToSettingsSection("channels");
-      },
-    },
-  ];
-
-  return (
-    <div
-      className={[
-        "fixed inset-0 z-50 md:hidden",
-        isOpen ? "pointer-events-auto" : "pointer-events-none",
-      ].join(" ")}
-      aria-hidden={!isOpen}
-    >
-      <div
-        onClick={onClose}
-        className={[
-          "absolute inset-0 bg-black/40 transition-opacity duration-300",
-          "motion-reduce:transition-none",
-          isOpen ? "opacity-100" : "opacity-0",
-        ].join(" ")}
-      />
-
-      <nav
-        role="dialog"
-        aria-modal="true"
-        aria-label={c.nav.menu}
-        className={[
-          "absolute inset-y-0 left-0 flex w-[80%] max-w-[300px] flex-col border-r px-3 pb-6",
-          "transition-transform duration-300 ease-[cubic-bezier(0.4,0,0.2,1)]",
-          "motion-reduce:transition-none",
-          isOpen ? "translate-x-0" : "-translate-x-full",
-          mainPanelClass(isDark),
-        ].join(" ")}
-        style={{ paddingTop: "calc(env(safe-area-inset-top, 0px) + 12px)" }}
-      >
-        <div className="mb-4 flex items-center justify-between px-2">
-          <span
-            className={[
-              "text-[22px] font-bold tracking-[-0.03em]",
-              strongClass(isDark),
-            ].join(" ")}
-          >
-            {APP_NAME}
-          </span>
-          <button
-            type="button"
-            aria-label={c.nav.close}
-            onClick={onClose}
-            className={[
-              "flex h-10 w-10 items-center justify-center rounded-xl transition",
-              focusRingClass(isDark),
-              isDark
-                ? "text-white active:bg-white/[0.08]"
-                : "text-neutral-900 active:bg-black/[0.05]",
-            ].join(" ")}
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-
-        <ul className="flex flex-col gap-1">
-          {items.map((item) => (
-            <li key={item.label}>
-              <button
-                type="button"
-                onClick={item.onClick}
-                className={[
-                  "flex min-h-[44px] w-full items-center gap-3 rounded-xl px-3",
-                  "text-left text-[14px] font-semibold transition",
-                  focusRingClass(isDark),
-                  isDark
-                    ? "text-neutral-200 active:bg-white/[0.08]"
-                    : "text-neutral-800 active:bg-black/[0.05]",
-                ].join(" ")}
-              >
-                {item.icon}
-                {item.label}
-              </button>
-            </li>
-          ))}
-        </ul>
-      </nav>
     </div>
   );
 }
@@ -986,75 +688,22 @@ function GoalInfoHint({ isDark, text }: { isDark: boolean; text: string }) {
   );
 }
 
-type RingTone = "neutral" | "violet" | "amber";
-
-/** Couleurs de l'anneau selon le ton (classes écrites en entier pour Tailwind). */
-function ringToneClasses(tone: RingTone, isDark: boolean) {
-  switch (tone) {
-    case "violet":
-      return isDark
-        ? {
-            fill: "bg-violet-500/15",
-            track: "stroke-violet-400/20",
-            bar: "stroke-violet-400",
-            text: "text-violet-200",
-          }
-        : {
-            fill: "bg-violet-100",
-            track: "stroke-violet-500/20",
-            bar: "stroke-violet-500",
-            text: "text-violet-900",
-          };
-    case "amber":
-      return isDark
-        ? {
-            fill: "bg-amber-400/15",
-            track: "stroke-amber-400/20",
-            bar: "stroke-amber-400",
-            text: "text-amber-200",
-          }
-        : {
-            fill: "bg-amber-100",
-            track: "stroke-amber-400/25",
-            bar: "stroke-amber-400",
-            text: "text-amber-900",
-          };
-    default:
-      return isDark
-        ? {
-            fill: "bg-white/[0.06]",
-            track: "stroke-white/[0.14]",
-            bar: "stroke-white",
-            text: "text-neutral-300",
-          }
-        : {
-            fill: "bg-neutral-100",
-            track: "stroke-black/[0.10]",
-            bar: "stroke-neutral-700",
-            text: "text-neutral-700",
-          };
-  }
-}
-
 function Ring({
   isDark,
   progress,
   children,
-  tone = "neutral",
-  size = 56,
-  stroke = 4,
+  size = 52,
+  stroke = 3.5,
 }: {
   isDark: boolean;
   progress: number;
   children: ReactNode;
-  tone?: RingTone;
   size?: number;
   stroke?: number;
 }) {
   const clamped = Math.min(1, Math.max(0, progress));
   const radius = (size - stroke) / 2;
   const circumference = 2 * Math.PI * radius;
-  const t = ringToneClasses(tone, isDark);
 
   return (
     <div
@@ -1064,7 +713,10 @@ function Ring({
       aria-label={`${Math.round(clamped * 100)}% complete`}
     >
       <div
-        className={["absolute rounded-full", t.fill].join(" ")}
+        className={[
+          "absolute rounded-full",
+          isDark ? "bg-white/[0.06]" : "bg-white shadow-sm",
+        ].join(" ")}
         style={{ inset: stroke }}
       />
 
@@ -1081,7 +733,7 @@ function Ring({
           r={radius}
           fill="none"
           strokeWidth={stroke}
-          className={t.track}
+          className={isDark ? "stroke-white/[0.14]" : "stroke-black/[0.10]"}
         />
         <circle
           cx={size / 2}
@@ -1093,7 +745,7 @@ function Ring({
           strokeDasharray={circumference}
           strokeDashoffset={circumference * (1 - clamped)}
           className={[
-            t.bar,
+            isDark ? "stroke-white" : "stroke-neutral-900",
             "transition-[stroke-dashoffset] duration-700 ease-out motion-reduce:transition-none",
           ].join(" ")}
         />
@@ -1102,7 +754,7 @@ function Ring({
       <div
         className={[
           "absolute inset-0 flex items-center justify-center",
-          t.text,
+          strongClass(isDark),
         ].join(" ")}
       >
         {children}
@@ -1116,18 +768,7 @@ function Trend({ isDark, change }: { isDark: boolean; change: number }) {
   const Icon = up ? TrendingUp : TrendingDown;
 
   return (
-    <span
-      className={[
-        "inline-flex items-center gap-1",
-        up
-          ? isDark
-            ? "text-emerald-400"
-            : "text-emerald-600"
-          : isDark
-            ? "text-rose-400"
-            : "text-rose-600",
-      ].join(" ")}
-    >
+    <span className={["inline-flex items-center gap-1", strongClass(isDark)].join(" ")}>
       <Icon className="h-3 w-3" aria-hidden="true" />
       <span className="sr-only">{up ? "Up " : "Down "}</span>
       {up ? "+" : ""}
@@ -1374,12 +1015,8 @@ function HomeOverview({
             weekStreak > 0 ? c.subtitle.streakHit : c.subtitle.streakEmpty
           }
           ring={
-            <Ring
-              isDark={isDark}
-              tone="violet"
-              progress={weekStreak > 0 ? 1 : 0}
-            >
-              <span className="text-[22px] font-semibold tabular-nums leading-none">
+            <Ring isDark={isDark} progress={weekStreak > 0 ? 1 : 0}>
+              <span className="text-[20px] font-semibold tabular-nums leading-none">
                 {weekStreak}
               </span>
             </Ring>
@@ -1396,8 +1033,8 @@ function HomeOverview({
               : c.subtitle.goalProgress(postingGoal.done, postingGoal.target)
           }
           ring={
-            <Ring isDark={isDark} tone="amber" progress={goalRatio}>
-              <span className="text-[19px] font-bold tabular-nums leading-none">
+            <Ring isDark={isDark} progress={goalRatio}>
+              <span className="text-[18px] font-bold tabular-nums leading-none">
                 {Math.round(goalRatio * 100)}
                 <span className="text-[11px] font-semibold">%</span>
               </span>
@@ -1416,12 +1053,13 @@ function HomeOverview({
             </>
           }
           ring={
-            <Ring
-              isDark={isDark}
-              tone="neutral"
-              progress={commentScore.value / 100}
-            >
-              <span className="text-[22px] font-semibold tabular-nums leading-none">
+            <Ring isDark={isDark} progress={commentScore.value / 100}>
+              <span
+                className={[
+                  "text-[20px] font-semibold tabular-nums leading-none",
+                  softClass(isDark),
+                ].join(" ")}
+              >
                 {commentScore.value}
               </span>
             </Ring>
@@ -2683,14 +2321,12 @@ export default function Home() {
   const { theme } = useTheme();
   const isDark = theme === "dark";
   const sidebarOffset = useSidebarOffset();
-  const isMobile = useIsMobile();
   const lang = useLanguage();
   const c = COPY[lang];
 
   const [query, setQuery] = useState("");
   const [isNewPostOpen, setIsNewPostOpen] = useState(false);
   const [isFolderOpen, setIsFolderOpen] = useState(false);
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [user, setUser] = useState<UserProfile | null>(userProfileCache.profile);
   const [userLoaded, setUserLoaded] = useState(
     userProfileCache.profile !== null
@@ -2698,18 +2334,10 @@ export default function Home() {
   const [now, setNow] = useState(() => new Date());
   const connectedChannels = useConnectedChannels();
 
-  // Sur mobile, pas de sidebar latérale : aucun décalage à gauche.
-  const layoutOffset = isMobile ? 0 : sidebarOffset;
-
   useEffect(() => {
     const interval = setInterval(() => setNow(new Date()), 15000);
     return () => clearInterval(interval);
   }, []);
-
-  // Ferme le tiroir si on repasse en mode desktop.
-  useEffect(() => {
-    if (!isMobile) setIsDrawerOpen(false);
-  }, [isMobile]);
 
   useEffect(() => {
     let mounted = true;
@@ -2743,8 +2371,7 @@ export default function Home() {
       (user?.last_name || "")[0] || ""
     }`.toUpperCase() || "U";
 
-  const greetingKey = getGreetingKey(now);
-  const greeting = c.greeting[greetingKey];
+  const greeting = c.greeting[getGreetingKey(now)];
 
   const formattedDate = now.toLocaleDateString(intlLocale(lang), {
     weekday: "short",
@@ -2802,30 +2429,21 @@ export default function Home() {
         pageBgClass(isDark),
       ].join(" ")}
     >
-      {/* Sidebar : desktop uniquement */}
-      {!isMobile && <DashboardSidebar theme={theme} />}
+      <DashboardSidebar theme={theme} />
 
       <div
         className={[
-          "flex h-full flex-col md:py-3 md:pr-3",
+          "h-full py-3 pr-3",
           "transition-[padding-left] duration-[380ms]",
           "ease-[cubic-bezier(0.4,0,0.2,1)]",
           "motion-reduce:transition-none",
         ].join(" ")}
-        style={{ paddingLeft: layoutOffset }}
+        style={{ paddingLeft: sidebarOffset }}
       >
-        {/* Barre du haut : mobile uniquement */}
-        <MobileTopBar
-          isDark={isDark}
-          lang={lang}
-          weekStreak={WEEK_STREAK}
-          onMenu={() => setIsDrawerOpen(true)}
-        />
-
         <div
           className={[
-            "min-h-0 flex-1 overflow-y-auto overflow-x-hidden",
-            "rounded-t-[24px] border border-b-0 md:rounded-[28px] md:border-b",
+            "h-full overflow-y-auto overflow-x-hidden",
+            "rounded-[28px] border",
             "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
             "transition-colors duration-300",
             mainPanelClass(isDark),
@@ -2840,22 +2458,12 @@ export default function Home() {
           >
             <header className="flex shrink-0 items-center justify-between gap-3 sm:items-start">
               <div className="flex min-w-0 items-center gap-4">
-                {/* Mobile : tuile emoji / sm+ : avatar */}
-                <div className="sm:hidden">
-                  <GreetingEmojiTile
-                    emoji={GREETING_EMOJI[greetingKey]}
-                    isDark={isDark}
-                  />
-                </div>
-                <div className="hidden sm:block">
-                  <GreetingAvatar
-                    avatarUrl={user?.avatar_url}
-                    initials={initials}
-                    isDark={isDark}
-                    loading={!userLoaded}
-                  />
-                </div>
-
+                <GreetingAvatar
+                  avatarUrl={user?.avatar_url}
+                  initials={initials}
+                  isDark={isDark}
+                  loading={!userLoaded}
+                />
                 <div className="flex min-w-0 flex-col">
                   <h1
                     className={[
@@ -3032,24 +2640,16 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Tiroir de navigation : mobile uniquement */}
-      <MobileDrawer
-        isOpen={isDrawerOpen}
-        onClose={() => setIsDrawerOpen(false)}
-        isDark={isDark}
-        lang={lang}
-      />
-
       <Folder
         isOpen={isFolderOpen}
         onClose={() => setIsFolderOpen(false)}
         isDark={isDark}
-        offsetLeft={layoutOffset}
+        offsetLeft={sidebarOffset}
       />
 
       <BottomBar
         isDark={isDark}
-        offsetLeft={layoutOffset}
+        offsetLeft={sidebarOffset}
         active={isFolderOpen ? "files" : null}
         onChange={handleBottomBarChange}
         onCreatePost={() => handleBottomBarChange("add")}
