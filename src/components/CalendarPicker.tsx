@@ -1,11 +1,70 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+
+/* ------------------------------------------------------------------ */
+/* Language / i18n                                                     */
+/* ------------------------------------------------------------------ */
+
+type Lang = "fr" | "en";
+
+const LANGUAGE_STORAGE_KEY = "stone:language";
+const LANGUAGE_CHANGED_EVENT = "stone:language-changed";
+
+function detectLanguage(): Lang {
+  if (typeof window === "undefined") return "en";
+  try {
+    const stored = window.localStorage.getItem(LANGUAGE_STORAGE_KEY);
+    if (stored === "fr" || stored === "en") return stored;
+  } catch {
+    /* stockage indisponible */
+  }
+  return "en";
+}
+
+function useLanguage(): Lang {
+  const [lang, setLang] = useState<Lang>(() => detectLanguage());
+
+  useEffect(() => {
+    const refresh = () => setLang(detectLanguage());
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === LANGUAGE_STORAGE_KEY) refresh();
+    };
+    window.addEventListener("storage", onStorage);
+    window.addEventListener("focus", refresh);
+    window.addEventListener("hashchange", refresh);
+    window.addEventListener(LANGUAGE_CHANGED_EVENT, refresh);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("focus", refresh);
+      window.removeEventListener("hashchange", refresh);
+      window.removeEventListener(LANGUAGE_CHANGED_EVENT, refresh);
+    };
+  }, []);
+
+  return lang;
+}
+
+const intlLocale = (lang: Lang) => (lang === "fr" ? "fr-FR" : "en-GB");
+
+const WEEKDAYS: Record<Lang, string[]> = {
+  en: ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"],
+  fr: ["Lu", "Ma", "Me", "Je", "Ve", "Sa", "Di"],
+};
+
+const COPY: Record<Lang, { prevMonth: string; nextMonth: string }> = {
+  en: {
+    prevMonth: "Previous month",
+    nextMonth: "Next month",
+  },
+  fr: {
+    prevMonth: "Mois précédent",
+    nextMonth: "Mois suivant",
+  },
+};
 
 /* ------------------------------------------------------------------ */
 /* Date helpers                                                        */
 /* ------------------------------------------------------------------ */
-
-const WEEKDAY_LABELS = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
 
 function startOfDay(d: Date) {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate());
@@ -89,6 +148,10 @@ export function CalendarPicker({
   max?: Date;
   disablePast?: boolean;
 }) {
+  const lang = useLanguage();
+  const c = COPY[lang];
+  const weekdayLabels = WEEKDAYS[lang];
+
   const [viewMonth, setViewMonth] = useState(() => startOfMonth(value));
 
   // Aujourd'hui
@@ -114,7 +177,7 @@ export function CalendarPicker({
     return rows;
   }, [viewMonth]);
 
-  const monthLabel = viewMonth.toLocaleDateString("en-US", {
+  const monthLabel = viewMonth.toLocaleDateString(intlLocale(lang), {
     month: "long",
     year: "numeric",
   });
@@ -133,7 +196,7 @@ export function CalendarPicker({
         <button
           type="button"
           onClick={() => setViewMonth((m) => addMonths(m, -1))}
-          aria-label="Mois précédent"
+          aria-label={c.prevMonth}
           className={[
             "flex h-7 w-7 items-center justify-center rounded-full transition",
             isDark
@@ -146,7 +209,7 @@ export function CalendarPicker({
 
         <span
           className={[
-            "text-[13px] font-semibold",
+            "text-[13px] font-semibold capitalize",
             isDark ? "text-white" : "text-neutral-900",
           ].join(" ")}
         >
@@ -156,7 +219,7 @@ export function CalendarPicker({
         <button
           type="button"
           onClick={() => setViewMonth((m) => addMonths(m, 1))}
-          aria-label="Mois suivant"
+          aria-label={c.nextMonth}
           className={[
             "flex h-7 w-7 items-center justify-center rounded-full transition",
             isDark
@@ -170,7 +233,7 @@ export function CalendarPicker({
 
       {/* En-tête des jours */}
       <div className="mb-1 grid grid-cols-7">
-        {WEEKDAY_LABELS.map((w) => (
+        {weekdayLabels.map((w) => (
           <div
             key={w}
             className={[

@@ -9,6 +9,98 @@ import {
 import NewIdeaModal, { type NewIdeaValues } from "./Newideamodal";
 
 /* ─────────────────────────────────────────────────────────
+ * Language / i18n
+ * ───────────────────────────────────────────────────────── */
+
+type Lang = "fr" | "en";
+
+const LANGUAGE_STORAGE_KEY = "stone:language";
+const LANGUAGE_CHANGED_EVENT = "stone:language-changed";
+
+function detectLanguage(): Lang {
+  if (typeof window === "undefined") return "en";
+  try {
+    const stored = window.localStorage.getItem(LANGUAGE_STORAGE_KEY);
+    if (stored === "fr" || stored === "en") return stored;
+  } catch {
+    /* stockage indisponible */
+  }
+  return "en";
+}
+
+function useLanguage(): Lang {
+  const [lang, setLang] = useState<Lang>(() => detectLanguage());
+
+  useEffect(() => {
+    const refresh = () => setLang(detectLanguage());
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === LANGUAGE_STORAGE_KEY) refresh();
+    };
+    window.addEventListener("storage", onStorage);
+    window.addEventListener("focus", refresh);
+    window.addEventListener("hashchange", refresh);
+    window.addEventListener(LANGUAGE_CHANGED_EVENT, refresh);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("focus", refresh);
+      window.removeEventListener("hashchange", refresh);
+      window.removeEventListener(LANGUAGE_CHANGED_EVENT, refresh);
+    };
+  }, []);
+
+  return lang;
+}
+
+type Copy = {
+  quickActionsAria: string;
+  filesLabel: string;
+  filesTitle: string;
+  defaultAddLabel: string;
+  closeMenu: string;
+  menu: {
+    post: { title: string; description: string };
+    idea: { title: string; description: string };
+  };
+};
+
+const COPY: Record<Lang, Copy> = {
+  en: {
+    quickActionsAria: "Quick actions",
+    filesLabel: "Files",
+    filesTitle: "Files",
+    defaultAddLabel: "New post",
+    closeMenu: "Close menu",
+    menu: {
+      post: {
+        title: "Post",
+        description: "Publish content on a channel",
+      },
+      idea: {
+        title: "New idea",
+        description: "Save a content idea",
+      },
+    },
+  },
+  fr: {
+    quickActionsAria: "Actions rapides",
+    filesLabel: "Dossiers",
+    filesTitle: "Dossiers",
+    defaultAddLabel: "Nouvelle publication",
+    closeMenu: "Fermer le menu",
+    menu: {
+      post: {
+        title: "Publication",
+        description: "Publier du contenu sur un canal",
+      },
+      idea: {
+        title: "Nouvelle idée",
+        description: "Noter une idée de contenu",
+      },
+    },
+  },
+};
+
+/* ─────────────────────────────────────────────────────────
  * Types publics
  * ───────────────────────────────────────────────────────── */
 
@@ -117,13 +209,18 @@ const EASE = "ease-[cubic-bezier(0.22,1,0.36,1)]";
 export default function BottomBar({
   isDark = false,
   active = null,
-  addLabel = "Nouvelle publication",
+  addLabel,
   offsetLeft = 0,
   onSelectFiles,
   onSubmitIdea,
   onCreatePost,
   onChange,
 }: BottomBarProps) {
+  const lang = useLanguage();
+  const c = COPY[lang];
+
+  const resolvedAddLabel = addLabel ?? c.defaultAddLabel;
+
   const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
   const [isIdeaOpen, setIsIdeaOpen] = useState(false);
   const [menuShift, setMenuShift] = useState(0);
@@ -249,7 +346,9 @@ export default function BottomBar({
     const button = addButtonRef.current;
     if (!menu || !button) return;
     const overflow =
-      button.getBoundingClientRect().left + menu.offsetWidth - (window.innerWidth - 16);
+      button.getBoundingClientRect().left +
+      menu.offsetWidth -
+      (window.innerWidth - 16);
     setMenuShift(overflow > 0 ? -overflow : 0);
   }, [isAddMenuOpen]);
 
@@ -305,7 +404,7 @@ export default function BottomBar({
       )}
 
       <nav
-        aria-label="Actions rapides"
+        aria-label={c.quickActionsAria}
         className="pointer-events-none fixed bottom-0 right-0 z-30 flex justify-center px-4"
         style={{
           left: offsetLeft,
@@ -320,12 +419,12 @@ export default function BottomBar({
               barTone,
             ].join(" ")}
           >
-            {/* Dossiers */}
+            {/* Dossiers / Files */}
             <li>
               <button
                 type="button"
-                aria-label="Dossiers"
-                title="Dossiers"
+                aria-label={c.filesLabel}
+                title={c.filesTitle}
                 aria-current={isFilesActive ? "page" : undefined}
                 onClick={handleFilesClick}
                 className={[
@@ -348,51 +447,53 @@ export default function BottomBar({
             {/* « + » */}
             <li className="relative">
               {isAddMenuOpen && (
-            <div
-              ref={menuRef}
-              id="bottombar-add-menu"
-              role="menu"
-              aria-label={addLabel}
-              aria-orientation="vertical"
-              onKeyDown={handleMenuKeyDown}
-              style={{ marginLeft: menuShift }}
-              className={[
-                "bb-anim pointer-events-auto absolute bottom-full left-0 mb-5 origin-bottom-left",
-                "w-[min(300px,calc(100vw-32px))] rounded-[22px] p-1.5 backdrop-blur-xl",
-                "animate-[addMenuIn_220ms_cubic-bezier(0.22,1,0.36,1)_both]",
-                menuTone,
-              ].join(" ")}
-            >
-              {onCreatePost && (
-                <MenuItem
-                  icon={PostIcon}
-                  title="Publication"
-                  description="Publier du contenu sur un canal"
-                  shortcut="P"
-                  isDark={isDark}
-                  delay={30}
-                  onClick={handleCreatePost}
-                />
-              )}
+                <div
+                  ref={menuRef}
+                  id="bottombar-add-menu"
+                  role="menu"
+                  aria-label={resolvedAddLabel}
+                  aria-orientation="vertical"
+                  onKeyDown={handleMenuKeyDown}
+                  style={{ marginLeft: menuShift }}
+                  className={[
+                    "bb-anim pointer-events-auto absolute bottom-full left-0 mb-5 origin-bottom-left",
+                    "w-[min(300px,calc(100vw-32px))] rounded-[22px] p-1.5 backdrop-blur-xl",
+                    "animate-[addMenuIn_220ms_cubic-bezier(0.22,1,0.36,1)_both]",
+                    menuTone,
+                  ].join(" ")}
+                >
+                  {onCreatePost && (
+                    <MenuItem
+                      icon={PostIcon}
+                      title={c.menu.post.title}
+                      description={c.menu.post.description}
+                      shortcut="P"
+                      isDark={isDark}
+                      delay={30}
+                      onClick={handleCreatePost}
+                    />
+                  )}
 
-              {hasIdea && (
-                <MenuItem
-                  icon={IdeaIcon}
-                  title="Nouvelle idée"
-                  description="Noter une idée de contenu"
-                  shortcut="I"
-                  isDark={isDark}
-                  delay={70}
-                  onClick={handleCreateIdea}
-                />
-              )}
-            </div>
+                  {hasIdea && (
+                    <MenuItem
+                      icon={IdeaIcon}
+                      title={c.menu.idea.title}
+                      description={c.menu.idea.description}
+                      shortcut="I"
+                      isDark={isDark}
+                      delay={70}
+                      onClick={handleCreateIdea}
+                    />
+                  )}
+                </div>
               )}
               <button
                 ref={addButtonRef}
                 type="button"
-                aria-label={isAddMenuOpen ? "Fermer le menu" : addLabel}
-                title={addLabel}
+                aria-label={
+                  isAddMenuOpen ? c.closeMenu : resolvedAddLabel
+                }
+                title={resolvedAddLabel}
                 aria-haspopup={hasMenu ? "menu" : undefined}
                 aria-expanded={hasMenu ? isAddMenuOpen : undefined}
                 aria-controls={hasMenu ? "bottombar-add-menu" : undefined}

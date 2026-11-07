@@ -38,21 +38,166 @@ const PRESET_RATIOS: Record<Exclude<AspectId, "freeform" | "original">, number> 
   "1:1": 1,
 };
 
-const ASPECT_OPTIONS: { id: AspectId; label: string; description: string; icon: any }[] = [
-  { id: "freeform", label: "Freeform", description: "Any size", icon: Crop },
-  { id: "original", label: "Original", description: "Full image", icon: ImageIcon },
-  { id: "4:3", label: "4:3", description: "Landscape", icon: RectangleHorizontal },
-  { id: "16:9", label: "16:9", description: "Landscape", icon: RectangleHorizontal },
-  { id: "9:16", label: "9:16", description: "Portrait", icon: RectangleVertical },
-  { id: "1:1", label: "1:1", description: "Square", icon: Square },
+const ASPECT_OPTIONS: { id: AspectId; icon: any }[] = [
+  { id: "freeform", icon: Crop },
+  { id: "original", icon: ImageIcon },
+  { id: "4:3", icon: RectangleHorizontal },
+  { id: "16:9", icon: RectangleHorizontal },
+  { id: "9:16", icon: RectangleVertical },
+  { id: "1:1", icon: Square },
 ];
 
-const FILTER_PRESETS: { id: FilterId; label: string; css: string }[] = [
-  { id: "original", label: "Original", css: "" },
-  { id: "vivid", label: "Vivid", css: "saturate(1.45) contrast(1.12)" },
-  { id: "mono", label: "Mono", css: "grayscale(1) contrast(1.05)" },
-  { id: "sepia", label: "Sepia", css: "sepia(0.65) saturate(1.1)" },
+const FILTER_PRESETS: { id: FilterId; css: string }[] = [
+  { id: "original", css: "" },
+  { id: "vivid", css: "saturate(1.45) contrast(1.12)" },
+  { id: "mono", css: "grayscale(1) contrast(1.05)" },
+  { id: "sepia", css: "sepia(0.65) saturate(1.1)" },
 ];
+
+/* ──────────────────────────────────────────────────────────────
+   Language (partagé avec Settings via localStorage)
+   ────────────────────────────────────────────────────────────── */
+
+type Lang = "fr" | "en";
+
+const LANGUAGE_STORAGE_KEY = "stone:language";
+const LANGUAGE_CHANGED_EVENT = "stone:language-changed";
+
+function detectLanguage(): Lang {
+  if (typeof window === "undefined") return "en";
+  try {
+    const stored = window.localStorage.getItem(LANGUAGE_STORAGE_KEY);
+    if (stored === "fr" || stored === "en") return stored;
+  } catch {
+    /* stockage indisponible */
+  }
+  return "en";
+}
+
+function useLanguage(): Lang {
+  const [lang, setLang] = useState<Lang>(() => detectLanguage());
+
+  useEffect(() => {
+    const refresh = () => setLang(detectLanguage());
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === LANGUAGE_STORAGE_KEY) refresh();
+    };
+    window.addEventListener("storage", onStorage);
+    window.addEventListener("focus", refresh);
+    window.addEventListener("hashchange", refresh);
+    window.addEventListener(LANGUAGE_CHANGED_EVENT, refresh);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("focus", refresh);
+      window.removeEventListener("hashchange", refresh);
+      window.removeEventListener(LANGUAGE_CHANGED_EVENT, refresh);
+    };
+  }, []);
+
+  return lang;
+}
+
+/* ──────────────────────────────────────────────────────────────
+   Copy (traductions du modal)
+   ────────────────────────────────────────────────────────────── */
+
+type EditCopy = {
+  title: string;
+  tabCrop: string;
+  tabAppearance: string;
+  cropTransform: string;
+  aspects: Record<AspectId, { label: string; description: string }>;
+  rotateFlip: string;
+  straighten: string;
+  center: string;
+  reset: string;
+  filters: string;
+  filterLabels: Record<FilterId, string>;
+  adjust: string;
+  brightness: string;
+  contrast: string;
+  saturation: string;
+  warmth: string;
+  resetAppearance: string;
+  cancel: string;
+  applying: string;
+  applyChanges: string;
+};
+
+const COPY: Record<Lang, EditCopy> = {
+  en: {
+    title: "Edit Media",
+    tabCrop: "Crop",
+    tabAppearance: "Appearance",
+    cropTransform: "Crop & Transform",
+    aspects: {
+      freeform: { label: "Freeform", description: "Any size" },
+      original: { label: "Original", description: "Full image" },
+      "4:3": { label: "4:3", description: "Landscape" },
+      "16:9": { label: "16:9", description: "Landscape" },
+      "9:16": { label: "9:16", description: "Portrait" },
+      "1:1": { label: "1:1", description: "Square" },
+    },
+    rotateFlip: "Rotate & Flip",
+    straighten: "Straighten",
+    center: "Center",
+    reset: "Reset",
+    filters: "Filters",
+    filterLabels: {
+      original: "Original",
+      vivid: "Vivid",
+      mono: "Mono",
+      sepia: "Sepia",
+    },
+    adjust: "Adjust",
+    brightness: "Brightness",
+    contrast: "Contrast",
+    saturation: "Saturation",
+    warmth: "Warmth",
+    resetAppearance: "Reset appearance",
+    cancel: "Cancel",
+    applying: "Applying…",
+    applyChanges: "Apply Changes to 1 Item",
+  },
+  fr: {
+    title: "Modifier le média",
+    tabCrop: "Recadrer",
+    tabAppearance: "Apparence",
+    cropTransform: "Recadrer et transformer",
+    aspects: {
+      freeform: { label: "Libre", description: "Toute taille" },
+      original: { label: "Original", description: "Image complète" },
+      "4:3": { label: "4:3", description: "Paysage" },
+      "16:9": { label: "16:9", description: "Paysage" },
+      "9:16": { label: "9:16", description: "Portrait" },
+      "1:1": { label: "1:1", description: "Carré" },
+    },
+    rotateFlip: "Pivoter et retourner",
+    straighten: "Redresser",
+    center: "Centrer",
+    reset: "Réinitialiser",
+    filters: "Filtres",
+    filterLabels: {
+      original: "Original",
+      vivid: "Vif",
+      mono: "Mono",
+      sepia: "Sépia",
+    },
+    adjust: "Ajustements",
+    brightness: "Luminosité",
+    contrast: "Contraste",
+    saturation: "Saturation",
+    warmth: "Chaleur",
+    resetAppearance: "Réinitialiser l'apparence",
+    cancel: "Annuler",
+    applying: "Application…",
+    applyChanges: "Appliquer les modifications à 1 élément",
+  },
+};
+
+/* ──────────────────────────────────────────────────────────────
+   Helpers
+   ────────────────────────────────────────────────────────────── */
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
@@ -73,7 +218,7 @@ function buildAdjustFilter(brightness: number, contrast: number, saturation: num
 }
 
 /* ──────────────────────────────────────────────────────────────
-   Slider bipolaire (valeur centrée sur 0, remplissage centre → curseur)
+   Slider bipolaire
    ────────────────────────────────────────────────────────────── */
 
 function BipolarSlider({
@@ -139,6 +284,10 @@ function BipolarSlider({
   );
 }
 
+/* ──────────────────────────────────────────────────────────────
+   Composant principal
+   ────────────────────────────────────────────────────────────── */
+
 export default function EditMediaModal({
   isOpen,
   mediaItem,
@@ -146,6 +295,9 @@ export default function EditMediaModal({
   onClose,
   onApply,
 }: EditMediaModalProps) {
+  const lang = useLanguage();
+  const c = COPY[lang];
+
   const [tab, setTab] = useState<"crop" | "appearance">("crop");
   const [aspect, setAspect] = useState<AspectId>("freeform");
   const [rotation, setRotation] = useState(0);
@@ -427,7 +579,6 @@ export default function EditMediaModal({
     }
   };
 
-  // ── Thème (accent = blanc en dark, noir en light — plus de vert) ──
   const accent = isDark ? "#ffffff" : "#111111";
   const trackColor = isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.14)";
 
@@ -446,7 +597,7 @@ export default function EditMediaModal({
     <div className={["fixed inset-0 z-[70] flex flex-col", bg].join(" ")}>
       {/* Header */}
       <div className={["flex shrink-0 items-center justify-between border-b px-6 py-4", border].join(" ")}>
-        <h2 className={["text-[19px] font-bold", textPrimary].join(" ")}>Edit Media</h2>
+        <h2 className={["text-[19px] font-bold", textPrimary].join(" ")}>{c.title}</h2>
         <button
           onClick={onClose}
           className={["flex h-9 w-9 items-center justify-center rounded-full transition", textSecondary, itemHover].join(" ")}
@@ -499,7 +650,7 @@ export default function EditMediaModal({
             )}
           </div>
 
-          {/* Vignette de l'élément édité — icône visible seulement au survol */}
+          {/* Vignette */}
           <div className="flex shrink-0 items-center gap-2">
             <div className={["group relative h-14 w-14 cursor-pointer overflow-hidden rounded-lg border-2 transition", activeBorder].join(" ")}>
               {isVideo ? (
@@ -525,7 +676,7 @@ export default function EditMediaModal({
                 tab === "crop" ? (isDark ? "border-b-2 border-white" : "border-b-2 border-neutral-900") : "",
               ].join(" ")}
             >
-              Crop
+              {c.tabCrop}
             </button>
             <button
               onClick={() => setTab("appearance")}
@@ -535,18 +686,19 @@ export default function EditMediaModal({
                 tab === "appearance" ? (isDark ? "border-b-2 border-white" : "border-b-2 border-neutral-900") : "",
               ].join(" ")}
             >
-              Appearance
+              {c.tabAppearance}
             </button>
           </div>
 
           {tab === "crop" ? (
             <div className="flex flex-col gap-6 p-5">
               <div>
-                <p className={["mb-3 text-[13px] font-semibold", textPrimary].join(" ")}>Crop & Transform</p>
+                <p className={["mb-3 text-[13px] font-semibold", textPrimary].join(" ")}>{c.cropTransform}</p>
                 <div className="flex flex-col gap-2">
                   {ASPECT_OPTIONS.map((opt) => {
                     const isSelected = aspect === opt.id;
                     const OptIcon = opt.icon;
+                    const label = c.aspects[opt.id];
                     return (
                       <button
                         key={opt.id}
@@ -561,9 +713,9 @@ export default function EditMediaModal({
                         <OptIcon className={["h-5 w-5 shrink-0", isSelected ? activeText : textSecondary].join(" ")} />
                         <span>
                           <span className={["block text-[13.5px] font-semibold", isSelected ? activeText : textPrimary].join(" ")}>
-                            {opt.label}
+                            {label.label}
                           </span>
-                          <span className={["block text-[12px]", textSecondary].join(" ")}>{opt.description}</span>
+                          <span className={["block text-[12px]", textSecondary].join(" ")}>{label.description}</span>
                         </span>
                       </button>
                     );
@@ -572,7 +724,7 @@ export default function EditMediaModal({
               </div>
 
               <div>
-                <p className={["mb-3 text-[13px] font-semibold", textPrimary].join(" ")}>Rotate & Flip</p>
+                <p className={["mb-3 text-[13px] font-semibold", textPrimary].join(" ")}>{c.rotateFlip}</p>
                 <div className="flex items-center gap-2">
                   <button
                     onClick={rotateLeft}
@@ -614,7 +766,7 @@ export default function EditMediaModal({
               </div>
 
               <BipolarSlider
-                label="Straighten"
+                label={c.straighten}
                 value={straighten}
                 onChange={setStraighten}
                 min={-45}
@@ -635,20 +787,20 @@ export default function EditMediaModal({
                   className={["flex flex-1 items-center justify-center gap-1.5 rounded-xl border px-3 py-2.5 text-[13px] font-semibold transition disabled:cursor-not-allowed disabled:opacity-40", border, textPrimary, itemHover].join(" ")}
                 >
                   <Crosshair className="h-3.5 w-3.5" />
-                  Center
+                  {c.center}
                 </button>
                 <button
                   onClick={handleReset}
                   className={["flex flex-1 items-center justify-center rounded-xl border px-3 py-2.5 text-[13px] font-semibold transition", border, textPrimary, itemHover].join(" ")}
                 >
-                  Reset
+                  {c.reset}
                 </button>
               </div>
             </div>
           ) : (
             <div className="flex flex-col gap-6 p-5">
               <div>
-                <p className={["mb-3 text-[15px] font-bold", textPrimary].join(" ")}>Filters</p>
+                <p className={["mb-3 text-[15px] font-bold", textPrimary].join(" ")}>{c.filters}</p>
                 <div className={["flex gap-0 overflow-hidden rounded-xl border", border].join(" ")}>
                   {FILTER_PRESETS.map((f, idx) => {
                     const isSelected = filterPreset === f.id;
@@ -672,13 +824,13 @@ export default function EditMediaModal({
                         >
                           <img
                             src={mediaItem.url}
-                            alt={f.label}
+                            alt={c.filterLabels[f.id]}
                             className="h-full w-full object-cover"
                             style={{ filter: f.css || "none" }}
                           />
                         </div>
                         <span className={["text-[11.5px] font-semibold", isSelected ? activeText : textSecondary].join(" ")}>
-                          {f.label}
+                          {c.filterLabels[f.id]}
                         </span>
                       </button>
                     );
@@ -687,10 +839,10 @@ export default function EditMediaModal({
               </div>
 
               <div>
-                <p className={["mb-4 text-[15px] font-bold", textPrimary].join(" ")}>Adjust</p>
+                <p className={["mb-4 text-[15px] font-bold", textPrimary].join(" ")}>{c.adjust}</p>
                 <div className="flex flex-col gap-5">
                   <BipolarSlider
-                    label="Brightness"
+                    label={c.brightness}
                     value={brightness}
                     onChange={setBrightness}
                     accent={accent}
@@ -701,7 +853,7 @@ export default function EditMediaModal({
                     disabled={isVideo}
                   />
                   <BipolarSlider
-                    label="Contrast"
+                    label={c.contrast}
                     value={contrast}
                     onChange={setContrast}
                     accent={accent}
@@ -712,7 +864,7 @@ export default function EditMediaModal({
                     disabled={isVideo}
                   />
                   <BipolarSlider
-                    label="Saturation"
+                    label={c.saturation}
                     value={saturation}
                     onChange={setSaturation}
                     accent={accent}
@@ -723,7 +875,7 @@ export default function EditMediaModal({
                     disabled={isVideo}
                   />
                   <BipolarSlider
-                    label="Warmth"
+                    label={c.warmth}
                     value={warmth}
                     onChange={setWarmth}
                     accent={accent}
@@ -740,7 +892,7 @@ export default function EditMediaModal({
                 onClick={handleResetAppearance}
                 className={["self-start rounded-xl border px-3 py-2 text-[13px] font-semibold transition", border, textPrimary, itemHover].join(" ")}
               >
-                Reset appearance
+                {c.resetAppearance}
               </button>
             </div>
           )}
@@ -753,7 +905,7 @@ export default function EditMediaModal({
           onClick={onClose}
           className={["rounded-xl px-4 py-2.5 text-[14px] font-semibold transition", textSecondary, itemHover].join(" ")}
         >
-          Cancel
+          {c.cancel}
         </button>
         <button
           onClick={handleApply}
@@ -763,7 +915,7 @@ export default function EditMediaModal({
             isDark ? "bg-white text-[#141416] hover:bg-neutral-200" : "bg-neutral-900 text-white hover:bg-neutral-800",
           ].join(" ")}
         >
-          {isApplying ? "Applying…" : "Apply Changes to 1 Item"}
+          {isApplying ? c.applying : c.applyChanges}
         </button>
       </div>
     </div>

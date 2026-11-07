@@ -28,7 +28,6 @@ import {
   subscribeNewPostRequests,
 } from "../services/Newpostbus";
 // ── Tags ──
-// `Tag` est déjà pris par l'icône lucide, d'où l'alias `ApiTag`.
 import { listTags, type Tag as ApiTag } from "../services/supabase";
 import { tagHex } from "../services/posts";
 // ──────────
@@ -85,6 +84,865 @@ type MediaItem = {
   kind: MediaKind;
 };
 
+/* ──────────────────────────────────────────────────────────────
+   Language (partagé avec Settings / EditMediaModal)
+   ────────────────────────────────────────────────────────────── */
+type Lang = "fr" | "en";
+const LANGUAGE_STORAGE_KEY = "stone:language";
+const LANGUAGE_CHANGED_EVENT = "stone:language-changed";
+
+function detectLanguage(): Lang {
+  if (typeof window === "undefined") return "en";
+  try {
+    const stored = window.localStorage.getItem(LANGUAGE_STORAGE_KEY);
+    if (stored === "fr" || stored === "en") return stored;
+  } catch {
+    /* stockage indisponible */
+  }
+  return "en";
+}
+
+function useLanguage(): Lang {
+  const [lang, setLang] = useState<Lang>(() => detectLanguage());
+  useEffect(() => {
+    const refresh = () => setLang(detectLanguage());
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === LANGUAGE_STORAGE_KEY) refresh();
+    };
+    window.addEventListener("storage", onStorage);
+    window.addEventListener("focus", refresh);
+    window.addEventListener("hashchange", refresh);
+    window.addEventListener(LANGUAGE_CHANGED_EVENT, refresh);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("focus", refresh);
+      window.removeEventListener("hashchange", refresh);
+      window.removeEventListener(LANGUAGE_CHANGED_EVENT, refresh);
+    };
+  }, []);
+  return lang;
+}
+
+const intlLocale = (lang: Lang) => (lang === "fr" ? "fr-FR" : "en-US");
+
+/* ──────────────────────────────────────────────────────────────
+   Copy
+   ────────────────────────────────────────────────────────────── */
+type Copy = {
+  header: {
+    title: string;
+    tags: string;
+    noTags: string;
+    templates: string;
+    preview: string;
+    hidePreview: string;
+    showPreview: string;
+    enterFullscreen: string;
+    exitFullscreen: string;
+    close: string;
+    closeWithDraft: string;
+  };
+  channels: {
+    postTo: string;
+    selected: (n: number) => string;
+    clearAll: string;
+    selectAll: string;
+    connectChannel: string;
+    noChannels: string;
+    staleSingular: (names: string) => string;
+    stalePlural: (names: string) => string;
+  };
+  composer: {
+    writeOnce: string;
+    writePost: string;
+    ariaText: string;
+    placeholder: string;
+    dropToAdd: string;
+    dragDrop: string;
+    selectFile: string;
+    cover: string;
+    shared: string;
+    removeMedia: string;
+    editImage: string;
+    addMediaFrom: string;
+    addMediaTitle: string;
+    useSharedMedia: string;
+    usingShared: (n: number) => string;
+  };
+  canva: {
+    opening: string;
+    design: string;
+    finish: string;
+    open: string;
+    importing: string;
+    importDesign: string;
+  };
+  toolbar: {
+    insertEmoji: string;
+    insertHashtag: string;
+    searchEmoji: string;
+    loading: string;
+    noEmoji: string;
+  };
+  networkCard: {
+    customizeTitle: string;
+    customizeDesc: string;
+    customized: string;
+    tooLong: string;
+    disconnected: string;
+    noText: string;
+    ariaText: (n: string) => string;
+    placeholder: (n: string) => string;
+    resetToMain: string;
+    dropToAdd: (n: string) => string;
+  };
+  youtube: {
+    settingsTitle: string;
+    settingsDesc: string;
+    title: string;
+    titlePlaceholder: string;
+    willUse: (t: string) => string;
+    category: string;
+    visibility: string;
+    license: string;
+    options: string;
+    notifySubscribers: string;
+    allowEmbedding: string;
+    madeForKids: string;
+    visibilityLabels: Record<string, string>;
+    licenseLabels: Record<string, string>;
+  };
+  tiktok: {
+    settingsTitle: string;
+    publishDirect: string;
+    saveAsDraft: string;
+    directDesc: string;
+    draftDesc: string;
+    sandboxNote: string;
+    whoCanView: string;
+    chooseAudience: string;
+    brandedPrivate: string;
+    interactions: string;
+    allowComments: string;
+    allowDuet: string;
+    allowStitch: string;
+    contentDisclosure: string;
+    contentDisclosureDesc: string;
+    yourBrand: string;
+    brandedContent: string;
+    notAvailablePrivate: string;
+    processingNote: string;
+    typeCarousel: (n: number) => string;
+    typePhoto: string;
+    typeVideoIgnore: string;
+    typeVideo: string;
+    typeEmpty: string;
+    privacyLabels: Record<string, string>;
+    disabledBySettings: string;
+    retry: string;
+  };
+  preview: {
+    title: string;
+    justNow: string;
+    yourText: string;
+    emptyHint: string;
+    ariaTab: string;
+  };
+  footer: {
+    saveInFolder: string;
+    saveInFolderDesc: string;
+    now: string;
+    nowDesc: string;
+    setDate: string;
+    setDateDesc: string;
+    suggestedTimes: string;
+    time: string;
+    pickFuture: string;
+    back: string;
+    done: string;
+    saving: string;
+    scheduling: string;
+    publishing: string;
+    sendToTikTok: string;
+    postNow: string;
+    savePost: string;
+    schedulePost: string;
+    byPosting: string;
+    and: string;
+    brandedPolicy: string;
+    musicPolicy: string;
+  };
+  blocking: {
+    selectChannel: string;
+    disconnected: string;
+    writeOrAdd: string;
+    pickFuture: string;
+    tooLongFor: (names: string) => string;
+    tiktokNoMedia: string;
+    tiktokLoading: string;
+    tiktokPrivacy: string;
+    tiktokCommercial: string;
+    youtubeNeedsVideo: string;
+    youtubeFormat: string;
+    youtubeNeedsTitle: string;
+  };
+  results: {
+    videoScheduled: string;
+    postScheduled: string;
+    scheduledFor: (when: string) => string;
+    viewInCalendar: string;
+    done: string;
+    youtubePrivate: string;
+    youtubeScheduled: string;
+    youtubeUploaded: string;
+    openYouTube: string;
+  };
+  draft: {
+    resumeTitle: string;
+    resumeDesc: string;
+    startFresh: string;
+    resume: string;
+  };
+  connectPrompt: {
+    title: string;
+    cancel: string;
+    goToSettings: string;
+    missingChannels: (names: string) => string;
+    noChannel: string;
+    backendNoNetwork: string;
+  };
+  mediaPicker: {
+    addFromDropbox: string;
+    addFromDrive: string;
+    addFromPhotos: string;
+    chooseFile: string;
+    closeAria: (n: string) => string;
+    connectDropbox: string;
+    connectDropboxDesc: string;
+    connectDropboxBtn: string;
+    connectDrive: string;
+    connectDriveDesc: string;
+    connectDriveBtn: string;
+    connectPhotos: string;
+    connectPhotosDesc: string;
+    connectPhotosBtn: string;
+    openPhotos: string;
+    chooseFromLibrary: string;
+    photosWindowInfo: string;
+    allFiles: string;
+    sharedMedia: string;
+    channelMedia: string;
+    back: string;
+    retry: string;
+    loadingDropbox: string;
+    loadingDrive: string;
+    checkingPhotos: string;
+    importingMedia: string;
+    noSupported: string;
+    add: string;
+    importing: string;
+    loadMore: string;
+    photosUnverified: string;
+  };
+  submit: {
+    tiktokTooLong: (max: string) => string;
+    tiktokProcessing: string;
+    tiktokPreparingCarousel: string;
+    tiktokPreparingPhoto: string;
+    tiktokUploadingPhotos: string;
+    tiktokUploadingVideo: string;
+    tiktokFinalizing: string;
+    youtubeUploading: string;
+    youtubeScheduling: string;
+    errorGeneric: string;
+    errorTikTokLimit: string;
+    errorYouTubeNoVideo: string;
+    errorYouTubeFormat: string;
+    errorYouTubeSize: string;
+    errorYouTubeAspect: (w: number, h: number) => string;
+    errorYouTubeDuration: (d: string) => string;
+  };
+  errors: {
+    tooManyFiles: (n: number) => string;
+    onlyMedia: string;
+    canvaPopupBlocked: string;
+    canvaDidNotConnect: string;
+    canvaOpenFailed: string;
+    canvaImportFailed: string;
+    dropboxLoadFailed: string;
+    dropboxConnectFailed: string;
+    dropboxStartFailed: string;
+    dropboxImportFailed: string;
+    driveLoadFailed: string;
+    driveConnectFailed: string;
+    driveStartFailed: string;
+    driveImportFailed: string;
+    photosCheckFailed: string;
+    photosConnectFailed: string;
+    photosStartFailed: string;
+    photosPopupBlocked: string;
+    photosTooMany: (n: number) => string;
+    photosImportFailed: string;
+    sourceNotConnected: (source: string) => string;
+    tiktokLoadFailed: string;
+    durationFailed: string;
+  };
+  unavailable: {
+    saveInFolder: string;
+    scheduling: (channels: string) => string;
+    publishing: (channels: string) => string;
+    channelsFallback: string;
+  };
+};
+
+const COPY: Record<Lang, Copy> = {
+  en: {
+    header: {
+      title: "Create post",
+      tags: "Tags",
+      noTags: "No tags yet. Create some in Settings.",
+      templates: "Templates",
+      preview: "Preview",
+      hidePreview: "Hide preview",
+      showPreview: "Show preview",
+      enterFullscreen: "Enter full screen",
+      exitFullscreen: "Exit full screen",
+      close: "Close",
+      closeWithDraft: "Close (your draft is kept)",
+    },
+    channels: {
+      postTo: "Post to",
+      selected: (n) => `${n} selected`,
+      clearAll: "Clear all",
+      selectAll: "Select all",
+      connectChannel: "Connect a channel",
+      noChannels: "No channel connected yet. Connect one to start publishing.",
+      staleSingular: (names) => `${names} is no longer connected and will be skipped.`,
+      stalePlural: (names) => `${names} are no longer connected and will be skipped.`,
+    },
+    composer: {
+      writeOnce: "Write once, post everywhere",
+      writePost: "Write your post",
+      ariaText: "Post text for all selected channels",
+      placeholder: "What do you want to share?",
+      dropToAdd: "Drop to add to your post",
+      dragDrop: "Drag & drop or",
+      selectFile: "select a file",
+      cover: "Cover",
+      shared: "Shared",
+      removeMedia: "Remove media",
+      editImage: "Edit image",
+      addMediaFrom: "Add media from…",
+      addMediaTitle: "Add media (shared by all channels)",
+      useSharedMedia: "Use shared media",
+      usingShared: (n) => `Using the shared media below (${n}). Add files here to use different media for this channel.`,
+    },
+    canva: {
+      opening: "Opening Canva…",
+      design: "Canva design",
+      finish: "Finish it in Canva, then import it into your post.",
+      open: "Open in Canva",
+      importing: "Importing…",
+      importDesign: "Import design",
+    },
+    toolbar: {
+      insertEmoji: "Insert emoji",
+      insertHashtag: "Insert hashtag",
+      searchEmoji: "Search emoji",
+      loading: "Loading…",
+      noEmoji: "No emoji found.",
+    },
+    networkCard: {
+      customizeTitle: "Customize per channel",
+      customizeDesc: "Each channel follows your text above until you edit it here.",
+      customized: "Customized",
+      tooLong: "Too long",
+      disconnected: "Disconnected",
+      noText: "No text",
+      ariaText: (n) => `Post text for ${n}`,
+      placeholder: (n) => `Write your ${n} post…`,
+      resetToMain: "Reset to main text",
+      dropToAdd: (n) => `Drop to add media for ${n}`,
+    },
+    youtube: {
+      settingsTitle: "YouTube Shorts settings",
+      settingsDesc: "Title, audience and visibility for your video.",
+      title: "Title",
+      titlePlaceholder: "Enter a title for your video",
+      willUse: (t) => `Will use: “${t}”`,
+      category: "Category",
+      visibility: "Visibility",
+      license: "License",
+      options: "Options",
+      notifySubscribers: "Notify subscribers",
+      allowEmbedding: "Allow embedding",
+      madeForKids: "Made for kids",
+      visibilityLabels: { public: "Public", unlisted: "Unlisted", private: "Private" },
+      licenseLabels: { youtube: "Standard YouTube License", creativeCommon: "Creative Commons - Attribution" },
+    },
+    tiktok: {
+      settingsTitle: "TikTok settings",
+      publishDirect: "Publish directly",
+      saveAsDraft: "Save as draft",
+      directDesc: "Goes live on your profile as soon as TikTok has processed it.",
+      draftDesc: "Lands in your TikTok inbox so you can finish it in the app.",
+      sandboxNote: "Your TikTok app is in sandbox mode: posts are sent to your TikTok inbox as drafts.",
+      whoCanView: "Who can view",
+      chooseAudience: "Choose an audience",
+      brandedPrivate: "Branded content can't be private.",
+      interactions: "Interactions",
+      allowComments: "Allow comments",
+      allowDuet: "Allow duet",
+      allowStitch: "Allow stitch",
+      contentDisclosure: "Content disclosure",
+      contentDisclosureDesc: "Turn on if this post promotes you, a brand or a third party.",
+      yourBrand: "Your brand",
+      brandedContent: "Branded content",
+      notAvailablePrivate: "Not available when only you can view",
+      processingNote: "After publishing, it can take a few minutes for TikTok to process your content.",
+      typeCarousel: (n) => `Carousel of ${n} photos`,
+      typePhoto: "Photo post",
+      typeVideoIgnore: "Video post (photos are ignored)",
+      typeVideo: "Video post",
+      typeEmpty: "Add a video, or one or more photos.",
+      privacyLabels: {
+        PUBLIC_TO_EVERYONE: "Everyone",
+        MUTUAL_FOLLOW_FRIENDS: "Friends",
+        FOLLOWER_OF_CREATOR: "Followers",
+        SELF_ONLY: "Only me",
+      },
+      disabledBySettings: "Disabled in your TikTok settings",
+      retry: "Retry",
+    },
+    preview: {
+      title: "Preview",
+      justNow: "Just now",
+      yourText: "Your text will appear here.",
+      emptyHint: "Start writing or add media to see how your post will look.",
+      ariaTab: "Preview channel",
+    },
+    footer: {
+      saveInFolder: "Save in folder",
+      saveInFolderDesc: "Save your post in a folder to publish it later.",
+      now: "Now",
+      nowDesc: "Publish your post right away.",
+      setDate: "Set date and time",
+      setDateDesc: "Choose a specific time to post, or use our recommendation.",
+      suggestedTimes: "Suggested times",
+      time: "Time",
+      pickFuture: "Pick a time in the future.",
+      back: "Back",
+      done: "Done",
+      saving: "Saving…",
+      scheduling: "Scheduling…",
+      publishing: "Publishing…",
+      sendToTikTok: "Send to TikTok",
+      postNow: "Post now",
+      savePost: "Save post",
+      schedulePost: "Schedule post",
+      byPosting: "By posting, you agree to TikTok's",
+      and: "and",
+      brandedPolicy: "Branded Content Policy",
+      musicPolicy: "Music Usage Confirmation",
+    },
+    blocking: {
+      selectChannel: "Select at least one channel.",
+      disconnected: "The selected channels are no longer connected. Reconnect them in Settings or pick another channel.",
+      writeOrAdd: "Write something or add media.",
+      pickFuture: "Pick a date and time in the future.",
+      tooLongFor: (names) => `Too long for ${names}.`,
+      tiktokNoMedia: "TikTok needs a video or at least one photo.",
+      tiktokLoading: "Loading TikTok settings…",
+      tiktokPrivacy: "Choose who can view your TikTok.",
+      tiktokCommercial: "Say whether your TikTok promotes yourself, a third party, or both.",
+      youtubeNeedsVideo: "YouTube Shorts needs a video.",
+      youtubeFormat: "Unsupported video format for YouTube Shorts. Use MP4, MOV, MPEG, AVI, WebM or WMV.",
+      youtubeNeedsTitle: "Add a title for your YouTube Shorts video.",
+    },
+    results: {
+      videoScheduled: "Video",
+      postScheduled: "Post",
+      scheduledFor: (when) => `scheduled for ${when}.`,
+      viewInCalendar: "View in calendar",
+      done: "Done",
+      youtubePrivate: "Video uploaded to YouTube, but YouTube forced it to private (your API project hasn't passed the YouTube audit yet).",
+      youtubeScheduled: "Video uploaded and scheduled on YouTube.",
+      youtubeUploaded: "Video uploaded to YouTube. It can take a few minutes to appear as a Short.",
+      openYouTube: "Open on YouTube",
+    },
+    draft: {
+      resumeTitle: "Resume your draft?",
+      resumeDesc: "You have a post in progress. Pick up where you left off, or start fresh.",
+      startFresh: "Start fresh",
+      resume: "Resume",
+    },
+    connectPrompt: {
+      title: "Connect a channel first",
+      cancel: "Cancel",
+      goToSettings: "Go to settings",
+      missingChannels: (names) => `Could not find the connected channel for ${names}. Reconnect it in Settings or select another channel.`,
+      noChannel: "No connected channel is available for this post. Connect one in Settings.",
+      backendNoNetwork: "No connected channel was recognized. Reconnect it in Settings or select another channel.",
+    },
+    mediaPicker: {
+      addFromDropbox: "Add from Dropbox",
+      addFromDrive: "Add from Google Drive",
+      addFromPhotos: "Add from Google Photos",
+      chooseFile: "Choose an image or video for this post.",
+      closeAria: (n) => `Close ${n} picker`,
+      connectDropbox: "Connect your Dropbox account",
+      connectDropboxDesc: "Authorize Dropbox to browse and import your media files.",
+      connectDropboxBtn: "Connect Dropbox",
+      connectDrive: "Connect your Google Drive account",
+      connectDriveDesc: "Authorize Google Drive to browse and import your media files.",
+      connectDriveBtn: "Connect Google Drive",
+      connectPhotos: "Connect your Google Photos account",
+      connectPhotosDesc: "Authorize Google Photos to select and import your media.",
+      connectPhotosBtn: "Connect Google Photos",
+      openPhotos: "Open Google Photos",
+      chooseFromLibrary: "Select media from your library",
+      photosWindowInfo: "Google Photos will open in a separate window. Your selection will be added to this post.",
+      allFiles: "All files",
+      sharedMedia: "Shared media",
+      channelMedia: "Channel media",
+      back: "Back",
+      retry: "Retry",
+      loadingDropbox: "Loading Dropbox files…",
+      loadingDrive: "Loading Google Drive files…",
+      checkingPhotos: "Checking Google Photos connection…",
+      importingMedia: "Importing selected media…",
+      noSupported: "This folder has no supported image or video files.",
+      add: "Add",
+      importing: "Importing",
+      loadMore: "Load more files",
+      photosUnverified: "Google Photos connection could not be verified",
+    },
+    submit: {
+      tiktokTooLong: (max) => `This video is too long for your TikTok account (max ${max}).`,
+      tiktokProcessing: "TikTok is processing your content…",
+      tiktokPreparingCarousel: "Preparing your carousel…",
+      tiktokPreparingPhoto: "Preparing your photo…",
+      tiktokUploadingPhotos: "Uploading photos to TikTok…",
+      tiktokUploadingVideo: "Uploading video to TikTok…",
+      tiktokFinalizing: "Finalizing…",
+      youtubeUploading: "Uploading video to YouTube…",
+      youtubeScheduling: "Uploading video and scheduling on YouTube…",
+      errorGeneric: "Something went wrong while publishing.",
+      errorTikTokLimit: "This TikTok account has reached its posting limit for now. Please try again later.",
+      errorYouTubeNoVideo: "YouTube Shorts needs a video.",
+      errorYouTubeFormat: "This video format isn't supported by YouTube Shorts. Use MP4, MOV, MPEG, AVI, WebM or WMV.",
+      errorYouTubeSize: "Could not read the video size. Try another file.",
+      errorYouTubeAspect: (w, h) => `YouTube Shorts must be vertical (9:16) or square (1:1). Your video is ${w}×${h}. Crop it to 1080×1920 (9:16) or 1080×1080 (1:1) and try again.`,
+      errorYouTubeDuration: (d) => `This video is too long for a YouTube Short (${d}). The maximum is 3 minutes (180 seconds).`,
+    },
+    errors: {
+      tooManyFiles: (n) => `You can add up to ${n} files per post.`,
+      onlyMedia: "Only images and videos are supported.",
+      canvaPopupBlocked: "Your browser blocked the Canva window. Allow pop-ups for this site, then try again.",
+      canvaDidNotConnect: "The Canva connection wasn't completed.",
+      canvaOpenFailed: "Could not open Canva. Please try again.",
+      canvaImportFailed: "Could not import the design from Canva.",
+      dropboxLoadFailed: "Unable to load Dropbox files.",
+      dropboxConnectFailed: "Unable to connect to Dropbox.",
+      dropboxStartFailed: "Unable to start Dropbox connection.",
+      dropboxImportFailed: "Unable to import this Dropbox file.",
+      driveLoadFailed: "Unable to load Google Drive files.",
+      driveConnectFailed: "Unable to connect to Google Drive.",
+      driveStartFailed: "Unable to start Google Drive connection.",
+      driveImportFailed: "Unable to import this Google Drive file.",
+      photosCheckFailed: "Unable to check Google Photos connection.",
+      photosConnectFailed: "Unable to start Google Photos connection.",
+      photosStartFailed: "Unable to start Google Photos connection.",
+      photosPopupBlocked: "The Google Photos picker was blocked. Allow pop-ups and try again.",
+      photosTooMany: (n) => `Only ${n} more file${n === 1 ? "" : "s"} can be added to this post.`,
+      photosImportFailed: "Unable to import media from Google Photos.",
+      sourceNotConnected: (s) => `${s} import isn't connected yet.`,
+      tiktokLoadFailed: "Could not load TikTok settings.",
+      durationFailed: "Could not read the video duration.",
+    },
+    unavailable: {
+      saveInFolder: "Saving posts to a folder isn't connected yet. This post wasn't saved.",
+      scheduling: (channels) => `Scheduling to ${channels} isn't connected yet. This post wasn't scheduled.`,
+      publishing: (channels) => `Publishing to ${channels} isn't connected yet. This post wasn't sent there.`,
+      channelsFallback: "the selected channels",
+    },
+  },
+  fr: {
+    header: {
+      title: "Créer un post",
+      tags: "Tags",
+      noTags: "Aucun tag pour l'instant. Créez-en dans les paramètres.",
+      templates: "Modèles",
+      preview: "Aperçu",
+      hidePreview: "Masquer l'aperçu",
+      showPreview: "Afficher l'aperçu",
+      enterFullscreen: "Plein écran",
+      exitFullscreen: "Quitter le plein écran",
+      close: "Fermer",
+      closeWithDraft: "Fermer (brouillon conservé)",
+    },
+    channels: {
+      postTo: "Publier sur",
+      selected: (n) => `${n} sélectionné${n > 1 ? "s" : ""}`,
+      clearAll: "Tout désélectionner",
+      selectAll: "Tout sélectionner",
+      connectChannel: "Connecter un canal",
+      noChannels: "Aucun canal connecté pour l'instant. Connectez-en un pour commencer.",
+      staleSingular: (names) => `${names} n'est plus connecté et sera ignoré.`,
+      stalePlural: (names) => `${names} ne sont plus connectés et seront ignorés.`,
+    },
+    composer: {
+      writeOnce: "Écrivez une fois, publiez partout",
+      writePost: "Écrivez votre post",
+      ariaText: "Texte du post pour tous les canaux sélectionnés",
+      placeholder: "Que souhaitez-vous partager ?",
+      dropToAdd: "Déposez pour ajouter au post",
+      dragDrop: "Glissez-déposez ou",
+      selectFile: "sélectionnez un fichier",
+      cover: "Couverture",
+      shared: "Partagé",
+      removeMedia: "Retirer le média",
+      editImage: "Modifier l'image",
+      addMediaFrom: "Ajouter un média depuis…",
+      addMediaTitle: "Ajouter un média (partagé par tous les canaux)",
+      useSharedMedia: "Utiliser les médias partagés",
+      usingShared: (n) => `Médias partagés ci-dessous (${n}). Ajoutez des fichiers ici pour utiliser des médias différents sur ce canal.`,
+    },
+    canva: {
+      opening: "Ouverture de Canva…",
+      design: "Design Canva",
+      finish: "Finalisez-le dans Canva, puis importez-le dans votre post.",
+      open: "Ouvrir dans Canva",
+      importing: "Importation…",
+      importDesign: "Importer le design",
+    },
+    toolbar: {
+      insertEmoji: "Insérer un emoji",
+      insertHashtag: "Insérer un hashtag",
+      searchEmoji: "Rechercher un emoji",
+      loading: "Chargement…",
+      noEmoji: "Aucun emoji trouvé.",
+    },
+    networkCard: {
+      customizeTitle: "Personnaliser par canal",
+      customizeDesc: "Chaque canal suit votre texte ci-dessus tant que vous ne le modifiez pas ici.",
+      customized: "Personnalisé",
+      tooLong: "Trop long",
+      disconnected: "Déconnecté",
+      noText: "Aucun texte",
+      ariaText: (n) => `Texte du post pour ${n}`,
+      placeholder: (n) => `Rédigez votre post ${n}…`,
+      resetToMain: "Revenir au texte principal",
+      dropToAdd: (n) => `Déposez pour ajouter un média pour ${n}`,
+    },
+    youtube: {
+      settingsTitle: "Paramètres YouTube Shorts",
+      settingsDesc: "Titre, audience et visibilité de votre vidéo.",
+      title: "Titre",
+      titlePlaceholder: "Saisissez un titre pour votre vidéo",
+      willUse: (t) => `Utilisera : « ${t} »`,
+      category: "Catégorie",
+      visibility: "Visibilité",
+      license: "Licence",
+      options: "Options",
+      notifySubscribers: "Notifier les abonnés",
+      allowEmbedding: "Autoriser l'intégration",
+      madeForKids: "Contenu pour enfants",
+      visibilityLabels: { public: "Public", unlisted: "Non répertoriée", private: "Privée" },
+      licenseLabels: { youtube: "Licence YouTube standard", creativeCommon: "Creative Commons - Attribution" },
+    },
+    tiktok: {
+      settingsTitle: "Paramètres TikTok",
+      publishDirect: "Publier directement",
+      saveAsDraft: "Enregistrer en brouillon",
+      directDesc: "Publie sur votre profil dès que TikTok a traité le contenu.",
+      draftDesc: "Arrive dans votre boîte de réception TikTok pour le finaliser dans l'app.",
+      sandboxNote: "Votre app TikTok est en mode sandbox : les posts sont envoyés dans votre boîte de réception TikTok en tant que brouillons.",
+      whoCanView: "Qui peut voir",
+      chooseAudience: "Choisir une audience",
+      brandedPrivate: "Le contenu de marque ne peut pas être privé.",
+      interactions: "Interactions",
+      allowComments: "Autoriser les commentaires",
+      allowDuet: "Autoriser les duos",
+      allowStitch: "Autoriser les stitches",
+      contentDisclosure: "Divulgation de contenu",
+      contentDisclosureDesc: "Activez si ce post fait la promotion de vous, d'une marque ou d'un tiers.",
+      yourBrand: "Votre marque",
+      brandedContent: "Contenu de marque",
+      notAvailablePrivate: "Indisponible quand vous seul pouvez voir",
+      processingNote: "Après publication, TikTok peut prendre quelques minutes pour traiter votre contenu.",
+      typeCarousel: (n) => `Carrousel de ${n} photos`,
+      typePhoto: "Post photo",
+      typeVideoIgnore: "Post vidéo (les photos sont ignorées)",
+      typeVideo: "Post vidéo",
+      typeEmpty: "Ajoutez une vidéo, ou une ou plusieurs photos.",
+      privacyLabels: {
+        PUBLIC_TO_EVERYONE: "Tout le monde",
+        MUTUAL_FOLLOW_FRIENDS: "Amis",
+        FOLLOWER_OF_CREATOR: "Abonnés",
+        SELF_ONLY: "Moi uniquement",
+      },
+      disabledBySettings: "Désactivé dans vos paramètres TikTok",
+      retry: "Réessayer",
+    },
+    preview: {
+      title: "Aperçu",
+      justNow: "À l'instant",
+      yourText: "Votre texte apparaîtra ici.",
+      emptyHint: "Commencez à écrire ou ajoutez un média pour voir à quoi ressemblera votre post.",
+      ariaTab: "Canal de l'aperçu",
+    },
+    footer: {
+      saveInFolder: "Enregistrer dans un dossier",
+      saveInFolderDesc: "Enregistrez votre post dans un dossier pour le publier plus tard.",
+      now: "Maintenant",
+      nowDesc: "Publier votre post immédiatement.",
+      setDate: "Programmer",
+      setDateDesc: "Choisissez une heure précise, ou utilisez notre suggestion.",
+      suggestedTimes: "Heures suggérées",
+      time: "Heure",
+      pickFuture: "Choisissez une heure future.",
+      back: "Retour",
+      done: "Terminé",
+      saving: "Enregistrement…",
+      scheduling: "Programmation…",
+      publishing: "Publication…",
+      sendToTikTok: "Envoyer à TikTok",
+      postNow: "Publier maintenant",
+      savePost: "Enregistrer",
+      schedulePost: "Programmer",
+      byPosting: "En publiant, vous acceptez les",
+      and: "et la",
+      brandedPolicy: "Règles sur le contenu de marque",
+      musicPolicy: "Confirmation d'utilisation musicale",
+    },
+    blocking: {
+      selectChannel: "Sélectionnez au moins un canal.",
+      disconnected: "Les canaux sélectionnés ne sont plus connectés. Reconnectez-les dans les paramètres ou choisissez un autre canal.",
+      writeOrAdd: "Écrivez quelque chose ou ajoutez un média.",
+      pickFuture: "Choisissez une date et une heure futures.",
+      tooLongFor: (names) => `Trop long pour ${names}.`,
+      tiktokNoMedia: "TikTok nécessite une vidéo ou au moins une photo.",
+      tiktokLoading: "Chargement des paramètres TikTok…",
+      tiktokPrivacy: "Choisissez qui peut voir votre TikTok.",
+      tiktokCommercial: "Précisez si votre TikTok fait la promotion de vous, d'un tiers, ou des deux.",
+      youtubeNeedsVideo: "YouTube Shorts nécessite une vidéo.",
+      youtubeFormat: "Format vidéo non pris en charge par YouTube Shorts. Utilisez MP4, MOV, MPEG, AVI, WebM ou WMV.",
+      youtubeNeedsTitle: "Ajoutez un titre pour votre vidéo YouTube Shorts.",
+    },
+    results: {
+      videoScheduled: "Vidéo",
+      postScheduled: "Post",
+      scheduledFor: (when) => `programmé pour ${when}.`,
+      viewInCalendar: "Voir dans le calendrier",
+      done: "Terminé",
+      youtubePrivate: "Vidéo envoyée sur YouTube, mais YouTube l'a forcée en privé (votre projet API n'a pas encore passé l'audit YouTube).",
+      youtubeScheduled: "Vidéo envoyée et programmée sur YouTube.",
+      youtubeUploaded: "Vidéo envoyée sur YouTube. L'apparition en Short peut prendre quelques minutes.",
+      openYouTube: "Ouvrir sur YouTube",
+    },
+    draft: {
+      resumeTitle: "Reprendre votre brouillon ?",
+      resumeDesc: "Vous avez un post en cours. Reprenez où vous en étiez, ou repartez de zéro.",
+      startFresh: "Repartir de zéro",
+      resume: "Reprendre",
+    },
+    connectPrompt: {
+      title: "Connectez d'abord un canal",
+      cancel: "Annuler",
+      goToSettings: "Aller aux paramètres",
+      missingChannels: (names) => `Impossible de retrouver la chaîne connectée pour ${names}. Reconnectez-la dans les paramètres ou sélectionnez un autre canal.`,
+      noChannel: "Aucun canal connecté n'est disponible pour ce post. Connectez-en un dans les paramètres.",
+      backendNoNetwork: "Aucun canal connecté n'a été reconnu. Reconnectez-le dans les paramètres ou sélectionnez un autre canal.",
+    },
+    mediaPicker: {
+      addFromDropbox: "Ajouter depuis Dropbox",
+      addFromDrive: "Ajouter depuis Google Drive",
+      addFromPhotos: "Ajouter depuis Google Photos",
+      chooseFile: "Choisissez une image ou une vidéo pour ce post.",
+      closeAria: (n) => `Fermer le sélecteur ${n}`,
+      connectDropbox: "Connectez votre compte Dropbox",
+      connectDropboxDesc: "Autorisez Dropbox à parcourir et importer vos médias.",
+      connectDropboxBtn: "Connecter Dropbox",
+      connectDrive: "Connectez votre compte Google Drive",
+      connectDriveDesc: "Autorisez Google Drive à parcourir et importer vos médias.",
+      connectDriveBtn: "Connecter Google Drive",
+      connectPhotos: "Connectez votre compte Google Photos",
+      connectPhotosDesc: "Autorisez Google Photos à sélectionner et importer vos médias.",
+      connectPhotosBtn: "Connecter Google Photos",
+      openPhotos: "Ouvrir Google Photos",
+      chooseFromLibrary: "Sélectionnez un média dans votre bibliothèque",
+      photosWindowInfo: "Google Photos s'ouvrira dans une fenêtre séparée. Votre sélection sera ajoutée à ce post.",
+      allFiles: "Tous les fichiers",
+      sharedMedia: "Médias partagés",
+      channelMedia: "Médias du canal",
+      back: "Retour",
+      retry: "Réessayer",
+      loadingDropbox: "Chargement des fichiers Dropbox…",
+      loadingDrive: "Chargement des fichiers Google Drive…",
+      checkingPhotos: "Vérification de la connexion Google Photos…",
+      importingMedia: "Importation des médias sélectionnés…",
+      noSupported: "Ce dossier ne contient aucune image ou vidéo prise en charge.",
+      add: "Ajouter",
+      importing: "Importation",
+      loadMore: "Charger plus de fichiers",
+      photosUnverified: "La connexion Google Photos n'a pas pu être vérifiée",
+    },
+    submit: {
+      tiktokTooLong: (max) => `Cette vidéo est trop longue pour votre compte TikTok (max ${max}).`,
+      tiktokProcessing: "TikTok traite votre contenu…",
+      tiktokPreparingCarousel: "Préparation du carrousel…",
+      tiktokPreparingPhoto: "Préparation de la photo…",
+      tiktokUploadingPhotos: "Envoi des photos à TikTok…",
+      tiktokUploadingVideo: "Envoi de la vidéo à TikTok…",
+      tiktokFinalizing: "Finalisation…",
+      youtubeUploading: "Envoi de la vidéo à YouTube…",
+      youtubeScheduling: "Envoi de la vidéo et programmation sur YouTube…",
+      errorGeneric: "Une erreur est survenue lors de la publication.",
+      errorTikTokLimit: "Ce compte TikTok a atteint sa limite de publications pour le moment. Réessayez plus tard.",
+      errorYouTubeNoVideo: "YouTube Shorts nécessite une vidéo.",
+      errorYouTubeFormat: "Ce format vidéo n'est pas pris en charge par YouTube Shorts. Utilisez MP4, MOV, MPEG, AVI, WebM ou WMV.",
+      errorYouTubeSize: "Impossible de lire la taille de la vidéo. Essayez un autre fichier.",
+      errorYouTubeAspect: (w, h) => `Les YouTube Shorts doivent être verticaux (9:16) ou carrés (1:1). Votre vidéo est ${w}×${h}. Recadrez-la en 1080×1920 (9:16) ou 1080×1080 (1:1) et réessayez.`,
+      errorYouTubeDuration: (d) => `Cette vidéo est trop longue pour un Short YouTube (${d}). Le maximum est de 3 minutes (180 secondes).`,
+    },
+    errors: {
+      tooManyFiles: (n) => `Vous pouvez ajouter jusqu'à ${n} fichiers par post.`,
+      onlyMedia: "Seules les images et les vidéos sont prises en charge.",
+      canvaPopupBlocked: "Votre navigateur a bloqué la fenêtre Canva. Autorisez les pop-ups pour ce site, puis réessayez.",
+      canvaDidNotConnect: "La connexion Canva n'a pas été finalisée.",
+      canvaOpenFailed: "Impossible d'ouvrir Canva. Réessayez.",
+      canvaImportFailed: "Impossible d'importer le design depuis Canva.",
+      dropboxLoadFailed: "Impossible de charger les fichiers Dropbox.",
+      dropboxConnectFailed: "Impossible de se connecter à Dropbox.",
+      dropboxStartFailed: "Impossible de démarrer la connexion Dropbox.",
+      dropboxImportFailed: "Impossible d'importer ce fichier Dropbox.",
+      driveLoadFailed: "Impossible de charger les fichiers Google Drive.",
+      driveConnectFailed: "Impossible de se connecter à Google Drive.",
+      driveStartFailed: "Impossible de démarrer la connexion Google Drive.",
+      driveImportFailed: "Impossible d'importer ce fichier Google Drive.",
+      photosCheckFailed: "Impossible de vérifier la connexion Google Photos.",
+      photosConnectFailed: "Impossible de démarrer la connexion Google Photos.",
+      photosStartFailed: "Impossible de démarrer la connexion Google Photos.",
+      photosPopupBlocked: "Le sélecteur Google Photos a été bloqué. Autorisez les pop-ups et réessayez.",
+      photosTooMany: (n) => `Seulement ${n} fichier${n === 1 ? "" : "s"} supplémentaire${n === 1 ? "" : "s"} peut${n === 1 ? "" : "vent"} être ajouté${n === 1 ? "" : "s"} à ce post.`,
+      photosImportFailed: "Impossible d'importer les médias depuis Google Photos.",
+      sourceNotConnected: (s) => `L'import ${s} n'est pas encore connecté.`,
+      tiktokLoadFailed: "Impossible de charger les paramètres TikTok.",
+      durationFailed: "Impossible de lire la durée de la vidéo.",
+    },
+    unavailable: {
+      saveInFolder: "L'enregistrement des posts dans un dossier n'est pas encore connecté. Ce post n'a pas été enregistré.",
+      scheduling: (channels) => `La programmation vers ${channels} n'est pas encore connectée. Ce post n'a pas été programmé.`,
+      publishing: (channels) => `La publication vers ${channels} n'est pas encore connectée. Ce post n'a pas été envoyé.`,
+      channelsFallback: "les canaux sélectionnés",
+    },
+  },
+};
+
+/* ──────────────────────────────────────────────────────────────
+   Helpers
+   ────────────────────────────────────────────────────────────── */
 function isDropboxMedia(entry: DropboxFileEntry): boolean {
   if (entry[".tag"] === "folder") return true;
   if (entry.mime_type?.startsWith("image/") || entry.mime_type?.startsWith("video/")) {
@@ -104,12 +962,9 @@ function isGoogleDriveMedia(entry: GoogleDriveFileEntry): boolean {
   if (mimeType.startsWith("image/") || mimeType.startsWith("video/")) {
     return true;
   }
-  return /\.(avif|gif|heic|heif|jpe?g|png|webp|m4v|mov|mp4|webm)$/i.test(
-    entry.name
-  );
+  return /\.(avif|gif|heic|heif|jpe?g|png|webp|m4v|mov|mp4|webm)$/i.test(entry.name);
 }
 
-/** Design Canva en cours d'édition, en attente d'être importé dans le post. */
 type CanvaPendingDesign = {
   designId: string;
   target: string;
@@ -120,7 +975,6 @@ type CanvaPendingDesign = {
 
 export type ScheduleAction = "save_in_folder" | "now" | "set_date";
 
-/* ── YouTube ── */
 export type YouTubeVisibility = "public" | "unlisted" | "private";
 export type YouTubeLicense = "youtube" | "creativeCommon";
 export type YouTubeOptions = {
@@ -136,26 +990,26 @@ export type YouTubeOptions = {
 export type NewPostPayload = {
   title: string;
   content: string;
-  contents?: Record<string, string>; // Texte par réseau
+  contents?: Record<string, string>;
   hashtags: string[];
   networks: SocialNetworkId[];
   scheduleMode: "now" | "save_in_folder" | "later";
   scheduledAt: string | null;
   media: File[];
-  /** Médias propres à un réseau (remplacent `media` pour ce réseau). */
   mediaByNetwork?: Partial<Record<SocialNetworkId, File[]>>;
   youtube?: YouTubeOptions;
-  // ── Tags & programmation externe ──
   tagIds?: string[];
-  /** Réseaux déjà programmés/publiés ailleurs (YouTube) : affichés dans le
-   *  calendrier, pas republiés par le backend. */
   externalNetworks?: SocialNetworkId[];
   channelKeys?: Partial<Record<SocialNetworkId, string>>;
 };
 
-export function unavailablePostActionMessage(payload: NewPostPayload): string {
+export function unavailablePostActionMessage(
+  payload: NewPostPayload,
+  lang: Lang = "en"
+): string {
+  const c = COPY[lang];
   if (payload.scheduleMode === "save_in_folder") {
-    return "Saving posts to a folder isn't connected yet. This post wasn't saved.";
+    return c.unavailable.saveInFolder;
   }
   const channelNames: Record<SocialNetworkId, string> = {
     x: "X",
@@ -167,26 +1021,17 @@ export function unavailablePostActionMessage(payload: NewPostPayload): string {
     pinterest: "Pinterest",
     threads: "Threads",
   };
-
-  // Les réseaux déjà publiés ailleurs (ex. YouTube Shorts uploadé directement
-  // par le composer) ne doivent pas apparaître dans le message d'indispo :
-  // le backend n'a rien à faire pour eux.
   const externallyHandled = new Set(payload.externalNetworks ?? []);
   const pendingNetworks = payload.networks.filter(
     (network) => !externallyHandled.has(network)
   );
-
-  if (pendingNetworks.length === 0) {
-    // Rien à publier côté backend : le post est complet.
-    return "";
-  }
-
+  if (pendingNetworks.length === 0) return "";
   const channels =
     pendingNetworks.map((network) => channelNames[network]).join(", ") ||
-    "the selected channels";
+    c.unavailable.channelsFallback;
   return payload.scheduleMode === "later"
-    ? `Scheduling to ${channels} isn't connected yet. This post wasn't scheduled.`
-    : `Publishing to ${channels} isn't connected yet. This post wasn't sent there.`;
+    ? c.unavailable.scheduling(channels)
+    : c.unavailable.publishing(channels);
 }
 
 interface NewPostModalProps {
@@ -196,11 +1041,11 @@ interface NewPostModalProps {
   onSubmit: (payload: NewPostPayload) => void | Promise<void>;
   initialScheduledAt?: Date | null;
   onRequestOpen?: () => void;
-  /** Appelé par « View in calendar ». Par défaut : navigation vers /schedule. */
   onViewInCalendar?: (date: Date) => void;
 }
 
 const MAX_MEDIA = 20;
+
 const SOCIAL_NETWORKS: {
   id: SocialNetworkId;
   label: string;
@@ -231,28 +1076,13 @@ const CHAR_LIMITS: Record<SocialNetworkId, number> = {
   threads: 500,
 };
 
-const SCHEDULE_ACTIONS: {
-  id: ScheduleAction;
-  label: string;
-  description: string;
-}[] = [
-  { id: "save_in_folder", label: "Save in folder", description: "Save your post in a folder to publish it later." },
-  { id: "now", label: "Now", description: "Publish your post right away." },
-  { id: "set_date", label: "Set date and time", description: "Choose a specific time to post, or use our recommendation." },
-];
+const SCHEDULE_ACTION_IDS: ScheduleAction[] = ["save_in_folder", "now", "set_date"];
 
-const POSTING_SLOTS: { label: string; hour: number; minute: number }[] = [
-  { label: "9:00 AM", hour: 9, minute: 0 },
-  { label: "12:00 PM", hour: 12, minute: 0 },
-  { label: "6:00 PM", hour: 18, minute: 0 },
+const POSTING_SLOTS: { hour: number; minute: number }[] = [
+  { hour: 9, minute: 0 },
+  { hour: 12, minute: 0 },
+  { hour: 18, minute: 0 },
 ];
-
-const TIKTOK_PRIVACY_LABELS: Record<string, string> = {
-  PUBLIC_TO_EVERYONE: "Everyone",
-  MUTUAL_FOLLOW_FRIENDS: "Friends",
-  FOLLOWER_OF_CREATOR: "Followers",
-  SELF_ONLY: "Only me",
-};
 
 const TIKTOK_FALLBACK_PRIVACY: string[] = ["SELF_ONLY"];
 const TIKTOK_MUSIC_URL =
@@ -280,7 +1110,6 @@ const TIKTOK_DEFAULT_COMMERCIAL: TikTokCommercial = {
   branded: false,
 };
 
-/* ── YouTube ── */
 const YOUTUBE_TITLE_MAX = 100;
 const YOUTUBE_CATEGORIES: { id: string; label: string }[] = [
   { id: "2", label: "Autos & Vehicles" },
@@ -300,16 +1129,8 @@ const YOUTUBE_CATEGORIES: { id: string; label: string }[] = [
   { id: "29", label: "Nonprofits & Activism" },
 ];
 
-const YOUTUBE_VISIBILITY: { id: YouTubeVisibility; label: string }[] = [
-  { id: "public", label: "Public" },
-  { id: "unlisted", label: "Unlisted" },
-  { id: "private", label: "Private" },
-];
-
-const YOUTUBE_LICENSES: { id: YouTubeLicense; label: string }[] = [
-  { id: "youtube", label: "Standard YouTube License" },
-  { id: "creativeCommon", label: "Creative Commons - Attribution" },
-];
+const YOUTUBE_VISIBILITY_IDS: YouTubeVisibility[] = ["public", "unlisted", "private"];
+const YOUTUBE_LICENSE_IDS: YouTubeLicense[] = ["youtube", "creativeCommon"];
 
 const YOUTUBE_DEFAULT_OPTIONS: YouTubeOptions = {
   title: "",
@@ -321,19 +1142,10 @@ const YOUTUBE_DEFAULT_OPTIONS: YouTubeOptions = {
   madeForKids: false,
 };
 
-/* ── Contraintes YouTube Shorts ──
-  Formats acceptés : mp4, mov, mpeg, avi, webm, wmv.
-  Dimensions acceptées : vertical 9:16 (ex. 1080×1920) ou carré 1:1 (ex. 1080×1080).
-  Durée maximale : 3 minutes (180 s). Pas de durée minimale imposée. */
 const YOUTUBE_VIDEO_EXTENSIONS = ["mp4", "mov", "mpeg", "avi", "webm", "wmv"];
-const YOUTUBE_SHORT_ASPECT_TOLERANCE = 0.05; // 5% de tolérance sur le ratio
+const YOUTUBE_SHORT_ASPECT_TOLERANCE = 0.05;
 const YOUTUBE_SHORT_MAX_DURATION_SEC = 180;
 
-/* ──────────────────────────────────────────────────────────────
-Brouillon
-`contents` ne contient que les textes personnalisés par réseau
-(ceux qui diffèrent du texte principal).
-────────────────────────────────────────────────────────────── */
 type DraftData = {
   title: string;
   masterContent: string;
@@ -348,13 +1160,6 @@ type DraftData = {
 
 let savedDraft: DraftData | null = null;
 
-/* ──────────────────────────────────────────────────────────────
-Persistance du brouillon (localStorage + IndexedDB)
-Les métadonnées/textes vont dans localStorage. Les File
-(non sérialisables) vont dans IndexedDB, ce qui permet de
-retrouver un brouillon complet après un rafraîchissement ou
-après avoir quitté puis rouvert le site.
-────────────────────────────────────────────────────────────── */
 const DRAFT_META_KEY = "newpost:draft:v1";
 const DRAFT_DB_NAME = "newpost-drafts";
 const DRAFT_DB_STORE = "files";
@@ -446,7 +1251,7 @@ async function clearDraftFiles(): Promise<void> {
       db.close();
     }
   } catch {
-    /* IndexedDB indisponible : rien à nettoyer. */
+    /* IndexedDB indisponible */
   }
 }
 
@@ -483,7 +1288,7 @@ async function persistDraftToStorage(draft: DraftData): Promise<void> {
     };
     localStorage.setItem(DRAFT_META_KEY, JSON.stringify(serialized));
   } catch {
-    /* Échec de persistance : le brouillon reste en mémoire pour la session. */
+    /* Échec de persistance */
   }
 }
 
@@ -540,8 +1345,6 @@ async function clearDraftFromStorage(): Promise<void> {
   await clearDraftFiles();
 }
 
-/** Un brouillon n'est proposé que s'il contient du vrai contenu
- *  (texte, titre ou média) — pas juste des réseaux connectés. */
 function draftHasContent(draft: DraftData): boolean {
   return (
     draft.masterContent.trim().length > 0 ||
@@ -552,9 +1355,6 @@ function draftHasContent(draft: DraftData): boolean {
   );
 }
 
-/* ──────────────────────────────────────────────────────────────
-Helpers
-────────────────────────────────────────────────────────────── */
 function makeId(): string {
   return typeof crypto !== "undefined" && "randomUUID" in crypto
     ? crypto.randomUUID()
@@ -581,30 +1381,41 @@ function defaultScheduledDate(): Date {
   return d;
 }
 
-function formatShortDateTime(date: Date): string {
-  return date.toLocaleString("en-US", {
+function formatShortDateTime(date: Date, lang: Lang): string {
+  return date.toLocaleString(intlLocale(lang), {
     month: "short",
     day: "numeric",
     hour: "numeric",
     minute: "2-digit",
-    hour12: true,
+    hour12: lang === "en",
   });
 }
 
-function formatLongDateTime(date: Date): string {
-  return date.toLocaleString("en-US", {
+function formatLongDateTime(date: Date, lang: Lang): string {
+  return date.toLocaleString(intlLocale(lang), {
     weekday: "long",
     month: "long",
     day: "numeric",
     hour: "numeric",
     minute: "2-digit",
-    hour12: true,
+    hour12: lang === "en",
   });
 }
 
-function formatDuration(totalSeconds: number): string {
+function formatSlotLabel(hour: number, minute: number, lang: Lang): string {
+  const d = new Date();
+  d.setHours(hour, minute, 0, 0);
+  return d.toLocaleTimeString(intlLocale(lang), {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: lang === "en",
+  });
+}
+
+function formatDuration(totalSeconds: number, lang: Lang): string {
   const m = Math.floor(totalSeconds / 60);
   const s = Math.round(totalSeconds % 60);
+  if (lang === "fr") return s ? `${m} min ${s} s` : `${m} min`;
   return s ? `${m} min ${s} s` : `${m} min`;
 }
 
@@ -633,7 +1444,6 @@ function getVideoDuration(file: File): Promise<number> {
   });
 }
 
-/** Durée et dimensions d'une vidéo (lues depuis ses métadonnées). */
 function getVideoInfo(
   file: File
 ): Promise<{ duration: number; width: number; height: number }> {
@@ -658,13 +1468,11 @@ function getVideoInfo(
   });
 }
 
-/** Vérifie l'extension du fichier par rapport aux formats acceptés par YouTube. */
 function isYouTubeVideoFormat(file: File): boolean {
   const ext = file.name.toLowerCase().split(".").pop() ?? "";
   return YOUTUBE_VIDEO_EXTENSIONS.includes(ext);
 }
 
-/** Vérifie que le ratio de la vidéo correspond à un Short (9:16 ou 1:1). */
 function isYouTubeShortAspectRatio(width: number, height: number): boolean {
   if (width <= 0 || height <= 0) return false;
   const ratio = width / height;
@@ -723,8 +1531,8 @@ type ChannelTileData = {
 };
 
 /* ──────────────────────────────────────────────────────────────
-Composants secondaires
-────────────────────────────────────────────────────────────── */
+   Sous-composants
+   ────────────────────────────────────────────────────────────── */
 type AvatarSize = "sm" | "md" | "lg";
 const AVATAR_SIZES: Record<
   AvatarSize,
@@ -1025,7 +1833,6 @@ function FieldRow({
   );
 }
 
-/* ── Sources de médias ── */
 type SourceIconProps = { className?: string };
 function GooglePhotosIcon({ className }: SourceIconProps) {
   return (
@@ -1038,9 +1845,7 @@ function GooglePhotosIcon({ className }: SourceIconProps) {
   );
 }
 
-type MediaSourceId =
-  | "canva" | "dropbox" | "google_drive"
-  | "google_photos";
+type MediaSourceId = "canva" | "dropbox" | "google_drive" | "google_photos";
 
 const MEDIA_SOURCES: {
   id: MediaSourceId;
@@ -1155,10 +1960,13 @@ const EMOJI_FONT =
 function EmojiPickerPanel({
   isDark,
   onPick,
+  lang,
 }: {
   isDark: boolean;
   onPick: (emoji: string) => void;
+  lang: Lang;
 }) {
+  const c = COPY[lang];
   const components = useMemo(
     () => ({
       CategoryHeader: ({
@@ -1207,21 +2015,21 @@ function EmojiPickerPanel({
   return (
     <div
       role="dialog"
-      aria-label="Choose an emoji"
+      aria-label={c.toolbar.insertEmoji}
       className={[
         "absolute bottom-full left-0 z-50 mb-2 overflow-hidden rounded-xl border shadow-2xl",
         isDark ? "border-white/10 bg-[#1c1c1e]" : "border-black/10 bg-white",
       ].join(" ")}
     >
       <FrimousseEmojiPicker.Root
-        locale="en"
+        locale={lang === "fr" ? "fr" : "en"}
         columns={8}
         onEmojiSelect={({ emoji }) => onPick(emoji)}
         className="isolate flex h-[340px] w-[300px] flex-col"
       >
         <FrimousseEmojiPicker.Search
           autoFocus
-          placeholder="Search emoji"
+          placeholder={c.toolbar.searchEmoji}
           className={[
             "z-10 mx-2 mt-2 appearance-none rounded-lg px-3 py-2 text-[13px] outline-none",
             isDark
@@ -1236,7 +2044,7 @@ function EmojiPickerPanel({
               isDark ? "text-neutral-500" : "text-neutral-400",
             ].join(" ")}
           >
-            Loading…
+            {c.toolbar.loading}
           </FrimousseEmojiPicker.Loading>
           <FrimousseEmojiPicker.Empty
             className={[
@@ -1244,7 +2052,7 @@ function EmojiPickerPanel({
               isDark ? "text-neutral-500" : "text-neutral-400",
             ].join(" ")}
           >
-            No emoji found.
+            {c.toolbar.noEmoji}
           </FrimousseEmojiPicker.Empty>
           <FrimousseEmojiPicker.List
             className="select-none pb-1.5"
@@ -1311,6 +2119,7 @@ function ComposerToolbar({
   limit,
   extra,
   leading,
+  lang,
 }: {
   isDark: boolean;
   emojiOpen: boolean;
@@ -1321,7 +2130,9 @@ function ComposerToolbar({
   limit?: number;
   extra?: React.ReactNode;
   leading?: React.ReactNode;
+  lang: Lang;
 }) {
+  const c = COPY[lang];
   const over = limit !== undefined && length > limit;
   const near = limit !== undefined && !over && length > limit * 0.9;
   const textSecondary = isDark ? "text-neutral-400" : "text-neutral-500";
@@ -1339,18 +2150,18 @@ function ComposerToolbar({
         <div className="emoji-wrapper relative">
           <button
             type="button"
-            aria-label="Insert emoji"
+            aria-label={c.toolbar.insertEmoji}
             aria-expanded={emojiOpen}
             onClick={onToggleEmoji}
             className={["flex h-8 w-8 items-center justify-center rounded-lg transition", emojiOpen ? active : `${textSecondary} ${hover}`].join(" ")}
           >
             <Smile className="h-4 w-4" />
           </button>
-          {emojiOpen && <EmojiPickerPanel isDark={isDark} onPick={onPickEmoji} />}
+          {emojiOpen && <EmojiPickerPanel isDark={isDark} onPick={onPickEmoji} lang={lang} />}
         </div>
         <button
           type="button"
-          aria-label="Insert hashtag"
+          aria-label={c.toolbar.insertHashtag}
           onClick={onHash}
           className={["flex h-8 w-8 items-center justify-center rounded-lg transition", textSecondary, hover].join(" ")}
         >
@@ -1366,8 +2177,8 @@ function ComposerToolbar({
             over ? "font-semibold text-red-500" : near ? "font-semibold text-amber-500" : textSecondary,
           ].join(" ")}
         >
-          {length.toLocaleString("en-US")}
-          {limit !== undefined && limit <= 5000 ? ` / ${limit.toLocaleString("en-US")}` : ""}
+          {length.toLocaleString(intlLocale(lang))}
+          {limit !== undefined && limit <= 5000 ? ` / ${limit.toLocaleString(intlLocale(lang))}` : ""}
         </span>
       </div>
     </div>
@@ -1381,6 +2192,7 @@ function PostPreview({
   text,
   limit,
   media,
+  lang,
 }: {
   isDark: boolean;
   network: (typeof SOCIAL_NETWORKS)[number] | null;
@@ -1388,7 +2200,9 @@ function PostPreview({
   text: string;
   limit?: number;
   media: MediaItem[];
+  lang: Lang;
 }) {
+  const c = COPY[lang];
   const textPrimary = isDark ? "text-white" : "text-neutral-900";
   const textSecondary = isDark ? "text-neutral-400" : "text-neutral-500";
   const label = channelLabel(channel, network?.label ?? "Your account");
@@ -1417,20 +2231,20 @@ function PostPreview({
         )}
         <div className="min-w-0">
           <p className={["truncate text-[13px] font-semibold", textPrimary].join(" ")}>{label}</p>
-          <p className={["text-[11.5px]", textSecondary].join(" ")}>Just now</p>
+          <p className={["text-[11.5px]", textSecondary].join(" ")}>{c.preview.justNow}</p>
         </div>
       </div>
       {text.trim() ? (
         <p className={["whitespace-pre-wrap break-words text-[13.5px] leading-relaxed", textPrimary].join(" ")}>
           {within}
           {overflow && (
-            <mark className="rounded bg-red-500/25 px-0.5 text-inherit" title="Over the character limit">
+            <mark className="rounded bg-red-500/25 px-0.5 text-inherit">
               {overflow}
             </mark>
           )}
         </p>
       ) : (
-        <p className={["text-[13px] italic", textSecondary].join(" ")}>Your text will appear here.</p>
+        <p className={["text-[13px] italic", textSecondary].join(" ")}>{c.preview.yourText}</p>
       )}
       {cover && (
         <div className="relative mt-3 overflow-hidden rounded-xl">
@@ -1450,20 +2264,19 @@ function PostPreview({
   );
 }
 
-/* ──────────────────────────────────────────────────────────────
-Composant principal
-────────────────────────────────────────────────────────────── */
 const FOCUS_DATE_KEY = "schedule:focusDate";
-/** Ouvre le calendrier sur la semaine du post programmé. */
 function goToCalendar(date: Date) {
   try {
     sessionStorage.setItem(FOCUS_DATE_KEY, String(date.getTime()));
   } catch {
     /* ignore */
   }
-  window.location.assign("/schedule"); // adapte à ton router si besoin
+  window.location.assign("/schedule");
 }
 
+/* ──────────────────────────────────────────────────────────────
+   Composant principal
+   ────────────────────────────────────────────────────────────── */
 export default function NewPostModal({
   isOpen,
   onClose,
@@ -1473,15 +2286,16 @@ export default function NewPostModal({
   onRequestOpen,
   onViewInCalendar,
 }: NewPostModalProps) {
+  const lang = useLanguage();
+  const c = COPY[lang];
+
   const [masterContent, setMasterContent] = useState("");
-  /** Textes personnalisés par réseau. Absent = suit le texte principal. */
   const [contents, setContents] = useState<Record<string, string>>({});
   const [title, setTitle] = useState("");
   const [networks, setNetworks] = useState<SocialNetworkId[]>([]);
   const [scheduleAction, setScheduleAction] = useState<ScheduleAction>("now");
   const [scheduledAt, setScheduledAt] = useState<Date>(() => defaultScheduledDate());
   const [media, setMedia] = useState<MediaItem[]>([]);
-  /** Médias propres à un réseau. Absent = le réseau utilise les médias partagés. */
   const [channelMedia, setChannelMedia] = useState<Record<string, MediaItem[]>>({});
   const [mediaError, setMediaError] = useState<{ target: string; message: string } | null>(null);
   const [draggingTarget, setDraggingTarget] = useState<string | null>(null);
@@ -1493,7 +2307,6 @@ export default function NewPostModal({
   const [pendingDraft, setPendingDraft] = useState<DraftData | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitProgress, setSubmitProgress] = useState<string | null>(null);
-  /** Résultat YouTube affiché à l'utilisateur au lieu de fermer le modal en silence. */
   const [youtubeResult, setYoutubeResult] = useState<{
     url: string;
     message: string;
@@ -1503,25 +2316,18 @@ export default function NewPostModal({
     at: Date;
     hasVideo: boolean;
   } | null>(null);
-  /** Popup affichée quand aucune chaîne connectée n'est disponible pour publier. */
-  const [connectChannelPrompt, setConnectChannelPrompt] = useState<{
-    message: string;
-  } | null>(null);
+  const [connectChannelPrompt, setConnectChannelPrompt] = useState<{ message: string } | null>(null);
   const [activeEmojiNetwork, setActiveEmojiNetwork] = useState<string | null>(null);
   const [collapsedCards, setCollapsedCards] = useState<Record<string, boolean>>({});
   const [previewNetwork, setPreviewNetwork] = useState<SocialNetworkId | null>(null);
   const [showPreview, setShowPreview] = useState(true);
   const [showSourceMenu, setShowSourceMenu] = useState<string | null>(null);
   const [requestTick, setRequestTick] = useState(0);
-  // ── Tags ──
   const [tags, setTags] = useState<ApiTag[]>([]);
   const [tagIds, setTagIds] = useState<string[]>([]);
   const [tagMenuOpen, setTagMenuOpen] = useState(false);
-  // ── Canva ──
-  /** Zone de texte (target) pour laquelle un design Canva est en cours de création. */
   const [canvaBusy, setCanvaBusy] = useState<string | null>(null);
   const [canvaDesigns, setCanvaDesigns] = useState<CanvaPendingDesign[]>([]);
-  // ── Dropbox ──
   const [dropboxPickerOpen, setDropboxPickerOpen] = useState(false);
   const [dropboxNeedsConnection, setDropboxNeedsConnection] = useState(false);
   const [dropboxFiles, setDropboxFiles] = useState<DropboxFileEntry[]>([]);
@@ -1532,66 +2338,47 @@ export default function NewPostModal({
   const [dropboxImporting, setDropboxImporting] = useState<string | null>(null);
   const [dropboxError, setDropboxError] = useState<string | null>(null);
   const [dropboxTarget, setDropboxTarget] = useState("master");
-  // ── Google Drive ──
   const [googleDrivePickerOpen, setGoogleDrivePickerOpen] = useState(false);
-  const [googleDriveNeedsConnection, setGoogleDriveNeedsConnection] =
-    useState(false);
-  const [googleDriveFiles, setGoogleDriveFiles] = useState<
-    GoogleDriveFileEntry[]
-  >([]);
-  const [googleDriveFolders, setGoogleDriveFolders] = useState<
-    { id: string; name: string }[]
-  >([{ id: "", name: "My Drive" }]);
-  const [googleDriveCursor, setGoogleDriveCursor] = useState<string | null>(
-    null
-  );
+  const [googleDriveNeedsConnection, setGoogleDriveNeedsConnection] = useState(false);
+  const [googleDriveFiles, setGoogleDriveFiles] = useState<GoogleDriveFileEntry[]>([]);
+  const [googleDriveFolders, setGoogleDriveFolders] = useState<{ id: string; name: string }[]>([
+    { id: "", name: "My Drive" },
+  ]);
+  const [googleDriveCursor, setGoogleDriveCursor] = useState<string | null>(null);
   const [googleDriveHasMore, setGoogleDriveHasMore] = useState(false);
   const [googleDriveLoading, setGoogleDriveLoading] = useState(false);
-  const [googleDriveImporting, setGoogleDriveImporting] = useState<
-    string | null
-  >(null);
+  const [googleDriveImporting, setGoogleDriveImporting] = useState<string | null>(null);
   const [googleDriveError, setGoogleDriveError] = useState<string | null>(null);
   const [googleDriveTarget, setGoogleDriveTarget] = useState("master");
-  // ── Google Photos ──
   const [googlePhotosPickerOpen, setGooglePhotosPickerOpen] = useState(false);
-  const [googlePhotosNeedsConnection, setGooglePhotosNeedsConnection] =
-    useState(false);
+  const [googlePhotosNeedsConnection, setGooglePhotosNeedsConnection] = useState(false);
   const [googlePhotosReady, setGooglePhotosReady] = useState(false);
   const [googlePhotosChecking, setGooglePhotosChecking] = useState(false);
   const [googlePhotosLoading, setGooglePhotosLoading] = useState(false);
   const [googlePhotosError, setGooglePhotosError] = useState<string | null>(null);
   const [googlePhotosTarget, setGooglePhotosTarget] = useState("master");
-  // ── YouTube ──
-  const [youtubeOptions, setYoutubeOptions] = useState<YouTubeOptions>(
-    YOUTUBE_DEFAULT_OPTIONS
-  );
-  // ── TikTok ──
+  const [youtubeOptions, setYoutubeOptions] = useState<YouTubeOptions>(YOUTUBE_DEFAULT_OPTIONS);
   const [tiktokInfo, setTiktokInfo] = useState<TikTokCreatorInfo | null>(null);
   const [tiktokInfoError, setTiktokInfoError] = useState<string | null>(null);
   const [tiktokInfoAttempt, setTiktokInfoAttempt] = useState(0);
-  // Brouillon par défaut : l'app TikTok est en sandbox (voir `tiktokDraftOnly`).
   const [tiktokMode, setTiktokMode] = useState<"direct" | "draft">("draft");
-  const [tiktokOptions, setTiktokOptions] = useState<TikTokPostOptions>(
-    TIKTOK_DEFAULT_OPTIONS
-  );
+  const [tiktokOptions, setTiktokOptions] = useState<TikTokPostOptions>(TIKTOK_DEFAULT_OPTIONS);
   const [tiktokAllow, setTiktokAllow] = useState<TikTokAllow>(TIKTOK_DEFAULT_ALLOW);
-  const [tiktokCommercial, setTiktokCommercial] = useState<TikTokCommercial>(
-    TIKTOK_DEFAULT_COMMERCIAL
-  );
+  const [tiktokCommercial, setTiktokCommercial] = useState<TikTokCommercial>(TIKTOK_DEFAULT_COMMERCIAL);
+
   const tiktokPrivacyOptions = useMemo<string[]>(() => {
     const fromInfo = tiktokInfo?.privacy_level_options;
     if (fromInfo && fromInfo.length > 0) return fromInfo as string[];
     if (tiktokInfoError || tiktokInfo) return TIKTOK_FALLBACK_PRIVACY;
     return [];
   }, [tiktokInfo, tiktokInfoError]);
-  // Tant que le backend n'annonce pas explicitement `can_direct_post`
-  // (app auditée + pas de FORCE_DRAFT), on n'autorise que le brouillon.
   const tiktokDraftOnly = tiktokInfo?.capabilities
     ? !tiktokInfo.capabilities.can_direct_post
     : true;
   useEffect(() => {
     if (tiktokDraftOnly && tiktokMode !== "draft") setTiktokMode("draft");
   }, [tiktokDraftOnly, tiktokMode]);
+
   const connectedChannels = useConnectedChannels();
   useNewPostShortcut(() => onRequestOpen?.(), !isOpen && Boolean(onRequestOpen));
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -1610,10 +2397,9 @@ export default function NewPostModal({
   isOpenRef.current = isOpen;
   const onRequestOpenRef = useRef(onRequestOpen);
   onRequestOpenRef.current = onRequestOpen;
-  // Suivi de l'état du formulaire, pour éviter d'écraser une saisie en cours
-  // quand un brouillon persisté est chargé de façon asynchrone.
   const hasFormContentRef = useRef(false);
   const preselectRef = useRef<SocialNetworkId | null>(null);
+
   useEffect(
     () => () => {
       if (canvaPopupMonitorRef.current !== null) {
@@ -1622,11 +2408,13 @@ export default function NewPostModal({
     },
     []
   );
+
   const timeMin = useMemo(() => {
     const now = new Date();
     return isSameCalendarDay(scheduledAt, now) ? now : undefined;
   }, [scheduledAt]);
   const timezone = useMemo(() => getLocalTimezone(), []);
+
   const channelTiles = useMemo<ChannelTileData[]>(() => {
     const tiles: ChannelTileData[] = [];
     for (const channel of connectedChannels) {
@@ -1639,14 +2427,6 @@ export default function NewPostModal({
     return tiles.sort((a, b) => a.order - b.order);
   }, [connectedChannels]);
 
-  /* ── Réseaux réellement connectés ──
-   * `networks` peut contenir des IDs obsolètes :
-   *   • un brouillon repris après qu'une chaîne a été déconnectée ;
-   *   • une chaîne qui se déconnecte pendant que le modal est ouvert.
-   * On filtre contre `channelTiles` avant toute publication, sinon le payload
-   * part avec des réseaux sans `channelKey` et le backend répond
-   * « At least one network is required ».
-   */
   const connectedNetworkIds = useMemo(
     () => new Set(channelTiles.map((t) => t.network.id)),
     [channelTiles]
@@ -1678,7 +2458,6 @@ export default function NewPostModal({
     preselectRef.current = tile.network.id;
     setNetworks([tile.network.id]);
   }, [isOpen, requestTick, channelTiles]);
-  // ── Tags : chargement à l'ouverture ──
   useEffect(() => {
     if (!isOpen) return;
     let cancelled = false;
@@ -1691,7 +2470,6 @@ export default function NewPostModal({
       cancelled = true;
     };
   }, [isOpen]);
-  // ── Tags : fermeture du menu au clic extérieur ──
   useEffect(() => {
     if (!tagMenuOpen) return;
     const onDown = (e: MouseEvent) => {
@@ -1733,7 +2511,6 @@ export default function NewPostModal({
       document.body.style.overflow = previousOverflow;
     };
   }, [isOpen, showActionMenu, showDateTimePanel, activeEmojiNetwork, showSourceMenu, tagMenuOpen, connectChannelPrompt]);
-  // Focus le champ principal à l'ouverture (sauf si un brouillon est proposé)
   useEffect(() => {
     if (!isOpen || savedDraft) return;
     const id = requestAnimationFrame(() => textareaRefs.current.master?.focus());
@@ -1745,16 +2522,13 @@ export default function NewPostModal({
       Object.values(channelMediaRef.current).flat().forEach((item) => URL.revokeObjectURL(item.url));
     };
   }, []);
-  // Restaure un éventuel brouillon persisté (refresh, retour sur le site…)
   useEffect(() => {
-    if (savedDraft) return; // déjà en mémoire (même session)
+    if (savedDraft) return;
     let cancelled = false;
     (async () => {
       const persisted = await loadDraftFromStorage();
       if (cancelled || !persisted || !draftHasContent(persisted)) return;
       savedDraft = persisted;
-      // Si le modal est déjà ouvert et que l'utilisateur n'a rien saisi,
-      // on lui propose tout de suite de reprendre.
       if (isOpenRef.current && !hasFormContentRef.current) {
         setPendingDraft(persisted);
       }
@@ -1766,9 +2540,7 @@ export default function NewPostModal({
   useEffect(() => {
     setPendingDraft(isOpen ? savedDraft : null);
   }, [isOpen]);
-  const initialScheduledTime = initialScheduledAt
-    ? initialScheduledAt.getTime()
-    : null;
+  const initialScheduledTime = initialScheduledAt ? initialScheduledAt.getTime() : null;
   useEffect(() => {
     if (isOpen && initialScheduledTime !== null) {
       setScheduleAction("set_date");
@@ -1824,16 +2596,15 @@ export default function NewPostModal({
       })
       .catch((e) => {
         if (cancelled) return;
-        setTiktokInfoError(
-          e instanceof Error ? e.message : "Could not load TikTok settings."
-        );
+        setTiktokInfoError(e instanceof Error ? e.message : c.errors.tiktokLoadFailed);
       });
     return () => {
       cancelled = true;
     };
-  }, [isOpen, tiktokSelected, tiktokInfo, tiktokInfoAttempt]);
+  }, [isOpen, tiktokSelected, tiktokInfo, tiktokInfoAttempt, c]);
+
   if (!isOpen) return null;
-  /* ── Contenu : le texte principal est la source, chaque réseau peut le surcharger ── */
+
   const isDragging = draggingTarget === "master";
   const mediaFor = (id: string): MediaItem[] => channelMedia[id] ?? media;
   const contentFor = (id: string): string => contents[id] ?? masterContent;
@@ -1855,6 +2626,7 @@ export default function NewPostModal({
     media.length > 0 ||
     Object.keys(channelMedia).length > 0;
   hasFormContentRef.current = hasDraftContent;
+
   const clearForm = () => {
     media.forEach((item) => URL.revokeObjectURL(item.url));
     Object.values(channelMedia).flat().forEach((item) => URL.revokeObjectURL(item.url));
@@ -1920,11 +2692,10 @@ export default function NewPostModal({
     setYoutubeOptions(YOUTUBE_DEFAULT_OPTIONS);
     caretRefs.current = {};
     preselectRef.current = null;
-    // ── Tags ──
     setTagIds([]);
     setTagMenuOpen(false);
   };
-  /** Ferme toujours le modal, même si le nettoyage du formulaire échoue. */
+
   const discardAndClose = () => {
     savedDraft = null;
     void clearDraftFromStorage();
@@ -1934,15 +2705,13 @@ export default function NewPostModal({
       onClose();
     }
   };
+
   const closeWithDraft = () => {
     if (isSubmitting) return;
-    // Le post vient d'être envoyé : inutile d'en garder un brouillon.
     if (youtubeResult || scheduledResult) {
       discardAndClose();
       return;
     }
-    // Si le dialogue « Resume / Start fresh » est encore affiché et que
-    // l'utilisateur ferme sans choisir : on conserve le brouillon tel quel.
     if (pendingDraft && !hasDraftContent) {
       savedDraft = pendingDraft;
       clearForm();
@@ -1964,9 +2733,8 @@ export default function NewPostModal({
         youtubeOptions,
       };
       savedDraft = draft;
-      void persistDraftToStorage(draft); // fire-and-forget
+      void persistDraftToStorage(draft);
     } else {
-      // Plus de contenu → on efface le brouillon persisté.
       savedDraft = null;
       void clearDraftFromStorage();
     }
@@ -1974,12 +2742,9 @@ export default function NewPostModal({
     onClose();
   };
   closeWithDraftRef.current = closeWithDraft;
+
   const resumeDraft = () => {
     if (!pendingDraft) return;
-    // Les chaînes peuvent avoir été déconnectées depuis la sauvegarde du brouillon.
-    // On ignore celles qui ne sont plus dans `channelTiles` (sauf si les tiles
-    // ne sont pas encore chargées, auquel cas on garde tout et `validNetworks`
-    // filtrera au moment de la soumission).
     const connected = channelTiles.length > 0
       ? new Set(channelTiles.map((t) => t.network.id))
       : null;
@@ -2023,16 +2788,15 @@ export default function NewPostModal({
   const ignoreDraft = () => {
     savedDraft = null;
     setPendingDraft(null);
-    void clearDraftFromStorage(); // l'utilisateur refuse le brouillon
+    void clearDraftFromStorage();
   };
+
   const updateCaret = (target: string, el: HTMLTextAreaElement) => {
     caretRefs.current[target] = { start: el.selectionStart, end: el.selectionEnd };
   };
   const handleMasterChange = (val: string) => {
     const previous = masterContent;
     setMasterContent(val);
-    // Les réseaux qui suivaient encore le texte principal continuent de le suivre ;
-    // ceux qui ont été personnalisés gardent leur version.
     setContents((prev) => {
       const next = { ...prev };
       for (const key of Object.keys(next)) {
@@ -2105,6 +2869,7 @@ export default function NewPostModal({
   const toggleCollapse = (id: string) => {
     setCollapsedCards((prev) => ({ ...prev, [id]: !prev[id] }));
   };
+
   const addFiles = (fileList: FileList | File[], target: string = "master") => {
     const all = Array.from(fileList);
     const incoming = all.filter(
@@ -2115,9 +2880,9 @@ export default function NewPostModal({
     const room = Math.max(MAX_MEDIA - current.length, 0);
     const accepted = incoming.slice(0, room);
     if (incoming.length > accepted.length) {
-      setMediaError({ target, message: `You can add up to ${MAX_MEDIA} files per post.` });
+      setMediaError({ target, message: c.errors.tooManyFiles(MAX_MEDIA) });
     } else if (incoming.length < all.length) {
-      setMediaError({ target, message: "Only images and videos are supported." });
+      setMediaError({ target, message: c.errors.onlyMedia });
     } else {
       setMediaError(null);
     }
@@ -2137,25 +2902,18 @@ export default function NewPostModal({
       }));
     }
   };
-  const loadDropboxFolder = async (
-    path: string,
-    cursor?: string,
-    append = false
-  ) => {
+
+  const loadDropboxFolder = async (path: string, cursor?: string, append = false) => {
     setDropboxLoading(true);
     setDropboxError(null);
     try {
       const page = await listDropboxFiles(path, cursor);
-      setDropboxFiles((current) =>
-        append ? [...current, ...page.entries] : page.entries
-      );
+      setDropboxFiles((current) => (append ? [...current, ...page.entries] : page.entries));
       setDropboxPath(path);
       setDropboxCursor(page.cursor || null);
       setDropboxHasMore(page.has_more);
     } catch (error) {
-      setDropboxError(
-        error instanceof Error ? error.message : "Unable to load Dropbox files."
-      );
+      setDropboxError(error instanceof Error ? error.message : c.errors.dropboxLoadFailed);
     } finally {
       setDropboxLoading(false);
     }
@@ -2176,9 +2934,7 @@ export default function NewPostModal({
       }
       await loadDropboxFolder("");
     } catch (error) {
-      setDropboxError(
-        error instanceof Error ? error.message : "Unable to connect to Dropbox."
-      );
+      setDropboxError(error instanceof Error ? error.message : c.errors.dropboxConnectFailed);
     } finally {
       setDropboxLoading(false);
     }
@@ -2194,13 +2950,11 @@ export default function NewPostModal({
         authUrl.protocol !== "https:" ||
         (hostname !== "dropbox.com" && !hostname.endsWith(".dropbox.com"))
       ) {
-        throw new Error("The Dropbox authorization link is invalid.");
+        throw new Error(c.errors.dropboxStartFailed);
       }
       window.location.assign(authUrl.toString());
     } catch (error) {
-      setDropboxError(
-        error instanceof Error ? error.message : "Unable to start Dropbox connection."
-      );
+      setDropboxError(error instanceof Error ? error.message : c.errors.dropboxStartFailed);
       setDropboxLoading(false);
     }
   };
@@ -2210,10 +2964,7 @@ export default function NewPostModal({
         ? mediaRef.current
         : channelMediaRef.current[dropboxTarget] ?? [];
     if (current.length >= MAX_MEDIA) {
-      setMediaError({
-        target: dropboxTarget,
-        message: `You can add up to ${MAX_MEDIA} files per post.`,
-      });
+      setMediaError({ target: dropboxTarget, message: c.errors.tooManyFiles(MAX_MEDIA) });
       return;
     }
     setDropboxImporting(entry.path_lower);
@@ -2221,37 +2972,25 @@ export default function NewPostModal({
     try {
       const file = await downloadDropboxFile(entry);
       if (!file.type.startsWith("image/") && !file.type.startsWith("video/")) {
-        throw new Error("Only image and video files can be added to a post.");
+        throw new Error(c.errors.onlyMedia);
       }
       addFiles([file], dropboxTarget);
     } catch (error) {
-      setDropboxError(
-        error instanceof Error ? error.message : "Unable to import this Dropbox file."
-      );
+      setDropboxError(error instanceof Error ? error.message : c.errors.dropboxImportFailed);
     } finally {
       setDropboxImporting(null);
     }
   };
-  const loadGoogleDriveFolder = async (
-    folderId: string,
-    cursor?: string,
-    append = false
-  ) => {
+  const loadGoogleDriveFolder = async (folderId: string, cursor?: string, append = false) => {
     setGoogleDriveLoading(true);
     setGoogleDriveError(null);
     try {
       const page = await listGoogleDriveFiles(folderId, cursor);
-      setGoogleDriveFiles((current) =>
-        append ? [...current, ...page.entries] : page.entries
-      );
+      setGoogleDriveFiles((current) => (append ? [...current, ...page.entries] : page.entries));
       setGoogleDriveCursor(page.cursor || null);
       setGoogleDriveHasMore(page.has_more);
     } catch (error) {
-      setGoogleDriveError(
-        error instanceof Error
-          ? error.message
-          : "Unable to load Google Drive files."
-      );
+      setGoogleDriveError(error instanceof Error ? error.message : c.errors.driveLoadFailed);
     } finally {
       setGoogleDriveLoading(false);
     }
@@ -2272,11 +3011,7 @@ export default function NewPostModal({
       }
       await loadGoogleDriveFolder("");
     } catch (error) {
-      setGoogleDriveError(
-        error instanceof Error
-          ? error.message
-          : "Unable to connect to Google Drive."
-      );
+      setGoogleDriveError(error instanceof Error ? error.message : c.errors.driveConnectFailed);
     } finally {
       setGoogleDriveLoading(false);
     }
@@ -2290,18 +3025,13 @@ export default function NewPostModal({
       const hostname = authUrl.hostname.toLowerCase();
       if (
         authUrl.protocol !== "https:" ||
-        (hostname !== "accounts.google.com" &&
-          !hostname.endsWith(".accounts.google.com"))
+        (hostname !== "accounts.google.com" && !hostname.endsWith(".accounts.google.com"))
       ) {
-        throw new Error("The Google Drive authorization link is invalid.");
+        throw new Error(c.errors.driveStartFailed);
       }
       window.location.assign(authUrl.toString());
     } catch (error) {
-      setGoogleDriveError(
-        error instanceof Error
-          ? error.message
-          : "Unable to start Google Drive connection."
-      );
+      setGoogleDriveError(error instanceof Error ? error.message : c.errors.driveStartFailed);
       setGoogleDriveLoading(false);
     }
   };
@@ -2311,10 +3041,7 @@ export default function NewPostModal({
         ? mediaRef.current
         : channelMediaRef.current[googleDriveTarget] ?? [];
     if (current.length >= MAX_MEDIA) {
-      setMediaError({
-        target: googleDriveTarget,
-        message: `You can add up to ${MAX_MEDIA} files per post.`,
-      });
+      setMediaError({ target: googleDriveTarget, message: c.errors.tooManyFiles(MAX_MEDIA) });
       return;
     }
     setGoogleDriveImporting(entry.id);
@@ -2322,15 +3049,11 @@ export default function NewPostModal({
     try {
       const file = await downloadGoogleDriveFile(entry);
       if (!file.type.startsWith("image/") && !file.type.startsWith("video/")) {
-        throw new Error("Only image and video files can be added to a post.");
+        throw new Error(c.errors.onlyMedia);
       }
       addFiles([file], googleDriveTarget);
     } catch (error) {
-      setGoogleDriveError(
-        error instanceof Error
-          ? error.message
-          : "Unable to import this Google Drive file."
-      );
+      setGoogleDriveError(error instanceof Error ? error.message : c.errors.driveImportFailed);
     } finally {
       setGoogleDriveImporting(null);
     }
@@ -2348,11 +3071,7 @@ export default function NewPostModal({
       if (status.connected) setGooglePhotosReady(true);
       else setGooglePhotosNeedsConnection(true);
     } catch (error) {
-      setGooglePhotosError(
-        error instanceof Error
-          ? error.message
-          : "Unable to check Google Photos connection."
-      );
+      setGooglePhotosError(error instanceof Error ? error.message : c.errors.photosCheckFailed);
     } finally {
       setGooglePhotosChecking(false);
       setGooglePhotosLoading(false);
@@ -2367,18 +3086,13 @@ export default function NewPostModal({
       const hostname = authUrl.hostname.toLowerCase();
       if (
         authUrl.protocol !== "https:" ||
-        (hostname !== "accounts.google.com" &&
-          !hostname.endsWith(".accounts.google.com"))
+        (hostname !== "accounts.google.com" && !hostname.endsWith(".accounts.google.com"))
       ) {
-        throw new Error("The Google Photos authorization link is invalid.");
+        throw new Error(c.errors.photosStartFailed);
       }
       window.location.assign(authUrl.toString());
     } catch (error) {
-      setGooglePhotosError(
-        error instanceof Error
-          ? error.message
-          : "Unable to start Google Photos connection."
-      );
+      setGooglePhotosError(error instanceof Error ? error.message : c.errors.photosStartFailed);
       setGooglePhotosLoading(false);
     }
   };
@@ -2389,17 +3103,12 @@ export default function NewPostModal({
         : channelMediaRef.current[googlePhotosTarget] ?? [];
     const remaining = MAX_MEDIA - current.length;
     if (remaining <= 0) {
-      setMediaError({
-        target: googlePhotosTarget,
-        message: `You can add up to ${MAX_MEDIA} files per post.`,
-      });
+      setMediaError({ target: googlePhotosTarget, message: c.errors.tooManyFiles(MAX_MEDIA) });
       return;
     }
     const popup = window.open("", "_blank", "popup,width=520,height=720");
     if (!popup) {
-      setGooglePhotosError(
-        "The Google Photos picker was blocked. Allow pop-ups and try again."
-      );
+      setGooglePhotosError(c.errors.photosPopupBlocked);
       return;
     }
     setGooglePhotosLoading(true);
@@ -2407,25 +3116,18 @@ export default function NewPostModal({
     try {
       const pickedItems = await pickFromGooglePhotos(popup);
       if (pickedItems.length > remaining) {
-        setMediaError({
-          target: googlePhotosTarget,
-          message: `Only ${remaining} more file${remaining === 1 ? "" : "s"} can be added to this post.`,
-        });
+        setMediaError({ target: googlePhotosTarget, message: c.errors.photosTooMany(remaining) });
       }
       for (const item of pickedItems.slice(0, remaining)) {
         const file = await downloadGooglePhotosItem(item);
         if (!file.type.startsWith("image/") && !file.type.startsWith("video/")) {
-          throw new Error("Only image and video files can be added to a post.");
+          throw new Error(c.errors.onlyMedia);
         }
         addFiles([file], googlePhotosTarget);
       }
       if (pickedItems.length > 0) setGooglePhotosPickerOpen(false);
     } catch (error) {
-      setGooglePhotosError(
-        error instanceof Error
-          ? error.message
-          : "Unable to import media from Google Photos."
-      );
+      setGooglePhotosError(error instanceof Error ? error.message : c.errors.photosImportFailed);
     } finally {
       setGooglePhotosLoading(false);
     }
@@ -2446,13 +3148,12 @@ export default function NewPostModal({
       void openGooglePhotosPicker(target);
       return;
     }
-    // TODO: brancher l'import réel (OAuth + sélecteur) pour chaque source.
     setMediaError({
       target,
-      message: `${source?.label ?? "This source"} import isn't connected yet.`,
+      message: c.errors.sourceNotConnected(source?.label ?? "This source"),
     });
   };
-  /* ── Canva ── */
+
   const handleCanvaPick = async (size: CanvaSize) => {
     const target = showSourceMenu ?? "master";
     setShowSourceMenu(null);
@@ -2460,14 +3161,10 @@ export default function NewPostModal({
     if (canvaBusy) return;
     const win = openCanvaPopup();
     if (!win) {
-      setMediaError({
-        target,
-        message:
-          "Your browser blocked the Canva window. Allow pop-ups for this site, then try again.",
-      });
+      setMediaError({ target, message: c.errors.canvaPopupBlocked });
       return;
     }
-    win.document.body.innerText = "Opening Canva…";
+    win.document.body.innerText = c.canva.opening;
     setCanvaBusy(target);
     try {
       let design;
@@ -2477,7 +3174,7 @@ export default function NewPostModal({
         if (!(error instanceof CanvaError && error.needsConnection)) throw error;
         win.location.href = await getCanvaAuthUrl();
         const connected = await waitForCanvaConnection(win);
-        if (!connected) throw new Error("The Canva connection wasn't completed.");
+        if (!connected) throw new Error(c.errors.canvaDidNotConnect);
         design = await createCanvaDesign(size);
       }
       if (!win.closed) {
@@ -2526,8 +3223,7 @@ export default function NewPostModal({
       win?.close();
       setMediaError({
         target,
-        message:
-          error instanceof Error ? error.message : "Could not open Canva. Please try again.",
+        message: error instanceof Error ? error.message : c.errors.canvaOpenFailed,
       });
     } finally {
       setCanvaBusy(null);
@@ -2547,10 +3243,7 @@ export default function NewPostModal({
     } catch (error) {
       setMediaError({
         target: item.target,
-        message:
-          error instanceof Error
-            ? error.message
-            : "Could not import the design from Canva.",
+        message: error instanceof Error ? error.message : c.errors.canvaImportFailed,
       });
       setCanvaDesigns((prev) =>
         prev.map((d) => (d.designId === designId ? { ...d, importing: false } : d))
@@ -2560,6 +3253,7 @@ export default function NewPostModal({
   const dismissCanvaDesign = (designId: string) => {
     setCanvaDesigns((prev) => prev.filter((d) => d.designId !== designId));
   };
+
   const removeMedia = (id: string) => {
     const all = [...mediaRef.current, ...Object.values(channelMediaRef.current).flat()];
     const found = all.find((item) => item.id === id);
@@ -2569,7 +3263,6 @@ export default function NewPostModal({
       const next: Record<string, MediaItem[]> = {};
       for (const [key, list] of Object.entries(prev)) {
         const kept = list.filter((item) => item.id !== id);
-        // Un réseau sans média propre retombe sur les médias partagés.
         if (kept.length > 0) next[key] = kept;
       }
       return next;
@@ -2598,7 +3291,7 @@ export default function NewPostModal({
     );
     setEditingItem(null);
   };
-  /* ── TikTok ── */
+
   const tiktokMedia = mediaFor("tiktok");
   const tiktokVideo = tiktokMedia.find((m) => m.kind === "video")?.file ?? null;
   const tiktokImages = tiktokMedia.filter((m) => m.kind === "image");
@@ -2610,13 +3303,13 @@ export default function NewPostModal({
   const tiktokTypeLabel =
     tiktokPostType === "photo"
       ? tiktokImages.length > 1
-        ? `Carousel of ${tiktokImages.length} photos`
-        : "Photo post"
+        ? c.tiktok.typeCarousel(tiktokImages.length)
+        : c.tiktok.typePhoto
       : tiktokPostType === "video"
       ? tiktokImages.length > 0
-        ? "Video post (photos are ignored)"
-        : "Video post"
-      : "Add a video, or one or more photos.";
+        ? c.tiktok.typeVideoIgnore
+        : c.tiktok.typeVideo
+      : c.tiktok.typeEmpty;
   const brandedChosen =
     tiktokMode === "direct" && tiktokCommercial.on && tiktokCommercial.branded;
   const tiktokBlockingReason: string | null = !tiktokSelected
@@ -2624,19 +3317,19 @@ export default function NewPostModal({
     : scheduleAction === "save_in_folder"
     ? null
     : !tiktokPostType
-    ? "TikTok needs a video or at least one photo."
+    ? c.blocking.tiktokNoMedia
     : scheduleAction !== "set_date" && tiktokMode === "direct" && !tiktokOptions.privacy_level
     ? tiktokPrivacyOptions.length === 0 && !tiktokInfoError
-      ? "Loading TikTok settings…"
-      : "Choose who can view your TikTok."
+      ? c.blocking.tiktokLoading
+      : c.blocking.tiktokPrivacy
     : scheduleAction !== "set_date" &&
       tiktokMode === "direct" &&
       tiktokCommercial.on &&
       !tiktokCommercial.yourBrand &&
       !tiktokCommercial.branded
-    ? "Say whether your TikTok promotes yourself, a third party, or both."
+    ? c.blocking.tiktokCommercial
     : null;
-  /* ── YouTube ── */
+
   const primaryContent = masterContent || (validNetworks[0] ? contentFor(validNetworks[0]) : "");
   const youtubeFallbackTitle = (
     title.trim() ||
@@ -2652,30 +3345,30 @@ export default function NewPostModal({
     : scheduleAction === "save_in_folder"
     ? null
     : youtubeVideoFile === null
-    ? "YouTube Shorts needs a video."
+    ? c.blocking.youtubeNeedsVideo
     : !isYouTubeVideoFormat(youtubeVideoFile)
-    ? "Unsupported video format for YouTube Shorts. Use MP4, MOV, MPEG, AVI, WebM or WMV."
+    ? c.blocking.youtubeFormat
     : !youtubeEffectiveTitle
-    ? "Add a title for your YouTube Shorts video."
+    ? c.blocking.youtubeNeedsTitle
     : null;
   const updateYoutube = <K extends keyof YouTubeOptions>(
     key: K,
     value: YouTubeOptions[K]
   ) => setYoutubeOptions((o) => ({ ...o, [key]: value }));
-  /* ── Validation : une seule raison lisible, affichée dans le footer ── */
+
   const labelOf = (id: SocialNetworkId) =>
     SOCIAL_NETWORKS.find((n) => n.id === id)?.label ?? id;
   const blockingReason: string | null =
     networks.length === 0
-      ? "Select at least one channel."
+      ? c.blocking.selectChannel
       : validNetworks.length === 0
-      ? "The selected channels are no longer connected. Reconnect them in Settings or pick another channel."
+      ? c.blocking.disconnected
       : !hasContent && !validNetworks.some((n) => mediaFor(n).length > 0)
-      ? "Write something or add media."
+      ? c.blocking.writeOrAdd
       : scheduleAction === "set_date" && scheduledAt.getTime() <= Date.now()
-      ? "Pick a date and time in the future."
+      ? c.blocking.pickFuture
       : overLimitNetworks.length > 0
-      ? `Too long for ${overLimitNetworks.map(labelOf).join(", ")}.`
+      ? c.blocking.tooLongFor(overLimitNetworks.map(labelOf).join(", "))
       : tiktokBlockingReason || youtubeBlockingReason || null;
   const canSubmit = !blockingReason && !isSubmitting;
   const showTikTokDeclaration = tiktokSelected && scheduleAction === "now";
@@ -2694,11 +3387,7 @@ export default function NewPostModal({
       )
     );
     const tiktokNow = tiktokSelected && scheduleAction === "now";
-    // YouTube est uploadé directement par le composer pour "now" et "set_date".
-    // Dans les deux cas, le backend ne doit PAS le republier : il doit juste
-    // l'afficher dans le calendrier. D'où `externalNetworks`.
     const youtubeNow = youtubeSelected && scheduleAction !== "save_in_folder";
-
     const externallyHandled: SocialNetworkId[] = youtubeNow ? ["youtube"] : [];
 
     const mediaByNetwork: Partial<Record<SocialNetworkId, File[]>> = {};
@@ -2707,10 +3396,6 @@ export default function NewPostModal({
       if (own) mediaByNetwork[n] = own.map((item) => item.file);
     });
 
-    // Construit channelKeys en collectant les réseaux dont la clé manque.
-    // Si `channelKeys` finit vide, le backend refusera la requête avec
-    // « At least one network is required » : on intercepte avant l'appel réseau
-    // et on affiche la popup « Connect a channel ».
     const channelKeys: Partial<Record<SocialNetworkId, string>> = {};
     const missingChannelKeys: SocialNetworkId[] = [];
     validNetworks.forEach((n) => {
@@ -2723,10 +3408,8 @@ export default function NewPostModal({
       setConnectChannelPrompt({
         message:
           missingChannelKeys.length > 0
-            ? `Impossible de retrouver la chaîne connectée pour ${missingChannelKeys
-                .map(labelOf)
-                .join(", ")}. Reconnecte-la dans les paramètres ou sélectionne une autre chaîne.`
-            : "Aucune chaîne connectée n'est disponible pour ce post. Connecte un canal dans les paramètres.",
+            ? c.connectPrompt.missingChannels(missingChannelKeys.map(labelOf).join(", "))
+            : c.connectPrompt.noChannel,
       });
       return;
     }
@@ -2750,7 +3433,6 @@ export default function NewPostModal({
       channelKeys,
     };
 
-    // Log utile pour diagnostiquer ce qui part réellement au backend.
     if (typeof console !== "undefined") {
       console.log("[NewPost] Submitting payload", {
         networks,
@@ -2766,7 +3448,6 @@ export default function NewPostModal({
       setSubmitError(null);
       setSubmitProgress(null);
 
-      // 1. Publication TikTok Directe
       if (tiktokNow && tiktokPostType) {
         const tiktokCaption = resolved["tiktok"]?.trim() || "";
         const isPhoto = tiktokPostType === "photo";
@@ -2777,9 +3458,7 @@ export default function NewPostModal({
           if (maxDuration) {
             const duration = await getVideoDuration(tiktokVideo);
             if (duration > maxDuration) {
-              throw new Error(
-                `This video is too long for your TikTok account (max ${formatDuration(maxDuration)}).`
-              );
+              throw new Error(c.submit.tiktokTooLong(formatDuration(maxDuration, lang)));
             }
           }
         }
@@ -2804,13 +3483,13 @@ export default function NewPostModal({
         if (isPhoto) {
           setSubmitProgress(
             tiktokImages.length > 1
-              ? "Preparing your carousel…"
-              : "Preparing your photo…"
+              ? c.submit.tiktokPreparingCarousel
+              : c.submit.tiktokPreparingPhoto
           );
           const photos = await Promise.all(
             tiktokImages.map((item) => toTikTokImage(item.file))
           );
-          setSubmitProgress("Uploading photos to TikTok…");
+          setSubmitProgress(c.submit.tiktokUploadingPhotos);
           publishId = await publishPhotosToTikTok({
             photos,
             caption: tiktokCaption,
@@ -2818,7 +3497,7 @@ export default function NewPostModal({
             options,
           });
         } else {
-          setSubmitProgress("Uploading video to TikTok…");
+          setSubmitProgress(c.submit.tiktokUploadingVideo);
           publishId = await publishToTikTok({
             video: tiktokVideo as File,
             caption: tiktokCaption,
@@ -2829,39 +3508,32 @@ export default function NewPostModal({
         await waitForTikTokPublish(publishId, (status) => {
           setSubmitProgress(
             status === "PROCESSING_UPLOAD" || status === "PROCESSING_DOWNLOAD"
-              ? "TikTok is processing your content…"
-              : "Finalizing…"
+              ? c.submit.tiktokProcessing
+              : c.submit.tiktokFinalizing
           );
         });
       }
 
-      // 2. Publication YouTube Directe
       let youtubeOutcome: { url: string; message: string; warning: boolean } | null = null;
       if (youtubeNow) {
         const youtubeVideo = mediaFor("youtube").find((m) => m.kind === "video")?.file;
-        if (!youtubeVideo) throw new Error("YouTube Shorts needs a video.");
+        if (!youtubeVideo) throw new Error(c.submit.errorYouTubeNoVideo);
 
         if (!isYouTubeVideoFormat(youtubeVideo)) {
-          throw new Error(
-            "This video format isn't supported by YouTube Shorts. Use MP4, MOV, MPEG, AVI, WebM or WMV."
-          );
+          throw new Error(c.submit.errorYouTubeFormat);
         }
 
         const { duration, width, height } = await getVideoInfo(youtubeVideo);
         if (!width || !height) {
-          throw new Error("Could not read the video size. Try another file.");
+          throw new Error(c.submit.errorYouTubeSize);
         }
 
         if (!isYouTubeShortAspectRatio(width, height)) {
-          throw new Error(
-            `YouTube Shorts must be vertical (9:16) or square (1:1). Your video is ${width}×${height}. Crop it to 1080×1920 (9:16) or 1080×1080 (1:1) and try again.`
-          );
+          throw new Error(c.submit.errorYouTubeAspect(width, height));
         }
 
         if (duration > YOUTUBE_SHORT_MAX_DURATION_SEC) {
-          throw new Error(
-            `This video is too long for a YouTube Short (${formatDuration(duration)}). The maximum is 3 minutes (180 seconds).`
-          );
+          throw new Error(c.submit.errorYouTubeDuration(formatDuration(duration, lang)));
         }
 
         let description = (resolved["youtube"] ?? "").trim();
@@ -2870,8 +3542,8 @@ export default function NewPostModal({
         }
         setSubmitProgress(
           scheduleAction === "set_date"
-            ? "Uploading video and scheduling on YouTube…"
-            : "Uploading video to YouTube…"
+            ? c.submit.youtubeScheduling
+            : c.submit.youtubeUploading
         );
         const result = await publishToYouTube({
           video: youtubeVideo,
@@ -2888,16 +3560,13 @@ export default function NewPostModal({
           url: result.url,
           warning: result.privacy_locked,
           message: result.privacy_locked
-            ? "Video uploaded to YouTube, but YouTube forced it to private (your API project hasn't passed the YouTube audit yet)."
+            ? c.results.youtubePrivate
             : scheduleAction === "set_date"
-            ? "Video uploaded and scheduled on YouTube."
-            : "Video uploaded to YouTube. It can take a few minutes to appear as a Short.",
+            ? c.results.youtubeScheduled
+            : c.results.youtubeUploaded,
         };
       }
 
-      // 3. Envoi au Backend (pour enregistrer l'état dans le calendrier).
-      // On isole l'appel : un échec du calendrier ne doit pas masquer un upload
-      // YouTube déjà réussi (le Short est déjà en ligne).
       let backendError: unknown = null;
       try {
         await onSubmit(payload);
@@ -2910,9 +3579,6 @@ export default function NewPostModal({
         mediaFor(n).some((m) => m.kind === "video")
       );
 
-      // YouTube déjà publié : on affiche uniquement le résultat de succès.
-      // Aucune erreur "calendrier" n'est remontée à l'utilisateur, quel que
-      // soit le mode — la vidéo est en ligne, c'est ce qui compte.
       if (youtubeOutcome) {
         setYoutubeResult(youtubeOutcome);
         setSubmitProgress(null);
@@ -2920,8 +3586,6 @@ export default function NewPostModal({
         return;
       }
 
-      // Pas d'upload YouTube : on relaie l'erreur backend au catch principal
-      // pour afficher le bon message (y compris le cas « at least one network »).
       if (backendError) throw backendError;
 
       if (scheduleAction === "set_date") {
@@ -2935,21 +3599,16 @@ export default function NewPostModal({
       console.error("Error while creating the post:", error);
       const raw = error instanceof Error ? error.message : "";
 
-      // Cas spécifique : le backend refuse parce qu'il ne voit aucun réseau.
-      // On affiche la popup « connecter une chaîne » plutôt que du texte rouge.
       if (/at least one network is required/i.test(raw)) {
-        setConnectChannelPrompt({
-          message:
-            "Aucune chaîne connectée n'a été reconnue. Reconnecte-la dans les paramètres ou sélectionne une autre chaîne.",
-        });
+        setConnectChannelPrompt({ message: c.connectPrompt.backendNoNetwork });
         setSubmitProgress(null);
         setIsSubmitting(false);
         return;
       }
 
       const message = /too_many_posts|spam_risk/i.test(raw)
-        ? "This TikTok account has reached its posting limit for now. Please try again later."
-        : raw || "Something went wrong while publishing.";
+        ? c.submit.errorTikTokLimit
+        : raw || c.submit.errorGeneric;
       setSubmitError(message);
       setSubmitProgress(null);
       setIsSubmitting(false);
@@ -2957,6 +3616,7 @@ export default function NewPostModal({
   };
 
   submitRef.current = handleSubmit;
+
   const selectAction = (action: ScheduleAction) => {
     setScheduleAction(action);
     setShowActionMenu(false);
@@ -2969,26 +3629,33 @@ export default function NewPostModal({
       return next;
     });
   };
+
   const footerLabel =
     scheduleAction === "set_date"
-      ? formatShortDateTime(scheduledAt)
+      ? formatShortDateTime(scheduledAt, lang)
       : scheduleAction === "save_in_folder"
-      ? "Save in folder"
-      : "Now";
+      ? c.footer.saveInFolder
+      : c.footer.now;
   const submitLabel = isSubmitting
     ? scheduleAction === "save_in_folder"
-      ? "Saving…"
+      ? c.footer.saving
       : scheduleAction === "set_date"
-      ? "Scheduling…"
-      : "Publishing…"
+      ? c.footer.scheduling
+      : c.footer.publishing
     : scheduleAction === "now"
     ? tiktokSelected && tiktokMode === "draft"
-      ? "Send to TikTok"
-      : "Post now"
+      ? c.footer.sendToTikTok
+      : c.footer.postNow
     : scheduleAction === "save_in_folder"
-    ? "Save post"
-    : "Schedule post";
-  // ── Thèmes ──
+    ? c.footer.savePost
+    : c.footer.schedulePost;
+
+  const scheduleActionInfo: Record<ScheduleAction, { label: string; description: string }> = {
+    save_in_folder: { label: c.footer.saveInFolder, description: c.footer.saveInFolderDesc },
+    now: { label: c.footer.now, description: c.footer.nowDesc },
+    set_date: { label: c.footer.setDate, description: c.footer.setDateDesc },
+  };
+
   const bgModal = isDark ? "bg-[#141416]" : "bg-white";
   const bgPanel = isDark ? "bg-[#1c1c1e]" : "bg-neutral-50";
   const bgCard = isDark ? "bg-[#1c1c1e]" : "bg-neutral-50";
@@ -3001,26 +3668,24 @@ export default function NewPostModal({
   const accentCheck = isDark ? "text-white" : "text-neutral-900";
   const accentSolid = isDark ? "bg-white/5" : "bg-neutral-100";
   const accentBorder = isDark ? "border-white/15" : "border-black/10";
-  const allowRows: {
-    key: keyof TikTokAllow;
-    label: string;
-    forced: boolean;
-  }[] = [
-    { key: "comment", label: "Allow comments", forced: Boolean(tiktokInfo?.comment_disabled) },
+
+  const allowRows: { key: keyof TikTokAllow; label: string; forced: boolean }[] = [
+    { key: "comment", label: c.tiktok.allowComments, forced: Boolean(tiktokInfo?.comment_disabled) },
     ...(tiktokPostType === "photo"
       ? []
       : [
-          { key: "duet" as const, label: "Allow duet", forced: Boolean(tiktokInfo?.duet_disabled) },
-          { key: "stitch" as const, label: "Allow stitch", forced: Boolean(tiktokInfo?.stitch_disabled) },
+          { key: "duet" as const, label: c.tiktok.allowDuet, forced: Boolean(tiktokInfo?.duet_disabled) },
+          { key: "stitch" as const, label: c.tiktok.allowStitch, forced: Boolean(tiktokInfo?.stitch_disabled) },
         ]),
   ];
+
   const linkClass = "underline underline-offset-2 hover:opacity-80";
   const textareaClass = [
     "w-full resize-none bg-transparent text-[15px] leading-relaxed outline-none",
     textPrimary,
     isDark ? "placeholder:text-neutral-600" : "placeholder:text-neutral-400",
   ].join(" ");
-  // Aperçu : réseau actif (onglet), sinon le premier sélectionné
+
   const activePreviewId =
     previewNetwork && networks.includes(previewNetwork)
       ? previewNetwork
@@ -3035,8 +3700,8 @@ export default function NewPostModal({
   const previewMedia = activePreviewId ? mediaFor(activePreviewId) : media;
   const previewHasSomething = previewText.trim().length > 0 || previewMedia.length > 0;
   const avatarRing = isDark ? "ring-[#1c1c1e]" : "ring-neutral-50";
-  // Avertissement : des réseaux sélectionnés ne sont plus connectés.
   const staleNetworks = networks.filter((n) => !connectedNetworkIds.has(n));
+
   const renderMediaArea = (target: string) => {
     const isMaster = target === "master";
     const hasOwn = !isMaster && channelMedia[target] !== undefined;
@@ -3049,7 +3714,7 @@ export default function NewPostModal({
       <>
         {usingShared && (
           <p className={["mt-3 text-[12.5px]", textSecondary].join(" ")}>
-            Using the shared media below ({media.length}). Add files here to use different media for this channel.
+            {c.composer.usingShared(media.length)}
           </p>
         )}
         {canvaBusy === target && (
@@ -3058,7 +3723,7 @@ export default function NewPostModal({
             className={["mt-3 flex items-center gap-2 text-[12.5px]", textSecondary].join(" ")}
           >
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            Opening Canva…
+            {c.canva.opening}
           </p>
         )}
         {pendingCanva.map((design) => (
@@ -3075,10 +3740,10 @@ export default function NewPostModal({
             />
             <div className="min-w-0 flex-1">
               <p className={["truncate text-[13px] font-semibold", textPrimary].join(" ")}>
-                Canva design · {design.label}
+                {c.canva.design} · {design.label}
               </p>
               <p className={["text-[12px]", textSecondary].join(" ")}>
-                Finish it in Canva, then import it into your post.
+                {c.canva.finish}
               </p>
             </div>
             <a
@@ -3088,7 +3753,7 @@ export default function NewPostModal({
               className={["flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-semibold transition", textSecondary, hoverSoft].join(" ")}
             >
               <ExternalLink className="h-3.5 w-3.5" />
-              Open in Canva
+              {c.canva.open}
             </a>
             <button
               type="button"
@@ -3102,11 +3767,11 @@ export default function NewPostModal({
               ].join(" ")}
             >
               {design.importing && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-              {design.importing ? "Importing…" : "Import design"}
+              {design.importing ? c.canva.importing : c.canva.importDesign}
             </button>
             <button
               type="button"
-              aria-label="Dismiss Canva design"
+              aria-label={c.canva.importDesign}
               onClick={() => dismissCanvaDesign(design.designId)}
               disabled={design.importing}
               className={["flex h-7 w-7 items-center justify-center rounded-lg transition disabled:opacity-50", textSecondary, hoverSoft].join(" ")}
@@ -3135,19 +3800,19 @@ export default function NewPostModal({
                 )}
                 {index === 0 && items.length > 1 && (
                   <span className="absolute bottom-1.5 left-1.5 rounded-md bg-black/70 px-1.5 py-0.5 text-[10px] font-semibold text-white">
-                    Cover
+                    {c.composer.cover}
                   </span>
                 )}
                 {sharedHere ? (
                   <span className="absolute right-1.5 top-1.5 rounded-md bg-black/70 px-1.5 py-0.5 text-[10px] font-semibold text-white">
-                    Shared
+                    {c.composer.shared}
                   </span>
                 ) : (
                   <>
                     <div className="pointer-events-none absolute inset-0 bg-black/0 transition-colors group-hover:bg-black/20" />
                     <button
                       type="button"
-                      aria-label="Remove media"
+                      aria-label={c.composer.removeMedia}
                       onClick={() => removeMedia(item.id)}
                       className="absolute right-1.5 top-1.5 z-30 flex h-6 w-6 cursor-pointer items-center justify-center rounded-lg bg-black/70 text-white opacity-0 backdrop-blur-sm transition-opacity hover:bg-black/90 focus-visible:opacity-100 group-hover:opacity-100"
                     >
@@ -3156,7 +3821,7 @@ export default function NewPostModal({
                     {item.kind === "image" && (
                       <button
                         type="button"
-                        aria-label="Edit image"
+                        aria-label={c.composer.editImage}
                         onClick={() => setEditingItem(item)}
                         className="absolute bottom-1.5 right-1.5 z-30 flex h-6 w-6 cursor-pointer items-center justify-center rounded-lg bg-black/70 text-white opacity-0 backdrop-blur-sm transition-opacity hover:bg-black/90 focus-visible:opacity-100 group-hover:opacity-100"
                       >
@@ -3184,10 +3849,10 @@ export default function NewPostModal({
             >
               <ImagePlus className="h-6 w-6" strokeWidth={1.75} />
               <span>
-                Drag &amp; drop or
+                {c.composer.dragDrop}
                 <br />
                 <span className={["font-semibold", isDark ? "text-white" : "text-neutral-900"].join(" ")}>
-                  select a file
+                  {c.composer.selectFile}
                 </span>
               </span>
             </button>
@@ -3200,7 +3865,7 @@ export default function NewPostModal({
             className={["mt-3 flex cursor-pointer items-center gap-1.5 self-start rounded-md px-2 py-1 text-[12px] font-semibold transition", textSecondary, hoverSoft].join(" ")}
           >
             <RotateCcw className="h-3 w-3" />
-            Use shared media
+            {c.composer.useSharedMedia}
           </button>
         )}
         {error && (
@@ -3211,14 +3876,15 @@ export default function NewPostModal({
       </>
     );
   };
+
   const renderSourceButton = (target: string) => {
     const open = showSourceMenu === target;
     return (
       <div className="source-wrapper relative">
         <button
           type="button"
-          aria-label="Add media from…"
-          title="Add media (shared by all channels)"
+          aria-label={c.composer.addMediaFrom}
+          title={c.composer.addMediaTitle}
           aria-haspopup="menu"
           aria-expanded={open}
           onClick={() => {
@@ -3244,6 +3910,7 @@ export default function NewPostModal({
       </div>
     );
   };
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-3 backdrop-blur-md"
@@ -3254,7 +3921,7 @@ export default function NewPostModal({
       <div
         role="dialog"
         aria-modal="true"
-        aria-label="Create post"
+        aria-label={c.header.title}
         className={[
           "relative flex flex-col overflow-hidden border",
           isFullscreen
@@ -3265,7 +3932,7 @@ export default function NewPostModal({
           isDark ? "shadow-[0_32px_80px_rgba(0,0,0,0.6)]" : "shadow-[0_32px_80px_rgba(0,0,0,0.22)]",
         ].join(" ")}
       >
-        {/* ── Header ── */}
+        {/* Header */}
         <div className={["flex shrink-0 items-center justify-between border-b px-6 py-4", border].join(" ")}>
           <div className="flex items-center gap-4">
             <button
@@ -3274,9 +3941,8 @@ export default function NewPostModal({
               className={["flex items-center gap-2 rounded-lg text-[17px] font-bold tracking-tight transition hover:opacity-70", textPrimary].join(" ")}
             >
               <ArrowLeft className="h-4 w-4" />
-              Create post
+              {c.header.title}
             </button>
-            {/* ── Tags ── */}
             <div className="relative" data-tag-menu>
               <button
                 type="button"
@@ -3285,7 +3951,7 @@ export default function NewPostModal({
                 className={["flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[13px] font-medium transition", border, textSecondary, hoverSoft].join(" ")}
               >
                 <Tag className="h-3.5 w-3.5" />
-                Tags
+                {c.header.tags}
                 {tagIds.length > 0 && (
                   <span className={["rounded-full px-1.5 text-[11px] font-semibold", accentBg, accentText].join(" ")}>
                     {tagIds.length}
@@ -3303,7 +3969,7 @@ export default function NewPostModal({
                 >
                   {tags.length === 0 && (
                     <p className={["px-3 py-2 text-[12.5px]", textSecondary].join(" ")}>
-                      No tags yet. Create some in Settings.
+                      {c.header.noTags}
                     </p>
                   )}
                   {tags.map((tag) => {
@@ -3328,7 +3994,6 @@ export default function NewPostModal({
                 </div>
               )}
             </div>
-            {/* ────────── */}
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -3338,23 +4003,23 @@ export default function NewPostModal({
               className={["flex cursor-not-allowed items-center gap-1.5 px-3 py-1.5 text-[13px] font-medium opacity-50", textSecondary].join(" ")}
             >
               <FileText className="h-4 w-4" />
-              Templates
+              {c.header.templates}
             </button>
             <div className={["mx-1 h-5 w-px", isDark ? "bg-white/10" : "bg-black/10"].join(" ")} />
             <button
               type="button"
               aria-pressed={showPreview}
-              aria-label={showPreview ? "Hide preview" : "Show preview"}
-              title={showPreview ? "Hide preview" : "Show preview"}
+              aria-label={showPreview ? c.header.hidePreview : c.header.showPreview}
+              title={showPreview ? c.header.hidePreview : c.header.showPreview}
               onClick={() => setShowPreview((v) => !v)}
               className={["hidden h-8 items-center gap-1.5 rounded-full px-3 text-[13px] font-medium transition lg:flex", textSecondary, hoverSoft].join(" ")}
             >
               {showPreview ? <PanelRightClose className="h-4 w-4" /> : <PanelRightOpen className="h-4 w-4" />}
-              Preview
+              {c.header.preview}
             </button>
             <button
               type="button"
-              aria-label={isFullscreen ? "Exit full screen" : "Enter full screen"}
+              aria-label={isFullscreen ? c.header.exitFullscreen : c.header.enterFullscreen}
               onClick={() => setIsFullscreen((v) => !v)}
               className={["flex h-8 w-8 items-center justify-center rounded-full transition", textSecondary, hoverSoft].join(" ")}
             >
@@ -3362,8 +4027,8 @@ export default function NewPostModal({
             </button>
             <button
               type="button"
-              aria-label="Close"
-              title={hasDraftContent ? "Close (your draft is kept)" : "Close"}
+              aria-label={c.header.close}
+              title={hasDraftContent ? c.header.closeWithDraft : c.header.close}
               onClick={closeWithDraft}
               className={["flex h-8 w-8 items-center justify-center rounded-full transition", textSecondary, hoverSoft].join(" ")}
             >
@@ -3371,18 +4036,17 @@ export default function NewPostModal({
             </button>
           </div>
         </div>
-        {/* ── Body ── */}
+
+        {/* Body */}
         <div className="flex min-h-0 flex-1 overflow-hidden">
-          {/* Colonne gauche */}
           <div className="flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto p-6">
-            {/* Canaux connectés */}
-            <section aria-label="Channels">
+            <section aria-label={c.channels.postTo}>
               <div className="mb-3 flex items-center justify-between">
                 <h2 className={["text-[13px] font-semibold", textPrimary].join(" ")}>
-                  Post to
+                  {c.channels.postTo}
                   {networks.length > 0 && (
                     <span className={["ml-2 font-normal", textSecondary].join(" ")}>
-                      {networks.length} selected
+                      {c.channels.selected(networks.length)}
                     </span>
                   )}
                 </h2>
@@ -3392,7 +4056,7 @@ export default function NewPostModal({
                     onClick={toggleAllNetworks}
                     className={["rounded-md px-2 py-1 text-[12.5px] font-semibold transition", textSecondary, hoverSoft].join(" ")}
                   >
-                    {allSelected ? "Clear all" : "Select all"}
+                    {allSelected ? c.channels.clearAll : c.channels.selectAll}
                   </button>
                 )}
               </div>
@@ -3410,8 +4074,8 @@ export default function NewPostModal({
                 <button
                   type="button"
                   onClick={handleConnectChannel}
-                  title="Connect a channel"
-                  aria-label="Connect a channel"
+                  title={c.channels.connectChannel}
+                  aria-label={c.channels.connectChannel}
                   className={[
                     "flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-dashed transition",
                     isDark
@@ -3424,24 +4088,23 @@ export default function NewPostModal({
               </div>
               {channelTiles.length === 0 && (
                 <p className={["mt-3 text-[13px]", textSecondary].join(" ")}>
-                  No channel connected yet. Connect one to start publishing.
+                  {c.channels.noChannels}
                 </p>
               )}
               {staleNetworks.length > 0 && (
                 <p role="status" className="mt-2 flex items-start gap-1.5 text-[12.5px] text-amber-500">
                   <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                   <span className="min-w-0">
-                    {staleNetworks.map(labelOf).join(", ")}{" "}
                     {staleNetworks.length === 1
-                      ? "is no longer connected and will be skipped."
-                      : "are no longer connected and will be skipped."}
+                      ? c.channels.staleSingular(staleNetworks.map(labelOf).join(", "))
+                      : c.channels.stalePlural(staleNetworks.map(labelOf).join(", "))}
                   </span>
                 </p>
               )}
             </section>
-            {/* Zone d'écriture principale */}
+
             <section
-              aria-label="Post text and media"
+              aria-label={c.composer.ariaText}
               onDragOver={(e) => {
                 e.preventDefault();
                 setDraggingTarget("master");
@@ -3486,7 +4149,7 @@ export default function NewPostModal({
                   </div>
                 )}
                 <span className={["text-[15px] font-semibold", textPrimary].join(" ")}>
-                  {networks.length > 0 ? "Write once, post everywhere" : "Write your post"}
+                  {networks.length > 0 ? c.composer.writeOnce : c.composer.writePost}
                 </span>
               </div>
               <AutoTextarea
@@ -3496,8 +4159,8 @@ export default function NewPostModal({
                 textareaRef={(el) => {
                   textareaRefs.current.master = el;
                 }}
-                ariaLabel="Post text for all selected channels"
-                placeholder="What do you want to share?"
+                ariaLabel={c.composer.ariaText}
+                placeholder={c.composer.placeholder}
                 className={[textareaClass, "min-h-[150px]"].join(" ")}
               />
               {renderMediaArea("master")}
@@ -3519,7 +4182,7 @@ export default function NewPostModal({
                     isDark ? "bg-black/50 text-white" : "bg-white/70 text-neutral-900",
                   ].join(" ")}
                 >
-                  Drop to add to your post
+                  {c.composer.dropToAdd}
                 </div>
               )}
               <ComposerToolbar
@@ -3533,17 +4196,18 @@ export default function NewPostModal({
                 length={masterContent.length}
                 limit={strictestLimit}
                 leading={renderSourceButton("master")}
+                lang={lang}
               />
             </section>
-            {/* Cartes par réseau */}
+
             {networks.length > 0 ? (
-              <section aria-label="Customize per channel" className="flex flex-col gap-4">
+              <section aria-label={c.networkCard.customizeTitle} className="flex flex-col gap-4">
                 <div>
                   <h2 className={["text-[15px] font-semibold", textPrimary].join(" ")}>
-                    Customize per channel
+                    {c.networkCard.customizeTitle}
                   </h2>
                   <p className={["mt-0.5 text-[12.5px]", textSecondary].join(" ")}>
-                    Each channel follows your text above until you edit it here.
+                    {c.networkCard.customizeDesc}
                   </p>
                 </div>
                 {networks.map((networkId) => {
@@ -3590,10 +4254,9 @@ export default function NewPostModal({
                             isDark ? "bg-black/50 text-white" : "bg-white/70 text-neutral-900",
                           ].join(" ")}
                         >
-                          Drop to add media for {network.label}
+                          {c.networkCard.dropToAdd(network.label)}
                         </div>
                       )}
-                      {/* Header de la carte */}
                       <button
                         type="button"
                         onClick={() => toggleCollapse(networkId)}
@@ -3616,23 +4279,23 @@ export default function NewPostModal({
                               </span>
                               {customized && (
                                 <span className={["shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold", accentBg, accentText].join(" ")}>
-                                  Customized
+                                  {c.networkCard.customized}
                                 </span>
                               )}
                               {over && (
                                 <span className="shrink-0 rounded-full bg-red-500/15 px-2 py-0.5 text-[11px] font-semibold text-red-500">
-                                  Too long
+                                  {c.networkCard.tooLong}
                                 </span>
                               )}
                               {disconnected && (
                                 <span className="shrink-0 rounded-full bg-amber-500/15 px-2 py-0.5 text-[11px] font-semibold text-amber-500">
-                                  Disconnected
+                                  {c.networkCard.disconnected}
                                 </span>
                               )}
                             </div>
                             {isCollapsed && (
                               <p className={["mt-0.5 truncate text-[12.5px]", textSecondary].join(" ")}>
-                                {currentContent.trim() || "No text"}
+                                {currentContent.trim() || c.networkCard.noText}
                               </p>
                             )}
                           </div>
@@ -3650,8 +4313,8 @@ export default function NewPostModal({
                             textareaRef={(el) => {
                               textareaRefs.current[networkId] = el;
                             }}
-                            ariaLabel={`Post text for ${network.label}`}
-                            placeholder={`Write your ${network.label} post…`}
+                            ariaLabel={c.networkCard.ariaText(network.label)}
+                            placeholder={c.networkCard.placeholder(network.label)}
                             className={[textareaClass, "min-h-[72px]"].join(" ")}
                           />
                           {renderMediaArea(networkId)}
@@ -3664,6 +4327,7 @@ export default function NewPostModal({
                             leading={renderSourceButton(networkId)}
                             length={currentContent.length}
                             limit={limit}
+                            lang={lang}
                             extra={
                               customized ? (
                                 <button
@@ -3672,26 +4336,25 @@ export default function NewPostModal({
                                   className={["flex items-center gap-1.5 rounded-md px-2 py-1 text-[12px] font-semibold transition", textSecondary, hoverSoft].join(" ")}
                                 >
                                   <RotateCcw className="h-3 w-3" />
-                                  Reset to main text
+                                  {c.networkCard.resetToMain}
                                 </button>
                               ) : null
                             }
                           />
-                          {/* YouTube */}
                           {networkId === "youtube" && (
                             <SettingsBlock
-                              title="YouTube Shorts settings"
-                              subtitle="Title, audience and visibility for your video."
+                              title={c.youtube.settingsTitle}
+                              subtitle={c.youtube.settingsDesc}
                               isDark={isDark}
                             >
-                              <FieldRow label="Title" htmlFor="youtube-title" isDark={isDark}>
+                              <FieldRow label={c.youtube.title} htmlFor="youtube-title" isDark={isDark}>
                                 <input
                                   id="youtube-title"
                                   type="text"
                                   value={youtubeOptions.title}
                                   maxLength={YOUTUBE_TITLE_MAX}
                                   onChange={(e) => updateYoutube("title", e.target.value)}
-                                  placeholder="Enter a title for your video"
+                                  placeholder={c.youtube.titlePlaceholder}
                                   className={[
                                     "w-full rounded-xl border px-4 py-2.5 text-[14px] outline-none transition",
                                     isDark
@@ -3702,7 +4365,7 @@ export default function NewPostModal({
                                 <p className={["mt-1.5 flex justify-between gap-3 text-[12px]", textSecondary].join(" ")}>
                                   <span className="min-w-0 truncate">
                                     {!youtubeOptions.title.trim() && youtubeFallbackTitle
-                                      ? `Will use: “${youtubeFallbackTitle}”`
+                                      ? c.youtube.willUse(youtubeFallbackTitle)
                                       : ""}
                                   </span>
                                   <span className="shrink-0 tabular-nums">
@@ -3710,46 +4373,51 @@ export default function NewPostModal({
                                   </span>
                                 </p>
                               </FieldRow>
-                              <FieldRow label="Category" isDark={isDark}>
+                              <FieldRow label={c.youtube.category} isDark={isDark}>
                                 <Select
-                                  ariaLabel="YouTube category"
+                                  ariaLabel={c.youtube.category}
                                   value={youtubeOptions.categoryId}
                                   options={YOUTUBE_CATEGORIES}
                                   onChange={(v) => updateYoutube("categoryId", v)}
                                   isDark={isDark}
                                 />
                               </FieldRow>
-                              <FieldRow label="Visibility" isDark={isDark}>
+                              <FieldRow label={c.youtube.visibility} isDark={isDark}>
                                 <Select
-                                  ariaLabel="YouTube visibility"
+                                  ariaLabel={c.youtube.visibility}
                                   value={youtubeOptions.visibility}
-                                  options={YOUTUBE_VISIBILITY}
+                                  options={YOUTUBE_VISIBILITY_IDS.map((id) => ({
+                                    id,
+                                    label: c.youtube.visibilityLabels[id],
+                                  }))}
                                   onChange={(v) => updateYoutube("visibility", v)}
                                   isDark={isDark}
                                 />
                               </FieldRow>
-                              <FieldRow label="License" isDark={isDark}>
+                              <FieldRow label={c.youtube.license} isDark={isDark}>
                                 <Select
-                                  ariaLabel="YouTube license"
+                                  ariaLabel={c.youtube.license}
                                   value={youtubeOptions.license}
-                                  options={YOUTUBE_LICENSES}
+                                  options={YOUTUBE_LICENSE_IDS.map((id) => ({
+                                    id,
+                                    label: c.youtube.licenseLabels[id],
+                                  }))}
                                   onChange={(v) => updateYoutube("license", v)}
                                   isDark={isDark}
                                 />
                               </FieldRow>
-                              <FieldRow label="Options" isDark={isDark}>
+                              <FieldRow label={c.youtube.options} isDark={isDark}>
                                 <div className="flex flex-wrap items-center gap-x-6 gap-y-2.5">
-                                  <Checkbox label="Notify subscribers" checked={youtubeOptions.notifySubscribers} onChange={(v) => updateYoutube("notifySubscribers", v)} isDark={isDark} />
-                                  <Checkbox label="Allow embedding" checked={youtubeOptions.allowEmbedding} onChange={(v) => updateYoutube("allowEmbedding", v)} isDark={isDark} />
-                                  <Checkbox label="Made for kids" checked={youtubeOptions.madeForKids} onChange={(v) => updateYoutube("madeForKids", v)} isDark={isDark} />
+                                  <Checkbox label={c.youtube.notifySubscribers} checked={youtubeOptions.notifySubscribers} onChange={(v) => updateYoutube("notifySubscribers", v)} isDark={isDark} />
+                                  <Checkbox label={c.youtube.allowEmbedding} checked={youtubeOptions.allowEmbedding} onChange={(v) => updateYoutube("allowEmbedding", v)} isDark={isDark} />
+                                  <Checkbox label={c.youtube.madeForKids} checked={youtubeOptions.madeForKids} onChange={(v) => updateYoutube("madeForKids", v)} isDark={isDark} />
                                 </div>
                               </FieldRow>
                             </SettingsBlock>
                           )}
-                          {/* TikTok */}
                           {networkId === "tiktok" && scheduleAction !== "save_in_folder" && scheduleAction !== "set_date" && (
                             <SettingsBlock
-                              title={`TikTok settings${tiktokInfo?.creator_nickname ? ` · ${tiktokInfo.creator_nickname}` : ""}`}
+                              title={`${c.tiktok.settingsTitle}${tiktokInfo?.creator_nickname ? ` · ${tiktokInfo.creator_nickname}` : ""}`}
                               subtitle={tiktokTypeLabel}
                               isDark={isDark}
                             >
@@ -3764,14 +4432,14 @@ export default function NewPostModal({
                                     }}
                                     className="font-semibold underline"
                                   >
-                                    Retry
+                                    {c.tiktok.retry}
                                   </button>
                                 </p>
                               )}
                               <div>
                                 <div
                                   role="radiogroup"
-                                  aria-label="TikTok publishing mode"
+                                  aria-label={c.tiktok.settingsTitle}
                                   className={["inline-flex rounded-xl border p-1", border].join(" ")}
                                 >
                                   {(tiktokDraftOnly
@@ -3793,31 +4461,29 @@ export default function NewPostModal({
                                           : `${textSecondary} ${hoverSoft}`,
                                       ].join(" ")}
                                     >
-                                      {m === "direct" ? "Publish directly" : "Save as draft"}
+                                      {m === "direct" ? c.tiktok.publishDirect : c.tiktok.saveAsDraft}
                                     </button>
                                   ))}
                                 </div>
                                 <p className={["mt-1.5 text-[12px]", textSecondary].join(" ")}>
-                                  {tiktokMode === "direct"
-                                    ? "Goes live on your profile as soon as TikTok has processed it."
-                                    : "Lands in your TikTok inbox so you can finish it in the app."}
+                                  {tiktokMode === "direct" ? c.tiktok.directDesc : c.tiktok.draftDesc}
                                 </p>
                                 {tiktokDraftOnly && (
                                   <p className={["mt-1 text-[12px]", textSecondary].join(" ")}>
-                                    Your TikTok app is in sandbox mode: posts are sent to your TikTok inbox as drafts.
+                                    {c.tiktok.sandboxNote}
                                   </p>
                                 )}
                               </div>
                               {tiktokMode === "direct" && (
                                 <>
-                                  <FieldRow label="Who can view" isDark={isDark}>
+                                  <FieldRow label={c.tiktok.whoCanView} isDark={isDark}>
                                     <Select
-                                      ariaLabel="Who can view this TikTok"
+                                      ariaLabel={c.tiktok.whoCanView}
                                       value={tiktokOptions.privacy_level as string}
-                                      placeholder="Choose an audience"
+                                      placeholder={c.tiktok.chooseAudience}
                                       options={tiktokPrivacyOptions.map((p) => ({
                                         id: p,
-                                        label: TIKTOK_PRIVACY_LABELS[p] ?? p,
+                                        label: c.tiktok.privacyLabels[p] ?? p,
                                         disabled: p === "SELF_ONLY" && brandedChosen,
                                       }))}
                                       onChange={(v) =>
@@ -3830,17 +4496,17 @@ export default function NewPostModal({
                                     />
                                     {brandedChosen && (
                                       <p className={["mt-1.5 text-[12px]", textSecondary].join(" ")}>
-                                        Branded content can't be private.
+                                        {c.tiktok.brandedPrivate}
                                       </p>
                                     )}
                                   </FieldRow>
-                                  <FieldRow label="Interactions" isDark={isDark}>
+                                  <FieldRow label={c.tiktok.interactions} isDark={isDark}>
                                     <div className="flex flex-wrap gap-x-6 gap-y-2.5">
                                       {allowRows.map(({ key, label: rowLabel, forced }) => (
                                         <Checkbox
                                           key={key}
                                           label={rowLabel}
-                                          title={forced ? "Disabled in your TikTok settings" : undefined}
+                                          title={forced ? c.tiktok.disabledBySettings : undefined}
                                           disabled={forced}
                                           checked={!forced && tiktokAllow[key]}
                                           onChange={(v) => setTiktokAllow((a) => ({ ...a, [key]: v }))}
@@ -3851,8 +4517,8 @@ export default function NewPostModal({
                                   </FieldRow>
                                   <div className={["border-t pt-3.5", border].join(" ")}>
                                     <Checkbox
-                                      label="Content disclosure"
-                                      description="Turn on if this post promotes you, a brand or a third party."
+                                      label={c.tiktok.contentDisclosure}
+                                      description={c.tiktok.contentDisclosureDesc}
                                       checked={tiktokCommercial.on}
                                       onChange={(v) =>
                                         setTiktokCommercial(
@@ -3864,15 +4530,15 @@ export default function NewPostModal({
                                     {tiktokCommercial.on && (
                                       <div className="ml-[30px] mt-3 flex flex-col gap-2.5">
                                         <Checkbox
-                                          label="Your brand"
+                                          label={c.tiktok.yourBrand}
                                           checked={tiktokCommercial.yourBrand}
                                           onChange={(v) => setTiktokCommercial((c) => ({ ...c, yourBrand: v }))}
                                           isDark={isDark}
                                         />
                                         <Checkbox
-                                          label="Branded content"
+                                          label={c.tiktok.brandedContent}
                                           disabled={tiktokOptions.privacy_level === "SELF_ONLY"}
-                                          title={tiktokOptions.privacy_level === "SELF_ONLY" ? "Not available when only you can view" : undefined}
+                                          title={tiktokOptions.privacy_level === "SELF_ONLY" ? c.tiktok.notAvailablePrivate : undefined}
                                           checked={tiktokCommercial.branded}
                                           onChange={(v) => setTiktokCommercial((c) => ({ ...c, branded: v }))}
                                           isDark={isDark}
@@ -3884,7 +4550,7 @@ export default function NewPostModal({
                               )}
                               <p className={["flex items-start gap-1.5 text-[12px]", textSecondary].join(" ")}>
                                 <Info className="mt-px h-3.5 w-3.5 shrink-0" />
-                                After publishing, it can take a few minutes for TikTok to process your content.
+                                {c.tiktok.processingNote}
                               </p>
                             </SettingsBlock>
                           )}
@@ -3897,20 +4563,20 @@ export default function NewPostModal({
             ) : (
               channelTiles.length > 0 && (
                 <p className={["text-center text-[13px]", textSecondary].join(" ")}>
-                  Select a channel above to customize your post for each network.
+                  {c.networkCard.customizeDesc}
                 </p>
               )
             )}
           </div>
-          {/* Colonne droite : aperçu */}
+
           <aside
-            aria-label="Post preview"
+            aria-label={c.preview.title}
             className={["hidden w-[400px] shrink-0 flex-col border-l", showPreview ? "lg:flex" : "", border, bgPanel].join(" ")}
           >
             <div className={["flex flex-col gap-3 border-b px-5 py-4", border].join(" ")}>
-              <h3 className={["text-[15px] font-semibold", textPrimary].join(" ")}>Preview</h3>
+              <h3 className={["text-[15px] font-semibold", textPrimary].join(" ")}>{c.preview.title}</h3>
               {networks.length > 1 && (
-                <div role="tablist" aria-label="Preview channel" className="flex flex-wrap gap-1.5">
+                <div role="tablist" aria-label={c.preview.ariaTab} className="flex flex-wrap gap-1.5">
                   {networks.map((id) => {
                     const n = SOCIAL_NETWORKS.find((s) => s.id === id)!;
                     const active = id === activePreviewId;
@@ -3945,6 +4611,7 @@ export default function NewPostModal({
                   text={previewText}
                   limit={previewNetworkData ? CHAR_LIMITS[previewNetworkData.id] : undefined}
                   media={previewMedia}
+                  lang={lang}
                 />
               ) : (
                 <div className="flex flex-col items-center text-center">
@@ -3952,14 +4619,15 @@ export default function NewPostModal({
                     <ImageIcon className={["h-6 w-6", textSecondary].join(" ")} />
                   </div>
                   <p className={["max-w-[220px] text-[13px]", textSecondary].join(" ")}>
-                    Start writing or add media to see how your post will look.
+                    {c.preview.emptyHint}
                   </p>
                 </div>
               )}
             </div>
           </aside>
         </div>
-        {/* ── Résultat de la programmation ── */}
+
+        {/* Scheduled result */}
         {scheduledResult && !youtubeResult && (
           <div
             role="status"
@@ -3970,8 +4638,8 @@ export default function NewPostModal({
           >
             <Check className="h-4 w-4 shrink-0" strokeWidth={3} />
             <span className="min-w-0 flex-1">
-              {scheduledResult.hasVideo ? "Video" : "Post"} scheduled for{" "}
-              <strong>{formatLongDateTime(scheduledResult.at)}</strong>.
+              {scheduledResult.hasVideo ? c.results.videoScheduled : c.results.postScheduled}{" "}
+              {c.results.scheduledFor(formatLongDateTime(scheduledResult.at, lang))}
             </span>
             <button
               type="button"
@@ -3983,7 +4651,7 @@ export default function NewPostModal({
               className="flex items-center gap-1.5 font-semibold underline underline-offset-2"
             >
               <CalendarClock className="h-3.5 w-3.5" />
-              View in calendar
+              {c.results.viewInCalendar}
             </button>
             <button
               type="button"
@@ -3993,11 +4661,12 @@ export default function NewPostModal({
                 isDark ? "bg-white text-[#141416] hover:bg-neutral-200" : "bg-neutral-900 text-white hover:bg-neutral-800",
               ].join(" ")}
             >
-              Done
+              {c.results.done}
             </button>
           </div>
         )}
-        {/* ── Résultat YouTube ── */}
+
+        {/* YouTube result */}
         {youtubeResult && (
           <div
             role="status"
@@ -4018,7 +4687,7 @@ export default function NewPostModal({
               className="flex items-center gap-1.5 font-semibold underline underline-offset-2"
             >
               <ExternalLink className="h-3.5 w-3.5" />
-              Open on YouTube
+              {c.results.openYouTube}
             </a>
             <button
               type="button"
@@ -4028,11 +4697,12 @@ export default function NewPostModal({
                 isDark ? "bg-white text-[#141416] hover:bg-neutral-200" : "bg-neutral-900 text-white hover:bg-neutral-800",
               ].join(" ")}
             >
-              Done
+              {c.results.done}
             </button>
           </div>
         )}
-        {/* ── Statut de publication ── */}
+
+        {/* Progress / error */}
         {(submitProgress || submitError) && (
           <div
             role={submitError ? "alert" : "status"}
@@ -4052,7 +4722,8 @@ export default function NewPostModal({
             <span className="min-w-0">{submitError ?? submitProgress}</span>
           </div>
         )}
-        {/* ── Footer ── */}
+
+        {/* Footer */}
         <div className={["relative flex shrink-0 items-center justify-end gap-4 border-t px-6 py-4", border].join(" ")}>
           <div className="mr-auto flex min-w-0 flex-1 flex-col gap-1">
             {blockingReason && !isSubmitting && (
@@ -4063,14 +4734,18 @@ export default function NewPostModal({
             )}
             {showTikTokDeclaration && (
               <p className={["text-[11.5px] leading-snug", textSecondary].join(" ")}>
-                By posting, you agree to TikTok's{" "}
+                {c.footer.byPosting}{" "}
                 {brandedChosen && (
                   <>
-                    <a href={TIKTOK_BRANDED_URL} target="_blank" rel="noreferrer" className={linkClass}>Branded Content Policy</a>
-                    {" and "}
+                    <a href={TIKTOK_BRANDED_URL} target="_blank" rel="noreferrer" className={linkClass}>
+                      {c.footer.brandedPolicy}
+                    </a>
+                    {" "}{c.footer.and}{" "}
                   </>
                 )}
-                <a href={TIKTOK_MUSIC_URL} target="_blank" rel="noreferrer" className={linkClass}>Music Usage Confirmation</a>.
+                <a href={TIKTOK_MUSIC_URL} target="_blank" rel="noreferrer" className={linkClass}>
+                  {c.footer.musicPolicy}
+                </a>.
               </p>
             )}
           </div>
@@ -4113,15 +4788,16 @@ export default function NewPostModal({
             </div>
             {showActionMenu && (
               <div role="menu" className={["absolute bottom-full right-0 z-50 mb-2 w-[340px] overflow-hidden rounded-xl border p-2 shadow-2xl", isDark ? "border-white/10 bg-[#1c1c1e]" : "border-black/10 bg-white"].join(" ")}>
-                {SCHEDULE_ACTIONS.map((action) => {
-                  const isSelected = scheduleAction === action.id;
+                {SCHEDULE_ACTION_IDS.map((id) => {
+                  const action = scheduleActionInfo[id];
+                  const isSelected = scheduleAction === id;
                   return (
                     <button
-                      key={action.id}
+                      key={id}
                       type="button"
                       role="menuitemradio"
                       aria-checked={isSelected}
-                      onClick={() => selectAction(action.id)}
+                      onClick={() => selectAction(id)}
                       className={["flex w-full items-start gap-2 rounded-lg px-3 py-2.5 text-left transition", isSelected ? `${accentBg} ${accentText}` : isDark ? "text-neutral-200 hover:bg-white/5" : "text-neutral-700 hover:bg-black/[0.04]"].join(" ")}
                     >
                       <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center">
@@ -4142,26 +4818,26 @@ export default function NewPostModal({
                   <CalendarPicker value={scheduledAt} onChange={(date) => setScheduledAt((prev) => mergeDateTime(date, prev))} isDark={isDark} />
                 </div>
                 <div className={["border-t p-3", isDark ? "border-white/10" : "border-black/10"].join(" ")}>
-                  <p className={["mb-2 text-[13px] font-semibold", textPrimary].join(" ")}>Suggested times</p>
+                  <p className={["mb-2 text-[13px] font-semibold", textPrimary].join(" ")}>{c.footer.suggestedTimes}</p>
                   <div className="flex flex-col gap-2">
                     {POSTING_SLOTS.map((slot) => {
                       const isActive = scheduledAt.getHours() === slot.hour && scheduledAt.getMinutes() === slot.minute;
                       return (
                         <button
-                          key={slot.label}
+                          key={`${slot.hour}:${slot.minute}`}
                           type="button"
                           aria-pressed={isActive}
                           onClick={() => applyPostingSlot(slot.hour, slot.minute)}
                           className={["flex w-full items-center gap-1.5 rounded-lg border px-3 py-2 text-[13px] font-semibold transition", isActive ? `${accentBg} ${accentText} ${accentBorder}` : isDark ? "border-white/10 text-neutral-200 hover:bg-white/5" : "border-black/10 text-neutral-700 hover:bg-black/[0.04]"].join(" ")}
                         >
-                          <Wand2 className="h-3.5 w-3.5" /> {slot.label}
+                          <Wand2 className="h-3.5 w-3.5" /> {formatSlotLabel(slot.hour, slot.minute, lang)}
                         </button>
                       );
                     })}
                   </div>
                 </div>
                 <div className="px-3 pb-3">
-                  <p className={["mb-2 text-[13px] font-semibold", textPrimary].join(" ")}>Time</p>
+                  <p className={["mb-2 text-[13px] font-semibold", textPrimary].join(" ")}>{c.footer.time}</p>
                   <div className={["rounded-lg border px-3 py-2", accentSolid, accentBorder].join(" ")}>
                     <TimePicker value={scheduledAt} onChange={(date) => setScheduledAt(date)} isDark={isDark} min={timeMin} className={isDark ? "border-transparent bg-transparent text-white" : "border-transparent bg-transparent text-neutral-900"} />
                   </div>
@@ -4173,23 +4849,24 @@ export default function NewPostModal({
                     ].join(" ")}
                   >
                     {scheduledAt.getTime() <= Date.now()
-                      ? "Pick a time in the future."
-                      : formatLongDateTime(scheduledAt)}
+                      ? c.footer.pickFuture
+                      : formatLongDateTime(scheduledAt, lang)}
                   </p>
                 </div>
                 <div className={["flex items-center justify-between border-t px-3 py-2.5", isDark ? "border-white/10" : "border-black/10"].join(" ")}>
                   <button type="button" onClick={() => { setShowDateTimePanel(false); setShowActionMenu(true); }} className={["flex items-center gap-1.5 text-[12.5px] font-semibold transition", textPrimary].join(" ")}>
-                    <ArrowLeft className="h-3.5 w-3.5" /> Back
+                    <ArrowLeft className="h-3.5 w-3.5" /> {c.footer.back}
                   </button>
                   <button type="button" onClick={() => setShowDateTimePanel(false)} className={["flex items-center gap-1.5 text-[12.5px] font-semibold transition", textPrimary].join(" ")}>
-                    <Check className="h-3.5 w-3.5" strokeWidth={3} /> Done
+                    <Check className="h-3.5 w-3.5" strokeWidth={3} /> {c.footer.done}
                   </button>
                 </div>
               </div>
             )}
           </div>
         </div>
-        {/* ── Dialogue : reprendre le brouillon ou l'ignorer ── */}
+
+        {/* Draft dialog */}
         {pendingDraft && (
           <div className="absolute inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-[2px]">
             <div
@@ -4197,9 +4874,9 @@ export default function NewPostModal({
               aria-labelledby="draft-title"
               className={["w-[360px] max-w-[90%] rounded-2xl border p-6 text-center shadow-2xl", isDark ? "border-white/10 bg-[#1c1c1e]" : "border-black/10 bg-white"].join(" ")}
             >
-              <h3 id="draft-title" className={["text-[16px] font-bold", textPrimary].join(" ")}>Resume your draft?</h3>
+              <h3 id="draft-title" className={["text-[16px] font-bold", textPrimary].join(" ")}>{c.draft.resumeTitle}</h3>
               <p className={["mt-2 text-[13px]", textSecondary].join(" ")}>
-                You have a post in progress. Pick up where you left off, or start fresh.
+                {c.draft.resumeDesc}
               </p>
               {(pendingDraft.masterContent || Object.values(pendingDraft.contents || {})[0]) && (
                 <p className={["mt-3 line-clamp-2 rounded-lg px-3 py-2 text-left text-[12.5px]", isDark ? "bg-white/5 text-neutral-300" : "bg-neutral-100 text-neutral-600"].join(" ")}>
@@ -4207,13 +4884,14 @@ export default function NewPostModal({
                 </p>
               )}
               <div className="mt-5 flex gap-2">
-                <button type="button" onClick={ignoreDraft} className={["flex-1 rounded-xl border px-4 py-2.5 text-[13.5px] font-semibold transition", border, textPrimary, isDark ? "hover:bg-white/5" : "hover:bg-black/5"].join(" ")}>Start fresh</button>
-                <button type="button" autoFocus onClick={resumeDraft} className={["flex-1 rounded-xl px-4 py-2.5 text-[13.5px] font-semibold transition", isDark ? "bg-white text-[#141416] hover:bg-neutral-200" : "bg-neutral-900 text-white hover:bg-neutral-800"].join(" ")}>Resume</button>
+                <button type="button" onClick={ignoreDraft} className={["flex-1 rounded-xl border px-4 py-2.5 text-[13.5px] font-semibold transition", border, textPrimary, isDark ? "hover:bg-white/5" : "hover:bg-black/5"].join(" ")}>{c.draft.startFresh}</button>
+                <button type="button" autoFocus onClick={resumeDraft} className={["flex-1 rounded-xl px-4 py-2.5 text-[13.5px] font-semibold transition", isDark ? "bg-white text-[#141416] hover:bg-neutral-200" : "bg-neutral-900 text-white hover:bg-neutral-800"].join(" ")}>{c.draft.resume}</button>
               </div>
             </div>
           </div>
         )}
-        {/* ── Popup : aucune chaîne connectée ── */}
+
+        {/* Connect prompt */}
         {connectChannelPrompt && (
           <div className="absolute inset-0 z-[80] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
             <div
@@ -4225,16 +4903,10 @@ export default function NewPostModal({
                 isDark ? "border-white/10 bg-[#1c1c1e]" : "border-black/10 bg-white",
               ].join(" ")}
             >
-              <h3
-                id="connect-channel-title"
-                className={["text-[16px] font-bold", textPrimary].join(" ")}
-              >
-                Connect a channel first
+              <h3 id="connect-channel-title" className={["text-[16px] font-bold", textPrimary].join(" ")}>
+                {c.connectPrompt.title}
               </h3>
-              <p
-                id="connect-channel-desc"
-                className={["mt-2 text-[13px] leading-relaxed", textSecondary].join(" ")}
-              >
+              <p id="connect-channel-desc" className={["mt-2 text-[13px] leading-relaxed", textSecondary].join(" ")}>
                 {connectChannelPrompt.message}
               </p>
               <div className="mt-5 flex gap-2">
@@ -4248,7 +4920,7 @@ export default function NewPostModal({
                     isDark ? "hover:bg-white/5" : "hover:bg-black/5",
                   ].join(" ")}
                 >
-                  Cancel
+                  {c.connectPrompt.cancel}
                 </button>
                 <button
                   type="button"
@@ -4265,12 +4937,13 @@ export default function NewPostModal({
                       : "bg-neutral-900 text-white hover:bg-neutral-800",
                   ].join(" ")}
                 >
-                  Go to settings
+                  {c.connectPrompt.goToSettings}
                 </button>
               </div>
             </div>
           </div>
         )}
+
         {dropboxPickerOpen && (
           <div
             className="absolute inset-0 z-[70] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
@@ -4292,15 +4965,15 @@ export default function NewPostModal({
                 <IntegrationDropboxIcon className="h-6 w-6 shrink-0 text-[#0061ff]" />
                 <div className="min-w-0 flex-1">
                   <h2 id="dropbox-picker-title" className={["text-[15px] font-semibold", textPrimary].join(" ")}>
-                    Add from Dropbox
+                    {c.mediaPicker.addFromDropbox}
                   </h2>
                   <p className={["text-[12px]", textSecondary].join(" ")}>
-                    Choose an image or video for this post.
+                    {c.mediaPicker.chooseFile}
                   </p>
                 </div>
                 <button
                   type="button"
-                  aria-label="Close Dropbox picker"
+                  aria-label={c.mediaPicker.closeAria("Dropbox")}
                   onClick={() => setDropboxPickerOpen(false)}
                   className={["flex h-8 w-8 items-center justify-center rounded-lg transition", textSecondary, hoverSoft].join(" ")}
                 >
@@ -4311,10 +4984,10 @@ export default function NewPostModal({
                 <div className="flex flex-col items-center px-6 py-12 text-center">
                   <IntegrationDropboxIcon className="h-10 w-10 text-[#0061ff]" />
                   <p className={["mt-4 text-[14px] font-semibold", textPrimary].join(" ")}>
-                    Connect your Dropbox account
+                    {c.mediaPicker.connectDropbox}
                   </p>
                   <p className={["mt-1 max-w-[340px] text-[12.5px]", textSecondary].join(" ")}>
-                    Authorize Dropbox to browse and import your media files.
+                    {c.mediaPicker.connectDropboxDesc}
                   </p>
                   <button
                     type="button"
@@ -4323,7 +4996,7 @@ export default function NewPostModal({
                     className="mt-5 flex items-center gap-2 rounded-lg bg-[#0061ff] px-4 py-2.5 text-[13px] font-semibold text-white transition hover:bg-[#0754d3] disabled:opacity-60"
                   >
                     {dropboxLoading && <Loader2 className="h-4 w-4 animate-spin" />}
-                    Connect Dropbox
+                    {c.mediaPicker.connectDropboxBtn}
                   </button>
                 </div>
               ) : (
@@ -4336,14 +5009,14 @@ export default function NewPostModal({
                         className={["flex items-center gap-1 rounded-md px-2 py-1 text-[12px] font-semibold transition", textSecondary, hoverSoft].join(" ")}
                       >
                         <ArrowLeft className="h-3.5 w-3.5" />
-                        Back
+                        {c.mediaPicker.back}
                       </button>
                     )}
                     <p className={["min-w-0 flex-1 truncate text-[12px]", textSecondary].join(" ")}>
-                      {dropboxPath || "All files"}
+                      {dropboxPath || c.mediaPicker.allFiles}
                     </p>
                     <span className={["text-[11px]", textSecondary].join(" ")}>
-                      {dropboxTarget === "master" ? "Shared media" : "Channel media"}
+                      {dropboxTarget === "master" ? c.mediaPicker.sharedMedia : c.mediaPicker.channelMedia}
                     </span>
                   </div>
                   {dropboxError && (
@@ -4356,7 +5029,7 @@ export default function NewPostModal({
                         onClick={() => void loadDropboxFolder(dropboxPath)}
                         className="shrink-0 text-[12px] font-semibold text-red-500 underline underline-offset-2"
                       >
-                        Retry
+                        {c.mediaPicker.retry}
                       </button>
                     </div>
                   )}
@@ -4396,7 +5069,7 @@ export default function NewPostModal({
                               ].join(" ")}
                             >
                               {importing && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                              {importing ? "Importing" : "Add"}
+                              {importing ? c.mediaPicker.importing : c.mediaPicker.add}
                             </button>
                           )}
                         </div>
@@ -4405,12 +5078,12 @@ export default function NewPostModal({
                     {dropboxLoading && !dropboxNeedsConnection && (
                       <div className={["flex items-center justify-center gap-2 py-10 text-[12.5px]", textSecondary].join(" ")}>
                         <Loader2 className="h-4 w-4 animate-spin" />
-                        Loading Dropbox files…
+                        {c.mediaPicker.loadingDropbox}
                       </div>
                     )}
                     {!dropboxLoading && !dropboxError && dropboxFiles.filter(isDropboxMedia).length === 0 && (
                       <p className={["py-10 text-center text-[12.5px]", textSecondary].join(" ")}>
-                        This folder has no supported image or video files.
+                        {c.mediaPicker.noSupported}
                       </p>
                     )}
                   </div>
@@ -4422,7 +5095,7 @@ export default function NewPostModal({
                         disabled={dropboxLoading}
                         className={["w-full rounded-lg px-3 py-2 text-[12px] font-semibold transition disabled:opacity-50", hoverSoft, textPrimary].join(" ")}
                       >
-                        Load more files
+                        {c.mediaPicker.loadMore}
                       </button>
                     </footer>
                   )}
@@ -4431,6 +5104,7 @@ export default function NewPostModal({
             </section>
           </div>
         )}
+
         {googleDrivePickerOpen && (
           <div
             className="absolute inset-0 z-[70] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
@@ -4454,15 +5128,15 @@ export default function NewPostModal({
                 <IntegrationGoogleDriveIcon className="h-6 w-6 shrink-0" />
                 <div className="min-w-0 flex-1">
                   <h2 id="google-drive-picker-title" className={["text-[15px] font-semibold", textPrimary].join(" ")}>
-                    Add from Google Drive
+                    {c.mediaPicker.addFromDrive}
                   </h2>
                   <p className={["text-[12px]", textSecondary].join(" ")}>
-                    Choose an image or video for this post.
+                    {c.mediaPicker.chooseFile}
                   </p>
                 </div>
                 <button
                   type="button"
-                  aria-label="Close Google Drive picker"
+                  aria-label={c.mediaPicker.closeAria("Google Drive")}
                   onClick={() => setGoogleDrivePickerOpen(false)}
                   className={["flex h-8 w-8 items-center justify-center rounded-lg transition", textSecondary, hoverSoft].join(" ")}
                 >
@@ -4473,10 +5147,10 @@ export default function NewPostModal({
                 <div className="flex flex-col items-center px-6 py-12 text-center">
                   <IntegrationGoogleDriveIcon className="h-10 w-10" />
                   <p className={["mt-4 text-[14px] font-semibold", textPrimary].join(" ")}>
-                    Connect your Google Drive account
+                    {c.mediaPicker.connectDrive}
                   </p>
                   <p className={["mt-1 max-w-[340px] text-[12.5px]", textSecondary].join(" ")}>
-                    Authorize Google Drive to browse and import your media files.
+                    {c.mediaPicker.connectDriveDesc}
                   </p>
                   {googleDriveError && (
                     <p role="alert" className="mt-3 max-w-[360px] text-[12px] text-red-500">
@@ -4490,7 +5164,7 @@ export default function NewPostModal({
                     className="mt-5 flex items-center gap-2 rounded-lg bg-[#34a853] px-4 py-2.5 text-[13px] font-semibold text-white transition hover:bg-[#278b43] disabled:opacity-60"
                   >
                     {googleDriveLoading && <Loader2 className="h-4 w-4 animate-spin" />}
-                    Connect Google Drive
+                    {c.mediaPicker.connectDriveBtn}
                   </button>
                 </div>
               ) : (
@@ -4502,21 +5176,19 @@ export default function NewPostModal({
                         onClick={() => {
                           const parentFolders = googleDriveFolders.slice(0, -1);
                           setGoogleDriveFolders(parentFolders);
-                          void loadGoogleDriveFolder(
-                            parentFolders[parentFolders.length - 1].id
-                          );
+                          void loadGoogleDriveFolder(parentFolders[parentFolders.length - 1].id);
                         }}
                         className={["flex items-center gap-1 rounded-md px-2 py-1 text-[12px] font-semibold transition", textSecondary, hoverSoft].join(" ")}
                       >
                         <ArrowLeft className="h-3.5 w-3.5" />
-                        Back
+                        {c.mediaPicker.back}
                       </button>
                     )}
                     <p className={["min-w-0 flex-1 truncate text-[12px]", textSecondary].join(" ")}>
                       {googleDriveFolders[googleDriveFolders.length - 1].name}
                     </p>
                     <span className={["text-[11px]", textSecondary].join(" ")}>
-                      {googleDriveTarget === "master" ? "Shared media" : "Channel media"}
+                      {googleDriveTarget === "master" ? c.mediaPicker.sharedMedia : c.mediaPicker.channelMedia}
                     </span>
                   </div>
                   {googleDriveError && (
@@ -4526,22 +5198,16 @@ export default function NewPostModal({
                       </p>
                       <button
                         type="button"
-                        onClick={() =>
-                          void loadGoogleDriveFolder(
-                            googleDriveFolders[googleDriveFolders.length - 1].id
-                          )
-                        }
+                        onClick={() => void loadGoogleDriveFolder(googleDriveFolders[googleDriveFolders.length - 1].id)}
                         className="shrink-0 text-[12px] font-semibold text-red-500 underline underline-offset-2"
                       >
-                        Retry
+                        {c.mediaPicker.retry}
                       </button>
                     </div>
                   )}
                   <div className="min-h-[180px] overflow-y-auto px-3 py-2">
                     {googleDriveFiles.filter(isGoogleDriveMedia).map((entry) => {
-                      const isFolder =
-                        (entry.mime_type ?? entry.mimeType) ===
-                        "application/vnd.google-apps.folder";
+                      const isFolder = (entry.mime_type ?? entry.mimeType) === "application/vnd.google-apps.folder";
                       const importing = googleDriveImporting === entry.id;
                       return (
                         <div
@@ -4581,7 +5247,7 @@ export default function NewPostModal({
                               ].join(" ")}
                             >
                               {importing && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                              {importing ? "Importing" : "Add"}
+                              {importing ? c.mediaPicker.importing : c.mediaPicker.add}
                             </button>
                           )}
                         </div>
@@ -4590,14 +5256,14 @@ export default function NewPostModal({
                     {googleDriveLoading && !googleDriveNeedsConnection && (
                       <div className={["flex items-center justify-center gap-2 py-10 text-[12.5px]", textSecondary].join(" ")}>
                         <Loader2 className="h-4 w-4 animate-spin" />
-                        Loading Google Drive files…
+                        {c.mediaPicker.loadingDrive}
                       </div>
                     )}
                     {!googleDriveLoading &&
                       !googleDriveError &&
                       googleDriveFiles.filter(isGoogleDriveMedia).length === 0 && (
                         <p className={["py-10 text-center text-[12.5px]", textSecondary].join(" ")}>
-                          This folder has no supported image or video files.
+                          {c.mediaPicker.noSupported}
                         </p>
                       )}
                   </div>
@@ -4605,17 +5271,11 @@ export default function NewPostModal({
                     <footer className={["border-t px-5 py-3", border].join(" ")}>
                       <button
                         type="button"
-                        onClick={() =>
-                          void loadGoogleDriveFolder(
-                            googleDriveFolders[googleDriveFolders.length - 1].id,
-                            googleDriveCursor,
-                            true
-                          )
-                        }
+                        onClick={() => void loadGoogleDriveFolder(googleDriveFolders[googleDriveFolders.length - 1].id, googleDriveCursor, true)}
                         disabled={googleDriveLoading}
                         className={["w-full rounded-lg px-3 py-2 text-[12px] font-semibold transition disabled:opacity-50", hoverSoft, textPrimary].join(" ")}
                       >
-                        Load more files
+                        {c.mediaPicker.loadMore}
                       </button>
                     </footer>
                   )}
@@ -4624,6 +5284,7 @@ export default function NewPostModal({
             </section>
           </div>
         )}
+
         {googlePhotosPickerOpen && (
           <div
             className="absolute inset-0 z-[70] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
@@ -4647,15 +5308,15 @@ export default function NewPostModal({
                 <GooglePhotosIcon className="h-6 w-6 shrink-0" />
                 <div className="min-w-0 flex-1">
                   <h2 id="google-photos-picker-title" className={["text-[15px] font-semibold", textPrimary].join(" ")}>
-                    Add from Google Photos
+                    {c.mediaPicker.addFromPhotos}
                   </h2>
                   <p className={["text-[12px]", textSecondary].join(" ")}>
-                    Choose photos or videos for this post.
+                    {c.mediaPicker.chooseFile}
                   </p>
                 </div>
                 <button
                   type="button"
-                  aria-label="Close Google Photos picker"
+                  aria-label={c.mediaPicker.closeAria("Google Photos")}
                   onClick={() => setGooglePhotosPickerOpen(false)}
                   disabled={googlePhotosLoading}
                   className={["flex h-8 w-8 items-center justify-center rounded-lg transition disabled:opacity-50", textSecondary, hoverSoft].join(" ")}
@@ -4668,56 +5329,54 @@ export default function NewPostModal({
                 {googlePhotosLoading ? (
                   <div className={["mt-4 flex items-center gap-2 text-[13px]", textSecondary].join(" ")}>
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    {googlePhotosChecking
-                      ? "Checking Google Photos connection…"
-                      : "Importing selected media…"}
+                    {googlePhotosChecking ? c.mediaPicker.checkingPhotos : c.mediaPicker.importingMedia}
                   </div>
                 ) : googlePhotosNeedsConnection ? (
                   <>
                     <p className={["mt-4 text-[14px] font-semibold", textPrimary].join(" ")}>
-                      Connect your Google Photos account
+                      {c.mediaPicker.connectPhotos}
                     </p>
                     <p className={["mt-1 max-w-[340px] text-[12.5px]", textSecondary].join(" ")}>
-                      Authorize Google Photos to select and import your media.
+                      {c.mediaPicker.connectPhotosDesc}
                     </p>
                     <button
                       type="button"
                       onClick={() => void handleGooglePhotosConnect()}
                       className="mt-5 flex items-center gap-2 rounded-lg bg-[#4285f4] px-4 py-2.5 text-[13px] font-semibold text-white transition hover:bg-[#3367d6]"
                     >
-                      Connect Google Photos
+                      {c.mediaPicker.connectPhotosBtn}
                     </button>
                   </>
                 ) : !googlePhotosReady ? (
                   <>
                     <p className={["mt-4 text-[14px] font-semibold", textPrimary].join(" ")}>
-                      Google Photos connection could not be verified
+                      {c.mediaPicker.photosUnverified}
                     </p>
                     <button
                       type="button"
                       onClick={() => void openGooglePhotosPicker(googlePhotosTarget)}
                       className={["mt-5 rounded-lg px-4 py-2.5 text-[13px] font-semibold transition", hoverSoft, textPrimary].join(" ")}
                     >
-                      Retry
+                      {c.mediaPicker.retry}
                     </button>
                   </>
                 ) : (
                   <>
                     <p className={["mt-4 text-[14px] font-semibold", textPrimary].join(" ")}>
-                      Select media from your library
+                      {c.mediaPicker.chooseFromLibrary}
                     </p>
                     <p className={["mt-1 max-w-[340px] text-[12.5px]", textSecondary].join(" ")}>
-                      Google Photos will open in a separate window. Your selection will be added to this post.
+                      {c.mediaPicker.photosWindowInfo}
                     </p>
                     <p className={["mt-2 text-[11px]", textSecondary].join(" ")}>
-                      {googlePhotosTarget === "master" ? "Shared media" : "Channel media"}
+                      {googlePhotosTarget === "master" ? c.mediaPicker.sharedMedia : c.mediaPicker.channelMedia}
                     </p>
                     <button
                       type="button"
                       onClick={() => void handleGooglePhotosPick()}
                       className="mt-5 flex items-center gap-2 rounded-lg bg-[#4285f4] px-4 py-2.5 text-[13px] font-semibold text-white transition hover:bg-[#3367d6]"
                     >
-                      Open Google Photos
+                      {c.mediaPicker.openPhotos}
                       <ExternalLink className="h-4 w-4" />
                     </button>
                   </>
@@ -4732,7 +5391,13 @@ export default function NewPostModal({
           </div>
         )}
       </div>
-      <EditMediaModal isOpen={editingItem !== null} mediaItem={editingItem} isDark={isDark} onClose={() => setEditingItem(null)} onApply={handleApplyMediaEdit} />
+      <EditMediaModal
+        isOpen={editingItem !== null}
+        mediaItem={editingItem}
+        isDark={isDark}
+        onClose={() => setEditingItem(null)}
+        onApply={handleApplyMediaEdit}
+      />
     </div>
   );
 }
