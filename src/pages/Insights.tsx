@@ -1,6 +1,8 @@
 // src/pages/Insights.tsx
 // Insights = moteur de prochaine action (pas un clone d'analytics).
 // YouTube : données réelles. Autres réseaux : démo en attendant leur API.
+// Responsive aligné sur Home : 100dvh, max-md:pt-14, tailles mobile/desktop,
+// cibles tactiles, rangées scrollables, tableau en cartes sous md.
 
 import {
   useCallback,
@@ -72,6 +74,9 @@ import { useNewPostRequest } from "../services/Newpostbus";
 /** Route de cette page dans la sidebar (section Favoris). */
 const PAGE_ROUTE = "insights";
 const ALL_KEY = "all";
+
+/** Rangée scrollable sans scrollbar visible. */
+const NO_SCROLLBAR = "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
 
 /* ============================================================
    LANGUAGE / I18N
@@ -1501,7 +1506,7 @@ function ChartTooltip({
 
   return (
     <div
-      className={`min-w-[160px] rounded-lg px-3.5 py-2.5 text-[12px] shadow-[0_8px_30px_rgba(0,0,0,0.35)] ${
+      className={`min-w-[140px] max-w-[calc(100vw-48px)] rounded-lg px-3 py-2 text-[12px] shadow-[0_8px_30px_rgba(0,0,0,0.35)] sm:min-w-[160px] sm:px-3.5 sm:py-2.5 ${
         isDark
           ? "bg-[#101012] text-white ring-1 ring-white/10"
           : "bg-white text-neutral-900 ring-1 ring-black/10"
@@ -1558,11 +1563,16 @@ function InsightsChart({
   const grid = isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.07)";
 
   return (
-    <div className="h-[320px] w-full">
+    <div className="h-[220px] w-full sm:h-[320px]">
       <ResponsiveContainer width="100%" height="100%">
         <AreaChart
           data={data}
-          margin={{ top: 16, right: hasSecondAxis ? 48 : 16, left: 4, bottom: 0 }}
+          margin={{
+            top: 12,
+            right: hasSecondAxis ? 40 : 8,
+            left: 0,
+            bottom: 0,
+          }}
           accessibilityLayer
         >
           <defs>
@@ -1599,7 +1609,7 @@ function InsightsChart({
             axisLine={false}
             tickLine={false}
             tickFormatter={(v) => nf(Number(v), lang)}
-            width={48}
+            width={40}
           />
           {hasSecondAxis && (
             <YAxis
@@ -1609,7 +1619,7 @@ function InsightsChart({
               axisLine={false}
               tickLine={false}
               tickFormatter={(v) => nf(Number(v), lang)}
-              width={48}
+              width={40}
             />
           )}
 
@@ -1704,7 +1714,7 @@ function Segmented<T extends string>({
     <div
       role="group"
       aria-label={label}
-      className={`inline-flex flex-wrap items-center gap-0.5 rounded-full border p-1 ${t.panel}`}
+      className={`inline-flex max-w-full flex-nowrap items-center gap-0.5 overflow-x-auto rounded-full border p-1 ${NO_SCROLLBAR} ${t.panel}`}
     >
       {options.map((o) => {
         const active = value === o.key;
@@ -1714,8 +1724,10 @@ function Segmented<T extends string>({
             type="button"
             aria-pressed={active}
             onClick={() => onChange(o.key)}
-            className={`flex items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 ${
-              size === "lg" ? "py-2 text-[13px]" : "py-1.5 text-[12px]"
+            className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 sm:px-3.5 ${
+              size === "lg"
+                ? "py-2 text-[12px] sm:text-[13px]"
+                : "py-2 text-[12px] sm:py-1.5"
             } font-semibold transition-colors motion-reduce:transition-none ${t.ring} ${
               active ? t.sel : t.idle
             }`}
@@ -1739,7 +1751,7 @@ function IconBtn({
   boxed = false,
   align = "center",
   disabled = false,
-  className = "h-9 w-9",
+  className = "h-10 w-10 sm:h-9 sm:w-9",
 }: {
   label: string;
   onClick?: () => void;
@@ -1783,10 +1795,11 @@ function IconBtn({
         </button>
       )}
 
+      {/* Tooltip : survol uniquement (masqué sur tactile) */}
       <span
         role="tooltip"
         className={[
-          "pointer-events-none absolute top-full z-50 mt-2 w-max max-w-[240px] rounded-md px-3 py-2 text-[12.5px] font-medium leading-snug text-white opacity-0 shadow-lg transition-opacity duration-150 motion-reduce:transition-none group-hover:opacity-100 group-hover:delay-300 group-focus-within:opacity-100",
+          "pointer-events-none absolute top-full z-50 mt-2 w-max max-w-[240px] rounded-md px-3 py-2 text-[12.5px] font-medium leading-snug text-white opacity-0 shadow-lg transition-opacity duration-150 motion-reduce:transition-none group-hover:opacity-100 group-hover:delay-300 group-focus-within:opacity-100 [@media(hover:none)]:hidden",
           t.tip,
           align === "end" ? "right-0" : "left-1/2 -translate-x-1/2",
         ].join(" ")}
@@ -1819,10 +1832,10 @@ function MetricBox({
   const down = delta != null && delta < 0;
   return (
     <div
-      className={`flex h-full flex-col gap-2.5 rounded-2xl border px-4 py-4 ${t.tile}`}
+      className={`flex h-full min-w-0 flex-col gap-2 rounded-2xl border px-3.5 py-3.5 sm:gap-2.5 sm:px-4 sm:py-4 ${t.tile}`}
     >
       <span
-        className={`flex items-center justify-between gap-2 text-[11px] font-medium ${t.soft}`}
+        className={`flex items-center justify-between gap-2 text-[12px] font-medium sm:text-[11px] ${t.soft}`}
       >
         <span className="truncate">{label}</span>
         <span
@@ -1835,15 +1848,15 @@ function MetricBox({
         </span>
       </span>
       <span
-        className={`text-[30px] font-semibold leading-none tracking-[-0.03em] tabular-nums ${t.text}`}
+        className={`text-[24px] font-semibold leading-none tracking-[-0.03em] tabular-nums sm:text-[30px] ${t.text}`}
       >
         {value}
       </span>
       {delta != null && (
         <span
           className={[
-            "inline-flex w-fit items-center gap-0.5 rounded-full px-1.5 py-0.5",
-            "text-[9px] font-semibold tabular-nums",
+            "inline-flex w-fit max-w-full items-center gap-0.5 rounded-full px-1.5 py-0.5",
+            "text-[10px] font-semibold tabular-nums sm:text-[9px]",
             up
               ? isDark
                 ? "bg-emerald-500/10 text-emerald-400"
@@ -1856,15 +1869,19 @@ function MetricBox({
           ].join(" ")}
         >
           {up ? (
-            <TrendingUp className="h-2.5 w-2.5" aria-hidden="true" />
+            <TrendingUp className="h-2.5 w-2.5 shrink-0" aria-hidden="true" />
           ) : down ? (
-            <TrendingDown className="h-2.5 w-2.5" aria-hidden="true" />
+            <TrendingDown className="h-2.5 w-2.5 shrink-0" aria-hidden="true" />
           ) : null}
           <span className="sr-only">
             {up ? "↑ " : down ? "↓ " : ""}
           </span>
           {up ? "+" : ""}
-          {delta}% {c.summary.vsPreviousShort}
+          {delta}%
+          <span className="max-sm:sr-only">
+            {" "}
+            {c.summary.vsPreviousShort}
+          </span>
         </span>
       )}
     </div>
@@ -1958,7 +1975,7 @@ function RangePicker({
         type="button"
         aria-pressed={active}
         onClick={() => openPicker(id)}
-        className={`flex-1 whitespace-nowrap rounded-full px-3.5 py-1.5 text-[11px] font-semibold transition-colors motion-reduce:transition-none ${t.ring} ${
+        className={`min-h-9 flex-1 whitespace-nowrap rounded-full px-3.5 py-1.5 text-[12px] font-semibold transition-colors motion-reduce:transition-none sm:min-h-0 sm:text-[11px] ${t.ring} ${
           active ? t.sel : t.idle
         }`}
       >
@@ -1976,7 +1993,7 @@ function RangePicker({
         aria-expanded={open}
         aria-label={c.calendar.rangeAria}
         onClick={() => (open ? setOpen(false) : openPicker("from"))}
-        className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-[12px] font-semibold transition-colors ${t.ring} ${t.panel} ${t.hover} ${t.text}`}
+        className={`flex min-h-10 items-center gap-2 rounded-lg border px-3 py-2 text-[12px] font-semibold transition-colors sm:min-h-0 ${t.ring} ${t.panel} ${t.hover} ${t.text}`}
       >
         <CalendarClock className={`h-3.5 w-3.5 ${t.muted}`} aria-hidden="true" />
         <span className="whitespace-nowrap">{label}</span>
@@ -1990,7 +2007,7 @@ function RangePicker({
 
       {open && (
         <div
-          className={`absolute left-0 top-full z-30 mt-2 w-[300px] overflow-hidden rounded-xl border shadow-[0_12px_40px_rgba(0,0,0,0.5)] ${t.popover}`}
+          className={`absolute left-0 top-full z-30 mt-2 w-[min(300px,calc(100vw-48px))] overflow-hidden rounded-xl border shadow-[0_12px_40px_rgba(0,0,0,0.5)] ${t.popover}`}
         >
           <div className={`flex gap-1 border-b p-2 ${t.border}`}>
             {fieldTab("from")}
@@ -2020,14 +2037,14 @@ function RangePicker({
               onClick={() =>
                 setField((f) => (f === "from" ? "to" : "from"))
               }
-              className={`rounded px-1 text-[12px] font-semibold transition-colors ${t.ring} ${t.hover} ${t.text}`}
+              className={`min-h-9 rounded px-2 text-[12px] font-semibold transition-colors sm:min-h-0 sm:px-1 ${t.ring} ${t.hover} ${t.text}`}
             >
               {field === "from" ? c.calendar.next : c.calendar.back}
             </button>
             <button
               type="button"
               onClick={() => setOpen(false)}
-              className={`flex items-center gap-1.5 rounded px-1 text-[12px] font-semibold transition-colors ${t.ring} ${t.hover} ${t.text}`}
+              className={`flex min-h-9 items-center gap-1.5 rounded px-2 text-[12px] font-semibold transition-colors sm:min-h-0 sm:px-1 ${t.ring} ${t.hover} ${t.text}`}
             >
               <Check
                 className="h-3.5 w-3.5"
@@ -2067,7 +2084,8 @@ function InsightsIcon() {
    PAGE
 ============================================================ */
 
-const TABLE_GRID = "grid-cols-[minmax(0,2.3fr)_1fr_1fr_1fr_1fr_44px]";
+/** Tableau des posts : cartes sous md, grille 6 colonnes dès md. */
+const TABLE_GRID = "md:grid-cols-[minmax(0,2.3fr)_1fr_1fr_1fr_1fr_44px]";
 const HEAT_COLS = "grid-cols-[repeat(24,minmax(0,1fr))]";
 
 export default function Insights() {
@@ -2501,8 +2519,8 @@ export default function Insights() {
       <ImageIcon className="h-4 w-4" />
     );
 
-  const sectionCard = `rounded-3xl border p-5 md:p-6 ${t.card}`;
-  const sectionTitle = `text-[17px] font-semibold tracking-[-0.02em] ${t.text}`;
+  const sectionCard = `rounded-3xl border p-4 sm:p-5 md:p-6 ${t.card}`;
+  const sectionTitle = `text-[16px] font-semibold tracking-[-0.02em] sm:text-[17px] ${t.text}`;
   const sectionSub = `mt-1 text-[12px] ${t.muted}`;
 
   const heroUid = useId().replace(/[:]/g, "");
@@ -2511,7 +2529,7 @@ export default function Insights() {
   return (
     <main
       className={[
-        "relative h-screen w-full overflow-hidden",
+        "relative h-[100dvh] w-full overflow-hidden",
         "transition-colors duration-300",
         t.page,
       ].join(" ")}
@@ -2520,7 +2538,7 @@ export default function Insights() {
 
       <div
         className={[
-          "h-full py-3 pr-3",
+          "h-full py-3 pr-3 max-md:pt-14",
           "transition-[padding-left] duration-[380ms]",
           "ease-[cubic-bezier(0.4,0,0.2,1)]",
           "motion-reduce:transition-none",
@@ -2531,7 +2549,7 @@ export default function Insights() {
           className={[
             "h-full overflow-y-auto overflow-x-hidden",
             "rounded-[28px] border",
-            "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+            NO_SCROLLBAR,
             "transition-colors duration-300",
             isDark
               ? "border-white/[0.05] bg-[#0a0a0c]"
@@ -2541,7 +2559,7 @@ export default function Insights() {
           <div
             className={[
               "mx-auto flex w-full max-w-[1720px]",
-              "flex-col gap-8 px-[clamp(18px,3vw,48px)]",
+              "flex-col gap-6 px-[clamp(18px,3vw,48px)] sm:gap-8",
               "pb-[120px] pt-[clamp(18px,3vw,30px)]",
             ].join(" ")}
           >
@@ -2549,18 +2567,18 @@ export default function Insights() {
             <div className="relative z-40 flex shrink-0 flex-wrap items-center justify-between gap-3">
               <div className="flex min-w-0 items-center gap-2.5">
                 <span
-                  className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border ${t.inner} ${t.soft}`}
+                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border sm:h-9 sm:w-9 ${t.inner} ${t.soft}`}
                 >
                   <InsightsIcon />
                 </span>
                 <h1
-                  className={`truncate text-[20px] font-semibold tracking-[-0.03em] ${t.text}`}
+                  className={`truncate text-[22px] font-semibold tracking-[-0.03em] sm:text-[20px] ${t.text}`}
                 >
                   {c.header.title}
                 </h1>
               </div>
 
-              <div className="flex flex-wrap items-center gap-2.5 print:hidden">
+              <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2 sm:gap-2.5 print:hidden">
                 <ChannelMenu
                   channels={channels}
                   current={channel}
@@ -2574,7 +2592,7 @@ export default function Insights() {
                   selectedKey={viewingAll ? ALL_KEY : channel?.key}
                 />
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1 sm:gap-2">
                   {fetchYouTube && (
                     <IconBtn
                       label={c.header.refresh}
@@ -2596,10 +2614,12 @@ export default function Insights() {
                     type="button"
                     onClick={exportCsv}
                     disabled={!channels.length}
-                    className={`flex h-9 items-center gap-2 rounded-full px-4 text-[12px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${t.ring} ${t.outlineBtn}`}
+                    aria-label={c.header.export}
+                    title={c.header.export}
+                    className={`flex h-10 items-center gap-2 rounded-full px-3 text-[12px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40 sm:h-9 sm:px-4 ${t.ring} ${t.outlineBtn}`}
                   >
                     <Download className="h-4 w-4" aria-hidden="true" />
-                    {c.header.export}
+                    <span className="max-sm:sr-only">{c.header.export}</span>
                   </button>
                 </div>
 
@@ -2614,7 +2634,7 @@ export default function Insights() {
                   }
                   onClick={() => toggleFavorite(PAGE_ROUTE)}
                   className={[
-                    "ml-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors motion-reduce:transition-none",
+                    "flex h-10 w-10 shrink-0 items-center justify-center rounded-lg transition-colors motion-reduce:transition-none sm:ml-1 sm:h-9 sm:w-9",
                     t.ring,
                     t.soft,
                     t.hover,
@@ -2630,23 +2650,23 @@ export default function Insights() {
 
             {!channels.length ? (
               <section
-                className={`flex flex-col items-center gap-3 rounded-xl border px-6 py-20 text-center ${t.panel}`}
+                className={`flex flex-col items-center gap-3 rounded-2xl border px-6 py-16 text-center sm:rounded-xl sm:py-20 ${t.panel}`}
               >
                 <span
                   className={`flex h-11 w-11 items-center justify-center rounded-full ${t.iconBox}`}
                 >
                   <Activity className="h-5 w-5" aria-hidden="true" />
                 </span>
-                <h2 className={`text-[14px] font-semibold ${t.text}`}>
+                <h2 className={`text-[15px] font-semibold sm:text-[14px] ${t.text}`}>
                   {c.noChannels.title}
                 </h2>
-                <p className={`max-w-[360px] text-[12px] ${t.soft}`}>
+                <p className={`max-w-[360px] text-[13px] sm:text-[12px] ${t.soft}`}>
                   {c.noChannels.description}
                 </p>
                 <button
                   type="button"
                   onClick={() => navigateToSettingsSection("channels")}
-                  className={`mt-2 flex items-center gap-1.5 rounded-md px-4 py-2 text-[11px] font-semibold ${t.ring} ${t.primaryBtn}`}
+                  className={`mt-2 flex min-h-10 items-center gap-1.5 rounded-md px-4 py-2 text-[12px] font-semibold sm:min-h-0 sm:text-[11px] ${t.ring} ${t.primaryBtn}`}
                 >
                   <Plus className="h-3.5 w-3.5" aria-hidden="true" />
                   {c.noChannels.connect}
@@ -2659,13 +2679,13 @@ export default function Insights() {
                     role="alert"
                     className={`flex flex-wrap items-center justify-between gap-3 rounded-xl border px-4 py-3 ${t.panel}`}
                   >
-                    <p className="text-[12.5px] text-red-500">
+                    <p className="min-w-0 break-words text-[12.5px] text-red-500">
                       {c.errors.youtube(yt.error)}
                     </p>
                     <button
                       type="button"
                       onClick={() => setReloadKey((k) => k + 1)}
-                      className={`rounded-full px-3.5 py-1.5 text-[11px] font-semibold transition-colors ${t.ring} ${t.outlineBtn}`}
+                      className={`min-h-9 rounded-full px-3.5 py-1.5 text-[11px] font-semibold transition-colors sm:min-h-0 ${t.ring} ${t.outlineBtn}`}
                     >
                       {c.errors.retry}
                     </button>
@@ -2684,13 +2704,13 @@ export default function Insights() {
                 {/* ── HERO ── */}
                 <section
                   aria-label={c.hero.eyebrow}
-                  className={`relative isolate h-[300px] overflow-hidden rounded-[36px] ring-1 ring-inset md:h-[340px] ${
+                  className={`relative isolate h-[220px] overflow-hidden rounded-3xl ring-1 ring-inset sm:h-[300px] sm:rounded-[36px] md:h-[340px] ${
                     isDark ? "bg-white ring-black/10" : "bg-black ring-white/10"
                   }`}
                 >
                   <div
                     aria-hidden="true"
-                    className="pointer-events-none absolute inset-y-0 right-0 w-[72%] [mask-image:linear-gradient(to_right,transparent,black_35%)]"
+                    className="pointer-events-none absolute inset-y-0 right-0 w-full opacity-60 [mask-image:linear-gradient(to_right,transparent,black_35%)] sm:w-[72%] sm:opacity-100"
                     style={isDark ? { filter: "invert(1)" } : undefined}
                   >
                     <svg
@@ -2839,7 +2859,7 @@ export default function Insights() {
                     </svg>
                   </div>
 
-                  <div className="absolute bottom-0 left-0 z-10 flex max-w-[480px] flex-col gap-1.5 p-7 md:p-10">
+                  <div className="absolute bottom-0 left-0 z-10 flex max-w-[480px] flex-col gap-1.5 p-5 sm:p-7 md:p-10">
                     <p
                       className={`text-[11px] font-medium ${
                         isDark ? "text-neutral-500" : "text-white/60"
@@ -2848,14 +2868,14 @@ export default function Insights() {
                       {c.hero.eyebrow}
                     </p>
                     <h2
-                      className={`text-[clamp(26px,3vw,38px)] font-semibold leading-[1.05] tracking-[-0.035em] ${
+                      className={`text-[clamp(24px,3vw,38px)] font-semibold leading-[1.05] tracking-[-0.035em] ${
                         isDark ? "text-neutral-900" : "text-white"
                       }`}
                     >
                       {c.hero.title}
                     </h2>
                     <p
-                      className={`max-w-[380px] text-[12.5px] leading-relaxed ${
+                      className={`max-w-[380px] text-[12.5px] leading-relaxed max-sm:line-clamp-3 ${
                         isDark ? "text-neutral-500" : "text-white/60"
                       }`}
                     >
@@ -2872,7 +2892,7 @@ export default function Insights() {
                   <div>
                     <h2
                       id="all-title"
-                      className={`text-[28px] font-semibold tracking-[-0.03em] ${t.text}`}
+                      className={`text-[24px] font-semibold tracking-[-0.03em] sm:text-[28px] ${t.text}`}
                     >
                       {c.overview.title}
                     </h2>
@@ -2882,11 +2902,11 @@ export default function Insights() {
                   </div>
 
                   <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div className="flex flex-wrap items-center gap-3">
+                    <div className="flex min-w-0 max-w-full flex-wrap items-center gap-3">
                       <div
                         role="tablist"
                         aria-label={c.overview.dateRangeAria}
-                        className={`inline-flex flex-wrap items-center gap-0.5 rounded-full border p-1 ${t.panel}`}
+                        className={`inline-flex max-w-full items-center gap-0.5 overflow-x-auto rounded-full border p-1 ${NO_SCROLLBAR} ${t.panel}`}
                       >
                         {(["7d", "30d", "mtd", "custom"] as Range[]).map(
                           (key) => {
@@ -2898,7 +2918,7 @@ export default function Insights() {
                                 role="tab"
                                 aria-selected={active}
                                 onClick={() => setRange(key)}
-                                className={`flex items-center gap-2 whitespace-nowrap rounded-full px-4 py-2 text-[13px] font-semibold transition-colors ${t.ring} ${
+                                className={`flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full px-3 py-2 text-[12px] font-semibold transition-colors sm:px-4 sm:text-[13px] ${t.ring} ${
                                   active ? t.sel : t.idle
                                 }`}
                               >
@@ -2941,7 +2961,7 @@ export default function Insights() {
                     <button
                       type="button"
                       onClick={() => navigate("tags")}
-                      className={`flex items-center gap-2 rounded-md px-3 py-2 text-[13px] font-semibold transition-colors ${t.ring} ${t.hover} ${t.text}`}
+                      className={`flex min-h-10 items-center gap-2 rounded-md px-3 py-2 text-[13px] font-semibold transition-colors sm:min-h-0 ${t.ring} ${t.hover} ${t.text}`}
                     >
                       <Tag className="h-4 w-4" aria-hidden="true" />
                       {c.tagsButton}
@@ -2954,21 +2974,21 @@ export default function Insights() {
 
                   <div className={sectionCard}>
                     <div className="flex flex-wrap items-start justify-between gap-3 px-1">
-                      <div>
+                      <div className="min-w-0">
                         <h3 className={sectionTitle}>{c.summary.title}</h3>
                         <p className={sectionSub}>
                           {periodLabel} · {compareLabel}
                         </p>
                       </div>
                       <div
-                        className="flex items-center gap-2"
+                        className="flex w-full items-center gap-2 sm:w-auto"
                         aria-label={c.summary.goalAria(
                           postsThisWeek,
                           goal
                         )}
                       >
                         <div
-                          className={`h-1.5 w-24 overflow-hidden rounded-full ${t.inner}`}
+                          className={`h-1.5 w-full overflow-hidden rounded-full sm:w-24 ${t.inner}`}
                         >
                           <div
                             className={`h-full rounded-full transition-[width] duration-300 ${
@@ -2978,7 +2998,7 @@ export default function Insights() {
                           />
                         </div>
                         <span
-                          className={`text-[11px] font-semibold tabular-nums ${t.soft}`}
+                          className={`shrink-0 text-[11px] font-semibold tabular-nums ${t.soft}`}
                         >
                           {c.summary.goalProgress(postsThisWeek, goal)}
                         </span>
@@ -2993,7 +3013,7 @@ export default function Insights() {
                       </p>
                     )}
 
-                    <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+                    <div className="mt-4 grid grid-cols-2 gap-2.5 sm:gap-3 md:grid-cols-3 xl:grid-cols-6">
                       {summaryBoxes.map((b) => (
                         <MetricBox
                           key={b.key}
@@ -3016,7 +3036,7 @@ export default function Insights() {
                   aria-labelledby="metrics-title"
                 >
                   <div className="flex flex-wrap items-start justify-between gap-3 px-1">
-                    <div>
+                    <div className="min-w-0">
                       <h3 id="metrics-title" className={sectionTitle}>
                         {c.trends.title}
                       </h3>
@@ -3028,14 +3048,14 @@ export default function Insights() {
                       type="button"
                       aria-pressed={compare}
                       onClick={() => setCompare((cv) => !cv)}
-                      className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-[12px] font-semibold transition-colors ${t.ring} ${
+                      className={`flex min-h-10 items-center gap-2 rounded-lg border px-3 py-2 text-[12px] font-semibold transition-colors sm:min-h-0 ${t.ring} ${
                         compare
                           ? `border-transparent ${t.sel}`
                           : `${t.inner} ${t.hover} ${t.text}`
                       }`}
                     >
                       <span
-                        className="flex h-3.5 w-3.5 items-center justify-center rounded border border-current"
+                        className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded border border-current"
                         aria-hidden="true"
                       >
                         {compare && (
@@ -3046,7 +3066,7 @@ export default function Insights() {
                     </button>
                   </div>
 
-                  <div className="mt-4 overflow-x-auto">
+                  <div className={`mt-4 max-w-full overflow-x-auto ${NO_SCROLLBAR}`}>
                     <Segmented<NumKey>
                       label={c.trends.metricAria}
                       value={metricA}
@@ -3061,10 +3081,10 @@ export default function Insights() {
                   </div>
 
                   <div
-                    className={`mt-3 rounded-2xl border p-5 ${t.panel}`}
+                    className={`mt-3 rounded-2xl border p-3 sm:p-5 ${t.panel}`}
                   >
-                    <div className="flex flex-wrap items-end justify-between gap-4 pl-2">
-                      <div>
+                    <div className="flex flex-wrap items-end justify-between gap-3 pl-1 sm:gap-4 sm:pl-2">
+                      <div className="min-w-0">
                         <p className={`text-[11px] font-medium ${t.soft}`}>
                           {mainSeries.label} ·{" "}
                           {mainSeries.agg === "sum"
@@ -3072,7 +3092,7 @@ export default function Insights() {
                             : c.trends.ending}
                         </p>
                         <p
-                          className={`mt-1.5 flex flex-wrap items-center gap-3 text-[28px] font-bold leading-none tracking-tight tabular-nums ${t.text}`}
+                          className={`mt-1.5 flex flex-wrap items-center gap-2 text-[24px] font-bold leading-none tracking-tight tabular-nums sm:gap-3 sm:text-[28px] ${t.text}`}
                         >
                           {nf(seriesTotal(mainSeries), lang)}
                           {mainDelta != null && (
@@ -3086,7 +3106,11 @@ export default function Insights() {
                               }`}
                             >
                               {mainDelta > 0 ? "+" : ""}
-                              {mainDelta}% {c.summary.vsPreviousShort}
+                              {mainDelta}%
+                              <span className="max-sm:sr-only">
+                                {" "}
+                                {c.summary.vsPreviousShort}
+                              </span>
                             </span>
                           )}
                         </p>
@@ -3113,7 +3137,7 @@ export default function Insights() {
                       )}
                     </div>
 
-                    <div className="mt-6">
+                    <div className="mt-4 sm:mt-6">
                       <InsightsChart
                         data={chartData}
                         view={chartView}
@@ -3128,7 +3152,7 @@ export default function Insights() {
                 </section>
 
                 {/* ── BEST TIME + RECYCLE ── */}
-                <div className="grid items-start gap-4 xl:grid-cols-2">
+                <div className="grid items-start gap-4 lg:grid-cols-2">
                   <section
                     className={`${sectionCard} min-w-0`}
                     aria-labelledby="besttime-title"
@@ -3146,13 +3170,15 @@ export default function Insights() {
                       <button
                         type="button"
                         onClick={() => scheduleFromSlot(heatmap.best)}
-                        className={`shrink-0 rounded-full px-3.5 py-1.5 text-[11px] font-semibold ${t.ring} ${t.outlineBtn}`}
+                        className={`min-h-10 shrink-0 rounded-full px-3.5 py-1.5 text-[11px] font-semibold sm:min-h-0 ${t.ring} ${t.outlineBtn}`}
                       >
                         {c.bestTime.useLabel(heatmap.label)}
                       </button>
                     </div>
 
-                    <div className="mt-4 overflow-x-auto px-1 pb-1">
+                    <div
+                      className={`mt-4 overflow-x-auto overscroll-x-contain px-1 pb-1 ${NO_SCROLLBAR}`}
+                    >
                       <div className="min-w-[480px]">
                         <div className="mb-1.5 flex items-end gap-2">
                           <span className="w-9 shrink-0" />
@@ -3263,7 +3289,7 @@ export default function Insights() {
                         {remixable.map((p, i) => (
                           <div
                             key={p.id}
-                            className={`flex gap-3 rounded-2xl border p-3.5 ${t.inner}`}
+                            className={`flex gap-3 rounded-2xl border p-3 sm:p-3.5 ${t.inner}`}
                           >
                             <span
                               className={`flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl ${t.iconBox}`}
@@ -3286,16 +3312,16 @@ export default function Insights() {
                                 {c.recycle.rank(i + 1)} ·{" "}
                                 {mediaLabel(p.media)}
                               </p>
-                              <div className="mt-0.5 flex items-center justify-between gap-2">
+                              <div className="mt-0.5 flex flex-wrap items-center justify-between gap-x-2 gap-y-1.5">
                                 <p
-                                  className={`truncate text-[13px] font-semibold ${t.text}`}
+                                  className={`min-w-0 max-w-full flex-1 truncate text-[13px] font-semibold ${t.text}`}
                                 >
                                   {p.label}
                                 </p>
                                 <button
                                   type="button"
                                   onClick={() => duplicatePost(p)}
-                                  className={`shrink-0 rounded-md border px-2.5 py-1 text-[11px] font-semibold transition-colors motion-reduce:transition-none ${t.ring} ${
+                                  className={`min-h-9 shrink-0 rounded-md border px-2.5 py-1 text-[11px] font-semibold transition-colors motion-reduce:transition-none sm:min-h-0 ${t.ring} ${
                                     isDark
                                       ? "border-white/10 text-white hover:border-white/25 hover:bg-white/[0.08]"
                                       : "border-black/10 text-neutral-900 hover:border-black/25 hover:bg-black/[0.06]"
@@ -3324,7 +3350,7 @@ export default function Insights() {
                   aria-labelledby="perf-title"
                 >
                   <div className="flex flex-wrap items-start justify-between gap-3 px-1">
-                    <div>
+                    <div className="min-w-0">
                       <h3 id="perf-title" className={sectionTitle}>
                         {c.performance.title}
                       </h3>
@@ -3355,144 +3381,197 @@ export default function Insights() {
                   </div>
 
                   <div
-                    className={`mt-4 overflow-x-auto rounded-2xl border ${t.panel}`}
+                    className={`mt-4 overflow-hidden rounded-2xl border ${t.panel}`}
                   >
-                    <div className="min-w-[720px]">
-                      <div
-                        className={`grid ${TABLE_GRID} items-center gap-2 px-4 py-3 text-[12px] font-semibold ${t.head} ${t.text}`}
+                    {/* Mobile (< md) : compteur + tri en puces scrollables */}
+                    <div className="md:hidden">
+                      <p
+                        className={`px-4 pt-3 text-[12px] font-semibold ${t.text}`}
                       >
-                        <span>
-                          {c.performance.postsCount(sortedRows.length)}
-                        </span>
-                        {columns.map((col) => (
-                          <button
-                            key={col.key}
-                            type="button"
-                            onClick={() => toggleSort(col.key)}
-                            aria-label={c.performance.sortBy(
-                              c.performance.columns[col.key]
-                            )}
-                            className={`flex w-fit items-center gap-1 rounded text-left ${t.ring}`}
-                          >
-                            {c.performance.columns[col.key]}
-                            <ChevronDown
-                              className={`h-3.5 w-3.5 transition-transform ${
-                                t.muted
-                              } ${
-                                sort?.key === col.key && sort.dir === "asc"
-                                  ? "rotate-180"
-                                  : ""
-                              } ${
-                                sort?.key === col.key
-                                  ? "opacity-100"
-                                  : "opacity-70"
-                              }`}
-                              aria-hidden="true"
-                            />
-                          </button>
-                        ))}
-                        <span />
-                      </div>
-
-                      {sortedRows.length === 0 ? (
-                        <div
-                          className={`flex flex-col items-center gap-2 border-t px-6 py-10 text-center ${t.border}`}
-                        >
-                          <span
-                            className={`flex h-11 w-11 items-center justify-center rounded-full ${t.iconBox}`}
-                          >
-                            <Activity className="h-5 w-5" aria-hidden="true" />
-                          </span>
-                          <p
-                            className={`text-[12px] font-medium ${t.text}`}
-                          >
-                            {youtubeLoading
-                              ? c.performance.emptyLoading
-                              : needle
-                                ? c.performance.emptyNoMatch
-                                : c.performance.emptyNoPost}
-                          </p>
-                          {!youtubeLoading && !needle && (
-                            <p
-                              className={`max-w-[360px] text-[12px] ${t.soft}`}
-                            >
-                              {c.performance.emptyLongerPeriod}
-                            </p>
-                          )}
-                          {!youtubeLoading && !needle && days < 30 && (
+                        {c.performance.postsCount(sortedRows.length)}
+                      </p>
+                      <div
+                        className={`flex gap-1.5 overflow-x-auto px-4 pb-3 pt-2 ${NO_SCROLLBAR}`}
+                      >
+                        {columns.map((col) => {
+                          const active = sort?.key === col.key;
+                          return (
                             <button
+                              key={col.key}
                               type="button"
-                              onClick={() => setRange("30d")}
-                              className={`mt-2 rounded-full px-3.5 py-1.5 text-[11px] font-semibold transition-colors ${t.ring} ${t.outlineBtn}`}
+                              onClick={() => toggleSort(col.key)}
+                              aria-pressed={active}
+                              aria-label={c.performance.sortBy(
+                                c.performance.columns[col.key]
+                              )}
+                              className={`flex min-h-9 shrink-0 items-center gap-1 whitespace-nowrap rounded-full border px-3 py-1.5 text-[12px] font-semibold transition-colors ${t.ring} ${
+                                active
+                                  ? `border-transparent ${t.sel}`
+                                  : `${t.inner} ${t.hover} ${t.text}`
+                              }`}
                             >
-                              {c.performance.showLast30Days}
+                              {c.performance.columns[col.key]}
+                              <ChevronDown
+                                className={`h-3.5 w-3.5 transition-transform ${
+                                  active && sort?.dir === "asc"
+                                    ? "rotate-180"
+                                    : ""
+                                } ${active ? "opacity-100" : "opacity-60"}`}
+                                aria-hidden="true"
+                              />
                             </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Desktop (≥ md) : en-tête de colonnes */}
+                    <div
+                      className={`hidden items-center gap-2 px-4 py-3 text-[12px] font-semibold md:grid ${TABLE_GRID} ${t.head} ${t.text}`}
+                    >
+                      <span>
+                        {c.performance.postsCount(sortedRows.length)}
+                      </span>
+                      {columns.map((col) => (
+                        <button
+                          key={col.key}
+                          type="button"
+                          onClick={() => toggleSort(col.key)}
+                          aria-label={c.performance.sortBy(
+                            c.performance.columns[col.key]
                           )}
-                        </div>
-                      ) : (
-                        visibleRows.map((p, idx) => (
-                          <div
-                            key={p.id}
-                            className={`grid ${TABLE_GRID} items-center gap-2 border-t px-4 py-3 text-[13px] transition-colors ${t.border} ${t.text} ${t.hover}`}
+                          className={`flex w-fit items-center gap-1 rounded text-left ${t.ring}`}
+                        >
+                          {c.performance.columns[col.key]}
+                          <ChevronDown
+                            className={`h-3.5 w-3.5 transition-transform ${
+                              t.muted
+                            } ${
+                              sort?.key === col.key && sort.dir === "asc"
+                                ? "rotate-180"
+                                : ""
+                            } ${
+                              sort?.key === col.key
+                                ? "opacity-100"
+                                : "opacity-70"
+                            }`}
+                            aria-hidden="true"
+                          />
+                        </button>
+                      ))}
+                      <span />
+                    </div>
+
+                    {sortedRows.length === 0 ? (
+                      <div
+                        className={`flex flex-col items-center gap-2 border-t px-6 py-10 text-center ${t.border}`}
+                      >
+                        <span
+                          className={`flex h-11 w-11 items-center justify-center rounded-full ${t.iconBox}`}
+                        >
+                          <Activity className="h-5 w-5" aria-hidden="true" />
+                        </span>
+                        <p
+                          className={`text-[13px] font-medium sm:text-[12px] ${t.text}`}
+                        >
+                          {youtubeLoading
+                            ? c.performance.emptyLoading
+                            : needle
+                              ? c.performance.emptyNoMatch
+                              : c.performance.emptyNoPost}
+                        </p>
+                        {!youtubeLoading && !needle && (
+                          <p
+                            className={`max-w-[360px] text-[12px] ${t.soft}`}
                           >
-                            <div className="flex min-w-0 items-center gap-3">
-                              <span
-                                className={`w-5 shrink-0 text-[12px] ${t.muted}`}
-                              >
-                                #{idx + 1}
-                              </span>
-                              <span
-                                className={`flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg ${t.iconBox}`}
-                              >
-                                {p.thumbnailUrl ? (
-                                  <img
-                                    src={p.thumbnailUrl}
-                                    alt=""
-                                    referrerPolicy="no-referrer"
-                                    loading="lazy"
-                                    className="h-full w-full object-cover"
-                                  />
-                                ) : (
-                                  mediaIcon(p.media)
-                                )}
-                              </span>
-                              <div className="min-w-0">
-                                {isYouTube ? (
-                                  <a
-                                    href={`https://www.youtube.com/watch?v=${p.id}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className={`block truncate rounded text-[14px] font-medium hover:underline ${t.soft} ${t.ring}`}
-                                  >
-                                    {p.label}
-                                  </a>
-                                ) : (
-                                  <p
-                                    className={`truncate text-[14px] font-medium ${t.soft}`}
-                                  >
-                                    {p.label}
-                                  </p>
-                                )}
-                                <p
-                                  className={`flex items-center gap-1.5 text-[11px] ${t.muted}`}
+                            {c.performance.emptyLongerPeriod}
+                          </p>
+                        )}
+                        {!youtubeLoading && !needle && days < 30 && (
+                          <button
+                            type="button"
+                            onClick={() => setRange("30d")}
+                            className={`mt-2 min-h-10 rounded-full px-3.5 py-1.5 text-[11px] font-semibold transition-colors sm:min-h-0 ${t.ring} ${t.outlineBtn}`}
+                          >
+                            {c.performance.showLast30Days}
+                          </button>
+                        )}
+                      </div>
+                    ) : (
+                      visibleRows.map((p, idx) => (
+                        <div
+                          key={p.id}
+                          className={`relative grid grid-cols-2 gap-x-3 gap-y-2.5 border-t px-4 py-3 text-[13px] transition-colors md:items-center md:gap-2 ${TABLE_GRID} ${t.border} ${t.text} ${t.hover}`}
+                        >
+                          <div className="col-span-2 flex min-w-0 items-center gap-3 pr-10 md:col-span-1 md:pr-0">
+                            <span
+                              className={`w-5 shrink-0 text-[12px] ${t.muted}`}
+                            >
+                              #{idx + 1}
+                            </span>
+                            <span
+                              className={`flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg ${t.iconBox}`}
+                            >
+                              {p.thumbnailUrl ? (
+                                <img
+                                  src={p.thumbnailUrl}
+                                  alt=""
+                                  referrerPolicy="no-referrer"
+                                  loading="lazy"
+                                  className="h-full w-full object-cover"
+                                />
+                              ) : (
+                                mediaIcon(p.media)
+                              )}
+                            </span>
+                            <div className="min-w-0">
+                              {isYouTube ? (
+                                <a
+                                  href={`https://www.youtube.com/watch?v=${p.id}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className={`block truncate rounded text-[14px] font-medium hover:underline ${t.soft} ${t.ring}`}
                                 >
-                                  {fmtFull(p.date, lang)}
-                                  {postsPeriod === "this" &&
-                                    p.id === topPost?.id && (
-                                      <span
-                                        className={`rounded-full px-1.5 py-px text-[9px] font-semibold ${t.sel}`}
-                                      >
-                                        {c.performance.top}
-                                      </span>
-                                    )}
+                                  {p.label}
+                                </a>
+                              ) : (
+                                <p
+                                  className={`truncate text-[14px] font-medium ${t.soft}`}
+                                >
+                                  {p.label}
                                 </p>
-                              </div>
+                              )}
+                              <p
+                                className={`flex items-center gap-1.5 text-[11px] ${t.muted}`}
+                              >
+                                {fmtFull(p.date, lang)}
+                                {postsPeriod === "this" &&
+                                  p.id === topPost?.id && (
+                                    <span
+                                      className={`rounded-full px-1.5 py-px text-[9px] font-semibold ${t.sel}`}
+                                    >
+                                      {c.performance.top}
+                                    </span>
+                                  )}
+                              </p>
                             </div>
-                            {columns.map((col) => (
-                              <span key={col.key} className="tabular-nums">
+                          </div>
+                          {columns.map((col) => (
+                            <span
+                              key={col.key}
+                              className="flex items-baseline justify-between gap-2 tabular-nums md:block"
+                            >
+                              <span
+                                className={`text-[11px] md:hidden ${t.muted}`}
+                              >
+                                {c.performance.columns[col.key]}
+                              </span>
+                              <span className="font-medium md:font-normal">
                                 {col.render(p)}
                               </span>
-                            ))}
+                            </span>
+                          ))}
+                          <div className="absolute right-3 top-3 md:static">
                             {isYouTube ? (
                               <a
                                 href={`https://www.youtube.com/watch?v=${p.id}`}
@@ -3500,7 +3579,7 @@ export default function Insights() {
                                 rel="noopener noreferrer"
                                 aria-label={c.performance.openYouTube}
                                 title={c.performance.openYouTube}
-                                className={`flex h-8 w-8 items-center justify-center rounded-md ${t.soft} ${t.hover} ${t.ring}`}
+                                className={`flex h-9 w-9 items-center justify-center rounded-md md:h-8 md:w-8 ${t.soft} ${t.hover} ${t.ring}`}
                               >
                                 <ExternalLink
                                   className="h-4 w-4"
@@ -3513,7 +3592,7 @@ export default function Insights() {
                                 aria-label={c.performance.duplicatePost}
                                 title={c.performance.duplicatePost}
                                 onClick={() => duplicatePost(p)}
-                                className={`flex h-8 w-8 items-center justify-center rounded-md ${t.soft} ${t.hover} ${t.ring}`}
+                                className={`flex h-9 w-9 items-center justify-center rounded-md md:h-8 md:w-8 ${t.soft} ${t.hover} ${t.ring}`}
                               >
                                 <MoreVertical
                                   className="h-4 w-4"
@@ -3522,25 +3601,25 @@ export default function Insights() {
                               </button>
                             )}
                           </div>
-                        ))
-                      )}
-
-                      {sortedRows.length > POSTS_PREVIEW && (
-                        <div
-                          className={`flex justify-center border-t px-4 py-3 ${t.border}`}
-                        >
-                          <button
-                            type="button"
-                            onClick={() => setShowAllPosts((v) => !v)}
-                            className={`rounded-full px-3.5 py-1.5 text-[11px] font-semibold transition-colors ${t.ring} ${t.outlineBtn}`}
-                          >
-                            {showAllPosts
-                              ? c.performance.showLess
-                              : c.performance.showMore(sortedRows.length)}
-                          </button>
                         </div>
-                      )}
-                    </div>
+                      ))
+                    )}
+
+                    {sortedRows.length > POSTS_PREVIEW && (
+                      <div
+                        className={`flex justify-center border-t px-4 py-3 ${t.border}`}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => setShowAllPosts((v) => !v)}
+                          className={`min-h-10 rounded-full px-3.5 py-1.5 text-[11px] font-semibold transition-colors sm:min-h-0 ${t.ring} ${t.outlineBtn}`}
+                        >
+                          {showAllPosts
+                            ? c.performance.showLess
+                            : c.performance.showMore(sortedRows.length)}
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </section>
               </>

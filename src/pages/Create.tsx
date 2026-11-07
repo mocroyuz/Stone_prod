@@ -1,6 +1,11 @@
 // src/pages/Create.tsx
 // Page Create (routes "create", "create/ideas", "create/templates").
-// Shell visuel aligné sur Home : fond de page + panneau arrondi à la jointure de la sidebar.
+// Shell visuel et responsive alignés sur Home :
+//  - 100dvh + max-md:pt-14 (barre mobile de la sidebar)
+//  - tailles mobile / desktop (text-[15px] sm:text-[12px]…)
+//  - cibles tactiles min-h-10 sm:min-h-0
+//  - rangées scrollables sans scrollbar, menus bornés à l'écran
+//  - board en carrousel magnétique sur mobile
 //
 // Deux notions distinctes :
 //  - GROUPES : les colonnes du board (Unassigned, To Do, In Progress…).
@@ -137,6 +142,7 @@ type Copy = {
     closeMenu: string;
     tags: string;
     noTags: string;
+    moveTo: string;
   };
   galleryEmpty: {
     title: string;
@@ -201,6 +207,7 @@ const COPY: Record<Lang, Copy> = {
       closeMenu: "Close menu",
       tags: "Tags",
       noTags: "No tags yet. Create one from the Tags menu.",
+      moveTo: "Move to",
     },
     galleryEmpty: {
       title: "No ideas yet",
@@ -264,6 +271,7 @@ const COPY: Record<Lang, Copy> = {
       closeMenu: "Fermer le menu",
       tags: "Tags",
       noTags: "Aucun tag. Créez-en un depuis le menu Tags.",
+      moveTo: "Déplacer vers",
     },
     galleryEmpty: {
       title: "Aucune idée pour l'instant",
@@ -296,6 +304,10 @@ type IconProps = { className?: string };
 
 /** Route de cette page dans la sidebar (doit exister dans navItems). */
 const PAGE_ROUTE = "create";
+
+/** Menu déroulant : sur mobile, feuille ancrée au-dessus de la BottomBar. */
+const MOBILE_SHEET =
+  "max-sm:fixed max-sm:inset-x-3 max-sm:bottom-24 max-sm:top-auto max-sm:z-50 max-sm:mt-0 max-sm:max-h-[60dvh] max-sm:w-auto max-sm:overflow-y-auto";
 
 /* ───────── Onglet ↔ URL (#/create, #/create/templates, …) ───────── */
 
@@ -554,7 +566,7 @@ function IconButton({
   children,
   ghost,
   isDark,
-  className = "h-9 w-9",
+  className = "h-10 w-10 sm:h-9 sm:w-9",
   align = "center",
 }: {
   label: string;
@@ -578,9 +590,10 @@ function IconButton({
         {children}
       </button>
 
+      {/* Tooltip : survol uniquement (masqué sur tactile) */}
       <span
         role="tooltip"
-        className={`pointer-events-none absolute top-full z-50 mt-2 w-max max-w-[240px] rounded-lg px-3 py-2 text-[13px] font-medium leading-snug text-white opacity-0 shadow-lg transition-opacity duration-150 motion-reduce:transition-none group-hover:opacity-100 group-hover:delay-300 group-focus-within:opacity-100 ${
+        className={`pointer-events-none absolute top-full z-50 mt-2 w-max max-w-[240px] rounded-lg px-3 py-2 text-[13px] font-medium leading-snug text-white opacity-0 shadow-lg transition-opacity duration-150 motion-reduce:transition-none group-hover:opacity-100 group-hover:delay-300 group-focus-within:opacity-100 [@media(hover:none)]:hidden ${
           isDark ? "bg-[#2e2e31]" : "bg-neutral-900"
         } ${align === "end" ? "right-0" : "left-1/2 -translate-x-1/2"}`}
       >
@@ -630,7 +643,8 @@ function CreateNameInput({
         }}
         placeholder={placeholder}
         maxLength={30}
-        className={`min-w-0 flex-1 bg-transparent py-2 text-[13px] outline-none ${
+        // 16px sur mobile : évite le zoom automatique d'iOS au focus
+        className={`min-w-0 flex-1 bg-transparent py-2.5 text-[16px] outline-none sm:py-2 sm:text-[13px] ${
           isDark
             ? "placeholder:text-neutral-600"
             : "placeholder:text-neutral-400"
@@ -641,7 +655,7 @@ function CreateNameInput({
         aria-label={submitAria}
         onClick={submit}
         disabled={!value.trim()}
-        className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md transition-colors disabled:opacity-30 ${
+        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors disabled:opacity-30 sm:h-6 sm:w-6 ${
           isDark ? "hover:bg-white/[0.06]" : "hover:bg-black/[0.04]"
         }`}
       >
@@ -690,13 +704,13 @@ function GroupsMenu({
 }) {
   const [open, setOpen] = useState(false);
   return (
-    <div className="relative">
+    <div className="relative shrink-0">
       <button
         type="button"
         aria-haspopup="listbox"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className={`flex items-center gap-2 rounded-xl px-3 py-2 text-[13px] font-medium transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 ${ghost} ${
+        className={`flex min-h-10 items-center gap-2 rounded-xl px-3 py-2 text-[13px] font-medium transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 sm:min-h-0 ${ghost} ${
           isDark ? "focus-visible:ring-white/30" : "focus-visible:ring-black/25"
         }`}
       >
@@ -720,11 +734,11 @@ function GroupsMenu({
             type="button"
             aria-label={c.groupsMenu.closeMenu}
             tabIndex={-1}
-            className="fixed inset-0 z-30 cursor-default"
+            className="fixed inset-0 z-30 cursor-default max-sm:z-40 max-sm:bg-black/30"
             onClick={() => setOpen(false)}
           />
           <div
-            className={`absolute right-0 z-40 mt-2 w-[240px] rounded-xl border p-1 shadow-lg ${
+            className={`absolute right-0 z-40 mt-2 w-[240px] max-w-[calc(100vw-48px)] rounded-xl border p-1 shadow-lg ${MOBILE_SHEET} ${
               isDark
                 ? "border-white/[0.08] bg-[#101012]"
                 : "border-black/[0.06] bg-white"
@@ -738,7 +752,7 @@ function GroupsMenu({
                     <button
                       type="button"
                       onClick={() => onToggle(g.id)}
-                      className={`flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left text-[13px] font-medium transition-colors ${
+                      className={`flex min-h-10 w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left text-[14px] font-medium transition-colors sm:min-h-0 sm:text-[13px] ${
                         isDark
                           ? "hover:bg-white/[0.06]"
                           : "hover:bg-black/[0.04]"
@@ -797,13 +811,13 @@ function TagsMenu({
 }) {
   const [open, setOpen] = useState(false);
   return (
-    <div className="relative">
+    <div className="relative shrink-0">
       <button
         type="button"
         aria-haspopup="listbox"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className={`flex items-center gap-2 rounded-xl px-3 py-2 text-[13px] font-medium transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 ${ghost} ${
+        className={`flex min-h-10 items-center gap-2 rounded-xl px-3 py-2 text-[13px] font-medium transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 sm:min-h-0 ${ghost} ${
           isDark ? "focus-visible:ring-white/30" : "focus-visible:ring-black/25"
         }`}
       >
@@ -827,11 +841,11 @@ function TagsMenu({
             type="button"
             aria-label={c.tagsMenu.closeMenu}
             tabIndex={-1}
-            className="fixed inset-0 z-30 cursor-default"
+            className="fixed inset-0 z-30 cursor-default max-sm:z-40 max-sm:bg-black/30"
             onClick={() => setOpen(false)}
           />
           <div
-            className={`absolute right-0 z-40 mt-2 w-[260px] rounded-xl border p-1 shadow-lg ${
+            className={`absolute right-0 z-40 mt-2 w-[260px] max-w-[calc(100vw-48px)] rounded-xl border p-1 shadow-lg ${MOBILE_SHEET} ${
               isDark
                 ? "border-white/[0.08] bg-[#101012]"
                 : "border-black/[0.06] bg-white"
@@ -854,7 +868,7 @@ function TagsMenu({
                       <button
                         type="button"
                         onClick={() => onToggle(t.id)}
-                        className={`flex min-w-0 flex-1 items-center justify-between gap-3 rounded-lg px-3 py-2 text-left text-[13px] font-medium transition-colors ${
+                        className={`flex min-h-10 min-w-0 flex-1 items-center justify-between gap-3 rounded-lg px-3 py-2 text-left text-[14px] font-medium transition-colors sm:min-h-0 sm:text-[13px] ${
                           isDark
                             ? "hover:bg-white/[0.06]"
                             : "hover:bg-black/[0.04]"
@@ -872,7 +886,7 @@ function TagsMenu({
                         type="button"
                         aria-label={c.tagsMenu.deleteTag}
                         onClick={() => onDelete(t.id)}
-                        className={`ml-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg opacity-0 transition-opacity focus-visible:opacity-100 group-hover/tag:opacity-100 [@media(hover:none)]:opacity-100 ${
+                        className={`ml-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg opacity-0 transition-opacity focus-visible:opacity-100 group-hover/tag:opacity-100 sm:h-7 sm:w-7 [@media(hover:none)]:opacity-100 ${
                           isDark
                             ? "text-rose-400 hover:bg-white/[0.06]"
                             : "text-rose-600 hover:bg-black/[0.04]"
@@ -911,6 +925,7 @@ function IdeaCard({
   groupColor,
   ideaTags,
   allTags,
+  moveGroups,
   isDark,
   muted,
   draggable,
@@ -918,6 +933,7 @@ function IdeaCard({
   onPointerDown,
   onDelete,
   onToggleTag,
+  onMove,
   c,
 }: {
   idea: Idea;
@@ -928,6 +944,8 @@ function IdeaCard({
   ideaTags: Tag[];
   /** Tous les tags existants (sous-menu d'assignation). */
   allTags: Tag[];
+  /** Groupes disponibles pour « Déplacer vers » (au doigt, sans drag). */
+  moveGroups?: Group[];
   isDark: boolean;
   muted: string;
   draggable?: boolean;
@@ -935,13 +953,18 @@ function IdeaCard({
   onPointerDown?: (e: RPointerEvent) => void;
   onDelete?: () => void;
   onToggleTag?: (tagId: string) => void;
+  onMove?: (groupId: string) => void;
   c: Copy;
 }) {
   const [menu, setMenu] = useState(false);
-  const hasMenu = !!onDelete || !!onToggleTag;
+  const hasMenu = !!onDelete || !!onToggleTag || !!onMove;
 
-  const item = `flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-[13px] font-medium transition-colors ${
+  const item = `flex min-h-10 w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-[14px] font-medium transition-colors sm:min-h-0 sm:text-[13px] ${
     isDark ? "hover:bg-white/[0.06]" : "hover:bg-black/[0.04]"
+  }`;
+
+  const sep = `my-1 border-t ${
+    isDark ? "border-white/[0.07]" : "border-black/[0.06]"
   }`;
 
   const chipClass = `inline-flex w-fit items-center gap-1.5 rounded-md px-2 py-0.5 text-[11px] font-medium ${
@@ -954,7 +977,7 @@ function IdeaCard({
       onPointerDown={onPointerDown}
       className={`group/card relative rounded-xl ${menu ? "z-20" : ""} ${
         draggable
-          ? "cursor-grab touch-none select-none active:cursor-grabbing"
+          ? "cursor-grab select-none active:cursor-grabbing sm:touch-none"
           : ""
       } ${
         placeholder
@@ -982,7 +1005,7 @@ function IdeaCard({
         )}
         <div className="flex flex-col gap-1 px-4 py-4">
           <div className="flex items-center justify-between gap-2">
-            <h3 className="min-w-0 flex-1 truncate text-[14px] font-semibold tracking-[-0.01em]">
+            <h3 className="min-w-0 flex-1 truncate text-[15px] font-semibold tracking-[-0.01em] sm:text-[14px]">
               {idea.title}
             </h3>
 
@@ -994,7 +1017,7 @@ function IdeaCard({
                   aria-haspopup="menu"
                   aria-expanded={menu}
                   onClick={() => setMenu((v) => !v)}
-                  className={`flex h-7 w-7 items-center justify-center rounded-lg transition-[opacity,background-color] focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 group-hover/card:opacity-100 [@media(hover:none)]:opacity-100 ${
+                  className={`flex h-9 w-9 items-center justify-center rounded-lg transition-[opacity,background-color] focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 group-hover/card:opacity-100 sm:h-7 sm:w-7 [@media(hover:none)]:opacity-100 ${
                     menu ? "opacity-100" : "opacity-0"
                   } ${
                     isDark
@@ -1011,18 +1034,55 @@ function IdeaCard({
                       type="button"
                       aria-label={c.ideaCard.closeMenu}
                       tabIndex={-1}
-                      className="fixed inset-0 z-30 cursor-default"
+                      className="fixed inset-0 z-30 cursor-default max-sm:z-40 max-sm:bg-black/30"
                       onClick={() => setMenu(false)}
                     />
                     <div
                       role="menu"
                       onPointerDown={(e) => e.stopPropagation()}
-                      className={`absolute right-0 top-full z-40 mt-1 min-w-[190px] rounded-xl border p-1 shadow-lg ${
+                      className={`absolute right-0 top-full z-40 mt-1 min-w-[190px] max-w-[calc(100vw-48px)] rounded-xl border p-1 shadow-lg ${MOBILE_SHEET} ${
                         isDark
                           ? "border-white/[0.08] bg-[#101012]"
                           : "border-black/[0.06] bg-white"
                       }`}
                     >
+                      {onMove && moveGroups && moveGroups.length > 0 && (
+                        <>
+                          <p
+                            className={`px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide ${muted}`}
+                          >
+                            {c.ideaCard.moveTo}
+                          </p>
+                          {moveGroups.map((g) => {
+                            const current = g.id === idea.groupId;
+                            return (
+                              <button
+                                key={g.id}
+                                type="button"
+                                role="menuitemradio"
+                                aria-checked={current}
+                                disabled={current}
+                                onClick={() => {
+                                  setMenu(false);
+                                  onMove(g.id);
+                                }}
+                                className={`${item} justify-between disabled:opacity-50`}
+                              >
+                                <span className="flex min-w-0 items-center gap-2">
+                                  <span
+                                    className={`h-2.5 w-2.5 shrink-0 rounded-full ${g.color}`}
+                                  />
+                                  <span className="truncate">{g.label}</span>
+                                </span>
+                                {current && (
+                                  <span className="text-[12px]">✓</span>
+                                )}
+                              </button>
+                            );
+                          })}
+                          {(onToggleTag || onDelete) && <div className={sep} />}
+                        </>
+                      )}
                       {onToggleTag && (
                         <>
                           <p
@@ -1057,15 +1117,7 @@ function IdeaCard({
                               );
                             })
                           )}
-                          {onDelete && (
-                            <div
-                              className={`my-1 border-t ${
-                                isDark
-                                  ? "border-white/[0.07]"
-                                  : "border-black/[0.06]"
-                              }`}
-                            />
-                          )}
+                          {onDelete && <div className={sep} />}
                         </>
                       )}
                       {onDelete && (
@@ -1092,7 +1144,7 @@ function IdeaCard({
           </div>
 
           {idea.description && (
-            <p className={`line-clamp-2 text-[13px] ${muted}`}>
+            <p className={`line-clamp-2 text-[14px] sm:text-[13px] ${muted}`}>
               {idea.description}
             </p>
           )}
@@ -1543,10 +1595,14 @@ export default function Create() {
     },
   ];
 
+  /** Marge négative / padding du shell : les rangées scrollables vont bord à bord sur mobile. */
+  const EDGE_BLEED =
+    "-mx-[clamp(18px,3vw,48px)] px-[clamp(18px,3vw,48px)] sm:mx-0 sm:px-0";
+
   return (
     <main
       className={[
-        "relative h-screen w-full overflow-hidden",
+        "relative h-[100dvh] w-full overflow-hidden",
         "transition-colors duration-300",
         page,
       ].join(" ")}
@@ -1555,7 +1611,7 @@ export default function Create() {
 
       <div
         className={[
-          "h-full py-3 pr-3",
+          "h-full py-3 pr-3 max-md:pt-14",
           "transition-[padding-left] duration-[380ms]",
           "ease-[cubic-bezier(0.4,0,0.2,1)]",
           "motion-reduce:transition-none",
@@ -1574,15 +1630,16 @@ export default function Create() {
             className={[
               "flex min-h-0 w-full flex-1 flex-col",
               "px-[clamp(18px,3vw,48px)]",
-              "pb-6 pt-[clamp(18px,3vw,30px)]",
+              // pb : place pour la BottomBar flottante sur mobile
+              "pb-[104px] pt-[clamp(18px,3vw,30px)] sm:pb-6",
             ].join(" ")}
           >
             {/* HEADER */}
-            <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 pb-4">
+            <div className="flex shrink-0 items-center justify-between gap-3 pb-4">
               <div className="flex min-w-0 items-center gap-2.5">
                 <span
                   className={[
-                    "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border",
+                    "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border sm:h-9 sm:w-9",
                     isDark
                       ? "border-white/[0.07] bg-white/[0.04] text-neutral-400"
                       : "border-black/[0.06] bg-white text-neutral-500",
@@ -1592,14 +1649,14 @@ export default function Create() {
                 </span>
                 <h1
                   className={[
-                    "truncate text-[20px] font-semibold tracking-[-0.03em]",
+                    "truncate text-[22px] font-semibold tracking-[-0.03em] sm:text-[20px]",
                     strong,
                   ].join(" ")}
                 >
                   {c.pageTitle}
                 </h1>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex shrink-0 items-center gap-1 sm:gap-2">
                 <IconButton
                   label={
                     saved ? c.header.removeFavorite : c.header.addFavorite
@@ -1607,7 +1664,7 @@ export default function Create() {
                   onClick={() => toggleFavorite(PAGE_ROUTE)}
                   ghost={ghost}
                   isDark={isDark}
-                  className="h-9 w-9"
+                  align="end"
                 >
                   <BookmarkIcon className="h-5 w-5" filled={saved} />
                 </IconButton>
@@ -1615,17 +1672,17 @@ export default function Create() {
                   label={c.header.autoReplies}
                   ghost={ghost}
                   isDark={isDark}
-                  className="h-9 w-9"
+                  align="end"
                 >
                   <ChatHeartIcon className="h-5 w-5" />
                 </IconButton>
               </div>
             </div>
 
-            {/* Tabs + toolbar */}
+            {/* Tabs + toolbar : la toolbar passe sous les onglets sur mobile */}
             <div
               className={[
-                "flex shrink-0 items-center justify-between gap-4 border-b",
+                "flex shrink-0 flex-wrap items-center justify-between gap-x-4 border-b",
                 line,
               ].join(" ")}
             >
@@ -1642,7 +1699,7 @@ export default function Create() {
                     aria-selected={tab === tb.key}
                     onClick={() => selectTab(tb.key)}
                     className={[
-                      "-mb-px border-b-2 px-1 pb-3 pt-2 text-[14px] font-medium transition-colors motion-reduce:transition-none",
+                      "-mb-px min-h-10 border-b-2 px-1 pb-3 pt-2 text-[15px] font-medium transition-colors motion-reduce:transition-none sm:min-h-0 sm:text-[14px]",
                       "focus-visible:outline-none focus-visible:ring-2",
                       ring,
                       tab === tb.key
@@ -1662,7 +1719,15 @@ export default function Create() {
               </div>
 
               {tab === "ideas" && (
-                <div className="flex items-center gap-2 pb-2">
+                <div
+                  className={[
+                    "flex items-center gap-2 pb-2",
+                    // mobile : rangée pleine largeur, scrollable, sans scrollbar
+                    "max-sm:order-last max-sm:w-[calc(100%+2*clamp(18px,3vw,48px))] max-sm:overflow-x-auto max-sm:pt-1",
+                    "max-sm:-mx-[clamp(18px,3vw,48px)] max-sm:px-[clamp(18px,3vw,48px)]",
+                    "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+                  ].join(" ")}
+                >
                   <GroupsMenu
                     groups={groups}
                     hidden={hiddenGroups}
@@ -1686,7 +1751,7 @@ export default function Create() {
                     role="tablist"
                     aria-label={c.view.ariaLabel}
                     className={[
-                      "inline-flex gap-1 rounded-xl border p-1",
+                      "inline-flex shrink-0 gap-1 rounded-xl border p-1 max-sm:ml-auto",
                       line,
                     ].join(" ")}
                   >
@@ -1696,9 +1761,11 @@ export default function Create() {
                         type="button"
                         role="tab"
                         aria-selected={view === o.key}
+                        aria-label={o.label}
+                        title={o.label}
                         onClick={() => setView(o.key)}
                         className={[
-                          "flex items-center gap-2 rounded-lg px-3 py-1.5 text-[12.5px] font-semibold transition-colors motion-reduce:transition-none",
+                          "flex min-h-9 items-center gap-2 rounded-lg px-3 py-1.5 text-[12.5px] font-semibold transition-colors motion-reduce:transition-none sm:min-h-0",
                           "focus-visible:outline-none focus-visible:ring-2",
                           ring,
                           view === o.key
@@ -1711,7 +1778,7 @@ export default function Create() {
                         ].join(" ")}
                       >
                         {o.icon}
-                        {o.label}
+                        <span className="max-sm:sr-only">{o.label}</span>
                       </button>
                     ))}
                   </div>
@@ -1720,7 +1787,7 @@ export default function Create() {
             </div>
 
             {/* Body */}
-            <div className="flex min-h-0 flex-1 flex-col pt-5">
+            <div className="flex min-h-0 flex-1 flex-col pt-4 sm:pt-5">
               {/* Templates */}
               {tab === "templates" && (
                 <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center">
@@ -1734,7 +1801,7 @@ export default function Create() {
                   </h2>
                   <p
                     className={[
-                      "max-w-[380px] text-[13px] leading-relaxed",
+                      "max-w-[380px] text-[14px] leading-relaxed sm:text-[13px]",
                       muted,
                     ].join(" ")}
                   >
@@ -1747,7 +1814,9 @@ export default function Create() {
               {tab === "ideas" &&
                 view === "board" &&
                 (status === "idle" || status === "loading") && (
-                  <div className="flex min-h-0 flex-1 gap-4 overflow-hidden">
+                  <div
+                    className={`flex min-h-0 flex-1 gap-3 overflow-hidden sm:gap-4 ${EDGE_BLEED}`}
+                  >
                     {[0, 1, 2].map((i) => (
                       <div
                         key={i}
@@ -1760,14 +1829,14 @@ export default function Create() {
               {/* Board : erreur de chargement */}
               {tab === "ideas" && view === "board" && status === "error" && (
                 <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
-                  <p className={["text-[13px]", muted].join(" ")}>
+                  <p className={["text-[14px] sm:text-[13px]", muted].join(" ")}>
                     {c.board.loadError}
                   </p>
                   <button
                     type="button"
                     onClick={() => void loadBoardMeta()}
                     className={[
-                      "rounded-xl border px-4 py-2 text-[13px] font-medium transition-colors",
+                      "min-h-10 rounded-xl border px-4 py-2 text-[13px] font-medium transition-colors sm:min-h-0",
                       "focus-visible:outline-none focus-visible:ring-2",
                       ring,
                       line,
@@ -1779,11 +1848,16 @@ export default function Create() {
                 </div>
               )}
 
-              {/* Board */}
+              {/* Board : carrousel magnétique sur mobile, colonnes libres dès sm */}
               {tab === "ideas" && view === "board" && status === "ready" && (
                 <div
                   ref={boardRef}
-                  className="relative flex min-h-0 flex-1 gap-4 overflow-x-auto pb-2"
+                  className={[
+                    "relative flex min-h-0 flex-1 snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain pb-2",
+                    "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+                    "sm:snap-none sm:gap-4",
+                    EDGE_BLEED,
+                  ].join(" ")}
                 >
                   {visibleGroups.map((group) => {
                     const items = ideas.filter(
@@ -1803,7 +1877,7 @@ export default function Create() {
                           else colRefs.current.delete(group.id);
                         }}
                         className={[
-                          "group/col relative flex min-h-0 w-[min(300px,85vw)] shrink-0 flex-col rounded-2xl p-3",
+                          "group/col relative flex min-h-0 w-[min(300px,85vw)] shrink-0 snap-start flex-col rounded-2xl p-3 sm:snap-align-none",
                           "transition-colors motion-reduce:transition-none",
                           isPlaceholder
                             ? `${
@@ -1822,7 +1896,7 @@ export default function Create() {
                           <span
                             data-grip
                             aria-hidden="true"
-                            className={`pointer-events-none absolute left-1/2 top-0.5 -translate-x-1/2 opacity-0 transition-opacity group-hover/col:opacity-100 ${muted}`}
+                            className={`pointer-events-none absolute left-1/2 top-0.5 hidden -translate-x-1/2 opacity-0 transition-opacity group-hover/col:opacity-100 sm:block ${muted}`}
                           >
                             <DragDotsIcon className="h-5 w-5" />
                           </span>
@@ -1838,7 +1912,7 @@ export default function Create() {
                             "flex items-center justify-between px-2 pb-3 pt-3",
                             fixed
                               ? ""
-                              : "cursor-grab touch-none select-none active:cursor-grabbing",
+                              : "cursor-grab select-none active:cursor-grabbing sm:touch-none",
                           ].join(" ")}
                         >
                           <div className="flex min-w-0 items-center gap-2.5">
@@ -1860,7 +1934,7 @@ export default function Create() {
                                   if (e.key === "Escape") setEditing(null);
                                 }}
                                 className={[
-                                  "w-[120px] rounded-md border bg-transparent px-2 py-0.5 text-[14px] font-semibold outline-none",
+                                  "w-[120px] rounded-md border bg-transparent px-2 py-0.5 text-[16px] font-semibold outline-none sm:text-[14px]",
                                   isDark
                                     ? "border-white/30"
                                     : "border-black/30",
@@ -1869,7 +1943,7 @@ export default function Create() {
                             ) : (
                               <h2
                                 className={[
-                                  "truncate text-[14px] font-semibold",
+                                  "truncate text-[15px] font-semibold sm:text-[14px]",
                                   strong,
                                 ].join(" ")}
                               >
@@ -1895,7 +1969,8 @@ export default function Create() {
                                   }
                                   ghost={ghost}
                                   isDark={isDark}
-                                  className="h-8 w-8"
+                                  className="h-9 w-9 sm:h-8 sm:w-8"
+                                  align="end"
                                 >
                                   <DotsIcon className="h-[18px] w-[18px]" />
                                 </IconButton>
@@ -1905,11 +1980,11 @@ export default function Create() {
                                       type="button"
                                       aria-label={c.board.closeMenu}
                                       tabIndex={-1}
-                                      className="fixed inset-0 z-30 cursor-default"
+                                      className="fixed inset-0 z-30 cursor-default max-sm:z-40 max-sm:bg-black/30"
                                       onClick={() => setColMenu(null)}
                                     />
                                     <div
-                                      className={`absolute right-0 top-full z-40 mt-1 min-w-[210px] rounded-xl border p-1 shadow-lg ${
+                                      className={`absolute right-0 top-full z-40 mt-1 min-w-[210px] max-w-[calc(100vw-48px)] rounded-xl border p-1 shadow-lg ${MOBILE_SHEET} ${
                                         isDark
                                           ? "border-white/[0.08] bg-[#101012]"
                                           : "border-black/[0.06] bg-white"
@@ -1937,7 +2012,7 @@ export default function Create() {
                                             o.run();
                                             setColMenu(null);
                                           }}
-                                          className={`w-full rounded-lg px-3 py-2 text-left text-[13px] font-medium transition-colors ${
+                                          className={`min-h-10 w-full rounded-lg px-3 py-2 text-left text-[14px] font-medium transition-colors sm:min-h-0 sm:text-[13px] ${
                                             isDark
                                               ? "hover:bg-white/[0.06]"
                                               : "hover:bg-black/[0.04]"
@@ -1956,7 +2031,7 @@ export default function Create() {
 
                         <div
                           data-list
-                          className="relative flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto"
+                          className="relative flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
                         >
                           {items.map((idea) => (
                             <IdeaCard
@@ -1964,9 +2039,11 @@ export default function Create() {
                               idea={idea}
                               ideaTags={tagsOf(idea)}
                               allTags={tags}
+                              moveGroups={groups}
                               onToggleTag={(tid) =>
                                 toggleIdeaTag(idea.id, tid)
                               }
+                              onMove={(gid) => moveIdea(idea.id, gid)}
                               isDark={isDark}
                               muted={muted}
                               draggable
@@ -1984,7 +2061,7 @@ export default function Create() {
                   })}
 
                   {/* Ajouter un groupe */}
-                  <div className="w-[min(260px,80vw)] shrink-0">
+                  <div className="w-[min(260px,80vw)] shrink-0 snap-start">
                     {addingCol ? (
                       <div className={`rounded-2xl p-3 ${column}`}>
                         <CreateNameInput
@@ -2000,7 +2077,7 @@ export default function Create() {
                         <button
                           type="button"
                           onClick={() => setAddingCol(false)}
-                          className={`mt-2 w-full rounded-lg px-3 py-1.5 text-[13px] font-medium ${muted} ${ghost}`}
+                          className={`mt-2 min-h-10 w-full rounded-lg px-3 py-1.5 text-[13px] font-medium sm:min-h-0 ${muted} ${ghost}`}
                         >
                           {c.board.cancel}
                         </button>
@@ -2010,7 +2087,7 @@ export default function Create() {
                         type="button"
                         onClick={() => setAddingCol(true)}
                         className={[
-                          "flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed px-4 py-4 text-[14px] font-medium transition-colors",
+                          "flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border border-dashed px-4 py-4 text-[14px] font-medium transition-colors",
                           "focus-visible:outline-none focus-visible:ring-2",
                           ring,
                           isDark
@@ -2028,9 +2105,9 @@ export default function Create() {
 
               {/* Gallery */}
               {tab === "ideas" && view === "gallery" && (
-                <div className="min-h-0 flex-1 overflow-y-auto">
+                <div className="min-h-0 flex-1 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                   {visibleIdeas.length === 0 ? (
-                    <div className="mt-16 flex flex-col items-center gap-3 text-center">
+                    <div className="mt-12 flex flex-col items-center gap-3 text-center sm:mt-16">
                       <h2
                         className={[
                           "text-[20px] font-semibold tracking-[-0.02em]",
@@ -2041,7 +2118,7 @@ export default function Create() {
                       </h2>
                       <p
                         className={[
-                          "max-w-[360px] text-[13px] leading-relaxed",
+                          "max-w-[360px] text-[14px] leading-relaxed sm:text-[13px]",
                           muted,
                         ].join(" ")}
                       >
@@ -2049,7 +2126,7 @@ export default function Create() {
                       </p>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-4 pb-4">
+                    <div className="grid grid-cols-1 gap-3 pb-4 sm:grid-cols-[repeat(auto-fill,minmax(260px,1fr))] sm:gap-4">
                       {visibleIdeas.map((idea) => (
                         <IdeaCard
                           key={idea.id}
@@ -2058,7 +2135,9 @@ export default function Create() {
                           groupColor={groupColor(idea.groupId)}
                           ideaTags={tagsOf(idea)}
                           allTags={tags}
+                          moveGroups={groups}
                           onToggleTag={(tid) => toggleIdeaTag(idea.id, tid)}
+                          onMove={(gid) => moveIdea(idea.id, gid)}
                           isDark={isDark}
                           muted={muted}
                           onDelete={() => deleteIdea(idea.id)}
