@@ -19,6 +19,11 @@ import {
   Check,
   Info,
 } from "lucide-react";
+import {
+  useBoardMeta,
+  UNASSIGNED,
+  classToHex,
+} from "../services/boardMeta";
 
 export type NewIdeaValues = {
   title: string;
@@ -33,6 +38,10 @@ type NewIdeaModalProps = {
   onClose: () => void;
   onSubmit: (values: NewIdeaValues) => void | Promise<void>;
   isDark?: boolean;
+  /**
+   * Optionnel : si omis, le modal lit directement le store partagé
+   * (services/boardMeta) → les groupes / tags créés dans Create apparaissent ici.
+   */
   availableTags?: { id: string; name: string; color: string }[];
   availableGroups?: { id: string; name: string }[];
 };
@@ -55,9 +64,26 @@ export default function NewIdeaModal({
   onClose,
   onSubmit,
   isDark = true,
-  availableTags = [],
-  availableGroups = [],
+  availableTags,
+  availableGroups,
 }: NewIdeaModalProps) {
+  /* Groupes / tags : props si fournies, sinon store partagé */
+  const meta = useBoardMeta();
+
+  const groupOptions =
+    availableGroups ??
+    meta.groups
+      .filter((g) => g.id !== UNASSIGNED) // "Unassigned" est l'option par défaut
+      .map((g) => ({ id: g.id, name: g.label }));
+
+  const tagOptions =
+    availableTags ??
+    meta.tags.map((t) => ({
+      id: t.id,
+      name: t.label,
+      color: classToHex(t.color),
+    }));
+
   const [title, setTitle] = useState("");
   const [media, setMedia] = useState<MediaItem[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -167,6 +193,24 @@ export default function NewIdeaModal({
     return () => document.removeEventListener("mousedown", onDown);
   }, [isGroupMenuOpen, isTagMenuOpen]);
 
+  /* Si le groupe sélectionné a été supprimé entre-temps → retour à Unassigned */
+  useEffect(() => {
+    if (
+      selectedGroup !== "Unassigned" &&
+      !groupOptions.some((g) => g.id === selectedGroup)
+    ) {
+      setSelectedGroup("Unassigned");
+    }
+  }, [groupOptions, selectedGroup]);
+
+  /* Idem pour les tags supprimés */
+  useEffect(() => {
+    setSelectedTags((prev) => {
+      const next = prev.filter((id) => tagOptions.some((t) => t.id === id));
+      return next.length === prev.length ? prev : next;
+    });
+  }, [tagOptions]);
+
   if (!isOpen) return null;
 
   const handleSubmit = async (event: FormEvent) => {
@@ -244,7 +288,9 @@ export default function NewIdeaModal({
   const accentBg = isDark ? "bg-white/10" : "bg-neutral-200";
   const accentText = isDark ? "text-white" : "text-neutral-900";
 
-  const selectedGroupName = availableGroups.find((g) => g.id === selectedGroup)?.name;
+  const selectedGroupName = groupOptions.find(
+    (g) => g.id === selectedGroup
+  )?.name;
   const hasPreview = title.trim().length > 0 || media.length > 0;
 
   return (
@@ -315,7 +361,7 @@ export default function NewIdeaModal({
                 <div
                   role="menu"
                   className={[
-                    "absolute left-0 top-full z-50 mt-2 w-60 overflow-hidden rounded-xl border p-1.5 shadow-2xl",
+                    "absolute left-0 top-full z-50 mt-2 max-h-72 w-60 overflow-y-auto rounded-xl border p-1.5 shadow-2xl",
                     isDark ? "border-white/10 bg-[#1c1c1e]" : "border-black/10 bg-white",
                   ].join(" ")}
                 >
@@ -328,14 +374,17 @@ export default function NewIdeaModal({
                       setIsGroupMenuOpen(false);
                     }}
                     className={[
-                      "flex w-full items-center rounded-lg px-2.5 py-2 text-left text-[13px] font-medium transition",
+                      "flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-left text-[13px] font-medium transition",
                       textPrimary,
                       hoverSoft,
                     ].join(" ")}
                   >
                     Unassigned
+                    {selectedGroup === "Unassigned" && (
+                      <Check className="h-3.5 w-3.5" strokeWidth={3} />
+                    )}
                   </button>
-                  {availableGroups.map((g) => (
+                  {groupOptions.map((g) => (
                     <button
                       key={g.id}
                       type="button"
@@ -346,12 +395,15 @@ export default function NewIdeaModal({
                         setIsGroupMenuOpen(false);
                       }}
                       className={[
-                        "flex w-full items-center rounded-lg px-2.5 py-2 text-left text-[13px] font-medium transition",
+                        "flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-left text-[13px] font-medium transition",
                         textPrimary,
                         hoverSoft,
                       ].join(" ")}
                     >
-                      {g.name}
+                      <span className="min-w-0 flex-1 truncate">{g.name}</span>
+                      {selectedGroup === g.id && (
+                        <Check className="h-3.5 w-3.5 shrink-0" strokeWidth={3} />
+                      )}
                     </button>
                   ))}
                 </div>
@@ -397,12 +449,12 @@ export default function NewIdeaModal({
                     isDark ? "border-white/10 bg-[#1c1c1e]" : "border-black/10 bg-white",
                   ].join(" ")}
                 >
-                  {availableTags.length === 0 ? (
+                  {tagOptions.length === 0 ? (
                     <p className={["px-3 py-2 text-[12.5px]", textSecondary].join(" ")}>
                       No tags yet.
                     </p>
                   ) : (
-                    availableTags.map((tag) => {
+                    tagOptions.map((tag) => {
                       const on = selectedTags.includes(tag.id);
                       return (
                         <button
@@ -650,7 +702,7 @@ export default function NewIdeaModal({
                         </span>
                       )}
                       {selectedTags.map((id) => {
-                        const t = availableTags.find((x) => x.id === id);
+                        const t = tagOptions.find((x) => x.id === id);
                         if (!t) return null;
                         return (
                           <span

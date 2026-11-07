@@ -8,9 +8,11 @@
 //              réordonner / supprimer). Une idée est dans exactement 1 groupe.
 //  - TAGS    : étiquettes libres. AUCUN par défaut : c'est l'utilisateur qui
 //              les crée, les assigne aux idées (0..n par idée) et filtre avec.
+//
+// Groupes et tags vivent dans un store partagé (services/boardMeta) :
+// chargés une seule fois, visibles aussi par BottomBar / NewIdeaModal.
 
 import {
-  useCallback,
   useEffect,
   useLayoutEffect,
   useRef,
@@ -27,18 +29,18 @@ import BottomBar, { type BottomBarTab } from "../components/Bottombar";
 import Folder from "../components/Folder";
 import HelpChatButton from "../components/Helpchatbutton";
 import { requestNewPost } from "../services/Newpostbus";
+import type { Group, Tag } from "../services/supabase";
 import {
-  ensureDefaultGroups,
-  listGroups,
-  createGroup as apiCreateGroup,
-  updateGroup as apiUpdateGroup,
-  deleteGroup as apiDeleteGroup,
-  listTags,
-  createTag as apiCreateTag,
-  deleteTag as apiDeleteTag,
-  type Group,
-  type Tag,
-} from "../services/supabase";
+  UNASSIGNED,
+  useBoardMeta,
+  loadBoardMeta,
+  addGroup,
+  renameGroup,
+  removeGroup,
+  moveGroup,
+  addTag,
+  removeTag as removeTagApi,
+} from "../services/boardMeta";
 
 /* ───────── Language ───────── */
 
@@ -126,6 +128,8 @@ type Copy = {
     moveAllToUnassigned: string;
     deleteGroup: string;
     closeMenu: string;
+    loadError: string;
+    retry: string;
   };
   ideaCard: {
     options: string;
@@ -188,6 +192,8 @@ const COPY: Record<Lang, Copy> = {
       moveAllToUnassigned: "Move all to Unassigned",
       deleteGroup: "Delete group",
       closeMenu: "Close menu",
+      loadError: "Couldn't load your groups.",
+      retry: "Retry",
     },
     ideaCard: {
       options: "Idea options",
@@ -249,6 +255,8 @@ const COPY: Record<Lang, Copy> = {
       moveAllToUnassigned: "Tout déplacer vers Unassigned",
       deleteGroup: "Supprimer le groupe",
       closeMenu: "Fermer le menu",
+      loadError: "Impossible de charger vos groupes.",
+      retry: "Réessayer",
     },
     ideaCard: {
       options: "Options de l'idée",
@@ -286,32 +294,8 @@ type Idea = {
 
 type IconProps = { className?: string };
 
-const UNASSIGNED = "unassigned";
-
 /** Route de cette page dans la sidebar (doit exister dans navItems). */
 const PAGE_ROUTE = "create";
-
-/**
- * Groupe système figé en première colonne (non renommable, non supprimable,
- * non déplaçable). Son libellé n'est pas traduit.
- */
-const UNASSIGNED_GROUP: Group = {
-  id: UNASSIGNED,
-  label: "Unassigned",
-  color: "bg-neutral-400",
-};
-
-const DEFAULT_GROUP_ORDER = ["to do", "in progress"];
-
-/** Palette utilisée pour les nouveaux groupes ET les nouveaux tags. */
-const NEW_COLORS = [
-  "bg-[#6366f1]",
-  "bg-[#ec4899]",
-  "bg-[#14b8a6]",
-  "bg-[#eab308]",
-  "bg-[#84cc16]",
-  "bg-[#0ea5e9]",
-];
 
 /* ───────── Onglet ↔ URL (#/create, #/create/templates, …) ───────── */
 
@@ -327,11 +311,10 @@ function writeTabToHash(tab: Tab) {
   if (current !== next) history.replaceState(null, "", next);
 }
 
-/* ───────── Persistance des préférences UI ───────── */
+/* ───────── Persistance des préférences UI (affichage uniquement) ───────── */
 
 const CREATE_VIEW_STORAGE_KEY = "create.view";
 const CREATE_HIDDEN_GROUPS_STORAGE_KEY = "create.hiddenGroups";
-const CREATE_GROUP_ORDER_STORAGE_KEY = "create.groupOrder";
 
 function readStoredView(): View {
   if (typeof window === "undefined") return "board";
@@ -373,220 +356,33 @@ function writeStoredIds(key: string, ids: string[]) {
 const readStoredHiddenGroups = () =>
   readStoredIds(CREATE_HIDDEN_GROUPS_STORAGE_KEY);
 
-function applyStoredGroupOrder(groups: Group[]): Group[] {
-  if (groups.length === 0) return groups;
-  const stored = readStoredIds(CREATE_GROUP_ORDER_STORAGE_KEY);
-  if (stored.length === 0) return groups;
-
-  const position = new Map(stored.map((id, i) => [id, i] as const));
-  const posOf = (id: string) =>
-    position.get(id) ?? Number.POSITIVE_INFINITY;
-
-  const unassigned = groups.find((g) => g.id === UNASSIGNED);
-  const rest = groups.filter((g) => g.id !== UNASSIGNED);
-  const known = rest.filter((g) => position.has(g.id));
-  const unknown = rest.filter((g) => !position.has(g.id));
-  known.sort((a, b) => posOf(a.id) - posOf(b.id));
-
-  return unassigned ? [unassigned, ...known, ...unknown] : [...known, ...unknown];
-}
-
-/* ───────── Caches module-level ───────── */
-
-let groupsCache: Group[] | null = null;
-let groupsLoadPromise: Promise<Group[]> | null = null;
-let tagsCache: Tag[] | null = null;
-
-async function fetchGroupsOnce(): Promise<Group[]> {
-  if (groupsCache) return groupsCache;
-  if (groupsLoadPromise) return groupsLoadPromise;
-
-  groupsLoadPromise = (async () => {
-    await ensureDefaultGroups();
-    const server = await listGroups();
-    const rank = (g: Group) => {
-      const i = DEFAULT_GROUP_ORDER.indexOf(g.label.trim().toLowerCase());
-      return i === -1 ? DEFAULT_GROUP_ORDER.length : i;
-    };
-    const sorted = [...server].sort((a, b) => rank(a) - rank(b));
-    if (!groupsCache) {
-      groupsCache = applyStoredGroupOrder([UNASSIGNED_GROUP, ...sorted]);
-    }
-    return groupsCache;
-  })();
-
-  try {
-    return await groupsLoadPromise;
-  } finally {
-    groupsLoadPromise = null;
-  }
-}
-
 /* ───────── Données ───────── */
 
 function useBoard() {
-  const [groups, setGroupsState] = useState<Group[]>(
-    () => groupsCache ?? [UNASSIGNED_GROUP]
-  );
-  const [tags, setTagsState] = useState<Tag[]>(() => tagsCache ?? []);
+  const { groups, tags, status } = useBoardMeta();
   const [ideas, setIdeas] = useState<Idea[]>([]);
-
-  const setGroups = useCallback(
-    (updater: Group[] | ((prev: Group[]) => Group[])) => {
-      const prev = groupsCache ?? [UNASSIGNED_GROUP];
-      const next =
-        typeof updater === "function"
-          ? (updater as (p: Group[]) => Group[])(prev)
-          : updater;
-      groupsCache = next;
-      setGroupsState(next);
-    },
-    []
-  );
-
-  const setTags = useCallback(
-    (updater: Tag[] | ((prev: Tag[]) => Tag[])) => {
-      const prev = tagsCache ?? [];
-      const next =
-        typeof updater === "function"
-          ? (updater as (p: Tag[]) => Tag[])(prev)
-          : updater;
-      tagsCache = next;
-      setTagsState(next);
-    },
-    []
-  );
-
-  useEffect(() => {
-    if (groupsCache) return;
-    let mounted = true;
-    fetchGroupsOnce()
-      .then((loaded) => {
-        if (mounted) setGroupsState(loaded);
-      })
-      .catch((e) => console.error("Error loading groups:", e));
-    return () => {
-      mounted = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (tagsCache) return;
-    let mounted = true;
-    listTags()
-      .then((loaded) => {
-        tagsCache = loaded;
-        if (mounted) setTagsState(loaded);
-      })
-      .catch((e) => console.error("Error loading tags:", e));
-    return () => {
-      mounted = false;
-    };
-  }, []);
 
   /* ── Groupes ── */
 
-  const addGroup = async (label: string): Promise<string | null> => {
-    const l = label.trim();
-    if (!l) return null;
-    const existing = groups.find(
-      (g) => g.label.toLowerCase() === l.toLowerCase()
-    );
-    if (existing) return existing.id;
-    try {
-      const color = NEW_COLORS[(groups.length - 1) % NEW_COLORS.length];
-      const created = await apiCreateGroup(l, color);
-      setGroups((prev) => [...prev, created]);
-      return created.id;
-    } catch (e) {
-      console.error("Error creating group:", e);
-      return null;
-    }
-  };
-
-  const renameGroup = async (id: string, label: string) => {
-    const l = label.trim();
-    const group = groups.find((g) => g.id === id);
-    if (!l || !group || id === UNASSIGNED || l === group.label) return;
-    setGroups((prev) =>
-      prev.map((g) => (g.id === id ? { ...g, label: l } : g))
-    );
-    try {
-      await apiUpdateGroup(id, { label: l, color: group.color });
-    } catch (e) {
-      console.error("Error renaming group:", e);
-      setGroups((prev) => prev.map((g) => (g.id === id ? group : g)));
-    }
-  };
-
   const deleteGroup = async (id: string) => {
     if (id === UNASSIGNED) return;
-    const prevGroups = groups;
     const prevIdeas = ideas;
     setIdeas((prev) =>
       prev.map((i) => (i.groupId === id ? { ...i, groupId: UNASSIGNED } : i))
     );
-    setGroups((prev) => prev.filter((g) => g.id !== id));
-    try {
-      await apiDeleteGroup(id);
-    } catch (e) {
-      console.error("Error deleting group:", e);
-      setGroups(prevGroups);
-      setIdeas(prevIdeas);
-    }
-  };
-
-  const moveGroup = (id: string, toId: string) => {
-    const current = groupsCache ?? [UNASSIGNED_GROUP];
-    const from = current.findIndex((g) => g.id === id);
-    const to = current.findIndex((g) => g.id === toId);
-    if (from < 1 || to < 1 || from === to) return;
-
-    const next = [...current];
-    const [m] = next.splice(from, 1);
-    next.splice(to, 0, m);
-
-    writeStoredIds(
-      CREATE_GROUP_ORDER_STORAGE_KEY,
-      next.map((g) => g.id)
-    );
-    setGroups(next);
+    const ok = await removeGroup(id);
+    if (!ok) setIdeas(prevIdeas);
   };
 
   /* ── Tags (vides par défaut, créés par l'utilisateur) ── */
 
-  const addTag = async (label: string): Promise<string | null> => {
-    const l = label.trim();
-    if (!l) return null;
-    const existing = tags.find(
-      (t) => t.label.toLowerCase() === l.toLowerCase()
-    );
-    if (existing) return existing.id;
-    try {
-      const color = NEW_COLORS[tags.length % NEW_COLORS.length];
-      const created = await apiCreateTag(l, color);
-      setTags((prev) => [...prev, created]);
-      return created.id;
-    } catch (e) {
-      console.error("Error creating tag:", e);
-      return null;
-    }
-  };
-
   const deleteTag = async (id: string) => {
-    const prevTags = tags;
     const prevIdeas = ideas;
     setIdeas((prev) =>
       prev.map((i) => ({ ...i, tagIds: i.tagIds.filter((t) => t !== id) }))
     );
-    setTags((prev) => prev.filter((t) => t.id !== id));
-    try {
-      await apiDeleteTag(id);
-    } catch (e) {
-      console.error("Error deleting tag:", e);
-      setTags(prevTags);
-      setIdeas(prevIdeas);
-    }
+    const ok = await removeTagApi(id);
+    if (!ok) setIdeas(prevIdeas);
   };
 
   /* ── Idées ── */
@@ -635,6 +431,7 @@ function useBoard() {
   return {
     groups,
     tags,
+    status,
     ideas,
     addGroup,
     renameGroup,
@@ -1366,6 +1163,7 @@ export default function Create() {
   const {
     groups,
     tags,
+    status,
     ideas,
     addGroup,
     renameGroup,
@@ -1945,8 +1743,44 @@ export default function Create() {
                 </div>
               )}
 
+              {/* Board : chargement (skeleton) */}
+              {tab === "ideas" &&
+                view === "board" &&
+                (status === "idle" || status === "loading") && (
+                  <div className="flex min-h-0 flex-1 gap-4 overflow-hidden">
+                    {[0, 1, 2].map((i) => (
+                      <div
+                        key={i}
+                        className={`h-[220px] w-[min(300px,85vw)] shrink-0 animate-pulse rounded-2xl motion-reduce:animate-none ${column}`}
+                      />
+                    ))}
+                  </div>
+                )}
+
+              {/* Board : erreur de chargement */}
+              {tab === "ideas" && view === "board" && status === "error" && (
+                <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
+                  <p className={["text-[13px]", muted].join(" ")}>
+                    {c.board.loadError}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => void loadBoardMeta()}
+                    className={[
+                      "rounded-xl border px-4 py-2 text-[13px] font-medium transition-colors",
+                      "focus-visible:outline-none focus-visible:ring-2",
+                      ring,
+                      line,
+                      ghost,
+                    ].join(" ")}
+                  >
+                    {c.board.retry}
+                  </button>
+                </div>
+              )}
+
               {/* Board */}
-              {tab === "ideas" && view === "board" && (
+              {tab === "ideas" && view === "board" && status === "ready" && (
                 <div
                   ref={boardRef}
                   className="relative flex min-h-0 flex-1 gap-4 overflow-x-auto pb-2"
@@ -2253,12 +2087,12 @@ export default function Create() {
         active={isFolderOpen ? "files" : null}
         addLabel={c.bottomBar.newIdea}
         onChange={handleBottomBarChange}
-        onSubmitIdea={({ title, notes }) =>
+        onSubmitIdea={({ title, notes, groupId, tagIds }) =>
           addIdea({
             title,
             description: notes,
-            groupId: UNASSIGNED,
-            tagIds: [],
+            groupId: groupId ?? UNASSIGNED,
+            tagIds: tagIds ?? [],
           })
         }
         onCreatePost={() => {
