@@ -465,7 +465,7 @@ const SIDEBAR_KEYFRAMES = `
 .sb-label-2 { animation-delay: 70ms; }
 .sb-label-3 { animation-delay: 100ms; }
 .sb-backdrop { animation: sbFadeIn 200ms ease-out both; }
-.sb-sheet { animation: sbSheetIn 280ms cubic-bezier(0.32, 0.72, 0, 1) both; }
+.sb-sheet { animation: sbSheetIn 280ms cubic-bezier(0.32, 0.72, 0, 1) backwards; }
 
 #app-sidebar button,
 #app-sidebar svg,
@@ -2071,8 +2071,28 @@ function SidebarChannelsImpl({
 }) {
   const [openKeys, setOpenKeys] = useState<string[]>(channelsMemory.open);
 
-  // BLOC 5a — détecte le mode mobile pour toujours déplier les sous-menus.
+  /* ------------------------------------------------------------------
+     ETAPE 2a — appui long + sous-menus mobiles
+  ------------------------------------------------------------------ */
+  const LONG_PRESS_MS = 380;
+
   const isMobileView = useIsMobile();
+  const [mobileClosed, setMobileClosed] = useState<string[]>([]);
+  const suppressClickRef = useRef(false);
+  const longPressRef = useRef<{
+    timer: number;
+    x: number;
+    y: number;
+  } | null>(null);
+
+  const cancelLongPress = useCallback(() => {
+    if (longPressRef.current) {
+      window.clearTimeout(longPressRef.current.timer);
+      longPressRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => cancelLongPress, [cancelLongPress]);
 
   useEffect(() => {
     channelsMemory.open = openKeys;
@@ -2189,77 +2209,83 @@ function SidebarChannelsImpl({
     setOrder(next);
   }, []);
 
-  const onHandlePointerDown = (event: React.PointerEvent, key: string) => {
-    if (!canReorder) return;
-    if (event.pointerType === "mouse" && event.button !== 0) return;
-
-    const wrapper = (event.currentTarget as HTMLElement).closest<HTMLElement>(
-      "[data-channel-key]"
-    );
-    const row = wrapper?.firstElementChild as HTMLElement | null;
+  /* ------------------------------------------------------------------
+     ETAPE 2b — startDrag (souris + tactile), onHandlePointerDown,
+                 onRowPointerDown (appui long), onRowPointerMove
+  ------------------------------------------------------------------ */
+  const startDrag = (
+    wrapper: HTMLElement,
+    key: string,
+    startX: number,
+    startY: number,
+    immediate: boolean
+  ) => {
+    const row = wrapper.firstElementChild as HTMLElement | null;
     if (!row) return;
 
-    event.preventDefault();
     dragCleanupRef.current?.(true);
 
     const rect = row.getBoundingClientRect();
-    const startX = event.clientX;
-    const startY = event.clientY;
-    const offY = event.clientY - rect.top;
+    const offY = startY - rect.top;
     const originalOrder = channelsRef.current.map((channel) => channel.key);
 
     const previousCursor = document.body.style.cursor;
     const previousSelect = document.body.style.userSelect;
-    let ghost: HTMLElement | null = null;
+    const g = { el: null as HTMLElement | null };
 
-    const onMove = (ev: PointerEvent) => {
-      if (!ghost) {
-        if (Math.hypot(ev.clientX - startX, ev.clientY - startY) < 5) return;
+    const createGhost = () => {
+      const ghost = row.cloneNode(true) as HTMLElement;
+      ghost.setAttribute("aria-hidden", "true");
 
-        ghost = row.cloneNode(true) as HTMLElement;
-        ghost.setAttribute("aria-hidden", "true");
+      Object.assign(ghost.style, {
+        position: "fixed",
+        margin: "0",
+        left: `${rect.left}px`,
+        top: `${rect.top}px`,
+        width: `${rect.width}px`,
+        height: `${rect.height}px`,
+        zIndex: "200",
+        pointerEvents: "none",
+        transition: "none",
+        transform: "rotate(2deg)",
+        transformOrigin: "50% 0",
+        opacity: "1",
+        borderRadius: "12px",
+        background: isDark ? "#17171a" : "#e8e8e4",
+        color: getComputedStyle(row).color,
+        boxShadow: isDark
+          ? "0 18px 40px rgba(0,0,0,0.7)"
+          : "0 18px 40px rgba(0,0,0,0.18)",
+      } as Partial<CSSStyleDeclaration>);
 
-        Object.assign(ghost.style, {
-          position: "fixed",
-          margin: "0",
-          left: `${rect.left}px`,
-          top: `${rect.top}px`,
-          width: `${rect.width}px`,
-          height: `${rect.height}px`,
-          zIndex: "200",
-          pointerEvents: "none",
-          transition: "none",
-          transform: "rotate(2deg)",
-          transformOrigin: "50% 0",
-          opacity: "1",
-          borderRadius: "12px",
-          background: isDark ? "#17171a" : "#e8e8e4",
-          color: getComputedStyle(row).color,
-          boxShadow: isDark
-            ? "0 18px 40px rgba(0,0,0,0.7)"
-            : "0 18px 40px rgba(0,0,0,0.18)",
-        } as Partial<CSSStyleDeclaration>);
-
-        const grip = ghost.querySelector<HTMLElement>("[data-grip]");
-        if (grip) {
-          grip.style.opacity = "1";
-          grip.style.transform = "none";
-          grip.style.transition = "none";
-        }
-
-        const plus = ghost.querySelector<HTMLElement>("[data-new-post]");
-        if (plus) plus.style.display = "none";
-
-        document.body.appendChild(ghost);
-        document.body.style.cursor = "grabbing";
-        document.body.style.userSelect = "none";
-
-        dragKeyRef.current = key;
-        liveOrderRef.current = null;
-        setDragKey(key);
+      const grip = ghost.querySelector<HTMLElement>("[data-grip]");
+      if (grip) {
+        grip.style.opacity = "1";
+        grip.style.transform = "none";
+        grip.style.transition = "none";
       }
 
-      ghost.style.top = `${ev.clientY - offY}px`;
+      const plus = ghost.querySelector<HTMLElement>("[data-new-post]");
+      if (plus) plus.style.display = "none";
+
+      document.body.appendChild(ghost);
+      document.body.style.cursor = "grabbing";
+      document.body.style.userSelect = "none";
+
+      g.el = ghost;
+      dragKeyRef.current = key;
+      liveOrderRef.current = null;
+      setDragKey(key);
+    };
+
+    const onMove = (ev: PointerEvent) => {
+      if (!g.el) {
+        if (Math.hypot(ev.clientX - startX, ev.clientY - startY) < 5) return;
+        createGhost();
+      }
+      if (!g.el) return;
+
+      g.el.style.top = `${ev.clientY - offY}px`;
 
       const nav = listRef.current?.closest("nav");
       if (nav) {
@@ -2271,6 +2297,11 @@ function SidebarChannelsImpl({
       moveLive(ev.clientY);
     };
 
+    // Tactile : empeche la page de defiler pendant le deplacement.
+    const onTouchMove = (ev: TouchEvent) => {
+      if (g.el) ev.preventDefault();
+    };
+
     const onKey = (ev: KeyboardEvent) => {
       if (ev.key === "Escape") finish(true);
     };
@@ -2280,9 +2311,10 @@ function SidebarChannelsImpl({
       window.removeEventListener("pointerup", onUp);
       window.removeEventListener("pointercancel", onUp);
       window.removeEventListener("keydown", onKey);
+      window.removeEventListener("touchmove", onTouchMove);
 
-      ghost?.remove();
-      ghost = null;
+      g.el?.remove();
+      g.el = null;
       document.body.style.cursor = previousCursor;
       document.body.style.userSelect = previousSelect;
       dragCleanupRef.current = null;
@@ -2298,6 +2330,11 @@ function SidebarChannelsImpl({
       liveOrderRef.current = null;
       dragKeyRef.current = null;
       setDragKey(null);
+
+      // Evite que le relachement declenche un clic (ouverture/fermeture).
+      window.setTimeout(() => {
+        suppressClickRef.current = false;
+      }, 120);
     };
 
     const onUp = () => finish(false);
@@ -2306,7 +2343,62 @@ function SidebarChannelsImpl({
     window.addEventListener("pointerup", onUp);
     window.addEventListener("pointercancel", onUp);
     window.addEventListener("keydown", onKey);
+    window.addEventListener("touchmove", onTouchMove, { passive: false });
     dragCleanupRef.current = finish;
+
+    if (immediate) createGhost();
+  };
+
+  // Souris : poignee a gauche (comme avant).
+  const onHandlePointerDown = (event: React.PointerEvent, key: string) => {
+    if (!canReorder) return;
+    if (event.pointerType === "mouse" && event.button !== 0) return;
+
+    const wrapper = (event.currentTarget as HTMLElement).closest<HTMLElement>(
+      "[data-channel-key]"
+    );
+    if (!wrapper) return;
+
+    event.preventDefault();
+    startDrag(wrapper, key, event.clientX, event.clientY, false);
+  };
+
+  // Tactile : appui long sur la ligne du canal.
+  const onRowPointerDown = (event: React.PointerEvent, key: string) => {
+    if (!canReorder || event.pointerType === "mouse") return;
+
+    const target = event.currentTarget as HTMLElement;
+    const wrapper = target.closest<HTMLElement>("[data-channel-key]");
+    if (!wrapper) return;
+
+    cancelLongPress();
+
+    const x = event.clientX;
+    const y = event.clientY;
+    const pointerId = event.pointerId;
+
+    const timer = window.setTimeout(() => {
+      longPressRef.current = null;
+      suppressClickRef.current = true;
+      try {
+        target.releasePointerCapture?.(pointerId);
+      } catch {
+        /* ignore */
+      }
+      navigator.vibrate?.(12);
+      startDrag(wrapper, key, x, y, true);
+    }, LONG_PRESS_MS);
+
+    longPressRef.current = { timer, x, y };
+  };
+
+  const onRowPointerMove = (event: React.PointerEvent) => {
+    const lp = longPressRef.current;
+    if (!lp) return;
+    // Le doigt bouge : c'est un defilement, pas un appui long.
+    if (Math.hypot(event.clientX - lp.x, event.clientY - lp.y) > 8) {
+      cancelLongPress();
+    }
   };
 
   useEffect(() => {
@@ -2353,10 +2445,20 @@ function SidebarChannelsImpl({
 
   const hashChannel = CHANNEL_ROUTES.has(currentRoute) ? getHashChannel() : null;
 
-  const toggleKey = (key: string) =>
+  /* ------------------------------------------------------------------
+     ETAPE 2c — toggleKey aware du mode mobile
+  ------------------------------------------------------------------ */
+  const toggleKey = (key: string) => {
+    if (isMobileView) {
+      setMobileClosed((prev) =>
+        prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
+      );
+      return;
+    }
     setOpenKeys((prev) =>
       prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
     );
+  };
 
   const openKey = (key: string) =>
     setOpenKeys((prev) => (prev.includes(key) ? prev : [...prev, key]));
@@ -2582,9 +2684,14 @@ function SidebarChannelsImpl({
         const cleanLabel = label.replace(/^@/, "");
         const groupKey = `channel:${channel.key}`;
 
-        // BLOC 5b — sur mobile, les sous-menus sont toujours dépliés.
+        /* ------------------------------------------------------------------
+           ETAPE 2d — mobile : ouvert par defaut, la fleche peut fermer
+        ------------------------------------------------------------------ */
         const isOpen =
-          !compact && (isMobileView || openKeys.includes(groupKey));
+          !compact &&
+          (isMobileView
+            ? !mobileClosed.includes(groupKey)
+            : openKeys.includes(groupKey));
 
         const isActiveChannel =
           CHANNEL_ROUTES.has(currentRoute) &&
@@ -2681,6 +2788,8 @@ function SidebarChannelsImpl({
                 onNewPost={onNewPost}
                 hasUnread={hasUnread}
               >
+                {/* ETAPE 2e — handlers de drag tactile + suppression du clic
+                    apres un long-press */}
                 <button
                   type="button"
                   aria-expanded={isOpen}
@@ -2704,7 +2813,20 @@ function SidebarChannelsImpl({
                       event.key === "ArrowUp" ? -1 : 1
                     );
                   }}
+                  onPointerDown={(event) =>
+                    onRowPointerDown(event, channel.key)
+                  }
+                  onPointerMove={onRowPointerMove}
+                  onPointerUp={cancelLongPress}
+                  onPointerCancel={cancelLongPress}
+                  onContextMenu={(event) => {
+                    if (canReorder) event.preventDefault();
+                  }}
                   onClick={() => {
+                    if (suppressClickRef.current) {
+                      suppressClickRef.current = false;
+                      return;
+                    }
                     if (compact) {
                       onExpand();
                       openKey(groupKey);
@@ -2713,6 +2835,7 @@ function SidebarChannelsImpl({
                     }
                   }}
                   className={[
+                    "select-none [-webkit-touch-callout:none]",
                     "group relative flex items-center rounded-xl text-[13px] font-medium",
                     "transition-[background-color,color,transform,padding] duration-200",
                     "active:scale-[0.97] motion-reduce:transition-none motion-reduce:active:scale-100",
@@ -2969,10 +3092,6 @@ type DashboardSidebarProps = {
   onToggleTheme?: (origin?: { x: number; y: number }) => void;
 };
 
-/* --------------------------------------------------------------------------
-   BLOC 3 — Remplace toute la fonction DashboardSidebar
--------------------------------------------------------------------------- */
-
 export default function DashboardSidebar({
   theme: themeProp,
 }: DashboardSidebarProps) {
@@ -3053,6 +3172,91 @@ export default function DashboardSidebar({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
+  /* ------------------------------------------------------------------
+     ETAPE 3a — drag-to-dismiss du bottom sheet mobile
+  ------------------------------------------------------------------ */
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const sheetDragRef = useRef<{
+    startY: number;
+    lastY: number;
+    lastT: number;
+    velocity: number;
+    pointerId: number;
+    active: boolean;
+  } | null>(null);
+  const sheetOffsetRef = useRef(0);
+  const [sheetOffset, setSheetOffset] = useState(0);
+  const [sheetDragging, setSheetDragging] = useState(false);
+
+  const updateSheetOffset = (value: number) => {
+    sheetOffsetRef.current = value;
+    setSheetOffset(value);
+  };
+
+  // Remet le sheet en place a chaque ouverture.
+  useEffect(() => {
+    if (menuOpen) updateSheetOffset(0);
+  }, [menuOpen]);
+
+  const closeSheetAnimated = () => {
+    const height = sheetRef.current?.offsetHeight ?? 400;
+    updateSheetOffset(height);
+    window.setTimeout(() => {
+      setMenuOpen(false);
+      updateSheetOffset(0);
+    }, 180);
+  };
+
+  const onSheetPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (event.pointerType === "mouse" && event.button !== 0) return;
+    sheetDragRef.current = {
+      startY: event.clientY,
+      lastY: event.clientY,
+      lastT: performance.now(),
+      velocity: 0,
+      pointerId: event.pointerId,
+      active: false,
+    };
+  };
+
+  const onSheetPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    const drag = sheetDragRef.current;
+    if (!drag) return;
+
+    const dy = event.clientY - drag.startY;
+
+    if (!drag.active) {
+      // On ne capture le pointeur qu'apres un vrai mouvement,
+      // pour ne pas casser le clic sur le bouton "Upgrade".
+      if (Math.abs(dy) < 6) return;
+      drag.active = true;
+      event.currentTarget.setPointerCapture(drag.pointerId);
+      setSheetDragging(true);
+    }
+
+    const now = performance.now();
+    drag.velocity = (event.clientY - drag.lastY) / Math.max(1, now - drag.lastT);
+    drag.lastY = event.clientY;
+    drag.lastT = now;
+
+    updateSheetOffset(Math.max(0, dy));
+  };
+
+  const endSheetDrag = () => {
+    const drag = sheetDragRef.current;
+    sheetDragRef.current = null;
+    if (!drag?.active) return;
+
+    setSheetDragging(false);
+
+    const height = sheetRef.current?.offsetHeight ?? 400;
+    if (sheetOffsetRef.current > height * 0.25 || drag.velocity > 0.6) {
+      closeSheetAnimated();
+    } else {
+      updateSheetOffset(0);
+    }
+  };
+
   useEffect(() => {
     let mounted = true;
 
@@ -3111,16 +3315,17 @@ export default function DashboardSidebar({
     };
   }, [mobileOpen, menuOpen]);
 
-  // Mobile : Echap ferme le sheet du compte.
+  // Mobile : Echap ferme le sheet du compte (avec animation).
   useEffect(() => {
     if (!isMobile || !menuOpen) return;
 
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setMenuOpen(false);
+      if (event.key === "Escape") closeSheetAnimated();
     };
 
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMobile, menuOpen]);
 
   // Desktop : popover du compte (clic exterieur + Echap + navigation clavier).
@@ -3466,21 +3671,29 @@ export default function DashboardSidebar({
       )}
 
       {/* ------------------------------------------------------------------
-          MOBILE : bottom sheet du compte (ouvert depuis le profil)
+          MOBILE : bottom sheet du compte (drag-to-dismiss)
       ------------------------------------------------------------------ */}
       {isMobile && menuOpen && (
         <>
           <div
             aria-hidden="true"
-            onClick={() => setMenuOpen(false)}
+            onClick={() => closeSheetAnimated()}
             className="sb-backdrop fixed inset-0 z-[55] bg-black/50"
           />
 
           <div
+            ref={sheetRef}
             id="mobile-sheet"
             role="dialog"
             aria-modal="true"
             aria-label={c.actions.accountMenuAria}
+            style={{
+              transform:
+                sheetOffset > 0 ? `translateY(${sheetOffset}px)` : undefined,
+              transition: sheetDragging
+                ? "none"
+                : "transform 180ms ease-out",
+            }}
             className={[
               "sb-sheet fixed inset-x-0 bottom-0 z-[60] max-h-[88dvh] overflow-y-auto",
               "rounded-t-3xl border-t pb-[max(12px,env(safe-area-inset-bottom))]",
@@ -3488,37 +3701,51 @@ export default function DashboardSidebar({
               t.menu,
             ].join(" ")}
           >
-            <div className="flex justify-center pb-1 pt-2.5">
-              <span className={["h-1 w-9 rounded-full", t.divider].join(" ")} />
+            {/* Zone de glissement : poignee + infos du compte + bouton Upgrade */}
+            <div
+              onPointerDown={onSheetPointerDown}
+              onPointerMove={onSheetPointerMove}
+              onPointerUp={endSheetDrag}
+              onPointerCancel={endSheetDrag}
+              className="touch-none"
+            >
+              {/* Poignee */}
+              <div className="flex justify-center pb-2 pt-3">
+                <span className={["h-1 w-9 rounded-full", t.divider].join(" ")} />
+              </div>
+
+              {/* Bloc compte */}
+              <div className="px-5 pb-4 pt-1">
+                <div className={["truncate text-[13px]", t.muted].join(" ")}>
+                  {account.email}
+                </div>
+                <div className="mt-3 truncate text-[16px] font-semibold">
+                  {account.organization}
+                </div>
+                <div className={["mt-0.5 text-[13px]", t.muted].join(" ")}>
+                  {account.plan} · {c.actions.nChannels(account.channels)}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => handleNavigate("pricing")}
+                  className={[
+                    "mt-4 flex h-11 w-full items-center justify-center gap-2",
+                    "rounded-xl border text-[14px] font-semibold",
+                    "transition-[background-color,transform] duration-150 active:scale-[0.98]",
+                    focus,
+                    planFull ? t.accentSolid : t.upgrade,
+                  ].join(" ")}
+                >
+                  <BoltIcon className="h-4 w-4" />
+                  {planFull
+                    ? c.actions.upgradeAddMore
+                    : c.actions.upgradePlan}
+                </button>
+              </div>
             </div>
 
-            <div className="px-5 pb-4 pt-2">
-              <div className={["truncate text-[13px]", t.muted].join(" ")}>
-                {account.email}
-              </div>
-              <div className="mt-3 truncate text-[16px] font-semibold">
-                {account.organization}
-              </div>
-              <div className={["mt-0.5 text-[13px]", t.muted].join(" ")}>
-                {account.plan} · {c.actions.nChannels(account.channels)}
-              </div>
-
-              <button
-                type="button"
-                onClick={() => handleNavigate("pricing")}
-                className={[
-                  "mt-4 flex h-11 w-full items-center justify-center gap-2",
-                  "rounded-xl border text-[14px] font-semibold",
-                  "transition-[background-color,transform] duration-150 active:scale-[0.98]",
-                  focus,
-                  planFull ? t.accentSolid : t.upgrade,
-                ].join(" ")}
-              >
-                <BoltIcon className="h-4 w-4" />
-                {planFull ? c.actions.upgradeAddMore : c.actions.upgradePlan}
-              </button>
-            </div>
-
+            {/* Groupes du menu : inchanges (Settings, Channels, Plans...) */}
             {menuGroups.map((group, groupIndex) => (
               <div
                 key={group[0]?.label ?? groupIndex}
