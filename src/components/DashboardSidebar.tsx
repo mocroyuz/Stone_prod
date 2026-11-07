@@ -85,10 +85,7 @@ type Copy = {
     insights: string;
     integrations: string;
   };
-  badges: {
-    new: string;
-    soon: string;
-  };
+  badges: { new: string; soon: string };
   sections: {
     favorites: string;
     channels: string;
@@ -138,9 +135,7 @@ type Copy = {
     free: string;
     paid: string;
   };
-  aria: {
-    mainNav: string;
-  };
+  aria: { mainNav: string };
 };
 
 const COPY: Record<Lang, Copy> = {
@@ -154,10 +149,7 @@ const COPY: Record<Lang, Copy> = {
       insights: "Insights",
       integrations: "Integrations",
     },
-    badges: {
-      new: "New",
-      soon: "Soon",
-    },
+    badges: { new: "New", soon: "Soon" },
     sections: {
       favorites: "Favorite",
       channels: "Channels",
@@ -208,9 +200,7 @@ const COPY: Record<Lang, Copy> = {
       free: "Free plan",
       paid: "Paid plan",
     },
-    aria: {
-      mainNav: "Main",
-    },
+    aria: { mainNav: "Main" },
   },
   fr: {
     nav: {
@@ -222,10 +212,7 @@ const COPY: Record<Lang, Copy> = {
       insights: "Insights",
       integrations: "Intégrations",
     },
-    badges: {
-      new: "Nouveau",
-      soon: "Bientôt",
-    },
+    badges: { new: "Nouveau", soon: "Bientôt" },
     sections: {
       favorites: "Favoris",
       channels: "Canaux",
@@ -278,9 +265,7 @@ const COPY: Record<Lang, Copy> = {
       free: "Plan gratuit",
       paid: "Plan payant",
     },
-    aria: {
-      mainNav: "Navigation principale",
-    },
+    aria: { mainNav: "Navigation principale" },
   },
 };
 
@@ -412,7 +397,7 @@ function useUnreadCounts(): UnreadCounts {
 }
 
 /* ============================================================================
-Keyframes
+Keyframes — animations partagées
 ============================================================================ */
 const SIDEBAR_KEYFRAMES = `
 @keyframes sbMenuIn {
@@ -432,8 +417,12 @@ const SIDEBAR_KEYFRAMES = `
   to { opacity: 1; transform: none; }
 }
 @keyframes sbSheetIn {
-  from { transform: translateY(100%); }
-  to { transform: none; }
+  from { transform: translateY(100%); opacity: 0.5; }
+  to { transform: translateY(0); opacity: 1; }
+}
+@keyframes sbDotPop {
+  from { opacity: 0; transform: scale(0.4); }
+  to { opacity: 1; transform: scale(1); }
 }
 .sb-menu { animation: sbMenuIn 160ms cubic-bezier(0.32, 0.72, 0, 1) both; }
 .sb-tip { animation: sbTipIn 140ms cubic-bezier(0.32, 0.72, 0, 1) both; }
@@ -443,7 +432,8 @@ const SIDEBAR_KEYFRAMES = `
 .sb-label-2 { animation-delay: 70ms; }
 .sb-label-3 { animation-delay: 100ms; }
 .sb-backdrop { animation: sbFadeIn 200ms ease-out both; }
-.sb-sheet { animation: sbSheetIn 280ms cubic-bezier(0.32, 0.72, 0, 1) backwards; }
+.sb-sheet { animation: sbSheetIn 340ms cubic-bezier(0.32, 0.72, 0, 1) backwards; }
+.sb-dot { animation: sbDotPop 220ms cubic-bezier(0.34, 1.56, 0.64, 1) both; }
 #app-sidebar button,
 #app-sidebar svg,
 #app-sidebar img {
@@ -452,7 +442,7 @@ const SIDEBAR_KEYFRAMES = `
   -webkit-tap-highlight-color: transparent;
 }
 @media (prefers-reduced-motion: reduce) {
-  .sb-menu, .sb-tip, .sb-fade, .sb-label, .sb-backdrop, .sb-sheet { animation: none; }
+  .sb-menu, .sb-tip, .sb-fade, .sb-label, .sb-backdrop, .sb-sheet, .sb-dot { animation: none; }
 }
 `;
 
@@ -477,20 +467,16 @@ const SHORTCUT_ROUTES: Record<string, string> = {
 function shortcutLabel(key: string): string {
   return IS_MAC ? `⌥${key.toUpperCase()}` : `Alt ${key.toUpperCase()}`;
 }
-
 function ariaShortcut(key: string): string {
   return `Alt+${key.toUpperCase()}`;
 }
-
 function shortcutKeyForRoute(route?: string): string | undefined {
   if (!route) return undefined;
   return Object.entries(SHORTCUT_ROUTES).find(([, r]) => r === route)?.[0];
 }
-
 function shortcutKey(event: KeyboardEvent): string {
   return /^Key[A-Z]$/.test(event.code) ? event.code.slice(3).toLowerCase() : "";
 }
-
 function isTypingTarget(target: EventTarget | null): boolean {
   const el = target as HTMLElement | null;
   return Boolean(
@@ -522,13 +508,11 @@ function subscribeMobile(listener: () => void) {
   mq.addEventListener("change", listener);
   return () => mq.removeEventListener("change", listener);
 }
-
 function getMobileSnapshot(): boolean {
   return typeof window !== "undefined" && Boolean(window.matchMedia)
     ? window.matchMedia(MOBILE_QUERY).matches
     : false;
 }
-
 function useIsMobile(): boolean {
   return useSyncExternalStore(subscribeMobile, getMobileSnapshot, () => false);
 }
@@ -790,7 +774,7 @@ function Tip({
 }
 
 /* ============================================================================
-Navigation data — construit à partir de COPY[lang]
+Navigation data
 ============================================================================ */
 const PER_CHANNEL_NAV_ROUTES = new Set(["schedule", "community"]);
 const FAVORITABLE_ROUTES = [
@@ -1964,9 +1948,6 @@ function SidebarChannelsImpl({
 }) {
   const [openKeys, setOpenKeys] = useState<string[]>(channelsMemory.open);
 
-  /* ------------------------------------------------------------------
-  Appui long (drag tactile) + suppression du clic qui suit
-  ------------------------------------------------------------------ */
   const LONG_PRESS_MS = 380;
   const suppressClickRef = useRef(false);
   const longPressRef = useRef<{
@@ -2083,10 +2064,6 @@ function SidebarChannelsImpl({
     setOrder(next);
   }, []);
 
-  /* ------------------------------------------------------------------
-  startDrag (souris + tactile), onHandlePointerDown,
-  onRowPointerDown (appui long), onRowPointerMove
-  ------------------------------------------------------------------ */
   const startDrag = (
     wrapper: HTMLElement,
     key: string,
@@ -2160,7 +2137,6 @@ function SidebarChannelsImpl({
       moveLive(ev.clientY);
     };
 
-    // Tactile : empeche la page de defiler pendant le deplacement.
     const onTouchMove = (ev: TouchEvent) => {
       if (g.el) ev.preventDefault();
     };
@@ -2190,7 +2166,6 @@ function SidebarChannelsImpl({
       liveOrderRef.current = null;
       dragKeyRef.current = null;
       setDragKey(null);
-      // Evite que le relachement declenche un clic (ouverture/fermeture).
       window.setTimeout(() => {
         suppressClickRef.current = false;
       }, 120);
@@ -2207,7 +2182,6 @@ function SidebarChannelsImpl({
     if (immediate) createGhost();
   };
 
-  // Souris : poignee a gauche (comme avant).
   const onHandlePointerDown = (event: React.PointerEvent, key: string) => {
     if (!canReorder) return;
     if (event.pointerType === "mouse" && event.button !== 0) return;
@@ -2219,7 +2193,6 @@ function SidebarChannelsImpl({
     startDrag(wrapper, key, event.clientX, event.clientY, false);
   };
 
-  // Tactile : appui long sur la ligne du canal.
   const onRowPointerDown = (event: React.PointerEvent, key: string) => {
     if (!canReorder || event.pointerType === "mouse") return;
     const target = event.currentTarget as HTMLElement;
@@ -2246,7 +2219,6 @@ function SidebarChannelsImpl({
   const onRowPointerMove = (event: React.PointerEvent) => {
     const lp = longPressRef.current;
     if (!lp) return;
-    // Le doigt bouge : c'est un defilement, pas un appui long.
     if (Math.hypot(event.clientX - lp.x, event.clientY - lp.y) > 8) {
       cancelLongPress();
     }
@@ -2290,9 +2262,6 @@ function SidebarChannelsImpl({
 
   const hashChannel = CHANNEL_ROUTES.has(currentRoute) ? getHashChannel() : null;
 
-  /* ------------------------------------------------------------------
-  toggleKey — version d'origine (mobile et desktop identiques)
-  ------------------------------------------------------------------ */
   const toggleKey = (key: string) =>
     setOpenKeys((prev) =>
       prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
@@ -2515,7 +2484,6 @@ function SidebarChannelsImpl({
         const cleanLabel = label.replace(/^@/, "");
         const groupKey = `channel:${channel.key}`;
 
-        /* isOpen — version d'origine (mobile et desktop identiques) */
         const isOpen = openKeys.includes(groupKey) && !compact;
         const isActiveChannel =
           CHANNEL_ROUTES.has(currentRoute) &&
@@ -2608,8 +2576,6 @@ function SidebarChannelsImpl({
                 onNewPost={onNewPost}
                 hasUnread={hasUnread}
               >
-                {/* Handlers de drag tactile + suppression du clic
-                apres un long-press */}
                 <button
                   type="button"
                   aria-expanded={isOpen}
@@ -2782,14 +2748,8 @@ function readStoredCollapsed(): boolean {
   }
 }
 
-const sidebarMemory = {
-  collapsed: readStoredCollapsed(),
-};
-
-const userProfileCache = {
-  profile: null as UserProfile | null,
-};
-
+const sidebarMemory = { collapsed: readStoredCollapsed() };
+const userProfileCache = { profile: null as UserProfile | null };
 const sidebarListeners = new Set<() => void>();
 
 function setSidebarCollapsed(value: boolean) {
@@ -2969,18 +2929,19 @@ export default function DashboardSidebar({
   const menuRef = useRef<HTMLDivElement>(null);
 
   /* ------------------------------------------------------------------
-  Drag-to-dismiss du bottom sheet mobile
+  Drag-to-dismiss du bottom sheet mobile (smooth + spring)
   ------------------------------------------------------------------ */
   const sheetRef = useRef<HTMLDivElement>(null);
   const sheetDragRef = useRef<{
     startY: number;
-    lastY: number;
-    lastT: number;
-    velocity: number;
     pointerId: number;
     active: boolean;
+    height: number;
+    samples: Array<{ y: number; t: number }>;
+    velocity: number;
   } | null>(null);
   const sheetOffsetRef = useRef(0);
+  const sheetClosingRef = useRef(false);
   const [sheetOffset, setSheetOffset] = useState(0);
   const [sheetDragging, setSheetDragging] = useState(false);
 
@@ -2989,29 +2950,35 @@ export default function DashboardSidebar({
     setSheetOffset(value);
   };
 
-  // Remet le sheet en place a chaque ouverture.
+  // Reset a chaque ouverture.
   useEffect(() => {
-    if (menuOpen) updateSheetOffset(0);
+    if (menuOpen) {
+      sheetClosingRef.current = false;
+      updateSheetOffset(0);
+    }
   }, [menuOpen]);
 
-  const closeSheetAnimated = () => {
+  const closeSheetAnimated = useCallback(() => {
+    sheetClosingRef.current = true;
     const height = sheetRef.current?.offsetHeight ?? 400;
     updateSheetOffset(height);
     window.setTimeout(() => {
       setMenuOpen(false);
       updateSheetOffset(0);
-    }, 180);
-  };
+      sheetClosingRef.current = false;
+    }, 240);
+  }, []);
 
   const onSheetPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
     if (event.pointerType === "mouse" && event.button !== 0) return;
+    const height = sheetRef.current?.offsetHeight ?? 400;
     sheetDragRef.current = {
       startY: event.clientY,
-      lastY: event.clientY,
-      lastT: performance.now(),
-      velocity: 0,
       pointerId: event.pointerId,
       active: false,
+      height,
+      samples: [],
+      velocity: 0,
     };
   };
 
@@ -3020,17 +2987,19 @@ export default function DashboardSidebar({
     if (!drag) return;
     const dy = event.clientY - drag.startY;
     if (!drag.active) {
-      // On ne capture le pointeur qu'apres un vrai mouvement,
-      // pour ne pas casser le clic sur le bouton "Upgrade".
       if (Math.abs(dy) < 6) return;
       drag.active = true;
       event.currentTarget.setPointerCapture(drag.pointerId);
       setSheetDragging(true);
     }
     const now = performance.now();
-    drag.velocity = (event.clientY - drag.lastY) / Math.max(1, now - drag.lastT);
-    drag.lastY = event.clientY;
-    drag.lastT = now;
+    drag.samples.push({ y: event.clientY, t: now });
+    if (drag.samples.length > 6) drag.samples.shift();
+    if (drag.samples.length >= 2) {
+      const oldest = drag.samples[0];
+      const newest = drag.samples[drag.samples.length - 1];
+      drag.velocity = (newest.y - oldest.y) / Math.max(1, newest.t - oldest.t);
+    }
     updateSheetOffset(Math.max(0, dy));
   };
 
@@ -3039,13 +3008,19 @@ export default function DashboardSidebar({
     sheetDragRef.current = null;
     if (!drag?.active) return;
     setSheetDragging(false);
-    const height = sheetRef.current?.offsetHeight ?? 400;
-    if (sheetOffsetRef.current > height * 0.25 || drag.velocity > 0.6) {
-      closeSheetAnimated();
-    } else {
-      updateSheetOffset(0);
-    }
+    const shouldClose =
+      sheetOffsetRef.current > drag.height * 0.3 || drag.velocity > 0.8;
+    if (shouldClose) closeSheetAnimated();
+    else updateSheetOffset(0);
   };
+
+  // Backdrop opacity suit le drag (feedback tactile).
+  const backdropOpacity =
+    sheetOffset > 0
+      ? Math.max(0.08, 1 - sheetOffset / (sheetRef.current?.offsetHeight ?? 400))
+      : undefined;
+
+  /* ------------------------------------------------------------------ */
 
   useEffect(() => {
     let mounted = true;
@@ -3080,8 +3055,6 @@ export default function DashboardSidebar({
     if (!isMobile) setMobileOpen(false);
   }, [isMobile]);
 
-  // Mobile : bloque le scroll de la page quand le panneau est ouvert
-  // et ferme avec Echap (le sheet du compte garde la priorite).
   useEffect(() => {
     if (!mobileOpen) return;
     const onKeyDown = (event: KeyboardEvent) => {
@@ -3093,7 +3066,6 @@ export default function DashboardSidebar({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [mobileOpen, menuOpen]);
 
-  // Mobile : Echap ferme le sheet du compte (avec animation).
   useEffect(() => {
     if (!isMobile || !menuOpen) return;
     const onKeyDown = (event: KeyboardEvent) => {
@@ -3101,10 +3073,8 @@ export default function DashboardSidebar({
     };
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isMobile, menuOpen]);
+  }, [isMobile, menuOpen, closeSheetAnimated]);
 
-  // Desktop : popover du compte (clic exterieur + Echap + navigation clavier).
   useEffect(() => {
     if (!menuOpen || isMobile) return;
     const onPointerDown = (event: PointerEvent) => {
@@ -3362,8 +3332,9 @@ export default function DashboardSidebar({
   return (
     <>
       <style>{SIDEBAR_KEYFRAMES}</style>
+
       {/* ------------------------------------------------------------------
-      MOBILE : barre du haut (hamburger / croix + logo Stone)
+      MOBILE : barre du haut (hamburger / croix + logo Stone + point 2FA)
       ------------------------------------------------------------------ */}
       {isMobile && (
         <header
@@ -3374,7 +3345,13 @@ export default function DashboardSidebar({
         >
           <button
             type="button"
-            aria-label={mobileOpen ? c.actions.closeNav : c.actions.openNav}
+            aria-label={
+              mobileOpen
+                ? c.actions.closeNav
+                : showMfaNudge
+                  ? `${c.actions.openNav} · 2FA`
+                  : c.actions.openNav
+            }
             aria-controls="app-sidebar"
             aria-expanded={mobileOpen}
             onClick={() => {
@@ -3382,7 +3359,7 @@ export default function DashboardSidebar({
               setMobileOpen((value) => !value);
             }}
             className={[
-              "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl",
+              "relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl",
               "transition-[background-color,transform] duration-200 active:scale-[0.94] motion-reduce:transition-none",
               focus,
               t.menuIcon,
@@ -3393,6 +3370,16 @@ export default function DashboardSidebar({
               <CloseIcon className="h-[22px] w-[22px]" />
             ) : (
               <MenuIcon className="h-[22px] w-[22px]" />
+            )}
+            {!mobileOpen && showMfaNudge && (
+              <span
+                aria-hidden="true"
+                title="2FA"
+                className={[
+                  "sb-dot pointer-events-none absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-amber-400 ring-2",
+                  t.dotRing,
+                ].join(" ")}
+              />
             )}
           </button>
           <button
@@ -3420,7 +3407,7 @@ export default function DashboardSidebar({
       )}
 
       {/* ------------------------------------------------------------------
-      MOBILE : bottom sheet du compte (drag-to-dismiss)
+      MOBILE : bottom sheet du compte — drag-to-dismiss smooth
       ------------------------------------------------------------------ */}
       {isMobile && menuOpen && (
         <>
@@ -3428,6 +3415,10 @@ export default function DashboardSidebar({
             aria-hidden="true"
             onClick={() => closeSheetAnimated()}
             className="sb-backdrop fixed inset-0 z-[55] bg-black/50"
+            style={{
+              opacity: backdropOpacity,
+              transition: sheetDragging ? "none" : "opacity 220ms ease-out",
+            }}
           />
           <div
             ref={sheetRef}
@@ -3440,16 +3431,20 @@ export default function DashboardSidebar({
                 sheetOffset > 0 ? `translateY(${sheetOffset}px)` : undefined,
               transition: sheetDragging
                 ? "none"
-                : "transform 180ms ease-out",
+                : sheetClosingRef.current
+                  ? "transform 240ms cubic-bezier(0.4, 0, 1, 1)" // close : ease-in
+                  : "transform 320ms cubic-bezier(0.34, 1.56, 0.64, 1)", // snap-back : léger rebond
+              willChange: sheetDragging ? "transform" : undefined,
             }}
             className={[
               "sb-sheet fixed inset-x-0 bottom-0 z-[60] max-h-[88dvh] overflow-y-auto",
               "rounded-t-3xl border-t pb-[max(12px,env(safe-area-inset-bottom))]",
               "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+              "overscroll-contain",
               t.menu,
             ].join(" ")}
           >
-            {/* Zone de glissement : poignee + infos du compte + bouton Upgrade */}
+            {/* Zone de glissement : poignée + infos + bouton Upgrade */}
             <div
               onPointerDown={onSheetPointerDown}
               onPointerMove={onSheetPointerMove}
@@ -3457,11 +3452,11 @@ export default function DashboardSidebar({
               onPointerCancel={endSheetDrag}
               className="touch-none"
             >
-              {/* Poignee */}
               <div className="flex justify-center pb-2 pt-3">
-                <span className={["h-1 w-9 rounded-full", t.divider].join(" ")} />
+                <span
+                  className={["h-1 w-9 rounded-full", t.divider].join(" ")}
+                />
               </div>
-              {/* Bloc compte */}
               <div className="px-5 pb-4 pt-1">
                 <div className={["truncate text-[13px]", t.muted].join(" ")}>
                   {account.email}
@@ -3490,7 +3485,6 @@ export default function DashboardSidebar({
                 </button>
               </div>
             </div>
-            {/* Groupes du menu : inchanges (Settings, Channels, Plans...) */}
             {menuGroups.map((group, groupIndex) => (
               <div
                 key={group[0]?.label ?? groupIndex}
@@ -3560,8 +3554,7 @@ export default function DashboardSidebar({
       )}
 
       {/* ------------------------------------------------------------------
-      SIDEBAR : desktop = colonne fixe a gauche
-      mobile  = panneau plein ecran sous la barre du haut
+      SIDEBAR : desktop = colonne fixe, mobile = panneau plein écran
       ------------------------------------------------------------------ */}
       <aside
         id="app-sidebar"
@@ -3583,7 +3576,6 @@ export default function DashboardSidebar({
           isMobile ? "" : compact ? "w-[64px]" : "w-[240px]",
         ].join(" ")}
       >
-        {/* Logo : desktop uniquement (sur mobile il est dans la barre du haut) */}
         {!isMobile && (
           <button
             type="button"
@@ -3654,7 +3646,7 @@ export default function DashboardSidebar({
           />
         </nav>
 
-        {/* Footer : profil (+ aide sur mobile) */}
+        {/* Footer : profil (+ toggle desktop) */}
         <div
           ref={profileRef}
           className={[
@@ -3665,7 +3657,6 @@ export default function DashboardSidebar({
             isMobile ? "pb-[max(10px,env(safe-area-inset-bottom))]" : "",
           ].join(" ")}
         >
-          {/* Reduire / developper : desktop uniquement */}
           {!isMobile && (
             <button
               type="button"
