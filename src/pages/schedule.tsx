@@ -42,6 +42,253 @@ import {
 } from "../components/IntegrationIcons";
 
 /* ------------------------------------------------------------------ */
+/* Language / i18n                                                     */
+/* ------------------------------------------------------------------ */
+
+type Lang = "fr" | "en";
+
+const LANGUAGE_STORAGE_KEY = "stone:language";
+const LANGUAGE_CHANGED_EVENT = "stone:language-changed";
+
+function detectLanguage(): Lang {
+  if (typeof window === "undefined") return "en";
+  try {
+    const stored = window.localStorage.getItem(LANGUAGE_STORAGE_KEY);
+    if (stored === "fr" || stored === "en") return stored;
+  } catch {
+    /* stockage indisponible */
+  }
+  return "en";
+}
+
+function useLanguage(): Lang {
+  const [lang, setLang] = useState<Lang>(() => detectLanguage());
+
+  useEffect(() => {
+    const refresh = () => setLang(detectLanguage());
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === LANGUAGE_STORAGE_KEY) refresh();
+    };
+    window.addEventListener("storage", onStorage);
+    window.addEventListener("focus", refresh);
+    window.addEventListener("hashchange", refresh);
+    window.addEventListener(LANGUAGE_CHANGED_EVENT, refresh);
+    return () => {
+      window.removeEventListener("storage", onStorage);
+      window.removeEventListener("focus", refresh);
+      window.removeEventListener("hashchange", refresh);
+      window.removeEventListener(LANGUAGE_CHANGED_EVENT, refresh);
+    };
+  }, []);
+
+  return lang;
+}
+
+const intlLocale = (lang: Lang) => (lang === "fr" ? "fr-FR" : "en-GB");
+
+/* ------------------------------------------------------------------ */
+/* Copy                                                                */
+/* ------------------------------------------------------------------ */
+
+type Scope = "all" | "published" | "toPublish";
+
+type Copy = {
+  pageTitle: string;
+  header: {
+    addFavorite: string;
+    removeFavorite: string;
+  };
+  toolbar: {
+    prevWeek: string;
+    prevMonth: string;
+    nextWeek: string;
+    nextMonth: string;
+    today: string;
+    week: string;
+    month: string;
+    scopeLabels: Record<Scope, string>;
+    tags: string;
+    noDate: string;
+    moreOptions: string;
+    addEvent: string;
+  };
+  weekdaysLong: string[];
+  addPostTooltip: string;
+  moreRow: (n: number) => string;
+  eventCard: {
+    untitled: string;
+    options: (title: string) => string;
+    edit: string;
+    delete: string;
+    confirmed: string;
+  };
+  eventForm: {
+    editTitle: string;
+    createTitle: string;
+    titleLabel: string;
+    titlePlaceholder: string;
+    datetimeLabel: string;
+    tagLabel: string;
+    unassigned: string;
+    cancel: string;
+    save: string;
+    create: string;
+    validation: string;
+  };
+  dayModal: {
+    close: string;
+  };
+  offScreen: {
+    above: (time: string) => string;
+    below: (time: string) => string;
+  };
+  timezoneLabels: Record<string, string>;
+};
+
+const COPY: Record<Lang, Copy> = {
+  en: {
+    pageTitle: "Publish",
+    header: {
+      addFavorite: "Add to favorites",
+      removeFavorite: "Remove from favorites",
+    },
+    toolbar: {
+      prevWeek: "Previous week",
+      prevMonth: "Previous month",
+      nextWeek: "Next week",
+      nextMonth: "Next month",
+      today: "Today",
+      week: "Week",
+      month: "Month",
+      scopeLabels: {
+        all: "All Posts",
+        published: "Published",
+        toPublish: "To publish",
+      },
+      tags: "Tags",
+      noDate: "No Date",
+      moreOptions: "More options",
+      addEvent: "Add event",
+    },
+    weekdaysLong: [
+      "Sunday",
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Saturday",
+    ],
+    addPostTooltip: "Add a post",
+    moreRow: (n) => `${n} More`,
+    eventCard: {
+      untitled: "Untitled",
+      options: (title) => `Options ${title}`,
+      edit: "Edit",
+      delete: "Delete",
+      confirmed: "Confirmed",
+    },
+    eventForm: {
+      editTitle: "Edit event",
+      createTitle: "New event",
+      titleLabel: "Title",
+      titlePlaceholder: "Event title",
+      datetimeLabel: "Date and time",
+      tagLabel: "Tag",
+      unassigned: "Unassigned",
+      cancel: "Cancel",
+      save: "Save",
+      create: "Create",
+      validation:
+        "Enter a title and an end time later than the start time.",
+    },
+    dayModal: {
+      close: "Close",
+    },
+    offScreen: {
+      above: (time) => `Post above at ${time} — click to go there`,
+      below: (time) => `Post below at ${time} — click to go there`,
+    },
+    timezoneLabels: {
+      Paris: "Paris",
+      London: "London",
+      "New York": "New York",
+      Tokyo: "Tokyo",
+    },
+  },
+  fr: {
+    pageTitle: "Publier",
+    header: {
+      addFavorite: "Ajouter aux favoris",
+      removeFavorite: "Retirer des favoris",
+    },
+    toolbar: {
+      prevWeek: "Semaine précédente",
+      prevMonth: "Mois précédent",
+      nextWeek: "Semaine suivante",
+      nextMonth: "Mois suivant",
+      today: "Aujourd'hui",
+      week: "Semaine",
+      month: "Mois",
+      scopeLabels: {
+        all: "Tous les posts",
+        published: "Publié",
+        toPublish: "À publier",
+      },
+      tags: "Tags",
+      noDate: "Sans date",
+      moreOptions: "Plus d'options",
+      addEvent: "Ajouter un événement",
+    },
+    weekdaysLong: [
+      "Dimanche",
+      "Lundi",
+      "Mardi",
+      "Mercredi",
+      "Jeudi",
+      "Vendredi",
+      "Samedi",
+    ],
+    addPostTooltip: "Ajouter un post",
+    moreRow: (n) => `${n} de plus`,
+    eventCard: {
+      untitled: "Sans titre",
+      options: (title) => `Options ${title}`,
+      edit: "Modifier",
+      delete: "Supprimer",
+      confirmed: "Confirmé",
+    },
+    eventForm: {
+      editTitle: "Modifier l'événement",
+      createTitle: "Nouvel événement",
+      titleLabel: "Titre",
+      titlePlaceholder: "Titre de l'événement",
+      datetimeLabel: "Date et heure",
+      tagLabel: "Tag",
+      unassigned: "Sans tag",
+      cancel: "Annuler",
+      save: "Enregistrer",
+      create: "Créer",
+      validation:
+        "Renseigne un titre et une heure de fin postérieure à l'heure de début.",
+    },
+    dayModal: {
+      close: "Fermer",
+    },
+    offScreen: {
+      above: (time) => `Post au-dessus à ${time} — cliquer pour y aller`,
+      below: (time) => `Post en-dessous à ${time} — cliquer pour y aller`,
+    },
+    timezoneLabels: {
+      Paris: "Paris",
+      London: "Londres",
+      "New York": "New York",
+      Tokyo: "Tokyo",
+    },
+  },
+};
+
+/* ------------------------------------------------------------------ */
 /* Shell                                                               */
 /* ------------------------------------------------------------------ */
 
@@ -91,9 +338,13 @@ const UNASSIGNED_HEX = "#a3a3a3";
 
 const DEFAULT_ORDER = ["to do", "in progress"];
 
-const hexOf = (t: ApiTag) => (t.id === UNASSIGNED ? UNASSIGNED_HEX : tagHex(t.color));
+const hexOf = (t: ApiTag) =>
+  t.id === UNASSIGNED ? UNASSIGNED_HEX : tagHex(t.color);
 
-const passesTagFilter = (ids: string[] | undefined | null, hidden: string[]) => {
+const passesTagFilter = (
+  ids: string[] | undefined | null,
+  hidden: string[]
+) => {
   if (!ids || !Array.isArray(ids) || ids.length === 0) {
     return !hidden.includes(UNASSIGNED);
   }
@@ -104,9 +355,21 @@ const passesTagFilter = (ids: string[] | undefined | null, hidden: string[]) => 
 /* Icons                                                               */
 /* ------------------------------------------------------------------ */
 
-function ChevronDownIcon({ className = "h-[13px] w-[13px]" }: { className?: string }) {
+function ChevronDownIcon({
+  className = "h-[13px] w-[13px]",
+}: {
+  className?: string;
+}) {
   return (
-    <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      viewBox="0 0 24 24"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <path d="m6 9 6 6 6-6" />
     </svg>
   );
@@ -114,7 +377,15 @@ function ChevronDownIcon({ className = "h-[13px] w-[13px]" }: { className?: stri
 
 function PlusIcon() {
   return (
-    <svg viewBox="0 0 24 24" className="h-[13px] w-[13px]" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      viewBox="0 0 24 24"
+      className="h-[13px] w-[13px]"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <path d="M12 5v14M5 12h14" />
     </svg>
   );
@@ -132,7 +403,15 @@ function MoreIcon() {
 
 function PencilIcon() {
   return (
-    <svg viewBox="0 0 24 24" className="h-[14px] w-[14px]" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      viewBox="0 0 24 24"
+      className="h-[14px] w-[14px]"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <path d="M4 20h4L19 9a2.1 2.1 0 0 0-3-3L5 17v3Z" />
       <path d="m14.5 7.5 3 3" />
     </svg>
@@ -141,7 +420,15 @@ function PencilIcon() {
 
 function TrashIcon() {
   return (
-    <svg viewBox="0 0 24 24" className="h-[14px] w-[14px]" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      viewBox="0 0 24 24"
+      className="h-[14px] w-[14px]"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <path d="M4 7h16" />
       <path d="M9 7V4.5h6V7" />
       <path d="M6.5 7 7.4 19a1.5 1.5 0 0 0 1.5 1.4h6.2a1.5 1.5 0 0 0 1.5-1.4L17.5 7" />
@@ -150,25 +437,61 @@ function TrashIcon() {
   );
 }
 
-function CheckIcon({ className = "h-[11px] w-[11px]" }: { className?: string }) {
+function CheckIcon({
+  className = "h-[11px] w-[11px]",
+}: {
+  className?: string;
+}) {
   return (
-    <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      viewBox="0 0 24 24"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <path d="m4 12 6 6L20 6" />
     </svg>
   );
 }
 
-function ArrowUpIcon({ className = "h-[14px] w-[14px]" }: { className?: string }) {
+function ArrowUpIcon({
+  className = "h-[14px] w-[14px]",
+}: {
+  className?: string;
+}) {
   return (
-    <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      viewBox="0 0 24 24"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <path d="M12 19V5M5 12l7-7 7 7" />
     </svg>
   );
 }
 
-function ArrowDownIcon({ className = "h-[14px] w-[14px]" }: { className?: string }) {
+function ArrowDownIcon({
+  className = "h-[14px] w-[14px]",
+}: {
+  className?: string;
+}) {
   return (
-    <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      viewBox="0 0 24 24"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <path d="M12 5v14M5 12l7 7 7-7" />
     </svg>
   );
@@ -176,7 +499,16 @@ function ArrowDownIcon({ className = "h-[14px] w-[14px]" }: { className?: string
 
 function CalendarIcon() {
   return (
-    <svg viewBox="0 0 24 24" className="h-[17px] w-[17px]" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg
+      viewBox="0 0 24 24"
+      className="h-[17px] w-[17px]"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
       <rect x="3.5" y="5" width="17" height="15.5" rx="3" />
       <path d="M8 3v4M16 3v4M3.5 10.5h17" />
     </svg>
@@ -185,7 +517,15 @@ function CalendarIcon() {
 
 function ChevronLeftIcon() {
   return (
-    <svg viewBox="0 0 24 24" className="h-[16px] w-[16px]" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      viewBox="0 0 24 24"
+      className="h-[16px] w-[16px]"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <path d="m15 6-6 6 6 6" />
     </svg>
   );
@@ -193,7 +533,15 @@ function ChevronLeftIcon() {
 
 function ChevronRightIcon() {
   return (
-    <svg viewBox="0 0 24 24" className="h-[16px] w-[16px]" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      viewBox="0 0 24 24"
+      className="h-[16px] w-[16px]"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <path d="m9 6 6 6-6 6" />
     </svg>
   );
@@ -201,7 +549,15 @@ function ChevronRightIcon() {
 
 function PostsIcon() {
   return (
-    <svg viewBox="0 0 24 24" className="h-[15px] w-[15px]" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      viewBox="0 0 24 24"
+      className="h-[15px] w-[15px]"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <rect x="3" y="3" width="13" height="13" rx="2" />
       <path d="M8 20h11a2 2 0 0 0 2-2V8" />
     </svg>
@@ -210,7 +566,15 @@ function PostsIcon() {
 
 function TagIcon() {
   return (
-    <svg viewBox="0 0 24 24" className="h-[15px] w-[15px]" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      viewBox="0 0 24 24"
+      className="h-[15px] w-[15px]"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8Z" />
       <circle cx="7.5" cy="7.5" r="1" fill="currentColor" />
     </svg>
@@ -219,7 +583,15 @@ function TagIcon() {
 
 function NoDateIcon() {
   return (
-    <svg viewBox="0 0 24 24" className="h-[15px] w-[15px]" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      viewBox="0 0 24 24"
+      className="h-[15px] w-[15px]"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <rect x="3" y="4" width="18" height="16" rx="2" />
       <path d="M9 4v16" />
       <path d="m16 10-2 2 2 2" />
@@ -229,7 +601,15 @@ function NoDateIcon() {
 
 function GlobeIcon() {
   return (
-    <svg viewBox="0 0 24 24" className="h-[15px] w-[15px]" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      viewBox="0 0 24 24"
+      className="h-[15px] w-[15px]"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <circle cx="12" cy="12" r="9" />
       <path d="M3 12h18" />
       <path d="M12 3a14 14 0 0 1 0 18 14 14 0 0 1 0-18Z" />
@@ -249,7 +629,15 @@ function MoreVerticalIcon() {
 
 function CloseIcon() {
   return (
-    <svg viewBox="0 0 24 24" className="h-[15px] w-[15px]" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      viewBox="0 0 24 24"
+      className="h-[15px] w-[15px]"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <path d="M6 6l12 12M18 6 6 18" />
     </svg>
   );
@@ -323,7 +711,12 @@ function ToolbarButton({
       {icon}
       {children}
       {chevron && (
-        <span className={["flex transition-transform duration-200", open ? "rotate-180" : ""].join(" ")}>
+        <span
+          className={[
+            "flex transition-transform duration-200",
+            open ? "rotate-180" : "",
+          ].join(" ")}
+        >
           <ChevronDownIcon />
         </span>
       )}
@@ -385,7 +778,9 @@ function MenuPanel({
         "absolute top-full z-40 mt-2 overflow-hidden rounded-xl border py-1.5 shadow-lg",
         align === "right" ? "right-0" : "left-0",
         width,
-        isDark ? "border-white/[0.08] bg-[#101012]" : "border-black/[0.06] bg-white",
+        isDark
+          ? "border-white/[0.08] bg-[#101012]"
+          : "border-black/[0.06] bg-white",
       ].join(" ")}
     >
       {children}
@@ -434,8 +829,6 @@ function MenuItem({
 /* ------------------------------------------------------------------ */
 /* Date helpers                                                        */
 /* ------------------------------------------------------------------ */
-
-const LOCALE = "en-US";
 
 function startOfWeek(date: Date) {
   const d = new Date(date);
@@ -499,75 +892,71 @@ const START_HOUR = 0;
 const END_HOUR = 24;
 const SPAN = END_HOUR - START_HOUR;
 
-/** Hauteur d'UNE heure dans la vue semaine — réduite pour un calendrier plus compact. */
 const HOUR_HEIGHT = 72;
 const TOTAL_HEIGHT = SPAN * HOUR_HEIGHT;
 const DEFAULT_SCROLL_HOUR = 8;
 const NOW_CONTEXT_HOURS = 2;
 const HOURS = Array.from({ length: SPAN + 1 }, (_, i) => START_HOUR + i);
 
-/* Month view : dimensions fixes pour calculer combien d'éléments rentrent */
 const MONTH_ITEM_H = 22;
 const MONTH_GAP = 2;
 const MONTH_CELL_PAD = 4;
 const MONTH_CELL_HEADER = 20;
 
-/** Puce de post : badge + heure + titre + vignette. */
 const POST_CHIP_H = 30;
 const POST_THUMB = 22;
 
-/** Version agrandie de la puce pour la vue semaine (désormais alignée sur la puce compacte). */
 const WEEK_CHIP_H = 30;
 const WEEK_THUMB = 22;
 
-/**
- * Nombre d'éléments (de hauteurs données) qui rentrent dans `avail` px.
- * Si tout ne rentre pas, une ligne "N More" est réservée.
- */
 function fitCount(heights: number[], avail: number) {
   const needed = (n: number) =>
-    heights.slice(0, n).reduce((sum, h) => sum + h, 0) + MONTH_GAP * Math.max(0, n - 1);
+    heights.slice(0, n).reduce((sum, h) => sum + h, 0) +
+    MONTH_GAP * Math.max(0, n - 1);
 
   if (needed(heights.length) <= avail) return heights.length;
 
   let k = 0;
-  while (k < heights.length && needed(k + 1) + MONTH_GAP + MONTH_ITEM_H <= avail) k++;
+  while (
+    k < heights.length &&
+    needed(k + 1) + MONTH_GAP + MONTH_ITEM_H <= avail
+  )
+    k++;
   return k;
 }
 
-/** Nombre de puces de post qui rentrent dans un créneau d'1h (vue semaine). */
 function slotVisibleCount(total: number) {
   return fitCount(
     Array.from({ length: total }, () => WEEK_CHIP_H),
-    HOUR_HEIGHT - MONTH_CELL_PAD * 2,
+    HOUR_HEIGHT - MONTH_CELL_PAD * 2
   );
 }
 
-function formatTime(h: number) {
+function formatTime(h: number, lang: Lang) {
   const hh = Math.floor(h);
   const mm = Math.round((h - hh) * 60);
-  return `${hh}h${String(mm).padStart(2, "0")}`;
+  return lang === "fr"
+    ? `${hh}h${String(mm).padStart(2, "0")}`
+    : `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
 }
 
-function formatEventTime(start: number, end: number) {
-  return `${formatTime(start)} - ${formatTime(end)}`;
+function formatEventTime(start: number, end: number, lang: Lang) {
+  return `${formatTime(start, lang)} - ${formatTime(end, lang)}`;
 }
 
-function formatPostTime(iso: string) {
+function formatPostTime(iso: string, lang: Lang) {
   try {
-    return new Date(iso).toLocaleTimeString(LOCALE, {
+    return new Date(iso).toLocaleTimeString(intlLocale(lang), {
       hour: "numeric",
       minute: "2-digit",
-      hour12: true,
+      hour12: lang === "en",
     });
   } catch {
     return "--:--";
   }
 }
 
-const VIEW_OPTIONS = ["Week", "Month"];
 const TIMEZONES = ["Paris", "London", "New York", "Tokyo"];
-const SCOPE_OPTIONS = ["All", "Publié", "À publier"];
 
 const NEUTRAL_STYLE = {
   bgLight: "bg-neutral-100",
@@ -623,7 +1012,6 @@ function networkOf(post: CalendarPost): SocialNetworkId {
   return key && NETWORK_ICONS[key] ? key : "x";
 }
 
-/** Fond des chips/cartes de posts : se distingue du fond du calendrier sans bordure. */
 const postChipBg = (isDark: boolean, posted: boolean, dragging = false) =>
   [
     isDark
@@ -651,7 +1039,17 @@ function NetworkBadge({
       ].join(" ")}
       style={{ width: size, height: size }}
     >
-      <Icon className={size <= 16 ? "h-[10px] w-[10px]" : size <= 20 ? "h-[11px] w-[11px]" : size >= 26 ? "h-[14px] w-[14px]" : "h-3 w-3"} />
+      <Icon
+        className={
+          size <= 16
+            ? "h-[10px] w-[10px]"
+            : size <= 20
+              ? "h-[11px] w-[11px]"
+              : size >= 26
+                ? "h-[14px] w-[14px]"
+                : "h-3 w-3"
+        }
+      />
     </span>
   );
 }
@@ -676,7 +1074,12 @@ function PostThumb({
       style={{ width: size, height: size }}
     >
       {cover.kind === "image" ? (
-        <img src={cover.url} alt="" loading="lazy" className="h-full w-full object-cover" />
+        <img
+          src={cover.url}
+          alt=""
+          loading="lazy"
+          className="h-full w-full object-cover"
+        />
       ) : (
         <>
           <video
@@ -687,7 +1090,13 @@ function PostThumb({
             className="h-full w-full object-cover"
           />
           <span className="absolute inset-0 flex items-center justify-center bg-black/25">
-            <svg viewBox="0 0 24 24" className={size >= 40 ? "h-4 w-4 text-white" : "h-3 w-3 text-white"} fill="currentColor">
+            <svg
+              viewBox="0 0 24 24"
+              className={
+                size >= 40 ? "h-4 w-4 text-white" : "h-3 w-3 text-white"
+              }
+              fill="currentColor"
+            >
               <path d="M7 4v16l13-8z" />
             </svg>
           </span>
@@ -697,21 +1106,19 @@ function PostThumb({
   );
 }
 
-/**
- * Un créneau d'1h de la vue semaine : les posts y sont empilés comme dans une
- * case du mois (mêmes puces), avec "N More" quand ils ne rentrent pas.
- */
 function PostSlot({
   hour,
   posts,
   renderChip,
   isDark,
+  c,
   onMore,
 }: {
   hour: number;
   posts: CalendarPost[];
   renderChip: (post: CalendarPost) => ReactNode;
   isDark: boolean;
+  c: Copy;
   onMore: () => void;
 }) {
   const shown = slotVisibleCount(posts.length);
@@ -736,7 +1143,7 @@ function PostSlot({
 
       {hidden > 0 && (
         <div className="pointer-events-auto flex flex-col">
-          <MoreRow count={hidden} isDark={isDark} onClick={onMore} />
+          <MoreRow count={hidden} isDark={isDark} c={c} onClick={onMore} />
         </div>
       )}
     </div>
@@ -744,7 +1151,7 @@ function PostSlot({
 }
 
 /* ------------------------------------------------------------------ */
-/* Off-screen posts (pastilles flottantes)                             */
+/* Off-screen posts                                                    */
 /* ------------------------------------------------------------------ */
 
 type OffScreenPost = {
@@ -757,12 +1164,16 @@ function OffScreenPostStack({
   items,
   direction,
   isDark,
+  c,
+  lang,
   onSelect,
   bottomOffset = "bottom-24",
 }: {
   items: OffScreenPost[];
   direction: "up" | "down";
   isDark: boolean;
+  c: Copy;
+  lang: Lang;
   onSelect: (item: OffScreenPost) => void;
   bottomOffset?: string;
 }) {
@@ -779,7 +1190,7 @@ function OffScreenPostStack({
       ].join(" ")}
     >
       {shown.map((item) => {
-        const time = formatPostTime(item.post.scheduledAt);
+        const time = formatPostTime(item.post.scheduledAt, lang);
         const title = postTitle(item.post);
         const hasMedia = Boolean(item.post.media?.[0]);
         return (
@@ -790,8 +1201,8 @@ function OffScreenPostStack({
             title={title ? `${time} · ${title}` : time}
             aria-label={
               direction === "up"
-                ? `Post au-dessus à ${time} — cliquer pour y aller`
-                : `Post en-dessous à ${time} — cliquer pour y aller`
+                ? c.offScreen.above(time)
+                : c.offScreen.below(time)
             }
             className={[
               "pointer-events-auto flex items-center gap-2 rounded-full border py-1 pl-1 pr-2.5 shadow-lg backdrop-blur-md transition hover:scale-[1.03] active:scale-100",
@@ -804,9 +1215,15 @@ function OffScreenPostStack({
             {hasMedia ? (
               <PostThumb post={item.post} isDark={isDark} size={24} />
             ) : (
-              <NetworkBadge network={networkOf(item.post)} isDark={isDark} size={24} />
+              <NetworkBadge
+                network={networkOf(item.post)}
+                isDark={isDark}
+                size={24}
+              />
             )}
-            <span className="text-[11.5px] font-semibold tabular-nums">{time}</span>
+            <span className="text-[11.5px] font-semibold tabular-nums">
+              {time}
+            </span>
             <span className={isDark ? "text-neutral-400" : "text-neutral-500"}>
               {direction === "up" ? (
                 <ArrowUpIcon className="h-3 w-3" />
@@ -835,14 +1252,21 @@ function OffScreenPostStack({
 /* Month view chips                                                    */
 /* ------------------------------------------------------------------ */
 
-/** Titre affiché sur la puce : premier champ texte trouvé sur le post (1re ligne). */
-const POST_TITLE_KEYS = ["title", "videoTitle", "caption", "content", "text", "description"];
+const POST_TITLE_KEYS = [
+  "title",
+  "videoTitle",
+  "caption",
+  "content",
+  "text",
+  "description",
+];
 
 function postTitle(post: CalendarPost): string {
   const data = post as unknown as Record<string, unknown>;
   for (const key of POST_TITLE_KEYS) {
     const value = data[key];
-    if (typeof value === "string" && value.trim()) return value.trim().split("\n")[0];
+    if (typeof value === "string" && value.trim())
+      return value.trim().split("\n")[0];
   }
   return "";
 }
@@ -852,6 +1276,7 @@ function PostChip({
   isDark,
   posted,
   dragging,
+  lang,
   large = false,
   onDragStart,
   onDragEnd,
@@ -860,12 +1285,12 @@ function PostChip({
   isDark: boolean;
   posted: boolean;
   dragging: boolean;
-  /** Version agrandie (vue semaine). */
+  lang: Lang;
   large?: boolean;
   onDragStart: (e: React.DragEvent, postId: string) => void;
   onDragEnd: () => void;
 }) {
-  const time = formatPostTime(post.scheduledAt);
+  const time = formatPostTime(post.scheduledAt, lang);
   const title = postTitle(post);
 
   return (
@@ -882,7 +1307,11 @@ function PostChip({
       ].join(" ")}
       style={{ height: large ? WEEK_CHIP_H : POST_CHIP_H }}
     >
-      <NetworkBadge network={networkOf(post)} isDark={isDark} size={large ? 22 : 18} />
+      <NetworkBadge
+        network={networkOf(post)}
+        isDark={isDark}
+        size={large ? 22 : 18}
+      />
 
       <span className="flex min-w-0 flex-1 flex-col justify-center gap-0.5 leading-none">
         <span
@@ -907,7 +1336,11 @@ function PostChip({
         )}
       </span>
 
-      <PostThumb post={post} isDark={isDark} size={large ? WEEK_THUMB : POST_THUMB} />
+      <PostThumb
+        post={post}
+        isDark={isDark}
+        size={large ? WEEK_THUMB : POST_THUMB}
+      />
     </div>
   );
 }
@@ -916,17 +1349,24 @@ function MonthEventChip({
   event,
   tag,
   isDark,
+  lang,
+  c,
 }: {
   event: CalendarEvent;
   tag?: ApiTag;
   isDark: boolean;
+  lang: Lang;
+  c: Copy;
 }) {
   const hex = tag ? hexOf(tag) : isDark ? "#525252" : "#a3a3a3";
   return (
     <div
       className={[
         "flex shrink-0 flex-col justify-center overflow-hidden rounded-md border-l-[3px] px-1.5 leading-tight",
-        !tag && (isDark ? "bg-neutral-800 text-neutral-200" : "bg-neutral-100 text-neutral-700"),
+        !tag &&
+          (isDark
+            ? "bg-neutral-800 text-neutral-200"
+            : "bg-neutral-100 text-neutral-700"),
       ]
         .filter(Boolean)
         .join(" ")}
@@ -934,12 +1374,19 @@ function MonthEventChip({
         height: MONTH_ITEM_H,
         borderColor: hex,
         ...(tag
-          ? { backgroundColor: `${hex}${isDark ? "26" : "1f"}`, color: isDark ? "#fff" : "#171717" }
+          ? {
+              backgroundColor: `${hex}${isDark ? "26" : "1f"}`,
+              color: isDark ? "#fff" : "#171717",
+            }
           : {}),
       }}
     >
-      <span className="truncate text-[10px] font-semibold">{event.title || "Sans titre"}</span>
-      <span className="truncate text-[8.5px] tabular-nums opacity-70">{formatTime(event.start)}</span>
+      <span className="truncate text-[10px] font-semibold">
+        {event.title || c.eventCard.untitled}
+      </span>
+      <span className="truncate text-[8.5px] tabular-nums opacity-70">
+        {formatTime(event.start, lang)}
+      </span>
     </div>
   );
 }
@@ -947,10 +1394,12 @@ function MonthEventChip({
 function MoreRow({
   count,
   isDark,
+  c,
   onClick,
 }: {
   count: number;
   isDark: boolean;
+  c: Copy;
   onClick: () => void;
 }) {
   return (
@@ -967,7 +1416,7 @@ function MoreRow({
       style={{ height: MONTH_ITEM_H }}
     >
       <ChevronDownIcon className="h-[11px] w-[11px]" />
-      {count} More
+      {c.moreRow(count)}
     </button>
   );
 }
@@ -982,12 +1431,14 @@ function DayDetailModal({
   items,
   renderItem,
   onClose,
+  c,
 }: {
   isDark: boolean;
   title: string;
   items: MonthItem[];
   renderItem: (item: MonthItem) => ReactNode;
   onClose: () => void;
+  c: Copy;
 }) {
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -999,22 +1450,32 @@ function DayDetailModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div
+        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+        onClick={onClose}
+      />
       <div
         role="dialog"
         aria-modal="true"
         className={[
           "relative z-10 flex max-h-[80vh] w-full max-w-sm flex-col rounded-2xl border p-4 shadow-2xl",
-          isDark ? "border-white/[0.08] bg-[#101012]" : "border-black/[0.06] bg-white",
+          isDark
+            ? "border-white/[0.08] bg-[#101012]"
+            : "border-black/[0.06] bg-white",
         ].join(" ")}
       >
         <div className="mb-3 flex items-center justify-between gap-3">
-          <h2 className={["text-[15px] font-semibold tracking-[-0.02em]", strongClass(isDark)].join(" ")}>
+          <h2
+            className={[
+              "text-[15px] font-semibold tracking-[-0.02em]",
+              strongClass(isDark),
+            ].join(" ")}
+          >
             {title}
           </h2>
           <button
             type="button"
-            aria-label="Close"
+            aria-label={c.dayModal.close}
             onClick={onClose}
             className={[
               "flex h-8 w-8 items-center justify-center rounded-lg transition",
@@ -1061,6 +1522,8 @@ type EventCardProps = {
   tag?: ApiTag;
   depth: number;
   isDark: boolean;
+  lang: Lang;
+  c: Copy;
   menuOpen: boolean;
   onToggleMenu: () => void;
   onCloseMenu: () => void;
@@ -1073,6 +1536,8 @@ function EventCard({
   tag,
   depth,
   isDark,
+  lang,
+  c,
   menuOpen,
   onToggleMenu,
   onCloseMenu,
@@ -1123,25 +1588,43 @@ function EventCard({
     >
       <div className="flex items-start justify-between gap-1.5">
         <div className="min-w-0">
-          <p className={["truncate text-[12px] font-semibold", isDark ? "text-neutral-100" : "text-neutral-800"].join(" ")}>
-            {event.title || "Sans titre"}
+          <p
+            className={[
+              "truncate text-[12px] font-semibold",
+              isDark ? "text-neutral-100" : "text-neutral-800",
+            ].join(" ")}
+          >
+            {event.title || c.eventCard.untitled}
           </p>
-          <p className={["mt-0.5 truncate text-[10px]", isDark ? "text-neutral-400" : "text-neutral-500"].join(" ")}>
-            {formatEventTime(event.start, event.end)}
+          <p
+            className={[
+              "mt-0.5 truncate text-[10px]",
+              isDark ? "text-neutral-400" : "text-neutral-500",
+            ].join(" ")}
+          >
+            {formatEventTime(event.start, event.end, lang)}
           </p>
         </div>
 
         <div className="relative shrink-0" data-event-menu>
           <button
             type="button"
-            aria-label={`Options ${event.title}`}
+            aria-label={c.eventCard.options(
+              event.title || c.eventCard.untitled
+            )}
             aria-haspopup="menu"
             aria-expanded={menuOpen}
             onClick={onToggleMenu}
             className={[
               "rounded-full p-0.5 transition",
-              menuOpen ? (isDark ? "bg-white/[0.08]" : "bg-black/[0.05]") : "",
-              isDark ? "text-neutral-400 hover:bg-white/[0.08]" : "text-neutral-400 hover:bg-black/[0.05]",
+              menuOpen
+                ? isDark
+                  ? "bg-white/[0.08]"
+                  : "bg-black/[0.05]"
+                : "",
+              isDark
+                ? "text-neutral-400 hover:bg-white/[0.08]"
+                : "text-neutral-400 hover:bg-black/[0.05]",
             ].join(" ")}
           >
             <MoreIcon />
@@ -1152,7 +1635,9 @@ function EventCard({
               role="menu"
               className={[
                 "absolute right-0 top-full z-40 mt-1.5 w-36 overflow-hidden rounded-xl border py-1 shadow-lg",
-                isDark ? "border-white/[0.08] bg-[#101012]" : "border-black/[0.06] bg-white",
+                isDark
+                  ? "border-white/[0.08] bg-[#101012]"
+                  : "border-black/[0.06] bg-white",
               ].join(" ")}
             >
               <button
@@ -1161,11 +1646,13 @@ function EventCard({
                 onClick={handleEdit}
                 className={[
                   "flex w-full items-center gap-2 px-3 py-2 text-left text-[12.5px] transition",
-                  isDark ? "text-neutral-200 hover:bg-white/[0.05]" : "text-neutral-700 hover:bg-black/[0.03]",
+                  isDark
+                    ? "text-neutral-200 hover:bg-white/[0.05]"
+                    : "text-neutral-700 hover:bg-black/[0.03]",
                 ].join(" ")}
               >
                 <PencilIcon />
-                Modifier
+                {c.eventCard.edit}
               </button>
               <button
                 type="button"
@@ -1173,11 +1660,13 @@ function EventCard({
                 onClick={handleDelete}
                 className={[
                   "flex w-full items-center gap-2 px-3 py-2 text-left text-[12.5px] transition",
-                  isDark ? "text-rose-300 hover:bg-white/[0.05]" : "text-rose-600 hover:bg-black/[0.03]",
+                  isDark
+                    ? "text-rose-300 hover:bg-white/[0.05]"
+                    : "text-rose-600 hover:bg-black/[0.03]",
                 ].join(" ")}
               >
                 <TrashIcon />
-                Supprimer
+                {c.eventCard.delete}
               </button>
             </div>
           )}
@@ -1192,7 +1681,10 @@ function EventCard({
           ].join(" ")}
           style={{ backgroundColor: `${hex}26` }}
         >
-          <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: hex ?? undefined }} />
+          <span
+            className="h-1.5 w-1.5 shrink-0 rounded-full"
+            style={{ backgroundColor: hex ?? undefined }}
+          />
           <span className="truncate">{tag.label}</span>
         </span>
       )}
@@ -1201,11 +1693,13 @@ function EventCard({
         <span
           className={[
             "flex w-fit items-center gap-1 rounded-full px-2 py-[3px] text-[10px] font-medium",
-            isDark ? "bg-white/[0.08] text-white" : "bg-white text-neutral-700 shadow-sm",
+            isDark
+              ? "bg-white/[0.08] text-white"
+              : "bg-white text-neutral-700 shadow-sm",
           ].join(" ")}
         >
           <CheckIcon className="h-[9px] w-[9px]" />
-          Confirmed
+          {c.eventCard.confirmed}
         </span>
       )}
     </div>
@@ -1230,6 +1724,7 @@ function EventFormModal({
   tags,
   weekStart,
   initial,
+  c,
   onCancel,
   onSave,
 }: {
@@ -1237,6 +1732,7 @@ function EventFormModal({
   tags: ApiTag[];
   weekStart: Date;
   initial: EventFormData | null;
+  c: Copy;
   onCancel: () => void;
   onSave: (data: EventFormData) => void;
 }) {
@@ -1246,8 +1742,12 @@ function EventFormModal({
     if (initial?.dateStr) return new Date(initial.dateStr);
     return initial ? addDays(weekStart, initial.day) : new Date();
   });
-  const [startDate, setStartDate] = useState<Date>(() => hourToDate(initial?.start ?? 9));
-  const [endDate, setEndDate] = useState<Date>(() => hourToDate(initial?.end ?? 10));
+  const [startDate, setStartDate] = useState<Date>(() =>
+    hourToDate(initial?.start ?? 9)
+  );
+  const [endDate, setEndDate] = useState<Date>(() =>
+    hourToDate(initial?.end ?? 10)
+  );
   const [tagId, setTagId] = useState<string>(initial?.tagId ?? "");
 
   const start = dateToHour(startDate);
@@ -1277,13 +1777,18 @@ function EventFormModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onCancel} />
+      <div
+        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+        onClick={onCancel}
+      />
       <div
         role="dialog"
         aria-modal="true"
         className={[
           "relative z-10 w-full max-w-md rounded-2xl border p-5 shadow-2xl",
-          isDark ? "border-white/[0.08] bg-[#101012]" : "border-black/[0.06] bg-white",
+          isDark
+            ? "border-white/[0.08] bg-[#101012]"
+            : "border-black/[0.06] bg-white",
         ].join(" ")}
       >
         <h2
@@ -1292,13 +1797,18 @@ function EventFormModal({
             isDark ? "text-white" : "text-neutral-900",
           ].join(" ")}
         >
-          {initial ? "Modifier l'événement" : "Nouvel événement"}
+          {initial ? c.eventForm.editTitle : c.eventForm.createTitle}
         </h2>
 
         <div className="space-y-4">
           <div>
-            <label className={["mb-1 block text-[11px] font-medium", isDark ? "text-neutral-500" : "text-neutral-400"].join(" ")}>
-              Titre
+            <label
+              className={[
+                "mb-1 block text-[11px] font-medium",
+                isDark ? "text-neutral-500" : "text-neutral-400",
+              ].join(" ")}
+            >
+              {c.eventForm.titleLabel}
             </label>
             <input
               autoFocus
@@ -1307,14 +1817,19 @@ function EventFormModal({
               onKeyDown={(e) => {
                 if (e.key === "Enter") submit();
               }}
-              placeholder="Titre de l'événement"
+              placeholder={c.eventForm.titlePlaceholder}
               className={fieldClass(isDark)}
             />
           </div>
 
           <div>
-            <label className={["mb-1.5 block text-[11px] font-medium", isDark ? "text-neutral-500" : "text-neutral-400"].join(" ")}>
-              Date et heure
+            <label
+              className={[
+                "mb-1.5 block text-[11px] font-medium",
+                isDark ? "text-neutral-500" : "text-neutral-400",
+              ].join(" ")}
+            >
+              {c.eventForm.datetimeLabel}
             </label>
             <DateTimePicker
               isDark={isDark}
@@ -1328,8 +1843,13 @@ function EventFormModal({
           </div>
 
           <div>
-            <label className={["mb-1 block text-[11px] font-medium", isDark ? "text-neutral-500" : "text-neutral-400"].join(" ")}>
-              Tag
+            <label
+              className={[
+                "mb-1 block text-[11px] font-medium",
+                isDark ? "text-neutral-500" : "text-neutral-400",
+              ].join(" ")}
+            >
+              {c.eventForm.tagLabel}
             </label>
             <select
               value={tagId}
@@ -1337,7 +1857,7 @@ function EventFormModal({
               style={{ colorScheme: isDark ? "dark" : "light" }}
               className={fieldClass(isDark)}
             >
-              <option value="">Unassigned</option>
+              <option value="">{c.eventForm.unassigned}</option>
               {tags.map((t) => (
                 <option key={t.id} value={t.id}>
                   {t.label}
@@ -1347,8 +1867,13 @@ function EventFormModal({
           </div>
 
           {!canSave && (
-            <p className={["text-[11px]", isDark ? "text-rose-300" : "text-rose-600"].join(" ")}>
-              Renseigne un titre et une heure de fin postérieure à l'heure de début.
+            <p
+              className={[
+                "text-[11px]",
+                isDark ? "text-rose-300" : "text-rose-600",
+              ].join(" ")}
+            >
+              {c.eventForm.validation}
             </p>
           )}
         </div>
@@ -1359,10 +1884,12 @@ function EventFormModal({
             onClick={onCancel}
             className={[
               "rounded-full px-3.5 py-2 text-[12.5px] font-medium transition",
-              isDark ? "text-neutral-300 hover:bg-white/[0.05]" : "text-neutral-600 hover:bg-black/[0.05]",
+              isDark
+                ? "text-neutral-300 hover:bg-white/[0.05]"
+                : "text-neutral-600 hover:bg-black/[0.05]",
             ].join(" ")}
           >
-            Annuler
+            {c.eventForm.cancel}
           </button>
           <button
             type="button"
@@ -1370,10 +1897,12 @@ function EventFormModal({
             disabled={!canSave}
             className={[
               "rounded-full px-4 py-2 text-[12.5px] font-semibold transition disabled:cursor-not-allowed disabled:opacity-40",
-              isDark ? "bg-white text-neutral-900 hover:bg-neutral-200" : "bg-neutral-900 text-white hover:bg-neutral-800",
+              isDark
+                ? "bg-white text-neutral-900 hover:bg-neutral-200"
+                : "bg-neutral-900 text-white hover:bg-neutral-800",
             ].join(" ")}
           >
-            {initial ? "Enregistrer" : "Créer"}
+            {initial ? c.eventForm.save : c.eventForm.create}
           </button>
         </div>
       </div>
@@ -1393,12 +1922,13 @@ type CalendarDay = {
   isCurrentMonth: boolean;
 };
 
-/** Marge laissée au-dessus du créneau visé par « View in calendar ». */
 const FOCUS_TOP_MARGIN = 100;
 
 export default function Schedule() {
   const { theme } = useTheme();
   const isDark = theme === "dark";
+  const lang = useLanguage();
+  const c = COPY[lang];
 
   const sidebarOffset = useSidebarOffset();
   const channels = useConnectedChannels();
@@ -1413,7 +1943,7 @@ export default function Schedule() {
     if (hashChannel) setSelectedKey(hashChannel);
   }, [hashChannel]);
 
-  const channel = channels.find((c) => c.key === selectedKey) ?? channels[0];
+  const channel = channels.find((ch) => ch.key === selectedKey) ?? channels[0];
   const channelKey = channel?.key;
 
   const goChannel = (key: string) => {
@@ -1431,7 +1961,10 @@ export default function Schedule() {
   const [postsTick, setPostsTick] = useState(0);
 
   const allTags = useMemo(() => [UNASSIGNED_TAG, ...apiTags], [apiTags]);
-  const tagsById = useMemo(() => new Map(apiTags.map((t) => [t.id, t])), [apiTags]);
+  const tagsById = useMemo(
+    () => new Map(apiTags.map((t) => [t.id, t])),
+    [apiTags]
+  );
 
   const [hiddenTags, setHiddenTags] = useState<string[]>([]);
 
@@ -1440,7 +1973,7 @@ export default function Schedule() {
   const [view, setView] = useState<"Week" | "Month">("Week");
   const [timezone, setTimezone] = useState("Paris");
   const [showNoDate, setShowNoDate] = useState(false);
-  const [scope, setScope] = useState("All");
+  const [scope, setScope] = useState<Scope>("all");
 
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
@@ -1459,12 +1992,13 @@ export default function Schedule() {
   const pendingFocusRef = useRef<number | null>(null);
   const [focusNonce, setFocusNonce] = useState(0);
 
-  // Month view : mesure de la grille + modale "N More"
   const monthGridRef = useRef<HTMLDivElement>(null);
   const [monthGridHeight, setMonthGridHeight] = useState(0);
-  const [more, setMore] = useState<{ date: Date; hour: number | null } | null>(null);
+  const [more, setMore] = useState<{
+    date: Date;
+    hour: number | null;
+  } | null>(null);
 
-  // Drag and drop
   const [draggedPostId, setDraggedPostId] = useState<string | null>(null);
   const [dragOverKey, setDragOverKey] = useState<string | null>(null);
   const [dragOverHour, setDragOverHour] = useState<number | null>(null);
@@ -1473,7 +2007,8 @@ export default function Schedule() {
     if (openMenuId === null) return;
 
     const onPointerDown = (e: MouseEvent) => {
-      if (!(e.target as HTMLElement).closest("[data-event-menu]")) setOpenMenuId(null);
+      if (!(e.target as HTMLElement).closest("[data-event-menu]"))
+        setOpenMenuId(null);
     };
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") setOpenMenuId(null);
@@ -1530,7 +2065,14 @@ export default function Schedule() {
 
     const isCurrentWeek = now >= weekStart && now < addDays(weekStart, 7);
     const defaultTarget = isCurrentWeek
-      ? Math.max(0, (now.getHours() + now.getMinutes() / 60 - NOW_CONTEXT_HOURS - START_HOUR) * HOUR_HEIGHT)
+      ? Math.max(
+          0,
+          (now.getHours() +
+            now.getMinutes() / 60 -
+            NOW_CONTEXT_HOURS -
+            START_HOUR) *
+            HOUR_HEIGHT
+        )
       : (DEFAULT_SCROLL_HOUR - START_HOUR) * HOUR_HEIGHT;
 
     let target = defaultTarget;
@@ -1538,7 +2080,10 @@ export default function Schedule() {
     if (pendingFocus !== null) {
       const d = new Date(pendingFocus);
       const hour = d.getHours() + d.getMinutes() / 60;
-      target = Math.max(0, (hour - START_HOUR) * HOUR_HEIGHT - FOCUS_TOP_MARGIN);
+      target = Math.max(
+        0,
+        (hour - START_HOUR) * HOUR_HEIGHT - FOCUS_TOP_MARGIN
+      );
       pendingFocusRef.current = null;
     }
 
@@ -1600,7 +2145,8 @@ export default function Schedule() {
         const i = DEFAULT_ORDER.indexOf(t.label.trim().toLowerCase());
         return i === -1 ? DEFAULT_ORDER.length : i;
       };
-      if (!cancelled) setApiTags([...server].sort((a, b) => rank(a) - rank(b)));
+      if (!cancelled)
+        setApiTags([...server].sort((a, b) => rank(a) - rank(b)));
     })().catch((e) => console.error("Could not load tags:", e));
     return () => {
       cancelled = true;
@@ -1637,7 +2183,9 @@ export default function Schedule() {
         return {
           date,
           n: date.getDate(),
-          label: date.toLocaleDateString(LOCALE, { weekday: "short" }),
+          label: date.toLocaleDateString(intlLocale(lang), {
+            weekday: "short",
+          }),
           isToday: date.toDateString() === now.toDateString(),
           isCurrentMonth: true,
         };
@@ -1660,7 +2208,9 @@ export default function Schedule() {
       res.push({
         date,
         n: i,
-        label: date.toLocaleDateString(LOCALE, { weekday: "short" }),
+        label: date.toLocaleDateString(intlLocale(lang), {
+          weekday: "short",
+        }),
         isToday: date.toDateString() === now.toDateString(),
         isCurrentMonth: true,
       });
@@ -1670,16 +2220,22 @@ export default function Schedule() {
     for (let i = 0; i < endPad; i++) res.push(null);
 
     return res;
-  }, [view, viewDate, now]);
+  }, [view, viewDate, now, lang]);
 
-  const monthLabel = viewDate.toLocaleDateString(LOCALE, { month: "long", year: "numeric" });
+  const monthLabel = viewDate.toLocaleDateString(intlLocale(lang), {
+    month: "long",
+    year: "numeric",
+  });
 
   const togglePanel = (panel: ToolbarPanel) => {
     setOpenPanel((cur) => (cur === panel ? null : panel));
   };
 
   const nowHour = now.getHours() + now.getMinutes() / 60;
-  const nowLabel = `${now.getHours()}:${String(now.getMinutes()).padStart(2, "0")}`;
+  const nowLabel = `${now.getHours()}:${String(now.getMinutes()).padStart(
+    2,
+    "0"
+  )}`;
   const showNowLine = nowHour >= START_HOUR && nowHour <= END_HOUR;
 
   const todayStart = new Date(now);
@@ -1688,22 +2244,28 @@ export default function Schedule() {
   const visibleEvents = useMemo(
     () =>
       (events || []).filter((e) => {
-        const matchChannel = !e.channelKey || !channelKey || e.channelKey === channelKey;
-        const matchTag = passesTagFilter(e.tagId ? [e.tagId] : [], hiddenTags);
+        const matchChannel =
+          !e.channelKey || !channelKey || e.channelKey === channelKey;
+        const matchTag = passesTagFilter(
+          e.tagId ? [e.tagId] : [],
+          hiddenTags
+        );
         const matchScope =
-          scope === "All" ||
-          (scope === "Publié" && e.published) ||
-          (scope === "À publier" && !e.published);
+          scope === "all" ||
+          (scope === "published" && e.published) ||
+          (scope === "toPublish" && !e.published);
         return matchChannel && matchTag && matchScope;
       }),
-    [events, hiddenTags, scope, channelKey],
+    [events, hiddenTags, scope, channelKey]
   );
 
   const layoutByDay = useMemo(() => {
     const map = new Map<number, PositionedEvent[]>();
     for (let i = 0; i < 7; i++) {
       const key = addDays(weekStart, i).toDateString();
-      const list = visibleEvents.filter((e) => (e.dateStr ? e.dateStr === key : e.day === i));
+      const list = visibleEvents.filter((e) =>
+        e.dateStr ? e.dateStr === key : e.day === i
+      );
       map.set(i, layoutDayEvents(list));
     }
     return map;
@@ -1715,7 +2277,7 @@ export default function Schedule() {
       if (!day) return;
       const key = day.date.toDateString();
       const dayEvents = visibleEvents.filter((e) =>
-        e.dateStr ? e.dateStr === key : e.day === day.date.getDay(),
+        e.dateStr ? e.dateStr === key : e.day === day.date.getDay()
       );
       if (dayEvents.length) {
         map.set(key, dayEvents.sort((a, b) => a.start - b.start));
@@ -1727,7 +2289,8 @@ export default function Schedule() {
   const postVisible = useCallback(
     (post: CalendarPost | null | undefined): boolean => {
       if (!post) return false;
-      if (post.channelKey && channelKey && post.channelKey !== channelKey) return false;
+      if (post.channelKey && channelKey && post.channelKey !== channelKey)
+        return false;
 
       let posted = false;
       try {
@@ -1736,12 +2299,12 @@ export default function Schedule() {
         posted = false;
       }
 
-      if (scope === "Publié" && !posted) return false;
-      if (scope === "À publier" && posted) return false;
+      if (scope === "published" && !posted) return false;
+      if (scope === "toPublish" && posted) return false;
       if (!passesTagFilter(post.tagIds, hiddenTags)) return false;
       return true;
     },
-    [channelKey, scope, hiddenTags, now],
+    [channelKey, scope, hiddenTags, now]
   );
 
   const postSlotsByDay = useMemo(() => {
@@ -1755,7 +2318,9 @@ export default function Schedule() {
       if (isNaN(d.getTime())) continue;
 
       const dayStart = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-      const idx = Math.round((dayStart.getTime() - weekStart.getTime()) / 86_400_000);
+      const idx = Math.round(
+        (dayStart.getTime() - weekStart.getTime()) / 86_400_000
+      );
       if (idx < 0 || idx > 6) continue;
 
       const slots = raw.get(idx);
@@ -1766,7 +2331,10 @@ export default function Schedule() {
       slots.set(hour, list);
     }
 
-    const map = new Map<number, { hour: number; posts: CalendarPost[] }[]>();
+    const map = new Map<
+      number,
+      { hour: number; posts: CalendarPost[] }[]
+    >();
     raw.forEach((slots, day) => {
       map.set(
         day,
@@ -1775,9 +2343,11 @@ export default function Schedule() {
           .map(([hour, list]) => ({
             hour,
             posts: list.sort(
-              (a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime(),
+              (a, b) =>
+                new Date(a.scheduledAt).getTime() -
+                new Date(b.scheduledAt).getTime()
             ),
-          })),
+          }))
       );
     });
     return map;
@@ -1798,19 +2368,31 @@ export default function Schedule() {
     }
 
     map.forEach((arr) =>
-      arr.sort((a, b) => new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime()),
+      arr.sort(
+        (a, b) =>
+          new Date(a.scheduledAt).getTime() -
+          new Date(b.scheduledAt).getTime()
+      )
     );
     return map;
   }, [posts, postVisible]);
 
   const monthItemsByDate = useMemo(() => {
     const map = new Map<string, MonthItem[]>();
-    const keys = new Set([...monthEventsByDate.keys(), ...monthPostsByDate.keys()]);
+    const keys = new Set([
+      ...monthEventsByDate.keys(),
+      ...monthPostsByDate.keys(),
+    ]);
 
     keys.forEach((key) => {
       const items: MonthItem[] = [];
       (monthEventsByDate.get(key) ?? []).forEach((event) =>
-        items.push({ kind: "event", id: `e-${event.id}`, start: event.start, event }),
+        items.push({
+          kind: "event",
+          id: `e-${event.id}`,
+          start: event.start,
+          event,
+        })
       );
       (monthPostsByDate.get(key) ?? []).forEach((post) => {
         const d = new Date(post.scheduledAt);
@@ -1827,8 +2409,6 @@ export default function Schedule() {
     return map;
   }, [monthEventsByDate, monthPostsByDate]);
 
-  /* ---------------- Month view capacity ---------------- */
-
   const monthRowCount = Math.max(1, Math.ceil(days.length / 7));
   const monthCellHeight = monthGridHeight / monthRowCount;
 
@@ -1837,11 +2417,10 @@ export default function Schedule() {
 
   const visibleCountFor = (items: MonthItem[]) => {
     if (monthGridHeight === 0) return items.length;
-    const avail = monthCellHeight - MONTH_CELL_PAD * 2 - MONTH_CELL_HEADER - MONTH_GAP;
+    const avail =
+      monthCellHeight - MONTH_CELL_PAD * 2 - MONTH_CELL_HEADER - MONTH_GAP;
     return fitCount(items.map(monthItemHeight), avail);
   };
-
-  /* ---------------- Drag and drop ---------------- */
 
   const dropDateFor = (post: CalendarPost, date: Date, hour?: number) => {
     const old = new Date(post.scheduledAt);
@@ -1872,8 +2451,14 @@ export default function Schedule() {
     clearDragOver();
   };
 
-  const handleDragOver = (e: React.DragEvent, date: Date, byPointer = false) => {
-    const post = draggedPostId ? posts.find((p) => p.id === draggedPostId) : undefined;
+  const handleDragOver = (
+    e: React.DragEvent,
+    date: Date,
+    byPointer = false
+  ) => {
+    const post = draggedPostId
+      ? posts.find((p) => p.id === draggedPostId)
+      : undefined;
     if (!post) return;
 
     const hour = byPointer ? hourFromPointer(e) : undefined;
@@ -1893,7 +2478,11 @@ export default function Schedule() {
 
   const handleDragLeave = () => clearDragOver();
 
-  const handleDrop = async (e: React.DragEvent, date: Date, byPointer = false) => {
+  const handleDrop = async (
+    e: React.DragEvent,
+    date: Date,
+    byPointer = false
+  ) => {
     e.preventDefault();
     const hour = byPointer ? hourFromPointer(e) : undefined;
 
@@ -1912,18 +2501,22 @@ export default function Schedule() {
     const previous = post.scheduledAt;
     const next = target.toISOString();
 
-    setPosts((prev) => prev.map((p) => (p.id === postId ? { ...p, scheduledAt: next } : p)));
+    setPosts((prev) =>
+      prev.map((p) => (p.id === postId ? { ...p, scheduledAt: next } : p))
+    );
 
     try {
       await updatePostSchedule(postId, next);
       setPostsTick((n) => n + 1);
     } catch (error) {
       console.error("Erreur lors du déplacement du post:", error);
-      setPosts((prev) => prev.map((p) => (p.id === postId ? { ...p, scheduledAt: previous } : p)));
+      setPosts((prev) =>
+        prev.map((p) =>
+          p.id === postId ? { ...p, scheduledAt: previous } : p
+        )
+      );
     }
   };
-
-  /* ---------------- Off-screen posts ---------------- */
 
   const offScreenPosts = useMemo(() => {
     const above: OffScreenPost[] = [];
@@ -1964,10 +2557,8 @@ export default function Schedule() {
 
   const toggleHiddenTag = (id: string) =>
     setHiddenTags((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
     );
-
-  /* ---------------- Events CRUD ---------------- */
 
   const handleDeleteEvent = (id: string) => {
     setEvents((prev) => prev.filter((e) => e.id !== id));
@@ -1992,17 +2583,22 @@ export default function Schedule() {
   const handleSaveEvent = (data: EventFormData) => {
     if (editingEventId) {
       setEvents((prev) =>
-        prev.map((e) => (e.id === editingEventId ? { ...e, ...data } : e)),
+        prev.map((e) => (e.id === editingEventId ? { ...e, ...data } : e))
       );
     } else {
       const id = `ev-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-      setEvents((prev) => [...prev, { id, ...data, channelKey, published: false }]);
+      setEvents((prev) => [
+        ...prev,
+        { id, ...data, channelKey, published: false },
+      ]);
     }
     setEventFormOpen(false);
     setEditingEventId(null);
   };
 
-  const editingEvent = editingEventId ? events.find((e) => e.id === editingEventId) ?? null : null;
+  const editingEvent = editingEventId
+    ? events.find((e) => e.id === editingEventId) ?? null
+    : null;
 
   const handleBottomBarChange = (id: BottomBarTab) => {
     switch (id) {
@@ -2041,6 +2637,7 @@ export default function Schedule() {
     <PostChip
       post={post}
       large={large}
+      lang={lang}
       isDark={isDark}
       posted={isPostPosted(post, now)}
       dragging={draggedPostId === post.id}
@@ -2054,21 +2651,29 @@ export default function Schedule() {
       return (
         <MonthEventChip
           event={item.event}
-          tag={item.event.tagId ? tagsById.get(item.event.tagId) : undefined}
+          tag={
+            item.event.tagId ? tagsById.get(item.event.tagId) : undefined
+          }
           isDark={isDark}
+          lang={lang}
+          c={c}
         />
       );
     }
     return renderPostChip(item.post);
   };
 
-  const calendarBorder = isDark ? "border-white/[0.07]" : "border-black/[0.06]";
-  const calendarHead = isDark ? "border-white/[0.07]" : "border-black/[0.06]";
+  const calendarBorder = isDark
+    ? "border-white/[0.07]"
+    : "border-black/[0.06]";
+  const calendarHead = isDark
+    ? "border-white/[0.07]"
+    : "border-black/[0.06]";
 
   let moreItems: MonthItem[] = [];
   let moreTitle = "";
   if (more) {
-    const dateLabel = more.date.toLocaleDateString(LOCALE, {
+    const dateLabel = more.date.toLocaleDateString(intlLocale(lang), {
       weekday: "long",
       month: "long",
       day: "numeric",
@@ -2079,7 +2684,9 @@ export default function Schedule() {
       moreTitle = dateLabel;
     } else {
       const slotHour = more.hour;
-      const slot = postSlotsByDay.get(more.date.getDay())?.find((s) => s.hour === slotHour);
+      const slot = postSlotsByDay
+        .get(more.date.getDay())
+        ?.find((s) => s.hour === slotHour);
       moreItems = (slot?.posts ?? []).map((post) => {
         const d = new Date(post.scheduledAt);
         return {
@@ -2091,9 +2698,23 @@ export default function Schedule() {
       });
       const slotDate = new Date(more.date);
       slotDate.setHours(slotHour, 0, 0, 0);
-      moreTitle = `${dateLabel} · ${slotDate.toLocaleTimeString(LOCALE, { hour: "numeric" })}`;
+      moreTitle = `${dateLabel} · ${slotDate.toLocaleTimeString(
+        intlLocale(lang),
+        { hour: "numeric" }
+      )}`;
     }
   }
+
+  const viewOptions: { key: "Week" | "Month"; label: string }[] = [
+    { key: "Week", label: c.toolbar.week },
+    { key: "Month", label: c.toolbar.month },
+  ];
+
+  const scopeOptions: { key: Scope; label: string }[] = [
+    { key: "all", label: c.toolbar.scopeLabels.all },
+    { key: "published", label: c.toolbar.scopeLabels.published },
+    { key: "toPublish", label: c.toolbar.scopeLabels.toPublish },
+  ];
 
   return (
     <main
@@ -2147,7 +2768,7 @@ export default function Schedule() {
                     strongClass(isDark),
                   ].join(" ")}
                 >
-                  Publish
+                  {c.pageTitle}
                 </h1>
               </div>
               <div className="flex flex-wrap items-center gap-2.5 print:hidden">
@@ -2160,14 +2781,18 @@ export default function Schedule() {
 
                 <button
                   type="button"
-                  aria-label={saved ? "Remove from favorites" : "Add to favorites"}
+                  aria-label={
+                    saved ? c.header.removeFavorite : c.header.addFavorite
+                  }
                   aria-pressed={saved}
-                  title={saved ? "Remove from favorites" : "Add to favorites"}
+                  title={saved ? c.header.removeFavorite : c.header.addFavorite}
                   onClick={() => toggleFavorite(PAGE_ROUTE)}
                   className={[
                     "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-colors motion-reduce:transition-none",
                     focusRingClass(isDark),
-                    isDark ? "hover:bg-white/[0.06]" : "hover:bg-black/[0.04]",
+                    isDark
+                      ? "hover:bg-white/[0.06]"
+                      : "hover:bg-black/[0.04]",
                   ].join(" ")}
                 >
                   <BookmarkIcon className="h-5 w-5" filled={saved} />
@@ -2179,22 +2804,38 @@ export default function Schedule() {
               <div className="flex items-center gap-1">
                 <ToolbarIconButton
                   isDark={isDark}
-                  label={view === "Week" ? "Previous week" : "Previous month"}
-                  onClick={() => setViewDate((d) => (view === "Week" ? addDays(d, -7) : addMonths(d, -1)))}
+                  label={
+                    view === "Week"
+                      ? c.toolbar.prevWeek
+                      : c.toolbar.prevMonth
+                  }
+                  onClick={() =>
+                    setViewDate((d) =>
+                      view === "Week" ? addDays(d, -7) : addMonths(d, -1)
+                    )
+                  }
                 >
                   <ChevronLeftIcon />
                 </ToolbarIconButton>
                 <ToolbarIconButton
                   isDark={isDark}
-                  label={view === "Week" ? "Next week" : "Next month"}
-                  onClick={() => setViewDate((d) => (view === "Week" ? addDays(d, 7) : addMonths(d, 1)))}
+                  label={
+                    view === "Week"
+                      ? c.toolbar.nextWeek
+                      : c.toolbar.nextMonth
+                  }
+                  onClick={() =>
+                    setViewDate((d) =>
+                      view === "Week" ? addDays(d, 7) : addMonths(d, 1)
+                    )
+                  }
                 >
                   <ChevronRightIcon />
                 </ToolbarIconButton>
 
                 <h2
                   className={[
-                    "mx-3 text-[19px] font-semibold tracking-[-0.03em]",
+                    "mx-3 text-[19px] font-semibold tracking-[-0.03em] capitalize",
                     strongClass(isDark),
                   ].join(" ")}
                 >
@@ -2212,26 +2853,30 @@ export default function Schedule() {
                       : "border-black/[0.06] bg-white text-neutral-900 hover:bg-neutral-50",
                   ].join(" ")}
                 >
-                  Today
+                  {c.toolbar.today}
                 </button>
 
                 <div className="relative ml-3" data-toolbar-menu>
-                  <ToolbarButton isDark={isDark} open={openPanel === "view"} onClick={() => togglePanel("view")}>
-                    {view}
+                  <ToolbarButton
+                    isDark={isDark}
+                    open={openPanel === "view"}
+                    onClick={() => togglePanel("view")}
+                  >
+                    {view === "Week" ? c.toolbar.week : c.toolbar.month}
                   </ToolbarButton>
                   {openPanel === "view" && (
                     <MenuPanel isDark={isDark} width="w-40">
-                      {VIEW_OPTIONS.map((option) => (
+                      {viewOptions.map((option) => (
                         <MenuItem
-                          key={option}
+                          key={option.key}
                           isDark={isDark}
-                          selected={view === option}
+                          selected={view === option.key}
                           onClick={() => {
-                            setView(option as "Week" | "Month");
+                            setView(option.key);
                             setOpenPanel(null);
                           }}
                         >
-                          {option}
+                          {option.label}
                         </MenuItem>
                       ))}
                     </MenuPanel>
@@ -2247,21 +2892,21 @@ export default function Schedule() {
                     open={openPanel === "posts"}
                     onClick={() => togglePanel("posts")}
                   >
-                    {scope === "All" ? "All Posts" : scope}
+                    {c.toolbar.scopeLabels[scope]}
                   </ToolbarButton>
                   {openPanel === "posts" && (
                     <MenuPanel isDark={isDark} align="right" width="w-44">
-                      {SCOPE_OPTIONS.map((option) => (
+                      {scopeOptions.map((option) => (
                         <MenuItem
-                          key={option}
+                          key={option.key}
                           isDark={isDark}
-                          selected={scope === option}
+                          selected={scope === option.key}
                           onClick={() => {
-                            setScope(option);
+                            setScope(option.key);
                             setOpenPanel(null);
                           }}
                         >
-                          {option === "All" ? "All Posts" : option}
+                          {option.label}
                         </MenuItem>
                       ))}
                     </MenuPanel>
@@ -2275,7 +2920,7 @@ export default function Schedule() {
                     open={openPanel === "tags"}
                     onClick={() => togglePanel("tags")}
                   >
-                    Tags
+                    {c.toolbar.tags}
                     {hiddenTags.length > 0 && (
                       <span
                         className={`rounded-full px-1.5 text-[11px] tabular-nums ${
@@ -2341,10 +2986,15 @@ export default function Schedule() {
                   active={showNoDate}
                   onClick={() => setShowNoDate((v) => !v)}
                 >
-                  No Date
+                  {c.toolbar.noDate}
                 </ToolbarButton>
 
-                <span className={["mx-1 h-5 w-px", isDark ? "bg-white/[0.08]" : "bg-black/[0.08]"].join(" ")} />
+                <span
+                  className={[
+                    "mx-1 h-5 w-px",
+                    isDark ? "bg-white/[0.08]" : "bg-black/[0.08]",
+                  ].join(" ")}
+                />
 
                 <div className="relative" data-toolbar-menu>
                   <ToolbarButton
@@ -2353,7 +3003,7 @@ export default function Schedule() {
                     open={openPanel === "timezone"}
                     onClick={() => togglePanel("timezone")}
                   >
-                    {timezone}
+                    {c.timezoneLabels[timezone] ?? timezone}
                   </ToolbarButton>
                   {openPanel === "timezone" && (
                     <MenuPanel isDark={isDark} align="right" width="w-44">
@@ -2367,7 +3017,7 @@ export default function Schedule() {
                             setOpenPanel(null);
                           }}
                         >
-                          {tz}
+                          {c.timezoneLabels[tz] ?? tz}
                         </MenuItem>
                       ))}
                     </MenuPanel>
@@ -2377,7 +3027,7 @@ export default function Schedule() {
                 <div className="relative" data-toolbar-menu>
                   <ToolbarIconButton
                     isDark={isDark}
-                    label="Plus d'options"
+                    label={c.toolbar.moreOptions}
                     open={openPanel === "more"}
                     onClick={() => togglePanel("more")}
                   >
@@ -2393,7 +3043,7 @@ export default function Schedule() {
                           handleAddEvent();
                         }}
                       >
-                        Add event
+                        {c.toolbar.addEvent}
                       </MenuItem>
                     </MenuPanel>
                   )}
@@ -2475,7 +3125,10 @@ export default function Schedule() {
                               ].join(" ")}
                               style={{
                                 top: i * HOUR_HEIGHT,
-                                transform: i === 0 ? "translateY(6px)" : "translateY(-50%)",
+                                transform:
+                                  i === 0
+                                    ? "translateY(6px)"
+                                    : "translateY(-50%)",
                               }}
                             >
                               {String(h).padStart(2, "0")}:00
@@ -2487,59 +3140,84 @@ export default function Schedule() {
                           if (!day) return null;
                           const dayKey = day.date.toDateString();
                           const daySlots = postSlotsByDay.get(dayIndex) ?? [];
-                          const occupied = new Set(daySlots.map((s) => s.hour));
+                          const occupied = new Set(
+                            daySlots.map((s) => s.hour)
+                          );
                           return (
                             <div
                               key={day.date.toISOString()}
                               className={[
                                 "relative border-l",
                                 calendarBorder,
-                                day.isToday ? (isDark ? "bg-white/[0.02]" : "bg-black/[0.015]") : "",
+                                day.isToday
+                                  ? isDark
+                                    ? "bg-white/[0.02]"
+                                    : "bg-black/[0.015]"
+                                  : "",
                               ].join(" ")}
-                              onDragOver={(e) => handleDragOver(e, day.date, true)}
+                              onDragOver={(e) =>
+                                handleDragOver(e, day.date, true)
+                              }
                               onDragLeave={handleDragLeave}
                               onDrop={(e) => handleDrop(e, day.date, true)}
                             >
                               {HOURS.slice(0, -1).map((h, i) => (
                                 <div
                                   key={h}
-                                  className={["pointer-events-none absolute inset-x-0 border-b", isDark ? "border-white/[0.05]" : "border-black/[0.04]"].join(" ")}
+                                  className={[
+                                    "pointer-events-none absolute inset-x-0 border-b",
+                                    isDark
+                                      ? "border-white/[0.05]"
+                                      : "border-black/[0.04]",
+                                  ].join(" ")}
                                   style={{ top: (i + 1) * HOUR_HEIGHT }}
                                 />
                               ))}
 
-                              {dragOverKey === dayKey && dragOverHour !== null && (
-                                <div
-                                  className={[
-                                    "pointer-events-none absolute inset-x-0.5 rounded-xl border-2 border-dashed",
-                                    isDark
-                                      ? "border-white/30 bg-white/[0.05]"
-                                      : "border-black/20 bg-black/[0.03]",
-                                  ].join(" ")}
-                                  style={{
-                                    top: (dragOverHour - START_HOUR) * HOUR_HEIGHT + 2,
-                                    height: HOUR_HEIGHT - 4,
-                                    zIndex: 1,
-                                  }}
-                                />
-                              )}
+                              {dragOverKey === dayKey &&
+                                dragOverHour !== null && (
+                                  <div
+                                    className={[
+                                      "pointer-events-none absolute inset-x-0.5 rounded-xl border-2 border-dashed",
+                                      isDark
+                                        ? "border-white/30 bg-white/[0.05]"
+                                        : "border-black/20 bg-black/[0.03]",
+                                    ].join(" ")}
+                                    style={{
+                                      top:
+                                        (dragOverHour - START_HOUR) *
+                                          HOUR_HEIGHT +
+                                        2,
+                                      height: HOUR_HEIGHT - 4,
+                                      zIndex: 1,
+                                    }}
+                                  />
+                                )}
 
-                              {day.date.getTime() >= todayStart.getTime() &&
+                              {day.date.getTime() >=
+                                todayStart.getTime() &&
                                 HOURS.slice(0, -1).map((h) => {
                                   const slotEnd = new Date(day.date);
                                   slotEnd.setHours(h + 1, 0, 0, 0);
-                                  if (slotEnd.getTime() <= now.getTime()) return null;
+                                  if (slotEnd.getTime() <= now.getTime())
+                                    return null;
 
                                   return (
                                     <div
                                       key={`add-${h}`}
                                       className="group absolute inset-x-0"
-                                      style={{ top: (h - START_HOUR) * HOUR_HEIGHT, height: HOUR_HEIGHT }}
+                                      style={{
+                                        top:
+                                          (h - START_HOUR) * HOUR_HEIGHT,
+                                        height: HOUR_HEIGHT,
+                                      }}
                                     >
                                       <button
                                         type="button"
-                                        aria-label="Add a post"
-                                        onClick={() => openNewPostAt(day.date, h)}
+                                        aria-label={c.addPostTooltip}
+                                        onClick={() =>
+                                          openNewPostAt(day.date, h)
+                                        }
                                         className={[
                                           occupied.has(h)
                                             ? "absolute bottom-1 right-1"
@@ -2555,56 +3233,89 @@ export default function Schedule() {
                                           className={[
                                             "pointer-events-none absolute bottom-full mb-2 hidden whitespace-nowrap rounded-lg px-2.5 py-1 text-[12px] font-medium shadow-lg group-hover:block",
                                             occupied.has(h) ? "right-0" : "",
-                                            isDark ? "bg-[#2e2e31] text-white" : "bg-neutral-900 text-white",
+                                            isDark
+                                              ? "bg-[#2e2e31] text-white"
+                                              : "bg-neutral-900 text-white",
                                           ].join(" ")}
                                         >
-                                          Add a post
+                                          {c.addPostTooltip}
                                         </span>
                                       </button>
                                     </div>
                                   );
                                 })}
 
-                              {layoutByDay.get(dayIndex)?.map(({ event, depth }) => (
-                                <EventCard
-                                  key={event.id}
-                                  event={event}
-                                  tag={event.tagId ? tagsById.get(event.tagId) : undefined}
-                                  depth={depth}
-                                  isDark={isDark}
-                                  menuOpen={openMenuId === event.id}
-                                  onToggleMenu={() => setOpenMenuId((current) => (current === event.id ? null : event.id))}
-                                  onCloseMenu={() => setOpenMenuId(null)}
-                                  onEdit={() => handleEditEvent(event.id)}
-                                  onDelete={() => handleDeleteEvent(event.id)}
-                                />
-                              ))}
+                              {layoutByDay
+                                .get(dayIndex)
+                                ?.map(({ event, depth }) => (
+                                  <EventCard
+                                    key={event.id}
+                                    event={event}
+                                    tag={
+                                      event.tagId
+                                        ? tagsById.get(event.tagId)
+                                        : undefined
+                                    }
+                                    depth={depth}
+                                    isDark={isDark}
+                                    lang={lang}
+                                    c={c}
+                                    menuOpen={openMenuId === event.id}
+                                    onToggleMenu={() =>
+                                      setOpenMenuId((current) =>
+                                        current === event.id ? null : event.id
+                                      )
+                                    }
+                                    onCloseMenu={() => setOpenMenuId(null)}
+                                    onEdit={() => handleEditEvent(event.id)}
+                                    onDelete={() =>
+                                      handleDeleteEvent(event.id)
+                                    }
+                                  />
+                                ))}
 
                               {daySlots.map(({ hour, posts: slotPosts }) => (
                                 <PostSlot
                                   key={hour}
                                   hour={hour}
                                   posts={slotPosts}
-                                  renderChip={(p) => renderPostChip(p, true)}
+                                  renderChip={(p) =>
+                                    renderPostChip(p, true)
+                                  }
                                   isDark={isDark}
-                                  onMore={() => setMore({ date: day.date, hour })}
+                                  c={c}
+                                  onMore={() =>
+                                    setMore({ date: day.date, hour })
+                                  }
                                 />
                               ))}
 
                               {day.isToday && showNowLine && (
                                 <div
                                   className="pointer-events-none absolute inset-x-0 z-10 flex items-center"
-                                  style={{ top: (nowHour - START_HOUR) * HOUR_HEIGHT }}
+                                  style={{
+                                    top:
+                                      (nowHour - START_HOUR) * HOUR_HEIGHT,
+                                  }}
                                 >
                                   <span
                                     className={[
                                       "-ml-[38px] rounded-full px-2 py-1 text-[10px] font-semibold",
-                                      isDark ? "bg-white text-neutral-900" : "bg-neutral-900 text-white",
+                                      isDark
+                                        ? "bg-white text-neutral-900"
+                                        : "bg-neutral-900 text-white",
                                     ].join(" ")}
                                   >
                                     {nowLabel}
                                   </span>
-                                  <span className={["h-px flex-1", isDark ? "bg-white/40" : "bg-neutral-900/70"].join(" ")} />
+                                  <span
+                                    className={[
+                                      "h-px flex-1",
+                                      isDark
+                                        ? "bg-white/40"
+                                        : "bg-neutral-900/70",
+                                    ].join(" ")}
+                                  />
                                 </div>
                               )}
                             </div>
@@ -2617,12 +3328,16 @@ export default function Schedule() {
                       items={offScreenPosts.above}
                       direction="up"
                       isDark={isDark}
+                      c={c}
+                      lang={lang}
                       onSelect={scrollToOffScreenPost}
                     />
                     <OffScreenPostStack
                       items={offScreenPosts.below}
                       direction="down"
                       isDark={isDark}
+                      c={c}
+                      lang={lang}
                       onSelect={scrollToOffScreenPost}
                       bottomOffset="bottom-24"
                     />
@@ -2631,13 +3346,15 @@ export default function Schedule() {
               ) : (
                 <>
                   <div className="grid shrink-0 grid-cols-7">
-                    {["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"].map((d) => (
+                    {c.weekdaysLong.map((d) => (
                       <div
                         key={d}
                         className={[
                           "border-b py-2 text-center text-[12px]",
                           calendarHead,
-                          isDark ? "font-medium text-neutral-400" : "font-medium text-neutral-500",
+                          isDark
+                            ? "font-medium text-neutral-400"
+                            : "font-medium text-neutral-500",
                         ].join(" ")}
                       >
                         {d}
@@ -2645,10 +3362,15 @@ export default function Schedule() {
                     ))}
                   </div>
 
-                  <div ref={monthGridRef} className="min-h-0 flex-1 overflow-hidden">
+                  <div
+                    ref={monthGridRef}
+                    className="min-h-0 flex-1 overflow-hidden"
+                  >
                     <div
                       className="grid h-full grid-cols-7"
-                      style={{ gridTemplateRows: `repeat(${monthRowCount}, minmax(0, 1fr))` }}
+                      style={{
+                        gridTemplateRows: `repeat(${monthRowCount}, minmax(0, 1fr))`,
+                      }}
                     >
                       {days.map((day, i) => {
                         if (!day) {
@@ -2658,7 +3380,9 @@ export default function Schedule() {
                               className={[
                                 "min-h-0 border-b border-r",
                                 calendarBorder,
-                                isDark ? "bg-white/[0.01]" : "bg-black/[0.01]",
+                                isDark
+                                  ? "bg-white/[0.01]"
+                                  : "bg-black/[0.01]",
                               ].join(" ")}
                             />
                           );
@@ -2675,15 +3399,29 @@ export default function Schedule() {
                             className={[
                               "flex min-h-0 min-w-0 flex-col overflow-hidden border-b border-r transition-colors",
                               calendarBorder,
-                              day.isToday ? (isDark ? "bg-white/[0.04]" : "bg-black/[0.02]") : "",
-                              dragOverKey === key ? (isDark ? "bg-white/[0.08]" : "bg-black/[0.04]") : "",
+                              day.isToday
+                                ? isDark
+                                  ? "bg-white/[0.04]"
+                                  : "bg-black/[0.02]"
+                                : "",
+                              dragOverKey === key
+                                ? isDark
+                                  ? "bg-white/[0.08]"
+                                  : "bg-black/[0.04]"
+                                : "",
                             ].join(" ")}
-                            style={{ padding: MONTH_CELL_PAD, gap: MONTH_GAP }}
+                            style={{
+                              padding: MONTH_CELL_PAD,
+                              gap: MONTH_GAP,
+                            }}
                             onDragOver={(e) => handleDragOver(e, day.date)}
                             onDragLeave={handleDragLeave}
                             onDrop={(e) => handleDrop(e, day.date)}
                           >
-                            <div className="flex shrink-0 items-center" style={{ height: MONTH_CELL_HEADER }}>
+                            <div
+                              className="flex shrink-0 items-center"
+                              style={{ height: MONTH_CELL_HEADER }}
+                            >
                               <span
                                 className={[
                                   "flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[11.5px] font-semibold tabular-nums",
@@ -2710,7 +3448,10 @@ export default function Schedule() {
                               <MoreRow
                                 count={hiddenCount}
                                 isDark={isDark}
-                                onClick={() => setMore({ date: day.date, hour: null })}
+                                c={c}
+                                onClick={() =>
+                                  setMore({ date: day.date, hour: null })
+                                }
                               />
                             )}
                           </div>
@@ -2731,6 +3472,7 @@ export default function Schedule() {
           title={moreTitle}
           items={moreItems}
           renderItem={renderMonthItem}
+          c={c}
           onClose={() => setMore(null)}
         />
       )}
@@ -2740,6 +3482,7 @@ export default function Schedule() {
           isDark={isDark}
           tags={apiTags}
           weekStart={rangeStart}
+          c={c}
           initial={
             editingEvent
               ? {

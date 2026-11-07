@@ -916,7 +916,7 @@ const COPY: Record<Lang, Copy> = {
       sections: {
         profile: "Profil",
         account: "Sécurité",
-        mfa: "Authentification à deux facteurs",
+        mfa: "2FA",
         appearance: "Apparence",
         preferences: "Préférences",
         billing: "Facturation",
@@ -1226,7 +1226,8 @@ const COPY: Record<Lang, Copy> = {
         title: (name) => `Offre ${name}`,
         description: (name, max) =>
           `Vous êtes actuellement sur l'offre ${name}. Vous pouvez connecter jusqu'à ${max} canaux.`,
-        slotsLeft: (n) => `${n} place${n === 1 ? "" : "s"} restante${n === 1 ? "" : "s"}.`,
+        slotsLeft: (n) =>
+          `${n} place${n === 1 ? "" : "s"} restante${n === 1 ? "" : "s"}.`,
         limitReached: "Limite atteinte.",
         upgrade: "Mettre à niveau",
       },
@@ -2643,7 +2644,7 @@ type MfaGate = {
 };
 
 const TOTP_RE = /^\d{6}$/;
-const formatWait = (seconds: number, c: Copy) =>
+const formatWait = (seconds: number) =>
   seconds >= 60 ? `${Math.ceil(seconds / 60)} min` : `${seconds} s`;
 const formatDate = (iso: string | null | undefined, lang: Lang): string | null => {
   if (!iso) return null;
@@ -2864,7 +2865,7 @@ function MfaChallengeModal({
             role="alert"
             className={cx("rounded-[10px] px-3 py-2 text-[12.5px]", tokens.warn)}
           >
-            {c.common.tooManyAttempts(formatWait(waitLeft, c))}
+            {c.common.tooManyAttempts(formatWait(waitLeft))}
           </p>
         )}
         {method === "email" && !verified.current && (
@@ -2881,7 +2882,7 @@ function MfaChallengeModal({
             {sending
               ? c.common.sending
               : resendLeft > 0
-              ? c.mfa.challenge.resendIn(formatWait(resendLeft, c))
+              ? c.mfa.challenge.resendIn(formatWait(resendLeft))
               : c.mfa.challenge.resend}
           </button>
         )}
@@ -3034,7 +3035,10 @@ function AccountSection({
     setSendingVerification(true);
     try {
       const ok = await resendVerificationEmail();
-      notify(ok ? c.account.email.sent : c.account.email.sendFailed, ok ? "success" : "error");
+      notify(
+        ok ? c.account.email.sent : c.account.email.sendFailed,
+        ok ? "success" : "error"
+      );
     } catch (error) {
       console.error("Error sending verification email:", error);
       notify(
@@ -3082,7 +3086,7 @@ function AccountSection({
       console.error("Error updating password:", error);
       notify(
         isRateLimitError(error)
-          ? c.common.tooManyAttempts(formatWait(error.retryAfterSeconds, c))
+          ? c.common.tooManyAttempts(formatWait(error.retryAfterSeconds))
           : error instanceof Error
           ? error.message
           : c.account.password.updateFailed,
@@ -3383,7 +3387,7 @@ function MfaSection({
 
   const errorMessage = (e: unknown, fallback: string) =>
     isRateLimitError(e)
-      ? c.common.tooManyAttempts(formatWait(e.retryAfterSeconds, c))
+      ? c.common.tooManyAttempts(formatWait(e.retryAfterSeconds))
       : e instanceof Error
       ? e.message
       : fallback;
@@ -3650,7 +3654,7 @@ function MfaSection({
               )}
             >
               {resendLeft > 0
-                ? c.mfa.emailSetup.resendIn(formatWait(resendLeft, c))
+                ? c.mfa.emailSetup.resendIn(formatWait(resendLeft))
                 : c.mfa.emailSetup.resend}
             </button>
             <div className="flex justify-end gap-2">
