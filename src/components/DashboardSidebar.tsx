@@ -221,7 +221,7 @@ const COPY: Record<Lang, Copy> = {
   fr: {
     nav: {
       home: "Accueil",
-      publish: "Publier",
+      publish: "Calendar",
       create: "Créer",
       community: "Communauté",
       channels: "Canaux",
@@ -252,8 +252,8 @@ const COPY: Record<Lang, Copy> = {
       removeFromFavorite: "Retirer des favoris",
       newPost: "Nouvelle publication",
       newPostOn: (channel) => `Nouvelle publication sur ${channel}`,
-      upgradePlan: "Passer à un plan supérieur",
-      upgradeAddMore: "Passer à un plan supérieur pour ajouter des canaux",
+      upgradePlan: "Changez de plan",
+      upgradeAddMore: "Changez de plan pour ajouter des canaux",
       connectChannel: "Connecter un canal",
       connectChannelAria: "Connecter un canal",
       channelsSettingsAria: "Canaux",
