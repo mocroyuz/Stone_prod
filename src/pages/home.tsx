@@ -285,9 +285,9 @@ const COPY: Record<Lang, Copy> = {
   fr: {
     greeting: {
       morning: "Bonjour",
-      afternoon: "Bon après-midi",
+      afternoon: "Bonne après-midi",
       evening: "Bonsoir",
-      night: "Bonne nuit",
+      night: "Bonne soirée",
     },
     goals: {
       weekStreak: "Série actuelle",
