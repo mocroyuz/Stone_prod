@@ -453,6 +453,10 @@ const SIDEBAR_KEYFRAMES = `
   from { opacity: 0; transform: translateX(-4px); }
   to { opacity: 1; transform: none; }
 }
+@keyframes sbSheetIn {
+  from { transform: translateY(100%); }
+  to { transform: none; }
+}
 .sb-menu { animation: sbMenuIn 160ms cubic-bezier(0.32, 0.72, 0, 1) both; }
 .sb-tip { animation: sbTipIn 140ms cubic-bezier(0.32, 0.72, 0, 1) both; }
 .sb-fade { animation: sbFadeIn 220ms ease-out both; }
@@ -461,6 +465,7 @@ const SIDEBAR_KEYFRAMES = `
 .sb-label-2 { animation-delay: 70ms; }
 .sb-label-3 { animation-delay: 100ms; }
 .sb-backdrop { animation: sbFadeIn 200ms ease-out both; }
+.sb-sheet { animation: sbSheetIn 280ms cubic-bezier(0.32, 0.72, 0, 1) both; }
 
 #app-sidebar button,
 #app-sidebar svg,
@@ -471,7 +476,7 @@ const SIDEBAR_KEYFRAMES = `
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .sb-menu, .sb-tip, .sb-fade, .sb-label, .sb-backdrop { animation: none; }
+  .sb-menu, .sb-tip, .sb-fade, .sb-label, .sb-backdrop, .sb-sheet { animation: none; }
 }
 `;
 
@@ -686,6 +691,12 @@ const PlusIcon = (p: IconProps) => (
 const MenuIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="M4 7h16M4 12h16M4 17h16" />
+  </Svg>
+);
+
+const CloseIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M6 6l12 12M18 6 6 18" />
   </Svg>
 );
 
@@ -3380,10 +3391,10 @@ export default function DashboardSidebar({
         >
           <button
             type="button"
-            aria-label={c.actions.openNav}
-            aria-controls="app-sidebar"
+            aria-label={mobileOpen ? c.actions.closeNav : c.actions.openNav}
+            aria-controls="mobile-sheet"
             aria-expanded={mobileOpen}
-            onClick={() => setMobileOpen(true)}
+            onClick={() => setMobileOpen((v) => !v)}
             className={[
               "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl",
               "transition-transform duration-200 active:scale-[0.94] motion-reduce:transition-none",
@@ -3392,7 +3403,11 @@ export default function DashboardSidebar({
               t.row,
             ].join(" ")}
           >
-            <MenuIcon className="h-[22px] w-[22px]" />
+            {mobileOpen ? (
+              <CloseIcon className="h-[22px] w-[22px]" />
+            ) : (
+              <MenuIcon className="h-[22px] w-[22px]" />
+            )}
           </button>
 
           <button
@@ -3420,11 +3435,121 @@ export default function DashboardSidebar({
       )}
 
       {isMobile && mobileOpen && (
-        <div
-          aria-hidden="true"
-          onClick={() => setMobileOpen(false)}
-          className="sb-backdrop fixed inset-0 z-30 bg-black/40 backdrop-blur-[2px]"
-        />
+        <>
+          <div
+            aria-hidden="true"
+            onClick={() => setMobileOpen(false)}
+            className="sb-backdrop fixed inset-0 z-40 bg-black/50"
+          />
+
+          <div
+            id="mobile-sheet"
+            role="dialog"
+            aria-modal="true"
+            aria-label={c.actions.accountMenuAria}
+            className={[
+              "sb-sheet fixed inset-x-0 bottom-0 z-50 max-h-[88dvh] overflow-y-auto",
+              "rounded-t-3xl border-t pb-[max(12px,env(safe-area-inset-bottom))]",
+              "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+              t.menu,
+            ].join(" ")}
+          >
+            {/* Poignée */}
+            <div className="flex justify-center pb-1 pt-2.5">
+              <span className={["h-1 w-9 rounded-full", t.divider].join(" ")} />
+            </div>
+
+            {/* Compte */}
+            <div className="px-5 pb-4 pt-2">
+              <div className={["truncate text-[13px]", t.muted].join(" ")}>
+                {account.email}
+              </div>
+              <div className="mt-3 truncate text-[16px] font-semibold">
+                {account.organization}
+              </div>
+              <div className={["mt-0.5 text-[13px]", t.muted].join(" ")}>
+                {account.plan} · {c.actions.nChannels(account.channels)}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => handleNavigate("pricing")}
+                className={[
+                  "mt-4 flex h-11 w-full items-center justify-center gap-2",
+                  "rounded-xl border text-[14px] font-semibold",
+                  "transition-[background-color,transform] duration-150 active:scale-[0.98]",
+                  focus,
+                  planFull ? t.accentSolid : t.upgrade,
+                ].join(" ")}
+              >
+                <BoltIcon className="h-4 w-4" />
+                {planFull ? c.actions.upgradeAddMore : c.actions.upgradePlan}
+              </button>
+            </div>
+
+            {/* Groupes du menu */}
+            {menuGroups.map((group, groupIndex) => (
+              <div
+                key={group[0]?.label ?? groupIndex}
+                className={["mx-0 border-t px-2.5 py-2", t.menuDivider].join(" ")}
+              >
+                {group.map((item) => {
+                  const Icon = item.icon;
+                  const isLogout = item.action === "logout";
+                  const isDisabled =
+                    Boolean(item.disabled) || (isLogout && loggingOut);
+                  const isActive = item.route === currentRoute;
+
+                  return (
+                    <button
+                      key={item.label}
+                      type="button"
+                      disabled={isDisabled}
+                      onClick={() => {
+                        if (isLogout) {
+                          void handleLogout();
+                          return;
+                        }
+                        if (item.route) handleNavigate(item.route);
+                      }}
+                      className={[
+                        "flex h-11 w-full items-center gap-3 rounded-xl px-3",
+                        "text-left text-[14.5px] font-medium",
+                        "transition-[background-color,transform] duration-150 active:scale-[0.98]",
+                        "disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100",
+                        focus,
+                        isActive ? t.rowOpen : t.menuItem,
+                      ].join(" ")}
+                    >
+                      <Icon className={["h-[18px] w-[18px] shrink-0 opacity-80", t.menuIcon].join(" ")} />
+                      <span className="flex-1 truncate">
+                        {isLogout && loggingOut ? c.menu.loggingOut : item.label}
+                      </span>
+
+                      {item.badge && (
+                        <span
+                          className={[
+                            "rounded-full px-2 py-0.5 text-[11px] font-semibold opacity-80",
+                            t.badge,
+                          ].join(" ")}
+                        >
+                          {item.badge}
+                        </span>
+                      )}
+
+                      {item.route === "settings" && showMfaNudge && (
+                        <span
+                          aria-label="2FA"
+                          className="h-2 w-2 shrink-0 rounded-full bg-amber-400"
+                        />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+        </>
       )}
 
       <aside
@@ -3432,7 +3557,7 @@ export default function DashboardSidebar({
         {...inertProps}
         className={[
           "fixed inset-y-0 left-0 flex flex-col border-r",
-          isMobile ? "z-40" : "z-20",
+          isMobile ? "hidden" : "z-20",
           "transition-[width,transform] duration-[380ms]",
           "ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none",
           t.aside,
