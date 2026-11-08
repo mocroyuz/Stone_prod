@@ -2147,14 +2147,12 @@ function MobileSettingsMenu({
   const { show: showMfaNudge } = useMfaNudge();
 
   return (
-    <div className="flex min-h-screen w-full flex-col">
+    <div className="flex min-h-screen w-full flex-col bg-[#f2f2f7] dark:bg-[#000000]">
       {/* Header avec retour vers home */}
       <header
         className={cx(
-          "sticky top-0 z-10 flex items-center gap-2 border-b px-4 pb-3",
-          "pt-[calc(12px+env(safe-area-inset-top))]",
-          tokens.sidebarBg,
-          tokens.cardBorder
+          "sticky top-0 z-10 flex items-center gap-2 px-4 pb-2",
+          "pt-[calc(12px+env(safe-area-inset-top))]"
         )}
       >
         <button
@@ -2162,12 +2160,7 @@ function MobileSettingsMenu({
           onClick={onBack}
           aria-label={c.sidebar.backHome}
           title={c.sidebar.backHome}
-          className={cx(
-            "flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-colors",
-            tokens.item,
-            tokens.itemHover,
-            tokens.ring
-          )}
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-blue-500 transition-opacity active:opacity-50"
         >
           <ArrowLeftIcon />
         </button>
@@ -2182,12 +2175,12 @@ function MobileSettingsMenu({
       </header>
 
       {/* Liste groupée des sections */}
-      <div className="flex-1 px-3 pt-4 pb-[calc(24px+env(safe-area-inset-bottom))]">
+      <div className="flex-1 px-4 pt-4 pb-[calc(24px+env(safe-area-inset-bottom))]">
         {groups.map((group) => (
-          <div key={group.key} className="mb-5">
+          <div key={group.key} className="mb-6">
             <p
               className={cx(
-                "mb-1.5 px-3 text-[12px] font-medium tracking-wide uppercase",
+                "mb-2 px-1 text-[12px] font-semibold tracking-wide uppercase",
                 tokens.group
               )}
             >
@@ -2195,9 +2188,8 @@ function MobileSettingsMenu({
             </p>
             <ul
               className={cx(
-                "divide-y overflow-hidden rounded-xl border",
+                "divide-y overflow-hidden rounded-xl",
                 tokens.card,
-                tokens.cardBorder,
                 tokens.divide
               )}
             >
@@ -2210,21 +2202,21 @@ function MobileSettingsMenu({
                       onClick={() => onSelect(item.key)}
                       aria-current={isActive ? "page" : undefined}
                       className={cx(
-                        "flex min-h-[52px] w-full items-center gap-3 px-4 text-left text-[15px] font-medium transition-colors",
+                        "flex min-h-[50px] w-full items-center gap-3 px-4 text-left text-[16px] transition-colors",
                         tokens.ring,
                         isActive
                           ? tokens.itemActive
                           : `${tokens.item} ${tokens.itemHover}`
                       )}
                     >
-                      <span className={cx("shrink-0", tokens.subtle)}>
+                      <span className={cx("shrink-0", "text-neutral-500")}>
                         {item.icon}
                       </span>
                       <span className="flex-1">{item.label}</span>
                       {item.badge && (
                         <span
                           className={cx(
-                            "rounded-full px-1.5 py-0.5 text-[11px] font-medium",
+                            "rounded-full px-2 py-0.5 text-[12px] font-medium",
                             tokens.badgeNew
                           )}
                         >
@@ -2237,9 +2229,7 @@ function MobileSettingsMenu({
                           className="h-2 w-2 shrink-0 rounded-full bg-amber-400"
                         />
                       )}
-                      <ChevronRightIcon
-                        className={cx("shrink-0", tokens.subtle)}
-                      />
+                      <ChevronRightIcon className="h-5 w-5 shrink-0 text-neutral-300 dark:text-neutral-600" />
                     </button>
                   </li>
                 );
@@ -2428,12 +2418,7 @@ export default function Settings(_props: SettingsProps) {
   /* ─── Vue MOBILE : écran menu ─── */
   if (isMobile && mobileView === "menu") {
     return (
-      <main
-        className={cx(
-          "min-h-screen w-full transition-colors duration-500",
-          tokens.pageBg
-        )}
-      >
+      <main className="min-h-screen w-full">
         <MobileSettingsMenu
           active={active}
           onSelect={handleSelect}
@@ -2476,24 +2461,15 @@ export default function Settings(_props: SettingsProps) {
         >
           {/* En-tête mobile : retour au menu + fil d'ariane "Settings" */}
           {isMobile && (
-            <div className="mb-3 flex items-center gap-2">
+            <div className="mb-4 flex items-center gap-1">
               <button
                 type="button"
                 onClick={handleBackToMenu}
-                aria-label={c.sidebar.backHome}
-                title={c.sidebar.title}
-                className={cx(
-                  "flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-colors",
-                  tokens.item,
-                  tokens.itemHover,
-                  tokens.ring
-                )}
+                className="flex h-10 items-center gap-1 text-[17px] font-medium text-blue-500 transition-opacity active:opacity-50"
               >
-                <ArrowLeftIcon />
-              </button>
-              <span className={cx("text-[13px] font-medium", tokens.subtle)}>
+                <ArrowLeftIcon className="h-5 w-5" />
                 {c.sidebar.title}
-              </span>
+              </button>
             </div>
           )}
 
