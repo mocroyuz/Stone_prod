@@ -20,6 +20,11 @@
 //
 // Groupes et tags vivent dans un store partagé (services/boardMeta) :
 // chargés une seule fois, visibles aussi par BottomBar / NewIdeaModal.
+//
+// Chaque idée affiche une vignette visuelle :
+//  - l'image si `imageUrl` est fourni (bandeau plein largeur),
+//  - sinon un dégradé déterministe (dérivé de l'id) + l'initiale du titre.
+// Cela garantit qu'on distingue deux idées de même nom.
 
 import {
   useCallback,
@@ -1360,6 +1365,88 @@ function IdeaMenuItems({
   );
 }
 
+/* ───────── Vignette d'idée (image ou dégradé déterministe) ───────── */
+
+/** Teinte stable (0–359) dérivée d'une chaîne. */
+function hashHue(input: string): number {
+  let h = 0;
+  for (let i = 0; i < input.length; i++) {
+    h = (h * 31 + input.charCodeAt(i)) >>> 0;
+  }
+  return h % 360;
+}
+
+/** Première lettre du titre (ou « ? » si vide). */
+function initialOf(title: string): string {
+  const t = title.trim();
+  return t ? t[0]!.toUpperCase() : "?";
+}
+
+/**
+ * Vignette affichée dans chaque idée :
+ *  - `imageUrl` fourni → bandeau plein largeur,
+ *  - sinon → petit carré dégradé + initiale, dérivé de `idea.id`.
+ *
+ * Le dégradé est déterministe : deux idées différentes (même de même titre)
+ * obtiennent des couleurs différentes → on peut les distinguer visuellement.
+ */
+function IdeaThumb({
+  idea,
+  isDark,
+  variant = "mini",
+}: {
+  idea: Idea;
+  isDark: boolean;
+  /** "mini" : carré à gauche du titre — "banner" : bandeau en haut. */
+  variant?: "mini" | "banner";
+}) {
+  if (idea.imageUrl) {
+    return (
+      <img
+        src={idea.imageUrl}
+        alt=""
+        className={
+          variant === "banner"
+            ? "h-[150px] w-full rounded-t-[11px] object-cover"
+            : "h-14 w-14 shrink-0 rounded-lg object-cover"
+        }
+        draggable={false}
+      />
+    );
+  }
+
+  const hue = hashHue(idea.id);
+  const from = `hsl(${hue} ${isDark ? 35 : 55}% ${isDark ? 22 : 78}%)`;
+  const to = `hsl(${(hue + 40) % 360} ${isDark ? 40 : 60}% ${
+    isDark ? 16 : 66
+  }%)`;
+
+  return (
+    <div
+      aria-hidden="true"
+      className={
+        variant === "banner"
+          ? "flex h-[150px] w-full items-center justify-center rounded-t-[11px] overflow-hidden"
+          : "flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg"
+      }
+      style={{ background: `linear-gradient(135deg, ${from}, ${to})` }}
+    >
+      <span
+        className={
+          variant === "banner"
+            ? "text-[44px] font-semibold leading-none tracking-[-0.02em]"
+            : "text-[22px] font-semibold leading-none"
+        }
+        style={{
+          color: isDark ? "rgba(255,255,255,0.78)" : "rgba(0,0,0,0.55)",
+        }}
+      >
+        {initialOf(idea.title)}
+      </span>
+    </div>
+  );
+}
+
 /** Carte d'idée (board desktop : déplaçable aux pointer events ; mobile / galerie : statique). */
 function IdeaCard({
   idea,
@@ -1424,6 +1511,8 @@ function IdeaCard({
     />
   );
 
+  const hasImage = !!idea.imageUrl;
+
   return (
     <div
       data-card={draggable ? idea.id : undefined}
@@ -1448,103 +1537,105 @@ function IdeaCard({
             : "border-black/[0.06] bg-white hover:border-black/[0.12]"
         }`}
       >
-        {idea.imageUrl && (
-          <img
-            src={idea.imageUrl}
-            alt=""
-            className="h-[150px] w-full rounded-t-[11px] object-cover"
-            draggable={false}
-          />
-        )}
-        <div className="flex flex-col gap-1 px-4 py-4">
-          <div className="flex items-center justify-between gap-2">
-            <h3 className="min-w-0 flex-1 truncate text-[15px] font-semibold tracking-[-0.01em] md:text-[14px]">
-              {idea.title}
-            </h3>
+        {/* Bandeau image si l'idée en a une (plein largeur, comme avant) */}
+        {hasImage && <IdeaThumb idea={idea} isDark={isDark} variant="banner" />}
 
-            {hasMenu && (
-              <div className="relative -my-1.5 -mr-2 shrink-0">
-                <button
-                  type="button"
-                  aria-label={c.ideaCard.options}
-                  aria-haspopup={isMobile ? "dialog" : "menu"}
-                  aria-expanded={menu}
-                  onClick={() => setMenu((v) => !v)}
-                  className={`flex h-10 w-10 items-center justify-center rounded-xl transition-[opacity,background-color] focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 md:h-7 md:w-7 md:rounded-lg md:group-hover/card:opacity-100 [@media(hover:none)]:opacity-100 ${
-                    menu ? "opacity-100" : "max-md:opacity-100 md:opacity-0"
-                  } ${
-                    isDark
-                      ? "hover:bg-white/[0.06] focus-visible:ring-white/30"
-                      : "hover:bg-black/[0.05] focus-visible:ring-black/25"
-                  }`}
-                >
-                  <DotsIcon className="h-[18px] w-[18px]" />
-                </button>
+        <div className="flex gap-3 px-4 py-4">
+          {/* Sinon : petite vignette (dégradé + initiale) à gauche du titre */}
+          {!hasImage && <IdeaThumb idea={idea} isDark={isDark} />}
 
-                {menu && isMobile && (
-                  <BottomSheet
-                    isDark={isDark}
-                    title={idea.title}
-                    onClose={() => setMenu(false)}
+          <div className="flex min-w-0 flex-1 flex-col gap-1">
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="min-w-0 flex-1 truncate text-[15px] font-semibold tracking-[-0.01em] md:text-[14px]">
+                {idea.title}
+              </h3>
+
+              {hasMenu && (
+                <div className="relative -my-1.5 -mr-2 shrink-0">
+                  <button
+                    type="button"
+                    aria-label={c.ideaCard.options}
+                    aria-haspopup={isMobile ? "dialog" : "menu"}
+                    aria-expanded={menu}
+                    onClick={() => setMenu((v) => !v)}
+                    className={`flex h-10 w-10 items-center justify-center rounded-xl transition-[opacity,background-color] focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 md:h-7 md:w-7 md:rounded-lg md:group-hover/card:opacity-100 [@media(hover:none)]:opacity-100 ${
+                      menu ? "opacity-100" : "max-md:opacity-100 md:opacity-0"
+                    } ${
+                      isDark
+                        ? "hover:bg-white/[0.06] focus-visible:ring-white/30"
+                        : "hover:bg-black/[0.05] focus-visible:ring-black/25"
+                    }`}
                   >
-                    {(close) => (
-                      <div className="flex flex-col gap-0.5">
-                        {menuItems(close, true)}
-                      </div>
-                    )}
-                  </BottomSheet>
-                )}
+                    <DotsIcon className="h-[18px] w-[18px]" />
+                  </button>
 
-                {menu && !isMobile && (
-                  <>
-                    <button
-                      type="button"
-                      aria-label={c.ideaCard.closeMenu}
-                      tabIndex={-1}
-                      className="fixed inset-0 z-30 cursor-default"
-                      onClick={() => setMenu(false)}
-                    />
-                    <div
-                      role="menu"
-                      onPointerDown={(e) => e.stopPropagation()}
-                      className={`absolute right-0 top-full z-40 mt-1 min-w-[190px] rounded-xl border p-1 shadow-lg ${
-                        isDark
-                          ? "border-white/[0.08] bg-[#101012]"
-                          : "border-black/[0.06] bg-white"
-                      }`}
+                  {menu && isMobile && (
+                    <BottomSheet
+                      isDark={isDark}
+                      title={idea.title}
+                      onClose={() => setMenu(false)}
                     >
-                      {menuItems(() => setMenu(false), false)}
-                    </div>
-                  </>
+                      {(close) => (
+                        <div className="flex flex-col gap-0.5">
+                          {menuItems(close, true)}
+                        </div>
+                      )}
+                    </BottomSheet>
+                  )}
+
+                  {menu && !isMobile && (
+                    <>
+                      <button
+                        type="button"
+                        aria-label={c.ideaCard.closeMenu}
+                        tabIndex={-1}
+                        className="fixed inset-0 z-30 cursor-default"
+                        onClick={() => setMenu(false)}
+                      />
+                      <div
+                        role="menu"
+                        onPointerDown={(e) => e.stopPropagation()}
+                        className={`absolute right-0 top-full z-40 mt-1 min-w-[190px] rounded-xl border p-1 shadow-lg ${
+                          isDark
+                            ? "border-white/[0.08] bg-[#101012]"
+                            : "border-black/[0.06] bg-white"
+                        }`}
+                      >
+                        {menuItems(() => setMenu(false), false)}
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {idea.description && (
+              <p
+                className={`line-clamp-2 text-[14px] md:text-[13px] ${muted}`}
+              >
+                {idea.description}
+              </p>
+            )}
+
+            {(groupLabel || ideaTags.length > 0) && (
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {groupLabel && (
+                  <span className={chipClass}>
+                    {groupColor && (
+                      <span className={`h-2 w-2 rounded-full ${groupColor}`} />
+                    )}
+                    {groupLabel}
+                  </span>
                 )}
+                {ideaTags.map((t) => (
+                  <span key={t.id} className={chipClass}>
+                    <span className={`h-2 w-2 rounded-full ${t.color}`} />
+                    {t.label}
+                  </span>
+                ))}
               </div>
             )}
           </div>
-
-          {idea.description && (
-            <p className={`line-clamp-2 text-[14px] md:text-[13px] ${muted}`}>
-              {idea.description}
-            </p>
-          )}
-
-          {(groupLabel || ideaTags.length > 0) && (
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {groupLabel && (
-                <span className={chipClass}>
-                  {groupColor && (
-                    <span className={`h-2 w-2 rounded-full ${groupColor}`} />
-                  )}
-                  {groupLabel}
-                </span>
-              )}
-              {ideaTags.map((t) => (
-                <span key={t.id} className={chipClass}>
-                  <span className={`h-2 w-2 rounded-full ${t.color}`} />
-                  {t.label}
-                </span>
-              ))}
-            </div>
-          )}
         </div>
       </article>
     </div>
