@@ -2147,7 +2147,12 @@ function MobileSettingsMenu({
   const { show: showMfaNudge } = useMfaNudge();
 
   return (
-    <div className="flex min-h-screen w-full flex-col bg-[#f2f2f7] dark:bg-[#000000]">
+    <div
+      className={cx(
+        "flex min-h-screen w-full flex-col transition-colors duration-300",
+        tokens.pageBg
+      )}
+    >
       {/* Header avec retour vers home */}
       <header
         className={cx(
@@ -2160,7 +2165,12 @@ function MobileSettingsMenu({
           onClick={onBack}
           aria-label={c.sidebar.backHome}
           title={c.sidebar.backHome}
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-blue-500 transition-opacity active:opacity-50"
+          className={cx(
+            "flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-colors",
+            tokens.item,
+            tokens.itemHover,
+            tokens.ring
+          )}
         >
           <ArrowLeftIcon />
         </button>
@@ -2180,7 +2190,7 @@ function MobileSettingsMenu({
           <div key={group.key} className="mb-6">
             <p
               className={cx(
-                "mb-2 px-1 text-[12px] font-semibold tracking-wide uppercase",
+                "mb-2 px-1 text-[12px] font-semibold tracking-wide",
                 tokens.group
               )}
             >
@@ -2188,8 +2198,8 @@ function MobileSettingsMenu({
             </p>
             <ul
               className={cx(
-                "divide-y overflow-hidden rounded-xl",
-                tokens.card,
+                "divide-y overflow-hidden rounded-xl border bg-transparent",
+                tokens.cardBorder,
                 tokens.divide
               )}
             >
@@ -2209,7 +2219,7 @@ function MobileSettingsMenu({
                           : `${tokens.item} ${tokens.itemHover}`
                       )}
                     >
-                      <span className={cx("shrink-0", "text-neutral-500")}>
+                      <span className={cx("shrink-0", tokens.subtle)}>
                         {item.icon}
                       </span>
                       <span className="flex-1">{item.label}</span>
@@ -2418,7 +2428,7 @@ export default function Settings(_props: SettingsProps) {
   /* ─── Vue MOBILE : écran menu ─── */
   if (isMobile && mobileView === "menu") {
     return (
-      <main className="min-h-screen w-full">
+      <main className={cx("min-h-screen w-full", tokens.pageBg)}>
         <MobileSettingsMenu
           active={active}
           onSelect={handleSelect}
@@ -2465,7 +2475,10 @@ export default function Settings(_props: SettingsProps) {
               <button
                 type="button"
                 onClick={handleBackToMenu}
-                className="flex h-10 items-center gap-1 text-[17px] font-medium text-blue-500 transition-opacity active:opacity-50"
+                className={cx(
+                  "flex h-10 items-center gap-1 text-[17px] font-medium transition-opacity active:opacity-50",
+                  tokens.item
+                )}
               >
                 <ArrowLeftIcon className="h-5 w-5" />
                 {c.sidebar.title}
