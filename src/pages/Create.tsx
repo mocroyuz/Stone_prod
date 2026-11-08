@@ -1,11 +1,14 @@
 // src/pages/Create.tsx
 // Page Create (routes "create", "create/ideas", "create/templates").
-// Shell visuel et responsive alignés sur Home :
-//  - 100dvh + max-md:pt-14 (barre mobile de la sidebar)
-//  - tailles mobile / desktop (text-[15px] sm:text-[12px]…)
-//  - cibles tactiles min-h-10 sm:min-h-0
-//  - rangées scrollables sans scrollbar, menus bornés à l'écran
-//  - board en carrousel magnétique sur mobile
+// Shell visuel et responsive alignés sur Home / Schedule :
+//  - 100dvh + padding haut = barre mobile de la sidebar (safe-area incluse)
+//  - AUCUN décalage gauche sur mobile (la sidebar y est un tiroir)
+//  - un seul breakpoint de bascule : md (768px) <-> useIsMobile()
+//  - cibles tactiles >= 40px sur mobile
+//  - mobile : menus = feuilles glissables (BottomSheet), comme Schedule
+//  - mobile : board = onglets de groupes + liste verticale (swipe gauche/droite
+//    pour changer de groupe). Le drag & drop reste sur desktop ; au doigt on
+//    déplace une idée via « Déplacer vers » dans la feuille de la carte.
 //
 // Deux notions distinctes :
 //  - GROUPES : les colonnes du board (Unassigned, To Do, In Progress…).
@@ -18,12 +21,14 @@
 // chargés une seule fois, visibles aussi par BottomBar / NewIdeaModal.
 
 import {
+  useCallback,
   useEffect,
   useLayoutEffect,
   useRef,
   useState,
 } from "react";
 import type { PointerEvent as RPointerEvent, ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { useTheme } from "../hooks/useTheme";
 import { navigate } from "../hooks/useHashRoute";
 import DashboardSidebar, {
@@ -87,6 +92,25 @@ function useLanguage(): Lang {
   return lang;
 }
 
+/* ───────── Responsive ───────── */
+
+const MOBILE_QUERY = "(max-width: 767px)";
+
+function useIsMobile(): boolean {
+  const [mobile, setMobile] = useState<boolean>(
+    () =>
+      typeof window !== "undefined" && window.matchMedia(MOBILE_QUERY).matches
+  );
+  useEffect(() => {
+    const mq = window.matchMedia(MOBILE_QUERY);
+    const onChange = () => setMobile(mq.matches);
+    onChange();
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+  return mobile;
+}
+
 /* ───────── Copy ───────── */
 
 type Copy = {
@@ -128,6 +152,7 @@ type Copy = {
     newGroup: string;
     groupNamePlaceholder: string;
     cancel: string;
+    save: string;
     groupOptions: string;
     renameGroup: string;
     moveAllToUnassigned: string;
@@ -135,6 +160,8 @@ type Copy = {
     closeMenu: string;
     loadError: string;
     retry: string;
+    emptyGroup: string;
+    noGroups: string;
   };
   ideaCard: {
     options: string;
@@ -193,6 +220,7 @@ const COPY: Record<Lang, Copy> = {
       newGroup: "New group",
       groupNamePlaceholder: "Group name…",
       cancel: "Cancel",
+      save: "Save",
       groupOptions: "Group options",
       renameGroup: "Rename group",
       moveAllToUnassigned: "Move all to Unassigned",
@@ -200,6 +228,8 @@ const COPY: Record<Lang, Copy> = {
       closeMenu: "Close menu",
       loadError: "Couldn't load your groups.",
       retry: "Retry",
+      emptyGroup: "No ideas in this group yet.",
+      noGroups: "All groups are hidden. Show some from the Groups menu.",
     },
     ideaCard: {
       options: "Idea options",
@@ -257,6 +287,7 @@ const COPY: Record<Lang, Copy> = {
       newGroup: "Nouveau groupe",
       groupNamePlaceholder: "Nom du groupe…",
       cancel: "Annuler",
+      save: "Enregistrer",
       groupOptions: "Options du groupe",
       renameGroup: "Renommer le groupe",
       moveAllToUnassigned: "Tout déplacer vers Unassigned",
@@ -264,6 +295,9 @@ const COPY: Record<Lang, Copy> = {
       closeMenu: "Fermer le menu",
       loadError: "Impossible de charger vos groupes.",
       retry: "Réessayer",
+      emptyGroup: "Aucune idée dans ce groupe pour l'instant.",
+      noGroups:
+        "Tous les groupes sont masqués. Affichez-en depuis le menu Groupes.",
     },
     ideaCard: {
       options: "Options de l'idée",
@@ -305,9 +339,14 @@ type IconProps = { className?: string };
 /** Route de cette page dans la sidebar (doit exister dans navItems). */
 const PAGE_ROUTE = "create";
 
-/** Menu déroulant : sur mobile, feuille ancrée au-dessus de la BottomBar. */
-const MOBILE_SHEET =
-  "max-sm:fixed max-sm:inset-x-3 max-sm:bottom-24 max-sm:top-auto max-sm:z-50 max-sm:mt-0 max-sm:max-h-[60dvh] max-sm:w-auto max-sm:overflow-y-auto";
+/** Délai avant d'exécuter une action lancée depuis une feuille (laisse finir l'animation de fermeture). */
+const SHEET_ACTION_DELAY = 280;
+
+/** Marge latérale du shell (identique au padding du conteneur). */
+const EDGE_BLEED =
+  "-mx-[clamp(14px,3vw,48px)] px-[clamp(14px,3vw,48px)] md:mx-0 md:px-0";
+
+const HIDE_SCROLLBAR = "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
 
 /* ───────── Onglet ↔ URL (#/create, #/create/templates, …) ───────── */
 
@@ -519,6 +558,17 @@ const PlusIcon = (p: IconProps) => (
     <path d="M12 5v14M5 12h14" />
   </Svg>
 );
+const PencilIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M4 20h4L19 9a2.1 2.1 0 0 0-3-3L5 17v3Z" />
+    <path d="m14.5 7.5 3 3" />
+  </Svg>
+);
+const MoveIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M4 12h14M13 7l5 5-5 5" />
+  </Svg>
+);
 const DotsIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="M5 12h.01M12 12h.01M19 12h.01" strokeWidth="2.6" />
@@ -558,6 +608,171 @@ const GalleryIcon = (p: IconProps) => (
   </Svg>
 );
 
+/* ───────── Feuille glissable (mobile) — identique à Schedule ───────── */
+
+function useEscape(onEscape: () => void) {
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onEscape();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [onEscape]);
+}
+
+/**
+ * Feuille glissable (mobile) / dialogue centré (si la fenêtre est élargie).
+ * Glisser la poignée ou le titre vers le bas pour fermer.
+ * `children` reçoit `close` : fermeture animée.
+ * Rendue dans document.body (portail) : échappe aux overflow / z-index.
+ */
+function BottomSheet({
+  isDark,
+  title,
+  onClose,
+  children,
+}: {
+  isDark: boolean;
+  title: string;
+  onClose: () => void;
+  children: (close: () => void) => ReactNode;
+}) {
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const drag = useRef<{ startY: number; startT: number } | null>(null);
+
+  const [shown, setShown] = useState(false);
+  const [closing, setClosing] = useState(false);
+  const [dragging, setDragging] = useState(false);
+  const [dragY, setDragY] = useState(0);
+
+  useEffect(() => {
+    const id = requestAnimationFrame(() =>
+      requestAnimationFrame(() => setShown(true))
+    );
+    return () => cancelAnimationFrame(id);
+  }, []);
+
+  const requestClose = useCallback(() => {
+    if (closing) return;
+    setClosing(true);
+    setDragging(false);
+    window.setTimeout(onClose, 300);
+  }, [closing, onClose]);
+
+  useEscape(requestClose);
+
+  const onDragStart = (e: RPointerEvent<HTMLDivElement>) => {
+    if (closing) return;
+    drag.current = { startY: e.clientY, startT: performance.now() };
+    e.currentTarget.setPointerCapture(e.pointerId);
+    setDragging(true);
+  };
+
+  const onDragMove = (e: RPointerEvent<HTMLDivElement>) => {
+    const d = drag.current;
+    if (!d) return;
+    setDragY(Math.max(0, e.clientY - d.startY));
+  };
+
+  const onDragEnd = (e: RPointerEvent<HTMLDivElement>) => {
+    const d = drag.current;
+    if (!d) return;
+    drag.current = null;
+    setDragging(false);
+
+    const dy = Math.max(0, e.clientY - d.startY);
+    const velocity = dy / Math.max(1, performance.now() - d.startT);
+    const height = sheetRef.current?.offsetHeight ?? 500;
+
+    if (dy > height * 0.25 || velocity > 0.5) requestClose();
+    else setDragY(0);
+  };
+
+  const hidden = closing || !shown;
+  const height = sheetRef.current?.offsetHeight ?? 600;
+  const backdropOpacity = hidden ? 0 : 1 - Math.min(1, dragY / height);
+  const ease = "cubic-bezier(0.32, 0.72, 0, 1)";
+
+  return createPortal(
+    <div
+      // Les événements React remontent à travers les portails : on les
+      // arrête pour ne pas déclencher le drag d'une carte parente.
+      onPointerDown={(e) => e.stopPropagation()}
+      className="fixed inset-0 z-50 flex items-end justify-center md:items-center md:p-4"
+    >
+      <div
+        className="absolute inset-0 bg-black/50 backdrop-blur-[2px]"
+        style={{
+          opacity: backdropOpacity,
+          transition: dragging ? "none" : `opacity 300ms ${ease}`,
+        }}
+        onClick={requestClose}
+      />
+      <div
+        ref={sheetRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        style={{
+          transform: hidden ? "translateY(100%)" : `translateY(${dragY}px)`,
+          transition: dragging ? "none" : `transform 300ms ${ease}`,
+          willChange: "transform",
+        }}
+        className={[
+          "relative z-10 flex max-h-[92dvh] w-full flex-col overflow-y-auto overscroll-contain border p-4 shadow-2xl",
+          "rounded-t-3xl pb-[calc(1rem+env(safe-area-inset-bottom))]",
+          "md:max-w-sm md:rounded-2xl md:pb-4",
+          isDark
+            ? "border-white/[0.08] bg-[#101012]"
+            : "border-black/[0.06] bg-[#f6f4f0]",
+        ].join(" ")}
+      >
+        <div
+          onPointerDown={onDragStart}
+          onPointerMove={onDragMove}
+          onPointerUp={onDragEnd}
+          onPointerCancel={onDragEnd}
+          className="-mx-4 -mt-4 mb-1 shrink-0 cursor-grab touch-none select-none px-4 pb-3 pt-3 active:cursor-grabbing md:mx-0 md:mt-0 md:cursor-default md:touch-auto md:px-0 md:pb-2 md:pt-0"
+        >
+          <div
+            className={[
+              "mx-auto mb-3 h-1.5 w-12 rounded-full md:hidden",
+              isDark ? "bg-white/25" : "bg-black/15",
+            ].join(" ")}
+          />
+          <h2
+            className={[
+              "truncate text-center text-[17px] font-semibold tracking-[-0.02em]",
+              isDark ? "text-white" : "text-neutral-900",
+            ].join(" ")}
+          >
+            {title}
+          </h2>
+        </div>
+
+        {children(requestClose)}
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+/** Ligne d'action d'une feuille (grande cible tactile). */
+function sheetRowClass(isDark: boolean, danger = false) {
+  return [
+    "flex min-h-12 w-full items-center gap-3 rounded-2xl px-3 text-left text-[15px] font-medium transition-colors",
+    "focus-visible:outline-none focus-visible:ring-2",
+    isDark ? "focus-visible:ring-white/30" : "focus-visible:ring-black/25",
+    danger
+      ? isDark
+        ? "text-rose-400 active:bg-white/[0.06]"
+        : "text-rose-600 active:bg-black/[0.04]"
+      : isDark
+        ? "text-white active:bg-white/[0.06]"
+        : "text-neutral-900 active:bg-black/[0.04]",
+  ].join(" ");
+}
+
 /* ───────── Petits composants ───────── */
 
 function IconButton({
@@ -566,7 +781,7 @@ function IconButton({
   children,
   ghost,
   isDark,
-  className = "h-10 w-10 sm:h-9 sm:w-9",
+  className = "h-10 w-10 md:h-9 md:w-9",
   align = "center",
 }: {
   label: string;
@@ -590,10 +805,10 @@ function IconButton({
         {children}
       </button>
 
-      {/* Tooltip : survol uniquement (masqué sur tactile) */}
+      {/* Tooltip : survol uniquement (masqué sur tactile / mobile) */}
       <span
         role="tooltip"
-        className={`pointer-events-none absolute top-full z-50 mt-2 w-max max-w-[240px] rounded-lg px-3 py-2 text-[13px] font-medium leading-snug text-white opacity-0 shadow-lg transition-opacity duration-150 motion-reduce:transition-none group-hover:opacity-100 group-hover:delay-300 group-focus-within:opacity-100 [@media(hover:none)]:hidden ${
+        className={`pointer-events-none absolute top-full z-50 mt-2 w-max max-w-[240px] rounded-lg px-3 py-2 text-[13px] font-medium leading-snug text-white opacity-0 shadow-lg transition-opacity duration-150 motion-reduce:transition-none max-md:hidden group-hover:opacity-100 group-hover:delay-300 group-focus-within:opacity-100 [@media(hover:none)]:hidden ${
           isDark ? "bg-[#2e2e31]" : "bg-neutral-900"
         } ${align === "end" ? "right-0" : "left-1/2 -translate-x-1/2"}`}
       >
@@ -627,7 +842,7 @@ function CreateNameInput({
 
   return (
     <div
-      className={`flex items-center gap-1 rounded-lg border px-2 ${
+      className={`flex items-center gap-1 rounded-xl border px-2 md:rounded-lg ${
         isDark ? "border-white/[0.10]" : "border-black/[0.10]"
       }`}
     >
@@ -644,7 +859,7 @@ function CreateNameInput({
         placeholder={placeholder}
         maxLength={30}
         // 16px sur mobile : évite le zoom automatique d'iOS au focus
-        className={`min-w-0 flex-1 bg-transparent py-2.5 text-[16px] outline-none sm:py-2 sm:text-[13px] ${
+        className={`min-w-0 flex-1 bg-transparent py-3 text-[16px] outline-none md:py-2 md:text-[13px] ${
           isDark
             ? "placeholder:text-neutral-600"
             : "placeholder:text-neutral-400"
@@ -655,7 +870,7 @@ function CreateNameInput({
         aria-label={submitAria}
         onClick={submit}
         disabled={!value.trim()}
-        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-colors disabled:opacity-30 sm:h-6 sm:w-6 ${
+        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors disabled:opacity-30 md:h-6 md:w-6 md:rounded-md ${
           isDark ? "hover:bg-white/[0.06]" : "hover:bg-black/[0.04]"
         }`}
       >
@@ -684,6 +899,74 @@ function CheckBox({ on, isDark }: { on: boolean; isDark: boolean }) {
   );
 }
 
+/** Classes d'un menu déroulant desktop. */
+const dropdownClass = (isDark: boolean, width: string) =>
+  `absolute right-0 z-40 mt-2 rounded-xl border p-1 shadow-lg ${width} ${
+    isDark
+      ? "border-white/[0.08] bg-[#101012]"
+      : "border-black/[0.06] bg-white"
+  }`;
+
+/** Contenu du menu « Groupes » (partagé dropdown desktop / feuille mobile). */
+function GroupsPanel({
+  groups,
+  hidden,
+  onToggle,
+  onCreate,
+  isDark,
+  c,
+}: {
+  groups: Group[];
+  hidden: string[];
+  onToggle: (id: string) => void;
+  onCreate: (label: string) => void;
+  isDark: boolean;
+  c: Copy;
+}) {
+  return (
+    <>
+      <ul className="max-h-[320px] overflow-y-auto md:max-h-[260px]">
+        {groups.map((g) => {
+          const on = !hidden.includes(g.id);
+          return (
+            <li key={g.id}>
+              <button
+                type="button"
+                onClick={() => onToggle(g.id)}
+                className={`flex min-h-12 w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-left text-[15px] font-medium transition-colors md:min-h-0 md:rounded-lg md:text-[13px] ${
+                  isDark
+                    ? "active:bg-white/[0.06] md:hover:bg-white/[0.06]"
+                    : "active:bg-black/[0.04] md:hover:bg-black/[0.04]"
+                }`}
+              >
+                <span className="flex min-w-0 items-center gap-2.5">
+                  <span
+                    className={`h-2.5 w-2.5 shrink-0 rounded-full ${g.color}`}
+                  />
+                  <span className="truncate">{g.label}</span>
+                </span>
+                <CheckBox on={on} isDark={isDark} />
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+      <div
+        className={`mt-1 border-t p-1 pt-2 ${
+          isDark ? "border-white/[0.07]" : "border-black/[0.06]"
+        }`}
+      >
+        <CreateNameInput
+          onCreate={onCreate}
+          isDark={isDark}
+          placeholder={c.groupsMenu.createPlaceholder}
+          submitAria={c.groupsMenu.createAria}
+        />
+      </div>
+    </>
+  );
+}
+
 /** Menu « Groupes » de la barre d'outils : affiche / masque les colonnes. */
 function GroupsMenu({
   groups,
@@ -691,6 +974,7 @@ function GroupsMenu({
   onToggle,
   onCreate,
   isDark,
+  isMobile,
   ghost,
   c,
 }: {
@@ -699,6 +983,7 @@ function GroupsMenu({
   onToggle: (id: string) => void;
   onCreate: (label: string) => void;
   isDark: boolean;
+  isMobile: boolean;
   ghost: string;
   c: Copy;
 }) {
@@ -707,10 +992,10 @@ function GroupsMenu({
     <div className="relative shrink-0">
       <button
         type="button"
-        aria-haspopup="listbox"
+        aria-haspopup={isMobile ? "dialog" : "listbox"}
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className={`flex min-h-10 items-center gap-2 rounded-xl px-3 py-2 text-[13px] font-medium transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 sm:min-h-0 ${ghost} ${
+        className={`flex min-h-10 items-center gap-2 rounded-xl px-3 py-2 text-[13px] font-medium transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 md:min-h-0 ${ghost} ${
           isDark ? "focus-visible:ring-white/30" : "focus-visible:ring-black/25"
         }`}
       >
@@ -728,64 +1013,131 @@ function GroupsMenu({
         <ChevronDownIcon className="h-4 w-4 opacity-60" />
       </button>
 
-      {open && (
+      {open && isMobile && (
+        <BottomSheet
+          isDark={isDark}
+          title={c.groupsMenu.label}
+          onClose={() => setOpen(false)}
+        >
+          {() => (
+            <GroupsPanel
+              groups={groups}
+              hidden={hidden}
+              onToggle={onToggle}
+              onCreate={onCreate}
+              isDark={isDark}
+              c={c}
+            />
+          )}
+        </BottomSheet>
+      )}
+
+      {open && !isMobile && (
         <>
           <button
             type="button"
             aria-label={c.groupsMenu.closeMenu}
             tabIndex={-1}
-            className="fixed inset-0 z-30 cursor-default max-sm:z-40 max-sm:bg-black/30"
+            className="fixed inset-0 z-30 cursor-default"
             onClick={() => setOpen(false)}
           />
-          <div
-            className={`absolute right-0 z-40 mt-2 w-[240px] max-w-[calc(100vw-48px)] rounded-xl border p-1 shadow-lg ${MOBILE_SHEET} ${
-              isDark
-                ? "border-white/[0.08] bg-[#101012]"
-                : "border-black/[0.06] bg-white"
-            }`}
-          >
-            <ul className="max-h-[260px] overflow-y-auto">
-              {groups.map((g) => {
-                const on = !hidden.includes(g.id);
-                return (
-                  <li key={g.id}>
-                    <button
-                      type="button"
-                      onClick={() => onToggle(g.id)}
-                      className={`flex min-h-10 w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left text-[14px] font-medium transition-colors sm:min-h-0 sm:text-[13px] ${
-                        isDark
-                          ? "hover:bg-white/[0.06]"
-                          : "hover:bg-black/[0.04]"
-                      }`}
-                    >
-                      <span className="flex min-w-0 items-center gap-2">
-                        <span
-                          className={`h-2.5 w-2.5 shrink-0 rounded-full ${g.color}`}
-                        />
-                        <span className="truncate">{g.label}</span>
-                      </span>
-                      <CheckBox on={on} isDark={isDark} />
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-            <div
-              className={`mt-1 border-t p-1 pt-2 ${
-                isDark ? "border-white/[0.07]" : "border-black/[0.06]"
-              }`}
-            >
-              <CreateNameInput
-                onCreate={onCreate}
-                isDark={isDark}
-                placeholder={c.groupsMenu.createPlaceholder}
-                submitAria={c.groupsMenu.createAria}
-              />
-            </div>
+          <div className={dropdownClass(isDark, "w-[240px]")}>
+            <GroupsPanel
+              groups={groups}
+              hidden={hidden}
+              onToggle={onToggle}
+              onCreate={onCreate}
+              isDark={isDark}
+              c={c}
+            />
           </div>
         </>
       )}
     </div>
+  );
+}
+
+/** Contenu du menu « Tags » (partagé dropdown desktop / feuille mobile). */
+function TagsPanel({
+  tags,
+  active,
+  onToggle,
+  onCreate,
+  onDelete,
+  isDark,
+  c,
+}: {
+  tags: Tag[];
+  active: string[];
+  onToggle: (id: string) => void;
+  onCreate: (label: string) => void;
+  onDelete: (id: string) => void;
+  isDark: boolean;
+  c: Copy;
+}) {
+  return (
+    <>
+      {tags.length === 0 ? (
+        <p
+          className={`px-3 py-3 text-[14px] md:text-[13px] ${
+            isDark ? "text-neutral-500" : "text-neutral-400"
+          }`}
+        >
+          {c.tagsMenu.empty}
+        </p>
+      ) : (
+        <ul className="max-h-[320px] overflow-y-auto md:max-h-[260px]">
+          {tags.map((t) => {
+            const on = active.includes(t.id);
+            return (
+              <li key={t.id} className="group/tag flex items-center">
+                <button
+                  type="button"
+                  onClick={() => onToggle(t.id)}
+                  className={`flex min-h-12 min-w-0 flex-1 items-center justify-between gap-3 rounded-xl px-3 py-2 text-left text-[15px] font-medium transition-colors md:min-h-0 md:rounded-lg md:text-[13px] ${
+                    isDark
+                      ? "active:bg-white/[0.06] md:hover:bg-white/[0.06]"
+                      : "active:bg-black/[0.04] md:hover:bg-black/[0.04]"
+                  }`}
+                >
+                  <span className="flex min-w-0 items-center gap-2.5">
+                    <span
+                      className={`h-2.5 w-2.5 shrink-0 rounded-full ${t.color}`}
+                    />
+                    <span className="truncate">{t.label}</span>
+                  </span>
+                  <CheckBox on={on} isDark={isDark} />
+                </button>
+                <button
+                  type="button"
+                  aria-label={c.tagsMenu.deleteTag}
+                  onClick={() => onDelete(t.id)}
+                  className={`ml-1 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-opacity focus-visible:opacity-100 md:h-7 md:w-7 md:rounded-lg md:opacity-0 md:group-hover/tag:opacity-100 [@media(hover:none)]:opacity-100 ${
+                    isDark
+                      ? "text-rose-400 hover:bg-white/[0.06]"
+                      : "text-rose-600 hover:bg-black/[0.04]"
+                  }`}
+                >
+                  <TrashIcon className="h-4 w-4" />
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      <div
+        className={`mt-1 border-t p-1 pt-2 ${
+          isDark ? "border-white/[0.07]" : "border-black/[0.06]"
+        }`}
+      >
+        <CreateNameInput
+          onCreate={onCreate}
+          isDark={isDark}
+          placeholder={c.tagsMenu.createPlaceholder}
+          submitAria={c.tagsMenu.createAria}
+        />
+      </div>
+    </>
   );
 }
 
@@ -797,6 +1149,7 @@ function TagsMenu({
   onCreate,
   onDelete,
   isDark,
+  isMobile,
   ghost,
   c,
 }: {
@@ -806,6 +1159,7 @@ function TagsMenu({
   onCreate: (label: string) => void;
   onDelete: (id: string) => void;
   isDark: boolean;
+  isMobile: boolean;
   ghost: string;
   c: Copy;
 }) {
@@ -814,10 +1168,10 @@ function TagsMenu({
     <div className="relative shrink-0">
       <button
         type="button"
-        aria-haspopup="listbox"
+        aria-haspopup={isMobile ? "dialog" : "listbox"}
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className={`flex min-h-10 items-center gap-2 rounded-xl px-3 py-2 text-[13px] font-medium transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 sm:min-h-0 ${ghost} ${
+        className={`flex min-h-10 items-center gap-2 rounded-xl px-3 py-2 text-[13px] font-medium transition-colors motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 md:min-h-0 ${ghost} ${
           isDark ? "focus-visible:ring-white/30" : "focus-visible:ring-black/25"
         }`}
       >
@@ -835,82 +1189,45 @@ function TagsMenu({
         <ChevronDownIcon className="h-4 w-4 opacity-60" />
       </button>
 
-      {open && (
+      {open && isMobile && (
+        <BottomSheet
+          isDark={isDark}
+          title={c.tagsMenu.label}
+          onClose={() => setOpen(false)}
+        >
+          {() => (
+            <TagsPanel
+              tags={tags}
+              active={active}
+              onToggle={onToggle}
+              onCreate={onCreate}
+              onDelete={onDelete}
+              isDark={isDark}
+              c={c}
+            />
+          )}
+        </BottomSheet>
+      )}
+
+      {open && !isMobile && (
         <>
           <button
             type="button"
             aria-label={c.tagsMenu.closeMenu}
             tabIndex={-1}
-            className="fixed inset-0 z-30 cursor-default max-sm:z-40 max-sm:bg-black/30"
+            className="fixed inset-0 z-30 cursor-default"
             onClick={() => setOpen(false)}
           />
-          <div
-            className={`absolute right-0 z-40 mt-2 w-[260px] max-w-[calc(100vw-48px)] rounded-xl border p-1 shadow-lg ${MOBILE_SHEET} ${
-              isDark
-                ? "border-white/[0.08] bg-[#101012]"
-                : "border-black/[0.06] bg-white"
-            }`}
-          >
-            {tags.length === 0 ? (
-              <p
-                className={`px-3 py-3 text-[13px] ${
-                  isDark ? "text-neutral-500" : "text-neutral-400"
-                }`}
-              >
-                {c.tagsMenu.empty}
-              </p>
-            ) : (
-              <ul className="max-h-[260px] overflow-y-auto">
-                {tags.map((t) => {
-                  const on = active.includes(t.id);
-                  return (
-                    <li key={t.id} className="group/tag flex items-center">
-                      <button
-                        type="button"
-                        onClick={() => onToggle(t.id)}
-                        className={`flex min-h-10 min-w-0 flex-1 items-center justify-between gap-3 rounded-lg px-3 py-2 text-left text-[14px] font-medium transition-colors sm:min-h-0 sm:text-[13px] ${
-                          isDark
-                            ? "hover:bg-white/[0.06]"
-                            : "hover:bg-black/[0.04]"
-                        }`}
-                      >
-                        <span className="flex min-w-0 items-center gap-2">
-                          <span
-                            className={`h-2.5 w-2.5 shrink-0 rounded-full ${t.color}`}
-                          />
-                          <span className="truncate">{t.label}</span>
-                        </span>
-                        <CheckBox on={on} isDark={isDark} />
-                      </button>
-                      <button
-                        type="button"
-                        aria-label={c.tagsMenu.deleteTag}
-                        onClick={() => onDelete(t.id)}
-                        className={`ml-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg opacity-0 transition-opacity focus-visible:opacity-100 group-hover/tag:opacity-100 sm:h-7 sm:w-7 [@media(hover:none)]:opacity-100 ${
-                          isDark
-                            ? "text-rose-400 hover:bg-white/[0.06]"
-                            : "text-rose-600 hover:bg-black/[0.04]"
-                        }`}
-                      >
-                        <TrashIcon className="h-4 w-4" />
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-            <div
-              className={`mt-1 border-t p-1 pt-2 ${
-                isDark ? "border-white/[0.07]" : "border-black/[0.06]"
-              }`}
-            >
-              <CreateNameInput
-                onCreate={onCreate}
-                isDark={isDark}
-                placeholder={c.tagsMenu.createPlaceholder}
-                submitAria={c.tagsMenu.createAria}
-              />
-            </div>
+          <div className={dropdownClass(isDark, "w-[260px]")}>
+            <TagsPanel
+              tags={tags}
+              active={active}
+              onToggle={onToggle}
+              onCreate={onCreate}
+              onDelete={onDelete}
+              isDark={isDark}
+              c={c}
+            />
           </div>
         </>
       )}
@@ -918,7 +1235,135 @@ function TagsMenu({
   );
 }
 
-/** Carte d'idée (board : déplaçable aux pointer events ; galerie : statique). */
+/** Contenu du menu d'une idée : déplacer / tags / supprimer. */
+function IdeaMenuItems({
+  idea,
+  ideaTags,
+  allTags,
+  moveGroups,
+  onToggleTag,
+  onMove,
+  onDelete,
+  dismiss,
+  delayed,
+  isDark,
+  muted,
+  c,
+}: {
+  idea: Idea;
+  ideaTags: Tag[];
+  allTags: Tag[];
+  moveGroups?: Group[];
+  onToggleTag?: (tagId: string) => void;
+  onMove?: (groupId: string) => void;
+  onDelete?: () => void;
+  /** Ferme le menu (dropdown : immédiat ; feuille : animé). */
+  dismiss: () => void;
+  /** Feuille : l'action part après l'animation de fermeture. */
+  delayed: boolean;
+  isDark: boolean;
+  muted: string;
+  c: Copy;
+}) {
+  const run = (fn: () => void) => {
+    dismiss();
+    if (delayed) window.setTimeout(fn, SHEET_ACTION_DELAY);
+    else fn();
+  };
+
+  const item = `flex min-h-12 w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-[15px] font-medium transition-colors md:min-h-0 md:rounded-lg md:text-[13px] ${
+    isDark
+      ? "active:bg-white/[0.06] md:hover:bg-white/[0.06]"
+      : "active:bg-black/[0.04] md:hover:bg-black/[0.04]"
+  }`;
+
+  const sep = `my-1 border-t ${
+    isDark ? "border-white/[0.07]" : "border-black/[0.06]"
+  }`;
+
+  const sectionLabel = `px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide ${muted}`;
+
+  return (
+    <>
+      {onMove && moveGroups && moveGroups.length > 0 && (
+        <>
+          <p className={sectionLabel}>{c.ideaCard.moveTo}</p>
+          {moveGroups.map((g) => {
+            const current = g.id === idea.groupId;
+            return (
+              <button
+                key={g.id}
+                type="button"
+                role="menuitemradio"
+                aria-checked={current}
+                disabled={current}
+                onClick={() => run(() => onMove(g.id))}
+                className={`${item} justify-between disabled:opacity-50`}
+              >
+                <span className="flex min-w-0 items-center gap-2.5">
+                  <span
+                    className={`h-2.5 w-2.5 shrink-0 rounded-full ${g.color}`}
+                  />
+                  <span className="truncate">{g.label}</span>
+                </span>
+                {current && <span className="text-[12px]">✓</span>}
+              </button>
+            );
+          })}
+          {(onToggleTag || onDelete) && <div className={sep} />}
+        </>
+      )}
+
+      {onToggleTag && (
+        <>
+          <p className={sectionLabel}>{c.ideaCard.tags}</p>
+          {allTags.length === 0 ? (
+            <p className={`px-3 pb-2 text-[13px] md:text-[12px] ${muted}`}>
+              {c.ideaCard.noTags}
+            </p>
+          ) : (
+            allTags.map((t) => {
+              const on = ideaTags.some((x) => x.id === t.id);
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  role="menuitemcheckbox"
+                  aria-checked={on}
+                  onClick={() => onToggleTag(t.id)}
+                  className={`${item} justify-between`}
+                >
+                  <span className="flex min-w-0 items-center gap-2.5">
+                    <span
+                      className={`h-2.5 w-2.5 shrink-0 rounded-full ${t.color}`}
+                    />
+                    <span className="truncate">{t.label}</span>
+                  </span>
+                  <CheckBox on={on} isDark={isDark} />
+                </button>
+              );
+            })
+          )}
+          {onDelete && <div className={sep} />}
+        </>
+      )}
+
+      {onDelete && (
+        <button
+          type="button"
+          role="menuitem"
+          onClick={() => run(onDelete)}
+          className={`${item} ${isDark ? "text-rose-400" : "text-rose-600"}`}
+        >
+          <TrashIcon className="h-4 w-4" />
+          {c.ideaCard.delete}
+        </button>
+      )}
+    </>
+  );
+}
+
+/** Carte d'idée (board desktop : déplaçable aux pointer events ; mobile / galerie : statique). */
 function IdeaCard({
   idea,
   groupLabel,
@@ -927,6 +1372,7 @@ function IdeaCard({
   allTags,
   moveGroups,
   isDark,
+  isMobile,
   muted,
   draggable,
   placeholder,
@@ -947,6 +1393,7 @@ function IdeaCard({
   /** Groupes disponibles pour « Déplacer vers » (au doigt, sans drag). */
   moveGroups?: Group[];
   isDark: boolean;
+  isMobile: boolean;
   muted: string;
   draggable?: boolean;
   placeholder?: boolean;
@@ -959,17 +1406,26 @@ function IdeaCard({
   const [menu, setMenu] = useState(false);
   const hasMenu = !!onDelete || !!onToggleTag || !!onMove;
 
-  const item = `flex min-h-10 w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-[14px] font-medium transition-colors sm:min-h-0 sm:text-[13px] ${
-    isDark ? "hover:bg-white/[0.06]" : "hover:bg-black/[0.04]"
-  }`;
-
-  const sep = `my-1 border-t ${
-    isDark ? "border-white/[0.07]" : "border-black/[0.06]"
-  }`;
-
   const chipClass = `inline-flex w-fit items-center gap-1.5 rounded-md px-2 py-0.5 text-[11px] font-medium ${
     isDark ? "bg-white/[0.06]" : "bg-black/[0.05]"
   }`;
+
+  const menuItems = (dismiss: () => void, delayed: boolean) => (
+    <IdeaMenuItems
+      idea={idea}
+      ideaTags={ideaTags}
+      allTags={allTags}
+      moveGroups={moveGroups}
+      onToggleTag={onToggleTag}
+      onMove={onMove}
+      onDelete={onDelete}
+      dismiss={dismiss}
+      delayed={delayed}
+      isDark={isDark}
+      muted={muted}
+      c={c}
+    />
+  );
 
   return (
     <div
@@ -977,7 +1433,7 @@ function IdeaCard({
       onPointerDown={onPointerDown}
       className={`group/card relative rounded-xl ${menu ? "z-20" : ""} ${
         draggable
-          ? "cursor-grab select-none active:cursor-grabbing sm:touch-none"
+          ? "cursor-grab select-none active:cursor-grabbing md:touch-none"
           : ""
       } ${
         placeholder
@@ -1005,20 +1461,20 @@ function IdeaCard({
         )}
         <div className="flex flex-col gap-1 px-4 py-4">
           <div className="flex items-center justify-between gap-2">
-            <h3 className="min-w-0 flex-1 truncate text-[15px] font-semibold tracking-[-0.01em] sm:text-[14px]">
+            <h3 className="min-w-0 flex-1 truncate text-[15px] font-semibold tracking-[-0.01em] md:text-[14px]">
               {idea.title}
             </h3>
 
             {hasMenu && (
-              <div className="relative -my-1 -mr-2 shrink-0">
+              <div className="relative -my-1.5 -mr-2 shrink-0">
                 <button
                   type="button"
                   aria-label={c.ideaCard.options}
-                  aria-haspopup="menu"
+                  aria-haspopup={isMobile ? "dialog" : "menu"}
                   aria-expanded={menu}
                   onClick={() => setMenu((v) => !v)}
-                  className={`flex h-9 w-9 items-center justify-center rounded-lg transition-[opacity,background-color] focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 group-hover/card:opacity-100 sm:h-7 sm:w-7 [@media(hover:none)]:opacity-100 ${
-                    menu ? "opacity-100" : "opacity-0"
+                  className={`flex h-10 w-10 items-center justify-center rounded-xl transition-[opacity,background-color] focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 md:h-7 md:w-7 md:rounded-lg md:group-hover/card:opacity-100 [@media(hover:none)]:opacity-100 ${
+                    menu ? "opacity-100" : "max-md:opacity-100 md:opacity-0"
                   } ${
                     isDark
                       ? "hover:bg-white/[0.06] focus-visible:ring-white/30"
@@ -1028,114 +1484,39 @@ function IdeaCard({
                   <DotsIcon className="h-[18px] w-[18px]" />
                 </button>
 
-                {menu && (
+                {menu && isMobile && (
+                  <BottomSheet
+                    isDark={isDark}
+                    title={idea.title}
+                    onClose={() => setMenu(false)}
+                  >
+                    {(close) => (
+                      <div className="flex flex-col gap-0.5">
+                        {menuItems(close, true)}
+                      </div>
+                    )}
+                  </BottomSheet>
+                )}
+
+                {menu && !isMobile && (
                   <>
                     <button
                       type="button"
                       aria-label={c.ideaCard.closeMenu}
                       tabIndex={-1}
-                      className="fixed inset-0 z-30 cursor-default max-sm:z-40 max-sm:bg-black/30"
+                      className="fixed inset-0 z-30 cursor-default"
                       onClick={() => setMenu(false)}
                     />
                     <div
                       role="menu"
                       onPointerDown={(e) => e.stopPropagation()}
-                      className={`absolute right-0 top-full z-40 mt-1 min-w-[190px] max-w-[calc(100vw-48px)] rounded-xl border p-1 shadow-lg ${MOBILE_SHEET} ${
+                      className={`absolute right-0 top-full z-40 mt-1 min-w-[190px] rounded-xl border p-1 shadow-lg ${
                         isDark
                           ? "border-white/[0.08] bg-[#101012]"
                           : "border-black/[0.06] bg-white"
                       }`}
                     >
-                      {onMove && moveGroups && moveGroups.length > 0 && (
-                        <>
-                          <p
-                            className={`px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide ${muted}`}
-                          >
-                            {c.ideaCard.moveTo}
-                          </p>
-                          {moveGroups.map((g) => {
-                            const current = g.id === idea.groupId;
-                            return (
-                              <button
-                                key={g.id}
-                                type="button"
-                                role="menuitemradio"
-                                aria-checked={current}
-                                disabled={current}
-                                onClick={() => {
-                                  setMenu(false);
-                                  onMove(g.id);
-                                }}
-                                className={`${item} justify-between disabled:opacity-50`}
-                              >
-                                <span className="flex min-w-0 items-center gap-2">
-                                  <span
-                                    className={`h-2.5 w-2.5 shrink-0 rounded-full ${g.color}`}
-                                  />
-                                  <span className="truncate">{g.label}</span>
-                                </span>
-                                {current && (
-                                  <span className="text-[12px]">✓</span>
-                                )}
-                              </button>
-                            );
-                          })}
-                          {(onToggleTag || onDelete) && <div className={sep} />}
-                        </>
-                      )}
-                      {onToggleTag && (
-                        <>
-                          <p
-                            className={`px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide ${muted}`}
-                          >
-                            {c.ideaCard.tags}
-                          </p>
-                          {allTags.length === 0 ? (
-                            <p className={`px-3 pb-2 text-[12px] ${muted}`}>
-                              {c.ideaCard.noTags}
-                            </p>
-                          ) : (
-                            allTags.map((t) => {
-                              const on = ideaTags.some((x) => x.id === t.id);
-                              return (
-                                <button
-                                  key={t.id}
-                                  type="button"
-                                  role="menuitemcheckbox"
-                                  aria-checked={on}
-                                  onClick={() => onToggleTag(t.id)}
-                                  className={`${item} justify-between`}
-                                >
-                                  <span className="flex min-w-0 items-center gap-2">
-                                    <span
-                                      className={`h-2.5 w-2.5 shrink-0 rounded-full ${t.color}`}
-                                    />
-                                    <span className="truncate">{t.label}</span>
-                                  </span>
-                                  <CheckBox on={on} isDark={isDark} />
-                                </button>
-                              );
-                            })
-                          )}
-                          {onDelete && <div className={sep} />}
-                        </>
-                      )}
-                      {onDelete && (
-                        <button
-                          type="button"
-                          role="menuitem"
-                          onClick={() => {
-                            setMenu(false);
-                            onDelete();
-                          }}
-                          className={`${item} ${
-                            isDark ? "text-rose-400" : "text-rose-600"
-                          }`}
-                        >
-                          <TrashIcon className="h-4 w-4" />
-                          {c.ideaCard.delete}
-                        </button>
-                      )}
+                      {menuItems(() => setMenu(false), false)}
                     </div>
                   </>
                 )}
@@ -1144,7 +1525,7 @@ function IdeaCard({
           </div>
 
           {idea.description && (
-            <p className={`line-clamp-2 text-[14px] sm:text-[13px] ${muted}`}>
+            <p className={`line-clamp-2 text-[14px] md:text-[13px] ${muted}`}>
               {idea.description}
             </p>
           )}
@@ -1169,6 +1550,117 @@ function IdeaCard({
           )}
         </div>
       </article>
+    </div>
+  );
+}
+
+/** Corps de la feuille « Options du groupe » (mobile) : renommer / tout déplacer / supprimer. */
+function GroupActionsBody({
+  group,
+  isDark,
+  close,
+  onRename,
+  onMoveAll,
+  onDelete,
+  c,
+}: {
+  group: Group;
+  isDark: boolean;
+  close: () => void;
+  onRename: (label: string) => void;
+  onMoveAll: () => void;
+  onDelete: () => void;
+  c: Copy;
+}) {
+  const [renaming, setRenaming] = useState(false);
+  const [value, setValue] = useState(group.label);
+
+  const later = (fn: () => void) => {
+    close();
+    window.setTimeout(fn, SHEET_ACTION_DELAY);
+  };
+
+  const submit = () => {
+    const label = value.trim();
+    if (!label) return;
+    later(() => onRename(label));
+  };
+
+  if (renaming) {
+    return (
+      <div className="flex flex-col gap-3 pt-1">
+        <input
+          autoFocus
+          value={value}
+          maxLength={30}
+          onChange={(e) => setValue(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              submit();
+            }
+          }}
+          placeholder={c.board.groupNamePlaceholder}
+          // 16px : évite le zoom automatique d'iOS
+          className={`w-full rounded-xl border bg-transparent px-3 py-3 text-[16px] outline-none ${
+            isDark
+              ? "border-white/[0.14] placeholder:text-neutral-600"
+              : "border-black/[0.12] placeholder:text-neutral-400"
+          }`}
+        />
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={() => setRenaming(false)}
+            className={`min-h-12 rounded-2xl border text-[15px] font-medium ${
+              isDark
+                ? "border-white/[0.12] text-white active:bg-white/[0.06]"
+                : "border-black/[0.10] text-neutral-900 active:bg-black/[0.04]"
+            }`}
+          >
+            {c.board.cancel}
+          </button>
+          <button
+            type="button"
+            onClick={submit}
+            disabled={!value.trim()}
+            className={`min-h-12 rounded-2xl text-[15px] font-semibold transition-opacity disabled:opacity-40 ${
+              isDark ? "bg-white text-black" : "bg-neutral-900 text-white"
+            }`}
+          >
+            {c.board.save}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-0.5 pt-1">
+      <button
+        type="button"
+        onClick={() => setRenaming(true)}
+        className={sheetRowClass(isDark)}
+      >
+        <PencilIcon className="h-[18px] w-[18px]" />
+        {c.board.renameGroup}
+      </button>
+      <button
+        type="button"
+        onClick={() => later(onMoveAll)}
+        className={sheetRowClass(isDark)}
+      >
+        <MoveIcon className="h-[18px] w-[18px]" />
+        {c.board.moveAllToUnassigned}
+      </button>
+      <button
+        type="button"
+        onClick={() => later(onDelete)}
+        className={sheetRowClass(isDark, true)}
+      >
+        <TrashIcon className="h-[18px] w-[18px]" />
+        {c.board.deleteGroup}
+      </button>
     </div>
   );
 }
@@ -1205,6 +1697,7 @@ export default function Create() {
   const { theme } = useTheme();
   const isDark = theme === "dark";
   const sidebarOffset = useSidebarOffset();
+  const isMobile = useIsMobile();
 
   const lang = useLanguage();
   const c = COPY[lang];
@@ -1252,6 +1745,7 @@ export default function Create() {
     writeStoredIds(CREATE_HIDDEN_GROUPS_STORAGE_KEY, hiddenGroups);
   }, [hiddenGroups]);
 
+  /* ── Desktop : drag & drop ── */
   const [colDrag, setColDrag] = useState<string | null>(null);
   const [cardDrag, setCardDrag] = useState<string | null>(null);
   const [overCol, setOverCol] = useState<string | null>(null);
@@ -1264,6 +1758,14 @@ export default function Create() {
   const [colMenu, setColMenu] = useState<string | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
   const [addingCol, setAddingCol] = useState(false);
+
+  /* ── Mobile : groupe affiché, feuilles ── */
+  const [mobileGroupId, setMobileGroupId] = useState<string | null>(null);
+  const [groupSheetId, setGroupSheetId] = useState<string | null>(null);
+  const [newGroupSheet, setNewGroupSheet] = useState(false);
+  const chipsRef = useRef<HTMLDivElement>(null);
+  const mobileListRef = useRef<HTMLDivElement>(null);
+  const swipeStart = useRef<{ x: number; y: number } | null>(null);
 
   /* ───────── Onglet ↔ URL ───────── */
 
@@ -1340,7 +1842,65 @@ export default function Create() {
     await deleteTag(id);
   };
 
-  /* ── Drag d'une colonne (groupe) ── */
+  /** Groupe affiché sur mobile : celui choisi, sinon le premier visible. */
+  const activeGroup =
+    visibleGroups.find((g) => g.id === mobileGroupId) ?? visibleGroups[0];
+  const activeGroupIdeas = activeGroup
+    ? ideas.filter((i) => i.groupId === activeGroup.id && matchesTagFilter(i))
+    : [];
+  const sheetGroup = groupSheetId
+    ? (groups.find((g) => g.id === groupSheetId) ?? null)
+    : null;
+
+  /** Change de groupe (chips ou swipe) avec une petite animation de glissement. */
+  const selectMobileGroup = (id: string, dir: 1 | -1 = 1) => {
+    if (id === activeGroup?.id) return;
+    const el = mobileListRef.current;
+    if (el && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      el.animate(
+        [
+          { transform: `translateX(${dir * 28}px)`, opacity: 0.35 },
+          { transform: "translateX(0)", opacity: 1 },
+        ],
+        { duration: 240, easing: "cubic-bezier(0.32, 0.72, 0, 1)" }
+      );
+    }
+    setMobileGroupId(id);
+  };
+
+  const stepMobileGroup = (dir: 1 | -1) => {
+    if (!activeGroup) return;
+    const i = visibleGroups.findIndex((g) => g.id === activeGroup.id);
+    const next = visibleGroups[i + dir];
+    if (next) selectMobileGroup(next.id, dir);
+  };
+
+  const onSwipeStart = (e: React.TouchEvent) => {
+    const t = e.touches[0];
+    swipeStart.current = { x: t.clientX, y: t.clientY };
+  };
+
+  const onSwipeEnd = (e: React.TouchEvent) => {
+    const s0 = swipeStart.current;
+    swipeStart.current = null;
+    if (!s0) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - s0.x;
+    const dy = t.clientY - s0.y;
+    if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+    stepMobileGroup(dx < 0 ? 1 : -1);
+  };
+
+  /** Garde la pastille du groupe actif visible dans la rangée scrollable. */
+  useEffect(() => {
+    if (!isMobile || !activeGroup) return;
+    const el = chipsRef.current?.querySelector<HTMLElement>(
+      `[data-chip="${CSS.escape(activeGroup.id)}"]`
+    );
+    el?.scrollIntoView({ inline: "center", block: "nearest", behavior: "smooth" });
+  }, [isMobile, activeGroup?.id]);
+
+  /* ── Drag d'une colonne (groupe) — desktop ── */
 
   const onHeaderPointerDown = (e: RPointerEvent, groupId: string) => {
     if (e.button !== 0) return;
@@ -1417,7 +1977,7 @@ export default function Create() {
     window.addEventListener("pointercancel", onUp);
   };
 
-  /* ── Drag d'une carte ── */
+  /* ── Drag d'une carte — desktop ── */
 
   const onCardPointerDown = (e: RPointerEvent, ideaId: string) => {
     if (e.button !== 0) return;
@@ -1513,7 +2073,7 @@ export default function Create() {
     window.addEventListener("pointercancel", onUp);
   };
 
-  /** FLIP : anime les colonnes et les cartes qui changent de place. */
+  /** FLIP : anime les colonnes et les cartes qui changent de place (desktop). */
   useLayoutEffect(() => {
     const reduce = window.matchMedia(
       "(prefers-reduced-motion: reduce)"
@@ -1595,14 +2155,12 @@ export default function Create() {
     },
   ];
 
-  /** Marge négative / padding du shell : les rangées scrollables vont bord à bord sur mobile. */
-  const EDGE_BLEED =
-    "-mx-[clamp(18px,3vw,48px)] px-[clamp(18px,3vw,48px)] sm:mx-0 sm:px-0";
+  const boardLoading = status === "idle" || status === "loading";
 
   return (
     <main
       className={[
-        "relative h-[100dvh] w-full overflow-hidden",
+        "relative h-[100dvh] w-full overflow-hidden overscroll-none",
         "transition-colors duration-300",
         page,
       ].join(" ")}
@@ -1611,17 +2169,19 @@ export default function Create() {
 
       <div
         className={[
-          "h-full py-3 pr-3 max-md:pt-14",
+          "h-full min-h-0 px-2 py-2 md:py-3 md:pl-0 md:pr-3",
+          "max-md:pt-[calc(3.5rem+env(safe-area-inset-top))]",
           "transition-[padding-left] duration-[380ms]",
           "ease-[cubic-bezier(0.4,0,0.2,1)]",
           "motion-reduce:transition-none",
         ].join(" ")}
-        style={{ paddingLeft: sidebarOffset }}
+        // Sur mobile la sidebar est un tiroir : aucun décalage à gauche.
+        style={isMobile ? undefined : { paddingLeft: sidebarOffset }}
       >
         <div
           className={[
-            "flex h-full flex-col overflow-hidden",
-            "rounded-[28px] border",
+            "flex h-full min-h-0 flex-col overflow-hidden",
+            "rounded-2xl border md:rounded-[28px]",
             "transition-colors duration-300",
             panel,
           ].join(" ")}
@@ -1629,17 +2189,17 @@ export default function Create() {
           <div
             className={[
               "flex min-h-0 w-full flex-1 flex-col",
-              "px-[clamp(18px,3vw,48px)]",
+              "px-[clamp(14px,3vw,48px)]",
               // pb : place pour la BottomBar flottante sur mobile
-              "pb-[104px] pt-[clamp(18px,3vw,30px)] sm:pb-6",
+              "pb-[calc(6.5rem+env(safe-area-inset-bottom))] pt-[clamp(16px,3vw,30px)] md:pb-6",
             ].join(" ")}
           >
             {/* HEADER */}
-            <div className="flex shrink-0 items-center justify-between gap-3 pb-4">
+            <div className="flex shrink-0 items-center justify-between gap-3 pb-3 md:pb-4">
               <div className="flex min-w-0 items-center gap-2.5">
                 <span
                   className={[
-                    "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border sm:h-9 sm:w-9",
+                    "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border md:h-9 md:w-9",
                     isDark
                       ? "border-white/[0.07] bg-white/[0.04] text-neutral-400"
                       : "border-black/[0.06] bg-white text-neutral-500",
@@ -1649,14 +2209,14 @@ export default function Create() {
                 </span>
                 <h1
                   className={[
-                    "truncate text-[22px] font-semibold tracking-[-0.03em] sm:text-[20px]",
+                    "truncate text-[24px] font-semibold tracking-[-0.03em] md:text-[20px]",
                     strong,
                   ].join(" ")}
                 >
                   {c.pageTitle}
                 </h1>
               </div>
-              <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+              <div className="flex shrink-0 items-center gap-1 md:gap-2">
                 <IconButton
                   label={
                     saved ? c.header.removeFavorite : c.header.addFavorite
@@ -1699,7 +2259,7 @@ export default function Create() {
                     aria-selected={tab === tb.key}
                     onClick={() => selectTab(tb.key)}
                     className={[
-                      "-mb-px min-h-10 border-b-2 px-1 pb-3 pt-2 text-[15px] font-medium transition-colors motion-reduce:transition-none sm:min-h-0 sm:text-[14px]",
+                      "-mb-px min-h-10 border-b-2 px-1 pb-3 pt-2 text-[15px] font-medium transition-colors motion-reduce:transition-none md:min-h-0 md:text-[14px]",
                       "focus-visible:outline-none focus-visible:ring-2",
                       ring,
                       tab === tb.key
@@ -1723,9 +2283,9 @@ export default function Create() {
                   className={[
                     "flex items-center gap-2 pb-2",
                     // mobile : rangée pleine largeur, scrollable, sans scrollbar
-                    "max-sm:order-last max-sm:w-[calc(100%+2*clamp(18px,3vw,48px))] max-sm:overflow-x-auto max-sm:pt-1",
-                    "max-sm:-mx-[clamp(18px,3vw,48px)] max-sm:px-[clamp(18px,3vw,48px)]",
-                    "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+                    "max-md:order-last max-md:w-[calc(100%+2*clamp(14px,3vw,48px))] max-md:overflow-x-auto max-md:pt-1",
+                    "max-md:-mx-[clamp(14px,3vw,48px)] max-md:px-[clamp(14px,3vw,48px)]",
+                    HIDE_SCROLLBAR,
                   ].join(" ")}
                 >
                   <GroupsMenu
@@ -1734,6 +2294,7 @@ export default function Create() {
                     onToggle={toggleHiddenGroup}
                     onCreate={(l) => void createGroup(l)}
                     isDark={isDark}
+                    isMobile={isMobile}
                     ghost={ghost}
                     c={c}
                   />
@@ -1744,6 +2305,7 @@ export default function Create() {
                     onCreate={(l) => void addTag(l)}
                     onDelete={(id) => void removeTag(id)}
                     isDark={isDark}
+                    isMobile={isMobile}
                     ghost={ghost}
                     c={c}
                   />
@@ -1751,7 +2313,7 @@ export default function Create() {
                     role="tablist"
                     aria-label={c.view.ariaLabel}
                     className={[
-                      "inline-flex shrink-0 gap-1 rounded-xl border p-1 max-sm:ml-auto",
+                      "inline-flex shrink-0 gap-1 rounded-xl border p-1 max-md:ml-auto",
                       line,
                     ].join(" ")}
                   >
@@ -1765,7 +2327,7 @@ export default function Create() {
                         title={o.label}
                         onClick={() => setView(o.key)}
                         className={[
-                          "flex min-h-9 items-center gap-2 rounded-lg px-3 py-1.5 text-[12.5px] font-semibold transition-colors motion-reduce:transition-none sm:min-h-0",
+                          "flex min-h-9 items-center gap-2 rounded-lg px-3 py-1.5 text-[12.5px] font-semibold transition-colors motion-reduce:transition-none md:min-h-0",
                           "focus-visible:outline-none focus-visible:ring-2",
                           ring,
                           view === o.key
@@ -1778,7 +2340,7 @@ export default function Create() {
                         ].join(" ")}
                       >
                         {o.icon}
-                        <span className="max-sm:sr-only">{o.label}</span>
+                        <span className="max-md:sr-only">{o.label}</span>
                       </button>
                     ))}
                   </div>
@@ -1787,7 +2349,7 @@ export default function Create() {
             </div>
 
             {/* Body */}
-            <div className="flex min-h-0 flex-1 flex-col pt-4 sm:pt-5">
+            <div className="flex min-h-0 flex-1 flex-col pt-3 md:pt-5">
               {/* Templates */}
               {tab === "templates" && (
                 <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center">
@@ -1801,7 +2363,7 @@ export default function Create() {
                   </h2>
                   <p
                     className={[
-                      "max-w-[380px] text-[14px] leading-relaxed sm:text-[13px]",
+                      "max-w-[380px] text-[14px] leading-relaxed md:text-[13px]",
                       muted,
                     ].join(" ")}
                   >
@@ -1811,32 +2373,49 @@ export default function Create() {
               )}
 
               {/* Board : chargement (skeleton) */}
-              {tab === "ideas" &&
-                view === "board" &&
-                (status === "idle" || status === "loading") && (
-                  <div
-                    className={`flex min-h-0 flex-1 gap-3 overflow-hidden sm:gap-4 ${EDGE_BLEED}`}
-                  >
-                    {[0, 1, 2].map((i) => (
-                      <div
-                        key={i}
-                        className={`h-[220px] w-[min(300px,85vw)] shrink-0 animate-pulse rounded-2xl motion-reduce:animate-none ${column}`}
-                      />
-                    ))}
-                  </div>
-                )}
+              {tab === "ideas" && view === "board" && boardLoading && (
+                <>
+                  {isMobile ? (
+                    <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden">
+                      <div className="flex gap-2">
+                        {[0, 1, 2].map((i) => (
+                          <div
+                            key={i}
+                            className={`h-10 w-24 shrink-0 animate-pulse rounded-full motion-reduce:animate-none ${column}`}
+                          />
+                        ))}
+                      </div>
+                      {[0, 1, 2].map((i) => (
+                        <div
+                          key={i}
+                          className={`h-[96px] w-full shrink-0 animate-pulse rounded-xl motion-reduce:animate-none ${column}`}
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex min-h-0 flex-1 gap-4 overflow-hidden">
+                      {[0, 1, 2].map((i) => (
+                        <div
+                          key={i}
+                          className={`h-[220px] w-[300px] shrink-0 animate-pulse rounded-2xl motion-reduce:animate-none ${column}`}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </>
+              )}
 
               {/* Board : erreur de chargement */}
               {tab === "ideas" && view === "board" && status === "error" && (
                 <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
-                  <p className={["text-[14px] sm:text-[13px]", muted].join(" ")}>
+                  <p className={["text-[14px] md:text-[13px]", muted].join(" ")}>
                     {c.board.loadError}
                   </p>
                   <button
                     type="button"
                     onClick={() => void loadBoardMeta()}
                     className={[
-                      "min-h-10 rounded-xl border px-4 py-2 text-[13px] font-medium transition-colors sm:min-h-0",
+                      "min-h-11 rounded-xl border px-5 py-2 text-[14px] font-medium transition-colors md:min-h-0 md:px-4 md:text-[13px]",
                       "focus-visible:outline-none focus-visible:ring-2",
                       ring,
                       line,
@@ -1848,266 +2427,453 @@ export default function Create() {
                 </div>
               )}
 
-              {/* Board : carrousel magnétique sur mobile, colonnes libres dès sm */}
-              {tab === "ideas" && view === "board" && status === "ready" && (
-                <div
-                  ref={boardRef}
-                  className={[
-                    "relative flex min-h-0 flex-1 snap-x snap-mandatory gap-3 overflow-x-auto overscroll-x-contain pb-2",
-                    "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
-                    "sm:snap-none sm:gap-4",
-                    EDGE_BLEED,
-                  ].join(" ")}
-                >
-                  {visibleGroups.map((group) => {
-                    const items = ideas.filter(
-                      (i) => i.groupId === group.id && matchesTagFilter(i)
-                    );
-                    const fixed = group.id === UNASSIGNED;
-                    const isPlaceholder = colDrag === group.id;
-                    const ideaTarget =
-                      cardDrag !== null && overCol === group.id;
-
-                    return (
-                      <section
-                        key={group.id}
-                        data-col={group.id}
-                        ref={(el) => {
-                          if (el) colRefs.current.set(group.id, el);
-                          else colRefs.current.delete(group.id);
-                        }}
-                        className={[
-                          "group/col relative flex min-h-0 w-[min(300px,85vw)] shrink-0 snap-start flex-col rounded-2xl p-3 sm:snap-align-none",
-                          "transition-colors motion-reduce:transition-none",
-                          isPlaceholder
-                            ? `${
-                                isDark
-                                  ? "bg-white/[0.06]"
-                                  : "bg-black/[0.05]"
-                              } [&>*]:invisible`
-                            : ideaTarget
-                              ? isDark
-                                ? "bg-white/[0.08]"
-                                : "bg-black/[0.05]"
-                              : column,
-                        ].join(" ")}
-                      >
-                        {!fixed && (
-                          <span
-                            data-grip
-                            aria-hidden="true"
-                            className={`pointer-events-none absolute left-1/2 top-0.5 hidden -translate-x-1/2 opacity-0 transition-opacity group-hover/col:opacity-100 sm:block ${muted}`}
-                          >
-                            <DragDotsIcon className="h-5 w-5" />
-                          </span>
-                        )}
-
-                        <div
-                          onPointerDown={(e) =>
-                            !fixed &&
-                            editing !== group.id &&
-                            onHeaderPointerDown(e, group.id)
-                          }
-                          className={[
-                            "flex items-center justify-between px-2 pb-3 pt-3",
-                            fixed
-                              ? ""
-                              : "cursor-grab select-none active:cursor-grabbing sm:touch-none",
-                          ].join(" ")}
+              {/* ───────── Board MOBILE : onglets de groupes + liste verticale ───────── */}
+              {tab === "ideas" &&
+                view === "board" &&
+                status === "ready" &&
+                isMobile && (
+                  <div className="flex min-h-0 flex-1 flex-col">
+                    {visibleGroups.length === 0 || !activeGroup ? (
+                      <div className="flex flex-1 flex-col items-center justify-center gap-4 px-4 text-center">
+                        <p
+                          className={`max-w-[300px] text-[14px] leading-relaxed ${muted}`}
                         >
-                          <div className="flex min-w-0 items-center gap-2.5">
-                            <span
-                              className={`h-2.5 w-2.5 shrink-0 rounded-full ${group.color}`}
-                            />
-                            {editing === group.id ? (
-                              <input
-                                autoFocus
-                                defaultValue={group.label}
-                                maxLength={30}
-                                onBlur={(e) => {
-                                  void renameGroup(group.id, e.target.value);
-                                  setEditing(null);
-                                }}
-                                onKeyDown={(e) => {
-                                  if (e.key === "Enter")
-                                    e.currentTarget.blur();
-                                  if (e.key === "Escape") setEditing(null);
-                                }}
-                                className={[
-                                  "w-[120px] rounded-md border bg-transparent px-2 py-0.5 text-[16px] font-semibold outline-none sm:text-[14px]",
-                                  isDark
-                                    ? "border-white/30"
-                                    : "border-black/30",
-                                ].join(" ")}
-                              />
-                            ) : (
-                              <h2
-                                className={[
-                                  "truncate text-[15px] font-semibold sm:text-[14px]",
-                                  strong,
-                                ].join(" ")}
-                              >
-                                {group.label}
-                              </h2>
-                            )}
-                            <span
-                              className={`rounded-full px-2.5 py-0.5 text-[12px] font-medium tabular-nums ${chip} ${muted}`}
-                            >
-                              {items.length}
-                            </span>
-                          </div>
-
-                          <div className="relative flex items-center">
-                            {!fixed && (
-                              <>
-                                <IconButton
-                                  label={c.board.groupOptions}
-                                  onClick={() =>
-                                    setColMenu((cur) =>
-                                      cur === group.id ? null : group.id
-                                    )
-                                  }
-                                  ghost={ghost}
-                                  isDark={isDark}
-                                  className="h-9 w-9 sm:h-8 sm:w-8"
-                                  align="end"
-                                >
-                                  <DotsIcon className="h-[18px] w-[18px]" />
-                                </IconButton>
-                                {colMenu === group.id && (
-                                  <>
-                                    <button
-                                      type="button"
-                                      aria-label={c.board.closeMenu}
-                                      tabIndex={-1}
-                                      className="fixed inset-0 z-30 cursor-default max-sm:z-40 max-sm:bg-black/30"
-                                      onClick={() => setColMenu(null)}
-                                    />
-                                    <div
-                                      className={`absolute right-0 top-full z-40 mt-1 min-w-[210px] max-w-[calc(100vw-48px)] rounded-xl border p-1 shadow-lg ${MOBILE_SHEET} ${
-                                        isDark
-                                          ? "border-white/[0.08] bg-[#101012]"
-                                          : "border-black/[0.06] bg-white"
-                                      }`}
-                                    >
-                                      {[
-                                        {
-                                          label: c.board.renameGroup,
-                                          run: () => setEditing(group.id),
-                                        },
-                                        {
-                                          label: c.board.moveAllToUnassigned,
-                                          run: () =>
-                                            moveAll(group.id, UNASSIGNED),
-                                        },
-                                        {
-                                          label: c.board.deleteGroup,
-                                          run: () => void deleteGroup(group.id),
-                                        },
-                                      ].map((o) => (
-                                        <button
-                                          key={o.label}
-                                          type="button"
-                                          onClick={() => {
-                                            o.run();
-                                            setColMenu(null);
-                                          }}
-                                          className={`min-h-10 w-full rounded-lg px-3 py-2 text-left text-[14px] font-medium transition-colors sm:min-h-0 sm:text-[13px] ${
-                                            isDark
-                                              ? "hover:bg-white/[0.06]"
-                                              : "hover:bg-black/[0.04]"
-                                          }`}
-                                        >
-                                          {o.label}
-                                        </button>
-                                      ))}
-                                    </div>
-                                  </>
-                                )}
-                              </>
-                            )}
-                          </div>
-                        </div>
-
-                        <div
-                          data-list
-                          className="relative flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-                        >
-                          {items.map((idea) => (
-                            <IdeaCard
-                              key={idea.id}
-                              idea={idea}
-                              ideaTags={tagsOf(idea)}
-                              allTags={tags}
-                              moveGroups={groups}
-                              onToggleTag={(tid) =>
-                                toggleIdeaTag(idea.id, tid)
-                              }
-                              onMove={(gid) => moveIdea(idea.id, gid)}
-                              isDark={isDark}
-                              muted={muted}
-                              draggable
-                              placeholder={cardDrag === idea.id}
-                              onPointerDown={(e) =>
-                                onCardPointerDown(e, idea.id)
-                              }
-                              onDelete={() => deleteIdea(idea.id)}
-                              c={c}
-                            />
-                          ))}
-                        </div>
-                      </section>
-                    );
-                  })}
-
-                  {/* Ajouter un groupe */}
-                  <div className="w-[min(260px,80vw)] shrink-0 snap-start">
-                    {addingCol ? (
-                      <div className={`rounded-2xl p-3 ${column}`}>
-                        <CreateNameInput
-                          autoFocus
-                          isDark={isDark}
-                          placeholder={c.board.groupNamePlaceholder}
-                          submitAria={c.groupsMenu.createAria}
-                          onCreate={(l) => {
-                            void createGroup(l);
-                            setAddingCol(false);
-                          }}
-                        />
+                          {c.board.noGroups}
+                        </p>
                         <button
                           type="button"
-                          onClick={() => setAddingCol(false)}
-                          className={`mt-2 min-h-10 w-full rounded-lg px-3 py-1.5 text-[13px] font-medium sm:min-h-0 ${muted} ${ghost}`}
+                          onClick={() => setNewGroupSheet(true)}
+                          className={[
+                            "flex min-h-11 items-center gap-2 rounded-xl border border-dashed px-5 text-[14px] font-medium",
+                            isDark
+                              ? "border-white/[0.14] text-neutral-300"
+                              : "border-black/[0.10] text-neutral-600",
+                          ].join(" ")}
                         >
-                          {c.board.cancel}
+                          <PlusIcon className="h-[18px] w-[18px]" />
+                          {c.board.newGroup}
                         </button>
                       </div>
                     ) : (
-                      <button
-                        type="button"
-                        onClick={() => setAddingCol(true)}
-                        className={[
-                          "flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl border border-dashed px-4 py-4 text-[14px] font-medium transition-colors",
-                          "focus-visible:outline-none focus-visible:ring-2",
-                          ring,
-                          isDark
-                            ? "border-white/[0.14] text-neutral-300 hover:bg-white/[0.04]"
-                            : "border-black/[0.10] text-neutral-600 hover:bg-black/[0.03]",
-                        ].join(" ")}
-                      >
-                        <PlusIcon className="h-[18px] w-[18px]" />
-                        {c.board.newGroup}
-                      </button>
+                      <>
+                        {/* Pastilles de groupes */}
+                        <div
+                          ref={chipsRef}
+                          role="tablist"
+                          aria-label={c.groupsMenu.label}
+                          className={[
+                            "flex shrink-0 gap-2 overflow-x-auto pb-3",
+                            EDGE_BLEED,
+                            HIDE_SCROLLBAR,
+                          ].join(" ")}
+                        >
+                          {visibleGroups.map((g) => {
+                            const count = ideas.filter(
+                              (i) => i.groupId === g.id && matchesTagFilter(i)
+                            ).length;
+                            const active = g.id === activeGroup.id;
+                            const index = visibleGroups.findIndex(
+                              (x) => x.id === g.id
+                            );
+                            const current = visibleGroups.findIndex(
+                              (x) => x.id === activeGroup.id
+                            );
+                            return (
+                              <button
+                                key={g.id}
+                                type="button"
+                                role="tab"
+                                data-chip={g.id}
+                                aria-selected={active}
+                                onClick={() =>
+                                  selectMobileGroup(g.id, index > current ? 1 : -1)
+                                }
+                                className={[
+                                  "flex min-h-10 shrink-0 items-center gap-2 rounded-full border px-3.5 text-[14px] font-medium transition-colors",
+                                  "focus-visible:outline-none focus-visible:ring-2",
+                                  ring,
+                                  active
+                                    ? isDark
+                                      ? "border-white bg-white text-black"
+                                      : "border-neutral-900 bg-neutral-900 text-white"
+                                    : isDark
+                                      ? "border-white/[0.10] text-neutral-300 active:bg-white/[0.06]"
+                                      : "border-black/[0.08] text-neutral-600 active:bg-black/[0.04]",
+                                ].join(" ")}
+                              >
+                                <span
+                                  className={`h-2.5 w-2.5 shrink-0 rounded-full ${g.color}`}
+                                />
+                                <span className="max-w-[140px] truncate">
+                                  {g.label}
+                                </span>
+                                <span
+                                  className={`rounded-full px-1.5 text-[11px] tabular-nums ${
+                                    active
+                                      ? isDark
+                                        ? "bg-black/10 text-black"
+                                        : "bg-white/20 text-white"
+                                      : `${chip} ${muted}`
+                                  }`}
+                                >
+                                  {count}
+                                </span>
+                              </button>
+                            );
+                          })}
+
+                          <button
+                            type="button"
+                            aria-label={c.board.newGroup}
+                            onClick={() => setNewGroupSheet(true)}
+                            className={[
+                              "flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-dashed",
+                              "focus-visible:outline-none focus-visible:ring-2",
+                              ring,
+                              isDark
+                                ? "border-white/[0.18] text-neutral-300 active:bg-white/[0.06]"
+                                : "border-black/[0.14] text-neutral-600 active:bg-black/[0.04]",
+                            ].join(" ")}
+                          >
+                            <PlusIcon className="h-[18px] w-[18px]" />
+                          </button>
+                        </div>
+
+                        {/* En-tête du groupe actif */}
+                        <div className="flex shrink-0 items-center justify-between gap-2 pb-2">
+                          <div className="flex min-w-0 items-center gap-2.5">
+                            <h2
+                              className={`truncate text-[17px] font-semibold tracking-[-0.02em] ${strong}`}
+                            >
+                              {activeGroup.label}
+                            </h2>
+                            <span
+                              className={`rounded-full px-2.5 py-0.5 text-[12px] font-medium tabular-nums ${chip} ${muted}`}
+                            >
+                              {activeGroupIdeas.length}
+                            </span>
+                          </div>
+                          {activeGroup.id !== UNASSIGNED && (
+                            <IconButton
+                              label={c.board.groupOptions}
+                              onClick={() => setGroupSheetId(activeGroup.id)}
+                              ghost={ghost}
+                              isDark={isDark}
+                              className="h-10 w-10"
+                              align="end"
+                            >
+                              <DotsIcon className="h-5 w-5" />
+                            </IconButton>
+                          )}
+                        </div>
+
+                        {/* Liste verticale — swipe gauche/droite pour changer de groupe */}
+                        <div
+                          ref={mobileListRef}
+                          onTouchStart={onSwipeStart}
+                          onTouchEnd={onSwipeEnd}
+                          className={[
+                            "flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain pb-2 [touch-action:pan-y]",
+                            HIDE_SCROLLBAR,
+                          ].join(" ")}
+                        >
+                          {activeGroupIdeas.length === 0 ? (
+                            <div
+                              className={`flex flex-1 items-center justify-center rounded-2xl px-6 py-12 text-center text-[14px] ${column} ${muted}`}
+                            >
+                              {c.board.emptyGroup}
+                            </div>
+                          ) : (
+                            activeGroupIdeas.map((idea) => (
+                              <IdeaCard
+                                key={idea.id}
+                                idea={idea}
+                                ideaTags={tagsOf(idea)}
+                                allTags={tags}
+                                moveGroups={groups}
+                                onToggleTag={(tid) =>
+                                  toggleIdeaTag(idea.id, tid)
+                                }
+                                onMove={(gid) => moveIdea(idea.id, gid)}
+                                onDelete={() => deleteIdea(idea.id)}
+                                isDark={isDark}
+                                isMobile
+                                muted={muted}
+                                c={c}
+                              />
+                            ))
+                          )}
+                        </div>
+                      </>
                     )}
                   </div>
-                </div>
-              )}
+                )}
+
+              {/* ───────── Board DESKTOP : colonnes libres + drag & drop ───────── */}
+              {tab === "ideas" &&
+                view === "board" &&
+                status === "ready" &&
+                !isMobile && (
+                  <div
+                    ref={boardRef}
+                    className={[
+                      "relative flex min-h-0 flex-1 gap-4 overflow-x-auto overscroll-x-contain pb-2",
+                      HIDE_SCROLLBAR,
+                    ].join(" ")}
+                  >
+                    {visibleGroups.map((group) => {
+                      const items = ideas.filter(
+                        (i) => i.groupId === group.id && matchesTagFilter(i)
+                      );
+                      const fixed = group.id === UNASSIGNED;
+                      const isPlaceholder = colDrag === group.id;
+                      const ideaTarget =
+                        cardDrag !== null && overCol === group.id;
+
+                      return (
+                        <section
+                          key={group.id}
+                          data-col={group.id}
+                          ref={(el) => {
+                            if (el) colRefs.current.set(group.id, el);
+                            else colRefs.current.delete(group.id);
+                          }}
+                          className={[
+                            "group/col relative flex min-h-0 w-[300px] shrink-0 flex-col rounded-2xl p-3",
+                            "transition-colors motion-reduce:transition-none",
+                            isPlaceholder
+                              ? `${
+                                  isDark
+                                    ? "bg-white/[0.06]"
+                                    : "bg-black/[0.05]"
+                                } [&>*]:invisible`
+                              : ideaTarget
+                                ? isDark
+                                  ? "bg-white/[0.08]"
+                                  : "bg-black/[0.05]"
+                                : column,
+                          ].join(" ")}
+                        >
+                          {!fixed && (
+                            <span
+                              data-grip
+                              aria-hidden="true"
+                              className={`pointer-events-none absolute left-1/2 top-0.5 -translate-x-1/2 opacity-0 transition-opacity group-hover/col:opacity-100 ${muted}`}
+                            >
+                              <DragDotsIcon className="h-5 w-5" />
+                            </span>
+                          )}
+
+                          <div
+                            onPointerDown={(e) =>
+                              !fixed &&
+                              editing !== group.id &&
+                              onHeaderPointerDown(e, group.id)
+                            }
+                            className={[
+                              "flex items-center justify-between px-2 pb-3 pt-3",
+                              fixed
+                                ? ""
+                                : "cursor-grab select-none active:cursor-grabbing touch-none",
+                            ].join(" ")}
+                          >
+                            <div className="flex min-w-0 items-center gap-2.5">
+                              <span
+                                className={`h-2.5 w-2.5 shrink-0 rounded-full ${group.color}`}
+                              />
+                              {editing === group.id ? (
+                                <input
+                                  autoFocus
+                                  defaultValue={group.label}
+                                  maxLength={30}
+                                  onBlur={(e) => {
+                                    void renameGroup(group.id, e.target.value);
+                                    setEditing(null);
+                                  }}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter")
+                                      e.currentTarget.blur();
+                                    if (e.key === "Escape") setEditing(null);
+                                  }}
+                                  className={[
+                                    "w-[120px] rounded-md border bg-transparent px-2 py-0.5 text-[14px] font-semibold outline-none",
+                                    isDark
+                                      ? "border-white/30"
+                                      : "border-black/30",
+                                  ].join(" ")}
+                                />
+                              ) : (
+                                <h2
+                                  className={[
+                                    "truncate text-[14px] font-semibold",
+                                    strong,
+                                  ].join(" ")}
+                                >
+                                  {group.label}
+                                </h2>
+                              )}
+                              <span
+                                className={`rounded-full px-2.5 py-0.5 text-[12px] font-medium tabular-nums ${chip} ${muted}`}
+                              >
+                                {items.length}
+                              </span>
+                            </div>
+
+                            <div className="relative flex items-center">
+                              {!fixed && (
+                                <>
+                                  <IconButton
+                                    label={c.board.groupOptions}
+                                    onClick={() =>
+                                      setColMenu((cur) =>
+                                        cur === group.id ? null : group.id
+                                      )
+                                    }
+                                    ghost={ghost}
+                                    isDark={isDark}
+                                    className="h-8 w-8"
+                                    align="end"
+                                  >
+                                    <DotsIcon className="h-[18px] w-[18px]" />
+                                  </IconButton>
+                                  {colMenu === group.id && (
+                                    <>
+                                      <button
+                                        type="button"
+                                        aria-label={c.board.closeMenu}
+                                        tabIndex={-1}
+                                        className="fixed inset-0 z-30 cursor-default"
+                                        onClick={() => setColMenu(null)}
+                                      />
+                                      <div
+                                        className={`absolute right-0 top-full z-40 mt-1 min-w-[210px] rounded-xl border p-1 shadow-lg ${
+                                          isDark
+                                            ? "border-white/[0.08] bg-[#101012]"
+                                            : "border-black/[0.06] bg-white"
+                                        }`}
+                                      >
+                                        {[
+                                          {
+                                            label: c.board.renameGroup,
+                                            run: () => setEditing(group.id),
+                                          },
+                                          {
+                                            label: c.board.moveAllToUnassigned,
+                                            run: () =>
+                                              moveAll(group.id, UNASSIGNED),
+                                          },
+                                          {
+                                            label: c.board.deleteGroup,
+                                            run: () =>
+                                              void deleteGroup(group.id),
+                                          },
+                                        ].map((o) => (
+                                          <button
+                                            key={o.label}
+                                            type="button"
+                                            onClick={() => {
+                                              o.run();
+                                              setColMenu(null);
+                                            }}
+                                            className={`w-full rounded-lg px-3 py-2 text-left text-[13px] font-medium transition-colors ${
+                                              isDark
+                                                ? "hover:bg-white/[0.06]"
+                                                : "hover:bg-black/[0.04]"
+                                            }`}
+                                          >
+                                            {o.label}
+                                          </button>
+                                        ))}
+                                      </div>
+                                    </>
+                                  )}
+                                </>
+                              )}
+                            </div>
+                          </div>
+
+                          <div
+                            data-list
+                            className={`relative flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto ${HIDE_SCROLLBAR}`}
+                          >
+                            {items.map((idea) => (
+                              <IdeaCard
+                                key={idea.id}
+                                idea={idea}
+                                ideaTags={tagsOf(idea)}
+                                allTags={tags}
+                                moveGroups={groups}
+                                onToggleTag={(tid) =>
+                                  toggleIdeaTag(idea.id, tid)
+                                }
+                                onMove={(gid) => moveIdea(idea.id, gid)}
+                                isDark={isDark}
+                                isMobile={false}
+                                muted={muted}
+                                draggable
+                                placeholder={cardDrag === idea.id}
+                                onPointerDown={(e) =>
+                                  onCardPointerDown(e, idea.id)
+                                }
+                                onDelete={() => deleteIdea(idea.id)}
+                                c={c}
+                              />
+                            ))}
+                          </div>
+                        </section>
+                      );
+                    })}
+
+                    {/* Ajouter un groupe */}
+                    <div className="w-[260px] shrink-0">
+                      {addingCol ? (
+                        <div className={`rounded-2xl p-3 ${column}`}>
+                          <CreateNameInput
+                            autoFocus
+                            isDark={isDark}
+                            placeholder={c.board.groupNamePlaceholder}
+                            submitAria={c.groupsMenu.createAria}
+                            onCreate={(l) => {
+                              void createGroup(l);
+                              setAddingCol(false);
+                            }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setAddingCol(false)}
+                            className={`mt-2 w-full rounded-lg px-3 py-1.5 text-[13px] font-medium ${muted} ${ghost}`}
+                          >
+                            {c.board.cancel}
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setAddingCol(true)}
+                          className={[
+                            "flex w-full items-center justify-center gap-2 rounded-2xl border border-dashed px-4 py-4 text-[14px] font-medium transition-colors",
+                            "focus-visible:outline-none focus-visible:ring-2",
+                            ring,
+                            isDark
+                              ? "border-white/[0.14] text-neutral-300 hover:bg-white/[0.04]"
+                              : "border-black/[0.10] text-neutral-600 hover:bg-black/[0.03]",
+                          ].join(" ")}
+                        >
+                          <PlusIcon className="h-[18px] w-[18px]" />
+                          {c.board.newGroup}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
 
               {/* Gallery */}
               {tab === "ideas" && view === "gallery" && (
-                <div className="min-h-0 flex-1 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                <div
+                  className={`min-h-0 flex-1 overflow-y-auto overscroll-contain ${HIDE_SCROLLBAR}`}
+                >
                   {visibleIdeas.length === 0 ? (
-                    <div className="mt-12 flex flex-col items-center gap-3 text-center sm:mt-16">
+                    <div className="mt-12 flex flex-col items-center gap-3 text-center md:mt-16">
                       <h2
                         className={[
                           "text-[20px] font-semibold tracking-[-0.02em]",
@@ -2118,7 +2884,7 @@ export default function Create() {
                       </h2>
                       <p
                         className={[
-                          "max-w-[360px] text-[14px] leading-relaxed sm:text-[13px]",
+                          "max-w-[360px] text-[14px] leading-relaxed md:text-[13px]",
                           muted,
                         ].join(" ")}
                       >
@@ -2126,7 +2892,7 @@ export default function Create() {
                       </p>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 gap-3 pb-4 sm:grid-cols-[repeat(auto-fill,minmax(260px,1fr))] sm:gap-4">
+                    <div className="grid grid-cols-1 gap-3 pb-4 min-[560px]:grid-cols-2 md:grid-cols-[repeat(auto-fill,minmax(260px,1fr))] md:gap-4">
                       {visibleIdeas.map((idea) => (
                         <IdeaCard
                           key={idea.id}
@@ -2139,6 +2905,7 @@ export default function Create() {
                           onToggleTag={(tid) => toggleIdeaTag(idea.id, tid)}
                           onMove={(gid) => moveIdea(idea.id, gid)}
                           isDark={isDark}
+                          isMobile={isMobile}
                           muted={muted}
                           onDelete={() => deleteIdea(idea.id)}
                           c={c}
@@ -2152,6 +2919,53 @@ export default function Create() {
           </div>
         </div>
       </div>
+
+      {/* Feuille « Options du groupe » (mobile) */}
+      {isMobile && sheetGroup && (
+        <BottomSheet
+          isDark={isDark}
+          title={sheetGroup.label}
+          onClose={() => setGroupSheetId(null)}
+        >
+          {(close) => (
+            <GroupActionsBody
+              group={sheetGroup}
+              isDark={isDark}
+              close={close}
+              c={c}
+              onRename={(label) => void renameGroup(sheetGroup.id, label)}
+              onMoveAll={() => moveAll(sheetGroup.id, UNASSIGNED)}
+              onDelete={() => void deleteGroup(sheetGroup.id)}
+            />
+          )}
+        </BottomSheet>
+      )}
+
+      {/* Feuille « Nouveau groupe » (mobile) */}
+      {isMobile && newGroupSheet && (
+        <BottomSheet
+          isDark={isDark}
+          title={c.board.newGroup}
+          onClose={() => setNewGroupSheet(false)}
+        >
+          {(close) => (
+            <div className="pt-1">
+              <CreateNameInput
+                autoFocus
+                isDark={isDark}
+                placeholder={c.board.groupNamePlaceholder}
+                submitAria={c.groupsMenu.createAria}
+                onCreate={(label) => {
+                  close();
+                  void createGroup(label).then((id) => {
+                    if (id) setMobileGroupId(id);
+                  });
+                }}
+              />
+            </div>
+          )}
+        </BottomSheet>
+      )}
 
       <Folder
         isOpen={isFolderOpen}
