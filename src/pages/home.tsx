@@ -1,4 +1,5 @@
 ﻿import {
+  useCallback,
   useEffect,
   useId,
   useMemo,
@@ -8,6 +9,7 @@
   type ReactElement,
   type ReactNode,
 } from "react";
+import { createPortal } from "react-dom";
 import { navigate } from "../hooks/useHashRoute";
 import { useTheme } from "../hooks/useTheme";
 import {
@@ -110,6 +112,194 @@ function useIsMobile(): boolean {
     return () => mq.removeEventListener("change", onChange);
   }, []);
   return mobile;
+}
+
+/* ============================================================
+BOTTOM SHEET (mobile) — feuille glissable, comme dans Schedule
+============================================================ */
+function useEscape(onEscape: () => void) {
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onEscape();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [onEscape]);
+}
+
+/**
+ * Feuille glissable (mobile) / dialogue centré (desktop).
+ * Glisser la poignée ou le titre vers le bas pour fermer.
+ * `children` reçoit `close` : fermeture animée.
+ */
+function BottomSheet({
+  isDark,
+  isMobile,
+  title,
+  onClose,
+  children,
+}: {
+  isDark: boolean;
+  isMobile: boolean;
+  title: string;
+  onClose: () => void;
+  children: (close: () => void) => ReactNode;
+}) {
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const drag = useRef<{ startY: number; startT: number } | null>(null);
+
+  const [shown, setShown] = useState(false);
+  const [closing, setClosing] = useState(false);
+  const [dragging, setDragging] = useState(false);
+  const [dragY, setDragY] = useState(0);
+
+  useEffect(() => {
+    const id = requestAnimationFrame(() =>
+      requestAnimationFrame(() => setShown(true))
+    );
+    return () => cancelAnimationFrame(id);
+  }, []);
+
+  const requestClose = useCallback(() => {
+    if (closing) return;
+    setClosing(true);
+    setDragging(false);
+    window.setTimeout(onClose, 300);
+  }, [closing, onClose]);
+
+  useEscape(requestClose);
+
+  const onDragStart = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (!isMobile || closing) return;
+    drag.current = { startY: e.clientY, startT: performance.now() };
+    e.currentTarget.setPointerCapture(e.pointerId);
+    setDragging(true);
+  };
+
+  const onDragMove = (e: ReactPointerEvent<HTMLDivElement>) => {
+    const d = drag.current;
+    if (!d) return;
+    setDragY(Math.max(0, e.clientY - d.startY));
+  };
+
+  const onDragEnd = (e: ReactPointerEvent<HTMLDivElement>) => {
+    const d = drag.current;
+    if (!d) return;
+    drag.current = null;
+    setDragging(false);
+
+    const dy = Math.max(0, e.clientY - d.startY);
+    const velocity = dy / Math.max(1, performance.now() - d.startT);
+    const height = sheetRef.current?.offsetHeight ?? 500;
+
+    if (dy > height * 0.25 || velocity > 0.5) requestClose();
+    else setDragY(0);
+  };
+
+  const hidden = closing || !shown;
+  const height = sheetRef.current?.offsetHeight ?? 600;
+  const backdropOpacity = hidden ? 0 : 1 - Math.min(1, dragY / height);
+  const ease = "cubic-bezier(0.32, 0.72, 0, 1)";
+
+  // Portail : échappe aux overflow / z-index des cartes parentes.
+  return createPortal(
+    <div className="fixed inset-0 z-50 flex items-end justify-center md:items-center md:p-4">
+      <div
+        className="absolute inset-0 bg-black/50 backdrop-blur-[2px]"
+        style={{
+          opacity: backdropOpacity,
+          transition: dragging ? "none" : `opacity 300ms ${ease}`,
+        }}
+        onClick={requestClose}
+      />
+      <div
+        ref={sheetRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        style={
+          isMobile
+            ? {
+                transform: hidden
+                  ? "translateY(100%)"
+                  : `translateY(${dragY}px)`,
+                transition: dragging ? "none" : `transform 300ms ${ease}`,
+                willChange: "transform",
+              }
+            : {
+                opacity: hidden ? 0 : 1,
+                transition: "opacity 200ms ease-out",
+              }
+        }
+        className={[
+          "relative z-10 flex max-h-[92dvh] w-full flex-col overflow-y-auto overscroll-contain border p-4 shadow-2xl",
+          "rounded-t-3xl pb-[calc(1rem+env(safe-area-inset-bottom))]",
+          "md:max-w-sm md:rounded-2xl md:pb-4",
+          isDark
+            ? "border-white/[0.08] bg-[#101012]"
+            : "border-black/[0.06] bg-[#f6f4f0]",
+        ].join(" ")}
+      >
+        <div
+          onPointerDown={onDragStart}
+          onPointerMove={onDragMove}
+          onPointerUp={onDragEnd}
+          onPointerCancel={onDragEnd}
+          className="-mx-4 -mt-4 mb-1 shrink-0 cursor-grab touch-none select-none px-4 pb-3 pt-3 active:cursor-grabbing md:mx-0 md:mt-0 md:cursor-default md:touch-auto md:px-0 md:pb-2 md:pt-0"
+        >
+          <div
+            className={[
+              "mx-auto mb-3 h-1.5 w-12 rounded-full md:hidden",
+              isDark ? "bg-white/25" : "bg-black/15",
+            ].join(" ")}
+          />
+          <h2
+            className={[
+              "truncate text-center text-[17px] font-semibold tracking-[-0.02em]",
+              strongClassBase(isDark),
+            ].join(" ")}
+          >
+            {title}
+          </h2>
+        </div>
+
+        {children(requestClose)}
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+// Utilisé par BottomSheet (défini avant `strongClass` plus bas dans le fichier).
+const strongClassBase = (isDark: boolean) =>
+  isDark ? "text-white" : "text-neutral-900";
+
+/** Explication d'un indicateur (remplace l'info-bulle au survol sur mobile). */
+function HintSheet({
+  isDark,
+  title,
+  text,
+  onClose,
+}: {
+  isDark: boolean;
+  title: string;
+  text: string;
+  onClose: () => void;
+}) {
+  return (
+    <BottomSheet isDark={isDark} isMobile title={title} onClose={onClose}>
+      {() => (
+        <p
+          className={[
+            "px-1 pb-2 pt-1 text-center text-[14.5px] leading-relaxed",
+            isDark ? "text-neutral-300" : "text-neutral-600",
+          ].join(" ")}
+        >
+          {text}
+        </p>
+      )}
+    </BottomSheet>
+  );
 }
 
 /* ============================================================
@@ -635,12 +825,26 @@ function ClockDisplay({
 /* ============================================================
 OVERVIEW
 ============================================================ */
-function GoalInfoHint({ isDark, text }: { isDark: boolean; text: string }) {
+function GoalInfoHint({
+  isDark,
+  text,
+  title,
+}: {
+  isDark: boolean;
+  text: string;
+  title: string;
+}) {
+  const isMobile = useIsMobile();
+  const [open, setOpen] = useState(false);
   return (
     <span className="group relative flex shrink-0 items-center">
       <button
         type="button"
         aria-label={text}
+        aria-haspopup={isMobile ? "dialog" : undefined}
+        onClick={() => {
+          if (isMobile) setOpen(true);
+        }}
         className={[
           "flex h-5 w-5 items-center justify-center rounded-full transition sm:h-3.5 sm:w-3.5",
           "focus-visible:outline-none focus-visible:ring-1",
@@ -667,7 +871,7 @@ function GoalInfoHint({ isDark, text }: { isDark: boolean; text: string }) {
       <span
         role="tooltip"
         className={[
-          "pointer-events-none absolute bottom-full left-0 z-30 mb-2 w-max max-w-[min(220px,70vw)]",
+          "pointer-events-none absolute bottom-full left-0 z-30 mb-2 w-max max-w-[min(220px,70vw)] max-md:hidden",
           "rounded-lg px-2.5 py-1.5 text-left text-[11px] font-medium leading-snug sm:left-1/2 sm:-translate-x-1/2 sm:text-center",
           "opacity-0 shadow-lg transition-opacity duration-150",
           "group-hover:opacity-100 group-focus-within:opacity-100",
@@ -676,6 +880,14 @@ function GoalInfoHint({ isDark, text }: { isDark: boolean; text: string }) {
       >
         {text}
       </span>
+      {open && isMobile && (
+        <HintSheet
+          isDark={isDark}
+          title={title}
+          text={text}
+          onClose={() => setOpen(false)}
+        />
+      )}
     </span>
   );
 }
@@ -796,7 +1008,7 @@ function GoalItem({
           >
             {title}
           </p>
-          <GoalInfoHint isDark={isDark} text={hint} />
+          <GoalInfoHint isDark={isDark} text={hint} title={title} />
         </div>
         <p
           className={[
@@ -814,18 +1026,26 @@ function GoalItem({
 function InfoHint({
   isDark,
   text,
+  title,
   alignEndOnMobile = false,
 }: {
   isDark: boolean;
   text: string;
+  title: string;
   /** Ancre le tooltip à droite sur mobile pour éviter qu'il déborde de l'écran. */
   alignEndOnMobile?: boolean;
 }) {
+  const isMobile = useIsMobile();
+  const [open, setOpen] = useState(false);
   return (
     <span className="group relative flex shrink-0 items-center">
       <button
         type="button"
         aria-label={text}
+        aria-haspopup={isMobile ? "dialog" : undefined}
+        onClick={() => {
+          if (isMobile) setOpen(true);
+        }}
         className={[
           "flex h-5 w-5 items-center justify-center rounded-full transition sm:h-3.5 sm:w-3.5",
           "focus-visible:outline-none focus-visible:ring-1",
@@ -852,7 +1072,7 @@ function InfoHint({
       <span
         role="tooltip"
         className={[
-          "pointer-events-none absolute bottom-full z-30 mb-2 w-max max-w-[min(210px,70vw)]",
+          "pointer-events-none absolute bottom-full z-30 mb-2 w-max max-w-[min(210px,70vw)] max-md:hidden",
           alignEndOnMobile
             ? "right-0 max-sm:text-right sm:left-1/2 sm:right-auto sm:-translate-x-1/2"
             : "left-1/2 -translate-x-1/2",
@@ -864,6 +1084,14 @@ function InfoHint({
       >
         {text}
       </span>
+      {open && isMobile && (
+        <HintSheet
+          isDark={isDark}
+          title={title}
+          text={text}
+          onClose={() => setOpen(false)}
+        />
+      )}
     </span>
   );
 }
@@ -920,7 +1148,7 @@ function Stat({
           >
             {label}
           </p>
-          <InfoHint isDark={isDark} text={hint} alignEndOnMobile />
+          <InfoHint isDark={isDark} text={hint} title={label} alignEndOnMobile />
         </div>
         <div className="mt-2 flex flex-wrap items-baseline gap-x-2 gap-y-1 sm:mt-0.5 sm:gap-1.5">
           <span
@@ -1666,6 +1894,94 @@ function MiniChannelAvatar({
 }
 
 /* ------------------------------------------------------------------
+ChannelSheet : sélecteur de canal en feuille glissable (mobile)
+------------------------------------------------------------------ */
+function ChannelSheet({
+  isDark,
+  title,
+  channels,
+  currentKey,
+  onSelect,
+  onClose,
+}: {
+  isDark: boolean;
+  title: string;
+  channels: ConnectedChannel[];
+  currentKey?: string;
+  onSelect: (key: string) => void;
+  onClose: () => void;
+}) {
+  return (
+    <BottomSheet isDark={isDark} isMobile title={title} onClose={onClose}>
+      {(close) => (
+        <ul role="menu" className="flex flex-col gap-1 pt-1">
+          {channels.map((ch) => {
+            const active = ch.key === currentKey;
+            const handle = (ch.handle || "").replace(/^@/, "");
+            const name = ch.name || handle || "Channel";
+            return (
+              <li key={ch.key}>
+                <button
+                  type="button"
+                  role="menuitemradio"
+                  aria-checked={active}
+                  onClick={() => {
+                    onSelect(ch.key);
+                    close();
+                  }}
+                  className={[
+                    "flex min-h-14 w-full items-center gap-3 rounded-2xl px-3 text-left transition",
+                    focusRingClass(isDark),
+                    active
+                      ? isDark
+                        ? "bg-white/[0.08]"
+                        : "bg-white shadow-sm"
+                      : isDark
+                        ? "active:bg-white/[0.06]"
+                        : "active:bg-black/[0.04]",
+                  ].join(" ")}
+                >
+                  <MiniChannelAvatar channel={ch} isDark={isDark} size={38} />
+                  <span className="min-w-0 flex-1">
+                    <span
+                      className={[
+                        "block truncate text-[15px] font-semibold",
+                        strongClass(isDark),
+                      ].join(" ")}
+                    >
+                      {name}
+                    </span>
+                    {handle && handle !== name && (
+                      <span
+                        className={[
+                          "block truncate text-[12.5px]",
+                          softClass(isDark),
+                        ].join(" ")}
+                      >
+                        @{handle}
+                      </span>
+                    )}
+                  </span>
+                  {active && (
+                    <span
+                      className={[
+                        "h-2 w-2 shrink-0 rounded-full",
+                        isDark ? "bg-white" : "bg-neutral-900",
+                      ].join(" ")}
+                      aria-hidden="true"
+                    />
+                  )}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </BottomSheet>
+  );
+}
+
+/* ------------------------------------------------------------------
 Persistance de l'état Insights (onglet + canal)
 ------------------------------------------------------------------ */
 const HOME_METRIC_TAB_KEYS = [
@@ -1713,6 +2029,7 @@ function InsightsPanel({
   onConnect: () => void;
 }) {
   const c = COPY[lang];
+  const isMobile = useIsMobile();
   const [selectedKey, setSelectedKey] = useState<string | null>(
     readStoredChannelKey
   );
@@ -1743,7 +2060,8 @@ function InsightsPanel({
   }, [selectedKey]);
 
   useEffect(() => {
-    if (!menuOpen) return;
+    // Sur mobile, la feuille (portail) gère sa propre fermeture.
+    if (!menuOpen || isMobile) return;
     const onDown = (e: PointerEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
         setMenuOpen(false);
@@ -1758,7 +2076,7 @@ function InsightsPanel({
       document.removeEventListener("pointerdown", onDown);
       document.removeEventListener("keydown", onKey);
     };
-  }, [menuOpen]);
+  }, [menuOpen, isMobile]);
 
   const selectedChannel = useMemo(() => {
     if (channels.length === 0) return undefined;
@@ -1893,7 +2211,17 @@ function InsightsPanel({
                     />
                   )}
                 </button>
-                {menuOpen && (
+                {menuOpen && isMobile && (
+                  <ChannelSheet
+                    isDark={isDark}
+                    title={c.channels.title}
+                    channels={channels}
+                    currentKey={selectedChannel?.key}
+                    onSelect={setSelectedKey}
+                    onClose={() => setMenuOpen(false)}
+                  />
+                )}
+                {menuOpen && !isMobile && (
                   <div
                     role="menu"
                     className={[
