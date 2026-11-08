@@ -2166,7 +2166,7 @@ function InsightsPanel({
       <h2 id="home-insights-title" className="sr-only">
         Insights
       </h2>
-      <div className="relative mb-2 flex shrink-0 flex-wrap items-center justify-between gap-2 md:mb-3">
+      <div className="relative mb-2 flex shrink-0 flex-wrap items-start justify-between gap-2 md:mb-3">
         <div className="flex min-w-0 max-w-full flex-1 flex-wrap items-center gap-1.5">
           {selectedChannel ? (
             <>
