@@ -1221,10 +1221,11 @@ function DayDetailModal({
   );
 }
 
-/** Feuille de sélection de date : bottom sheet (mobile) / dialogue centré (desktop). */
+/** Feuille de sélection de date : bottom sheet glissable (mobile) / dialogue centré (desktop). */
 function CalendarSheet({
   isDark,
   c,
+  isMobile,
   view,
   date,
   onViewChange,
@@ -1234,6 +1235,7 @@ function CalendarSheet({
 }: {
   isDark: boolean;
   c: Copy;
+  isMobile: boolean;
   view: View;
   date: Date;
   onViewChange: (v: View) => void;
@@ -1241,7 +1243,63 @@ function CalendarSheet({
   onToday: () => void;
   onClose: () => void;
 }) {
-  useEscape(onClose);
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const drag = useRef<{ startY: number; startT: number } | null>(null);
+
+  const [shown, setShown] = useState(false);
+  const [closing, setClosing] = useState(false);
+  const [dragging, setDragging] = useState(false);
+  const [dragY, setDragY] = useState(0);
+
+  // Animation d'entrée : on monte au frame suivant pour déclencher la transition.
+  useEffect(() => {
+    const id = requestAnimationFrame(() =>
+      requestAnimationFrame(() => setShown(true))
+    );
+    return () => cancelAnimationFrame(id);
+  }, []);
+
+  // Animation de sortie, puis démontage.
+  const requestClose = useCallback(() => {
+    if (closing) return;
+    setClosing(true);
+    setDragging(false);
+    window.setTimeout(onClose, 300);
+  }, [closing, onClose]);
+
+  useEscape(requestClose);
+
+  const onDragStart = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isMobile || closing) return;
+    drag.current = { startY: e.clientY, startT: performance.now() };
+    e.currentTarget.setPointerCapture(e.pointerId);
+    setDragging(true);
+  };
+
+  const onDragMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const d = drag.current;
+    if (!d) return;
+    setDragY(Math.max(0, e.clientY - d.startY));
+  };
+
+  const onDragEnd = (e: React.PointerEvent<HTMLDivElement>) => {
+    const d = drag.current;
+    if (!d) return;
+    drag.current = null;
+    setDragging(false);
+
+    const dy = Math.max(0, e.clientY - d.startY);
+    const velocity = dy / Math.max(1, performance.now() - d.startT); // px/ms
+    const height = sheetRef.current?.offsetHeight ?? 500;
+
+    if (dy > height * 0.25 || velocity > 0.5) requestClose();
+    else setDragY(0); // retour élastique
+  };
+
+  const hidden = closing || !shown;
+  const height = sheetRef.current?.offsetHeight ?? 600;
+  const backdropOpacity = hidden ? 0 : 1 - Math.min(1, dragY / height);
+  const ease = "cubic-bezier(0.32, 0.72, 0, 1)";
 
   const options: { key: View; label: string }[] = [
     { key: "3days", label: c.toolbar.threeDays },
@@ -1253,14 +1311,33 @@ function CalendarSheet({
     <div className="fixed inset-0 z-50 flex items-end justify-center md:items-center md:p-4">
       <div
         className="absolute inset-0 bg-black/50 backdrop-blur-[2px]"
-        onClick={onClose}
+        style={{
+          opacity: backdropOpacity,
+          transition: dragging ? "none" : `opacity 300ms ${ease}`,
+        }}
+        onClick={requestClose}
       />
       <div
+        ref={sheetRef}
         role="dialog"
         aria-modal="true"
         aria-label={c.toolbar.calendar}
+        style={
+          isMobile
+            ? {
+                transform: hidden
+                  ? "translateY(100%)"
+                  : `translateY(${dragY}px)`,
+                transition: dragging ? "none" : `transform 300ms ${ease}`,
+                willChange: "transform",
+              }
+            : {
+                opacity: hidden ? 0 : 1,
+                transition: "opacity 200ms ease-out",
+              }
+        }
         className={[
-          "relative z-10 flex max-h-[92dvh] w-full flex-col overflow-y-auto border p-4 shadow-2xl",
+          "relative z-10 flex max-h-[92dvh] w-full flex-col overflow-y-auto overscroll-contain border p-4 shadow-2xl",
           "rounded-t-3xl pb-[calc(1rem+env(safe-area-inset-bottom))]",
           "md:max-w-sm md:rounded-2xl md:pb-4",
           isDark
@@ -1268,20 +1345,29 @@ function CalendarSheet({
             : "border-black/[0.06] bg-[#f6f4f0]",
         ].join(" ")}
       >
+        {/* Zone de glissement : poignée + titre */}
         <div
-          className={[
-            "mx-auto mb-3 h-1 w-10 shrink-0 rounded-full md:hidden",
-            isDark ? "bg-white/20" : "bg-black/15",
-          ].join(" ")}
-        />
-        <h2
-          className={[
-            "mb-4 text-center text-[17px] font-semibold tracking-[-0.02em]",
-            strongClass(isDark),
-          ].join(" ")}
+          onPointerDown={onDragStart}
+          onPointerMove={onDragMove}
+          onPointerUp={onDragEnd}
+          onPointerCancel={onDragEnd}
+          className="-mx-4 -mt-4 mb-1 shrink-0 cursor-grab touch-none select-none px-4 pb-3 pt-3 active:cursor-grabbing md:mx-0 md:mt-0 md:cursor-default md:touch-auto md:px-0 md:pb-2 md:pt-0"
         >
-          {c.toolbar.calendar}
-        </h2>
+          <div
+            className={[
+              "mx-auto mb-3 h-1.5 w-12 rounded-full md:hidden",
+              isDark ? "bg-white/25" : "bg-black/15",
+            ].join(" ")}
+          />
+          <h2
+            className={[
+              "text-center text-[17px] font-semibold tracking-[-0.02em]",
+              strongClass(isDark),
+            ].join(" ")}
+          >
+            {c.toolbar.calendar}
+          </h2>
+        </div>
 
         <div
           role="tablist"
@@ -1322,7 +1408,7 @@ function CalendarSheet({
         <CalendarPicker
           value={date}
           onChange={onPick}
-          onClose={onClose}
+          onClose={requestClose}
           isDark={isDark}
           disablePast={false}
         />
@@ -1331,7 +1417,7 @@ function CalendarSheet({
           type="button"
           onClick={() => {
             onToday();
-            onClose();
+            requestClose();
           }}
           className={[
             "mt-3 flex items-center gap-2 rounded-xl px-3 py-3 text-[15px] font-medium transition",
@@ -3404,6 +3490,7 @@ export default function Schedule() {
         <CalendarSheet
           isDark={isDark}
           c={c}
+          isMobile={isMobile}
           view={view}
           date={viewDate}
           onViewChange={setView}
