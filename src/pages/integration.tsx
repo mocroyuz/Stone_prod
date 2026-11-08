@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useTheme } from "../hooks/useTheme";
 import DashboardSidebar, {
   useSidebarOffset,
@@ -43,7 +44,6 @@ import {
   getGoogleDriveStatus,
   disconnectGoogleDrive,
 } from "../services/googledrive";
-// ← Google Photos (modif. 1 : import du service)
 import {
   getGooglePhotosAuthUrl,
   getGooglePhotosStatus,
@@ -54,7 +54,166 @@ import {
 const PAGE_ROUTE = "integrations";
 
 /* ============================================================
-   SHELL (identique à Home)
+   MOBILE
+============================================================ */
+const MOBILE_QUERY = "(max-width: 767px)";
+
+function useIsMobile(): boolean {
+  const [mobile, setMobile] = useState<boolean>(() =>
+    typeof window === "undefined"
+      ? false
+      : window.matchMedia(MOBILE_QUERY).matches
+  );
+  useEffect(() => {
+    const mq = window.matchMedia(MOBILE_QUERY);
+    const onChange = () => setMobile(mq.matches);
+    onChange();
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+  return mobile;
+}
+
+/* ============================================================
+   BOTTOM SHEET (mobile) — feuille glissable, comme sur Home
+============================================================ */
+function useEscape(onEscape: () => void) {
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onEscape();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [onEscape]);
+}
+
+function BottomSheet({
+  isDark,
+  title,
+  onClose,
+  children,
+}: {
+  isDark: boolean;
+  title: string;
+  onClose: () => void;
+  children: (close: () => void) => React.ReactNode;
+}) {
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const drag = useRef<{ startY: number; startT: number } | null>(null);
+
+  const [shown, setShown] = useState(false);
+  const [closing, setClosing] = useState(false);
+  const [dragging, setDragging] = useState(false);
+  const [dragY, setDragY] = useState(0);
+
+  useEffect(() => {
+    const id = requestAnimationFrame(() =>
+      requestAnimationFrame(() => setShown(true))
+    );
+    return () => cancelAnimationFrame(id);
+  }, []);
+
+  const requestClose = useCallback(() => {
+    if (closing) return;
+    setClosing(true);
+    setDragging(false);
+    window.setTimeout(onClose, 300);
+  }, [closing, onClose]);
+
+  useEscape(requestClose);
+
+  const onDragStart = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (closing) return;
+    drag.current = { startY: e.clientY, startT: performance.now() };
+    e.currentTarget.setPointerCapture(e.pointerId);
+    setDragging(true);
+  };
+
+  const onDragMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const d = drag.current;
+    if (!d) return;
+    setDragY(Math.max(0, e.clientY - d.startY));
+  };
+
+  const onDragEnd = (e: React.PointerEvent<HTMLDivElement>) => {
+    const d = drag.current;
+    if (!d) return;
+    drag.current = null;
+    setDragging(false);
+
+    const dy = Math.max(0, e.clientY - d.startY);
+    const velocity = dy / Math.max(1, performance.now() - d.startT);
+    const height = sheetRef.current?.offsetHeight ?? 500;
+
+    if (dy > height * 0.25 || velocity > 0.5) requestClose();
+    else setDragY(0);
+  };
+
+  const hidden = closing || !shown;
+  const height = sheetRef.current?.offsetHeight ?? 600;
+  const backdropOpacity = hidden ? 0 : 1 - Math.min(1, dragY / height);
+  const ease = "cubic-bezier(0.32, 0.72, 0, 1)";
+
+  return createPortal(
+    <div className="fixed inset-0 z-50 flex items-end justify-center">
+      <div
+        className="absolute inset-0 bg-black/50 backdrop-blur-[2px]"
+        style={{
+          opacity: backdropOpacity,
+          transition: dragging ? "none" : `opacity 300ms ${ease}`,
+        }}
+        onClick={requestClose}
+      />
+      <div
+        ref={sheetRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        style={{
+          transform: hidden ? "translateY(100%)" : `translateY(${dragY}px)`,
+          transition: dragging ? "none" : `transform 300ms ${ease}`,
+          willChange: "transform",
+        }}
+        className={[
+          "relative z-10 flex max-h-[92dvh] w-full flex-col overflow-y-auto overscroll-contain border p-4 shadow-2xl",
+          "rounded-t-3xl pb-[calc(1rem+env(safe-area-inset-bottom))]",
+          isDark
+            ? "border-white/[0.08] bg-[#101012]"
+            : "border-black/[0.06] bg-[#f6f4f0]",
+        ].join(" ")}
+      >
+        <div
+          onPointerDown={onDragStart}
+          onPointerMove={onDragMove}
+          onPointerUp={onDragEnd}
+          onPointerCancel={onDragEnd}
+          className="-mx-4 -mt-4 mb-1 shrink-0 cursor-grab touch-none select-none px-4 pb-3 pt-3 active:cursor-grabbing"
+        >
+          <div
+            className={[
+              "mx-auto mb-3 h-1.5 w-12 rounded-full",
+              isDark ? "bg-white/25" : "bg-black/15",
+            ].join(" ")}
+          />
+          <h2
+            className={[
+              "truncate text-center text-[17px] font-semibold tracking-[-0.02em]",
+              isDark ? "text-white" : "text-neutral-900",
+            ].join(" ")}
+          >
+            {title}
+          </h2>
+        </div>
+
+        {children(requestClose)}
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+/* ============================================================
+   SHELL (aligné sur Home)
 ============================================================ */
 
 const pageBgClass = (isDark: boolean) =>
@@ -94,7 +253,7 @@ function PlugIcon() {
   return (
     <svg
       viewBox="0 0 24 24"
-      className="h-[17px] w-[17px]"
+      className="h-[17px] w-[17px] sm:h-4 sm:w-4"
       fill="none"
       stroke="currentColor"
       strokeWidth="1.8"
@@ -164,7 +323,7 @@ function ArrowRightIcon() {
   return (
     <svg
       viewBox="0 0 24 24"
-      className="h-[14px] w-[14px]"
+      className="h-[15px] w-[15px] sm:h-[14px] sm:w-[14px]"
       fill="none"
       stroke="currentColor"
       strokeWidth="2"
@@ -178,7 +337,6 @@ function ArrowRightIcon() {
   );
 }
 
-/** Icône marque-page (ajout / retrait des favoris). */
 function BookmarkIcon({
   className,
   filled = false,
@@ -202,12 +360,11 @@ function BookmarkIcon({
   );
 }
 
-/** Trois points (menu d'options d'un compte connecté). */
 function MoreIcon() {
   return (
     <svg
       viewBox="0 0 24 24"
-      className="h-4 w-4"
+      className="h-5 w-5 sm:h-4 sm:w-4"
       fill="none"
       stroke="currentColor"
       strokeWidth="2"
@@ -260,10 +417,6 @@ function DisconnectIcon() {
   );
 }
 
-/**
- * ← Google Photos (modif. 2 : icône définie ici pour que le fichier soit
- * autonome). Tu peux la déplacer dans IntegrationIcons si tu préfères.
- */
 function GooglePhotosIcon({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" className={className} aria-hidden="true">
@@ -297,7 +450,6 @@ const INTEGRATIONS: IntegrationCardData[] = [
   { title: "Dropbox", meta: "Stockage", body: "Connect and manage files from your Dropbox account", progress: 50 },
   { title: "Canva", meta: "Design", body: "Create and manage your designs from Canva", progress: 55 },
   { title: "Google Drive", meta: "Stockage", body: "Sync and manage your files from Google Drive", progress: 75 },
-  // ← Google Photos (modif. 3 : carte)
   { title: "Google Photos", meta: "Photos", body: "Import photos and videos from Google Photos", progress: 55 },
   { title: "Gmail", meta: "Email", body: "Manage your emails and automate responses", progress: 80 },
   { title: "Google Calendar", meta: "Planning", body: "Sync your calendar and automate scheduling", progress: 65 },
@@ -314,7 +466,6 @@ const ICONS: Record<string, (props: { className?: string }) => JSX.Element | nul
   Dropbox: DropboxIcon,
   Canva: CanvaIcon,
   "Google Drive": GoogleDriveIcon,
-  // ← Google Photos (modif. 4 : icône)
   "Google Photos": GooglePhotosIcon,
   Gmail: GmailIcon,
   "Google Calendar": GoogleCalendarIcon,
@@ -329,7 +480,6 @@ const CONNECTED_THRESHOLD = 60;
    CARD
 ============================================================ */
 
-/** Connexion réelle à un service (Canva, Dropbox, Google Drive, Google Photos). */
 type ServiceConnection = {
   connected: boolean;
   busy: boolean;
@@ -349,13 +499,19 @@ function IntegrationCard({
   service?: ServiceConnection;
 }) {
   const Icon = ICONS[data.title];
+  const isMobile = useIsMobile();
+
+  // Desktop : menu "trois points" en dropdown ancré à la carte.
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (!menuOpen) return;
+  // Mobile : les options passent en feuille glissable (comme Home).
+  const [sheetOpen, setSheetOpen] = useState(false);
 
-    const onPointerDown = (event: MouseEvent) => {
+  useEffect(() => {
+    if (!menuOpen || isMobile) return;
+
+    const onPointerDown = (event: PointerEvent) => {
       if (!menuRef.current?.contains(event.target as Node)) {
         setMenuOpen(false);
       }
@@ -364,18 +520,18 @@ function IntegrationCard({
       if (event.key === "Escape") setMenuOpen(false);
     };
 
-    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("pointerdown", onPointerDown);
     document.addEventListener("keydown", onKeyDown);
     return () => {
-      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("pointerdown", onPointerDown);
       document.removeEventListener("keydown", onKeyDown);
     };
-  }, [menuOpen]);
+  }, [menuOpen, isMobile]);
 
   return (
     <div
       className={[
-        "group flex h-full flex-col rounded-2xl border p-4 transition",
+        "group flex h-full flex-col rounded-2xl border p-4 transition sm:p-3.5",
         cardClass(isDark),
         focusRingClass(isDark),
         isDark
@@ -385,22 +541,21 @@ function IntegrationCard({
     >
       <div className="flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-3">
-          {/* Logo de l'application : affiché dans tous les cas (connecté ou non). */}
           {Icon && (
             <div
               className={[
-                "flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] border",
+                "flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] border sm:h-10 sm:w-10 sm:rounded-xl",
                 isDark
                   ? "border-white/[0.08] bg-white/[0.04] text-neutral-300"
                   : "border-black/[0.06] bg-[#f6f4f0] text-neutral-600",
               ].join(" ")}
             >
-              <Icon className="h-[21px] w-[21px]" />
+              <Icon className="h-[21px] w-[21px] sm:h-[19px] sm:w-[19px]" />
             </div>
           )}
           <h3
             className={[
-              "truncate text-[14px] font-semibold tracking-[-0.01em]",
+              "truncate text-[15px] font-semibold tracking-[-0.01em] sm:text-[13.5px]",
               strongClass(isDark),
             ].join(" ")}
           >
@@ -409,16 +564,15 @@ function IntegrationCard({
         </div>
 
         {service?.connected ? (
-          // Connecté : trois points → menu Reconnect / Disconnect.
           <div ref={menuRef} className="relative shrink-0">
             <button
               type="button"
               aria-label={`Options pour ${data.title}`}
               aria-haspopup="menu"
-              aria-expanded={menuOpen}
-              onClick={() => setMenuOpen((value) => !value)}
+              aria-expanded={menuOpen || sheetOpen}
+              onClick={() => (isMobile ? setSheetOpen(true) : setMenuOpen((v) => !v))}
               className={[
-                "flex h-8 w-8 items-center justify-center rounded-lg transition-colors",
+                "flex h-10 w-10 items-center justify-center rounded-lg transition-colors sm:h-8 sm:w-8",
                 focusRingClass(isDark),
                 mutedClass(isDark),
                 isDark
@@ -429,11 +583,12 @@ function IntegrationCard({
               <MoreIcon />
             </button>
 
-            {menuOpen && (
+            {/* Desktop : dropdown */}
+            {menuOpen && !isMobile && (
               <div
                 role="menu"
                 className={[
-                  "absolute right-0 top-10 z-50 w-44 rounded-xl border p-1 shadow-xl",
+                  "absolute right-0 top-10 z-50 w-44 max-w-[calc(100vw-32px)] rounded-xl border p-1 shadow-xl",
                   isDark
                     ? "border-white/[0.08] bg-[#16161a]"
                     : "border-black/[0.06] bg-white",
@@ -485,9 +640,60 @@ function IntegrationCard({
                 </button>
               </div>
             )}
+
+            {/* Mobile : feuille glissable */}
+            {sheetOpen && isMobile && service && (
+              <BottomSheet
+                isDark={isDark}
+                title={data.title}
+                onClose={() => setSheetOpen(false)}
+              >
+                {(close) => (
+                  <div role="menu" className="flex flex-col gap-1 pt-1">
+                    <button
+                      type="button"
+                      role="menuitem"
+                      disabled={service.busy}
+                      onClick={() => {
+                        close();
+                        service.onReconnect();
+                      }}
+                      className={[
+                        "flex min-h-14 w-full items-center gap-3 rounded-2xl px-3 text-left text-[15px] font-semibold transition disabled:opacity-40",
+                        focusRingClass(isDark),
+                        isDark
+                          ? "text-neutral-200 active:bg-white/[0.06]"
+                          : "text-neutral-700 active:bg-black/[0.04]",
+                      ].join(" ")}
+                    >
+                      <RefreshIcon />
+                      Reconnect
+                    </button>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      disabled={service.busy}
+                      onClick={() => {
+                        close();
+                        service.onDisconnect();
+                      }}
+                      className={[
+                        "flex min-h-14 w-full items-center gap-3 rounded-2xl px-3 text-left text-[15px] font-semibold transition disabled:opacity-40",
+                        focusRingClass(isDark),
+                        isDark
+                          ? "text-rose-400 active:bg-rose-500/[0.07]"
+                          : "text-rose-600 active:bg-rose-500/[0.07]",
+                      ].join(" ")}
+                    >
+                      <DisconnectIcon />
+                      Disconnect
+                    </button>
+                  </div>
+                )}
+              </BottomSheet>
+            )}
           </div>
         ) : (
-          // Non connecté : la flèche lance la connexion du compte.
           <button
             type="button"
             onClick={service?.onConnect}
@@ -497,7 +703,7 @@ function IntegrationCard({
               service ? `Connecter ${data.title}` : `Configurer ${data.title}`
             }
             className={[
-              "flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition disabled:cursor-default",
+              "flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition disabled:cursor-default sm:h-7 sm:w-7",
               service?.busy ? "animate-pulse opacity-60" : "",
               focusRingClass(isDark),
               isDark
@@ -514,7 +720,7 @@ function IntegrationCard({
         {data.meta && (
           <span
             className={[
-              "shrink-0 text-[10.5px] font-medium tracking-wide",
+              "shrink-0 text-[11px] font-medium tracking-wide sm:text-[10.5px]",
               isDark ? "text-neutral-500" : "text-neutral-400",
             ].join(" ")}
           >
@@ -523,7 +729,7 @@ function IntegrationCard({
         )}
         <p
           className={[
-            "text-[12px] leading-[1.45]",
+            "text-[12.5px] leading-[1.45] sm:text-[12px]",
             isDark ? "text-neutral-400" : "text-neutral-600",
           ].join(" ")}
         >
@@ -548,9 +754,8 @@ export default function Integrations() {
   const { theme } = useTheme();
   const isDark = theme === "dark";
   const sidebarOffset = useSidebarOffset();
+  const isMobile = useIsMobile();
 
-  // Favoris partagés avec la sidebar : le marque-page du header ajoute /
-  // retire cette page de la section « Favorite ».
   const { isFavorite, toggle: toggleFavorite } = useFavorites();
   const saved = isFavorite(PAGE_ROUTE);
 
@@ -577,7 +782,6 @@ export default function Integrations() {
     () => new URLSearchParams(window.location.search).get("gdrive_error")
   );
 
-  // ← Google Photos (modif. 5 : états)
   const [gphotosConnected, setGphotosConnected] = useState(false);
   const [gphotosBusy, setGphotosBusy] = useState(false);
   const [gphotosError, setGphotosError] = useState<string | null>(
@@ -652,7 +856,6 @@ export default function Integrations() {
     };
   }, []);
 
-  // ← Google Photos (modif. 6 : vérification du statut au chargement)
   useEffect(() => {
     let active = true;
 
@@ -675,20 +878,21 @@ export default function Integrations() {
     };
   }, []);
 
+  // Fermeture du dropdown de filtre (clic extérieur / Escape).
   useEffect(() => {
     if (!filterOpen) return;
 
-    const onPointerDown = (e: MouseEvent) => {
+    const onPointerDown = (e: PointerEvent) => {
       if (!filterRef.current?.contains(e.target as Node)) setFilterOpen(false);
     };
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") setFilterOpen(false);
     };
 
-    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("pointerdown", onPointerDown);
     document.addEventListener("keydown", onKeyDown);
     return () => {
-      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("pointerdown", onPointerDown);
       document.removeEventListener("keydown", onKeyDown);
     };
   }, [filterOpen]);
@@ -706,7 +910,6 @@ export default function Integrations() {
         if (item.title === "Canva") isConnected = canvaConnected;
         else if (item.title === "Dropbox") isConnected = dropboxConnected;
         else if (item.title === "Google Drive") isConnected = gdriveConnected;
-        // ← Google Photos (modif. 7 : branche + dépendance dans useMemo)
         else if (item.title === "Google Photos") isConnected = gphotosConnected;
         else isConnected = item.progress >= CONNECTED_THRESHOLD;
 
@@ -791,8 +994,6 @@ export default function Integrations() {
     }
   };
 
-  // Reconnect (comme sur Channels) : on déconnecte le compte, puis on repart
-  // directement sur l'OAuth Canva dans le même onglet.
   const handleCanvaReconnect = async () => {
     if (canvaBusy) return;
 
@@ -875,8 +1076,6 @@ export default function Integrations() {
         throw new Error("Le backend a renvoyé une URL Dropbox invalide.");
       }
 
-      // Reconnect : on va directement sur l'écran d'autorisation Dropbox,
-      // sans repasser par la page de connexion (login).
       if (reconnect) {
         authUrl.searchParams.set("force_reapprove", "true");
         authUrl.searchParams.set("force_reauthentication", "false");
@@ -941,7 +1140,6 @@ export default function Integrations() {
     }
   };
 
-  // ← Google Photos (modif. 8 : handlers)
   const handleGPhotosDisconnect = async () => {
     if (gphotosBusy) return;
 
@@ -1007,8 +1205,6 @@ export default function Integrations() {
       onReconnect: () => handleDropboxConnect(true),
       onDisconnect: handleDropboxDisconnect,
     },
-    // Le backend force déjà prompt=consent, donc « Reconnect » repasse
-    // simplement par l'écran d'autorisation Google.
     "Google Drive": {
       connected: gdriveConnected,
       busy: gdriveBusy,
@@ -1017,7 +1213,6 @@ export default function Integrations() {
       onReconnect: handleGDriveConnect,
       onDisconnect: handleGDriveDisconnect,
     },
-    // ← Google Photos (modif. 9 : entrée dans services)
     "Google Photos": {
       connected: gphotosConnected,
       busy: gphotosBusy,
@@ -1031,28 +1226,29 @@ export default function Integrations() {
   return (
     <main
       className={[
-        "relative h-screen w-full overflow-hidden",
+        "relative h-dvh min-h-dvh w-full overflow-hidden overscroll-none",
         "transition-colors duration-300",
         pageBgClass(isDark),
       ].join(" ")}
     >
       <DashboardSidebar theme={theme} />
 
-      {/* Zone à droite de la sidebar : marge autour du panneau arrondi */}
+      {/* Mobile : la sidebar est un tiroir → aucun décalage à gauche. */}
       <div
         className={[
-          "h-full py-3 pr-3",
+          "h-full min-h-0 px-2 py-2 md:py-3 md:pl-0 md:pr-3",
+          "max-md:pt-[calc(3.5rem+env(safe-area-inset-top))]",
           "transition-[padding-left] duration-[380ms]",
           "ease-[cubic-bezier(0.4,0,0.2,1)]",
           "motion-reduce:transition-none",
         ].join(" ")}
-        style={{ paddingLeft: sidebarOffset }}
+        style={isMobile ? undefined : { paddingLeft: sidebarOffset }}
       >
         {/* PANNEAU ARRONDI : c'est lui qui scrolle */}
         <div
           className={[
-            "h-full overflow-y-auto overflow-x-hidden",
-            "rounded-[28px] border",
+            "h-full min-h-0 overflow-y-auto overflow-x-hidden overscroll-y-contain",
+            "rounded-2xl border md:rounded-[28px]",
             "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
             "transition-colors duration-300",
             mainPanelClass(isDark),
@@ -1060,17 +1256,17 @@ export default function Integrations() {
         >
           <div
             className={[
-              "mx-auto flex w-full max-w-[1720px]",
-              "flex-col px-[clamp(18px,3vw,48px)]",
-              "pb-[120px] pt-[clamp(18px,3vw,30px)]",
+              "mx-auto flex w-full min-w-0 max-w-[1720px]",
+              "flex-col px-[clamp(14px,3vw,48px)]",
+              "pb-[calc(7.5rem+env(safe-area-inset-bottom))] pt-[clamp(16px,3vw,30px)]",
             ].join(" ")}
           >
-            {/* HEADER COMPACT (remplace PageHeader) */}
-            <div className="flex shrink-0 flex-wrap items-center justify-between gap-3">
-              <div className="flex min-w-0 items-center gap-2.5">
+            {/* HEADER — compact sur mobile, ligne unique */}
+            <header className="flex min-w-0 shrink-0 items-center justify-between gap-3">
+              <div className="flex min-w-0 flex-1 items-center gap-2.5 sm:gap-2.5">
                 <span
                   className={[
-                    "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border",
+                    "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border sm:h-9 sm:w-9",
                     isDark
                       ? "border-white/[0.07] bg-white/[0.04] text-neutral-400"
                       : "border-black/[0.06] bg-white text-neutral-500",
@@ -1081,7 +1277,7 @@ export default function Integrations() {
                 <div className="min-w-0">
                   <h1
                     className={[
-                      "truncate text-[20px] font-semibold tracking-[-0.03em]",
+                      "truncate text-[19px] font-semibold tracking-[-0.03em] sm:text-[16px]",
                       strongClass(isDark),
                     ].join(" ")}
                   >
@@ -1089,7 +1285,7 @@ export default function Integrations() {
                   </h1>
                   <p
                     className={[
-                      "mt-0.5 truncate text-[12px]",
+                      "mt-0.5 truncate text-[12px] sm:text-[11px]",
                       mutedClass(isDark),
                     ].join(" ")}
                   >
@@ -1098,7 +1294,6 @@ export default function Integrations() {
                 </div>
               </div>
 
-              {/* Marque-page : ajoute / retire cette page des favoris de la sidebar. */}
               <button
                 type="button"
                 aria-label={saved ? "Remove from favorites" : "Add to favorites"}
@@ -1106,7 +1301,7 @@ export default function Integrations() {
                 title={saved ? "Remove from favorites" : "Add to favorites"}
                 onClick={() => toggleFavorite(PAGE_ROUTE)}
                 className={[
-                  "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors motion-reduce:transition-none",
+                  "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl transition-colors motion-reduce:transition-none sm:h-9 sm:w-9",
                   focusRingClass(isDark),
                   mutedClass(isDark),
                   isDark ? "hover:bg-white/[0.06]" : "hover:bg-black/[0.04]",
@@ -1114,13 +1309,13 @@ export default function Integrations() {
               >
                 <BookmarkIcon className="h-5 w-5" filled={saved} />
               </button>
-            </div>
+            </header>
 
-            {/* SEARCH + FILTER */}
-            <div className="mt-6 flex flex-wrap items-center gap-2">
+            {/* SEARCH + FILTER — pleine largeur sur mobile */}
+            <div className="mt-5 flex flex-wrap items-center gap-2 sm:mt-6">
               <label
                 className={[
-                  "flex min-w-0 flex-1 items-center gap-2.5 rounded-full border px-3.5 py-2 transition sm:max-w-[360px]",
+                  "flex min-w-0 w-full items-center gap-2.5 rounded-full border px-3.5 py-2.5 transition sm:w-auto sm:flex-1 sm:py-2 sm:max-w-[360px]",
                   "focus-within:ring-2",
                   isDark
                     ? "border-white/[0.08] bg-white/[0.03] text-neutral-500 focus-within:ring-white/20"
@@ -1135,21 +1330,21 @@ export default function Integrations() {
                   placeholder="Rechercher une intégration"
                   aria-label="Rechercher une intégration"
                   className={[
-                    "w-full min-w-0 bg-transparent text-[13px] outline-none placeholder:text-inherit",
+                    "w-full min-w-0 bg-transparent text-[14px] outline-none placeholder:text-inherit sm:text-[13px]",
                     "[&::-webkit-search-cancel-button]:appearance-none",
                     isDark ? "text-white" : "text-neutral-800",
                   ].join(" ")}
                 />
               </label>
 
-              <div className="relative" ref={filterRef}>
+              <div className="relative flex min-w-0 flex-1 items-center justify-end gap-2 sm:flex-none" ref={filterRef}>
                 <button
                   type="button"
                   onClick={() => setFilterOpen((value) => !value)}
                   aria-haspopup="menu"
                   aria-expanded={filterOpen}
                   className={[
-                    "flex items-center gap-2 rounded-full border px-4 py-2 text-[12.5px] font-medium transition",
+                    "flex min-h-11 items-center gap-2 rounded-full border px-4 py-2 text-[13px] font-medium transition sm:min-h-0 sm:text-[12.5px]",
                     focusRingClass(isDark),
                     isDark
                       ? "border-white/[0.08] bg-white/[0.03] text-neutral-200 hover:bg-white/[0.06]"
@@ -1171,7 +1366,7 @@ export default function Integrations() {
                   <div
                     role="menu"
                     className={[
-                      "absolute left-0 z-20 mt-2 w-44 overflow-hidden rounded-xl border py-1 shadow-lg",
+                      "absolute right-0 z-20 mt-2 w-44 max-w-[calc(100vw-32px)] overflow-hidden rounded-xl border py-1 shadow-lg",
                       isDark
                         ? "border-white/[0.08] bg-[#16161a]"
                         : "border-black/[0.06] bg-white",
@@ -1190,7 +1385,7 @@ export default function Integrations() {
                             setFilterOpen(false);
                           }}
                           className={[
-                            "flex w-full items-center justify-between px-4 py-2.5 text-left text-[12.5px] transition",
+                            "flex min-h-11 w-full items-center justify-between px-4 py-2.5 text-left text-[13px] transition sm:min-h-0 sm:text-[12.5px]",
                             selected
                               ? isDark
                                 ? "font-semibold text-white"
@@ -1208,21 +1403,26 @@ export default function Integrations() {
                   </div>
                 )}
               </div>
-
-              <span
-                aria-live="polite"
-                className={[
-                  "ml-auto text-[12px]",
-                  mutedClass(isDark),
-                ].join(" ")}
-              >
-                {visible.length}{" "}
-                {visible.length === 1 ? "integration" : "integrations"}
-              </span>
             </div>
 
+            {/* COMPTE — sous la barre de recherche, discret */}
+            <p
+              aria-live="polite"
+              className={["mt-2.5 text-[12px] sm:hidden", mutedClass(isDark)].join(" ")}
+            >
+              {visible.length}{" "}
+              {visible.length === 1 ? "integration" : "integrations"}
+            </p>
+            <span
+              aria-live="polite"
+              className={["ml-auto hidden text-[12px] sm:block", mutedClass(isDark)].join(" ")}
+            >
+              {visible.length}{" "}
+              {visible.length === 1 ? "integration" : "integrations"}
+            </span>
+
             {/* GRID */}
-            <div className="mt-5 grid grid-cols-1 items-start gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+            <div className="mt-4 grid grid-cols-1 items-start gap-3 sm:mt-5 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
               {visible.map((card) => (
                 <IntegrationCard
                   key={card.title}
@@ -1249,7 +1449,7 @@ export default function Integrations() {
                     type="button"
                     onClick={resetFilters}
                     className={[
-                      "rounded-full border px-4 py-1.5 text-[12px] font-semibold transition",
+                      "flex min-h-11 items-center rounded-full border px-4 text-[13px] font-semibold transition sm:min-h-0 sm:text-[12px]",
                       focusRingClass(isDark),
                       isDark
                         ? "border-white/10 text-white hover:bg-white/[0.07]"
@@ -1293,7 +1493,7 @@ export default function Integrations() {
         onRequestOpen={() => setIsNewPostOpen(true)}
       />
 
-      {/* HELP — même bouton que sur Home */}
+      {/* HELP */}
       <HelpChatButton isDark={isDark} />
     </main>
   );
