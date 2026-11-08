@@ -25,6 +25,10 @@
 //  - l'image si `imageUrl` est fourni (bandeau plein largeur),
 //  - sinon un dégradé déterministe (dérivé de l'id) + l'initiale du titre.
 // Cela garantit qu'on distingue deux idées de même nom.
+//
+// Les fichiers uploadés via NewIdeaModal (champ `files: File[]`) sont
+// convertis en data URL (base64) pour survivre à la fermeture du modal
+// (NewIdeaModal révoque ses blob URLs à la fermeture).
 
 import {
   useCallback,
@@ -410,6 +414,24 @@ const readStoredHiddenGroups = () =>
   readStoredIds(CREATE_HIDDEN_GROUPS_STORAGE_KEY);
 
 /* ───────── Données ───────── */
+
+/**
+ * Convertit un fichier image en data URL (base64) utilisable comme `imageUrl`.
+ *
+ * On ne peut PAS utiliser `URL.createObjectURL(file)` : NewIdeaModal révoque
+ * ses blob URLs à la fermeture (cleanup dans son useEffect), ce qui casserait
+ * l'image de la carte. `FileReader.readAsDataURL` produit une chaîne
+ * autonome, indépendante du cycle de vie du `File`.
+ */
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () =>
+      resolve(typeof reader.result === "string" ? reader.result : "");
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
 
 function useBoard() {
   const { groups, tags, status } = useBoardMeta();
@@ -2969,14 +2991,23 @@ export default function Create() {
         active={isFolderOpen ? "files" : null}
         addLabel={c.bottomBar.newIdea}
         onChange={handleBottomBarChange}
-        onSubmitIdea={({ title, notes, groupId, tagIds }) =>
+        onSubmitIdea={async ({ title, notes, files, groupId, tagIds }) => {
+          // Récupère la première image uploadée et la convertit en data URL
+          // pour qu'elle survive à la fermeture du modal (qui révoque ses
+          // blob URLs). Les vidéos ne sont pas encore prises en charge par
+          // `Idea.imageUrl` (une seule image par idée).
+          const firstImage = files.find((f) => f.type.startsWith("image/"));
+          const imageUrl = firstImage
+            ? await fileToDataUrl(firstImage)
+            : undefined;
           addIdea({
             title,
             description: notes,
+            imageUrl,
             groupId: groupId ?? UNASSIGNED,
             tagIds: tagIds ?? [],
-          })
-        }
+          });
+        }}
         onCreatePost={() => {
           if (!requestNewPost("")) navigate("schedule");
         }}
