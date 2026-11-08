@@ -1962,6 +1962,7 @@ function buildSidebarGroups(
   ];
 }
 
+/** Sidebar desktop (232px, sticky). Jamais rendue sur mobile. */
 function SettingsSidebar({
   active,
   onSelect,
@@ -1980,12 +1981,12 @@ function SettingsSidebar({
   return (
     <aside
       className={cx(
-        "flex shrink-0 flex-col border-r transition-colors duration-300 max-md:sticky max-md:top-0 max-md:z-20 max-md:w-full max-md:border-r-0 max-md:border-b md:sticky md:top-0 md:h-screen md:w-[232px] md:overflow-y-auto",
+        "sticky top-0 flex h-screen w-[232px] shrink-0 flex-col overflow-y-auto border-r transition-colors duration-300",
         tokens.sidebarBg,
         tokens.cardBorder
       )}
     >
-      <div className="flex items-center gap-2.5 px-3 pt-5 pb-3 max-md:pt-3">
+      <div className="flex items-center gap-2.5 px-3 pt-5 pb-3">
         <button
           type="button"
           onClick={onBack}
@@ -2009,24 +2010,13 @@ function SettingsSidebar({
           {c.sidebar.title}
         </h2>
       </div>
-      <nav
-        aria-label={c.sidebar.navAria}
-        className="px-3 pb-4 max-md:flex max-md:gap-1 max-md:overflow-x-auto max-md:pb-3"
-      >
+      <nav aria-label={c.sidebar.navAria} className="px-3 pb-4">
         {groups.map((group, index) => (
-          <div
-            key={group.key}
-            className={cx(index === 0 ? "mt-1" : "mt-5", "max-md:mt-0")}
-          >
-            <p
-              className={cx(
-                "mb-1.5 px-3 text-[12px] max-md:hidden",
-                tokens.group
-              )}
-            >
+          <div key={group.key} className={index === 0 ? "mt-1" : "mt-5"}>
+            <p className={cx("mb-1.5 px-3 text-[12px]", tokens.group)}>
               {c.sidebar.groups[group.key]}
             </p>
-            <ul className="flex flex-col gap-0.5 max-md:flex-row">
+            <ul className="flex flex-col gap-0.5">
               {group.items.map((item) => {
                 const isActive = active === item.key;
                 return (
@@ -2070,6 +2060,195 @@ function SettingsSidebar({
         ))}
       </nav>
     </aside>
+  );
+}
+
+/* ── Détection mobile + deep-link ── */
+
+const MOBILE_QUERY = "(max-width: 767px)";
+
+function useIsMobile(): boolean {
+  const [mobile, setMobile] = useState<boolean>(() =>
+    typeof window !== "undefined" && window.matchMedia(MOBILE_QUERY).matches
+  );
+  useEffect(() => {
+    const mq = window.matchMedia(MOBILE_QUERY);
+    const onChange = () => setMobile(mq.matches);
+    onChange();
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+  return mobile;
+}
+
+/**
+ * Y a-t-il une section explicite dans l'URL (deep link, retour OAuth…) ?
+ * Sert à décider si sur mobile on ouvre directement le contenu ou le menu.
+ */
+function hasSectionInUrl(): boolean {
+  try {
+    // Hash : #/settings/profile
+    const hash = window.location.hash.replace(/^#\/?/, "");
+    const hashParts = hash.split("/").filter(Boolean);
+    if (hashParts[0] === "settings" && hashParts[1]) {
+      if (sectionFromSlug(hashParts[1])) return true;
+    }
+    // Chemin : /settings/profile
+    const pathParts = window.location.pathname.split("/").filter(Boolean);
+    const idx = pathParts.lastIndexOf("settings");
+    if (idx >= 0 && pathParts[idx + 1]) {
+      if (sectionFromSlug(pathParts[idx + 1])) return true;
+    }
+    // Query string : ?section=channels
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("section")) return true;
+    // Retour OAuth → on présume la section Channels
+    if (
+      [
+        "tiktok",
+        "tiktok_error",
+        "pinterest",
+        "pinterest_error",
+        "youtube",
+        "youtube_error",
+      ].some((k) => params.has(k))
+    ) {
+      return true;
+    }
+    try {
+      const parsed = JSON.parse(
+        sessionStorage.getItem("stone:oauth-returned") ?? "[]"
+      );
+      if (Array.isArray(parsed) && parsed.length > 0) return true;
+    } catch {
+      /* ignore */
+    }
+  } catch {
+    /* ignore */
+  }
+  return false;
+}
+
+/** Écran « menu » mobile : liste groupée type iOS Réglages. */
+function MobileSettingsMenu({
+  active,
+  onSelect,
+  onBack,
+  tokens,
+  c,
+}: {
+  active: SectionKey;
+  onSelect: (key: SectionKey) => void;
+  onBack: () => void;
+  tokens: Tokens;
+  c: Copy;
+}) {
+  const groups = buildSidebarGroups(c);
+  const { show: showMfaNudge } = useMfaNudge();
+
+  return (
+    <div className="flex min-h-screen w-full flex-col">
+      {/* Header avec retour vers home */}
+      <header
+        className={cx(
+          "sticky top-0 z-10 flex items-center gap-2 border-b px-4 pb-3",
+          "pt-[calc(12px+env(safe-area-inset-top))]",
+          tokens.sidebarBg,
+          tokens.cardBorder
+        )}
+      >
+        <button
+          type="button"
+          onClick={onBack}
+          aria-label={c.sidebar.backHome}
+          title={c.sidebar.backHome}
+          className={cx(
+            "flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-colors",
+            tokens.item,
+            tokens.itemHover,
+            tokens.ring
+          )}
+        >
+          <ArrowLeftIcon />
+        </button>
+        <h1
+          className={cx(
+            "font-display text-[20px] font-semibold tracking-[-0.01em]",
+            tokens.heading
+          )}
+        >
+          {c.sidebar.title}
+        </h1>
+      </header>
+
+      {/* Liste groupée des sections */}
+      <div className="flex-1 px-3 pt-4 pb-[calc(24px+env(safe-area-inset-bottom))]">
+        {groups.map((group) => (
+          <div key={group.key} className="mb-5">
+            <p
+              className={cx(
+                "mb-1.5 px-3 text-[12px] font-medium tracking-wide uppercase",
+                tokens.group
+              )}
+            >
+              {c.sidebar.groups[group.key]}
+            </p>
+            <ul
+              className={cx(
+                "divide-y overflow-hidden rounded-xl border",
+                tokens.card,
+                tokens.cardBorder,
+                tokens.divide
+              )}
+            >
+              {group.items.map((item) => {
+                const isActive = active === item.key;
+                return (
+                  <li key={item.key}>
+                    <button
+                      type="button"
+                      onClick={() => onSelect(item.key)}
+                      aria-current={isActive ? "page" : undefined}
+                      className={cx(
+                        "flex min-h-[52px] w-full items-center gap-3 px-4 text-left text-[15px] font-medium transition-colors",
+                        tokens.ring,
+                        isActive
+                          ? tokens.itemActive
+                          : `${tokens.item} ${tokens.itemHover}`
+                      )}
+                    >
+                      <span className={cx("shrink-0", tokens.subtle)}>
+                        {item.icon}
+                      </span>
+                      <span className="flex-1">{item.label}</span>
+                      {item.badge && (
+                        <span
+                          className={cx(
+                            "rounded-full px-1.5 py-0.5 text-[11px] font-medium",
+                            tokens.badgeNew
+                          )}
+                        >
+                          {item.badge}
+                        </span>
+                      )}
+                      {item.key === "mfa" && showMfaNudge && (
+                        <span
+                          aria-hidden="true"
+                          className="h-2 w-2 shrink-0 rounded-full bg-amber-400"
+                        />
+                      )}
+                      <ChevronRightIcon
+                        className={cx("shrink-0", tokens.subtle)}
+                      />
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -2124,6 +2303,7 @@ export default function Settings(_props: SettingsProps) {
   const tokens = useMemo<Tokens>(() => (isDark ? DARK : LIGHT), [isDark]);
   const lang = useLanguage();
   const c = COPY[lang];
+  const isMobile = useIsMobile();
 
   const returning =
     typeof window !== "undefined" &&
@@ -2138,6 +2318,17 @@ export default function Settings(_props: SettingsProps) {
   const active: SectionKey = returning
     ? "channels"
     : _props.initialSection ?? initialSection();
+
+  /**
+   * Navigation mobile : soit le menu (liste), soit le contenu d'une section.
+   * Au mount, on affiche directement le contenu si l'URL pointe déjà sur
+   * une section (deep link, retour OAuth, etc.).
+   */
+  const [mobileView, setMobileView] = useState<"menu" | "content">(() => {
+    if (_props.initialSection) return "content";
+    if (typeof window === "undefined") return "menu";
+    return hasSectionInUrl() ? "content" : "menu";
+  });
 
   const [toast, setToast] = useState<{
     message: string;
@@ -2169,6 +2360,16 @@ export default function Settings(_props: SettingsProps) {
     []
   );
 
+  /* Synchronise la vue mobile si l'URL change (back navigateur, retour OAuth…) */
+  useEffect(() => {
+    if (!isMobile) return;
+    const onHashChange = () => {
+      setMobileView(hasSectionInUrl() ? "content" : "menu");
+    };
+    window.addEventListener("hashchange", onHashChange);
+    return () => window.removeEventListener("hashchange", onHashChange);
+  }, [isMobile]);
+
   const handleSelectTheme = useCallback(
     (next: "light" | "dark", origin?: { x: number; y: number }) => {
       if (next !== theme) toggle(origin);
@@ -2176,14 +2377,76 @@ export default function Settings(_props: SettingsProps) {
     [theme, toggle]
   );
 
-  const handleSelect = useCallback((key: SectionKey) => {
-    navigate(settingsPath(key));
-    window.scrollTo({ top: 0 });
-    titleRef.current?.focus();
-  }, []);
+  const handleSelect = useCallback(
+    (key: SectionKey) => {
+      navigate(settingsPath(key));
+      window.scrollTo({ top: 0 });
+      if (isMobile) setMobileView("content");
+      titleRef.current?.focus();
+    },
+    [isMobile]
+  );
 
   const handleBack = useCallback(() => navigate("home"), []);
 
+  const handleBackToMenu = useCallback(() => {
+    setMobileView("menu");
+    window.scrollTo({ top: 0 });
+  }, []);
+
+  /* Toast partagé entre les deux vues mobile et la vue desktop */
+  const toastNode = (
+    <div
+      aria-live="polite"
+      className="pointer-events-none fixed bottom-6 left-1/2 z-[110] -translate-x-1/2 px-4"
+    >
+      {toast && (
+        <div
+          className={cx(
+            "flex items-center gap-2.5 rounded-full border py-2.5 pr-5 pl-3 text-[13px] font-medium shadow-lg backdrop-blur",
+            tokens.toast
+          )}
+        >
+          <span
+            className={cx(
+              "flex h-5 w-5 items-center justify-center rounded-full text-white",
+              toast.kind === "error" ? "bg-red-500" : "bg-emerald-500"
+            )}
+          >
+            {toast.kind === "error" ? (
+              <span className="text-[12px] leading-none font-bold">!</span>
+            ) : (
+              <CheckIcon className="h-3 w-3" />
+            )}
+          </span>
+          {toast.message}
+        </div>
+      )}
+    </div>
+  );
+
+  /* ─── Vue MOBILE : écran menu ─── */
+  if (isMobile && mobileView === "menu") {
+    return (
+      <main
+        className={cx(
+          "min-h-screen w-full transition-colors duration-500",
+          tokens.pageBg
+        )}
+      >
+        <MobileSettingsMenu
+          active={active}
+          onSelect={handleSelect}
+          onBack={handleBack}
+          tokens={tokens}
+          c={c}
+        />
+        {toastNode}
+      </main>
+    );
+  }
+
+  /* ─── Vue DESKTOP ou MOBILE contenu ─── */
   return (
     <main
       className={cx(
@@ -2191,20 +2454,49 @@ export default function Settings(_props: SettingsProps) {
         tokens.pageBg
       )}
     >
-      <div className="flex w-full max-md:flex-col">
-        <SettingsSidebar
-          active={active}
-          onSelect={handleSelect}
-          onBack={handleBack}
-          tokens={tokens}
-          c={c}
-        />
+      <div className="flex w-full">
+        {!isMobile && (
+          <SettingsSidebar
+            active={active}
+            onSelect={handleSelect}
+            onBack={handleBack}
+            tokens={tokens}
+            c={c}
+          />
+        )}
+
         <div
           className={cx(
-            "mx-auto w-full min-w-0 flex-1 px-[clamp(16px,4vw,48px)] py-[clamp(24px,4vw,56px)]",
+            "mx-auto w-full min-w-0 flex-1 px-[clamp(16px,4vw,48px)]",
+            isMobile
+              ? "pt-[calc(12px+env(safe-area-inset-top))] pb-[calc(24px+env(safe-area-inset-bottom))]"
+              : "py-[clamp(24px,4vw,56px)]",
             active === "channels" ? "max-w-[1100px]" : "max-w-[840px]"
           )}
         >
+          {/* En-tête mobile : retour au menu + fil d'ariane "Settings" */}
+          {isMobile && (
+            <div className="mb-3 flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleBackToMenu}
+                aria-label={c.sidebar.backHome}
+                title={c.sidebar.title}
+                className={cx(
+                  "flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-colors",
+                  tokens.item,
+                  tokens.itemHover,
+                  tokens.ring
+                )}
+              >
+                <ArrowLeftIcon />
+              </button>
+              <span className={cx("text-[13px] font-medium", tokens.subtle)}>
+                {c.sidebar.title}
+              </span>
+            </div>
+          )}
+
           <h1
             ref={titleRef}
             tabIndex={-1}
@@ -2287,33 +2579,7 @@ export default function Settings(_props: SettingsProps) {
         </div>
       </div>
 
-      <div
-        aria-live="polite"
-        className="pointer-events-none fixed bottom-6 left-1/2 z-[110] -translate-x-1/2 px-4"
-      >
-        {toast && (
-          <div
-            className={cx(
-              "flex items-center gap-2.5 rounded-full border py-2.5 pr-5 pl-3 text-[13px] font-medium shadow-lg backdrop-blur",
-              tokens.toast
-            )}
-          >
-            <span
-              className={cx(
-                "flex h-5 w-5 items-center justify-center rounded-full text-white",
-                toast.kind === "error" ? "bg-red-500" : "bg-emerald-500"
-              )}
-            >
-              {toast.kind === "error" ? (
-                <span className="text-[12px] leading-none font-bold">!</span>
-              ) : (
-                <CheckIcon className="h-3 w-3" />
-              )}
-            </span>
-            {toast.message}
-          </div>
-        )}
-      </div>
+      {toastNode}
     </main>
   );
 }
