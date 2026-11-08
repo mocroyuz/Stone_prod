@@ -1818,7 +1818,7 @@ function InsightsPanel({
 
   return (
     <section
-      className="flex h-full min-w-0 flex-col"
+      className="flex h-full min-h-[260px] min-w-0 flex-col"
       aria-labelledby="home-insights-title"
     >
       <h2 id="home-insights-title" className="sr-only">
@@ -2181,7 +2181,7 @@ function BlogSection({ isDark, lang }: { isDark: boolean; lang: Lang }) {
       {/* Mobile : carrousel horizontal à défilement magnétique. sm+ : grille. */}
       <div
         className={[
-          "-mx-[clamp(18px,3vw,48px)] flex snap-x snap-mandatory gap-3 overflow-x-auto px-[clamp(18px,3vw,48px)] pb-1",
+          "-mx-[clamp(14px,3vw,48px)] flex snap-x snap-mandatory gap-3 overflow-x-auto px-[clamp(14px,3vw,48px)] pb-2",
           "overscroll-x-contain touch-pan-x touch-pan-y",
           "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
           "sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 sm:pb-0 xl:grid-cols-4",
@@ -2193,7 +2193,7 @@ function BlogSection({ isDark, lang }: { isDark: boolean; lang: Lang }) {
             href={post.url}
             {...linkProps(post.url)}
             className={[
-              "group flex w-[78%] shrink-0 snap-start flex-col rounded-2xl border p-3.5 transition",
+              "group flex w-[84%] max-w-[340px] shrink-0 snap-start flex-col rounded-2xl border p-3.5 transition",
               "sm:w-auto sm:shrink",
               focusRingClass(isDark),
               cardClass(isDark),
@@ -2351,7 +2351,7 @@ export default function Home() {
   return (
     <main
       className={[
-        "relative h-[100dvh] w-full overflow-hidden",
+        "relative h-dvh min-h-dvh w-full overflow-hidden overscroll-none",
         "transition-colors duration-300",
         pageBgClass(isDark),
       ].join(" ")}
@@ -2359,7 +2359,8 @@ export default function Home() {
       <DashboardSidebar theme={theme} />
       <div
         className={[
-          "h-full py-3 pr-3 max-md:pt-14",
+          "h-full min-h-0 py-2 px-2 md:py-3 md:pr-3 md:pl-0",
+          "max-md:pt-[calc(3.5rem+env(safe-area-inset-top))]",
           "transition-[padding-left] duration-[380ms]",
           "ease-[cubic-bezier(0.4,0,0.2,1)]",
           "motion-reduce:transition-none",
@@ -2368,8 +2369,8 @@ export default function Home() {
       >
         <div
           className={[
-            "h-full overflow-y-auto overflow-x-hidden",
-            "rounded-[28px] border",
+            "h-full min-h-0 overflow-y-auto overflow-x-hidden overscroll-y-contain",
+            "rounded-2xl border md:rounded-[28px]",
             "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
             "transition-colors duration-300",
             mainPanelClass(isDark),
@@ -2377,13 +2378,13 @@ export default function Home() {
         >
           <div
             className={[
-              "mx-auto flex w-full max-w-[1720px]",
-              "flex-col px-[clamp(18px,3vw,48px)]",
-              "pb-[120px] pt-[clamp(18px,3vw,30px)]",
+              "mx-auto flex w-full min-w-0 max-w-[1720px]",
+              "flex-col px-[clamp(14px,3vw,48px)]",
+              "pb-[calc(7.5rem+env(safe-area-inset-bottom))] pt-[clamp(16px,3vw,30px)]",
             ].join(" ")}
           >
-            <header className="flex shrink-0 items-center justify-between gap-3 sm:items-start">
-              <div className="flex min-w-0 items-center gap-4">
+            <header className="flex min-w-0 shrink-0 flex-wrap items-center justify-between gap-3 sm:items-start">
+              <div className="flex min-w-0 flex-1 items-center gap-3 sm:gap-4">
                 <GreetingAvatar
                   avatarUrl={user?.avatar_url}
                   initials={initials}
@@ -2393,7 +2394,7 @@ export default function Home() {
                 <div className="flex min-w-0 flex-col">
                   <h1
                     className={[
-                      "text-[22px] font-semibold leading-[1.15] tracking-[-0.035em] sm:truncate sm:text-[24px]",
+                      "break-words text-[clamp(18px,4.5vw,24px)] font-semibold leading-[1.15] tracking-[-0.035em] sm:truncate",
                       strongClass(isDark),
                     ].join(" ")}
                   >
@@ -2409,7 +2410,7 @@ export default function Home() {
                   </p>
                 </div>
               </div>
-              <div className="hidden sm:block">
+              <div className="ml-auto hidden shrink-0 sm:block">
                 <ClockDisplay isDark={isDark} now={now} lang={lang} />
               </div>
             </header>
@@ -2422,7 +2423,7 @@ export default function Home() {
               commentScore={{ value: 13, changePct: 100 }}
             />
 
-            <section className="mt-8 shrink-0 sm:mt-7">
+            <section className="mt-8 min-w-0 shrink-0 sm:mt-7">
               <div className="mb-3 flex items-end justify-between gap-3">
                 <div className="min-w-0">
                   <p
@@ -2462,7 +2463,7 @@ export default function Home() {
               </div>
               <div
                 className={[
-                  "grid grid-cols-1 gap-3",
+                  "grid grid-cols-1 gap-3 min-[420px]:grid-cols-2",
                   "sm:grid-cols-3 sm:rounded-2xl sm:border sm:p-4",
                   isDark
                     ? "sm:border-white/[0.07] sm:bg-white/[0.025]"
@@ -2499,7 +2500,7 @@ export default function Home() {
               </div>
             </section>
 
-            <section className="mt-6 shrink-0 sm:mt-5">
+            <section className="mt-6 min-w-0 shrink-0 sm:mt-5">
               <div className="mb-3 flex items-center justify-between">
                 <div>
                   <p
@@ -2532,7 +2533,7 @@ export default function Home() {
               />
             </section>
 
-            <div className="mt-7 grid grid-cols-1 gap-6 md:mt-6 md:grid-cols-2 md:gap-4">
+            <div className="mt-7 grid min-w-0 grid-cols-1 gap-6 md:mt-6 md:grid-cols-2 md:gap-4 xl:gap-6">
               <InsightsPanel
                 isDark={isDark}
                 lang={lang}
@@ -2555,7 +2556,7 @@ export default function Home() {
               />
             </div>
 
-            <div className="mt-8">
+            <div className="mt-8 min-w-0">
               <BlogSection isDark={isDark} lang={lang} />
             </div>
           </div>
