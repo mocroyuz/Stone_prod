@@ -21,10 +21,11 @@
 // Groupes et tags vivent dans un store partagé (services/boardMeta) :
 // chargés une seule fois, visibles aussi par BottomBar / NewIdeaModal.
 //
-// Chaque idée affiche une vignette visuelle :
-//  - l'image si `imageUrl` est fourni (bandeau plein largeur),
+// Chaque idée affiche une MINIATURE carrée (56×56) à gauche du titre :
+//  - l'image si `imageUrl` est fourni,
 //  - sinon un dégradé déterministe (dérivé de l'id) + l'initiale du titre.
-// Cela garantit qu'on distingue deux idées de même nom.
+// Cela garantit qu'on distingue deux idées de même nom, et que toutes les
+// cartes ont la même hauteur (pas de bandeau image pleine largeur).
 //
 // Les fichiers uploadés via NewIdeaModal (champ `files: File[]`) sont
 // convertis en data URL (base64) pour survivre à la fermeture du modal
@@ -1387,7 +1388,7 @@ function IdeaMenuItems({
   );
 }
 
-/* ───────── Vignette d'idée (image ou dégradé déterministe) ───────── */
+/* ───────── Vignette d'idée (miniature carrée) ───────── */
 
 /** Teinte stable (0–359) dérivée d'une chaîne. */
 function hashHue(input: string): number {
@@ -1405,33 +1406,21 @@ function initialOf(title: string): string {
 }
 
 /**
- * Vignette affichée dans chaque idée :
- *  - `imageUrl` fourni → bandeau plein largeur,
- *  - sinon → petit carré dégradé + initiale, dérivé de `idea.id`.
+ * Miniature carrée (56×56) affichée à gauche du titre de chaque idée :
+ *  - `imageUrl` fourni → l'image uploadée, recadrée en carré,
+ *  - sinon → un dégradé déterministe (dérivé de `idea.id`) + l'initiale
+ *    du titre.
  *
  * Le dégradé est déterministe : deux idées différentes (même de même titre)
  * obtiennent des couleurs différentes → on peut les distinguer visuellement.
  */
-function IdeaThumb({
-  idea,
-  isDark,
-  variant = "mini",
-}: {
-  idea: Idea;
-  isDark: boolean;
-  /** "mini" : carré à gauche du titre — "banner" : bandeau en haut. */
-  variant?: "mini" | "banner";
-}) {
+function IdeaThumb({ idea, isDark }: { idea: Idea; isDark: boolean }) {
   if (idea.imageUrl) {
     return (
       <img
         src={idea.imageUrl}
         alt=""
-        className={
-          variant === "banner"
-            ? "h-[150px] w-full rounded-t-[11px] object-cover"
-            : "h-14 w-14 shrink-0 rounded-lg object-cover"
-        }
+        className="h-14 w-14 shrink-0 rounded-lg border border-black/[0.06] object-cover dark:border-white/[0.07]"
         draggable={false}
       />
     );
@@ -1446,19 +1435,11 @@ function IdeaThumb({
   return (
     <div
       aria-hidden="true"
-      className={
-        variant === "banner"
-          ? "flex h-[150px] w-full items-center justify-center rounded-t-[11px] overflow-hidden"
-          : "flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg"
-      }
+      className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg"
       style={{ background: `linear-gradient(135deg, ${from}, ${to})` }}
     >
       <span
-        className={
-          variant === "banner"
-            ? "text-[44px] font-semibold leading-none tracking-[-0.02em]"
-            : "text-[22px] font-semibold leading-none"
-        }
+        className="text-[22px] font-semibold leading-none"
         style={{
           color: isDark ? "rgba(255,255,255,0.78)" : "rgba(0,0,0,0.55)",
         }}
@@ -1533,8 +1514,6 @@ function IdeaCard({
     />
   );
 
-  const hasImage = !!idea.imageUrl;
-
   return (
     <div
       data-card={draggable ? idea.id : undefined}
@@ -1559,12 +1538,9 @@ function IdeaCard({
             : "border-black/[0.06] bg-white hover:border-black/[0.12]"
         }`}
       >
-        {/* Bandeau image si l'idée en a une (plein largeur, comme avant) */}
-        {hasImage && <IdeaThumb idea={idea} isDark={isDark} variant="banner" />}
-
         <div className="flex gap-3 px-4 py-4">
-          {/* Sinon : petite vignette (dégradé + initiale) à gauche du titre */}
-          {!hasImage && <IdeaThumb idea={idea} isDark={isDark} />}
+          {/* Miniature carrée à gauche : image uploadée OU dégradé fallback */}
+          <IdeaThumb idea={idea} isDark={isDark} />
 
           <div className="flex min-w-0 flex-1 flex-col gap-1">
             <div className="flex items-center justify-between gap-2">
