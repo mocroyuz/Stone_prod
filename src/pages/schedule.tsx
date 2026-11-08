@@ -3168,7 +3168,7 @@ export default function Schedule() {
             className={[
               "flex min-h-0 w-full flex-1 flex-col",
               "px-[clamp(14px,3vw,48px)]",
-              "pb-[calc(6.5rem+env(safe-area-inset-bottom))] pt-[clamp(16px,3vw,30px)] md:pb-4",
+              "pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-[clamp(16px,3vw,30px)] md:pb-4",
             ].join(" ")}
           >
             {/* HEADER — z-20 : sous le tiroir mobile (z-40) et la barre mobile (z-30) */}
@@ -3487,6 +3487,7 @@ export default function Schedule() {
               onTouchEnd={onSwipeEnd}
               className={[
                 "mt-3 flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border [touch-action:pan-y] md:mt-4",
+                view === "month" ? "max-md:mb-[5.5rem]" : "",
                 calendarBorder,
                 isDark ? "bg-white/[0.02]" : "bg-white",
               ].join(" ")}
@@ -3552,7 +3553,8 @@ export default function Schedule() {
                         className="grid"
                         style={{
                           gridTemplateColumns: gridCols,
-                          height: TOTAL_HEIGHT,
+                          // mobile : marge basse pour que 23h reste au-dessus de la BottomBar flottante
+                          height: TOTAL_HEIGHT + (isMobile ? 104 : 0),
                         }}
                       >
                         <div className="relative">
@@ -3756,7 +3758,7 @@ export default function Schedule() {
                         type="button"
                         onClick={goToday}
                         className={[
-                          "absolute bottom-3 left-3 z-30 flex items-center gap-1.5 rounded-full border py-2 pl-2.5 pr-3.5 text-[12.5px] font-semibold shadow-lg backdrop-blur-md transition active:scale-95 md:hidden",
+                          "absolute bottom-24 left-3 z-30 flex items-center gap-1.5 rounded-full border py-2 pl-2.5 pr-3.5 text-[12.5px] font-semibold shadow-lg backdrop-blur-md transition active:scale-95 md:hidden",
                           focusRingClass(isDark),
                           isDark
                             ? "border-white/[0.10] bg-[#101012]/90 text-white"
@@ -3787,7 +3789,7 @@ export default function Schedule() {
                       c={c}
                       lang={lang}
                       onSelect={scrollToOffScreenPost}
-                      bottomOffset={isMobile ? "bottom-3" : "bottom-24"}
+                      bottomOffset="bottom-24"
                     />
                   </div>
                 </>
