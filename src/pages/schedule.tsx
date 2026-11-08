@@ -1,5 +1,26 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
+import {
+  ArrowDown,
+  ArrowUp,
+  Bookmark,
+  CalendarDays,
+  CalendarOff,
+  Check,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  FileText,
+  Globe,
+  MoreHorizontal,
+  MoreVertical,
+  Pencil,
+  Plus,
+  SlidersHorizontal,
+  Tag as TagLucide,
+  Trash2,
+  X,
+} from "lucide-react";
 import { useTheme } from "../hooks/useTheme";
 import { useHashRoute } from "../hooks/useHashRoute";
 import DashboardSidebar, {
@@ -13,6 +34,7 @@ import NewPostModal, {
   type SocialNetworkId,
 } from "../components/Newpostmodal";
 import { DateTimePicker } from "../components/DateTimePicker";
+import { CalendarPicker } from "../components/CalendarPicker";
 import ChannelMenu from "../components/ChannelMenu";
 import { useConnectedChannels } from "../hooks/useConnectedChannels";
 import HelpChatButton from "../components/Helpchatbutton";
@@ -87,30 +109,51 @@ function useLanguage(): Lang {
 const intlLocale = (lang: Lang) => (lang === "fr" ? "fr-FR" : "en-GB");
 
 /* ------------------------------------------------------------------ */
+/* Responsive                                                          */
+/* ------------------------------------------------------------------ */
+
+const MOBILE_QUERY = "(max-width: 767px)";
+
+function useIsMobile(): boolean {
+  const [mobile, setMobile] = useState(
+    () =>
+      typeof window !== "undefined" && window.matchMedia(MOBILE_QUERY).matches
+  );
+  useEffect(() => {
+    const mq = window.matchMedia(MOBILE_QUERY);
+    const onChange = () => setMobile(mq.matches);
+    onChange();
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+  return mobile;
+}
+
+/* ------------------------------------------------------------------ */
 /* Copy                                                                */
 /* ------------------------------------------------------------------ */
 
 type Scope = "all" | "published" | "toPublish";
+type View = "3days" | "week" | "month";
 
 type Copy = {
   pageTitle: string;
-  header: {
-    addFavorite: string;
-    removeFavorite: string;
-  };
+  header: { addFavorite: string; removeFavorite: string; newPost: string };
   toolbar: {
-    prevWeek: string;
-    prevMonth: string;
-    nextWeek: string;
-    nextMonth: string;
+    prev: string;
+    next: string;
     today: string;
+    threeDays: string;
     week: string;
     month: string;
     scopeLabels: Record<Scope, string>;
     tags: string;
+    filters: string;
     noDate: string;
     moreOptions: string;
     addEvent: string;
+    calendar: string;
+    openCalendar: string;
   };
   weekdaysLong: string[];
   addPostTooltip: string;
@@ -135,9 +178,7 @@ type Copy = {
     create: string;
     validation: string;
   };
-  dayModal: {
-    close: string;
-  };
+  dayModal: { close: string };
   offScreen: {
     above: (time: string) => string;
     below: (time: string) => string;
@@ -151,13 +192,13 @@ const COPY: Record<Lang, Copy> = {
     header: {
       addFavorite: "Add to favorites",
       removeFavorite: "Remove from favorites",
+      newPost: "New post",
     },
     toolbar: {
-      prevWeek: "Previous week",
-      prevMonth: "Previous month",
-      nextWeek: "Next week",
-      nextMonth: "Next month",
+      prev: "Previous",
+      next: "Next",
       today: "Today",
+      threeDays: "3 Days",
       week: "Week",
       month: "Month",
       scopeLabels: {
@@ -166,9 +207,12 @@ const COPY: Record<Lang, Copy> = {
         toPublish: "To publish",
       },
       tags: "Tags",
+      filters: "Filters",
       noDate: "No Date",
       moreOptions: "More options",
       addEvent: "Add event",
+      calendar: "Calendar",
+      openCalendar: "Open calendar",
     },
     weekdaysLong: [
       "Sunday",
@@ -199,12 +243,9 @@ const COPY: Record<Lang, Copy> = {
       cancel: "Cancel",
       save: "Save",
       create: "Create",
-      validation:
-        "Enter a title and an end time later than the start time.",
+      validation: "Enter a title and an end time later than the start time.",
     },
-    dayModal: {
-      close: "Close",
-    },
+    dayModal: { close: "Close" },
     offScreen: {
       above: (time) => `Post above at ${time} — click to go there`,
       below: (time) => `Post below at ${time} — click to go there`,
@@ -221,13 +262,13 @@ const COPY: Record<Lang, Copy> = {
     header: {
       addFavorite: "Ajouter aux favoris",
       removeFavorite: "Retirer des favoris",
+      newPost: "Nouveau post",
     },
     toolbar: {
-      prevWeek: "Semaine précédente",
-      prevMonth: "Mois précédent",
-      nextWeek: "Semaine suivante",
-      nextMonth: "Mois suivant",
+      prev: "Précédent",
+      next: "Suivant",
       today: "Aujourd'hui",
+      threeDays: "3 jours",
       week: "Semaine",
       month: "Mois",
       scopeLabels: {
@@ -236,9 +277,12 @@ const COPY: Record<Lang, Copy> = {
         toPublish: "À publier",
       },
       tags: "Tags",
+      filters: "Filtres",
       noDate: "Sans date",
       moreOptions: "Plus d'options",
       addEvent: "Ajouter un événement",
+      calendar: "Calendrier",
+      openCalendar: "Ouvrir le calendrier",
     },
     weekdaysLong: [
       "Dimanche",
@@ -272,9 +316,7 @@ const COPY: Record<Lang, Copy> = {
       validation:
         "Renseigne un titre et une heure de fin postérieure à l'heure de début.",
     },
-    dayModal: {
-      close: "Fermer",
-    },
+    dayModal: { close: "Fermer" },
     offScreen: {
       above: (time) => `Post au-dessus à ${time} — cliquer pour y aller`,
       below: (time) => `Post en-dessous à ${time} — cliquer pour y aller`,
@@ -313,10 +355,6 @@ const focusRingClass = (isDark: boolean) =>
 
 const PAGE_ROUTE = "schedule";
 
-/* ------------------------------------------------------------------ */
-/* Helpers                                                             */
-/* ------------------------------------------------------------------ */
-
 function useHashChannel(): string | null {
   useHashRoute();
   return new URLSearchParams(window.location.search).get("channel");
@@ -335,7 +373,6 @@ const UNASSIGNED_TAG: ApiTag = {
 };
 
 const UNASSIGNED_HEX = "#a3a3a3";
-
 const DEFAULT_ORDER = ["to do", "in progress"];
 
 const hexOf = (t: ApiTag) =>
@@ -352,325 +389,10 @@ const passesTagFilter = (
 };
 
 /* ------------------------------------------------------------------ */
-/* Icons                                                               */
+/* Toolbar primitives                                                  */
 /* ------------------------------------------------------------------ */
 
-function ChevronDownIcon({
-  className = "h-[13px] w-[13px]",
-}: {
-  className?: string;
-}) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className={className}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="m6 9 6 6 6-6" />
-    </svg>
-  );
-}
-
-function PlusIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className="h-[13px] w-[13px]"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M12 5v14M5 12h14" />
-    </svg>
-  );
-}
-
-function MoreIcon() {
-  return (
-    <svg viewBox="0 0 24 24" className="h-[13px] w-[13px]" fill="currentColor">
-      <circle cx="5" cy="12" r="1.6" />
-      <circle cx="12" cy="12" r="1.6" />
-      <circle cx="19" cy="12" r="1.6" />
-    </svg>
-  );
-}
-
-function PencilIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className="h-[14px] w-[14px]"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M4 20h4L19 9a2.1 2.1 0 0 0-3-3L5 17v3Z" />
-      <path d="m14.5 7.5 3 3" />
-    </svg>
-  );
-}
-
-function TrashIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className="h-[14px] w-[14px]"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M4 7h16" />
-      <path d="M9 7V4.5h6V7" />
-      <path d="M6.5 7 7.4 19a1.5 1.5 0 0 0 1.5 1.4h6.2a1.5 1.5 0 0 0 1.5-1.4L17.5 7" />
-      <path d="M10 11v5M14 11v5" />
-    </svg>
-  );
-}
-
-function CheckIcon({
-  className = "h-[11px] w-[11px]",
-}: {
-  className?: string;
-}) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className={className}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.6"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="m4 12 6 6L20 6" />
-    </svg>
-  );
-}
-
-function ArrowUpIcon({
-  className = "h-[14px] w-[14px]",
-}: {
-  className?: string;
-}) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className={className}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.4"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M12 19V5M5 12l7-7 7 7" />
-    </svg>
-  );
-}
-
-function ArrowDownIcon({
-  className = "h-[14px] w-[14px]",
-}: {
-  className?: string;
-}) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className={className}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.4"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M12 5v14M5 12l7 7 7-7" />
-    </svg>
-  );
-}
-
-function CalendarIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className="h-[17px] w-[17px]"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <rect x="3.5" y="5" width="17" height="15.5" rx="3" />
-      <path d="M8 3v4M16 3v4M3.5 10.5h17" />
-    </svg>
-  );
-}
-
-function ChevronLeftIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className="h-[16px] w-[16px]"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="m15 6-6 6 6 6" />
-    </svg>
-  );
-}
-
-function ChevronRightIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className="h-[16px] w-[16px]"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="m9 6 6 6-6 6" />
-    </svg>
-  );
-}
-
-function PostsIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className="h-[15px] w-[15px]"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <rect x="3" y="3" width="13" height="13" rx="2" />
-      <path d="M8 20h11a2 2 0 0 0 2-2V8" />
-    </svg>
-  );
-}
-
-function TagIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className="h-[15px] w-[15px]"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8Z" />
-      <circle cx="7.5" cy="7.5" r="1" fill="currentColor" />
-    </svg>
-  );
-}
-
-function NoDateIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className="h-[15px] w-[15px]"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <rect x="3" y="4" width="18" height="16" rx="2" />
-      <path d="M9 4v16" />
-      <path d="m16 10-2 2 2 2" />
-    </svg>
-  );
-}
-
-function GlobeIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className="h-[15px] w-[15px]"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <circle cx="12" cy="12" r="9" />
-      <path d="M3 12h18" />
-      <path d="M12 3a14 14 0 0 1 0 18 14 14 0 0 1 0-18Z" />
-    </svg>
-  );
-}
-
-function MoreVerticalIcon() {
-  return (
-    <svg viewBox="0 0 24 24" className="h-[15px] w-[15px]" fill="currentColor">
-      <circle cx="12" cy="5" r="1.6" />
-      <circle cx="12" cy="12" r="1.6" />
-      <circle cx="12" cy="19" r="1.6" />
-    </svg>
-  );
-}
-
-function CloseIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className="h-[15px] w-[15px]"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M6 6l12 12M18 6 6 18" />
-    </svg>
-  );
-}
-
-function BookmarkIcon({
-  className,
-  filled = false,
-}: {
-  className?: string;
-  filled?: boolean;
-}) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className={className ?? "h-4 w-4"}
-      fill={filled ? "currentColor" : "none"}
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M7 4.5h10a1 1 0 0 1 1 1V20l-6-3.8L6 20V5.5a1 1 0 0 1 1-1Z" />
-    </svg>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/* Toolbar                                                             */
-/* ------------------------------------------------------------------ */
-
-type ToolbarPanel = "view" | "posts" | "tags" | "timezone" | "more";
+type ToolbarPanel = "view" | "posts" | "tags" | "timezone" | "more" | "filters";
 
 function ToolbarButton({
   isDark,
@@ -717,7 +439,7 @@ function ToolbarButton({
             open ? "rotate-180" : "",
           ].join(" ")}
         >
-          <ChevronDownIcon />
+          <ChevronDown className="h-[13px] w-[13px]" />
         </span>
       )}
     </button>
@@ -744,7 +466,7 @@ function ToolbarIconButton({
       aria-expanded={open}
       onClick={onClick}
       className={[
-        "flex h-8 w-8 items-center justify-center rounded-lg transition",
+        "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition md:h-8 md:w-8",
         focusRingClass(isDark),
         open
           ? isDark
@@ -775,7 +497,7 @@ function MenuPanel({
     <div
       role="menu"
       className={[
-        "absolute top-full z-40 mt-2 overflow-hidden rounded-xl border py-1.5 shadow-lg",
+        "absolute top-full z-40 mt-2 max-h-[70vh] overflow-y-auto rounded-xl border py-1.5 shadow-lg",
         align === "right" ? "right-0" : "left-0",
         width,
         isDark
@@ -807,7 +529,7 @@ function MenuItem({
       role="menuitem"
       onClick={onClick}
       className={[
-        "flex w-full items-center justify-between gap-2 px-4 py-2 text-left text-[12.5px] transition",
+        "flex w-full items-center justify-between gap-2 px-4 py-2.5 text-left text-[13px] transition md:py-2 md:text-[12.5px]",
         selected
           ? isDark
             ? "font-semibold text-white"
@@ -821,18 +543,29 @@ function MenuItem({
         {icon}
         {children}
       </span>
-      {selected && <CheckIcon />}
+      {selected && <Check className="h-[11px] w-[11px]" strokeWidth={2.6} />}
     </button>
   );
 }
+
+const Divider = ({ isDark }: { isDark: boolean }) => (
+  <div
+    className={[
+      "my-1 h-px",
+      isDark ? "bg-white/[0.07]" : "bg-black/[0.06]",
+    ].join(" ")}
+  />
+);
 
 /* ------------------------------------------------------------------ */
 /* Date helpers                                                        */
 /* ------------------------------------------------------------------ */
 
+const startOfDay = (d: Date) =>
+  new Date(d.getFullYear(), d.getMonth(), d.getDate());
+
 function startOfWeek(date: Date) {
-  const d = new Date(date);
-  d.setHours(0, 0, 0, 0);
+  const d = startOfDay(date);
   d.setDate(d.getDate() - d.getDay());
   return d;
 }
@@ -847,15 +580,9 @@ function addMonths(date: Date, months: number) {
   const d = new Date(date);
   const day = d.getDate();
   d.setMonth(d.getMonth() + months);
-  if (d.getDate() < day) {
-    d.setDate(0);
-  }
+  if (d.getDate() < day) d.setDate(0);
   return d;
 }
-
-/* ------------------------------------------------------------------ */
-/* Time helpers                                                        */
-/* ------------------------------------------------------------------ */
 
 const TIME_ANCHOR = new Date(2024, 0, 1);
 
@@ -867,12 +594,10 @@ function hourToDate(h: number): Date {
   return d;
 }
 
-function dateToHour(d: Date): number {
-  return d.getHours() + d.getMinutes() / 60;
-}
+const dateToHour = (d: Date) => d.getHours() + d.getMinutes() / 60;
 
 /* ------------------------------------------------------------------ */
-/* Data types                                                          */
+/* Data + layout constants                                             */
 /* ------------------------------------------------------------------ */
 
 type CalendarEvent = {
@@ -898,6 +623,8 @@ const DEFAULT_SCROLL_HOUR = 8;
 const NOW_CONTEXT_HOURS = 2;
 const HOURS = Array.from({ length: SPAN + 1 }, (_, i) => START_HOUR + i);
 
+const TIME_COL = 48;
+
 const MONTH_ITEM_H = 22;
 const MONTH_GAP = 2;
 const MONTH_CELL_PAD = 4;
@@ -905,7 +632,6 @@ const MONTH_CELL_HEADER = 20;
 
 const POST_CHIP_H = 30;
 const POST_THUMB = 22;
-
 const WEEK_CHIP_H = 30;
 const WEEK_THUMB = 22;
 
@@ -940,9 +666,8 @@ function formatTime(h: number, lang: Lang) {
     : `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
 }
 
-function formatEventTime(start: number, end: number, lang: Lang) {
-  return `${formatTime(start, lang)} - ${formatTime(end, lang)}`;
-}
+const formatEventTime = (start: number, end: number, lang: Lang) =>
+  `${formatTime(start, lang)} - ${formatTime(end, lang)}`;
 
 function formatPostTime(iso: string, lang: Lang) {
   try {
@@ -965,10 +690,7 @@ const NEUTRAL_STYLE = {
   borderDark: "border-neutral-700",
 };
 
-type PositionedEvent = {
-  event: CalendarEvent;
-  depth: number;
-};
+type PositionedEvent = { event: CalendarEvent; depth: number };
 
 function layoutDayEvents(events: CalendarEvent[]): PositionedEvent[] {
   if (!events || events.length === 0) return [];
@@ -982,9 +704,7 @@ function layoutDayEvents(events: CalendarEvent[]): PositionedEvent[] {
       maxEnd = Math.max(maxEnd, sorted[j].end);
       j++;
     }
-    for (let k = i; k < j; k++) {
-      result.push({ event: sorted[k], depth: k - i });
-    }
+    for (let k = i; k < j; k++) result.push({ event: sorted[k], depth: k - i });
     i = j;
   }
   return result;
@@ -1106,6 +826,55 @@ function PostThumb({
   );
 }
 
+const POST_TITLE_KEYS = [
+  "title",
+  "videoTitle",
+  "caption",
+  "content",
+  "text",
+  "description",
+];
+
+function postTitle(post: CalendarPost): string {
+  const data = post as unknown as Record<string, unknown>;
+  for (const key of POST_TITLE_KEYS) {
+    const value = data[key];
+    if (typeof value === "string" && value.trim())
+      return value.trim().split("\n")[0];
+  }
+  return "";
+}
+
+function MoreRow({
+  count,
+  isDark,
+  c,
+  onClick,
+}: {
+  count: number;
+  isDark: boolean;
+  c: Copy;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={[
+        "flex shrink-0 items-center justify-end gap-1 rounded-md px-1.5 text-[11px] font-semibold transition-colors",
+        focusRingClass(isDark),
+        isDark
+          ? "text-neutral-300 hover:bg-white/[0.06] hover:text-white"
+          : "text-neutral-600 hover:bg-black/[0.04] hover:text-neutral-900",
+      ].join(" ")}
+      style={{ height: MONTH_ITEM_H }}
+    >
+      <ChevronDown className="h-[11px] w-[11px]" />
+      {c.moreRow(count)}
+    </button>
+  );
+}
+
 function PostSlot({
   hour,
   posts,
@@ -1140,7 +909,6 @@ function PostSlot({
           {renderChip(post)}
         </div>
       ))}
-
       {hidden > 0 && (
         <div className="pointer-events-auto flex flex-col">
           <MoreRow count={hidden} isDark={isDark} c={c} onClick={onMore} />
@@ -1154,11 +922,7 @@ function PostSlot({
 /* Off-screen posts                                                    */
 /* ------------------------------------------------------------------ */
 
-type OffScreenPost = {
-  post: CalendarPost;
-  dayIndex: number;
-  top: number;
-};
+type OffScreenPost = { post: CalendarPost; dayIndex: number; top: number };
 
 function OffScreenPostStack({
   items,
@@ -1226,9 +990,9 @@ function OffScreenPostStack({
             </span>
             <span className={isDark ? "text-neutral-400" : "text-neutral-500"}>
               {direction === "up" ? (
-                <ArrowUpIcon className="h-3 w-3" />
+                <ArrowUp className="h-3 w-3" strokeWidth={2.4} />
               ) : (
-                <ArrowDownIcon className="h-3 w-3" />
+                <ArrowDown className="h-3 w-3" strokeWidth={2.4} />
               )}
             </span>
           </button>
@@ -1249,27 +1013,8 @@ function OffScreenPostStack({
 }
 
 /* ------------------------------------------------------------------ */
-/* Month view chips                                                    */
+/* Chips                                                               */
 /* ------------------------------------------------------------------ */
-
-const POST_TITLE_KEYS = [
-  "title",
-  "videoTitle",
-  "caption",
-  "content",
-  "text",
-  "description",
-];
-
-function postTitle(post: CalendarPost): string {
-  const data = post as unknown as Record<string, unknown>;
-  for (const key of POST_TITLE_KEYS) {
-    const value = data[key];
-    if (typeof value === "string" && value.trim())
-      return value.trim().split("\n")[0];
-  }
-  return "";
-}
 
 function PostChip({
   post,
@@ -1301,7 +1046,7 @@ function PostChip({
       title={title ? `${time} · ${title}` : time}
       className={[
         "flex shrink-0 items-center transition-colors",
-        large ? "gap-2 rounded-lg px-2" : "gap-1.5 rounded-md px-1.5",
+        large ? "gap-1.5 rounded-lg px-1.5 md:gap-2 md:px-2" : "gap-1.5 rounded-md px-1.5",
         postChipBg(isDark, posted, dragging),
         posted ? "cursor-not-allowed" : "cursor-grab active:cursor-grabbing",
       ].join(" ")}
@@ -1312,7 +1057,6 @@ function PostChip({
         isDark={isDark}
         size={large ? 22 : 18}
       />
-
       <span className="flex min-w-0 flex-1 flex-col justify-center gap-0.5 leading-none">
         <span
           className={[
@@ -1335,7 +1079,6 @@ function PostChip({
           </span>
         )}
       </span>
-
       <PostThumb
         post={post}
         isDark={isDark}
@@ -1391,39 +1134,23 @@ function MonthEventChip({
   );
 }
 
-function MoreRow({
-  count,
-  isDark,
-  c,
-  onClick,
-}: {
-  count: number;
-  isDark: boolean;
-  c: Copy;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={[
-        "flex shrink-0 items-center justify-end gap-1 rounded-md px-1.5 text-[11px] font-semibold transition-colors",
-        focusRingClass(isDark),
-        isDark
-          ? "text-neutral-300 hover:bg-white/[0.06] hover:text-white"
-          : "text-neutral-600 hover:bg-black/[0.04] hover:text-neutral-900",
-      ].join(" ")}
-      style={{ height: MONTH_ITEM_H }}
-    >
-      <ChevronDownIcon className="h-[11px] w-[11px]" />
-      {c.moreRow(count)}
-    </button>
-  );
-}
-
 type MonthItem =
   | { kind: "event"; id: string; start: number; event: CalendarEvent }
   | { kind: "post"; id: string; start: number; post: CalendarPost };
+
+/* ------------------------------------------------------------------ */
+/* Modals                                                              */
+/* ------------------------------------------------------------------ */
+
+function useEscape(onEscape: () => void) {
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onEscape();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [onEscape]);
+}
 
 function DayDetailModal({
   isDark,
@@ -1440,13 +1167,7 @@ function DayDetailModal({
   onClose: () => void;
   c: Copy;
 }) {
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [onClose]);
+  useEscape(onClose);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -1485,7 +1206,7 @@ function DayDetailModal({
                 : "text-neutral-500 hover:bg-black/[0.04] hover:text-neutral-900",
             ].join(" ")}
           >
-            <CloseIcon />
+            <X className="h-[15px] w-[15px]" />
           </button>
         </div>
         <div className="flex flex-col gap-1 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
@@ -1495,6 +1216,134 @@ function DayDetailModal({
             </div>
           ))}
         </div>
+      </div>
+    </div>
+  );
+}
+
+/** Feuille de sélection de date : bottom sheet (mobile) / dialogue centré (desktop). */
+function CalendarSheet({
+  isDark,
+  c,
+  view,
+  date,
+  onViewChange,
+  onPick,
+  onToday,
+  onClose,
+}: {
+  isDark: boolean;
+  c: Copy;
+  view: View;
+  date: Date;
+  onViewChange: (v: View) => void;
+  onPick: (d: Date) => void;
+  onToday: () => void;
+  onClose: () => void;
+}) {
+  useEscape(onClose);
+
+  const options: { key: View; label: string }[] = [
+    { key: "3days", label: c.toolbar.threeDays },
+    { key: "week", label: c.toolbar.week },
+    { key: "month", label: c.toolbar.month },
+  ];
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center md:items-center md:p-4">
+      <div
+        className="absolute inset-0 bg-black/50 backdrop-blur-[2px]"
+        onClick={onClose}
+      />
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={c.toolbar.calendar}
+        className={[
+          "relative z-10 flex max-h-[92dvh] w-full flex-col overflow-y-auto border p-4 shadow-2xl",
+          "rounded-t-3xl pb-[calc(1rem+env(safe-area-inset-bottom))]",
+          "md:max-w-sm md:rounded-2xl md:pb-4",
+          isDark
+            ? "border-white/[0.08] bg-[#101012]"
+            : "border-black/[0.06] bg-[#f6f4f0]",
+        ].join(" ")}
+      >
+        <div
+          className={[
+            "mx-auto mb-3 h-1 w-10 shrink-0 rounded-full md:hidden",
+            isDark ? "bg-white/20" : "bg-black/15",
+          ].join(" ")}
+        />
+        <h2
+          className={[
+            "mb-4 text-center text-[17px] font-semibold tracking-[-0.02em]",
+            strongClass(isDark),
+          ].join(" ")}
+        >
+          {c.toolbar.calendar}
+        </h2>
+
+        <div
+          role="tablist"
+          className={[
+            "mb-3 grid grid-cols-3 gap-1 rounded-2xl border p-1",
+            isDark
+              ? "border-white/[0.08] bg-white/[0.03]"
+              : "border-black/[0.08] bg-white",
+          ].join(" ")}
+        >
+          {options.map((o) => {
+            const active = view === o.key;
+            return (
+              <button
+                key={o.key}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                onClick={() => onViewChange(o.key)}
+                className={[
+                  "rounded-xl py-2.5 text-[14px] font-medium transition",
+                  focusRingClass(isDark),
+                  active
+                    ? isDark
+                      ? "bg-white text-neutral-900"
+                      : "bg-neutral-900 text-white"
+                    : isDark
+                      ? "text-neutral-300 hover:bg-white/[0.06]"
+                      : "text-neutral-700 hover:bg-black/[0.04]",
+                ].join(" ")}
+              >
+                {o.label}
+              </button>
+            );
+          })}
+        </div>
+
+        <CalendarPicker
+          value={date}
+          onChange={onPick}
+          onClose={onClose}
+          isDark={isDark}
+          disablePast={false}
+        />
+
+        <button
+          type="button"
+          onClick={() => {
+            onToday();
+            onClose();
+          }}
+          className={[
+            "mt-3 flex items-center gap-2 rounded-xl px-3 py-3 text-[15px] font-medium transition",
+            focusRingClass(isDark),
+            isDark
+              ? "text-white hover:bg-white/[0.06]"
+              : "text-neutral-900 hover:bg-black/[0.04]",
+          ].join(" ")}
+        >
+          <CalendarDays className="h-[18px] w-[18px]" strokeWidth={1.8} />
+          {c.toolbar.today}
+        </button>
       </div>
     </div>
   );
@@ -1552,14 +1401,17 @@ function EventCard({
   const isFront = hovered || menuOpen;
   const zIndex = isFront ? 50 : depth + 1;
 
-  const handleEdit = () => {
-    onCloseMenu();
-    onEdit();
-  };
-  const handleDelete = () => {
-    onCloseMenu();
-    onDelete();
-  };
+  const menuBtn = (danger: boolean) =>
+    [
+      "flex w-full items-center gap-2 px-3 py-2 text-left text-[12.5px] transition",
+      danger
+        ? isDark
+          ? "text-rose-300 hover:bg-white/[0.05]"
+          : "text-rose-600 hover:bg-black/[0.03]"
+        : isDark
+          ? "text-neutral-200 hover:bg-white/[0.05]"
+          : "text-neutral-700 hover:bg-black/[0.03]",
+    ].join(" ");
 
   return (
     <div
@@ -1609,25 +1461,19 @@ function EventCard({
         <div className="relative shrink-0" data-event-menu>
           <button
             type="button"
-            aria-label={c.eventCard.options(
-              event.title || c.eventCard.untitled
-            )}
+            aria-label={c.eventCard.options(event.title || c.eventCard.untitled)}
             aria-haspopup="menu"
             aria-expanded={menuOpen}
             onClick={onToggleMenu}
             className={[
               "rounded-full p-0.5 transition",
-              menuOpen
-                ? isDark
-                  ? "bg-white/[0.08]"
-                  : "bg-black/[0.05]"
-                : "",
+              menuOpen ? (isDark ? "bg-white/[0.08]" : "bg-black/[0.05]") : "",
               isDark
                 ? "text-neutral-400 hover:bg-white/[0.08]"
                 : "text-neutral-400 hover:bg-black/[0.05]",
             ].join(" ")}
           >
-            <MoreIcon />
+            <MoreHorizontal className="h-[13px] w-[13px]" />
           </button>
 
           {menuOpen && (
@@ -1643,29 +1489,25 @@ function EventCard({
               <button
                 type="button"
                 role="menuitem"
-                onClick={handleEdit}
-                className={[
-                  "flex w-full items-center gap-2 px-3 py-2 text-left text-[12.5px] transition",
-                  isDark
-                    ? "text-neutral-200 hover:bg-white/[0.05]"
-                    : "text-neutral-700 hover:bg-black/[0.03]",
-                ].join(" ")}
+                onClick={() => {
+                  onCloseMenu();
+                  onEdit();
+                }}
+                className={menuBtn(false)}
               >
-                <PencilIcon />
+                <Pencil className="h-[14px] w-[14px]" strokeWidth={1.8} />
                 {c.eventCard.edit}
               </button>
               <button
                 type="button"
                 role="menuitem"
-                onClick={handleDelete}
-                className={[
-                  "flex w-full items-center gap-2 px-3 py-2 text-left text-[12.5px] transition",
-                  isDark
-                    ? "text-rose-300 hover:bg-white/[0.05]"
-                    : "text-rose-600 hover:bg-black/[0.03]",
-                ].join(" ")}
+                onClick={() => {
+                  onCloseMenu();
+                  onDelete();
+                }}
+                className={menuBtn(true)}
               >
-                <TrashIcon />
+                <Trash2 className="h-[14px] w-[14px]" strokeWidth={1.8} />
                 {c.eventCard.delete}
               </button>
             </div>
@@ -1698,7 +1540,7 @@ function EventCard({
               : "bg-white text-neutral-700 shadow-sm",
           ].join(" ")}
         >
-          <CheckIcon className="h-[9px] w-[9px]" />
+          <Check className="h-[9px] w-[9px]" strokeWidth={2.6} />
           {c.eventCard.confirmed}
         </span>
       )}
@@ -1737,7 +1579,6 @@ function EventFormModal({
   onSave: (data: EventFormData) => void;
 }) {
   const [title, setTitle] = useState(initial?.title ?? "");
-
   const [date, setDate] = useState<Date>(() => {
     if (initial?.dateStr) return new Date(initial.dateStr);
     return initial ? addDays(weekStart, initial.day) : new Date();
@@ -1754,26 +1595,24 @@ function EventFormModal({
   const end = dateToHour(endDate);
   const canSave = title.trim().length > 0 && end > start;
 
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onCancel();
-    };
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [onCancel]);
+  useEscape(onCancel);
 
   const submit = () => {
     if (!canSave) return;
-    const day = date.getDay();
     onSave({
       title: title.trim(),
-      day,
+      day: date.getDay(),
       dateStr: date.toDateString(),
       start,
       end,
       tagId: tagId || undefined,
     });
   };
+
+  const labelCls = [
+    "mb-1 block text-[11px] font-medium",
+    isDark ? "text-neutral-500" : "text-neutral-400",
+  ].join(" ");
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -1785,7 +1624,7 @@ function EventFormModal({
         role="dialog"
         aria-modal="true"
         className={[
-          "relative z-10 w-full max-w-md rounded-2xl border p-5 shadow-2xl",
+          "relative z-10 max-h-[92dvh] w-full max-w-md overflow-y-auto rounded-2xl border p-5 shadow-2xl",
           isDark
             ? "border-white/[0.08] bg-[#101012]"
             : "border-black/[0.06] bg-white",
@@ -1794,7 +1633,7 @@ function EventFormModal({
         <h2
           className={[
             "mb-4 text-[17px] font-semibold tracking-[-0.02em]",
-            isDark ? "text-white" : "text-neutral-900",
+            strongClass(isDark),
           ].join(" ")}
         >
           {initial ? c.eventForm.editTitle : c.eventForm.createTitle}
@@ -1802,14 +1641,7 @@ function EventFormModal({
 
         <div className="space-y-4">
           <div>
-            <label
-              className={[
-                "mb-1 block text-[11px] font-medium",
-                isDark ? "text-neutral-500" : "text-neutral-400",
-              ].join(" ")}
-            >
-              {c.eventForm.titleLabel}
-            </label>
+            <label className={labelCls}>{c.eventForm.titleLabel}</label>
             <input
               autoFocus
               value={title}
@@ -1823,14 +1655,7 @@ function EventFormModal({
           </div>
 
           <div>
-            <label
-              className={[
-                "mb-1.5 block text-[11px] font-medium",
-                isDark ? "text-neutral-500" : "text-neutral-400",
-              ].join(" ")}
-            >
-              {c.eventForm.datetimeLabel}
-            </label>
+            <label className={labelCls}>{c.eventForm.datetimeLabel}</label>
             <DateTimePicker
               isDark={isDark}
               date={date}
@@ -1843,14 +1668,7 @@ function EventFormModal({
           </div>
 
           <div>
-            <label
-              className={[
-                "mb-1 block text-[11px] font-medium",
-                isDark ? "text-neutral-500" : "text-neutral-400",
-              ].join(" ")}
-            >
-              {c.eventForm.tagLabel}
-            </label>
+            <label className={labelCls}>{c.eventForm.tagLabel}</label>
             <select
               value={tagId}
               onChange={(e) => setTagId(e.target.value)}
@@ -1923,12 +1741,14 @@ type CalendarDay = {
 };
 
 const FOCUS_TOP_MARGIN = 100;
+const DAY_MS = 86_400_000;
 
 export default function Schedule() {
   const { theme } = useTheme();
   const isDark = theme === "dark";
   const lang = useLanguage();
   const c = COPY[lang];
+  const isMobile = useIsMobile();
 
   const sidebarOffset = useSidebarOffset();
   const channels = useConnectedChannels();
@@ -1970,13 +1790,17 @@ export default function Schedule() {
 
   const [viewDate, setViewDate] = useState(() => new Date());
   const [openPanel, setOpenPanel] = useState<ToolbarPanel | null>(null);
-  const [view, setView] = useState<"Week" | "Month">("Week");
+  const [view, setView] = useState<View>(() =>
+    typeof window !== "undefined" && window.matchMedia(MOBILE_QUERY).matches
+      ? "3days"
+      : "week"
+  );
+  const [calendarOpen, setCalendarOpen] = useState(false);
   const [timezone, setTimezone] = useState("Paris");
   const [showNoDate, setShowNoDate] = useState(false);
   const [scope, setScope] = useState<Scope>("all");
 
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
-
   const [eventFormOpen, setEventFormOpen] = useState(false);
   const [editingEventId, setEditingEventId] = useState<string | null>(null);
 
@@ -1994,18 +1818,18 @@ export default function Schedule() {
 
   const monthGridRef = useRef<HTMLDivElement>(null);
   const [monthGridHeight, setMonthGridHeight] = useState(0);
-  const [more, setMore] = useState<{
-    date: Date;
-    hour: number | null;
-  } | null>(null);
+  const [more, setMore] = useState<{ date: Date; hour: number | null } | null>(
+    null
+  );
 
   const [draggedPostId, setDraggedPostId] = useState<string | null>(null);
   const [dragOverKey, setDragOverKey] = useState<string | null>(null);
   const [dragOverHour, setDragOverHour] = useState<number | null>(null);
 
+  /* ---- fermeture des menus ---- */
+
   useEffect(() => {
     if (openMenuId === null) return;
-
     const onPointerDown = (e: MouseEvent) => {
       if (!(e.target as HTMLElement).closest("[data-event-menu]"))
         setOpenMenuId(null);
@@ -2013,7 +1837,6 @@ export default function Schedule() {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") setOpenMenuId(null);
     };
-
     document.addEventListener("mousedown", onPointerDown);
     document.addEventListener("keydown", onKeyDown);
     return () => {
@@ -2024,7 +1847,6 @@ export default function Schedule() {
 
   useEffect(() => {
     if (!openPanel) return;
-
     const closeAll = () => setOpenPanel(null);
     const onPointerDown = (e: MouseEvent) => {
       if (!(e.target as HTMLElement).closest("[data-toolbar-menu]")) closeAll();
@@ -2032,7 +1854,6 @@ export default function Schedule() {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") closeAll();
     };
-
     document.addEventListener("mousedown", onPointerDown);
     document.addEventListener("keydown", onKeyDown);
     return () => {
@@ -2047,24 +1868,31 @@ export default function Schedule() {
     return () => window.clearInterval(id);
   }, []);
 
+  /* ---- plage affichée ---- */
+
+  const isGrid = view !== "month";
+  const dayCount = view === "3days" ? 3 : 7;
+
   const rangeStart = useMemo(() => {
-    if (view === "Week") return startOfWeek(viewDate);
+    if (view === "3days") return startOfDay(viewDate);
+    if (view === "week") return startOfWeek(viewDate);
     return new Date(viewDate.getFullYear(), viewDate.getMonth(), 1);
   }, [view, viewDate]);
 
   const rangeEnd = useMemo(() => {
-    if (view === "Week") return addDays(rangeStart, 7);
-    return new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 1);
-  }, [view, viewDate, rangeStart]);
+    if (view === "month")
+      return new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 1);
+    return addDays(rangeStart, dayCount);
+  }, [view, viewDate, rangeStart, dayCount]);
 
-  const weekStart = useMemo(() => startOfWeek(viewDate), [viewDate]);
+  const gridCols = `${TIME_COL}px repeat(${dayCount}, minmax(0, 1fr))`;
 
   useEffect(() => {
     const el = scrollRef.current;
-    if (!el || view !== "Week") return;
+    if (!el || !isGrid) return;
 
-    const isCurrentWeek = now >= weekStart && now < addDays(weekStart, 7);
-    const defaultTarget = isCurrentWeek
+    const inRange = now >= rangeStart && now < rangeEnd;
+    const defaultTarget = inRange
       ? Math.max(
           0,
           (now.getHours() +
@@ -2080,24 +1908,19 @@ export default function Schedule() {
     if (pendingFocus !== null) {
       const d = new Date(pendingFocus);
       const hour = d.getHours() + d.getMinutes() / 60;
-      target = Math.max(
-        0,
-        (hour - START_HOUR) * HOUR_HEIGHT - FOCUS_TOP_MARGIN
-      );
+      target = Math.max(0, (hour - START_HOUR) * HOUR_HEIGHT - FOCUS_TOP_MARGIN);
       pendingFocusRef.current = null;
     }
 
     el.scrollTop = target;
     setScrollTop(el.scrollTop);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [weekStart, view, focusNonce]);
+  }, [rangeStart, view, focusNonce]);
 
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
-
     const update = () => setViewportHeight(el.clientHeight);
-
     update();
     const ro = new ResizeObserver(update);
     ro.observe(el);
@@ -2109,10 +1932,9 @@ export default function Schedule() {
   }, [view]);
 
   useEffect(() => {
-    if (view !== "Month") return;
+    if (view !== "month") return;
     const el = monthGridRef.current;
     if (!el) return;
-
     const update = () => setMonthGridHeight(el.clientHeight);
     update();
     const ro = new ResizeObserver(update);
@@ -2120,9 +1942,7 @@ export default function Schedule() {
     return () => ro.disconnect();
   }, [view]);
 
-  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    setScrollTop(e.currentTarget.scrollTop);
-  };
+  /* ---- chargement ---- */
 
   useEffect(() => {
     let cancelled = false;
@@ -2145,8 +1965,7 @@ export default function Schedule() {
         const i = DEFAULT_ORDER.indexOf(t.label.trim().toLowerCase());
         return i === -1 ? DEFAULT_ORDER.length : i;
       };
-      if (!cancelled)
-        setApiTags([...server].sort((a, b) => rank(a) - rank(b)));
+      if (!cancelled) setApiTags([...server].sort((a, b) => rank(a) - rank(b)));
     })().catch((e) => console.error("Could not load tags:", e));
     return () => {
       cancelled = true;
@@ -2159,6 +1978,8 @@ export default function Schedule() {
     return () => window.removeEventListener("focus", onFocus);
   }, []);
 
+  const gridViewFallback: View = isMobile ? "3days" : "week";
+
   useEffect(() => {
     try {
       const raw = sessionStorage.getItem("schedule:focusDate");
@@ -2167,89 +1988,80 @@ export default function Schedule() {
       const d = new Date(Number(raw));
       if (!Number.isNaN(d.getTime())) {
         pendingFocusRef.current = d.getTime();
-        setView("Week");
+        setView((v) => (v === "month" ? gridViewFallback : v));
         setViewDate(d);
         setFocusNonce((n) => n + 1);
       }
     } catch {
       /* ignore */
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  /* ---- jours ---- */
+
   const days = useMemo((): (CalendarDay | null)[] => {
-    if (view === "Week") {
-      return Array.from({ length: 7 }, (_, i) => {
-        const date = addDays(startOfWeek(viewDate), i);
-        return {
-          date,
-          n: date.getDate(),
-          label: date.toLocaleDateString(intlLocale(lang), {
-            weekday: "short",
-          }),
-          isToday: date.toDateString() === now.toDateString(),
-          isCurrentMonth: true,
-        };
-      });
-    }
+    const make = (date: Date): CalendarDay => ({
+      date,
+      n: date.getDate(),
+      label: date.toLocaleDateString(intlLocale(lang), { weekday: "short" }),
+      isToday: date.toDateString() === now.toDateString(),
+      isCurrentMonth: true,
+    });
+
+    if (view !== "month")
+      return Array.from({ length: dayCount }, (_, i) =>
+        make(addDays(rangeStart, i))
+      );
 
     const year = viewDate.getFullYear();
     const month = viewDate.getMonth();
-    const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
-    const startPad = firstDay.getDay();
-    const numDays = lastDay.getDate();
+    const startPad = new Date(year, month, 1).getDay();
+    const numDays = new Date(year, month + 1, 0).getDate();
 
     const res: (CalendarDay | null)[] = [];
-
     for (let i = 0; i < startPad; i++) res.push(null);
-
-    for (let i = 1; i <= numDays; i++) {
-      const date = new Date(year, month, i);
-      res.push({
-        date,
-        n: i,
-        label: date.toLocaleDateString(intlLocale(lang), {
-          weekday: "short",
-        }),
-        isToday: date.toDateString() === now.toDateString(),
-        isCurrentMonth: true,
-      });
-    }
-
+    for (let i = 1; i <= numDays; i++) res.push(make(new Date(year, month, i)));
     const endPad = (7 - (res.length % 7)) % 7;
     for (let i = 0; i < endPad; i++) res.push(null);
-
     return res;
-  }, [view, viewDate, now, lang]);
+  }, [view, viewDate, now, lang, rangeStart, dayCount]);
 
   const monthLabel = viewDate.toLocaleDateString(intlLocale(lang), {
     month: "long",
     year: "numeric",
   });
+  const dayLabel = viewDate.toLocaleDateString(intlLocale(lang), {
+    month: "long",
+    day: "numeric",
+  });
+  const dateButtonLabel =
+    view === "month" || (!isMobile && view === "week") ? monthLabel : dayLabel;
 
-  const togglePanel = (panel: ToolbarPanel) => {
+  const togglePanel = (panel: ToolbarPanel) =>
     setOpenPanel((cur) => (cur === panel ? null : panel));
-  };
+
+  const step = (dir: 1 | -1) =>
+    setViewDate((d) =>
+      view === "month"
+        ? addMonths(d, dir)
+        : addDays(d, dir * (view === "3days" ? 3 : 7))
+    );
 
   const nowHour = now.getHours() + now.getMinutes() / 60;
-  const nowLabel = `${now.getHours()}:${String(now.getMinutes()).padStart(
-    2,
-    "0"
-  )}`;
+  const nowLabel = `${now.getHours()}:${String(now.getMinutes()).padStart(2, "0")}`;
   const showNowLine = nowHour >= START_HOUR && nowHour <= END_HOUR;
 
-  const todayStart = new Date(now);
-  todayStart.setHours(0, 0, 0, 0);
+  const todayStart = startOfDay(now);
+
+  /* ---- événements ---- */
 
   const visibleEvents = useMemo(
     () =>
       (events || []).filter((e) => {
         const matchChannel =
           !e.channelKey || !channelKey || e.channelKey === channelKey;
-        const matchTag = passesTagFilter(
-          e.tagId ? [e.tagId] : [],
-          hiddenTags
-        );
+        const matchTag = passesTagFilter(e.tagId ? [e.tagId] : [], hiddenTags);
         const matchScope =
           scope === "all" ||
           (scope === "published" && e.published) ||
@@ -2261,30 +2073,32 @@ export default function Schedule() {
 
   const layoutByDay = useMemo(() => {
     const map = new Map<number, PositionedEvent[]>();
-    for (let i = 0; i < 7; i++) {
-      const key = addDays(weekStart, i).toDateString();
+    if (view === "month") return map;
+    for (let i = 0; i < dayCount; i++) {
+      const date = addDays(rangeStart, i);
+      const key = date.toDateString();
       const list = visibleEvents.filter((e) =>
-        e.dateStr ? e.dateStr === key : e.day === i
+        e.dateStr ? e.dateStr === key : e.day === date.getDay()
       );
       map.set(i, layoutDayEvents(list));
     }
     return map;
-  }, [visibleEvents, weekStart]);
+  }, [visibleEvents, rangeStart, dayCount, view]);
 
   const monthEventsByDate = useMemo(() => {
     const map = new Map<string, CalendarEvent[]>();
-    (days || []).forEach((day) => {
+    if (view !== "month") return map;
+    days.forEach((day) => {
       if (!day) return;
       const key = day.date.toDateString();
       const dayEvents = visibleEvents.filter((e) =>
         e.dateStr ? e.dateStr === key : e.day === day.date.getDay()
       );
-      if (dayEvents.length) {
+      if (dayEvents.length)
         map.set(key, dayEvents.sort((a, b) => a.start - b.start));
-      }
     });
     return map;
-  }, [days, visibleEvents]);
+  }, [days, visibleEvents, view]);
 
   const postVisible = useCallback(
     (post: CalendarPost | null | undefined): boolean => {
@@ -2307,21 +2121,23 @@ export default function Schedule() {
     [channelKey, scope, hiddenTags, now]
   );
 
+  const dayIndexOf = useCallback(
+    (d: Date) =>
+      Math.round((startOfDay(d).getTime() - rangeStart.getTime()) / DAY_MS),
+    [rangeStart]
+  );
+
   const postSlotsByDay = useMemo(() => {
     const raw = new Map<number, Map<number, CalendarPost[]>>();
-    for (let i = 0; i < 7; i++) raw.set(i, new Map());
+    for (let i = 0; i < dayCount; i++) raw.set(i, new Map());
 
     for (const post of posts || []) {
       if (!postVisible(post)) continue;
-
       const d = new Date(post.scheduledAt);
       if (isNaN(d.getTime())) continue;
 
-      const dayStart = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-      const idx = Math.round(
-        (dayStart.getTime() - weekStart.getTime()) / 86_400_000
-      );
-      if (idx < 0 || idx > 6) continue;
+      const idx = dayIndexOf(d);
+      if (idx < 0 || idx > dayCount - 1) continue;
 
       const slots = raw.get(idx);
       if (!slots) continue;
@@ -2331,10 +2147,7 @@ export default function Schedule() {
       slots.set(hour, list);
     }
 
-    const map = new Map<
-      number,
-      { hour: number; posts: CalendarPost[] }[]
-    >();
+    const map = new Map<number, { hour: number; posts: CalendarPost[] }[]>();
     raw.forEach((slots, day) => {
       map.set(
         day,
@@ -2351,27 +2164,23 @@ export default function Schedule() {
       );
     });
     return map;
-  }, [posts, postVisible, weekStart]);
+  }, [posts, postVisible, dayIndexOf, dayCount]);
 
   const monthPostsByDate = useMemo(() => {
     const map = new Map<string, CalendarPost[]>();
-
     for (const post of posts || []) {
       if (!postVisible(post)) continue;
       const d = new Date(post.scheduledAt);
       if (isNaN(d.getTime())) continue;
-
       const key = d.toDateString();
       const list = map.get(key) ?? [];
       list.push(post);
       map.set(key, list);
     }
-
     map.forEach((arr) =>
       arr.sort(
         (a, b) =>
-          new Date(a.scheduledAt).getTime() -
-          new Date(b.scheduledAt).getTime()
+          new Date(a.scheduledAt).getTime() - new Date(b.scheduledAt).getTime()
       )
     );
     return map;
@@ -2422,6 +2231,8 @@ export default function Schedule() {
     return fitCount(items.map(monthItemHeight), avail);
   };
 
+  /* ---- drag & drop (desktop) ---- */
+
   const dropDateFor = (post: CalendarPost, date: Date, hour?: number) => {
     const old = new Date(post.scheduledAt);
     const next = new Date(date);
@@ -2451,11 +2262,7 @@ export default function Schedule() {
     clearDragOver();
   };
 
-  const handleDragOver = (
-    e: React.DragEvent,
-    date: Date,
-    byPointer = false
-  ) => {
+  const handleDragOver = (e: React.DragEvent, date: Date, byPointer = false) => {
     const post = draggedPostId
       ? posts.find((p) => p.id === draggedPostId)
       : undefined;
@@ -2476,13 +2283,7 @@ export default function Schedule() {
     setDragOverHour(hour ?? null);
   };
 
-  const handleDragLeave = () => clearDragOver();
-
-  const handleDrop = async (
-    e: React.DragEvent,
-    date: Date,
-    byPointer = false
-  ) => {
+  const handleDrop = async (e: React.DragEvent, date: Date, byPointer = false) => {
     e.preventDefault();
     const hour = byPointer ? hourFromPointer(e) : undefined;
 
@@ -2511,12 +2312,12 @@ export default function Schedule() {
     } catch (error) {
       console.error("Erreur lors du déplacement du post:", error);
       setPosts((prev) =>
-        prev.map((p) =>
-          p.id === postId ? { ...p, scheduledAt: previous } : p
-        )
+        prev.map((p) => (p.id === postId ? { ...p, scheduledAt: previous } : p))
       );
     }
   };
+
+  /* ---- posts hors écran ---- */
 
   const offScreenPosts = useMemo(() => {
     const above: OffScreenPost[] = [];
@@ -2531,29 +2332,25 @@ export default function Schedule() {
         const top = (slot.hour - START_HOUR) * HOUR_HEIGHT;
         const bottom = top + HOUR_HEIGHT;
         for (const post of slot.posts) {
-          if (bottom <= viewTop) {
-            above.push({ post, dayIndex, top });
-          } else if (top >= viewBottom) {
-            below.push({ post, dayIndex, top });
-          }
+          if (bottom <= viewTop) above.push({ post, dayIndex, top });
+          else if (top >= viewBottom) below.push({ post, dayIndex, top });
         }
       }
     });
 
     above.sort((a, b) => a.top - b.top);
     below.sort((a, b) => a.top - b.top);
-
     return { above, below };
   }, [postSlotsByDay, scrollTop, viewportHeight]);
 
   const scrollToOffScreenPost = (item: OffScreenPost) => {
-    const el = scrollRef.current;
-    if (!el) return;
-    el.scrollTo({
+    scrollRef.current?.scrollTo({
       top: Math.max(0, item.top - HOUR_HEIGHT / 2),
       behavior: "smooth",
     });
   };
+
+  /* ---- actions ---- */
 
   const toggleHiddenTag = (id: string) =>
     setHiddenTags((prev) =>
@@ -2569,8 +2366,7 @@ export default function Schedule() {
   };
 
   const handleEditEvent = (id: string) => {
-    const ev = events.find((e) => e.id === id);
-    if (!ev) return;
+    if (!events.find((e) => e.id === id)) return;
     setEditingEventId(id);
     setEventFormOpen(true);
   };
@@ -2597,20 +2393,18 @@ export default function Schedule() {
   };
 
   const editingEvent = editingEventId
-    ? events.find((e) => e.id === editingEventId) ?? null
+    ? (events.find((e) => e.id === editingEventId) ?? null)
     : null;
 
+  const openNewPost = () => {
+    setIsFolderOpen(false);
+    setNewPostDate(null);
+    setIsNewPostOpen(true);
+  };
+
   const handleBottomBarChange = (id: BottomBarTab) => {
-    switch (id) {
-      case "add":
-        setIsFolderOpen(false);
-        setNewPostDate(null);
-        setIsNewPostOpen(true);
-        break;
-      case "files":
-        setIsFolderOpen((open) => !open);
-        break;
-    }
+    if (id === "add") openNewPost();
+    else if (id === "files") setIsFolderOpen((open) => !open);
   };
 
   const openNewPostAt = (day: Date, hour: number) => {
@@ -2651,9 +2445,7 @@ export default function Schedule() {
       return (
         <MonthEventChip
           event={item.event}
-          tag={
-            item.event.tagId ? tagsById.get(item.event.tagId) : undefined
-          }
+          tag={item.event.tagId ? tagsById.get(item.event.tagId) : undefined}
           isDark={isDark}
           lang={lang}
           c={c}
@@ -2663,12 +2455,9 @@ export default function Schedule() {
     return renderPostChip(item.post);
   };
 
-  const calendarBorder = isDark
-    ? "border-white/[0.07]"
-    : "border-black/[0.06]";
-  const calendarHead = isDark
-    ? "border-white/[0.07]"
-    : "border-black/[0.06]";
+  const calendarBorder = isDark ? "border-white/[0.07]" : "border-black/[0.06]";
+
+  /* ---- modal "plus" ---- */
 
   let moreItems: MonthItem[] = [];
   let moreTitle = "";
@@ -2685,7 +2474,7 @@ export default function Schedule() {
     } else {
       const slotHour = more.hour;
       const slot = postSlotsByDay
-        .get(more.date.getDay())
+        .get(dayIndexOf(more.date))
         ?.find((s) => s.hour === slotHour);
       moreItems = (slot?.posts ?? []).map((post) => {
         const d = new Date(post.scheduledAt);
@@ -2705,10 +2494,13 @@ export default function Schedule() {
     }
   }
 
-  const viewOptions: { key: "Week" | "Month"; label: string }[] = [
-    { key: "Week", label: c.toolbar.week },
-    { key: "Month", label: c.toolbar.month },
+  const viewOptions: { key: View; label: string }[] = [
+    { key: "3days", label: c.toolbar.threeDays },
+    { key: "week", label: c.toolbar.week },
+    { key: "month", label: c.toolbar.month },
   ];
+
+  const viewLabel = viewOptions.find((o) => o.key === view)?.label ?? "";
 
   const scopeOptions: { key: Scope; label: string }[] = [
     { key: "all", label: c.toolbar.scopeLabels.all },
@@ -2716,11 +2508,74 @@ export default function Schedule() {
     { key: "toPublish", label: c.toolbar.scopeLabels.toPublish },
   ];
 
+  const scopeItems = scopeOptions.map((option) => (
+    <MenuItem
+      key={option.key}
+      isDark={isDark}
+      selected={scope === option.key}
+      onClick={() => {
+        setScope(option.key);
+        setOpenPanel(null);
+      }}
+    >
+      {option.label}
+    </MenuItem>
+  ));
+
+  const tagList = (
+    <ul className="max-h-[260px] overflow-y-auto">
+      {allTags.map((t) => {
+        const on = !hiddenTags.includes(t.id);
+        return (
+          <li key={t.id} className="flex items-center">
+            <button
+              type="button"
+              role="menuitemcheckbox"
+              aria-checked={on}
+              onClick={() => toggleHiddenTag(t.id)}
+              className={`flex min-w-0 flex-1 items-center justify-between gap-3 px-4 py-2.5 text-left text-[13px] transition md:py-2 md:text-[12.5px] ${
+                isDark
+                  ? "text-neutral-300 hover:bg-white/[0.05]"
+                  : "text-neutral-600 hover:bg-black/[0.03]"
+              }`}
+            >
+              <span className="flex min-w-0 items-center gap-2">
+                <span
+                  className="h-2.5 w-2.5 shrink-0 rounded-full"
+                  style={{ backgroundColor: hexOf(t) }}
+                />
+                <span className="truncate">{t.label}</span>
+              </span>
+              <span
+                className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[10px] ${
+                  on
+                    ? isDark
+                      ? "border-white bg-white text-black"
+                      : "border-black bg-black text-white"
+                    : isDark
+                      ? "border-white/25"
+                      : "border-black/25"
+                }`}
+              >
+                {on ? "✓" : ""}
+              </span>
+            </button>
+          </li>
+        );
+      })}
+    </ul>
+  );
+
+  const filtersActive = scope !== "all" || hiddenTags.length > 0;
+
+  /* ================================================================ */
+  /* Render                                                           */
+  /* ================================================================ */
+
   return (
     <main
       className={[
-        // 100dvh (pas h-screen) : corrige le viewport mobile (barres d'URL)
-        "relative h-[100dvh] w-full overflow-hidden",
+        "relative h-dvh min-h-dvh w-full overflow-hidden overscroll-none",
         "transition-colors duration-300",
         pageBgClass(isDark),
       ].join(" ")}
@@ -2729,8 +2584,8 @@ export default function Schedule() {
 
       <div
         className={[
-          // max-md:pt-14 : place pour la barre mobile h-14 (z-30)
-          "h-full py-3 pr-3 max-md:pt-14",
+          "h-full min-h-0 px-2 py-2 md:py-3 md:pl-0 md:pr-3",
+          "max-md:pt-[calc(3.5rem+env(safe-area-inset-top))]",
           "transition-[padding-left] duration-[380ms]",
           "ease-[cubic-bezier(0.4,0,0.2,1)]",
           "motion-reduce:transition-none",
@@ -2739,8 +2594,8 @@ export default function Schedule() {
       >
         <div
           className={[
-            "flex h-full flex-col overflow-hidden",
-            "rounded-[28px] border",
+            "flex h-full min-h-0 flex-col overflow-hidden",
+            "rounded-2xl border md:rounded-[28px]",
             "transition-colors duration-300",
             mainPanelClass(isDark),
           ].join(" ")}
@@ -2748,43 +2603,31 @@ export default function Schedule() {
           <div
             className={[
               "flex min-h-0 w-full flex-1 flex-col",
-              "px-[clamp(18px,3vw,48px)]",
-              // pb-[104px] : place pour la BottomBar flottante mobile
-              "pb-[104px] pt-[clamp(18px,3vw,30px)] sm:pb-4",
+              "px-[clamp(14px,3vw,48px)]",
+              "pb-[calc(6.5rem+env(safe-area-inset-bottom))] pt-[clamp(16px,3vw,30px)] md:pb-4",
             ].join(" ")}
           >
-            {/* HEADER COMPACT — z-20 : passe SOUS le tiroir mobile (z-40) et
-                SOUS la barre mobile (z-30), tout en restant AU-DESSUS des
-                sections de page (z-auto). */}
-            <div className="relative z-20 mb-3 flex shrink-0 flex-wrap items-center justify-between gap-3">
+            {/* HEADER — z-20 : sous le tiroir mobile (z-40) et la barre mobile (z-30) */}
+            <div className="relative z-20 mb-3 flex shrink-0 items-center justify-between gap-3">
               <div className="flex min-w-0 items-center gap-2.5">
                 <span
                   className={[
-                    "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border",
+                    "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border md:h-9 md:w-9",
                     isDark
                       ? "border-white/[0.07] bg-white/[0.04] text-neutral-400"
                       : "border-black/[0.06] bg-white text-neutral-500",
                   ].join(" ")}
                 >
-                  <CalendarIcon />
+                  <CalendarDays className="h-[17px] w-[17px]" strokeWidth={1.8} />
                 </span>
                 <h1
                   className={[
-                    "truncate text-[20px] font-semibold tracking-[-0.03em]",
+                    "truncate text-[22px] font-semibold tracking-[-0.03em] md:text-[20px]",
                     strongClass(isDark),
                   ].join(" ")}
                 >
                   {c.pageTitle}
                 </h1>
-              </div>
-              <div className="flex flex-wrap items-center gap-2.5 print:hidden">
-                <ChannelMenu
-                  channels={channels}
-                  current={channel}
-                  isDark={isDark}
-                  onSelect={goChannel}
-                />
-
                 <button
                   type="button"
                   aria-label={
@@ -2794,65 +2637,118 @@ export default function Schedule() {
                   title={saved ? c.header.removeFavorite : c.header.addFavorite}
                   onClick={() => toggleFavorite(PAGE_ROUTE)}
                   className={[
-                    "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-colors motion-reduce:transition-none",
+                    "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-colors motion-reduce:transition-none md:hidden",
                     focusRingClass(isDark),
-                    isDark
-                      ? "hover:bg-white/[0.06]"
-                      : "hover:bg-black/[0.04]",
+                    isDark ? "hover:bg-white/[0.06]" : "hover:bg-black/[0.04]",
                   ].join(" ")}
                 >
-                  <BookmarkIcon className="h-5 w-5" filled={saved} />
+                  <Bookmark
+                    className="h-5 w-5"
+                    strokeWidth={1.8}
+                    fill={saved ? "currentColor" : "none"}
+                  />
+                </button>
+              </div>
+
+              <div className="flex items-center gap-2.5 print:hidden">
+                <div className="max-md:hidden">
+                  <ChannelMenu
+                    channels={channels}
+                    current={channel}
+                    isDark={isDark}
+                    onSelect={goChannel}
+                  />
+                </div>
+                <button
+                  type="button"
+                  aria-label={
+                    saved ? c.header.removeFavorite : c.header.addFavorite
+                  }
+                  aria-pressed={saved}
+                  title={saved ? c.header.removeFavorite : c.header.addFavorite}
+                  onClick={() => toggleFavorite(PAGE_ROUTE)}
+                  className={[
+                    "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-colors motion-reduce:transition-none max-md:hidden",
+                    focusRingClass(isDark),
+                    isDark ? "hover:bg-white/[0.06]" : "hover:bg-black/[0.04]",
+                  ].join(" ")}
+                >
+                  <Bookmark
+                    className="h-5 w-5"
+                    strokeWidth={1.8}
+                    fill={saved ? "currentColor" : "none"}
+                  />
+                </button>
+                <button
+                  type="button"
+                  aria-label={c.header.newPost}
+                  title={c.header.newPost}
+                  onClick={openNewPost}
+                  className={[
+                    "flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl transition md:hidden",
+                    focusRingClass(isDark),
+                    isDark
+                      ? "bg-white text-neutral-900 hover:bg-neutral-200"
+                      : "bg-neutral-900 text-white hover:bg-neutral-700",
+                  ].join(" ")}
+                >
+                  <Plus className="h-5 w-5" strokeWidth={2} />
                 </button>
               </div>
             </div>
 
-            <div className="flex shrink-0 flex-wrap items-center justify-between gap-x-4 gap-y-2">
-              <div className="flex items-center gap-1">
+            {/* Canal (mobile) */}
+            <div className="mb-3 shrink-0 md:hidden">
+              <ChannelMenu
+                channels={channels}
+                current={channel}
+                isDark={isDark}
+                onSelect={goChannel}
+              />
+            </div>
+
+            {/* TOOLBAR */}
+            <div className="flex shrink-0 items-center justify-between gap-2">
+              <div className="flex min-w-0 items-center gap-1">
                 <ToolbarIconButton
                   isDark={isDark}
-                  label={
-                    view === "Week"
-                      ? c.toolbar.prevWeek
-                      : c.toolbar.prevMonth
-                  }
-                  onClick={() =>
-                    setViewDate((d) =>
-                      view === "Week" ? addDays(d, -7) : addMonths(d, -1)
-                    )
-                  }
+                  label={c.toolbar.prev}
+                  onClick={() => step(-1)}
                 >
-                  <ChevronLeftIcon />
-                </ToolbarIconButton>
-                <ToolbarIconButton
-                  isDark={isDark}
-                  label={
-                    view === "Week"
-                      ? c.toolbar.nextWeek
-                      : c.toolbar.nextMonth
-                  }
-                  onClick={() =>
-                    setViewDate((d) =>
-                      view === "Week" ? addDays(d, 7) : addMonths(d, 1)
-                    )
-                  }
-                >
-                  <ChevronRightIcon />
+                  <ChevronLeft className="h-4 w-4" />
                 </ToolbarIconButton>
 
-                <h2
+                <button
+                  type="button"
+                  aria-label={c.toolbar.openCalendar}
+                  aria-haspopup="dialog"
+                  onClick={() => setCalendarOpen(true)}
                   className={[
-                    "mx-3 text-[19px] font-semibold tracking-[-0.03em] capitalize",
-                    strongClass(isDark),
+                    "flex min-h-10 min-w-0 items-center gap-1.5 rounded-xl px-3 text-[15px] font-semibold capitalize transition md:min-h-0 md:py-1.5 md:text-[17px]",
+                    "tracking-[-0.02em]",
+                    focusRingClass(isDark),
+                    isDark
+                      ? "bg-white/[0.06] text-white hover:bg-white/[0.10]"
+                      : "bg-black/[0.04] text-neutral-900 hover:bg-black/[0.07]",
                   ].join(" ")}
                 >
-                  {monthLabel}
-                </h2>
+                  <span className="truncate">{dateButtonLabel}</span>
+                  <ChevronDown className="h-4 w-4 shrink-0 opacity-70" />
+                </button>
+
+                <ToolbarIconButton
+                  isDark={isDark}
+                  label={c.toolbar.next}
+                  onClick={() => step(1)}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </ToolbarIconButton>
 
                 <button
                   type="button"
                   onClick={() => setViewDate(new Date())}
                   className={[
-                    "rounded-lg border px-4 py-1.5 text-[13px] font-medium transition",
+                    "ml-1 rounded-lg border px-4 py-1.5 text-[13px] font-medium transition max-md:hidden",
                     focusRingClass(isDark),
                     isDark
                       ? "border-white/[0.08] bg-white/[0.03] text-white hover:bg-white/[0.08]"
@@ -2862,13 +2758,13 @@ export default function Schedule() {
                   {c.toolbar.today}
                 </button>
 
-                <div className="relative ml-3" data-toolbar-menu>
+                <div className="relative ml-2 max-md:hidden" data-toolbar-menu>
                   <ToolbarButton
                     isDark={isDark}
                     open={openPanel === "view"}
                     onClick={() => togglePanel("view")}
                   >
-                    {view === "Week" ? c.toolbar.week : c.toolbar.month}
+                    {viewLabel}
                   </ToolbarButton>
                   {openPanel === "view" && (
                     <MenuPanel isDark={isDark} width="w-40">
@@ -2890,11 +2786,52 @@ export default function Schedule() {
                 </div>
               </div>
 
-              <div className="flex flex-wrap items-center gap-1">
+              {/* Mobile : un seul bouton Filtres */}
+              <div className="relative md:hidden" data-toolbar-menu>
+                <ToolbarIconButton
+                  isDark={isDark}
+                  label={c.toolbar.filters}
+                  open={openPanel === "filters"}
+                  onClick={() => togglePanel("filters")}
+                >
+                  <span className="relative flex">
+                    <SlidersHorizontal className="h-[18px] w-[18px]" strokeWidth={1.8} />
+                    {filtersActive && (
+                      <span
+                        className={[
+                          "absolute -right-1 -top-1 h-2 w-2 rounded-full",
+                          isDark ? "bg-white" : "bg-neutral-900",
+                        ].join(" ")}
+                      />
+                    )}
+                  </span>
+                </ToolbarIconButton>
+                {openPanel === "filters" && (
+                  <MenuPanel isDark={isDark} align="right" width="w-64">
+                    {scopeItems}
+                    <Divider isDark={isDark} />
+                    {tagList}
+                    <Divider isDark={isDark} />
+                    <MenuItem
+                      isDark={isDark}
+                      icon={<Plus className="h-[13px] w-[13px]" strokeWidth={2.2} />}
+                      onClick={() => {
+                        setOpenPanel(null);
+                        handleAddEvent();
+                      }}
+                    >
+                      {c.toolbar.addEvent}
+                    </MenuItem>
+                  </MenuPanel>
+                )}
+              </div>
+
+              {/* Desktop : barre complète */}
+              <div className="flex items-center gap-1 max-md:hidden">
                 <div className="relative" data-toolbar-menu>
                   <ToolbarButton
                     isDark={isDark}
-                    icon={<PostsIcon />}
+                    icon={<FileText className="h-[15px] w-[15px]" strokeWidth={1.8} />}
                     open={openPanel === "posts"}
                     onClick={() => togglePanel("posts")}
                   >
@@ -2902,19 +2839,7 @@ export default function Schedule() {
                   </ToolbarButton>
                   {openPanel === "posts" && (
                     <MenuPanel isDark={isDark} align="right" width="w-44">
-                      {scopeOptions.map((option) => (
-                        <MenuItem
-                          key={option.key}
-                          isDark={isDark}
-                          selected={scope === option.key}
-                          onClick={() => {
-                            setScope(option.key);
-                            setOpenPanel(null);
-                          }}
-                        >
-                          {option.label}
-                        </MenuItem>
-                      ))}
+                      {scopeItems}
                     </MenuPanel>
                   )}
                 </div>
@@ -2922,7 +2847,7 @@ export default function Schedule() {
                 <div className="relative" data-toolbar-menu>
                   <ToolbarButton
                     isDark={isDark}
-                    icon={<TagIcon />}
+                    icon={<TagLucide className="h-[15px] w-[15px]" strokeWidth={1.8} />}
                     open={openPanel === "tags"}
                     onClick={() => togglePanel("tags")}
                   >
@@ -2937,57 +2862,16 @@ export default function Schedule() {
                       </span>
                     )}
                   </ToolbarButton>
-
                   {openPanel === "tags" && (
                     <MenuPanel isDark={isDark} align="right" width="w-64">
-                      <ul className="max-h-[260px] overflow-y-auto">
-                        {allTags.map((t) => {
-                          const on = !hiddenTags.includes(t.id);
-                          return (
-                            <li key={t.id} className="flex items-center">
-                              <button
-                                type="button"
-                                role="menuitemcheckbox"
-                                aria-checked={on}
-                                onClick={() => toggleHiddenTag(t.id)}
-                                className={`flex min-w-0 flex-1 items-center justify-between gap-3 px-4 py-2 text-left text-[12.5px] transition ${
-                                  isDark
-                                    ? "text-neutral-300 hover:bg-white/[0.05]"
-                                    : "text-neutral-600 hover:bg-black/[0.03]"
-                                }`}
-                              >
-                                <span className="flex min-w-0 items-center gap-2">
-                                  <span
-                                    className="h-2.5 w-2.5 shrink-0 rounded-full"
-                                    style={{ backgroundColor: hexOf(t) }}
-                                  />
-                                  <span className="truncate">{t.label}</span>
-                                </span>
-                                <span
-                                  className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border text-[10px] ${
-                                    on
-                                      ? isDark
-                                        ? "border-white bg-white text-black"
-                                        : "border-black bg-black text-white"
-                                      : isDark
-                                        ? "border-white/25"
-                                        : "border-black/25"
-                                  }`}
-                                >
-                                  {on ? "✓" : ""}
-                                </span>
-                              </button>
-                            </li>
-                          );
-                        })}
-                      </ul>
+                      {tagList}
                     </MenuPanel>
                   )}
                 </div>
 
                 <ToolbarButton
                   isDark={isDark}
-                  icon={<NoDateIcon />}
+                  icon={<CalendarOff className="h-[15px] w-[15px]" strokeWidth={1.8} />}
                   chevron={false}
                   active={showNoDate}
                   onClick={() => setShowNoDate((v) => !v)}
@@ -3005,7 +2889,7 @@ export default function Schedule() {
                 <div className="relative" data-toolbar-menu>
                   <ToolbarButton
                     isDark={isDark}
-                    icon={<GlobeIcon />}
+                    icon={<Globe className="h-[15px] w-[15px]" strokeWidth={1.8} />}
                     open={openPanel === "timezone"}
                     onClick={() => togglePanel("timezone")}
                   >
@@ -3037,13 +2921,13 @@ export default function Schedule() {
                     open={openPanel === "more"}
                     onClick={() => togglePanel("more")}
                   >
-                    <MoreVerticalIcon />
+                    <MoreVertical className="h-[15px] w-[15px]" />
                   </ToolbarIconButton>
                   {openPanel === "more" && (
                     <MenuPanel isDark={isDark} align="right" width="w-44">
                       <MenuItem
                         isDark={isDark}
-                        icon={<PlusIcon />}
+                        icon={<Plus className="h-[13px] w-[13px]" strokeWidth={2.2} />}
                         onClick={() => {
                           setOpenPanel(null);
                           handleAddEvent();
@@ -3057,25 +2941,30 @@ export default function Schedule() {
               </div>
             </div>
 
+            {/* CALENDRIER */}
             <div
               className={[
-                "mt-4 flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border",
+                "mt-3 flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border md:mt-4",
                 calendarBorder,
                 isDark ? "bg-white/[0.02]" : "bg-white",
               ].join(" ")}
             >
-              {view === "Week" ? (
+              {isGrid ? (
                 <>
-                  <div className="grid shrink-0 grid-cols-[56px_repeat(7,minmax(0,1fr))]">
-                    <div className={["border-b", calendarHead].join(" ")} />
+                  {/* En-têtes des jours */}
+                  <div
+                    className="grid shrink-0"
+                    style={{ gridTemplateColumns: gridCols }}
+                  >
+                    <div className={["border-b", calendarBorder].join(" ")} />
                     {days.map((day) => {
                       if (!day) return null;
                       return (
                         <div
                           key={day.date.toISOString()}
                           className={[
-                            "flex items-center justify-center gap-2 border-b border-l py-2 text-[12px]",
-                            calendarHead,
+                            "flex flex-col items-center justify-center gap-0.5 border-b border-l py-2 text-[12px] md:flex-row md:gap-2",
+                            calendarBorder,
                             day.isToday
                               ? isDark
                                 ? "font-semibold text-white"
@@ -3090,13 +2979,13 @@ export default function Schedule() {
                               : "",
                           ].join(" ")}
                           onDragOver={(e) => handleDragOver(e, day.date)}
-                          onDragLeave={handleDragLeave}
+                          onDragLeave={clearDragOver}
                           onDrop={(e) => handleDrop(e, day.date)}
                         >
                           <span>{day.label}</span>
                           <span
                             className={[
-                              "flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11.5px]",
+                              "flex h-6 min-w-6 items-center justify-center rounded-full px-1.5 text-[12.5px] md:h-5 md:min-w-5 md:text-[11.5px]",
                               day.isToday
                                 ? isDark
                                   ? "bg-white text-neutral-900"
@@ -3114,19 +3003,22 @@ export default function Schedule() {
                   <div className="relative min-h-0 flex-1">
                     <div
                       ref={scrollRef}
-                      onScroll={handleScroll}
+                      onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
                       className="h-full overflow-y-auto overscroll-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
                     >
                       <div
-                        className="grid grid-cols-[56px_repeat(7,minmax(0,1fr))]"
-                        style={{ height: TOTAL_HEIGHT }}
+                        className="grid"
+                        style={{
+                          gridTemplateColumns: gridCols,
+                          height: TOTAL_HEIGHT,
+                        }}
                       >
                         <div className="relative">
                           {HOURS.map((h, i) => (
                             <div
                               key={h}
                               className={[
-                                "absolute inset-x-0 px-2 text-right text-[10.5px] leading-none",
+                                "absolute inset-x-0 px-1.5 text-right text-[10.5px] leading-none md:px-2",
                                 mutedClass(isDark),
                               ].join(" ")}
                               style={{
@@ -3146,9 +3038,7 @@ export default function Schedule() {
                           if (!day) return null;
                           const dayKey = day.date.toDateString();
                           const daySlots = postSlotsByDay.get(dayIndex) ?? [];
-                          const occupied = new Set(
-                            daySlots.map((s) => s.hour)
-                          );
+                          const occupied = new Set(daySlots.map((s) => s.hour));
                           return (
                             <div
                               key={day.date.toISOString()}
@@ -3161,10 +3051,8 @@ export default function Schedule() {
                                     : "bg-black/[0.015]"
                                   : "",
                               ].join(" ")}
-                              onDragOver={(e) =>
-                                handleDragOver(e, day.date, true)
-                              }
-                              onDragLeave={handleDragLeave}
+                              onDragOver={(e) => handleDragOver(e, day.date, true)}
+                              onDragLeave={clearDragOver}
                               onDrop={(e) => handleDrop(e, day.date, true)}
                             >
                               {HOURS.slice(0, -1).map((h, i) => (
@@ -3180,65 +3068,67 @@ export default function Schedule() {
                                 />
                               ))}
 
-                              {dragOverKey === dayKey &&
-                                dragOverHour !== null && (
-                                  <div
-                                    className={[
-                                      "pointer-events-none absolute inset-x-0.5 rounded-xl border-2 border-dashed",
-                                      isDark
-                                        ? "border-white/30 bg-white/[0.05]"
-                                        : "border-black/20 bg-black/[0.03]",
-                                    ].join(" ")}
-                                    style={{
-                                      top:
-                                        (dragOverHour - START_HOUR) *
-                                          HOUR_HEIGHT +
-                                        2,
-                                      height: HOUR_HEIGHT - 4,
-                                      zIndex: 1,
-                                    }}
-                                  />
-                                )}
+                              {dragOverKey === dayKey && dragOverHour !== null && (
+                                <div
+                                  className={[
+                                    "pointer-events-none absolute inset-x-0.5 rounded-xl border-2 border-dashed",
+                                    isDark
+                                      ? "border-white/30 bg-white/[0.05]"
+                                      : "border-black/20 bg-black/[0.03]",
+                                  ].join(" ")}
+                                  style={{
+                                    top:
+                                      (dragOverHour - START_HOUR) * HOUR_HEIGHT + 2,
+                                    height: HOUR_HEIGHT - 4,
+                                    zIndex: 1,
+                                  }}
+                                />
+                              )}
 
-                              {day.date.getTime() >=
-                                todayStart.getTime() &&
+                              {/* Créneaux "ajouter un post" :
+                                  desktop = bouton "+" au survol ;
+                                  mobile  = tout le créneau est cliquable. */}
+                              {day.date.getTime() >= todayStart.getTime() &&
                                 HOURS.slice(0, -1).map((h) => {
                                   const slotEnd = new Date(day.date);
                                   slotEnd.setHours(h + 1, 0, 0, 0);
                                   if (slotEnd.getTime() <= now.getTime())
                                     return null;
+                                  const busy = occupied.has(h);
 
                                   return (
                                     <div
                                       key={`add-${h}`}
                                       className="group absolute inset-x-0"
                                       style={{
-                                        top:
-                                          (h - START_HOUR) * HOUR_HEIGHT,
+                                        top: (h - START_HOUR) * HOUR_HEIGHT,
                                         height: HOUR_HEIGHT,
                                       }}
                                     >
                                       <button
                                         type="button"
                                         aria-label={c.addPostTooltip}
-                                        onClick={() =>
-                                          openNewPostAt(day.date, h)
-                                        }
+                                        onClick={() => openNewPostAt(day.date, h)}
                                         className={[
-                                          occupied.has(h)
-                                            ? "absolute bottom-1 right-1"
-                                            : "absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2",
-                                          "flex h-7 w-7 items-center justify-center rounded-lg border opacity-0 transition group-hover:opacity-100 focus-visible:opacity-100",
+                                          "absolute flex items-center justify-center transition",
+                                          "max-md:inset-0 max-md:active:bg-black/[0.05]",
+                                          "md:h-7 md:w-7 md:rounded-lg md:border md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100",
+                                          busy
+                                            ? "md:bottom-1 md:right-1"
+                                            : "md:left-1/2 md:top-1/2 md:-translate-x-1/2 md:-translate-y-1/2",
                                           isDark
-                                            ? "border-white/[0.08] bg-white/[0.06] text-neutral-300 hover:bg-white/[0.10] hover:text-white"
-                                            : "border-black/[0.06] bg-white text-neutral-500 shadow-sm hover:bg-neutral-50 hover:text-neutral-900",
+                                            ? "md:border-white/[0.08] md:bg-white/[0.06] md:text-neutral-300 md:hover:bg-white/[0.10] md:hover:text-white"
+                                            : "md:border-black/[0.06] md:bg-white md:text-neutral-500 md:shadow-sm md:hover:bg-neutral-50 md:hover:text-neutral-900",
                                         ].join(" ")}
                                       >
-                                        <PlusIcon />
+                                        <Plus
+                                          className="h-[13px] w-[13px] max-md:hidden"
+                                          strokeWidth={2.2}
+                                        />
                                         <span
                                           className={[
-                                            "pointer-events-none absolute bottom-full mb-2 hidden whitespace-nowrap rounded-lg px-2.5 py-1 text-[12px] font-medium shadow-lg group-hover:block",
-                                            occupied.has(h) ? "right-0" : "",
+                                            "pointer-events-none absolute bottom-full mb-2 hidden whitespace-nowrap rounded-lg px-2.5 py-1 text-[12px] font-medium shadow-lg md:group-hover:block",
+                                            busy ? "right-0" : "",
                                             isDark
                                               ? "bg-[#2e2e31] text-white"
                                               : "bg-neutral-900 text-white",
@@ -3251,48 +3141,40 @@ export default function Schedule() {
                                   );
                                 })}
 
-                              {layoutByDay
-                                .get(dayIndex)
-                                ?.map(({ event, depth }) => (
-                                  <EventCard
-                                    key={event.id}
-                                    event={event}
-                                    tag={
-                                      event.tagId
-                                        ? tagsById.get(event.tagId)
-                                        : undefined
-                                    }
-                                    depth={depth}
-                                    isDark={isDark}
-                                    lang={lang}
-                                    c={c}
-                                    menuOpen={openMenuId === event.id}
-                                    onToggleMenu={() =>
-                                      setOpenMenuId((current) =>
-                                        current === event.id ? null : event.id
-                                      )
-                                    }
-                                    onCloseMenu={() => setOpenMenuId(null)}
-                                    onEdit={() => handleEditEvent(event.id)}
-                                    onDelete={() =>
-                                      handleDeleteEvent(event.id)
-                                    }
-                                  />
-                                ))}
+                              {layoutByDay.get(dayIndex)?.map(({ event, depth }) => (
+                                <EventCard
+                                  key={event.id}
+                                  event={event}
+                                  tag={
+                                    event.tagId
+                                      ? tagsById.get(event.tagId)
+                                      : undefined
+                                  }
+                                  depth={depth}
+                                  isDark={isDark}
+                                  lang={lang}
+                                  c={c}
+                                  menuOpen={openMenuId === event.id}
+                                  onToggleMenu={() =>
+                                    setOpenMenuId((cur) =>
+                                      cur === event.id ? null : event.id
+                                    )
+                                  }
+                                  onCloseMenu={() => setOpenMenuId(null)}
+                                  onEdit={() => handleEditEvent(event.id)}
+                                  onDelete={() => handleDeleteEvent(event.id)}
+                                />
+                              ))}
 
                               {daySlots.map(({ hour, posts: slotPosts }) => (
                                 <PostSlot
                                   key={hour}
                                   hour={hour}
                                   posts={slotPosts}
-                                  renderChip={(p) =>
-                                    renderPostChip(p, true)
-                                  }
+                                  renderChip={(p) => renderPostChip(p, true)}
                                   isDark={isDark}
                                   c={c}
-                                  onMore={() =>
-                                    setMore({ date: day.date, hour })
-                                  }
+                                  onMore={() => setMore({ date: day.date, hour })}
                                 />
                               ))}
 
@@ -3300,13 +3182,12 @@ export default function Schedule() {
                                 <div
                                   className="pointer-events-none absolute inset-x-0 z-10 flex items-center"
                                   style={{
-                                    top:
-                                      (nowHour - START_HOUR) * HOUR_HEIGHT,
+                                    top: (nowHour - START_HOUR) * HOUR_HEIGHT,
                                   }}
                                 >
                                   <span
                                     className={[
-                                      "-ml-[38px] rounded-full px-2 py-1 text-[10px] font-semibold",
+                                      "-ml-[42px] rounded-full px-1.5 py-1 text-[10px] font-semibold md:-ml-[44px] md:px-2",
                                       isDark
                                         ? "bg-white text-neutral-900"
                                         : "bg-neutral-900 text-white",
@@ -3317,9 +3198,7 @@ export default function Schedule() {
                                   <span
                                     className={[
                                       "h-px flex-1",
-                                      isDark
-                                        ? "bg-white/40"
-                                        : "bg-neutral-900/70",
+                                      isDark ? "bg-white/40" : "bg-neutral-900/70",
                                     ].join(" ")}
                                   />
                                 </div>
@@ -3345,7 +3224,7 @@ export default function Schedule() {
                       c={c}
                       lang={lang}
                       onSelect={scrollToOffScreenPost}
-                      bottomOffset="bottom-24"
+                      bottomOffset={isMobile ? "bottom-3" : "bottom-24"}
                     />
                   </div>
                 </>
@@ -3356,14 +3235,14 @@ export default function Schedule() {
                       <div
                         key={d}
                         className={[
-                          "border-b py-2 text-center text-[12px]",
-                          calendarHead,
+                          "truncate border-b px-0.5 py-2 text-center text-[11px] md:text-[12px]",
+                          calendarBorder,
                           isDark
                             ? "font-medium text-neutral-400"
                             : "font-medium text-neutral-500",
                         ].join(" ")}
                       >
-                        {d}
+                        {isMobile ? d.slice(0, 3) : d}
                       </div>
                     ))}
                   </div>
@@ -3386,9 +3265,7 @@ export default function Schedule() {
                               className={[
                                 "min-h-0 border-b border-r",
                                 calendarBorder,
-                                isDark
-                                  ? "bg-white/[0.01]"
-                                  : "bg-black/[0.01]",
+                                isDark ? "bg-white/[0.01]" : "bg-black/[0.01]",
                               ].join(" ")}
                             />
                           );
@@ -3398,6 +3275,73 @@ export default function Schedule() {
                         const items = monthItemsByDate.get(key) ?? [];
                         const shown = visibleCountFor(items);
                         const hiddenCount = items.length - shown;
+
+                        const dayNumber = (
+                          <span
+                            className={[
+                              "flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[11.5px] font-semibold tabular-nums",
+                              day.isToday
+                                ? isDark
+                                  ? "bg-white text-neutral-900"
+                                  : "bg-neutral-900 text-white"
+                                : isDark
+                                  ? "text-neutral-400"
+                                  : "text-neutral-500",
+                            ].join(" ")}
+                          >
+                            {day.n}
+                          </span>
+                        );
+
+                        /* Mobile : cellule compacte avec pastilles, tap → liste du jour */
+                        if (isMobile) {
+                          return (
+                            <button
+                              key={day.date.toISOString()}
+                              type="button"
+                              onClick={() =>
+                                items.length > 0 &&
+                                setMore({ date: day.date, hour: null })
+                              }
+                              className={[
+                                "flex min-h-0 min-w-0 flex-col items-center gap-1.5 border-b border-r pt-1.5 transition-colors",
+                                calendarBorder,
+                                day.isToday
+                                  ? isDark
+                                    ? "bg-white/[0.04]"
+                                    : "bg-black/[0.02]"
+                                  : "",
+                              ].join(" ")}
+                            >
+                              {dayNumber}
+                              {items.length > 0 && (
+                                <span className="flex flex-wrap items-center justify-center gap-[3px] px-1">
+                                  {items.slice(0, 3).map((item) => (
+                                    <span
+                                      key={item.id}
+                                      className={[
+                                        "h-1.5 w-1.5 rounded-full",
+                                        isDark ? "bg-white/70" : "bg-neutral-700",
+                                      ].join(" ")}
+                                    />
+                                  ))}
+                                  {items.length > 3 && (
+                                    <span
+                                      className={[
+                                        "text-[9px] font-semibold leading-none",
+                                        isDark
+                                          ? "text-neutral-400"
+                                          : "text-neutral-500",
+                                      ].join(" ")}
+                                    >
+                                      +{items.length - 3}
+                                    </span>
+                                  )}
+                                </span>
+                              )}
+                            </button>
+                          );
+                        }
 
                         return (
                           <div
@@ -3416,32 +3360,16 @@ export default function Schedule() {
                                   : "bg-black/[0.04]"
                                 : "",
                             ].join(" ")}
-                            style={{
-                              padding: MONTH_CELL_PAD,
-                              gap: MONTH_GAP,
-                            }}
+                            style={{ padding: MONTH_CELL_PAD, gap: MONTH_GAP }}
                             onDragOver={(e) => handleDragOver(e, day.date)}
-                            onDragLeave={handleDragLeave}
+                            onDragLeave={clearDragOver}
                             onDrop={(e) => handleDrop(e, day.date)}
                           >
                             <div
                               className="flex shrink-0 items-center"
                               style={{ height: MONTH_CELL_HEADER }}
                             >
-                              <span
-                                className={[
-                                  "flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[11.5px] font-semibold tabular-nums",
-                                  day.isToday
-                                    ? isDark
-                                      ? "bg-white text-neutral-900"
-                                      : "bg-neutral-900 text-white"
-                                    : isDark
-                                      ? "text-neutral-400"
-                                      : "text-neutral-500",
-                                ].join(" ")}
-                              >
-                                {day.n}
-                              </span>
+                              {dayNumber}
                             </div>
 
                             {items.slice(0, shown).map((item) => (
@@ -3471,6 +3399,19 @@ export default function Schedule() {
           </div>
         </div>
       </div>
+
+      {calendarOpen && (
+        <CalendarSheet
+          isDark={isDark}
+          c={c}
+          view={view}
+          date={viewDate}
+          onViewChange={setView}
+          onPick={setViewDate}
+          onToday={() => setViewDate(new Date())}
+          onClose={() => setCalendarOpen(false)}
+        />
+      )}
 
       {more && (
         <DayDetailModal
@@ -3521,11 +3462,7 @@ export default function Schedule() {
         offsetLeft={sidebarOffset}
         active={isFolderOpen ? "files" : null}
         onChange={handleBottomBarChange}
-        onCreatePost={() => {
-          setIsFolderOpen(false);
-          setNewPostDate(null);
-          setIsNewPostOpen(true);
-        }}
+        onCreatePost={openNewPost}
         query={bottomQuery}
         onQueryChange={setBottomQuery}
       />
@@ -3542,7 +3479,7 @@ export default function Schedule() {
         onRequestOpen={() => setIsNewPostOpen(true)}
         onViewInCalendar={(d) => {
           pendingFocusRef.current = d.getTime();
-          setView("Week");
+          setView((v) => (v === "month" ? gridViewFallback : v));
           setViewDate(d);
           setPostsTick((n) => n + 1);
           setFocusNonce((n) => n + 1);
