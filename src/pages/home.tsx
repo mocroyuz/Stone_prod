@@ -1311,7 +1311,7 @@ function ChannelAvatar({
 
   return (
     <div
-      className="relative h-9 w-9 shrink-0"
+      className="relative h-8 w-8 shrink-0 sm:h-9 sm:w-9"
       style={{ marginLeft: overlap ? -8 : 0 }}
       title={label}
     >
@@ -1371,7 +1371,7 @@ function Channels({
   return (
     <div
       className={[
-        "flex min-h-[74px] flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-2xl border px-4 py-3 sm:flex-nowrap sm:py-0",
+        "flex min-h-[64px] flex-nowrap items-center justify-between gap-2.5 rounded-2xl border px-3 py-2.5 sm:min-h-[74px] sm:gap-x-4 sm:px-4 sm:py-0",
         panelSurfaceClass(isDark),
       ].join(" ")}
     >
@@ -1432,7 +1432,7 @@ function Channels({
                   channels.length - 6 === 1 ? "channel" : "channels"
                 }`}
                 className={[
-                  "-ml-2 flex h-9 w-9 shrink-0 items-center justify-center rounded-full",
+                  "-ml-2 flex h-8 w-8 shrink-0 items-center justify-center rounded-full sm:h-9 sm:w-9",
                   "text-[10px] font-semibold ring-2",
                   isDark
                     ? "bg-[#242428] text-white"
@@ -1449,7 +1449,7 @@ function Channels({
               title={c.channels.connectAnotherAria}
               onClick={onAdd}
               className={[
-                "-ml-2 flex h-9 w-9 shrink-0 items-center justify-center",
+                "-ml-2 flex h-8 w-8 shrink-0 items-center justify-center sm:h-9 sm:w-9",
                 "relative z-10 rounded-full border transition-all duration-200",
                 focusRingClass(isDark),
                 "ring-2",
@@ -1465,7 +1465,7 @@ function Channels({
           <div className="min-w-0">
             <p
               className={[
-                "text-[13px] font-semibold sm:text-[11px]",
+                "text-[12px] font-semibold leading-tight sm:text-[11px]",
                 strongClass(isDark),
               ].join(" ")}
             >
@@ -1490,8 +1490,8 @@ function Channels({
             : navigateToSettingsSection("channels")
         }
         className={[
-          "flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-2.5 sm:py-2",
-          "text-[12px] font-semibold transition sm:text-[10px]",
+          "flex shrink-0 items-center gap-1 rounded-lg px-2 py-2 sm:gap-1.5 sm:px-3",
+          "text-[11.5px] font-semibold transition sm:text-[10px]",
           focusRingClass(isDark),
           isDark
             ? "text-white hover:bg-white/[0.06]"
@@ -2166,7 +2166,7 @@ function InsightsPanel({
       <h2 id="home-insights-title" className="sr-only">
         Insights
       </h2>
-      <div className="mb-2 flex shrink-0 flex-wrap items-center justify-between gap-2">
+      <div className="relative mb-2 flex shrink-0 flex-wrap items-center justify-between gap-2">
         <div className="flex min-w-0 max-w-full flex-1 flex-wrap items-center gap-1.5">
           {selectedChannel ? (
             <>
@@ -2305,7 +2305,7 @@ function InsightsPanel({
                       aria-selected={active}
                       onClick={() => setMetricTab(tabKey)}
                       className={[
-                        "whitespace-nowrap rounded-lg px-3.5 py-2 text-[12px] font-semibold transition-colors sm:px-2 sm:py-1 sm:text-[10.5px]",
+                        "whitespace-nowrap rounded-lg px-2 py-1.5 text-[11.5px] font-semibold transition-colors max-sm:flex-1 max-sm:text-center sm:px-2 sm:py-1 sm:text-[10.5px]",
                         focusRingClass(isDark),
                         active
                           ? isDark
@@ -2349,7 +2349,7 @@ function InsightsPanel({
             )
           }
           className={[
-            "flex shrink-0 items-center gap-0.5 rounded-md py-1 text-[12px] font-semibold transition sm:py-0 sm:text-[11px]",
+            "flex shrink-0 items-center gap-0.5 rounded-md py-1 text-[12px] font-semibold transition max-sm:absolute max-sm:right-0 max-sm:top-2 sm:py-0 sm:text-[11px]",
             focusRingClass(isDark),
             isDark
               ? "text-neutral-400 hover:text-white"
