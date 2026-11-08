@@ -92,6 +92,27 @@ const intlLocale = (lang: Lang) => (lang === "fr" ? "fr-FR" : "en-GB");
 const numLocale = (lang: Lang) => (lang === "fr" ? "fr-FR" : "en-US");
 
 /* ============================================================
+MOBILE
+============================================================ */
+const MOBILE_QUERY = "(max-width: 767px)";
+
+function useIsMobile(): boolean {
+  const [mobile, setMobile] = useState<boolean>(() =>
+    typeof window === "undefined"
+      ? false
+      : window.matchMedia(MOBILE_QUERY).matches
+  );
+  useEffect(() => {
+    const mq = window.matchMedia(MOBILE_QUERY);
+    const onChange = () => setMobile(mq.matches);
+    onChange();
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+  return mobile;
+}
+
+/* ============================================================
 TRANSLATIONS
 ============================================================ */
 type GreetingKey = "morning" | "afternoon" | "evening" | "night";
@@ -537,7 +558,7 @@ function GreetingAvatar({
     return (
       <div
         aria-hidden="true"
-        className="h-11 w-11 animate-pulse rounded-full bg-neutral-500/20"
+        className="h-11 w-11 shrink-0 animate-pulse rounded-full bg-neutral-500/20"
       />
     );
   }
@@ -548,7 +569,7 @@ function GreetingAvatar({
         src={avatarUrl}
         alt="Profile"
         onError={() => setFailed(true)}
-        className="h-11 w-11 rounded-full object-cover"
+        className="h-11 w-11 shrink-0 rounded-full object-cover"
       />
     );
   }
@@ -556,7 +577,7 @@ function GreetingAvatar({
   return (
     <div
       className={[
-        "flex h-11 w-11 items-center justify-center rounded-full",
+        "flex h-11 w-11 shrink-0 items-center justify-center rounded-full",
         "text-[14px] font-semibold",
         isDark ? "bg-white text-black" : "bg-neutral-900 text-white",
       ].join(" ")}
@@ -621,7 +642,7 @@ function GoalInfoHint({ isDark, text }: { isDark: boolean; text: string }) {
         type="button"
         aria-label={text}
         className={[
-          "flex h-4 w-4 items-center justify-center rounded-full transition sm:h-3.5 sm:w-3.5",
+          "flex h-5 w-5 items-center justify-center rounded-full transition sm:h-3.5 sm:w-3.5",
           "focus-visible:outline-none focus-visible:ring-1",
           isDark
             ? "text-neutral-500 hover:text-white focus-visible:ring-white/30"
@@ -630,7 +651,7 @@ function GoalInfoHint({ isDark, text }: { isDark: boolean; text: string }) {
       >
         <svg
           viewBox="0 0 24 24"
-          className="h-full w-full"
+          className="h-4 w-4 sm:h-full sm:w-full"
           fill="none"
           stroke="currentColor"
           strokeWidth="2"
@@ -646,8 +667,8 @@ function GoalInfoHint({ isDark, text }: { isDark: boolean; text: string }) {
       <span
         role="tooltip"
         className={[
-          "pointer-events-none absolute bottom-full left-1/2 z-30 mb-2 w-max max-w-[220px]",
-          "-translate-x-1/2 rounded-lg px-2.5 py-1.5 text-center text-[11px] font-medium leading-snug",
+          "pointer-events-none absolute bottom-full left-0 z-30 mb-2 w-max max-w-[min(220px,70vw)]",
+          "rounded-lg px-2.5 py-1.5 text-left text-[11px] font-medium leading-snug sm:left-1/2 sm:-translate-x-1/2 sm:text-center",
           "opacity-0 shadow-lg transition-opacity duration-150",
           "group-hover:opacity-100 group-focus-within:opacity-100",
           isDark ? "bg-white text-black" : "bg-neutral-900 text-white",
@@ -765,11 +786,11 @@ function GoalItem({
   return (
     <div className="flex min-w-0 items-center gap-4 sm:gap-3">
       {ring}
-      <div className="min-w-0">
+      <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5">
           <p
             className={[
-              "text-[15px] font-semibold sm:text-[12px]",
+              "min-w-0 text-[15px] font-semibold leading-tight sm:text-[12px]",
               strongClass(isDark),
             ].join(" ")}
           >
@@ -779,7 +800,7 @@ function GoalItem({
         </div>
         <p
           className={[
-            "mt-1 flex flex-wrap items-center gap-x-1 text-[13px] sm:mt-0.5 sm:text-[11px]",
+            "mt-1 flex flex-wrap items-center gap-x-1 text-[13px] leading-snug sm:mt-0.5 sm:text-[11px]",
             softClass(isDark),
           ].join(" ")}
         >
@@ -806,7 +827,7 @@ function InfoHint({
         type="button"
         aria-label={text}
         className={[
-          "flex h-4 w-4 items-center justify-center rounded-full transition sm:h-3.5 sm:w-3.5",
+          "flex h-5 w-5 items-center justify-center rounded-full transition sm:h-3.5 sm:w-3.5",
           "focus-visible:outline-none focus-visible:ring-1",
           isDark
             ? "text-neutral-600 hover:text-neutral-300 focus-visible:ring-white/30"
@@ -815,7 +836,7 @@ function InfoHint({
       >
         <svg
           viewBox="0 0 24 24"
-          className="h-full w-full"
+          className="h-4 w-4 sm:h-full sm:w-full"
           fill="none"
           stroke="currentColor"
           strokeWidth="2"
@@ -831,9 +852,9 @@ function InfoHint({
       <span
         role="tooltip"
         className={[
-          "pointer-events-none absolute bottom-full z-30 mb-2 w-max max-w-[210px]",
+          "pointer-events-none absolute bottom-full z-30 mb-2 w-max max-w-[min(210px,70vw)]",
           alignEndOnMobile
-            ? "right-0 max-sm:text-right sm:left-1/2 sm:-translate-x-1/2"
+            ? "right-0 max-sm:text-right sm:left-1/2 sm:right-auto sm:-translate-x-1/2"
             : "left-1/2 -translate-x-1/2",
           "rounded-lg px-2.5 py-1.5 text-center text-[11px] font-medium leading-snug",
           "opacity-0 shadow-lg transition-opacity duration-150",
@@ -871,9 +892,7 @@ function Stat({
         "flex min-w-0 items-center gap-3",
         // Mobile : chaque stat devient une carte
         "max-sm:rounded-2xl max-sm:border max-sm:p-4",
-        isDark
-          ? "max-sm:bg-white/[0.025]"
-          : "max-sm:bg-[#f6f4f0]",
+        isDark ? "max-sm:bg-white/[0.025]" : "max-sm:bg-[#f6f4f0]",
         // Desktop : colonnes séparées par un filet
         "sm:border-r sm:pr-5 sm:last:border-r-0 sm:last:pr-0",
         isDark ? "border-white/[0.07]" : "border-black/[0.07]",
@@ -894,7 +913,9 @@ function Stat({
           <p
             className={[
               "truncate text-[14px] font-medium sm:text-[10px]",
-              isDark ? "text-neutral-400 sm:text-neutral-500" : "text-neutral-500 sm:text-neutral-400",
+              isDark
+                ? "text-neutral-400 sm:text-neutral-500"
+                : "text-neutral-500 sm:text-neutral-400",
             ].join(" ")}
           >
             {label}
@@ -918,8 +939,8 @@ function Stat({
                   ? "bg-emerald-500/10 text-emerald-400"
                   : "bg-emerald-500/10 text-emerald-600"
                 : isDark
-                ? "bg-rose-500/10 text-rose-400"
-                : "bg-rose-500/10 text-rose-600",
+                  ? "bg-rose-500/10 text-rose-400"
+                  : "bg-rose-500/10 text-rose-600",
             ].join(" ")}
           >
             {positive ? (
@@ -1127,13 +1148,13 @@ function Channels({
       ].join(" ")}
     >
       {channels.length === 0 ? (
-        <div className="flex items-center gap-3">
+        <div className="flex min-w-0 items-center gap-3">
           <button
             type="button"
             aria-label={c.channels.connectAria}
             onClick={onAdd}
             className={[
-              "flex h-10 w-10 items-center justify-center rounded-xl transition sm:h-9 sm:w-9",
+              "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition sm:h-9 sm:w-9",
               focusRingClass(isDark),
               isDark
                 ? "bg-white/[0.06] hover:bg-white/[0.12]"
@@ -1147,7 +1168,7 @@ function Channels({
               ].join(" ")}
             />
           </button>
-          <div>
+          <div className="min-w-0">
             <p
               className={[
                 "text-[13px] font-semibold sm:text-[11px]",
@@ -1168,7 +1189,7 @@ function Channels({
         </div>
       ) : (
         <div className="flex min-w-0 items-center gap-3">
-          <div className="flex items-center pl-1">
+          <div className="flex shrink-0 items-center pl-1">
             {channels.slice(0, 6).map((channel, index) => (
               <ChannelAvatar
                 key={channel.key}
@@ -1185,7 +1206,9 @@ function Channels({
                 className={[
                   "-ml-2 flex h-9 w-9 shrink-0 items-center justify-center rounded-full",
                   "text-[10px] font-semibold ring-2",
-                  isDark ? "bg-[#242428] text-white" : "bg-neutral-200 text-neutral-700",
+                  isDark
+                    ? "bg-[#242428] text-white"
+                    : "bg-neutral-200 text-neutral-700",
                   panelRingClass(isDark),
                 ].join(" ")}
               >
@@ -1204,8 +1227,8 @@ function Channels({
                 "ring-2",
                 panelRingClass(isDark),
                 isDark
-                  ? "border-white/[0.14] bg-[#161618] text-white hover:bg-[#1f1f22] hover:border-white/25"
-                  : "border-black/[0.10] bg-white text-neutral-700 shadow-sm hover:bg-neutral-50 hover:border-black/20",
+                  ? "border-white/[0.14] bg-[#161618] text-white hover:border-white/25 hover:bg-[#1f1f22]"
+                  : "border-black/[0.10] bg-white text-neutral-700 shadow-sm hover:border-black/20 hover:bg-neutral-50",
               ].join(" ")}
             >
               <Plus className="h-[15px] w-[15px]" strokeWidth={1.8} />
@@ -1302,7 +1325,7 @@ function Panel({
           disabled={!onViewAll}
           onClick={onViewAll}
           className={[
-            "flex shrink-0 items-center gap-0.5 rounded-md text-[12px] font-semibold transition sm:text-[11px]",
+            "flex shrink-0 items-center gap-0.5 rounded-md py-1 text-[12px] font-semibold transition sm:py-0 sm:text-[11px]",
             focusRingClass(isDark),
             "disabled:cursor-default disabled:opacity-40",
             isDark
@@ -1316,8 +1339,8 @@ function Panel({
       </div>
       <div
         className={[
-          "flex min-h-[150px] flex-1 flex-col items-center justify-center sm:min-h-[130px]",
-          "gap-1 rounded-3xl border px-4 py-4 text-center sm:py-3",
+          "flex min-h-[170px] flex-1 flex-col items-center justify-center sm:min-h-[130px]",
+          "gap-1 rounded-3xl border px-4 py-5 text-center sm:py-3",
           panelSurfaceClass(isDark),
         ].join(" ")}
       >
@@ -1332,9 +1355,10 @@ function Panel({
           {icon}
         </div>
         <p
-          className={["text-[13px] font-medium sm:text-[12px]", strongClass(isDark)].join(
-            " "
-          )}
+          className={[
+            "text-[13px] font-medium sm:text-[12px]",
+            strongClass(isDark),
+          ].join(" ")}
         >
           {line1}
         </p>
@@ -1344,7 +1368,7 @@ function Panel({
             type="button"
             onClick={action.onClick}
             className={[
-              "mt-2.5 flex min-h-10 items-center gap-1.5 rounded-full border px-4 py-1.5 sm:min-h-0 sm:px-3.5",
+              "mt-2.5 flex min-h-11 items-center gap-1.5 rounded-full border px-5 py-1.5 sm:min-h-0 sm:px-3.5",
               "text-[12px] font-semibold transition sm:text-[11px]",
               focusRingClass(isDark),
               isDark
@@ -1841,7 +1865,7 @@ function InsightsPanel({
                   }
                   onClick={() => setMenuOpen((o) => !o)}
                   className={[
-                    "flex min-h-9 items-center gap-1.5 rounded-lg py-1 pl-1 pr-2 transition-colors sm:min-h-0",
+                    "flex min-h-10 items-center gap-1.5 rounded-lg py-1 pl-1 pr-2 transition-colors sm:min-h-0",
                     focusRingClass(isDark),
                     canSwitch
                       ? isDark
@@ -1856,7 +1880,7 @@ function InsightsPanel({
                   />
                   <span
                     className={[
-                      "max-w-[110px] truncate text-[12.5px] font-semibold sm:text-[11.5px]",
+                      "max-w-[140px] truncate text-[12.5px] font-semibold sm:max-w-[110px] sm:text-[11.5px]",
                       subtleTitleClass(isDark),
                     ].join(" ")}
                   >
@@ -1896,7 +1920,7 @@ function InsightsPanel({
                             setMenuOpen(false);
                           }}
                           className={[
-                            "flex min-h-10 w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left transition-colors sm:min-h-0",
+                            "flex min-h-11 w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left transition-colors sm:min-h-0",
                             focusRingClass(isDark),
                             isDark
                               ? "hover:bg-white/[0.06]"
@@ -1953,15 +1977,15 @@ function InsightsPanel({
                       aria-selected={active}
                       onClick={() => setMetricTab(tabKey)}
                       className={[
-                        "whitespace-nowrap rounded-lg px-3 py-1.5 text-[12px] font-semibold transition-colors sm:px-2 sm:py-1 sm:text-[10.5px]",
+                        "whitespace-nowrap rounded-lg px-3.5 py-2 text-[12px] font-semibold transition-colors sm:px-2 sm:py-1 sm:text-[10.5px]",
                         focusRingClass(isDark),
                         active
                           ? isDark
                             ? "bg-white text-black"
                             : "bg-neutral-900 text-white"
                           : isDark
-                          ? "text-neutral-400 hover:bg-white/[0.06] hover:text-white"
-                          : "text-neutral-500 hover:bg-black/[0.04] hover:text-neutral-900",
+                            ? "text-neutral-400 hover:bg-white/[0.06] hover:text-white"
+                            : "text-neutral-500 hover:bg-black/[0.04] hover:text-neutral-900",
                       ].join(" ")}
                     >
                       {c.insights.metricTabs[tabKey]}
@@ -1975,7 +1999,7 @@ function InsightsPanel({
               type="button"
               onClick={onConnect}
               className={[
-                "flex min-h-9 items-center gap-1.5 rounded-lg px-3 py-1 text-[12px] font-semibold transition sm:min-h-0 sm:px-2 sm:text-[11px]",
+                "flex min-h-10 items-center gap-1.5 rounded-lg px-3 py-1 text-[12px] font-semibold transition sm:min-h-0 sm:px-2 sm:text-[11px]",
                 focusRingClass(isDark),
                 isDark
                   ? "bg-white text-black hover:bg-neutral-200"
@@ -1997,7 +2021,7 @@ function InsightsPanel({
             )
           }
           className={[
-            "flex shrink-0 items-center gap-0.5 rounded-md text-[12px] font-semibold transition sm:text-[11px]",
+            "flex shrink-0 items-center gap-0.5 rounded-md py-1 text-[12px] font-semibold transition sm:py-0 sm:text-[11px]",
             focusRingClass(isDark),
             isDark
               ? "text-neutral-400 hover:text-white"
@@ -2027,9 +2051,10 @@ function InsightsPanel({
         >
           <div className="mb-2 px-1">
             <p
-              className={["text-[11px] font-medium sm:text-[10px]", softClass(isDark)].join(
-                " "
-              )}
+              className={[
+                "text-[11px] font-medium sm:text-[10px]",
+                softClass(isDark),
+              ].join(" ")}
             >
               {metricData.label}
               <span className="ml-1 opacity-60">
@@ -2038,7 +2063,7 @@ function InsightsPanel({
             </p>
             <p
               className={[
-                "text-[24px] font-bold leading-none tracking-tight tabular-nums sm:text-[20px]",
+                "text-[26px] font-bold leading-none tracking-tight tabular-nums sm:text-[20px]",
                 strongClass(isDark),
               ].join(" ")}
             >
@@ -2057,7 +2082,7 @@ function InsightsPanel({
         <div
           className={[
             "flex min-h-[200px] flex-1 flex-col items-center justify-center",
-            "rounded-2xl border px-5 py-4 text-center sm:py-3",
+            "rounded-2xl border px-5 py-5 text-center sm:py-3",
             panelSurfaceClass(isDark),
           ].join(" ")}
         >
@@ -2072,9 +2097,10 @@ function InsightsPanel({
             <BarChart3 className="h-4 w-4" aria-hidden="true" />
           </div>
           <p
-            className={["text-[13px] font-semibold sm:text-[12px]", strongClass(isDark)].join(
-              " "
-            )}
+            className={[
+              "text-[13px] font-semibold sm:text-[12px]",
+              strongClass(isDark),
+            ].join(" ")}
           >
             {selectedChannel
               ? c.insights.noData
@@ -2098,7 +2124,7 @@ function InsightsPanel({
               type="button"
               onClick={onConnect}
               className={[
-                "mt-2.5 inline-flex min-h-10 items-center gap-2 rounded-xl px-4 text-[12px] font-semibold transition sm:min-h-8 sm:px-3 sm:text-[11px]",
+                "mt-2.5 inline-flex min-h-11 items-center gap-2 rounded-xl px-4 text-[12px] font-semibold transition sm:min-h-8 sm:px-3 sm:text-[11px]",
                 focusRingClass(isDark),
                 isDark
                   ? "bg-white text-black hover:bg-neutral-200"
@@ -2124,11 +2150,15 @@ function BlogImage({ src, isDark }: { src?: string; isDark: boolean }) {
     setFailed(false);
   }, [src]);
 
+  // Mobile : image 16/9 pleine largeur. sm+ : hauteur fixe.
+  const sizeClass = "aspect-[16/9] w-full sm:aspect-auto sm:h-[140px]";
+
   if (!src || failed) {
     return (
       <div
         className={[
-          "h-[140px] w-full rounded-xl",
+          sizeClass,
+          "rounded-xl",
           isDark ? "bg-white/[0.06]" : "bg-neutral-200/70",
         ].join(" ")}
       />
@@ -2142,7 +2172,7 @@ function BlogImage({ src, isDark }: { src?: string; isDark: boolean }) {
       loading="lazy"
       draggable={false}
       onError={() => setFailed(true)}
-      className="h-[140px] w-full rounded-xl object-cover"
+      className={[sizeClass, "rounded-xl object-cover"].join(" ")}
     />
   );
 }
@@ -2157,7 +2187,7 @@ function BlogSection({ isDark, lang }: { isDark: boolean; lang: Lang }) {
       <div className="mb-3 flex items-center justify-between gap-2">
         <p
           className={[
-            "text-[14px] font-semibold sm:text-[12px]",
+            "text-[16px] font-semibold sm:text-[12px]",
             isDark ? "text-neutral-300" : "text-neutral-700",
           ].join(" ")}
         >
@@ -2167,7 +2197,7 @@ function BlogSection({ isDark, lang }: { isDark: boolean; lang: Lang }) {
           href={BLOG_URL}
           {...linkProps(BLOG_URL)}
           className={[
-            "flex shrink-0 items-center gap-0.5 rounded-md text-[12px] font-semibold transition sm:text-[11px]",
+            "flex shrink-0 items-center gap-0.5 rounded-md py-1 text-[12px] font-semibold transition sm:py-0 sm:text-[11px]",
             focusRingClass(isDark),
             isDark
               ? "text-neutral-400 hover:text-white"
@@ -2178,23 +2208,17 @@ function BlogSection({ isDark, lang }: { isDark: boolean; lang: Lang }) {
           <ChevronRight className="h-3.5 w-3.5" />
         </a>
       </div>
-      {/* Mobile : carrousel horizontal à défilement magnétique. sm+ : grille. */}
-      <div
-        className={[
-          "-mx-[clamp(14px,3vw,48px)] flex snap-x snap-mandatory gap-3 overflow-x-auto px-[clamp(14px,3vw,48px)] pb-2",
-          "overscroll-x-contain touch-pan-x touch-pan-y",
-          "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
-          "sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 sm:pb-0 xl:grid-cols-4",
-        ].join(" ")}
-      >
+
+      {/* Mobile : cartes empilées verticalement, pleine largeur.
+          sm : 2 colonnes · xl : 4 colonnes. */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {BLOG_POSTS.map((post) => (
           <a
             key={post.title}
             href={post.url}
             {...linkProps(post.url)}
             className={[
-              "group flex w-[84%] max-w-[340px] shrink-0 snap-start flex-col rounded-2xl border p-3.5 transition",
-              "sm:w-auto sm:shrink",
+              "group flex min-w-0 flex-col rounded-2xl border p-3 transition sm:p-3.5",
               focusRingClass(isDark),
               cardClass(isDark),
               isDark ? "hover:bg-[#141416]" : "hover:bg-[#f6f4f0]",
@@ -2204,7 +2228,7 @@ function BlogSection({ isDark, lang }: { isDark: boolean; lang: Lang }) {
             <div className="mt-3.5 flex items-center justify-between gap-2 px-0.5">
               <span
                 className={[
-                  "rounded-md px-2 py-0.5 text-[10px] font-semibold",
+                  "rounded-md px-2 py-0.5 text-[11px] font-semibold sm:text-[10px]",
                   isDark
                     ? "bg-[#16304f] text-[#a9cdf5]"
                     : "bg-blue-50 text-blue-700",
@@ -2213,14 +2237,17 @@ function BlogSection({ isDark, lang }: { isDark: boolean; lang: Lang }) {
                 {c.blog.label}
               </span>
               <span
-                className={["text-[10px]", mutedClass(isDark)].join(" ")}
+                className={[
+                  "text-[11px] sm:text-[10px]",
+                  mutedClass(isDark),
+                ].join(" ")}
               >
                 {post.date}
               </span>
             </div>
             <h3
               className={[
-                "mt-2.5 px-0.5 text-[14px] font-semibold leading-snug",
+                "mt-2.5 px-0.5 text-[15px] font-semibold leading-snug sm:text-[14px]",
                 "tracking-[-0.01em]",
                 strongClass(isDark),
               ].join(" ")}
@@ -2259,6 +2286,7 @@ export default function Home() {
   const sidebarOffset = useSidebarOffset();
   const lang = useLanguage();
   const c = COPY[lang];
+  const isMobile = useIsMobile();
 
   const [query, setQuery] = useState("");
   const [isNewPostOpen, setIsNewPostOpen] = useState(false);
@@ -2359,13 +2387,14 @@ export default function Home() {
       <DashboardSidebar theme={theme} />
       <div
         className={[
-          "h-full min-h-0 py-2 px-2 md:py-3 md:pr-3 md:pl-0",
+          "h-full min-h-0 px-2 py-2 md:py-3 md:pl-0 md:pr-3",
           "max-md:pt-[calc(3.5rem+env(safe-area-inset-top))]",
           "transition-[padding-left] duration-[380ms]",
           "ease-[cubic-bezier(0.4,0,0.2,1)]",
           "motion-reduce:transition-none",
         ].join(" ")}
-        style={{ paddingLeft: sidebarOffset }}
+        // Sur mobile la sidebar est un tiroir : aucun décalage à gauche.
+        style={isMobile ? undefined : { paddingLeft: sidebarOffset }}
       >
         <div
           className={[
@@ -2383,7 +2412,7 @@ export default function Home() {
               "pb-[calc(7.5rem+env(safe-area-inset-bottom))] pt-[clamp(16px,3vw,30px)]",
             ].join(" ")}
           >
-            <header className="flex min-w-0 shrink-0 flex-wrap items-center justify-between gap-3 sm:items-start">
+            <header className="flex min-w-0 shrink-0 items-center justify-between gap-3 sm:items-start">
               <div className="flex min-w-0 flex-1 items-center gap-3 sm:gap-4">
                 <GreetingAvatar
                   avatarUrl={user?.avatar_url}
@@ -2394,7 +2423,7 @@ export default function Home() {
                 <div className="flex min-w-0 flex-col">
                   <h1
                     className={[
-                      "break-words text-[clamp(18px,4.5vw,24px)] font-semibold leading-[1.15] tracking-[-0.035em] sm:truncate",
+                      "break-words text-[clamp(18px,5vw,24px)] font-semibold leading-[1.15] tracking-[-0.035em] sm:truncate",
                       strongClass(isDark),
                     ].join(" ")}
                   >
@@ -2438,7 +2467,7 @@ export default function Home() {
                   </p>
                   <p
                     className={[
-                      "mt-0.5 text-[12px] sm:text-[11px]",
+                      "mt-0.5 text-[12px] leading-snug sm:text-[11px]",
                       isDark ? "text-neutral-400" : "text-neutral-500",
                     ].join(" ")}
                   >
@@ -2450,7 +2479,7 @@ export default function Home() {
                   type="button"
                   onClick={() => navigate("insights")}
                   className={[
-                    "flex shrink-0 items-center gap-0.5 rounded-md text-[13px] font-semibold transition sm:hidden",
+                    "flex shrink-0 items-center gap-0.5 rounded-md py-1 text-[13px] font-semibold transition sm:hidden",
                     focusRingClass(isDark),
                     isDark
                       ? "text-neutral-200 hover:text-white"
@@ -2464,6 +2493,8 @@ export default function Home() {
               <div
                 className={[
                   "grid grid-cols-1 gap-3 min-[420px]:grid-cols-2",
+                  // 3 cartes en 2 colonnes : la dernière occupe toute la largeur
+                  "min-[420px]:max-sm:[&>*:last-child:nth-child(odd)]:col-span-2",
                   "sm:grid-cols-3 sm:rounded-2xl sm:border sm:p-4",
                   isDark
                     ? "sm:border-white/[0.07] sm:bg-white/[0.025]"
@@ -2500,7 +2531,7 @@ export default function Home() {
               </div>
             </section>
 
-            <section className="mt-6 min-w-0 shrink-0 sm:mt-5">
+            <section className="mt-7 min-w-0 shrink-0 sm:mt-5">
               <div className="mb-3 flex items-center justify-between">
                 <div>
                   <p
@@ -2533,7 +2564,7 @@ export default function Home() {
               />
             </section>
 
-            <div className="mt-7 grid min-w-0 grid-cols-1 gap-6 md:mt-6 md:grid-cols-2 md:gap-4 xl:gap-6">
+            <div className="mt-8 grid min-w-0 grid-cols-1 gap-7 md:mt-6 md:grid-cols-2 md:gap-4 xl:gap-6">
               <InsightsPanel
                 isDark={isDark}
                 lang={lang}
@@ -2556,7 +2587,7 @@ export default function Home() {
               />
             </div>
 
-            <div className="mt-8 min-w-0">
+            <div className="mt-9 min-w-0 md:mt-8">
               <BlogSection isDark={isDark} lang={lang} />
             </div>
           </div>
