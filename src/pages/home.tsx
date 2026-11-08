@@ -1118,9 +1118,8 @@ function Stat({
     <div
       className={[
         "flex min-w-0 items-center gap-3",
-        // Mobile : chaque stat devient une carte
-        "max-sm:rounded-2xl max-sm:border max-sm:p-4",
-        isDark ? "max-sm:bg-white/[0.025]" : "max-sm:bg-[#f6f4f0]",
+        // Mobile : stats collées dans une seule carte, séparées par un filet
+        "max-sm:border-b max-sm:p-4 max-sm:last:border-b-0",
         // Desktop : colonnes séparées par un filet
         "sm:border-r sm:pr-5 sm:last:border-r-0 sm:last:pr-0",
         isDark ? "border-white/[0.07]" : "border-black/[0.07]",
@@ -1153,7 +1152,7 @@ function Stat({
         <div className="mt-2 flex flex-wrap items-baseline gap-x-2 gap-y-1 sm:mt-0.5 sm:gap-1.5">
           <span
             className={[
-              "text-[28px] font-bold leading-none tracking-tight sm:text-[17px]",
+              "text-[28px] font-medium leading-none tracking-tight sm:text-[17px] sm:font-bold",
               strongClass(isDark),
             ].join(" ")}
           >
@@ -2820,13 +2819,11 @@ export default function Home() {
               </div>
               <div
                 className={[
-                  "grid grid-cols-1 gap-3 min-[420px]:grid-cols-2",
-                  // 3 cartes en 2 colonnes : la dernière occupe toute la largeur
-                  "min-[420px]:max-sm:[&>*:last-child:nth-child(odd)]:col-span-2",
-                  "sm:grid-cols-3 sm:rounded-2xl sm:border sm:p-4",
+                  // Mobile : une seule carte, stats collées. sm+ : 3 colonnes.
+                  "grid grid-cols-1 gap-0 overflow-hidden rounded-2xl border sm:grid-cols-3 sm:gap-3 sm:overflow-visible sm:p-4",
                   isDark
-                    ? "sm:border-white/[0.07] sm:bg-white/[0.025]"
-                    : "sm:border-black/[0.06] sm:bg-[#f6f4f0]",
+                    ? "border-white/[0.07] bg-white/[0.025]"
+                    : "border-black/[0.06] bg-[#f6f4f0]",
                 ].join(" ")}
               >
                 <Stat
