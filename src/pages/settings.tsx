@@ -1962,7 +1962,7 @@ function buildSidebarGroups(
   ];
 }
 
-/** Sidebar desktop (232px, sticky). Jamais rendue sur mobile. */
+/** Sidebar desktop. Jamais rendue sur mobile. */
 function SettingsSidebar({
   active,
   onSelect,
@@ -1981,7 +1981,7 @@ function SettingsSidebar({
   return (
     <aside
       className={cx(
-        "sticky top-0 flex h-screen w-[232px] shrink-0 flex-col overflow-y-auto border-r transition-colors duration-300",
+        "flex h-full w-[232px] shrink-0 flex-col overflow-y-auto border-r transition-colors duration-300",
         tokens.sidebarBg,
         tokens.cardBorder
       )}
@@ -2147,16 +2147,11 @@ function MobileSettingsMenu({
   const { show: showMfaNudge } = useMfaNudge();
 
   return (
-    <div
-      className={cx(
-        "flex h-[100dvh] w-full flex-col transition-colors duration-300",
-        tokens.pageBg
-      )}
-    >
-      {/* Header avec retour vers home */}
+    <div className="flex h-full min-h-0 w-full flex-col">
+      {/* Header fixe */}
       <header
         className={cx(
-          "sticky top-0 z-10 flex shrink-0 items-center gap-2 bg-inherit px-4 pb-2",
+          "flex shrink-0 items-center gap-2 px-4 pb-2",
           "pt-[calc(12px+env(safe-area-inset-top))]"
         )}
       >
@@ -2184,8 +2179,8 @@ function MobileSettingsMenu({
         </h1>
       </header>
 
-      {/* Liste des sections avec défilement */}
-      <div className="flex-1 overflow-y-auto px-4 pt-4 pb-[calc(24px+env(safe-area-inset-bottom))]">
+      {/* Liste scrollable */}
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pt-4 pb-[calc(24px+env(safe-area-inset-bottom))]">
         {groups.map((group) => (
           <div key={group.key} className="mb-6">
             <p
@@ -2422,7 +2417,12 @@ export default function Settings(_props: SettingsProps) {
   /* ─── Vue MOBILE : écran menu ─── */
   if (isMobile && mobileView === "menu") {
     return (
-      <main className={cx("h-[100dvh] w-full overflow-hidden", tokens.pageBg)}>
+      <main
+        className={cx(
+          "h-[100dvh] w-full overflow-hidden",
+          tokens.pageBg
+        )}
+      >
         <MobileSettingsMenu
           active={active}
           onSelect={handleSelect}
@@ -2439,11 +2439,11 @@ export default function Settings(_props: SettingsProps) {
   return (
     <main
       className={cx(
-        "min-h-screen w-full transition-colors duration-500",
+        "h-[100dvh] w-full overflow-hidden",
         tokens.pageBg
       )}
     >
-      <div className="flex w-full">
+      <div className="flex h-full w-full">
         {!isMobile && (
           <SettingsSidebar
             active={active}
@@ -2454,110 +2454,113 @@ export default function Settings(_props: SettingsProps) {
           />
         )}
 
-        <div
-          className={cx(
-            "mx-auto w-full min-w-0 flex-1 px-[clamp(16px,4vw,48px)]",
-            isMobile
-              ? "pt-[calc(12px+env(safe-area-inset-top))] pb-[calc(24px+env(safe-area-inset-bottom))]"
-              : "py-[clamp(24px,4vw,56px)]",
-            active === "channels" ? "max-w-[1100px]" : "max-w-[840px]"
-          )}
-        >
-          {/* En-tête mobile : retour au menu + fil d'ariane "Settings" */}
-          {isMobile && (
-            <div className="mb-4 flex items-center gap-1">
-              <button
-                type="button"
-                onClick={handleBackToMenu}
-                className={cx(
-                  "flex h-10 items-center gap-1 text-[17px] font-medium transition-opacity active:opacity-50",
-                  tokens.item
-                )}
-              >
-                <ArrowLeftIcon className="h-5 w-5" />
-                {c.sidebar.title}
-              </button>
-            </div>
-          )}
-
-          <h1
-            ref={titleRef}
-            tabIndex={-1}
+        {/* Conteneur scrollable */}
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+          <div
             className={cx(
-              "mb-[clamp(18px,2.4vw,28px)] font-display text-[clamp(26px,2.6vw,34px)] font-semibold tracking-[-0.02em] outline-none",
-              tokens.heading
+              "mx-auto w-full min-w-0 px-[clamp(16px,4vw,48px)]",
+              isMobile
+                ? "pt-[calc(12px+env(safe-area-inset-top))] pb-[calc(24px+env(safe-area-inset-bottom))]"
+                : "py-[clamp(24px,4vw,56px)]",
+              active === "channels" ? "max-w-[1100px]" : "max-w-[840px]"
             )}
           >
-            {c.sectionTitles[active]}
-          </h1>
-          <div className="flex flex-col gap-5">
-            {active === "profile" && (
-              <ProfileSection tokens={tokens} notify={notify} c={c} />
+            {/* En-tête mobile : retour au menu + fil d'ariane "Settings" */}
+            {isMobile && (
+              <div className="mb-4 flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={handleBackToMenu}
+                  className={cx(
+                    "flex h-10 items-center gap-1 text-[17px] font-medium transition-opacity active:opacity-50",
+                    tokens.item
+                  )}
+                >
+                  <ArrowLeftIcon className="h-5 w-5" />
+                  {c.sidebar.title}
+                </button>
+              </div>
             )}
-            {active === "account" && (
-              <AccountSection
-                tokens={tokens}
-                notify={notify}
-                isDark={isDark}
-                c={c}
-                lang={lang}
-              />
-            )}
-            {active === "mfa" && (
-              <MfaSection
-                tokens={tokens}
-                notify={notify}
-                isDark={isDark}
-                c={c}
-                lang={lang}
-              />
-            )}
-            {active === "appearance" && (
-              <AppearanceSection
-                tokens={tokens}
-                isDark={isDark}
-                setTheme={handleSelectTheme}
-                c={c}
-              />
-            )}
-            {active === "preferences" && (
-              <PreferencesSection
-                tokens={tokens}
-                notify={notify}
-                c={c}
-                lang={lang}
-              />
-            )}
-            {active === "billing" && (
-              <BillingSection tokens={tokens} notify={notify} c={c} />
-            )}
-            {active === "channels" && (
-              <ChannelsSection
-                tokens={tokens}
-                notify={notify}
-                isDark={isDark}
-                c={c}
-              />
-            )}
-            {active === "tags" && (
-              <TagsSection
-                tokens={tokens}
-                notify={notify}
-                isDark={isDark}
-                c={c}
-              />
-            )}
-            {active === "savedReplies" && (
-              <SavedRepliesSection
-                tokens={tokens}
-                notify={notify}
-                isDark={isDark}
-                c={c}
-              />
-            )}
-            {active === "danger" && (
-              <DangerSection tokens={tokens} notify={notify} c={c} />
-            )}
+
+            <h1
+              ref={titleRef}
+              tabIndex={-1}
+              className={cx(
+                "mb-[clamp(18px,2.4vw,28px)] font-display text-[clamp(26px,2.6vw,34px)] font-semibold tracking-[-0.02em] outline-none",
+                tokens.heading
+              )}
+            >
+              {c.sectionTitles[active]}
+            </h1>
+            <div className="flex flex-col gap-5">
+              {active === "profile" && (
+                <ProfileSection tokens={tokens} notify={notify} c={c} />
+              )}
+              {active === "account" && (
+                <AccountSection
+                  tokens={tokens}
+                  notify={notify}
+                  isDark={isDark}
+                  c={c}
+                  lang={lang}
+                />
+              )}
+              {active === "mfa" && (
+                <MfaSection
+                  tokens={tokens}
+                  notify={notify}
+                  isDark={isDark}
+                  c={c}
+                  lang={lang}
+                />
+              )}
+              {active === "appearance" && (
+                <AppearanceSection
+                  tokens={tokens}
+                  isDark={isDark}
+                  setTheme={handleSelectTheme}
+                  c={c}
+                />
+              )}
+              {active === "preferences" && (
+                <PreferencesSection
+                  tokens={tokens}
+                  notify={notify}
+                  c={c}
+                  lang={lang}
+                />
+              )}
+              {active === "billing" && (
+                <BillingSection tokens={tokens} notify={notify} c={c} />
+              )}
+              {active === "channels" && (
+                <ChannelsSection
+                  tokens={tokens}
+                  notify={notify}
+                  isDark={isDark}
+                  c={c}
+                />
+              )}
+              {active === "tags" && (
+                <TagsSection
+                  tokens={tokens}
+                  notify={notify}
+                  isDark={isDark}
+                  c={c}
+                />
+              )}
+              {active === "savedReplies" && (
+                <SavedRepliesSection
+                  tokens={tokens}
+                  notify={notify}
+                  isDark={isDark}
+                  c={c}
+                />
+              )}
+              {active === "danger" && (
+                <DangerSection tokens={tokens} notify={notify} c={c} />
+              )}
+            </div>
           </div>
         </div>
       </div>
