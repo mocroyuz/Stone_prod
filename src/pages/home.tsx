@@ -1533,8 +1533,8 @@ function Panel({
   };
 }) {
   return (
-    <section className="flex h-full min-w-0 flex-col">
-      <div className="mb-3 flex shrink-0 items-center justify-between gap-2">
+    <section className="flex h-full min-w-0 flex-col md:row-span-2 md:grid md:gap-y-0 md:[grid-template-rows:subgrid]">
+      <div className="mb-3 flex shrink-0 items-start justify-between gap-2">
         <p
           className={[
             "min-w-0 text-[13px] font-semibold sm:text-[12px]",
@@ -2160,13 +2160,13 @@ function InsightsPanel({
 
   return (
     <section
-      className="flex h-full min-h-[260px] min-w-0 flex-col"
+      className="flex h-full min-h-[260px] min-w-0 flex-col md:row-span-2 md:grid md:gap-y-0 md:[grid-template-rows:subgrid]"
       aria-labelledby="home-insights-title"
     >
       <h2 id="home-insights-title" className="sr-only">
         Insights
       </h2>
-      <div className="relative mb-2 flex shrink-0 flex-wrap items-center justify-between gap-2">
+      <div className="relative mb-2 flex shrink-0 flex-wrap items-center justify-between gap-2 md:mb-3">
         <div className="flex min-w-0 max-w-full flex-1 flex-wrap items-center gap-1.5">
           {selectedChannel ? (
             <>
@@ -2892,7 +2892,7 @@ export default function Home() {
               />
             </section>
 
-            <div className="mt-8 grid min-w-0 grid-cols-1 gap-7 md:mt-6 md:grid-cols-2 md:gap-4 xl:gap-6">
+            <div className="mt-8 grid min-w-0 grid-cols-1 gap-7 md:mt-6 md:grid-cols-2 md:grid-rows-[auto_1fr] md:gap-4 xl:gap-6">
               <InsightsPanel
                 isDark={isDark}
                 lang={lang}
