@@ -154,6 +154,9 @@ type Copy = {
     addEvent: string;
     calendar: string;
     openCalendar: string;
+    postsLabel: string;
+    reset: string;
+    viewDay: string;
   };
   weekdaysLong: string[];
   addPostTooltip: string;
@@ -213,6 +216,9 @@ const COPY: Record<Lang, Copy> = {
       addEvent: "Add event",
       calendar: "Calendar",
       openCalendar: "Open calendar",
+      postsLabel: "Posts",
+      reset: "Reset",
+      viewDay: "View day",
     },
     weekdaysLong: [
       "Sunday",
@@ -283,6 +289,9 @@ const COPY: Record<Lang, Copy> = {
       addEvent: "Ajouter un événement",
       calendar: "Calendrier",
       openCalendar: "Ouvrir le calendrier",
+      postsLabel: "Posts",
+      reset: "Réinitialiser",
+      viewDay: "Voir la journée",
     },
     weekdaysLong: [
       "Dimanche",
@@ -466,7 +475,7 @@ function ToolbarIconButton({
       aria-expanded={open}
       onClick={onClick}
       className={[
-        "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition md:h-8 md:w-8",
+        "flex h-10 w-10 shrink-0 items-center justify-center rounded-lg transition md:h-8 md:w-8",
         focusRingClass(isDark),
         open
           ? isDark
@@ -1152,7 +1161,7 @@ function useEscape(onEscape: () => void) {
   }, [onEscape]);
 }
 
-function DayDetailModal({
+function DayDetailDialog({
   isDark,
   title,
   items,
@@ -1221,27 +1230,90 @@ function DayDetailModal({
   );
 }
 
-/** Feuille de sélection de date : bottom sheet glissable (mobile) / dialogue centré (desktop). */
-function CalendarSheet({
+/** Liste du jour : bottom sheet sur mobile, dialogue centré sur desktop. */
+function DayDetailModal({
   isDark,
-  c,
   isMobile,
-  view,
-  date,
-  onViewChange,
-  onPick,
-  onToday,
+  title,
+  items,
+  renderItem,
   onClose,
+  onOpenDay,
+  c,
 }: {
   isDark: boolean;
-  c: Copy;
   isMobile: boolean;
-  view: View;
-  date: Date;
-  onViewChange: (v: View) => void;
-  onPick: (d: Date) => void;
-  onToday: () => void;
+  title: string;
+  items: MonthItem[];
+  renderItem: (item: MonthItem) => ReactNode;
   onClose: () => void;
+  onOpenDay?: () => void;
+  c: Copy;
+}) {
+  if (!isMobile) {
+    return (
+      <DayDetailDialog
+        isDark={isDark}
+        title={title}
+        items={items}
+        renderItem={renderItem}
+        onClose={onClose}
+        c={c}
+      />
+    );
+  }
+
+  return (
+    <BottomSheet isDark={isDark} isMobile title={title} onClose={onClose}>
+      {(close) => (
+        <div className="flex flex-col gap-1.5 pt-1">
+          {items.map((item) => (
+            <div key={item.id} className="flex flex-col">
+              {renderItem(item)}
+            </div>
+          ))}
+          {onOpenDay && (
+            <button
+              type="button"
+              onClick={() => {
+                close();
+                window.setTimeout(onOpenDay, 150);
+              }}
+              className={[
+                "mt-2 flex min-h-11 items-center justify-center gap-2 rounded-xl text-[14px] font-semibold transition",
+                focusRingClass(isDark),
+                isDark
+                  ? "bg-white text-neutral-900 active:bg-neutral-200"
+                  : "bg-neutral-900 text-white active:bg-neutral-700",
+              ].join(" ")}
+            >
+              {c.toolbar.viewDay}
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+      )}
+    </BottomSheet>
+  );
+}
+
+/**
+ * Bottom sheet glissable (mobile) / dialogue centré (desktop).
+ * Glisser la poignée ou le titre vers le bas pour fermer.
+ * `children` reçoit `close` : fermeture animée.
+ */
+function BottomSheet({
+  isDark,
+  isMobile,
+  title,
+  onClose,
+  children,
+}: {
+  isDark: boolean;
+  isMobile: boolean;
+  title: string;
+  onClose: () => void;
+  children: (close: () => void) => ReactNode;
 }) {
   const sheetRef = useRef<HTMLDivElement>(null);
   const drag = useRef<{ startY: number; startT: number } | null>(null);
@@ -1251,7 +1323,6 @@ function CalendarSheet({
   const [dragging, setDragging] = useState(false);
   const [dragY, setDragY] = useState(0);
 
-  // Animation d'entrée : on monte au frame suivant pour déclencher la transition.
   useEffect(() => {
     const id = requestAnimationFrame(() =>
       requestAnimationFrame(() => setShown(true))
@@ -1259,7 +1330,6 @@ function CalendarSheet({
     return () => cancelAnimationFrame(id);
   }, []);
 
-  // Animation de sortie, puis démontage.
   const requestClose = useCallback(() => {
     if (closing) return;
     setClosing(true);
@@ -1289,23 +1359,17 @@ function CalendarSheet({
     setDragging(false);
 
     const dy = Math.max(0, e.clientY - d.startY);
-    const velocity = dy / Math.max(1, performance.now() - d.startT); // px/ms
+    const velocity = dy / Math.max(1, performance.now() - d.startT);
     const height = sheetRef.current?.offsetHeight ?? 500;
 
     if (dy > height * 0.25 || velocity > 0.5) requestClose();
-    else setDragY(0); // retour élastique
+    else setDragY(0);
   };
 
   const hidden = closing || !shown;
   const height = sheetRef.current?.offsetHeight ?? 600;
   const backdropOpacity = hidden ? 0 : 1 - Math.min(1, dragY / height);
   const ease = "cubic-bezier(0.32, 0.72, 0, 1)";
-
-  const options: { key: View; label: string }[] = [
-    { key: "3days", label: c.toolbar.threeDays },
-    { key: "week", label: c.toolbar.week },
-    { key: "month", label: c.toolbar.month },
-  ];
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center md:items-center md:p-4">
@@ -1321,7 +1385,7 @@ function CalendarSheet({
         ref={sheetRef}
         role="dialog"
         aria-modal="true"
-        aria-label={c.toolbar.calendar}
+        aria-label={title}
         style={
           isMobile
             ? {
@@ -1345,7 +1409,6 @@ function CalendarSheet({
             : "border-black/[0.06] bg-[#f6f4f0]",
         ].join(" ")}
       >
-        {/* Zone de glissement : poignée + titre */}
         <div
           onPointerDown={onDragStart}
           onPointerMove={onDragMove}
@@ -1361,77 +1424,279 @@ function CalendarSheet({
           />
           <h2
             className={[
-              "text-center text-[17px] font-semibold tracking-[-0.02em]",
+              "truncate text-center text-[17px] font-semibold capitalize tracking-[-0.02em]",
               strongClass(isDark),
             ].join(" ")}
           >
-            {c.toolbar.calendar}
+            {title}
           </h2>
         </div>
 
-        <div
-          role="tablist"
-          className={[
-            "mb-3 grid grid-cols-3 gap-1 rounded-2xl border p-1",
-            isDark
-              ? "border-white/[0.08] bg-white/[0.03]"
-              : "border-black/[0.08] bg-white",
-          ].join(" ")}
-        >
-          {options.map((o) => {
-            const active = view === o.key;
-            return (
-              <button
-                key={o.key}
-                type="button"
-                role="tab"
-                aria-selected={active}
-                onClick={() => onViewChange(o.key)}
-                className={[
-                  "rounded-xl py-2.5 text-[14px] font-medium transition",
-                  focusRingClass(isDark),
-                  active
-                    ? isDark
-                      ? "bg-white text-neutral-900"
-                      : "bg-neutral-900 text-white"
-                    : isDark
-                      ? "text-neutral-300 hover:bg-white/[0.06]"
-                      : "text-neutral-700 hover:bg-black/[0.04]",
-                ].join(" ")}
-              >
-                {o.label}
-              </button>
-            );
-          })}
-        </div>
-
-        <CalendarPicker
-          value={date}
-          onChange={onPick}
-          onClose={requestClose}
-          isDark={isDark}
-          disablePast={false}
-        />
-
-        <button
-          type="button"
-          onClick={() => {
-            onToday();
-            requestClose();
-          }}
-          className={[
-            "mt-3 flex items-center gap-2 rounded-xl px-3 py-3 text-[15px] font-medium transition",
-            focusRingClass(isDark),
-            isDark
-              ? "text-white hover:bg-white/[0.06]"
-              : "text-neutral-900 hover:bg-black/[0.04]",
-          ].join(" ")}
-        >
-          <CalendarDays className="h-[18px] w-[18px]" strokeWidth={1.8} />
-          {c.toolbar.today}
-        </button>
+        {children(requestClose)}
       </div>
     </div>
+  );
+}
+
+/** Choix de la vue + sélecteur de date. */
+function CalendarSheet({
+  isDark,
+  c,
+  isMobile,
+  view,
+  date,
+  onViewChange,
+  onPick,
+  onToday,
+  onClose,
+}: {
+  isDark: boolean;
+  c: Copy;
+  isMobile: boolean;
+  view: View;
+  date: Date;
+  onViewChange: (v: View) => void;
+  onPick: (d: Date) => void;
+  onToday: () => void;
+  onClose: () => void;
+}) {
+  const options: { key: View; label: string }[] = [
+    { key: "3days", label: c.toolbar.threeDays },
+    { key: "week", label: c.toolbar.week },
+    { key: "month", label: c.toolbar.month },
+  ];
+
+  return (
+    <BottomSheet
+      isDark={isDark}
+      isMobile={isMobile}
+      title={c.toolbar.calendar}
+      onClose={onClose}
+    >
+      {(close) => (
+        <>
+          <div
+            role="tablist"
+            className={[
+              "mb-3 grid grid-cols-3 gap-1 rounded-2xl border p-1",
+              isDark
+                ? "border-white/[0.08] bg-white/[0.03]"
+                : "border-black/[0.08] bg-white",
+            ].join(" ")}
+          >
+            {options.map((o) => {
+              const active = view === o.key;
+              return (
+                <button
+                  key={o.key}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  onClick={() => onViewChange(o.key)}
+                  className={[
+                    "rounded-xl py-2.5 text-[14px] font-medium transition",
+                    focusRingClass(isDark),
+                    active
+                      ? isDark
+                        ? "bg-white text-neutral-900"
+                        : "bg-neutral-900 text-white"
+                      : isDark
+                        ? "text-neutral-300 hover:bg-white/[0.06]"
+                        : "text-neutral-700 hover:bg-black/[0.04]",
+                  ].join(" ")}
+                >
+                  {o.label}
+                </button>
+              );
+            })}
+          </div>
+
+          <CalendarPicker
+            value={date}
+            onChange={onPick}
+            onClose={close}
+            isDark={isDark}
+            disablePast={false}
+          />
+
+          <button
+            type="button"
+            onClick={() => {
+              onToday();
+              close();
+            }}
+            className={[
+              "mt-3 flex items-center gap-2 rounded-xl px-3 py-3 text-[15px] font-medium transition",
+              focusRingClass(isDark),
+              isDark
+                ? "text-white hover:bg-white/[0.06]"
+                : "text-neutral-900 hover:bg-black/[0.04]",
+            ].join(" ")}
+          >
+            <CalendarDays className="h-[18px] w-[18px]" strokeWidth={1.8} />
+            {c.toolbar.today}
+          </button>
+        </>
+      )}
+    </BottomSheet>
+  );
+}
+
+/** Filtres mobiles : portée des posts, tags, ajout d'événement. */
+function FiltersSheet({
+  isDark,
+  c,
+  isMobile,
+  scope,
+  scopeOptions,
+  onScope,
+  tags,
+  hiddenTags,
+  onToggleTag,
+  canReset,
+  onReset,
+  onAddEvent,
+  onClose,
+}: {
+  isDark: boolean;
+  c: Copy;
+  isMobile: boolean;
+  scope: Scope;
+  scopeOptions: { key: Scope; label: string }[];
+  onScope: (s: Scope) => void;
+  tags: ApiTag[];
+  hiddenTags: string[];
+  onToggleTag: (id: string) => void;
+  canReset: boolean;
+  onReset: () => void;
+  onAddEvent: () => void;
+  onClose: () => void;
+}) {
+  const sectionLabel = [
+    "mb-2 px-1 text-[12.5px] font-medium",
+    isDark ? "text-neutral-400" : "text-neutral-500",
+  ].join(" ");
+
+  return (
+    <BottomSheet
+      isDark={isDark}
+      isMobile={isMobile}
+      title={c.toolbar.filters}
+      onClose={onClose}
+    >
+      {(close) => (
+        <div className="flex flex-col gap-5 pt-1">
+          <section>
+            <p className={sectionLabel}>{c.toolbar.postsLabel}</p>
+            <div
+              role="tablist"
+              className={[
+                "grid grid-cols-3 gap-1 rounded-2xl border p-1",
+                isDark
+                  ? "border-white/[0.08] bg-white/[0.03]"
+                  : "border-black/[0.08] bg-white",
+              ].join(" ")}
+            >
+              {scopeOptions.map((o) => {
+                const active = scope === o.key;
+                return (
+                  <button
+                    key={o.key}
+                    type="button"
+                    role="tab"
+                    aria-selected={active}
+                    onClick={() => onScope(o.key)}
+                    className={[
+                      "truncate rounded-xl px-1 py-2.5 text-[13px] font-medium transition",
+                      focusRingClass(isDark),
+                      active
+                        ? isDark
+                          ? "bg-white text-neutral-900"
+                          : "bg-neutral-900 text-white"
+                        : isDark
+                          ? "text-neutral-300 active:bg-white/[0.06]"
+                          : "text-neutral-700 active:bg-black/[0.04]",
+                    ].join(" ")}
+                  >
+                    {o.label}
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+
+          <section>
+            <p className={sectionLabel}>{c.toolbar.tags}</p>
+            <div className="flex flex-wrap gap-2">
+              {tags.map((t) => {
+                const on = !hiddenTags.includes(t.id);
+                return (
+                  <button
+                    key={t.id}
+                    type="button"
+                    aria-pressed={on}
+                    onClick={() => onToggleTag(t.id)}
+                    className={[
+                      "flex min-h-10 items-center gap-2 rounded-full border px-3.5 text-[13px] font-medium transition",
+                      focusRingClass(isDark),
+                      on
+                        ? isDark
+                          ? "border-white/25 bg-white/[0.08] text-white"
+                          : "border-black/20 bg-white text-neutral-900 shadow-sm"
+                        : isDark
+                          ? "border-white/[0.08] text-neutral-500"
+                          : "border-black/[0.08] text-neutral-400",
+                    ].join(" ")}
+                  >
+                    <span
+                      className="h-2.5 w-2.5 shrink-0 rounded-full transition-opacity"
+                      style={{ backgroundColor: hexOf(t), opacity: on ? 1 : 0.35 }}
+                    />
+                    <span className="truncate">{t.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+
+          <div className="flex items-center justify-between gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                close();
+                window.setTimeout(onAddEvent, 200);
+              }}
+              className={[
+                "flex min-h-11 items-center gap-2 rounded-xl px-3 text-[14px] font-medium transition",
+                focusRingClass(isDark),
+                isDark
+                  ? "text-white active:bg-white/[0.06]"
+                  : "text-neutral-900 active:bg-black/[0.04]",
+              ].join(" ")}
+            >
+              <Plus className="h-4 w-4" strokeWidth={2.2} />
+              {c.toolbar.addEvent}
+            </button>
+
+            {canReset && (
+              <button
+                type="button"
+                onClick={onReset}
+                className={[
+                  "min-h-11 rounded-xl px-3 text-[14px] font-medium transition",
+                  focusRingClass(isDark),
+                  isDark
+                    ? "text-neutral-400 active:bg-white/[0.06]"
+                    : "text-neutral-500 active:bg-black/[0.04]",
+                ].join(" ")}
+              >
+                {c.toolbar.reset}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+    </BottomSheet>
   );
 }
 
@@ -1552,7 +1817,7 @@ function EventCard({
             aria-expanded={menuOpen}
             onClick={onToggleMenu}
             className={[
-              "rounded-full p-0.5 transition",
+              "-m-1 rounded-full p-1.5 transition md:m-0 md:p-0.5",
               menuOpen ? (isDark ? "bg-white/[0.08]" : "bg-black/[0.05]") : "",
               isDark
                 ? "text-neutral-400 hover:bg-white/[0.08]"
@@ -1882,6 +2147,9 @@ export default function Schedule() {
       : "week"
   );
   const [calendarOpen, setCalendarOpen] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const calendarCardRef = useRef<HTMLDivElement>(null);
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
   const [timezone, setTimezone] = useState("Paris");
   const [showNoDate, setShowNoDate] = useState(false);
   const [scope, setScope] = useState<Scope>("all");
@@ -2127,12 +2395,49 @@ export default function Schedule() {
   const togglePanel = (panel: ToolbarPanel) =>
     setOpenPanel((cur) => (cur === panel ? null : panel));
 
-  const step = (dir: 1 | -1) =>
+  const animateSlide = (dir: 1 | -1) => {
+    const el = calendarCardRef.current;
+    if (!el || window.matchMedia("(prefers-reduced-motion: reduce)").matches)
+      return;
+    el.animate(
+      [
+        { transform: `translateX(${dir * 28}px)`, opacity: 0.35 },
+        { transform: "translateX(0)", opacity: 1 },
+      ],
+      { duration: 240, easing: "cubic-bezier(0.32, 0.72, 0, 1)" }
+    );
+  };
+
+  const step = (dir: 1 | -1) => {
+    animateSlide(dir);
     setViewDate((d) =>
       view === "month"
         ? addMonths(d, dir)
         : addDays(d, dir * (view === "3days" ? 3 : 7))
     );
+  };
+
+  const onSwipeStart = (e: React.TouchEvent) => {
+    const t = e.touches[0];
+    touchStart.current = { x: t.clientX, y: t.clientY };
+  };
+
+  const onSwipeEnd = (e: React.TouchEvent) => {
+    const s0 = touchStart.current;
+    touchStart.current = null;
+    if (!s0) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - s0.x;
+    const dy = t.clientY - s0.y;
+    if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+    step(dx < 0 ? 1 : -1);
+  };
+
+  const todayInRange = now >= rangeStart && now < rangeEnd;
+  const goToday = () => {
+    animateSlide(now < rangeStart ? -1 : 1);
+    setViewDate(new Date());
+  };
 
   const nowHour = now.getHours() + now.getMinutes() / 60;
   const nowLabel = `${now.getHours()}:${String(now.getMinutes()).padStart(2, "0")}`;
@@ -2694,11 +2999,11 @@ export default function Schedule() {
             ].join(" ")}
           >
             {/* HEADER — z-20 : sous le tiroir mobile (z-40) et la barre mobile (z-30) */}
-            <div className="relative z-20 mb-3 flex shrink-0 items-center justify-between gap-3">
-              <div className="flex min-w-0 items-center gap-2.5">
+            <div className="relative z-20 mb-3 flex shrink-0 items-center justify-between gap-2 md:gap-3">
+              <div className="flex min-w-0 items-center gap-1 md:gap-2.5">
                 <span
                   className={[
-                    "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border md:h-9 md:w-9",
+                    "hidden h-9 w-9 shrink-0 items-center justify-center rounded-xl border md:flex",
                     isDark
                       ? "border-white/[0.07] bg-white/[0.04] text-neutral-400"
                       : "border-black/[0.06] bg-white text-neutral-500",
@@ -2708,7 +3013,7 @@ export default function Schedule() {
                 </span>
                 <h1
                   className={[
-                    "truncate text-[22px] font-semibold tracking-[-0.03em] md:text-[20px]",
+                    "truncate text-[24px] font-semibold tracking-[-0.03em] md:text-[20px]",
                     strongClass(isDark),
                   ].join(" ")}
                 >
@@ -2716,14 +3021,12 @@ export default function Schedule() {
                 </h1>
                 <button
                   type="button"
-                  aria-label={
-                    saved ? c.header.removeFavorite : c.header.addFavorite
-                  }
+                  aria-label={saved ? c.header.removeFavorite : c.header.addFavorite}
                   aria-pressed={saved}
                   title={saved ? c.header.removeFavorite : c.header.addFavorite}
                   onClick={() => toggleFavorite(PAGE_ROUTE)}
                   className={[
-                    "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-colors motion-reduce:transition-none md:hidden",
+                    "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors motion-reduce:transition-none md:h-9 md:w-9",
                     focusRingClass(isDark),
                     isDark ? "hover:bg-white/[0.06]" : "hover:bg-black/[0.04]",
                   ].join(" ")}
@@ -2736,42 +3039,20 @@ export default function Schedule() {
                 </button>
               </div>
 
-              <div className="flex items-center gap-2.5 print:hidden">
-                <div className="max-md:hidden">
-                  <ChannelMenu
-                    channels={channels}
-                    current={channel}
-                    isDark={isDark}
-                    onSelect={goChannel}
-                  />
-                </div>
-                <button
-                  type="button"
-                  aria-label={
-                    saved ? c.header.removeFavorite : c.header.addFavorite
-                  }
-                  aria-pressed={saved}
-                  title={saved ? c.header.removeFavorite : c.header.addFavorite}
-                  onClick={() => toggleFavorite(PAGE_ROUTE)}
-                  className={[
-                    "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-colors motion-reduce:transition-none max-md:hidden",
-                    focusRingClass(isDark),
-                    isDark ? "hover:bg-white/[0.06]" : "hover:bg-black/[0.04]",
-                  ].join(" ")}
-                >
-                  <Bookmark
-                    className="h-5 w-5"
-                    strokeWidth={1.8}
-                    fill={saved ? "currentColor" : "none"}
-                  />
-                </button>
+              <div className="flex shrink-0 items-center gap-2 md:gap-2.5 print:hidden">
+                <ChannelMenu
+                  channels={channels}
+                  current={channel}
+                  isDark={isDark}
+                  onSelect={goChannel}
+                />
                 <button
                   type="button"
                   aria-label={c.header.newPost}
                   title={c.header.newPost}
                   onClick={openNewPost}
                   className={[
-                    "flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl transition md:hidden",
+                    "flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl transition active:scale-95 md:hidden",
                     focusRingClass(isDark),
                     isDark
                       ? "bg-white text-neutral-900 hover:bg-neutral-200"
@@ -2781,16 +3062,6 @@ export default function Schedule() {
                   <Plus className="h-5 w-5" strokeWidth={2} />
                 </button>
               </div>
-            </div>
-
-            {/* Canal (mobile) */}
-            <div className="mb-3 shrink-0 md:hidden">
-              <ChannelMenu
-                channels={channels}
-                current={channel}
-                isDark={isDark}
-                onSelect={goChannel}
-              />
             </div>
 
             {/* TOOLBAR */}
@@ -2872,44 +3143,28 @@ export default function Schedule() {
                 </div>
               </div>
 
-              {/* Mobile : un seul bouton Filtres */}
-              <div className="relative md:hidden" data-toolbar-menu>
+              {/* Mobile : le bouton ouvre la feuille de filtres */}
+              <div className="md:hidden">
                 <ToolbarIconButton
                   isDark={isDark}
                   label={c.toolbar.filters}
-                  open={openPanel === "filters"}
-                  onClick={() => togglePanel("filters")}
+                  open={filtersOpen}
+                  onClick={() => setFiltersOpen(true)}
                 >
                   <span className="relative flex">
-                    <SlidersHorizontal className="h-[18px] w-[18px]" strokeWidth={1.8} />
+                    <SlidersHorizontal className="h-[19px] w-[19px]" strokeWidth={1.8} />
                     {filtersActive && (
                       <span
                         className={[
-                          "absolute -right-1 -top-1 h-2 w-2 rounded-full",
-                          isDark ? "bg-white" : "bg-neutral-900",
+                          "absolute -right-1 -top-1 h-2 w-2 rounded-full ring-2",
+                          isDark
+                            ? "bg-white ring-[#0a0a0c]"
+                            : "bg-neutral-900 ring-white",
                         ].join(" ")}
                       />
                     )}
                   </span>
                 </ToolbarIconButton>
-                {openPanel === "filters" && (
-                  <MenuPanel isDark={isDark} align="right" width="w-64">
-                    {scopeItems}
-                    <Divider isDark={isDark} />
-                    {tagList}
-                    <Divider isDark={isDark} />
-                    <MenuItem
-                      isDark={isDark}
-                      icon={<Plus className="h-[13px] w-[13px]" strokeWidth={2.2} />}
-                      onClick={() => {
-                        setOpenPanel(null);
-                        handleAddEvent();
-                      }}
-                    >
-                      {c.toolbar.addEvent}
-                    </MenuItem>
-                  </MenuPanel>
-                )}
               </div>
 
               {/* Desktop : barre complète */}
@@ -3029,8 +3284,11 @@ export default function Schedule() {
 
             {/* CALENDRIER */}
             <div
+              ref={calendarCardRef}
+              onTouchStart={onSwipeStart}
+              onTouchEnd={onSwipeEnd}
               className={[
-                "mt-3 flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border md:mt-4",
+                "mt-3 flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border [touch-action:pan-y] md:mt-4",
                 calendarBorder,
                 isDark ? "bg-white/[0.02]" : "bg-white",
               ].join(" ")}
@@ -3295,6 +3553,27 @@ export default function Schedule() {
                       </div>
                     </div>
 
+                    {!todayInRange && (
+                      <button
+                        type="button"
+                        onClick={goToday}
+                        className={[
+                          "absolute bottom-3 left-3 z-30 flex items-center gap-1.5 rounded-full border py-2 pl-2.5 pr-3.5 text-[12.5px] font-semibold shadow-lg backdrop-blur-md transition active:scale-95 md:hidden",
+                          focusRingClass(isDark),
+                          isDark
+                            ? "border-white/[0.10] bg-[#101012]/90 text-white"
+                            : "border-black/[0.06] bg-white/95 text-neutral-800",
+                        ].join(" ")}
+                      >
+                        {now < rangeStart ? (
+                          <ChevronLeft className="h-3.5 w-3.5" />
+                        ) : (
+                          <ChevronRight className="h-3.5 w-3.5" />
+                        )}
+                        {c.toolbar.today}
+                      </button>
+                    )}
+
                     <OffScreenPostStack
                       items={offScreenPosts.above}
                       direction="up"
@@ -3385,10 +3664,14 @@ export default function Schedule() {
                             <button
                               key={day.date.toISOString()}
                               type="button"
-                              onClick={() =>
-                                items.length > 0 &&
-                                setMore({ date: day.date, hour: null })
-                              }
+                              onClick={() => {
+                                if (items.length > 0) {
+                                  setMore({ date: day.date, hour: null });
+                                } else {
+                                  setViewDate(day.date);
+                                  setView("3days");
+                                }
+                              }}
                               className={[
                                 "flex min-h-0 min-w-0 flex-col items-center gap-1.5 border-b border-r pt-1.5 transition-colors",
                                 calendarBorder,
@@ -3486,6 +3769,27 @@ export default function Schedule() {
         </div>
       </div>
 
+      {filtersOpen && (
+        <FiltersSheet
+          isDark={isDark}
+          c={c}
+          isMobile={isMobile}
+          scope={scope}
+          scopeOptions={scopeOptions}
+          onScope={setScope}
+          tags={allTags}
+          hiddenTags={hiddenTags}
+          onToggleTag={toggleHiddenTag}
+          canReset={filtersActive}
+          onReset={() => {
+            setScope("all");
+            setHiddenTags([]);
+          }}
+          onAddEvent={handleAddEvent}
+          onClose={() => setFiltersOpen(false)}
+        />
+      )}
+
       {calendarOpen && (
         <CalendarSheet
           isDark={isDark}
@@ -3503,6 +3807,16 @@ export default function Schedule() {
       {more && (
         <DayDetailModal
           isDark={isDark}
+          isMobile={isMobile}
+          onOpenDay={
+            more.hour === null
+              ? () => {
+                  setViewDate(more.date);
+                  setView("3days");
+                  setMore(null);
+                }
+              : undefined
+          }
           title={moreTitle}
           items={moreItems}
           renderItem={renderMonthItem}
