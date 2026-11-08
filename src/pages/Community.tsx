@@ -72,6 +72,28 @@ function useLanguage(): Lang {
 
 const intlLocale = (lang: Lang) => (lang === "fr" ? "fr-FR" : "en-GB");
 
+/* ───────── Mobile ───────── */
+
+const MOBILE_QUERY = "(max-width: 767px)";
+
+function useIsMobile(): boolean {
+  const [mobile, setMobile] = useState<boolean>(() =>
+    typeof window === "undefined"
+      ? false
+      : window.matchMedia(MOBILE_QUERY).matches
+  );
+
+  useEffect(() => {
+    const mq = window.matchMedia(MOBILE_QUERY);
+    const onChange = () => setMobile(mq.matches);
+    onChange();
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+
+  return mobile;
+}
+
 /* ───────── Copy ───────── */
 
 type Copy = {
@@ -116,6 +138,11 @@ type Copy = {
     emptyTitle: string;
     emptyHint: string;
     showAllCta: string;
+  };
+  sheet: {
+    close: string;
+    noComments: string;
+    dragHint: string;
   };
   inbox: {
     selectedVideo: string;
@@ -196,6 +223,11 @@ const COPY: Record<Lang, Copy> = {
       emptyHint:
         "When your posts receive comments, they'll appear here. Want to see all your posts?",
       showAllCta: "Show all posts",
+    },
+    sheet: {
+      close: "Close comments",
+      noComments: "No comments to show",
+      dragHint: "Drag down to close",
     },
     inbox: {
       selectedVideo: "Selected video",
@@ -279,6 +311,11 @@ const COPY: Record<Lang, Copy> = {
         "Lorsque vos publications reçoivent des commentaires, ils apparaîtront ici. Voulez-vous voir toutes vos publications ?",
       showAllCta: "Afficher toutes les publications",
     },
+    sheet: {
+      close: "Fermer les commentaires",
+      noComments: "Aucun commentaire à afficher",
+      dragHint: "Glissez vers le bas pour fermer",
+    },
     inbox: {
       selectedVideo: "Vidéo sélectionnée",
       commentsCount: (n) => `${n} commentaire${n === 1 ? "" : "s"}`,
@@ -340,6 +377,8 @@ const PAGE_ROUTE = "community";
 const COMMENTS_POLL_MS = 60_000;
 const VIDEOS_POLL_MS = 5 * 60_000;
 const REPLY_MAX = 10_000;
+const SHEET_CLOSE_DRAG_PX = 120;
+const SHEET_ANIM_MS = 240;
 
 /* ───────── Shell ───────── */
 
@@ -853,6 +892,11 @@ const PlusIcon = (p: IconProps) => (
     <path d="M12 5v14M5 12h14" />
   </Svg>
 );
+const CloseIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M6 6l12 12M18 6 6 18" />
+  </Svg>
+);
 const ReplyIcon = (p: IconProps) => (
   <Svg {...p}>
     <path d="M9.5 6 4 11.5 9.5 17" />
@@ -1074,6 +1118,7 @@ export default function Community() {
   const channels = useConnectedChannels();
   const lang = useLanguage();
   const c = COPY[lang];
+  const isMobile = useIsMobile();
 
   const { isFavorite, toggle: toggleFavorite } = useFavorites();
   const saved = isFavorite(PAGE_ROUTE);
@@ -1106,6 +1151,13 @@ export default function Community() {
   const [sendingReply, setSendingReply] = useState(false);
   const [replyError, setReplyError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+
+  /* Feuille glissable (mobile) */
+  const [sheetEntered, setSheetEntered] = useState(false);
+  const [dragY, setDragY] = useState(0);
+  const [dragging, setDragging] = useState(false);
+  const dragStartRef = useRef<number | null>(null);
+  const closeTimerRef = useRef<number | null>(null);
 
   const {
     posts,
@@ -1177,6 +1229,18 @@ export default function Community() {
     { key: "answered", label: c.filters.answered },
   ];
 
+  /* Mobile : toujours la vue « par publication », panneau toujours ouvert */
+  const effLayout: Layout = isMobile ? "post" : layout;
+  const showPostsPane =
+    effLayout === "post" &&
+    (isMobile ? tab === "comments" : postsOpen);
+  const showCollapsedToggle = effLayout === "post" && !isMobile && !postsOpen;
+
+  /* Feuille : ouverte seulement sur mobile, onglet commentaires, vidéo choisie */
+  const sheetMode = isMobile && tab === "comments" && selectedPostId !== null;
+  const inboxHiddenOnMobile =
+    isMobile && tab === "comments" && selectedPostId === null;
+
   const goChannel = (key: string) => {
     setSelectedKey(key);
     setSelectedPostId(null);
@@ -1188,8 +1252,9 @@ export default function Community() {
     );
   };
 
+  /* Sur mobile : toutes les vidéos (hors programmées) avec leur compteur */
   const visiblePosts = (
-    showAll
+    showAll || isMobile
       ? posts.filter((p) => p.status !== "scheduled")
       : posts.filter((p) => p.commentCount > 0)
   ).filter((post) => post.title.toLowerCase().includes(needle));
@@ -1233,6 +1298,66 @@ export default function Community() {
     }
   };
 
+  /* ── Feuille : animation d'ouverture / fermeture / glisser ── */
+
+  useEffect(() => {
+    if (!sheetMode) {
+      setSheetEntered(false);
+      setDragY(0);
+      setDragging(false);
+      return;
+    }
+    const id = window.requestAnimationFrame(() => setSheetEntered(true));
+    return () => window.cancelAnimationFrame(id);
+  }, [sheetMode, selectedPostId]);
+
+  useEffect(
+    () => () => {
+      if (closeTimerRef.current) window.clearTimeout(closeTimerRef.current);
+    },
+    []
+  );
+
+  const closeSheet = useCallback(() => {
+    closeReply();
+    setDragging(false);
+    setDragY(window.innerHeight);
+    if (closeTimerRef.current) window.clearTimeout(closeTimerRef.current);
+    closeTimerRef.current = window.setTimeout(() => {
+      setSelectedPostId(null);
+      setDragY(0);
+    }, SHEET_ANIM_MS);
+  }, []);
+
+  useEffect(() => {
+    if (!sheetMode) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeSheet();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [sheetMode, closeSheet]);
+
+  const onDragStart = (e: React.PointerEvent<HTMLDivElement>) => {
+    dragStartRef.current = e.clientY;
+    setDragging(true);
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+
+  const onDragMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (dragStartRef.current === null) return;
+    setDragY(Math.max(0, e.clientY - dragStartRef.current));
+  };
+
+  const onDragEnd = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (dragStartRef.current === null) return;
+    const delta = e.clientY - dragStartRef.current;
+    dragStartRef.current = null;
+    setDragging(false);
+    if (delta > SHEET_CLOSE_DRAG_PX) closeSheet();
+    else setDragY(0);
+  };
+
   const handleBottomBarChange = (id: BottomBarTab) => {
     switch (id) {
       case "add":
@@ -1254,6 +1379,29 @@ export default function Community() {
     throw new Error(unavailablePostActionMessage(payload));
   };
 
+  const inboxClassName = sheetMode
+    ? [
+        "fixed inset-x-0 bottom-0 z-[35] flex h-[88dvh] flex-col overflow-y-auto overscroll-contain",
+        "rounded-t-[28px] border-t shadow-[0_-12px_40px_rgba(0,0,0,0.35)]",
+        "pb-[env(safe-area-inset-bottom)]",
+        line,
+        isDark ? "bg-[#0a0a0c]" : "bg-white",
+        dragging
+          ? ""
+          : "transition-transform duration-[240ms] ease-[cubic-bezier(0.32,0.72,0,1)] motion-reduce:transition-none",
+      ].join(" ")
+    : inboxHiddenOnMobile
+      ? "hidden"
+      : "flex min-w-0 flex-1 flex-col overflow-y-auto";
+
+  const inboxStyle: React.CSSProperties | undefined = sheetMode
+    ? {
+        transform: sheetEntered
+          ? `translateY(${dragY}px)`
+          : "translateY(100%)",
+      }
+    : undefined;
+
   return (
     <main
       className={[
@@ -1270,8 +1418,9 @@ export default function Community() {
           "transition-[padding-left] duration-[380ms]",
           "ease-[cubic-bezier(0.4,0,0.2,1)]",
           "motion-reduce:transition-none",
+          "max-md:pl-3",
         ].join(" ")}
-        style={{ paddingLeft: sidebarOffset }}
+        style={isMobile ? undefined : { paddingLeft: sidebarOffset }}
       >
         <div
           className={[
@@ -1284,14 +1433,14 @@ export default function Community() {
           <div
             className={[
               "flex min-h-0 w-full flex-1 flex-col",
-              "px-[clamp(18px,3vw,48px)]",
-              "pb-[104px] pt-[clamp(18px,3vw,30px)] sm:pb-6",
+              "px-[clamp(14px,3vw,48px)]",
+              "pb-[104px] pt-[clamp(14px,3vw,30px)] sm:pb-6",
             ].join(" ")}
           >
             {/* HEADER COMPACT — z-20 pour passer SOUS le tiroir mobile (z-40)
                 et SOUS la barre mobile (z-30), tout en restant AU-DESSUS
                 des sections de page (z-auto). */}
-            <div className="relative z-20 flex shrink-0 flex-wrap items-center justify-between gap-3 pb-4">
+            <div className="relative z-20 flex shrink-0 flex-wrap items-center justify-between gap-x-3 gap-y-2 pb-3 md:pb-4">
               <div className="flex min-w-0 items-center gap-2.5">
                 <span
                   className={[
@@ -1313,7 +1462,7 @@ export default function Community() {
                 </h1>
               </div>
 
-              <div className="flex flex-wrap items-center gap-2.5">
+              <div className="flex flex-wrap items-center gap-2 md:gap-2.5">
                 <ChannelMenu
                   channels={channels}
                   current={channel}
@@ -1321,7 +1470,7 @@ export default function Community() {
                   onSelect={goChannel}
                 />
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1 md:gap-2">
                   <IconButton
                     label={c.header.autoReplies}
                     ghost={ghost}
@@ -1340,11 +1489,12 @@ export default function Community() {
                     <SyncIcon className="h-5 w-5" />
                   </IconButton>
 
+                  {/* Choix de disposition : inutile sur mobile (toujours « par publication ») */}
                   <div
                     role="tablist"
                     aria-label={c.header.layoutAria}
                     className={[
-                      "ml-2 inline-flex gap-1 rounded-xl border p-1",
+                      "ml-2 inline-flex gap-1 rounded-xl border p-1 max-md:hidden",
                       line,
                     ].join(" ")}
                   >
@@ -1396,7 +1546,7 @@ export default function Community() {
                   title={saved ? c.header.removeFavorite : c.header.addFavorite}
                   onClick={() => toggleFavorite(PAGE_ROUTE)}
                   className={[
-                    "ml-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-colors motion-reduce:transition-none",
+                    "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-colors motion-reduce:transition-none md:ml-1",
                     focusRingClass(isDark),
                     isDark ? "hover:bg-white/[0.06]" : "hover:bg-black/[0.04]",
                   ].join(" ")}
@@ -1409,14 +1559,14 @@ export default function Community() {
             {/* Tabs + toolbar */}
             <div
               className={[
-                "flex shrink-0 items-center justify-between gap-4 border-b",
+                "flex shrink-0 items-center justify-between gap-2 border-b md:gap-4",
                 line,
               ].join(" ")}
             >
               <div
                 role="tablist"
                 aria-label={c.tabs.ariaLabel}
-                className="flex gap-6"
+                className="flex gap-5 md:gap-6"
               >
                 {TABS.map((t) => (
                   <button
@@ -1456,7 +1606,7 @@ export default function Community() {
                 ))}
               </div>
 
-              <div className="flex items-center gap-1 pb-2">
+              <div className="flex items-center gap-0.5 pb-2 md:gap-1">
                 <Menu
                   value={filter}
                   options={FILTERS}
@@ -1470,7 +1620,7 @@ export default function Community() {
                   label={c.filters.sortFilter}
                   ghost={ghost}
                   isDark={isDark}
-                  className="h-9 w-9"
+                  className="h-9 w-9 max-md:hidden"
                 >
                   <FilterIcon className="h-5 w-5" />
                 </IconButton>
@@ -1494,11 +1644,13 @@ export default function Community() {
 
             {/* Body */}
             <div className="flex min-h-0 flex-1">
-              {layout === "post" && postsOpen && (
+              {showPostsPane && (
                 <aside
                   className={[
-                    "flex w-[300px] shrink-0 flex-col border-r pr-4 pt-4",
-                    line,
+                    "flex shrink-0 flex-col pt-4",
+                    isMobile
+                      ? "w-full min-w-0 flex-1"
+                      : ["w-[300px] border-r pr-4", line].join(" "),
                   ].join(" ")}
                 >
                   <div className="flex items-center justify-between">
@@ -1506,6 +1658,11 @@ export default function Community() {
                       className={["text-[14px] font-medium", muted].join(" ")}
                     >
                       {c.posts.title}
+                      {isMobile && posts.length > 0 && (
+                        <span className="ml-2 tabular-nums">
+                          {visiblePosts.length}
+                        </span>
+                      )}
                     </h2>
                     <div className="flex items-center">
                       <IconButton
@@ -1513,31 +1670,36 @@ export default function Community() {
                         ghost={ghost}
                         isDark={isDark}
                         className="h-8 w-8"
+                        align={isMobile ? "end" : "center"}
                       >
                         <BringToTopIcon className="h-[18px] w-[18px]" />
                       </IconButton>
-                      <IconButton
-                        label={
-                          showAll
-                            ? c.posts.onlyWithComments
-                            : c.posts.showAll
-                        }
-                        onClick={() => setShowAll((v) => !v)}
-                        ghost={ghost}
-                        isDark={isDark}
-                        className="h-8 w-8"
-                      >
-                        <StackIcon className="h-[18px] w-[18px]" />
-                      </IconButton>
-                      <IconButton
-                        label={c.posts.hidePanel}
-                        onClick={() => setPostsOpen(false)}
-                        ghost={ghost}
-                        isDark={isDark}
-                        className="h-8 w-8"
-                      >
-                        <PanelIcon className="h-[18px] w-[18px]" />
-                      </IconButton>
+                      {!isMobile && (
+                        <>
+                          <IconButton
+                            label={
+                              showAll
+                                ? c.posts.onlyWithComments
+                                : c.posts.showAll
+                            }
+                            onClick={() => setShowAll((v) => !v)}
+                            ghost={ghost}
+                            isDark={isDark}
+                            className="h-8 w-8"
+                          >
+                            <StackIcon className="h-[18px] w-[18px]" />
+                          </IconButton>
+                          <IconButton
+                            label={c.posts.hidePanel}
+                            onClick={() => setPostsOpen(false)}
+                            ghost={ghost}
+                            isDark={isDark}
+                            className="h-8 w-8"
+                          >
+                            <PanelIcon className="h-[18px] w-[18px]" />
+                          </IconButton>
+                        </>
+                      )}
                     </div>
                   </div>
 
@@ -1570,7 +1732,7 @@ export default function Community() {
                       >
                         {postsError ? c.posts.unavailableHint : c.posts.emptyHint}
                       </p>
-                      {!postsError && (
+                      {!postsError && !isMobile && (
                         <button
                           type="button"
                           onClick={() => setShowAll(true)}
@@ -1586,48 +1748,79 @@ export default function Community() {
                     </div>
                   ) : (
                     <ul className="mt-4 flex min-h-0 flex-col gap-1 overflow-y-auto">
-                      {visiblePosts.map((p) => (
-                        <li key={p.id}>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setSelectedPostId((cur) =>
-                                cur === p.id ? null : p.id
-                              )
-                            }
-                            aria-pressed={selectedPostId === p.id}
-                            className={[
-                              "flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left text-[13px] font-medium transition-colors",
-                              ghost,
-                              selectedPostId === p.id
-                                ? isDark
-                                  ? "bg-white/[0.08]"
-                                  : "bg-black/[0.05]"
-                                : "",
-                            ].join(" ")}
-                          >
-                            <img
-                              src={p.thumbnail ?? thumbnailFor(p.id)}
-                              alt=""
-                              loading="lazy"
-                              referrerPolicy="no-referrer"
-                              className="aspect-video w-[72px] shrink-0 rounded-md object-cover"
-                            />
-                            <span className="min-w-0 flex-1 truncate">
-                              {p.title}
-                            </span>
-                            <span className={["tabular-nums", muted].join(" ")}>
-                              {p.commentCount}
-                            </span>
-                          </button>
-                        </li>
-                      ))}
+                      {visiblePosts.map((p) => {
+                        const noComments = p.commentCount === 0;
+                        return (
+                          <li key={p.id}>
+                            <button
+                              type="button"
+                              disabled={isMobile && noComments}
+                              onClick={() =>
+                                setSelectedPostId((cur) =>
+                                  isMobile ? p.id : cur === p.id ? null : p.id
+                                )
+                              }
+                              aria-pressed={selectedPostId === p.id}
+                              className={[
+                                "flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left text-[13px] font-medium transition-colors",
+                                "disabled:cursor-default disabled:opacity-55",
+                                isMobile ? "py-2.5" : "",
+                                focusRingClass(isDark),
+                                ghost,
+                                selectedPostId === p.id
+                                  ? isDark
+                                    ? "bg-white/[0.08]"
+                                    : "bg-black/[0.05]"
+                                  : "",
+                              ].join(" ")}
+                            >
+                              <img
+                                src={p.thumbnail ?? thumbnailFor(p.id)}
+                                alt=""
+                                loading="lazy"
+                                referrerPolicy="no-referrer"
+                                className={[
+                                  "aspect-video shrink-0 rounded-md object-cover",
+                                  isMobile ? "w-[96px]" : "w-[72px]",
+                                ].join(" ")}
+                              />
+                              <span
+                                className={[
+                                  "min-w-0 flex-1",
+                                  isMobile
+                                    ? "line-clamp-2 leading-snug"
+                                    : "truncate",
+                                ].join(" ")}
+                              >
+                                {p.title}
+                              </span>
+                              <span
+                                className={[
+                                  "tabular-nums",
+                                  muted,
+                                  isMobile
+                                    ? "flex shrink-0 items-center gap-1 text-[12.5px]"
+                                    : "",
+                                ].join(" ")}
+                                aria-label={c.inbox.commentsCount(
+                                  p.commentCount
+                                )}
+                              >
+                                {isMobile && (
+                                  <BubbleIcon className="h-4 w-4" />
+                                )}
+                                {p.commentCount}
+                              </span>
+                            </button>
+                          </li>
+                        );
+                      })}
                     </ul>
                   )}
                 </aside>
               )}
 
-              {layout === "post" && !postsOpen && (
+              {showCollapsedToggle && (
                 <div className="pt-4 pr-3">
                   <IconButton
                     label={c.posts.showPanel}
@@ -1641,9 +1834,133 @@ export default function Community() {
                 </div>
               )}
 
-              {/* Inbox */}
-              <section className="flex min-w-0 flex-1 flex-col overflow-y-auto">
-                {tab === "comments" && selectedPostId && (
+              {/* Voile derrière la feuille (mobile) */}
+              {sheetMode && (
+                <button
+                  type="button"
+                  aria-label={c.sheet.close}
+                  tabIndex={-1}
+                  onClick={closeSheet}
+                  className={[
+                    "fixed inset-0 z-[34] cursor-default bg-black/50 transition-opacity duration-[240ms] motion-reduce:transition-none",
+                    sheetEntered ? "opacity-100" : "opacity-0",
+                  ].join(" ")}
+                />
+              )}
+
+              {/* Inbox (sur mobile : feuille glissable quand une vidéo est choisie) */}
+              <section className={inboxClassName} style={inboxStyle}>
+                {sheetMode && (
+                  <div
+                    className={[
+                      "sticky top-0 z-10 shrink-0 border-b",
+                      line,
+                      isDark ? "bg-[#0a0a0c]" : "bg-white",
+                    ].join(" ")}
+                  >
+                    {/* Poignée + titre : zone de glissement */}
+                    <div
+                      onPointerDown={onDragStart}
+                      onPointerMove={onDragMove}
+                      onPointerUp={onDragEnd}
+                      onPointerCancel={onDragEnd}
+                      className="cursor-grab touch-none select-none px-4 pb-3 pt-2.5 active:cursor-grabbing"
+                      aria-label={c.sheet.dragHint}
+                    >
+                      <div className="mx-auto h-1.5 w-10 rounded-full bg-neutral-500/40" />
+                      <div className="mt-3 flex items-center gap-3">
+                        <img
+                          src={
+                            selectedPost?.thumbnail ??
+                            thumbnailFor(selectedPostId!)
+                          }
+                          alt=""
+                          referrerPolicy="no-referrer"
+                          className="aspect-video w-[72px] shrink-0 rounded-md object-cover"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <p
+                            className={[
+                              "line-clamp-2 text-[14px] font-semibold leading-snug",
+                              strongClass(isDark),
+                            ].join(" ")}
+                          >
+                            {selectedPost?.title ?? c.inbox.selectedVideo}
+                          </p>
+                          {selectedPost && (
+                            <p className={["text-[12px]", muted].join(" ")}>
+                              {c.inbox.commentsCount(selectedPost.commentCount)}
+                            </p>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          aria-label={c.sheet.close}
+                          onPointerDown={(e) => e.stopPropagation()}
+                          onClick={closeSheet}
+                          className={[
+                            "flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-colors",
+                            focusRingClass(isDark),
+                            ghost,
+                          ].join(" ")}
+                        >
+                          <CloseIcon className="h-5 w-5" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Filtres dans la feuille */}
+                    <div
+                      role="tablist"
+                      aria-label={c.filters.ariaLabel}
+                      className="flex items-center gap-2 overflow-x-auto px-4 pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                    >
+                      {FILTERS.map((f) => (
+                        <button
+                          key={f.key}
+                          type="button"
+                          role="tab"
+                          aria-selected={filter === f.key}
+                          onClick={() => setFilter(f.key)}
+                          className={[
+                            "shrink-0 rounded-full border px-3 py-1.5 text-[12px] font-semibold transition-colors",
+                            focusRingClass(isDark),
+                            filter === f.key
+                              ? isDark
+                                ? "border-white bg-white text-black"
+                                : "border-neutral-900 bg-neutral-900 text-white"
+                              : [
+                                  outline,
+                                  isDark
+                                    ? "text-neutral-300"
+                                    : "text-neutral-600",
+                                ].join(" "),
+                          ].join(" ")}
+                        >
+                          {f.label}
+                        </button>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => void handleMarkRead(unreadIds, true)}
+                        disabled={unreadIds.length === 0}
+                        className={[
+                          "flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40",
+                          focusRingClass(isDark),
+                          outline,
+                          isDark ? "text-neutral-300" : "text-neutral-600",
+                        ].join(" ")}
+                      >
+                        <CheckCircleIcon className="h-4 w-4" />
+                        {unreadIds.length > 0
+                          ? c.filters.markAllRead(unreadIds.length)
+                          : c.filters.markAllReadPlain}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {tab === "comments" && selectedPostId && !isMobile && (
                   <div
                     className={[
                       "mx-6 mt-4 flex shrink-0 items-center gap-4 rounded-2xl border p-3",
@@ -1679,7 +1996,7 @@ export default function Community() {
 
                 {error && (
                   <p
-                    className="px-6 pt-4 text-[13px] text-red-500"
+                    className="px-4 pt-4 text-[13px] text-red-500 md:px-6"
                     role="alert"
                   >
                     {error}
@@ -1688,7 +2005,7 @@ export default function Community() {
 
                 {actionError && (
                   <p
-                    className="px-6 pt-4 text-[13px] text-red-500"
+                    className="px-4 pt-4 text-[13px] text-red-500 md:px-6"
                     role="alert"
                   >
                     {actionError}
@@ -1702,7 +2019,7 @@ export default function Community() {
                     </p>
                   </div>
                 ) : tab === "comments" && shownComments.length > 0 ? (
-                  <ul className="flex flex-col gap-2 px-6 py-4">
+                  <ul className="flex flex-col gap-2 px-3 py-4 md:px-6">
                     {shownComments.map((cm) => {
                       const video = cm.video_id
                         ? postById.get(cm.video_id)
@@ -1728,7 +2045,7 @@ export default function Community() {
                         <li key={cm.id}>
                           <article
                             className={[
-                              "rounded-2xl border p-4 transition-colors",
+                              "rounded-2xl border p-3.5 transition-colors md:p-4",
                               articleBg,
                             ].join(" ")}
                           >
@@ -1934,7 +2251,10 @@ export default function Community() {
                                         )
                                       }
                                       onKeyDown={(e) => {
-                                        if (e.key === "Escape") closeReply();
+                                        if (e.key === "Escape") {
+                                          e.stopPropagation();
+                                          closeReply();
+                                        }
                                         if (
                                           e.key === "Enter" &&
                                           (e.metaKey || e.ctrlKey)
@@ -1949,7 +2269,7 @@ export default function Community() {
                                       )}
                                       disabled={sendingReply}
                                       className={[
-                                        "w-full resize-y rounded-xl border px-3 py-2 text-[13px] leading-relaxed",
+                                        "w-full resize-y rounded-xl border px-3 py-2 text-[16px] leading-relaxed md:text-[13px]",
                                         focusRingClass(isDark),
                                         fieldClass,
                                       ].join(" ")}
@@ -1967,13 +2287,13 @@ export default function Community() {
                                     <div className="flex items-center justify-between gap-3">
                                       <span
                                         className={[
-                                          "text-[11px]",
+                                          "text-[11px] max-md:hidden",
                                           muted,
                                         ].join(" ")}
                                       >
                                         {c.comment.ctrlEnter}
                                       </span>
-                                      <div className="flex items-center gap-2">
+                                      <div className="flex items-center gap-2 max-md:ml-auto">
                                         <button
                                           type="button"
                                           onClick={closeReply}
@@ -2011,7 +2331,7 @@ export default function Community() {
                                 )}
                               </div>
 
-                              {cm.video_id && (
+                              {cm.video_id && !isMobile && (
                                 <span className="hidden w-[120px] shrink-0 flex-col gap-1.5 sm:flex">
                                   <img
                                     src={
@@ -2061,8 +2381,24 @@ export default function Community() {
                       </li>
                     )}
                   </ul>
+                ) : sheetMode ? (
+                  <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 px-6 py-16 text-center">
+                    <span
+                      className={[
+                        "flex h-14 w-14 items-center justify-center rounded-full",
+                        isDark
+                          ? "bg-white/[0.07] text-neutral-300"
+                          : "bg-black/[0.05] text-neutral-600",
+                      ].join(" ")}
+                    >
+                      <BubbleIcon className="h-6 w-6" />
+                    </span>
+                    <p className={["text-[14px]", muted].join(" ")}>
+                      {c.sheet.noComments}
+                    </p>
+                  </div>
                 ) : (
-                  <div className="flex min-h-0 flex-1 flex-col items-center px-6 py-10">
+                  <div className="flex min-h-0 flex-1 flex-col items-center px-4 py-10 md:px-6">
                     <div className="my-auto flex w-full max-w-[560px] flex-col items-center gap-10">
                       <div className="flex flex-col items-center gap-3 text-center">
                         <span
