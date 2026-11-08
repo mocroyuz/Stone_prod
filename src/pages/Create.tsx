@@ -6,9 +6,10 @@
 //  - un seul breakpoint de bascule : md (768px) <-> useIsMobile()
 //  - cibles tactiles >= 40px sur mobile
 //  - mobile : menus = feuilles glissables (BottomSheet), comme Schedule
-//  - mobile : board = onglets de groupes + liste verticale (swipe gauche/droite
-//    pour changer de groupe). Le drag & drop reste sur desktop ; au doigt on
-//    déplace une idée via « Déplacer vers » dans la feuille de la carte.
+//  - mobile : board = grille de cartes de groupes (une par groupe, avec ses
+//    idées en dessous). Comme la galerie, plusieurs groupes visibles d'un
+//    coup, sans onglets ni swipe. Le drag & drop reste sur desktop ; au doigt
+//    on déplace une idée via « Déplacer vers » dans la feuille de la carte.
 //
 // Deux notions distinctes :
 //  - GROUPES : les colonnes du board (Unassigned, To Do, In Progress…).
@@ -341,10 +342,6 @@ const PAGE_ROUTE = "create";
 
 /** Délai avant d'exécuter une action lancée depuis une feuille (laisse finir l'animation de fermeture). */
 const SHEET_ACTION_DELAY = 280;
-
-/** Marge latérale du shell (identique au padding du conteneur). */
-const EDGE_BLEED =
-  "-mx-[clamp(14px,3vw,48px)] px-[clamp(14px,3vw,48px)] md:mx-0 md:px-0";
 
 const HIDE_SCROLLBAR = "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
 
@@ -1759,13 +1756,9 @@ export default function Create() {
   const [editing, setEditing] = useState<string | null>(null);
   const [addingCol, setAddingCol] = useState(false);
 
-  /* ── Mobile : groupe affiché, feuilles ── */
-  const [mobileGroupId, setMobileGroupId] = useState<string | null>(null);
+  /* ── Mobile : feuilles (options groupe / nouveau groupe) ── */
   const [groupSheetId, setGroupSheetId] = useState<string | null>(null);
   const [newGroupSheet, setNewGroupSheet] = useState(false);
-  const chipsRef = useRef<HTMLDivElement>(null);
-  const mobileListRef = useRef<HTMLDivElement>(null);
-  const swipeStart = useRef<{ x: number; y: number } | null>(null);
 
   /* ───────── Onglet ↔ URL ───────── */
 
@@ -1842,63 +1835,9 @@ export default function Create() {
     await deleteTag(id);
   };
 
-  /** Groupe affiché sur mobile : celui choisi, sinon le premier visible. */
-  const activeGroup =
-    visibleGroups.find((g) => g.id === mobileGroupId) ?? visibleGroups[0];
-  const activeGroupIdeas = activeGroup
-    ? ideas.filter((i) => i.groupId === activeGroup.id && matchesTagFilter(i))
-    : [];
   const sheetGroup = groupSheetId
     ? (groups.find((g) => g.id === groupSheetId) ?? null)
     : null;
-
-  /** Change de groupe (chips ou swipe) avec une petite animation de glissement. */
-  const selectMobileGroup = (id: string, dir: 1 | -1 = 1) => {
-    if (id === activeGroup?.id) return;
-    const el = mobileListRef.current;
-    if (el && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      el.animate(
-        [
-          { transform: `translateX(${dir * 28}px)`, opacity: 0.35 },
-          { transform: "translateX(0)", opacity: 1 },
-        ],
-        { duration: 240, easing: "cubic-bezier(0.32, 0.72, 0, 1)" }
-      );
-    }
-    setMobileGroupId(id);
-  };
-
-  const stepMobileGroup = (dir: 1 | -1) => {
-    if (!activeGroup) return;
-    const i = visibleGroups.findIndex((g) => g.id === activeGroup.id);
-    const next = visibleGroups[i + dir];
-    if (next) selectMobileGroup(next.id, dir);
-  };
-
-  const onSwipeStart = (e: React.TouchEvent) => {
-    const t = e.touches[0];
-    swipeStart.current = { x: t.clientX, y: t.clientY };
-  };
-
-  const onSwipeEnd = (e: React.TouchEvent) => {
-    const s0 = swipeStart.current;
-    swipeStart.current = null;
-    if (!s0) return;
-    const t = e.changedTouches[0];
-    const dx = t.clientX - s0.x;
-    const dy = t.clientY - s0.y;
-    if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
-    stepMobileGroup(dx < 0 ? 1 : -1);
-  };
-
-  /** Garde la pastille du groupe actif visible dans la rangée scrollable. */
-  useEffect(() => {
-    if (!isMobile || !activeGroup) return;
-    const el = chipsRef.current?.querySelector<HTMLElement>(
-      `[data-chip="${CSS.escape(activeGroup.id)}"]`
-    );
-    el?.scrollIntoView({ inline: "center", block: "nearest", behavior: "smooth" });
-  }, [isMobile, activeGroup?.id]);
 
   /* ── Drag d'une colonne (groupe) — desktop ── */
 
@@ -2377,19 +2316,23 @@ export default function Create() {
                 <>
                   {isMobile ? (
                     <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden">
-                      <div className="flex gap-2">
-                        {[0, 1, 2].map((i) => (
-                          <div
-                            key={i}
-                            className={`h-10 w-24 shrink-0 animate-pulse rounded-full motion-reduce:animate-none ${column}`}
-                          />
-                        ))}
-                      </div>
-                      {[0, 1, 2].map((i) => (
+                      {[0, 1].map((i) => (
                         <div
                           key={i}
-                          className={`h-[96px] w-full shrink-0 animate-pulse rounded-xl motion-reduce:animate-none ${column}`}
-                        />
+                          className={`rounded-2xl p-3 ${column}`}
+                        >
+                          <div className="mb-3 h-4 w-32 animate-pulse rounded-full bg-black/[0.06] motion-reduce:animate-none dark:bg-white/[0.06]" />
+                          <div className="flex flex-col gap-2">
+                            {[0, 1].map((j) => (
+                              <div
+                                key={j}
+                                className={`h-[72px] w-full animate-pulse rounded-xl motion-reduce:animate-none ${
+                                  isDark ? "bg-white/[0.04]" : "bg-white"
+                                }`}
+                              />
+                            ))}
+                          </div>
+                        </div>
                       ))}
                     </div>
                   ) : (
@@ -2427,13 +2370,13 @@ export default function Create() {
                 </div>
               )}
 
-              {/* ───────── Board MOBILE : onglets de groupes + liste verticale ───────── */}
+              {/* ───────── Board MOBILE : grille de cartes de groupes ───────── */}
               {tab === "ideas" &&
                 view === "board" &&
                 status === "ready" &&
                 isMobile && (
                   <div className="flex min-h-0 flex-1 flex-col">
-                    {visibleGroups.length === 0 || !activeGroup ? (
+                    {visibleGroups.length === 0 ? (
                       <div className="flex flex-1 flex-col items-center justify-center gap-4 px-4 text-center">
                         <p
                           className={`max-w-[300px] text-[14px] leading-relaxed ${muted}`}
@@ -2455,156 +2398,113 @@ export default function Create() {
                         </button>
                       </div>
                     ) : (
-                      <>
-                        {/* Pastilles de groupes */}
-                        <div
-                          ref={chipsRef}
-                          role="tablist"
-                          aria-label={c.groupsMenu.label}
-                          className={[
-                            "flex shrink-0 gap-2 overflow-x-auto pb-3",
-                            EDGE_BLEED,
-                            HIDE_SCROLLBAR,
-                          ].join(" ")}
-                        >
+                      <div
+                        className={[
+                          "min-h-0 flex-1 overflow-y-auto overscroll-contain pb-2",
+                          HIDE_SCROLLBAR,
+                        ].join(" ")}
+                      >
+                        {/* Grille de « carrés » : 1 colonne sur mobile, 2 dès 520px */}
+                        <div className="grid grid-cols-1 gap-3 min-[520px]:grid-cols-2">
                           {visibleGroups.map((g) => {
-                            const count = ideas.filter(
-                              (i) => i.groupId === g.id && matchesTagFilter(i)
-                            ).length;
-                            const active = g.id === activeGroup.id;
-                            const index = visibleGroups.findIndex(
-                              (x) => x.id === g.id
-                            );
-                            const current = visibleGroups.findIndex(
-                              (x) => x.id === activeGroup.id
+                            const items = ideas.filter(
+                              (i) =>
+                                i.groupId === g.id && matchesTagFilter(i)
                             );
                             return (
-                              <button
+                              <section
                                 key={g.id}
-                                type="button"
-                                role="tab"
-                                data-chip={g.id}
-                                aria-selected={active}
-                                onClick={() =>
-                                  selectMobileGroup(g.id, index > current ? 1 : -1)
-                                }
-                                className={[
-                                  "flex min-h-10 shrink-0 items-center gap-2 rounded-full border px-3.5 text-[14px] font-medium transition-colors",
-                                  "focus-visible:outline-none focus-visible:ring-2",
-                                  ring,
-                                  active
-                                    ? isDark
-                                      ? "border-white bg-white text-black"
-                                      : "border-neutral-900 bg-neutral-900 text-white"
-                                    : isDark
-                                      ? "border-white/[0.10] text-neutral-300 active:bg-white/[0.06]"
-                                      : "border-black/[0.08] text-neutral-600 active:bg-black/[0.04]",
-                                ].join(" ")}
+                                aria-label={g.label}
+                                className={`flex flex-col rounded-2xl p-3 ${column}`}
                               >
-                                <span
-                                  className={`h-2.5 w-2.5 shrink-0 rounded-full ${g.color}`}
-                                />
-                                <span className="max-w-[140px] truncate">
-                                  {g.label}
-                                </span>
-                                <span
-                                  className={`rounded-full px-1.5 text-[11px] tabular-nums ${
-                                    active
-                                      ? isDark
-                                        ? "bg-black/10 text-black"
-                                        : "bg-white/20 text-white"
-                                      : `${chip} ${muted}`
-                                  }`}
-                                >
-                                  {count}
-                                </span>
-                              </button>
+                                {/* En-tête de carte */}
+                                <header className="flex items-center justify-between gap-2 pb-3">
+                                  <div className="flex min-w-0 items-center gap-2">
+                                    <span
+                                      className={`h-2.5 w-2.5 shrink-0 rounded-full ${g.color}`}
+                                    />
+                                    <h2
+                                      className={`truncate text-[14px] font-semibold ${strong}`}
+                                    >
+                                      {g.label}
+                                    </h2>
+                                    <span
+                                      className={`rounded-full px-2 py-0.5 text-[11px] font-medium tabular-nums ${chip} ${muted}`}
+                                    >
+                                      {items.length}
+                                    </span>
+                                  </div>
+                                  {g.id !== UNASSIGNED && (
+                                    <IconButton
+                                      label={c.board.groupOptions}
+                                      onClick={() => setGroupSheetId(g.id)}
+                                      ghost={ghost}
+                                      isDark={isDark}
+                                      className="h-9 w-9"
+                                      align="end"
+                                    >
+                                      <DotsIcon className="h-[18px] w-[18px]" />
+                                    </IconButton>
+                                  )}
+                                </header>
+
+                                {/* Idées du groupe */}
+                                <div className="flex flex-col gap-2">
+                                  {items.length === 0 ? (
+                                    <p
+                                      className={`rounded-xl px-3 py-4 text-center text-[13px] ${
+                                        isDark
+                                          ? "bg-white/[0.03]"
+                                          : "bg-white"
+                                      } ${muted}`}
+                                    >
+                                      {c.board.emptyGroup}
+                                    </p>
+                                  ) : (
+                                    items.map((idea) => (
+                                      <IdeaCard
+                                        key={idea.id}
+                                        idea={idea}
+                                        ideaTags={tagsOf(idea)}
+                                        allTags={tags}
+                                        moveGroups={groups}
+                                        onToggleTag={(tid) =>
+                                          toggleIdeaTag(idea.id, tid)
+                                        }
+                                        onMove={(gid) =>
+                                          moveIdea(idea.id, gid)
+                                        }
+                                        onDelete={() => deleteIdea(idea.id)}
+                                        isDark={isDark}
+                                        isMobile
+                                        muted={muted}
+                                        c={c}
+                                      />
+                                    ))
+                                  )}
+                                </div>
+                              </section>
                             );
                           })}
 
+                          {/* Carte « Nouveau groupe » (dans la grille) */}
                           <button
                             type="button"
-                            aria-label={c.board.newGroup}
                             onClick={() => setNewGroupSheet(true)}
                             className={[
-                              "flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-dashed",
+                              "flex min-h-[100px] flex-col items-center justify-center gap-2 rounded-2xl border border-dashed px-4 py-6 text-[14px] font-medium transition-colors",
                               "focus-visible:outline-none focus-visible:ring-2",
                               ring,
                               isDark
-                                ? "border-white/[0.18] text-neutral-300 active:bg-white/[0.06]"
-                                : "border-black/[0.14] text-neutral-600 active:bg-black/[0.04]",
+                                ? "border-white/[0.14] text-neutral-300 active:bg-white/[0.04]"
+                                : "border-black/[0.10] text-neutral-600 active:bg-black/[0.03]",
                             ].join(" ")}
                           >
-                            <PlusIcon className="h-[18px] w-[18px]" />
+                            <PlusIcon className="h-[20px] w-[20px]" />
+                            {c.board.newGroup}
                           </button>
                         </div>
-
-                        {/* En-tête du groupe actif */}
-                        <div className="flex shrink-0 items-center justify-between gap-2 pb-2">
-                          <div className="flex min-w-0 items-center gap-2.5">
-                            <h2
-                              className={`truncate text-[17px] font-semibold tracking-[-0.02em] ${strong}`}
-                            >
-                              {activeGroup.label}
-                            </h2>
-                            <span
-                              className={`rounded-full px-2.5 py-0.5 text-[12px] font-medium tabular-nums ${chip} ${muted}`}
-                            >
-                              {activeGroupIdeas.length}
-                            </span>
-                          </div>
-                          {activeGroup.id !== UNASSIGNED && (
-                            <IconButton
-                              label={c.board.groupOptions}
-                              onClick={() => setGroupSheetId(activeGroup.id)}
-                              ghost={ghost}
-                              isDark={isDark}
-                              className="h-10 w-10"
-                              align="end"
-                            >
-                              <DotsIcon className="h-5 w-5" />
-                            </IconButton>
-                          )}
-                        </div>
-
-                        {/* Liste verticale — swipe gauche/droite pour changer de groupe */}
-                        <div
-                          ref={mobileListRef}
-                          onTouchStart={onSwipeStart}
-                          onTouchEnd={onSwipeEnd}
-                          className={[
-                            "flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain pb-2 [touch-action:pan-y]",
-                            HIDE_SCROLLBAR,
-                          ].join(" ")}
-                        >
-                          {activeGroupIdeas.length === 0 ? (
-                            <div
-                              className={`flex flex-1 items-center justify-center rounded-2xl px-6 py-12 text-center text-[14px] ${column} ${muted}`}
-                            >
-                              {c.board.emptyGroup}
-                            </div>
-                          ) : (
-                            activeGroupIdeas.map((idea) => (
-                              <IdeaCard
-                                key={idea.id}
-                                idea={idea}
-                                ideaTags={tagsOf(idea)}
-                                allTags={tags}
-                                moveGroups={groups}
-                                onToggleTag={(tid) =>
-                                  toggleIdeaTag(idea.id, tid)
-                                }
-                                onMove={(gid) => moveIdea(idea.id, gid)}
-                                onDelete={() => deleteIdea(idea.id)}
-                                isDark={isDark}
-                                isMobile
-                                muted={muted}
-                                c={c}
-                              />
-                            ))
-                          )}
-                        </div>
-                      </>
+                      </div>
                     )}
                   </div>
                 )}
@@ -2957,9 +2857,7 @@ export default function Create() {
                 submitAria={c.groupsMenu.createAria}
                 onCreate={(label) => {
                   close();
-                  void createGroup(label).then((id) => {
-                    if (id) setMobileGroupId(id);
-                  });
+                  void createGroup(label);
                 }}
               />
             </div>
