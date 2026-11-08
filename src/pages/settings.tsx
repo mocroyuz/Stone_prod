@@ -2149,14 +2149,14 @@ function MobileSettingsMenu({
   return (
     <div
       className={cx(
-        "flex min-h-screen w-full flex-col transition-colors duration-300",
+        "flex h-[100dvh] w-full flex-col transition-colors duration-300",
         tokens.pageBg
       )}
     >
       {/* Header avec retour vers home */}
       <header
         className={cx(
-          "sticky top-0 z-10 flex items-center gap-2 px-4 pb-2",
+          "sticky top-0 z-10 flex shrink-0 items-center gap-2 bg-inherit px-4 pb-2",
           "pt-[calc(12px+env(safe-area-inset-top))]"
         )}
       >
@@ -2184,25 +2184,19 @@ function MobileSettingsMenu({
         </h1>
       </header>
 
-      {/* Liste groupée des sections */}
-      <div className="flex-1 px-4 pt-4 pb-[calc(24px+env(safe-area-inset-bottom))]">
+      {/* Liste des sections avec défilement */}
+      <div className="flex-1 overflow-y-auto px-4 pt-4 pb-[calc(24px+env(safe-area-inset-bottom))]">
         {groups.map((group) => (
           <div key={group.key} className="mb-6">
             <p
               className={cx(
-                "mb-2 px-1 text-[12px] font-semibold tracking-wide",
+                "mb-2 px-2 text-[12px] font-semibold tracking-wide",
                 tokens.group
               )}
             >
               {c.sidebar.groups[group.key]}
             </p>
-            <ul
-              className={cx(
-                "divide-y overflow-hidden rounded-xl border bg-transparent",
-                tokens.cardBorder,
-                tokens.divide
-              )}
-            >
+            <ul className="flex flex-col gap-1">
               {group.items.map((item) => {
                 const isActive = active === item.key;
                 return (
@@ -2212,7 +2206,7 @@ function MobileSettingsMenu({
                       onClick={() => onSelect(item.key)}
                       aria-current={isActive ? "page" : undefined}
                       className={cx(
-                        "flex min-h-[50px] w-full items-center gap-3 px-4 text-left text-[16px] transition-colors",
+                        "flex min-h-[50px] w-full items-center gap-3 rounded-lg px-2 text-left text-[16px] transition-colors",
                         tokens.ring,
                         isActive
                           ? tokens.itemActive
@@ -2239,7 +2233,7 @@ function MobileSettingsMenu({
                           className="h-2 w-2 shrink-0 rounded-full bg-amber-400"
                         />
                       )}
-                      <ChevronRightIcon className="h-5 w-5 shrink-0 text-neutral-300 dark:text-neutral-600" />
+                      <ChevronRightIcon className="h-4 w-4 shrink-0 text-neutral-400" />
                     </button>
                   </li>
                 );
@@ -2428,7 +2422,7 @@ export default function Settings(_props: SettingsProps) {
   /* ─── Vue MOBILE : écran menu ─── */
   if (isMobile && mobileView === "menu") {
     return (
-      <main className={cx("min-h-screen w-full", tokens.pageBg)}>
+      <main className={cx("h-[100dvh] w-full overflow-hidden", tokens.pageBg)}>
         <MobileSettingsMenu
           active={active}
           onSelect={handleSelect}
