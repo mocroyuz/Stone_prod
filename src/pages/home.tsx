@@ -1119,7 +1119,10 @@ function Stat({
       className={[
         "flex min-w-0 items-center gap-3",
         // Mobile : stats collées dans une seule carte, séparées par un filet
-        "max-sm:border-b max-sm:p-4 max-sm:last:border-b-0",
+        "max-sm:relative max-sm:p-4",
+        // Filet séparateur inset : ne touche pas les bords gauche/droit
+        "max-sm:after:absolute max-sm:after:bottom-0 max-sm:after:left-4 max-sm:after:right-4 max-sm:after:h-px max-sm:last:after:hidden",
+        isDark ? "max-sm:after:bg-white/[0.07]" : "max-sm:after:bg-black/[0.07]",
         // Desktop : colonnes séparées par un filet
         "sm:border-r sm:pr-5 sm:last:border-r-0 sm:last:pr-0",
         isDark ? "border-white/[0.07]" : "border-black/[0.07]",
