@@ -36,7 +36,10 @@ import NewPostModal, {
 import { DateTimePicker } from "../components/DateTimePicker";
 import { CalendarPicker } from "../components/CalendarPicker";
 import ChannelMenu from "../components/ChannelMenu";
-import { useConnectedChannels } from "../hooks/useConnectedChannels";
+import {
+  useConnectedChannels,
+  type ConnectedChannel,
+} from "../hooks/useConnectedChannels";
 import HelpChatButton from "../components/Helpchatbutton";
 
 import {
@@ -157,6 +160,7 @@ type Copy = {
     postsLabel: string;
     reset: string;
     viewDay: string;
+    channels: string;
   };
   weekdaysLong: string[];
   addPostTooltip: string;
@@ -219,6 +223,7 @@ const COPY: Record<Lang, Copy> = {
       postsLabel: "Posts",
       reset: "Reset",
       viewDay: "View day",
+      channels: "Channels",
     },
     weekdaysLong: [
       "Sunday",
@@ -292,6 +297,7 @@ const COPY: Record<Lang, Copy> = {
       postsLabel: "Posts",
       reset: "Réinitialiser",
       viewDay: "Voir la journée",
+      channels: "Canaux",
     },
     weekdaysLong: [
       "Dimanche",
@@ -1700,6 +1706,172 @@ function FiltersSheet({
   );
 }
 
+function channelNetwork(ch: ConnectedChannel): SocialNetworkId | null {
+  const data = ch as unknown as Record<string, unknown>;
+  const raw = String(data.platform ?? data.network ?? data.provider ?? ch.key)
+    .toLowerCase()
+    .trim();
+  if (raw.includes("tiktok")) return "tiktok";
+  if (raw.includes("insta")) return "instagram";
+  if (raw.includes("youtube") || raw === "yt") return "youtube";
+  if (raw.includes("facebook") || raw === "fb") return "facebook";
+  if (raw.includes("linkedin")) return "linkedin";
+  if (raw.includes("pinterest")) return "pinterest";
+  if (raw.includes("threads")) return "threads";
+  if (raw === "x" || raw.includes("twitter")) return "x";
+  return null;
+}
+
+const channelLabel = (ch: ConnectedChannel) =>
+  (ch.handle || ch.name || "Channel").replace(/^@/, "");
+
+function ChannelAvatar({
+  channel,
+  isDark,
+  size = 32,
+  ringClass,
+}: {
+  channel: ConnectedChannel;
+  isDark: boolean;
+  size?: number;
+  ringClass?: string;
+}) {
+  const [failed, setFailed] = useState(false);
+  useEffect(() => setFailed(false), [channel.avatarUrl]);
+
+  const label = channelLabel(channel);
+  const net = channelNetwork(channel);
+  const Icon = net ? NETWORK_ICONS[net] : null;
+  const badge = Math.max(12, Math.round(size * 0.45));
+
+  return (
+    <span
+      className="relative inline-flex shrink-0"
+      style={{ width: size, height: size }}
+    >
+      {channel.avatarUrl && !failed ? (
+        <img
+          src={channel.avatarUrl}
+          alt=""
+          referrerPolicy="no-referrer"
+          onError={() => setFailed(true)}
+          className="h-full w-full rounded-full object-cover"
+        />
+      ) : (
+        <span
+          className={[
+            "flex h-full w-full items-center justify-center rounded-full text-[12px] font-semibold",
+            isDark ? "bg-[#242428] text-white" : "bg-neutral-900 text-white",
+          ].join(" ")}
+        >
+          {label.charAt(0).toUpperCase() || "?"}
+        </span>
+      )}
+      {Icon && (
+        <span
+          className={[
+            "absolute -bottom-0.5 -right-0.5 flex items-center justify-center rounded-full bg-white text-black ring-2",
+            ringClass ?? (isDark ? "ring-[#101012]" : "ring-[#f6f4f0]"),
+          ].join(" ")}
+          style={{ width: badge, height: badge }}
+        >
+          <Icon className="h-[8px] w-[8px]" />
+        </span>
+      )}
+    </span>
+  );
+}
+
+/** Sélecteur de réseau / canal en feuille glissable (mobile). */
+function ChannelSheet({
+  isDark,
+  c,
+  isMobile,
+  channels,
+  current,
+  onSelect,
+  onClose,
+}: {
+  isDark: boolean;
+  c: Copy;
+  isMobile: boolean;
+  channels: ConnectedChannel[];
+  current?: ConnectedChannel;
+  onSelect: (key: string) => void;
+  onClose: () => void;
+}) {
+  return (
+    <BottomSheet
+      isDark={isDark}
+      isMobile={isMobile}
+      title={c.toolbar.channels}
+      onClose={onClose}
+    >
+      {(close) => (
+        <ul role="menu" className="flex flex-col gap-1 pt-1">
+          {channels.map((ch) => {
+            const active = ch.key === current?.key;
+            const name = ch.name || channelLabel(ch);
+            const handle = ch.handle ? ch.handle.replace(/^@/, "") : "";
+            return (
+              <li key={ch.key}>
+                <button
+                  type="button"
+                  role="menuitemradio"
+                  aria-checked={active}
+                  onClick={() => {
+                    onSelect(ch.key);
+                    close();
+                  }}
+                  className={[
+                    "flex min-h-14 w-full items-center gap-3 rounded-2xl px-3 text-left transition",
+                    focusRingClass(isDark),
+                    active
+                      ? isDark
+                        ? "bg-white/[0.08]"
+                        : "bg-white shadow-sm"
+                      : isDark
+                        ? "active:bg-white/[0.06]"
+                        : "active:bg-black/[0.04]",
+                  ].join(" ")}
+                >
+                  <ChannelAvatar channel={ch} isDark={isDark} size={38} />
+                  <span className="min-w-0 flex-1">
+                    <span
+                      className={[
+                        "block truncate text-[15px] font-semibold",
+                        strongClass(isDark),
+                      ].join(" ")}
+                    >
+                      {name}
+                    </span>
+                    {handle && handle !== name && (
+                      <span
+                        className={[
+                          "block truncate text-[12.5px]",
+                          isDark ? "text-neutral-400" : "text-neutral-500",
+                        ].join(" ")}
+                      >
+                        @{handle}
+                      </span>
+                    )}
+                  </span>
+                  {active && (
+                    <Check
+                      className={["h-5 w-5 shrink-0", strongClass(isDark)].join(" ")}
+                      strokeWidth={2.2}
+                    />
+                  )}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </BottomSheet>
+  );
+}
+
 /* ------------------------------------------------------------------ */
 /* Shared input styling                                                */
 /* ------------------------------------------------------------------ */
@@ -2148,6 +2320,7 @@ export default function Schedule() {
   );
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [channelsOpen, setChannelsOpen] = useState(false);
   const calendarCardRef = useRef<HTMLDivElement>(null);
   const touchStart = useRef<{ x: number; y: number } | null>(null);
   const [timezone, setTimezone] = useState("Paris");
@@ -3000,10 +3173,10 @@ export default function Schedule() {
           >
             {/* HEADER — z-20 : sous le tiroir mobile (z-40) et la barre mobile (z-30) */}
             <div className="relative z-20 mb-3 flex shrink-0 items-center justify-between gap-2 md:gap-3">
-              <div className="flex min-w-0 items-center gap-1 md:gap-2.5">
+              <div className="flex min-w-0 items-center gap-2.5">
                 <span
                   className={[
-                    "hidden h-9 w-9 shrink-0 items-center justify-center rounded-xl border md:flex",
+                    "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border md:h-9 md:w-9",
                     isDark
                       ? "border-white/[0.07] bg-white/[0.04] text-neutral-400"
                       : "border-black/[0.06] bg-white text-neutral-500",
@@ -3040,12 +3213,37 @@ export default function Schedule() {
               </div>
 
               <div className="flex shrink-0 items-center gap-2 md:gap-2.5 print:hidden">
-                <ChannelMenu
-                  channels={channels}
-                  current={channel}
-                  isDark={isDark}
-                  onSelect={goChannel}
-                />
+                <div className="max-md:hidden">
+                  <ChannelMenu
+                    channels={channels}
+                    current={channel}
+                    isDark={isDark}
+                    onSelect={goChannel}
+                  />
+                </div>
+                {channel && (
+                  <button
+                    type="button"
+                    aria-haspopup="dialog"
+                    aria-label={c.toolbar.channels}
+                    onClick={() => setChannelsOpen(true)}
+                    className={[
+                      "flex h-11 items-center gap-1.5 rounded-2xl border pl-1.5 pr-2.5 transition active:scale-95 md:hidden",
+                      focusRingClass(isDark),
+                      isDark
+                        ? "border-white/[0.08] bg-white/[0.04] text-neutral-300"
+                        : "border-black/[0.06] bg-white text-neutral-600",
+                    ].join(" ")}
+                  >
+                    <ChannelAvatar
+                      channel={channel}
+                      isDark={isDark}
+                      size={32}
+                      ringClass={isDark ? "ring-[#0a0a0c]" : "ring-white"}
+                    />
+                    <ChevronDown className="h-4 w-4 opacity-70" />
+                  </button>
+                )}
                 <button
                   type="button"
                   aria-label={c.header.newPost}
@@ -3768,6 +3966,18 @@ export default function Schedule() {
           </div>
         </div>
       </div>
+
+      {channelsOpen && isMobile && (
+        <ChannelSheet
+          isDark={isDark}
+          c={c}
+          isMobile={isMobile}
+          channels={channels}
+          current={channel}
+          onSelect={goChannel}
+          onClose={() => setChannelsOpen(false)}
+        />
+      )}
 
       {filtersOpen && (
         <FiltersSheet
