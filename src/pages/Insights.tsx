@@ -1,8 +1,17 @@
 // src/pages/Insights.tsx
 // Insights = moteur de prochaine action (pas un clone d'analytics).
 // YouTube : données réelles. Autres réseaux : démo en attendant leur API.
-// Responsive aligné sur Home : 100dvh, max-md:pt-14, tailles mobile/desktop,
-// cibles tactiles, rangées scrollables, tableau en cartes sous md.
+//
+// Responsive aligné sur Schedule / Home / Create :
+//  - 100dvh, padding haut = barre mobile de la sidebar (safe-area incluse)
+//  - AUCUN décalage gauche sur mobile (la sidebar y est un tiroir)
+//  - un seul breakpoint de bascule : md (768px) <-> useIsMobile()
+//  - cibles tactiles >= 40px sur mobile
+//  - mobile : feuilles glissables (BottomSheet) pour le canal, la plage de
+//    dates, les infobulles « i » et le détail horaire d'un jour
+//  - mobile : « Meilleur moment » = 7 lignes (une par jour) au lieu d'une
+//    grille 24 colonnes illisible ; un tap ouvre les 24 heures en grandes cases
+//  - tableau des posts : cartes sous md, grille 6 colonnes dès md
 
 import {
   useCallback,
@@ -11,14 +20,17 @@ import {
   useMemo,
   useRef,
   useState,
+  type PointerEvent as RPointerEvent,
   type ReactNode,
 } from "react";
+import { createPortal } from "react-dom";
 import {
   Activity,
   Bookmark,
   CalendarClock,
   Check,
   ChevronDown,
+  ChevronRight,
   Copy,
   Download,
   ExternalLink,
@@ -26,6 +38,7 @@ import {
   FileText,
   Image as ImageIcon,
   Info,
+  Layers,
   MoreVertical,
   Play,
   Plus,
@@ -66,6 +79,15 @@ import {
   useConnectedChannels,
   type ConnectedChannel,
 } from "../hooks/useConnectedChannels";
+import {
+  XIcon,
+  FacebookIcon,
+  InstagramIcon,
+  LinkedInIcon,
+  TikTokIcon,
+  YouTubeIcon,
+  PinterestIcon,
+} from "../components/IntegrationIcons";
 import { createPosts } from "../services/posts";
 import { fetchYouTubeVideos, useYouTubeInsights } from "../services/youtube";
 import { readPostingGoal } from "../components/OnboardingModals";
@@ -77,6 +99,9 @@ const ALL_KEY = "all";
 
 /** Rangée scrollable sans scrollbar visible. */
 const NO_SCROLLBAR = "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
+
+/** Délai avant d'exécuter une action lancée depuis une feuille (laisse finir l'animation de fermeture). */
+const SHEET_ACTION_DELAY = 280;
 
 /* ============================================================
    LANGUAGE / I18N
@@ -122,6 +147,27 @@ function useLanguage(): Lang {
 
 const intlLocale = (lang: Lang) => (lang === "fr" ? "fr-FR" : "en-GB");
 const numLocale = (lang: Lang) => (lang === "fr" ? "fr-FR" : "en-US");
+
+/* ============================================================
+   RESPONSIVE
+============================================================ */
+
+const MOBILE_QUERY = "(max-width: 767px)";
+
+function useIsMobile(): boolean {
+  const [mobile, setMobile] = useState<boolean>(
+    () =>
+      typeof window !== "undefined" && window.matchMedia(MOBILE_QUERY).matches
+  );
+  useEffect(() => {
+    const mq = window.matchMedia(MOBILE_QUERY);
+    const onChange = () => setMobile(mq.matches);
+    onChange();
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
+  return mobile;
+}
 
 /* ============================================================
    TYPES
@@ -290,6 +336,8 @@ type Copy = {
     scheduleAria: (day: string, hour: string) => string;
     low: string;
     high: string;
+    pickHour: string;
+    bestOfDay: string;
   };
   recycle: {
     title: string;
@@ -325,6 +373,7 @@ type Copy = {
     text: string;
   };
   days: string[];
+  daysLong: string[];
   calendar: {
     from: string;
     to: string;
@@ -334,6 +383,10 @@ type Copy = {
     back: string;
     done: string;
     rangeAria: string;
+  };
+  sheets: {
+    channels: string;
+    dateRange: string;
   };
   tagsButton: string;
   allNetworks: string;
@@ -387,8 +440,7 @@ const COPY: Record<Lang, Copy> = {
       periodSeparator: " · ",
       comparedTo: (range) => `Compared to ${range}`,
       goalProgress: (done, goal) => `${done}/${goal} this week`,
-      goalAria: (done, goal) =>
-        `Goal: ${done} of ${goal} this week`,
+      goalAria: (done, goal) => `Goal: ${done} of ${goal} this week`,
       glance: (posts, reactions, comments) => {
         const p = `${posts} post${posts === 1 ? "" : "s"}`;
         const r = `${reactions} reaction${reactions === 1 ? "" : "s"}`;
@@ -451,6 +503,8 @@ const COPY: Record<Lang, Copy> = {
       scheduleAria: (day, hour) => `Schedule ${day} at ${hour}`,
       low: "Low",
       high: "High",
+      pickHour: "Tap an hour to schedule a post there.",
+      bestOfDay: "Best of the day",
     },
     recycle: {
       title: "Posts to recycle",
@@ -467,8 +521,7 @@ const COPY: Record<Lang, Copy> = {
       periodThis: "This period",
       periodPrevious: "Previous period",
       periodAria: "Posts period",
-      hiddenScheduled: (n) =>
-        `${n} scheduled not shown`,
+      hiddenScheduled: (n) => `${n} scheduled not shown`,
       postsCount: (n) => `Posts · ${n}`,
       sortBy: (label) => `Sort by ${label}`,
       emptyLoading: "Loading videos…",
@@ -495,6 +548,15 @@ const COPY: Record<Lang, Copy> = {
       text: "text",
     },
     days: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+    daysLong: [
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Saturday",
+      "Sunday",
+    ],
     calendar: {
       from: "From",
       to: "To",
@@ -504,6 +566,10 @@ const COPY: Record<Lang, Copy> = {
       back: "Back: From",
       done: "Done",
       rangeAria: "Custom date range",
+    },
+    sheets: {
+      channels: "Channels",
+      dateRange: "Date range",
     },
     tagsButton: "Tags",
     allNetworks: "All networks",
@@ -553,8 +619,7 @@ const COPY: Record<Lang, Copy> = {
       connect: "Connecter un canal",
     },
     errors: {
-      youtube: (msg) =>
-        `Impossible de charger les insights YouTube : ${msg}`,
+      youtube: (msg) => `Impossible de charger les insights YouTube : ${msg}`,
       retry: "Réessayer",
       loading: "Chargement des insights YouTube…",
     },
@@ -580,8 +645,7 @@ const COPY: Record<Lang, Copy> = {
       periodSeparator: " · ",
       comparedTo: (range) => `Comparé à ${range}`,
       goalProgress: (done, goal) => `${done}/${goal} cette semaine`,
-      goalAria: (done, goal) =>
-        `Objectif : ${done} sur ${goal} cette semaine`,
+      goalAria: (done, goal) => `Objectif : ${done} sur ${goal} cette semaine`,
       glance: (posts, reactions, comments) => {
         const p = `${posts} post${posts > 1 ? "s" : ""}`;
         const r = `${reactions} réaction${reactions === 1 ? "" : "s"}`;
@@ -645,11 +709,12 @@ const COPY: Record<Lang, Copy> = {
       scheduleAria: (day, hour) => `Programmer ${day} à ${hour}`,
       low: "Faible",
       high: "Élevé",
+      pickHour: "Touchez une heure pour y programmer un post.",
+      bestOfDay: "Meilleur moment du jour",
     },
     recycle: {
       title: "Posts à recycler",
-      subtitle:
-        "Posts qui surperforment encore — dupliquez l'angle",
+      subtitle: "Posts qui surperforment encore — dupliquez l'angle",
       emptyHint:
         "Après quelques posts publiés, ceux qui valent la peine d'être refaits apparaissent ici.",
       rank: (n) => `#${n}`,
@@ -690,16 +755,28 @@ const COPY: Record<Lang, Copy> = {
       text: "texte",
     },
     days: ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"],
+    daysLong: [
+      "Lundi",
+      "Mardi",
+      "Mercredi",
+      "Jeudi",
+      "Vendredi",
+      "Samedi",
+      "Dimanche",
+    ],
     calendar: {
       from: "Du",
       to: "Au",
       helpFrom: "Choisissez le premier jour de la période.",
-      helpTo:
-        "Choisissez le dernier jour de la période (aujourd'hui max).",
+      helpTo: "Choisissez le dernier jour de la période (aujourd'hui max).",
       next: "Suivant : Au",
       back: "Retour : Du",
       done: "Terminé",
       rangeAria: "Plage de dates personnalisée",
+    },
+    sheets: {
+      channels: "Canaux",
+      dateRange: "Plage de dates",
     },
     tagsButton: "Tags",
     allNetworks: "Tous les réseaux",
@@ -888,6 +965,33 @@ function useHashChannel(): string | null {
 function isYouTubeChannel(c?: ConnectedChannel): boolean {
   if (!c) return false;
   return c.platform === "youtube" || c.key.toLowerCase().startsWith("youtube");
+}
+
+const channelLabel = (ch: ConnectedChannel) =>
+  (ch.handle || ch.name || "Channel").replace(/^@/, "");
+
+type NetIcon = (props: { className?: string }) => ReactNode;
+
+const NETWORK_ICONS: Record<string, NetIcon> = {
+  x: XIcon,
+  facebook: FacebookIcon,
+  instagram: InstagramIcon,
+  linkedin: LinkedInIcon,
+  tiktok: TikTokIcon,
+  youtube: YouTubeIcon,
+  pinterest: PinterestIcon,
+};
+
+function channelNetwork(ch: ConnectedChannel): string | null {
+  const raw = String(ch.platform ?? ch.key).toLowerCase().trim();
+  if (raw.includes("tiktok")) return "tiktok";
+  if (raw.includes("insta")) return "instagram";
+  if (raw.includes("youtube") || raw === "yt") return "youtube";
+  if (raw.includes("facebook") || raw === "fb") return "facebook";
+  if (raw.includes("linkedin")) return "linkedin";
+  if (raw.includes("pinterest")) return "pinterest";
+  if (raw === "x" || raw.includes("twitter")) return "x";
+  return null;
 }
 
 /* ============================================================
@@ -1080,6 +1184,10 @@ function emptyInsights(start: Date, end: Date): InsightsData {
   };
 }
 
+function ratePct(num: number, den: number) {
+  return den > 0 ? Math.round((num / den) * 10_000) / 100 : 0;
+}
+
 function buildSampleInsights(
   start: Date,
   end: Date,
@@ -1101,7 +1209,8 @@ function buildSampleInsights(
     "text",
     "image",
   ];
-  const peakHour = platform === "tiktok" ? 19 : platform === "pinterest" ? 10 : 18;
+  const peakHour =
+    platform === "tiktok" ? 19 : platform === "pinterest" ? 10 : 18;
 
   const makePoints = (from: Date, scale: number): Point[] => {
     let followers = 800 + Math.floor(rnd() * 4200);
@@ -1184,10 +1293,6 @@ function buildSampleInsights(
     posts: posts.sort((a, b) => +b.date - +a.date),
     previousPosts: [],
   };
-}
-
-function ratePct(num: number, den: number) {
-  return den > 0 ? Math.round((num / den) * 10_000) / 100 : 0;
 }
 
 function mergeInsights(parts: InsightsData[]): InsightsData {
@@ -1449,6 +1554,12 @@ function buildBestTimes(
 const heatColor = (v: number) =>
   `hsla(320, 85%, ${72 - 20 * v}%, ${0.1 + 0.9 * v})`;
 
+/** Couleur de chaleur posée par-dessus la couleur de fond de la classe. */
+const heatLayer = (v: number) => {
+  const c = heatColor(v);
+  return { backgroundImage: `linear-gradient(${c}, ${c})` };
+};
+
 function pctDelta(now: number, prev: number) {
   if (!Number.isFinite(now) || !Number.isFinite(prev)) return null;
   if (now === 0 && prev === 0) return null;
@@ -1466,8 +1577,7 @@ const csvCell = (v: string | number) => {
 };
 
 function downloadCsv(filename: string, rows: (string | number)[][]) {
-  const csv =
-    "\uFEFF" + rows.map((r) => r.map(csvCell).join(",")).join("\n");
+  const csv = "\uFEFF" + rows.map((r) => r.map(csvCell).join(",")).join("\n");
   const url = URL.createObjectURL(
     new Blob([csv], { type: "text/csv;charset=utf-8" })
   );
@@ -1506,7 +1616,7 @@ function ChartTooltip({
 
   return (
     <div
-      className={`min-w-[140px] max-w-[calc(100vw-48px)] rounded-lg px-3 py-2 text-[12px] shadow-[0_8px_30px_rgba(0,0,0,0.35)] sm:min-w-[160px] sm:px-3.5 sm:py-2.5 ${
+      className={`min-w-[140px] max-w-[calc(100vw-48px)] rounded-lg px-3 py-2 text-[12px] shadow-[0_8px_30px_rgba(0,0,0,0.35)] md:min-w-[160px] md:px-3.5 md:py-2.5 ${
         isDark
           ? "bg-[#101012] text-white ring-1 ring-white/10"
           : "bg-white text-neutral-900 ring-1 ring-black/10"
@@ -1534,6 +1644,7 @@ function InsightsChart({
   data,
   view,
   isDark,
+  isMobile,
   lang,
   seriesLabel,
   seriesLabel2,
@@ -1544,6 +1655,7 @@ function InsightsChart({
   data: ChartRow[];
   view: ChartView;
   isDark: boolean;
+  isMobile: boolean;
   lang: Lang;
   seriesLabel: string;
   seriesLabel2?: string;
@@ -1561,9 +1673,10 @@ function InsightsChart({
 
   const axis = isDark ? "#6b6b72" : "#a3a3a3";
   const grid = isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.07)";
+  const axisWidth = isMobile ? 34 : 40;
 
   return (
-    <div className="h-[220px] w-full sm:h-[320px]">
+    <div className="h-[220px] w-full md:h-[320px]">
       <ResponsiveContainer width="100%" height="100%">
         <AreaChart
           data={data}
@@ -1582,11 +1695,7 @@ function InsightsChart({
             </linearGradient>
             {hasSecondAxis && seriesColor2 && (
               <linearGradient id={gradRight} x1="0" y1="0" x2="0" y2="1">
-                <stop
-                  offset="0%"
-                  stopColor={seriesColor2}
-                  stopOpacity={0.14}
-                />
+                <stop offset="0%" stopColor={seriesColor2} stopOpacity={0.14} />
                 <stop offset="100%" stopColor={seriesColor2} stopOpacity={0} />
               </linearGradient>
             )}
@@ -1600,7 +1709,7 @@ function InsightsChart({
             axisLine={false}
             tickLine={false}
             tickMargin={8}
-            minTickGap={24}
+            minTickGap={isMobile ? 36 : 24}
           />
 
           <YAxis
@@ -1609,7 +1718,7 @@ function InsightsChart({
             axisLine={false}
             tickLine={false}
             tickFormatter={(v) => nf(Number(v), lang)}
-            width={40}
+            width={axisWidth}
           />
           {hasSecondAxis && (
             <YAxis
@@ -1619,7 +1728,7 @@ function InsightsChart({
               axisLine={false}
               tickLine={false}
               tickFormatter={(v) => nf(Number(v), lang)}
-              width={40}
+              width={axisWidth}
             />
           )}
 
@@ -1692,6 +1801,370 @@ function InsightsChart({
 }
 
 /* ============================================================
+   FEUILLE GLISSABLE (mobile) — identique à Schedule / Create
+============================================================ */
+
+function useEscape(onEscape: () => void) {
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onEscape();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [onEscape]);
+}
+
+/**
+ * Feuille glissable (mobile) / dialogue centré (si la fenêtre est élargie).
+ * Glisser la poignée ou le titre vers le bas pour fermer.
+ * `children` reçoit `close` : fermeture animée.
+ * Rendue dans document.body (portail) : échappe aux overflow / z-index.
+ */
+function BottomSheet({
+  isDark,
+  title,
+  onClose,
+  children,
+}: {
+  isDark: boolean;
+  title: string;
+  onClose: () => void;
+  children: (close: () => void) => ReactNode;
+}) {
+  const sheetRef = useRef<HTMLDivElement>(null);
+  const drag = useRef<{ startY: number; startT: number } | null>(null);
+
+  const [shown, setShown] = useState(false);
+  const [closing, setClosing] = useState(false);
+  const [dragging, setDragging] = useState(false);
+  const [dragY, setDragY] = useState(0);
+
+  useEffect(() => {
+    const id = requestAnimationFrame(() =>
+      requestAnimationFrame(() => setShown(true))
+    );
+    return () => cancelAnimationFrame(id);
+  }, []);
+
+  const requestClose = useCallback(() => {
+    if (closing) return;
+    setClosing(true);
+    setDragging(false);
+    window.setTimeout(onClose, 300);
+  }, [closing, onClose]);
+
+  useEscape(requestClose);
+
+  const onDragStart = (e: RPointerEvent<HTMLDivElement>) => {
+    if (closing) return;
+    drag.current = { startY: e.clientY, startT: performance.now() };
+    e.currentTarget.setPointerCapture(e.pointerId);
+    setDragging(true);
+  };
+
+  const onDragMove = (e: RPointerEvent<HTMLDivElement>) => {
+    const d = drag.current;
+    if (!d) return;
+    setDragY(Math.max(0, e.clientY - d.startY));
+  };
+
+  const onDragEnd = (e: RPointerEvent<HTMLDivElement>) => {
+    const d = drag.current;
+    if (!d) return;
+    drag.current = null;
+    setDragging(false);
+
+    const dy = Math.max(0, e.clientY - d.startY);
+    const velocity = dy / Math.max(1, performance.now() - d.startT);
+    const height = sheetRef.current?.offsetHeight ?? 500;
+
+    if (dy > height * 0.25 || velocity > 0.5) requestClose();
+    else setDragY(0);
+  };
+
+  const hidden = closing || !shown;
+  const height = sheetRef.current?.offsetHeight ?? 600;
+  const backdropOpacity = hidden ? 0 : 1 - Math.min(1, dragY / height);
+  const ease = "cubic-bezier(0.32, 0.72, 0, 1)";
+
+  return createPortal(
+    <div
+      // Les événements React remontent à travers les portails : on les arrête.
+      onPointerDown={(e) => e.stopPropagation()}
+      className="fixed inset-0 z-50 flex items-end justify-center md:items-center md:p-4"
+    >
+      <div
+        className="absolute inset-0 bg-black/50 backdrop-blur-[2px]"
+        style={{
+          opacity: backdropOpacity,
+          transition: dragging ? "none" : `opacity 300ms ${ease}`,
+        }}
+        onClick={requestClose}
+      />
+      <div
+        ref={sheetRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        style={{
+          transform: hidden ? "translateY(100%)" : `translateY(${dragY}px)`,
+          transition: dragging ? "none" : `transform 300ms ${ease}`,
+          willChange: "transform",
+        }}
+        className={[
+          "relative z-10 flex max-h-[92dvh] w-full flex-col overflow-y-auto overscroll-contain border p-4 shadow-2xl",
+          "rounded-t-3xl pb-[calc(1rem+env(safe-area-inset-bottom))]",
+          "md:max-w-sm md:rounded-2xl md:pb-4",
+          isDark
+            ? "border-white/[0.08] bg-[#101012]"
+            : "border-black/[0.06] bg-[#f6f4f0]",
+        ].join(" ")}
+      >
+        <div
+          onPointerDown={onDragStart}
+          onPointerMove={onDragMove}
+          onPointerUp={onDragEnd}
+          onPointerCancel={onDragEnd}
+          className="-mx-4 -mt-4 mb-1 shrink-0 cursor-grab touch-none select-none px-4 pb-3 pt-3 active:cursor-grabbing md:mx-0 md:mt-0 md:cursor-default md:touch-auto md:px-0 md:pb-2 md:pt-0"
+        >
+          <div
+            className={[
+              "mx-auto mb-3 h-1.5 w-12 rounded-full md:hidden",
+              isDark ? "bg-white/25" : "bg-black/15",
+            ].join(" ")}
+          />
+          <h2
+            className={[
+              "truncate text-center text-[17px] font-semibold tracking-[-0.02em]",
+              isDark ? "text-white" : "text-neutral-900",
+            ].join(" ")}
+          >
+            {title}
+          </h2>
+        </div>
+
+        {children(requestClose)}
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+/** Explication d'un indicateur (remplace l'info-bulle au survol sur mobile). */
+function HintSheet({
+  isDark,
+  title,
+  text,
+  onClose,
+}: {
+  isDark: boolean;
+  title: string;
+  text: string;
+  onClose: () => void;
+}) {
+  return (
+    <BottomSheet isDark={isDark} title={title} onClose={onClose}>
+      {() => (
+        <p
+          className={[
+            "px-1 pb-2 pt-1 text-center text-[14.5px] leading-relaxed",
+            isDark ? "text-neutral-300" : "text-neutral-600",
+          ].join(" ")}
+        >
+          {text}
+        </p>
+      )}
+    </BottomSheet>
+  );
+}
+
+/** Avatar de canal avec pastille du réseau. */
+function ChannelAvatar({
+  channel,
+  isDark,
+  size = 32,
+  ringClass,
+}: {
+  channel: ConnectedChannel;
+  isDark: boolean;
+  size?: number;
+  ringClass?: string;
+}) {
+  const [failed, setFailed] = useState(false);
+  useEffect(() => setFailed(false), [channel.avatarUrl]);
+
+  const net = channelNetwork(channel);
+  const Icon = net ? NETWORK_ICONS[net] : null;
+  const badge = Math.max(12, Math.round(size * 0.45));
+
+  return (
+    <span
+      className="relative inline-flex shrink-0"
+      style={{ width: size, height: size }}
+    >
+      {channel.avatarUrl && !failed ? (
+        <img
+          src={channel.avatarUrl}
+          alt=""
+          referrerPolicy="no-referrer"
+          onError={() => setFailed(true)}
+          className="h-full w-full rounded-full object-cover"
+        />
+      ) : (
+        <span
+          className={[
+            "flex h-full w-full items-center justify-center rounded-full text-[12px] font-semibold",
+            isDark ? "bg-[#242428] text-white" : "bg-neutral-900 text-white",
+          ].join(" ")}
+        >
+          {channelLabel(channel).charAt(0).toUpperCase() || "?"}
+        </span>
+      )}
+      {Icon && (
+        <span
+          className={[
+            "absolute -bottom-0.5 -right-0.5 flex items-center justify-center rounded-full bg-white text-black ring-2",
+            ringClass ?? (isDark ? "ring-[#101012]" : "ring-[#f6f4f0]"),
+          ].join(" ")}
+          style={{ width: badge, height: badge }}
+        >
+          <Icon className="h-[8px] w-[8px]" />
+        </span>
+      )}
+    </span>
+  );
+}
+
+/** Pastille « tous les réseaux ». */
+function AllNetworksBadge({
+  isDark,
+  size = 32,
+}: {
+  isDark: boolean;
+  size?: number;
+}) {
+  return (
+    <span
+      className={[
+        "flex shrink-0 items-center justify-center rounded-full",
+        isDark ? "bg-white/[0.1] text-white" : "bg-neutral-900 text-white",
+      ].join(" ")}
+      style={{ width: size, height: size }}
+    >
+      <Layers className="h-[55%] w-[55%]" aria-hidden="true" />
+    </span>
+  );
+}
+
+/** Sélecteur de canal en feuille glissable (mobile), avec « tous les réseaux ». */
+function ChannelSheet({
+  isDark,
+  title,
+  channels,
+  selectedKey,
+  allLabel,
+  onSelect,
+  onClose,
+}: {
+  isDark: boolean;
+  title: string;
+  channels: ConnectedChannel[];
+  selectedKey?: string;
+  allLabel?: string;
+  onSelect: (key: string) => void;
+  onClose: () => void;
+}) {
+  const row = (active: boolean) =>
+    [
+      "flex min-h-14 w-full items-center gap-3 rounded-2xl px-3 text-left transition",
+      "focus-visible:outline-none focus-visible:ring-2",
+      isDark ? "focus-visible:ring-white/30" : "focus-visible:ring-black/25",
+      active
+        ? isDark
+          ? "bg-white/[0.08]"
+          : "bg-white shadow-sm"
+        : isDark
+          ? "active:bg-white/[0.06]"
+          : "active:bg-black/[0.04]",
+    ].join(" ");
+
+  const titleCls = [
+    "block truncate text-[15px] font-semibold",
+    isDark ? "text-white" : "text-neutral-900",
+  ].join(" ");
+  const subCls = [
+    "block truncate text-[12.5px]",
+    isDark ? "text-neutral-400" : "text-neutral-500",
+  ].join(" ");
+  const check = (
+    <Check
+      className={[
+        "h-5 w-5 shrink-0",
+        isDark ? "text-white" : "text-neutral-900",
+      ].join(" ")}
+      strokeWidth={2.2}
+    />
+  );
+
+  return (
+    <BottomSheet isDark={isDark} title={title} onClose={onClose}>
+      {(close) => (
+        <ul role="menu" className="flex flex-col gap-1 pt-1">
+          {allLabel && (
+            <li>
+              <button
+                type="button"
+                role="menuitemradio"
+                aria-checked={selectedKey === ALL_KEY}
+                onClick={() => {
+                  onSelect(ALL_KEY);
+                  close();
+                }}
+                className={row(selectedKey === ALL_KEY)}
+              >
+                <AllNetworksBadge isDark={isDark} size={38} />
+                <span className="min-w-0 flex-1">
+                  <span className={titleCls}>{allLabel}</span>
+                </span>
+                {selectedKey === ALL_KEY && check}
+              </button>
+            </li>
+          )}
+          {channels.map((ch) => {
+            const active = ch.key === selectedKey;
+            const name = ch.name || channelLabel(ch);
+            const handle = ch.handle ? ch.handle.replace(/^@/, "") : "";
+            return (
+              <li key={ch.key}>
+                <button
+                  type="button"
+                  role="menuitemradio"
+                  aria-checked={active}
+                  onClick={() => {
+                    onSelect(ch.key);
+                    close();
+                  }}
+                  className={row(active)}
+                >
+                  <ChannelAvatar channel={ch} isDark={isDark} size={38} />
+                  <span className="min-w-0 flex-1">
+                    <span className={titleCls}>{name}</span>
+                    {handle && handle !== name && (
+                      <span className={subCls}>@{handle}</span>
+                    )}
+                  </span>
+                  {active && check}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </BottomSheet>
+  );
+}
+
+/* ============================================================
    PETITS COMPOSANTS
 ============================================================ */
 
@@ -1724,10 +2197,10 @@ function Segmented<T extends string>({
             type="button"
             aria-pressed={active}
             onClick={() => onChange(o.key)}
-            className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 sm:px-3.5 ${
+            className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 md:px-3.5 ${
               size === "lg"
-                ? "py-2 text-[12px] sm:text-[13px]"
-                : "py-2 text-[12px] sm:py-1.5"
+                ? "py-2 text-[12px] md:text-[13px]"
+                : "py-2 text-[12px] md:py-1.5"
             } font-semibold transition-colors motion-reduce:transition-none ${t.ring} ${
               active ? t.sel : t.idle
             }`}
@@ -1751,7 +2224,7 @@ function IconBtn({
   boxed = false,
   align = "center",
   disabled = false,
-  className = "h-10 w-10 sm:h-9 sm:w-9",
+  className = "h-10 w-10 md:h-9 md:w-9",
 }: {
   label: string;
   onClick?: () => void;
@@ -1795,11 +2268,11 @@ function IconBtn({
         </button>
       )}
 
-      {/* Tooltip : survol uniquement (masqué sur tactile) */}
+      {/* Tooltip : survol uniquement (masqué sur tactile / mobile) */}
       <span
         role="tooltip"
         className={[
-          "pointer-events-none absolute top-full z-50 mt-2 w-max max-w-[240px] rounded-md px-3 py-2 text-[12.5px] font-medium leading-snug text-white opacity-0 shadow-lg transition-opacity duration-150 motion-reduce:transition-none group-hover:opacity-100 group-hover:delay-300 group-focus-within:opacity-100 [@media(hover:none)]:hidden",
+          "pointer-events-none absolute top-full z-50 mt-2 w-max max-w-[240px] rounded-md px-3 py-2 text-[12.5px] font-medium leading-snug text-white opacity-0 shadow-lg transition-opacity duration-150 motion-reduce:transition-none max-md:hidden group-hover:opacity-100 group-hover:delay-300 group-focus-within:opacity-100 [@media(hover:none)]:hidden",
           t.tip,
           align === "end" ? "right-0" : "left-1/2 -translate-x-1/2",
         ].join(" ")}
@@ -1817,6 +2290,7 @@ function MetricBox({
   t,
   delta,
   isDark,
+  isMobile,
   lang,
 }: {
   label: string;
@@ -1825,30 +2299,35 @@ function MetricBox({
   t: Tokens;
   delta?: number | null;
   isDark: boolean;
+  isMobile: boolean;
   lang: Lang;
 }) {
   const c = COPY[lang];
+  const [hint, setHint] = useState(false);
   const up = delta != null && delta > 0;
   const down = delta != null && delta < 0;
   return (
     <div
-      className={`flex h-full min-w-0 flex-col gap-2 rounded-2xl border px-3.5 py-3.5 sm:gap-2.5 sm:px-4 sm:py-4 ${t.tile}`}
+      className={`flex h-full min-w-0 flex-col gap-2 rounded-2xl border px-3.5 py-3.5 md:gap-2.5 md:px-4 md:py-4 ${t.tile}`}
     >
       <span
-        className={`flex items-center justify-between gap-2 text-[12px] font-medium sm:text-[11px] ${t.soft}`}
+        className={`flex items-center justify-between gap-2 text-[12px] font-medium md:text-[11px] ${t.soft}`}
       >
         <span className="truncate">{label}</span>
-        <span
-          title={info}
-          role="img"
+        <button
+          type="button"
           aria-label={info}
-          className={`shrink-0 ${t.muted}`}
+          title={isMobile ? undefined : info}
+          onClick={() => {
+            if (isMobile) setHint(true);
+          }}
+          className={`-mr-1.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full md:-mr-0.5 md:h-6 md:w-6 ${t.muted} ${t.ring}`}
         >
           <Info className="h-3.5 w-3.5" aria-hidden="true" />
-        </span>
+        </button>
       </span>
       <span
-        className={`text-[24px] font-semibold leading-none tracking-[-0.03em] tabular-nums sm:text-[30px] ${t.text}`}
+        className={`text-[24px] font-semibold leading-none tracking-[-0.03em] tabular-nums md:text-[30px] ${t.text}`}
       >
         {value}
       </span>
@@ -1856,7 +2335,7 @@ function MetricBox({
         <span
           className={[
             "inline-flex w-fit max-w-full items-center gap-0.5 rounded-full px-1.5 py-0.5",
-            "text-[10px] font-semibold tabular-nums sm:text-[9px]",
+            "text-[10px] font-semibold tabular-nums md:text-[9px]",
             up
               ? isDark
                 ? "bg-emerald-500/10 text-emerald-400"
@@ -1873,16 +2352,19 @@ function MetricBox({
           ) : down ? (
             <TrendingDown className="h-2.5 w-2.5 shrink-0" aria-hidden="true" />
           ) : null}
-          <span className="sr-only">
-            {up ? "↑ " : down ? "↓ " : ""}
-          </span>
+          <span className="sr-only">{up ? "↑ " : down ? "↓ " : ""}</span>
           {up ? "+" : ""}
-          {delta}%
-          <span className="max-sm:sr-only">
-            {" "}
-            {c.summary.vsPreviousShort}
-          </span>
+          {delta}%<span className="max-md:sr-only"> {c.summary.vsPreviousShort}</span>
         </span>
+      )}
+
+      {hint && isMobile && (
+        <HintSheet
+          isDark={isDark}
+          title={label}
+          text={info}
+          onClose={() => setHint(false)}
+        />
       )}
     </div>
   );
@@ -1896,7 +2378,7 @@ type MetricOption = {
 };
 
 /* ============================================================
-   RANGE PICKER
+   RANGE PICKER — popover (desktop) / feuille glissable (mobile)
 ============================================================ */
 
 function RangePicker({
@@ -1907,6 +2389,7 @@ function RangePicker({
   onEndChange,
   t,
   isDark,
+  isMobile,
   lang,
 }: {
   range: Range;
@@ -1916,6 +2399,7 @@ function RangePicker({
   onEndChange: (d: Date) => void;
   t: Tokens;
   isDark: boolean;
+  isMobile: boolean;
   lang: Lang;
 }) {
   const c = COPY[lang];
@@ -1925,8 +2409,10 @@ function RangePicker({
 
   const today = useMemo(() => startOfDay(new Date()), []);
 
+  // Desktop : fermeture au clic extérieur / Échap. Sur mobile, la feuille
+  // (portail) gère sa propre fermeture.
   useEffect(() => {
-    if (!open) return;
+    if (!open || isMobile) return;
     const onDown = (e: PointerEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node))
         setOpen(false);
@@ -1940,7 +2426,7 @@ function RangePicker({
       document.removeEventListener("pointerdown", onDown);
       document.removeEventListener("keydown", onKey);
     };
-  }, [open]);
+  }, [open, isMobile]);
 
   const label =
     range === "custom"
@@ -1974,26 +2460,69 @@ function RangePicker({
         key={id}
         type="button"
         aria-pressed={active}
-        onClick={() => openPicker(id)}
-        className={`min-h-9 flex-1 whitespace-nowrap rounded-full px-3.5 py-1.5 text-[12px] font-semibold transition-colors motion-reduce:transition-none sm:min-h-0 sm:text-[11px] ${t.ring} ${
+        onClick={() => setField(id)}
+        className={`min-h-10 flex-1 whitespace-nowrap rounded-full px-3.5 py-1.5 text-[13px] font-semibold transition-colors motion-reduce:transition-none md:min-h-0 md:text-[11px] ${t.ring} ${
           active ? t.sel : t.idle
         }`}
       >
-        {id === "from" ? c.calendar.from : c.calendar.to} ·{" "}
-        {fmt(value, lang)}
+        {id === "from" ? c.calendar.from : c.calendar.to} · {fmt(value, lang)}
       </button>
     );
   };
+
+  const panel = (done: () => void) => (
+    <>
+      <div className={`flex gap-1 border-b p-2 ${t.border}`}>
+        {fieldTab("from")}
+        {fieldTab("to")}
+      </div>
+
+      <div className="p-3">
+        <p className={`mb-2 text-[12px] ${t.soft}`}>
+          {field === "from" ? c.calendar.helpFrom : c.calendar.helpTo}
+        </p>
+        <CalendarPicker
+          key={field}
+          value={field === "from" ? start : end}
+          onChange={pickDate}
+          isDark={isDark}
+          disablePast={false}
+          max={today}
+          min={field === "to" ? startOfDay(start) : undefined}
+        />
+      </div>
+
+      <div
+        className={`flex items-center justify-between border-t px-3 py-2.5 ${t.border}`}
+      >
+        <button
+          type="button"
+          onClick={() => setField((f) => (f === "from" ? "to" : "from"))}
+          className={`min-h-10 rounded px-2 text-[13px] font-semibold transition-colors md:min-h-0 md:px-1 md:text-[12px] ${t.ring} ${t.hover} ${t.text}`}
+        >
+          {field === "from" ? c.calendar.next : c.calendar.back}
+        </button>
+        <button
+          type="button"
+          onClick={done}
+          className={`flex min-h-10 items-center gap-1.5 rounded px-2 text-[13px] font-semibold transition-colors md:min-h-0 md:px-1 md:text-[12px] ${t.ring} ${t.hover} ${t.text}`}
+        >
+          <Check className="h-3.5 w-3.5" strokeWidth={3} aria-hidden="true" />
+          {c.calendar.done}
+        </button>
+      </div>
+    </>
+  );
 
   return (
     <div ref={ref} className="relative">
       <button
         type="button"
-        aria-haspopup="menu"
+        aria-haspopup={isMobile ? "dialog" : "menu"}
         aria-expanded={open}
         aria-label={c.calendar.rangeAria}
         onClick={() => (open ? setOpen(false) : openPicker("from"))}
-        className={`flex min-h-10 items-center gap-2 rounded-lg border px-3 py-2 text-[12px] font-semibold transition-colors sm:min-h-0 ${t.ring} ${t.panel} ${t.hover} ${t.text}`}
+        className={`flex min-h-10 items-center gap-2 rounded-lg border px-3 py-2 text-[12px] font-semibold transition-colors md:min-h-0 ${t.ring} ${t.panel} ${t.hover} ${t.text}`}
       >
         <CalendarClock className={`h-3.5 w-3.5 ${t.muted}`} aria-hidden="true" />
         <span className="whitespace-nowrap">{label}</span>
@@ -2005,55 +2534,27 @@ function RangePicker({
         />
       </button>
 
-      {open && (
-        <div
-          className={`absolute left-0 top-full z-30 mt-2 w-[min(300px,calc(100vw-48px))] overflow-hidden rounded-xl border shadow-[0_12px_40px_rgba(0,0,0,0.5)] ${t.popover}`}
+      {open && isMobile && (
+        <BottomSheet
+          isDark={isDark}
+          title={c.sheets.dateRange}
+          onClose={() => setOpen(false)}
         >
-          <div className={`flex gap-1 border-b p-2 ${t.border}`}>
-            {fieldTab("from")}
-            {fieldTab("to")}
-          </div>
-
-          <div className="p-3">
-            <p className={`mb-2 text-[12px] ${t.soft}`}>
-              {field === "from" ? c.calendar.helpFrom : c.calendar.helpTo}
-            </p>
-            <CalendarPicker
-              key={field}
-              value={field === "from" ? start : end}
-              onChange={pickDate}
-              isDark={isDark}
-              disablePast={false}
-              max={today}
-              min={field === "to" ? startOfDay(start) : undefined}
-            />
-          </div>
-
-          <div
-            className={`flex items-center justify-between border-t px-3 py-2.5 ${t.border}`}
-          >
-            <button
-              type="button"
-              onClick={() =>
-                setField((f) => (f === "from" ? "to" : "from"))
-              }
-              className={`min-h-9 rounded px-2 text-[12px] font-semibold transition-colors sm:min-h-0 sm:px-1 ${t.ring} ${t.hover} ${t.text}`}
+          {(close) => (
+            <div
+              className={`overflow-hidden rounded-2xl border ${t.panel}`}
             >
-              {field === "from" ? c.calendar.next : c.calendar.back}
-            </button>
-            <button
-              type="button"
-              onClick={() => setOpen(false)}
-              className={`flex min-h-9 items-center gap-1.5 rounded px-2 text-[12px] font-semibold transition-colors sm:min-h-0 sm:px-1 ${t.ring} ${t.hover} ${t.text}`}
-            >
-              <Check
-                className="h-3.5 w-3.5"
-                strokeWidth={3}
-                aria-hidden="true"
-              />
-              {c.calendar.done}
-            </button>
-          </div>
+              {panel(close)}
+            </div>
+          )}
+        </BottomSheet>
+      )}
+
+      {open && !isMobile && (
+        <div
+          className={`absolute left-0 top-full z-30 mt-2 w-[300px] overflow-hidden rounded-xl border shadow-[0_12px_40px_rgba(0,0,0,0.5)] ${t.popover}`}
+        >
+          {panel(() => setOpen(false))}
         </div>
       )}
     </div>
@@ -2081,6 +2582,138 @@ function InsightsIcon() {
 }
 
 /* ============================================================
+   MEILLEUR MOMENT — version mobile
+   7 lignes (une par jour) : bande de chaleur + meilleure heure.
+   Un tap ouvre les 24 heures en grandes cases tactiles.
+============================================================ */
+
+function BestTimeMobile({
+  heatmap,
+  c,
+  t,
+  isDark,
+  onSchedule,
+}: {
+  heatmap: BestTimes;
+  c: Copy;
+  t: Tokens;
+  isDark: boolean;
+  onSchedule: (slot: { day: number; hour: number }) => void;
+}) {
+  const [openDay, setOpenDay] = useState<number | null>(null);
+  const base = isDark ? "bg-white/[0.05]" : "bg-black/[0.04]";
+
+  return (
+    <>
+      <div className="mt-4 flex flex-col gap-1.5">
+        {c.days.map((day, d) => {
+          const best = heatmap.bestByDay[d];
+          return (
+            <button
+              key={day}
+              type="button"
+              onClick={() => setOpenDay(d)}
+              aria-label={`${c.daysLong[d]} · ${hourLabel(best.hour)}`}
+              className={`flex min-h-12 items-center gap-3 rounded-2xl border px-3 text-left transition-colors ${t.ring} ${t.inner} ${t.hover}`}
+            >
+              <span
+                className={`w-9 shrink-0 text-[12px] font-semibold ${t.soft}`}
+              >
+                {day}
+              </span>
+              <span
+                className={`flex h-6 min-w-0 flex-1 items-stretch gap-px overflow-hidden rounded-md ${base}`}
+                aria-hidden="true"
+              >
+                {heatmap.grid[d].map((cell, h) => (
+                  <span
+                    key={h}
+                    className="flex-1"
+                    style={heatLayer(cell.norm)}
+                  />
+                ))}
+              </span>
+              <span
+                className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold tabular-nums ${t.sel}`}
+              >
+                {hourLabel(best.hour)}
+              </span>
+              <ChevronRight
+                className={`h-4 w-4 shrink-0 ${t.muted}`}
+                aria-hidden="true"
+              />
+            </button>
+          );
+        })}
+      </div>
+
+      {openDay !== null && (
+        <BottomSheet
+          isDark={isDark}
+          title={c.daysLong[openDay]}
+          onClose={() => setOpenDay(null)}
+        >
+          {(close) => {
+            const d = openDay;
+            const bestHour = heatmap.bestByDay[d].hour;
+            return (
+              <div className="flex flex-col gap-3 pt-1">
+                <p className={`text-center text-[13px] ${t.soft}`}>
+                  {c.bestTime.bestOfDay} ·{" "}
+                  <span className={`font-semibold ${t.text}`}>
+                    {hourLabel(bestHour)}
+                  </span>
+                </p>
+                <div className="grid grid-cols-6 gap-1.5">
+                  {Array.from({ length: 24 }, (_, h) => {
+                    const cell = heatmap.grid[d][h];
+                    const isBest = h === bestHour;
+                    return (
+                      <button
+                        key={h}
+                        type="button"
+                        aria-label={c.bestTime.scheduleAria(
+                          c.daysLong[d],
+                          hourLabel(h)
+                        )}
+                        onClick={() => {
+                          close();
+                          window.setTimeout(
+                            () => onSchedule({ day: d, hour: h }),
+                            SHEET_ACTION_DELAY
+                          );
+                        }}
+                        className={`flex aspect-[4/3] min-h-11 items-center justify-center rounded-xl text-[13px] font-semibold tabular-nums transition-transform active:scale-95 ${t.ring} ${base} ${
+                          cell.norm > 0.5 ? "text-white" : t.soft
+                        } ${
+                          isBest
+                            ? `ring-2 ring-offset-2 ${
+                                isDark
+                                  ? "ring-white ring-offset-[#101012]"
+                                  : "ring-neutral-900 ring-offset-[#f6f4f0]"
+                              }`
+                            : ""
+                        }`}
+                        style={heatLayer(cell.norm)}
+                      >
+                        {String(h).padStart(2, "0")}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className={`text-center text-[12px] ${t.muted}`}>
+                  {c.bestTime.pickHour}
+                </p>
+              </div>
+            );
+          }}
+        </BottomSheet>
+      )}
+    </>
+  );
+}
+
+/* ============================================================
    PAGE
 ============================================================ */
 
@@ -2094,6 +2727,7 @@ export default function Insights() {
   const t = useMemo(() => tokens(isDark), [isDark]);
   const sidebarOffset = useSidebarOffset();
   const channels = useConnectedChannels();
+  const isMobile = useIsMobile();
 
   const lang = useLanguage();
   const c = COPY[lang];
@@ -2112,8 +2746,8 @@ export default function Insights() {
     selectedKey === ALL_KEY || (selectedKey == null && channels.length > 1);
   const channel = viewingAll
     ? undefined
-    : channels.find((c) => c.key === selectedKey) ??
-      channels.find((c) => isYouTubeChannel(c)) ??
+    : channels.find((ch) => ch.key === selectedKey) ??
+      channels.find((ch) => isYouTubeChannel(ch)) ??
       channels[0];
   const youtubeConnected = channels.some(isYouTubeChannel);
   const isYouTube = Boolean(channel && isYouTubeChannel(channel));
@@ -2143,6 +2777,7 @@ export default function Insights() {
   } | null>(null);
   const [isFolderOpen, setIsFolderOpen] = useState(false);
   const [isNewPostOpen, setIsNewPostOpen] = useState(false);
+  const [channelsOpen, setChannelsOpen] = useState(false);
   const [composerContext, setComposerContext] =
     useState<ComposerContext | null>(null);
   const [query, setQuery] = useState("");
@@ -2334,11 +2969,7 @@ export default function Insights() {
   const glance =
     summary.posts === 0
       ? null
-      : c.summary.glance(
-          summary.posts,
-          summary.reactions,
-          summary.comments
-        );
+      : c.summary.glance(summary.posts, summary.reactions, summary.comments);
 
   const TONES: [string, string] = [
     isDark ? "#ffffff" : "#111111",
@@ -2484,10 +3115,7 @@ export default function Insights() {
         previous[i]?.followers ?? 0,
       ])
     );
-    downloadCsv(
-      `insights-${toInput(start)}-${toInput(end)}.csv`,
-      rowsCsv
-    );
+    downloadCsv(`insights-${toInput(start)}-${toInput(end)}.csv`, rowsCsv);
   };
 
   /* ── Barre du bas / nouveau post ── */
@@ -2519,17 +3147,24 @@ export default function Insights() {
       <ImageIcon className="h-4 w-4" />
     );
 
-  const sectionCard = `rounded-3xl border p-4 sm:p-5 md:p-6 ${t.card}`;
-  const sectionTitle = `text-[16px] font-semibold tracking-[-0.02em] sm:text-[17px] ${t.text}`;
+  const sectionCard = `rounded-3xl border p-4 md:p-6 ${t.card}`;
+  const sectionTitle = `text-[16px] font-semibold tracking-[-0.02em] md:text-[17px] ${t.text}`;
   const sectionSub = `mt-1 text-[12px] ${t.muted}`;
 
   const heroUid = useId().replace(/[:]/g, "");
   const heroId = (name: string) => `hero-${name}-${heroUid}`;
 
+  const canSwitchChannel = channels.length > 1;
+  const channelTriggerLabel = viewingAll
+    ? c.allNetworks
+    : channel
+      ? channelLabel(channel)
+      : "";
+
   return (
     <main
       className={[
-        "relative h-[100dvh] w-full overflow-hidden",
+        "relative h-dvh min-h-dvh w-full overflow-hidden overscroll-none",
         "transition-colors duration-300",
         t.page,
       ].join(" ")}
@@ -2538,17 +3173,19 @@ export default function Insights() {
 
       <div
         className={[
-          "h-full py-3 pr-3 max-md:pt-14",
+          "h-full min-h-0 px-2 py-2 md:py-3 md:pl-0 md:pr-3",
+          "max-md:pt-[calc(3.5rem+env(safe-area-inset-top))]",
           "transition-[padding-left] duration-[380ms]",
           "ease-[cubic-bezier(0.4,0,0.2,1)]",
           "motion-reduce:transition-none",
         ].join(" ")}
-        style={{ paddingLeft: sidebarOffset }}
+        // Sur mobile la sidebar est un tiroir : aucun décalage à gauche.
+        style={isMobile ? undefined : { paddingLeft: sidebarOffset }}
       >
         <div
           className={[
-            "h-full overflow-y-auto overflow-x-hidden",
-            "rounded-[28px] border",
+            "h-full min-h-0 overflow-y-auto overflow-x-hidden overscroll-y-contain",
+            "rounded-2xl border md:rounded-[28px]",
             NO_SCROLLBAR,
             "transition-colors duration-300",
             isDark
@@ -2558,116 +3195,156 @@ export default function Insights() {
         >
           <div
             className={[
-              "mx-auto flex w-full max-w-[1720px]",
-              "flex-col gap-6 px-[clamp(18px,3vw,48px)] sm:gap-8",
-              "pb-[120px] pt-[clamp(18px,3vw,30px)]",
+              "mx-auto flex w-full min-w-0 max-w-[1720px]",
+              "flex-col gap-6 px-[clamp(14px,3vw,48px)] md:gap-8",
+              "pb-[calc(7.5rem+env(safe-area-inset-bottom))] pt-[clamp(16px,3vw,30px)]",
             ].join(" ")}
           >
             {/* HEADER COMPACT */}
-            {/* HEADER COMPACT */}
-              <div className="relative z-20 flex shrink-0 flex-wrap items-center justify-between gap-3">
-              <div className="flex min-w-0 items-center gap-2.5">
-                <span
-                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border sm:h-9 sm:w-9 ${t.inner} ${t.soft}`}
-                >
-                  <InsightsIcon />
-                </span>
-                <h1
-                  className={`truncate text-[22px] font-semibold tracking-[-0.03em] sm:text-[20px] ${t.text}`}
-                >
-                  {c.header.title}
-                </h1>
-              </div>
+            <div className="flex flex-col gap-3">
+              <div className="relative z-20 flex shrink-0 items-center justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-2.5">
+                  <span
+                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border md:h-9 md:w-9 ${t.inner} ${t.soft}`}
+                  >
+                    <InsightsIcon />
+                  </span>
+                  <h1
+                    className={`truncate text-[24px] font-semibold tracking-[-0.03em] md:text-[20px] ${t.text}`}
+                  >
+                    {c.header.title}
+                  </h1>
+                </div>
 
-              <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2 sm:gap-2.5 print:hidden">
-                <ChannelMenu
-                  channels={channels}
-                  current={channel}
-                  isDark={isDark}
-                  onSelect={goChannel}
-                  allOption={
-                    channels.length > 1
-                      ? { key: ALL_KEY, label: c.allNetworks }
-                      : undefined
-                  }
-                  selectedKey={viewingAll ? ALL_KEY : channel?.key}
-                />
+                <div className="flex min-w-0 items-center gap-1.5 md:gap-2.5 print:hidden">
+                  <div className="max-md:hidden">
+                    <ChannelMenu
+                      channels={channels}
+                      current={channel}
+                      isDark={isDark}
+                      onSelect={goChannel}
+                      allOption={
+                        channels.length > 1
+                          ? { key: ALL_KEY, label: c.allNetworks }
+                          : undefined
+                      }
+                      selectedKey={viewingAll ? ALL_KEY : channel?.key}
+                    />
+                  </div>
 
-                <div className="flex items-center gap-1 sm:gap-2">
-                  {fetchYouTube && (
-                    <IconBtn
-                      label={c.header.refresh}
-                      t={t}
-                      onClick={() => setReloadKey((k) => k + 1)}
+                  <div className="flex items-center gap-0.5 md:gap-2">
+                    {fetchYouTube && (
+                      <IconBtn
+                        label={c.header.refresh}
+                        t={t}
+                        align="end"
+                        onClick={() => setReloadKey((k) => k + 1)}
+                      >
+                        <RefreshCw
+                          className={`h-[18px] w-[18px] ${
+                            yt.loading
+                              ? "animate-spin motion-reduce:animate-none"
+                              : ""
+                          }`}
+                          aria-hidden="true"
+                        />
+                      </IconBtn>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={exportCsv}
+                      disabled={!channels.length}
+                      aria-label={c.header.export}
+                      title={c.header.export}
+                      className={`flex h-10 items-center justify-center gap-2 rounded-full text-[12px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40 max-md:w-10 md:h-9 md:px-4 ${t.ring} ${t.outlineBtn}`}
                     >
-                      <RefreshCw
-                        className={`h-[18px] w-[18px] ${
-                          yt.loading
-                            ? "animate-spin motion-reduce:animate-none"
-                            : ""
-                        }`}
-                        aria-hidden="true"
-                      />
-                    </IconBtn>
-                  )}
+                      <Download className="h-4 w-4" aria-hidden="true" />
+                      <span className="max-md:sr-only">{c.header.export}</span>
+                    </button>
+                  </div>
 
                   <button
                     type="button"
-                    onClick={exportCsv}
-                    disabled={!channels.length}
-                    aria-label={c.header.export}
-                    title={c.header.export}
-                    className={`flex h-10 items-center gap-2 rounded-full px-3 text-[12px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40 sm:h-9 sm:px-4 ${t.ring} ${t.outlineBtn}`}
+                    aria-label={
+                      saved ? c.header.removeFavorite : c.header.addFavorite
+                    }
+                    aria-pressed={saved}
+                    title={saved ? c.header.removeFavorite : c.header.addFavorite}
+                    onClick={() => toggleFavorite(PAGE_ROUTE)}
+                    className={[
+                      "flex h-10 w-10 shrink-0 items-center justify-center rounded-lg transition-colors motion-reduce:transition-none md:ml-1 md:h-9 md:w-9",
+                      t.ring,
+                      t.soft,
+                      t.hover,
+                    ].join(" ")}
                   >
-                    <Download className="h-4 w-4" aria-hidden="true" />
-                    <span className="max-sm:sr-only">{c.header.export}</span>
+                    <Bookmark
+                      className={`h-5 w-5 ${saved ? "fill-current" : ""}`}
+                      aria-hidden="true"
+                    />
                   </button>
                 </div>
+              </div>
 
+              {/* Mobile : sélecteur de canal pleine largeur → feuille glissable */}
+              {channels.length > 0 && (
                 <button
                   type="button"
-                  aria-label={
-                    saved ? c.header.removeFavorite : c.header.addFavorite
-                  }
-                  aria-pressed={saved}
-                  title={
-                    saved ? c.header.removeFavorite : c.header.addFavorite
-                  }
-                  onClick={() => toggleFavorite(PAGE_ROUTE)}
+                  aria-haspopup="dialog"
+                  aria-label={c.sheets.channels}
+                  disabled={!canSwitchChannel}
+                  onClick={() => setChannelsOpen(true)}
                   className={[
-                    "flex h-10 w-10 shrink-0 items-center justify-center rounded-lg transition-colors motion-reduce:transition-none sm:ml-1 sm:h-9 sm:w-9",
+                    "flex min-h-12 w-full items-center gap-2.5 rounded-2xl border px-2.5 text-left transition active:scale-[0.99] disabled:active:scale-100 md:hidden",
                     t.ring,
-                    t.soft,
-                    t.hover,
+                    t.panel,
                   ].join(" ")}
                 >
-                  <Bookmark
-                    className={`h-5 w-5 ${saved ? "fill-current" : ""}`}
-                    aria-hidden="true"
-                  />
+                  {viewingAll ? (
+                    <AllNetworksBadge isDark={isDark} size={32} />
+                  ) : channel ? (
+                    <ChannelAvatar
+                      channel={channel}
+                      isDark={isDark}
+                      size={32}
+                      ringClass={isDark ? "ring-[#0a0a0c]" : "ring-white"}
+                    />
+                  ) : null}
+                  <span
+                    className={`min-w-0 flex-1 truncate text-[14px] font-semibold ${t.text}`}
+                  >
+                    {channelTriggerLabel}
+                  </span>
+                  {canSwitchChannel && (
+                    <ChevronDown
+                      className={`h-4 w-4 shrink-0 ${t.soft}`}
+                      aria-hidden="true"
+                    />
+                  )}
                 </button>
-              </div>
+              )}
             </div>
 
             {!channels.length ? (
               <section
-                className={`flex flex-col items-center gap-3 rounded-2xl border px-6 py-16 text-center sm:rounded-xl sm:py-20 ${t.panel}`}
+                className={`flex flex-col items-center gap-3 rounded-2xl border px-6 py-16 text-center md:rounded-xl md:py-20 ${t.panel}`}
               >
                 <span
                   className={`flex h-11 w-11 items-center justify-center rounded-full ${t.iconBox}`}
                 >
                   <Activity className="h-5 w-5" aria-hidden="true" />
                 </span>
-                <h2 className={`text-[15px] font-semibold sm:text-[14px] ${t.text}`}>
+                <h2 className={`text-[15px] font-semibold md:text-[14px] ${t.text}`}>
                   {c.noChannels.title}
                 </h2>
-                <p className={`max-w-[360px] text-[13px] sm:text-[12px] ${t.soft}`}>
+                <p className={`max-w-[360px] text-[13px] md:text-[12px] ${t.soft}`}>
                   {c.noChannels.description}
                 </p>
                 <button
                   type="button"
                   onClick={() => navigateToSettingsSection("channels")}
-                  className={`mt-2 flex min-h-10 items-center gap-1.5 rounded-md px-4 py-2 text-[12px] font-semibold sm:min-h-0 sm:text-[11px] ${t.ring} ${t.primaryBtn}`}
+                  className={`mt-2 flex min-h-11 items-center gap-1.5 rounded-xl px-5 py-2 text-[13px] font-semibold md:min-h-0 md:rounded-md md:px-4 md:text-[11px] ${t.ring} ${t.primaryBtn}`}
                 >
                   <Plus className="h-3.5 w-3.5" aria-hidden="true" />
                   {c.noChannels.connect}
@@ -2686,7 +3363,7 @@ export default function Insights() {
                     <button
                       type="button"
                       onClick={() => setReloadKey((k) => k + 1)}
-                      className={`min-h-9 rounded-full px-3.5 py-1.5 text-[11px] font-semibold transition-colors sm:min-h-0 ${t.ring} ${t.outlineBtn}`}
+                      className={`min-h-10 rounded-full px-3.5 py-1.5 text-[12px] font-semibold transition-colors md:min-h-0 md:text-[11px] ${t.ring} ${t.outlineBtn}`}
                     >
                       {c.errors.retry}
                     </button>
@@ -2705,13 +3382,13 @@ export default function Insights() {
                 {/* ── HERO ── */}
                 <section
                   aria-label={c.hero.eyebrow}
-                  className={`relative isolate h-[220px] overflow-hidden rounded-3xl ring-1 ring-inset sm:h-[300px] sm:rounded-[36px] md:h-[340px] ${
+                  className={`relative isolate h-[230px] overflow-hidden rounded-3xl ring-1 ring-inset md:h-[340px] md:rounded-[36px] ${
                     isDark ? "bg-white ring-black/10" : "bg-black ring-white/10"
                   }`}
                 >
                   <div
                     aria-hidden="true"
-                    className="pointer-events-none absolute inset-y-0 right-0 w-full opacity-60 [mask-image:linear-gradient(to_right,transparent,black_35%)] sm:w-[72%] sm:opacity-100"
+                    className="pointer-events-none absolute inset-y-0 right-0 w-full opacity-60 [mask-image:linear-gradient(to_right,transparent,black_35%)] md:w-[72%] md:opacity-100"
                     style={isDark ? { filter: "invert(1)" } : undefined}
                   >
                     <svg
@@ -2758,11 +3435,7 @@ export default function Insights() {
                             stopColor="#737373"
                             stopOpacity="0.07"
                           />
-                          <stop
-                            offset="100%"
-                            stopColor="#000"
-                            stopOpacity="0"
-                          />
+                          <stop offset="100%" stopColor="#000" stopOpacity="0" />
                         </radialGradient>
                         <filter
                           id={heroId("blur")}
@@ -2791,10 +3464,7 @@ export default function Insights() {
                       />
 
                       <g transform="translate(440 170)" fill="none">
-                        <g
-                          filter={`url(#${heroId("blur")})`}
-                          opacity="0.85"
-                        >
+                        <g filter={`url(#${heroId("blur")})`} opacity="0.85">
                           <ellipse
                             rx="170"
                             ry="120"
@@ -2860,7 +3530,7 @@ export default function Insights() {
                     </svg>
                   </div>
 
-                  <div className="absolute bottom-0 left-0 z-10 flex max-w-[480px] flex-col gap-1.5 p-5 sm:p-7 md:p-10">
+                  <div className="absolute bottom-0 left-0 z-10 flex max-w-[480px] flex-col gap-1.5 p-5 md:p-10">
                     <p
                       className={`text-[11px] font-medium ${
                         isDark ? "text-neutral-500" : "text-white/60"
@@ -2876,7 +3546,7 @@ export default function Insights() {
                       {c.hero.title}
                     </h2>
                     <p
-                      className={`max-w-[380px] text-[12.5px] leading-relaxed max-sm:line-clamp-3 ${
+                      className={`max-w-[380px] text-[12.5px] leading-relaxed max-md:line-clamp-3 ${
                         isDark ? "text-neutral-500" : "text-white/60"
                       }`}
                     >
@@ -2888,12 +3558,12 @@ export default function Insights() {
                 {/* ── NUMBERS ── */}
                 <section
                   aria-labelledby="all-title"
-                  className="flex flex-col gap-4"
+                  className="flex min-w-0 flex-col gap-4"
                 >
                   <div>
                     <h2
                       id="all-title"
-                      className={`text-[24px] font-semibold tracking-[-0.03em] sm:text-[28px] ${t.text}`}
+                      className={`text-[24px] font-semibold tracking-[-0.03em] md:text-[28px] ${t.text}`}
                     >
                       {c.overview.title}
                     </h2>
@@ -2919,7 +3589,7 @@ export default function Insights() {
                                 role="tab"
                                 aria-selected={active}
                                 onClick={() => setRange(key)}
-                                className={`flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full px-3 py-2 text-[12px] font-semibold transition-colors sm:px-4 sm:text-[13px] ${t.ring} ${
+                                className={`flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full px-3 py-2 text-[12px] font-semibold transition-colors md:px-4 md:text-[13px] ${t.ring} ${
                                   active ? t.sel : t.idle
                                 }`}
                               >
@@ -2954,6 +3624,7 @@ export default function Insights() {
                           onEndChange={setCustomEnd}
                           t={t}
                           isDark={isDark}
+                          isMobile={isMobile}
                           lang={lang}
                         />
                       )}
@@ -2962,14 +3633,11 @@ export default function Insights() {
                     <button
                       type="button"
                       onClick={() => navigate("tags")}
-                      className={`flex min-h-10 items-center gap-2 rounded-md px-3 py-2 text-[13px] font-semibold transition-colors sm:min-h-0 ${t.ring} ${t.hover} ${t.text}`}
+                      className={`flex min-h-10 items-center gap-2 rounded-md px-3 py-2 text-[13px] font-semibold transition-colors md:min-h-0 ${t.ring} ${t.hover} ${t.text}`}
                     >
                       <Tag className="h-4 w-4" aria-hidden="true" />
                       {c.tagsButton}
-                      <ChevronDown
-                        className="h-3.5 w-3.5"
-                        aria-hidden="true"
-                      />
+                      <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
                     </button>
                   </div>
 
@@ -2982,14 +3650,11 @@ export default function Insights() {
                         </p>
                       </div>
                       <div
-                        className="flex w-full items-center gap-2 sm:w-auto"
-                        aria-label={c.summary.goalAria(
-                          postsThisWeek,
-                          goal
-                        )}
+                        className="flex w-full items-center gap-2 md:w-auto"
+                        aria-label={c.summary.goalAria(postsThisWeek, goal)}
                       >
                         <div
-                          className={`h-1.5 w-full overflow-hidden rounded-full sm:w-24 ${t.inner}`}
+                          className={`h-1.5 w-full overflow-hidden rounded-full md:w-24 ${t.inner}`}
                         >
                           <div
                             className={`h-full rounded-full transition-[width] duration-300 ${
@@ -3014,7 +3679,7 @@ export default function Insights() {
                       </p>
                     )}
 
-                    <div className="mt-4 grid grid-cols-2 gap-2.5 sm:gap-3 md:grid-cols-3 xl:grid-cols-6">
+                    <div className="mt-4 grid grid-cols-2 gap-2.5 md:grid-cols-3 md:gap-3 xl:grid-cols-6">
                       {summaryBoxes.map((b) => (
                         <MetricBox
                           key={b.key}
@@ -3024,6 +3689,7 @@ export default function Insights() {
                           t={t}
                           delta={b.delta}
                           isDark={isDark}
+                          isMobile={isMobile}
                           lang={lang}
                         />
                       ))}
@@ -3033,7 +3699,7 @@ export default function Insights() {
 
                 {/* ── TRENDS ── */}
                 <section
-                  className={sectionCard}
+                  className={`${sectionCard} min-w-0`}
                   aria-labelledby="metrics-title"
                 >
                   <div className="flex flex-wrap items-start justify-between gap-3 px-1">
@@ -3049,7 +3715,7 @@ export default function Insights() {
                       type="button"
                       aria-pressed={compare}
                       onClick={() => setCompare((cv) => !cv)}
-                      className={`flex min-h-10 items-center gap-2 rounded-lg border px-3 py-2 text-[12px] font-semibold transition-colors sm:min-h-0 ${t.ring} ${
+                      className={`flex min-h-10 items-center gap-2 rounded-lg border px-3 py-2 text-[12px] font-semibold transition-colors md:min-h-0 ${t.ring} ${
                         compare
                           ? `border-transparent ${t.sel}`
                           : `${t.inner} ${t.hover} ${t.text}`
@@ -3067,7 +3733,9 @@ export default function Insights() {
                     </button>
                   </div>
 
-                  <div className={`mt-4 max-w-full overflow-x-auto ${NO_SCROLLBAR}`}>
+                  <div
+                    className={`mt-4 max-w-full overflow-x-auto ${NO_SCROLLBAR}`}
+                  >
                     <Segmented<NumKey>
                       label={c.trends.metricAria}
                       value={metricA}
@@ -3082,9 +3750,9 @@ export default function Insights() {
                   </div>
 
                   <div
-                    className={`mt-3 rounded-2xl border p-3 sm:p-5 ${t.panel}`}
+                    className={`mt-3 rounded-2xl border p-3 md:p-5 ${t.panel}`}
                   >
-                    <div className="flex flex-wrap items-end justify-between gap-3 pl-1 sm:gap-4 sm:pl-2">
+                    <div className="flex flex-wrap items-end justify-between gap-3 pl-1 md:gap-4 md:pl-2">
                       <div className="min-w-0">
                         <p className={`text-[11px] font-medium ${t.soft}`}>
                           {mainSeries.label} ·{" "}
@@ -3093,7 +3761,7 @@ export default function Insights() {
                             : c.trends.ending}
                         </p>
                         <p
-                          className={`mt-1.5 flex flex-wrap items-center gap-2 text-[24px] font-bold leading-none tracking-tight tabular-nums sm:gap-3 sm:text-[28px] ${t.text}`}
+                          className={`mt-1.5 flex flex-wrap items-center gap-2 text-[26px] font-bold leading-none tracking-tight tabular-nums md:gap-3 md:text-[28px] ${t.text}`}
                         >
                           {nf(seriesTotal(mainSeries), lang)}
                           {mainDelta != null && (
@@ -3108,7 +3776,7 @@ export default function Insights() {
                             >
                               {mainDelta > 0 ? "+" : ""}
                               {mainDelta}%
-                              <span className="max-sm:sr-only">
+                              <span className="max-md:sr-only">
                                 {" "}
                                 {c.summary.vsPreviousShort}
                               </span>
@@ -3138,11 +3806,12 @@ export default function Insights() {
                       )}
                     </div>
 
-                    <div className="mt-4 sm:mt-6">
+                    <div className="mt-4 md:mt-6">
                       <InsightsChart
                         data={chartData}
                         view={chartView}
                         isDark={isDark}
+                        isMobile={isMobile}
                         lang={lang}
                         seriesLabel={mainSeries.label}
                         seriesColor={TONES[0]}
@@ -3171,104 +3840,114 @@ export default function Insights() {
                       <button
                         type="button"
                         onClick={() => scheduleFromSlot(heatmap.best)}
-                        className={`min-h-10 shrink-0 rounded-full px-3.5 py-1.5 text-[11px] font-semibold sm:min-h-0 ${t.ring} ${t.outlineBtn}`}
+                        className={`min-h-11 shrink-0 rounded-full px-3.5 py-1.5 text-[12px] font-semibold max-md:w-full md:min-h-0 md:text-[11px] ${t.ring} ${t.outlineBtn}`}
                       >
                         {c.bestTime.useLabel(heatmap.label)}
                       </button>
                     </div>
 
-                    <div
-                      className={`mt-4 overflow-x-auto overscroll-x-contain px-1 pb-1 ${NO_SCROLLBAR}`}
-                    >
-                      <div className="min-w-[480px]">
-                        <div className="mb-1.5 flex items-end gap-2">
-                          <span className="w-9 shrink-0" />
-                          <div
-                            className={`grid flex-1 gap-[5px] ${HEAT_COLS}`}
-                          >
-                            {Array.from({ length: 24 }, (_, h) => (
-                              <span
-                                key={h}
-                                title={hourLabel(h)}
-                                className={`text-center text-[10px] leading-none tabular-nums ${t.muted}`}
-                              >
-                                {h % 3 === 0
-                                  ? String(h).padStart(2, "0")
-                                  : ""}
-                              </span>
+                    {isMobile ? (
+                      <BestTimeMobile
+                        heatmap={heatmap}
+                        c={c}
+                        t={t}
+                        isDark={isDark}
+                        onSchedule={scheduleFromSlot}
+                      />
+                    ) : (
+                      <div
+                        className={`mt-4 overflow-x-auto overscroll-x-contain px-1 pb-1 ${NO_SCROLLBAR}`}
+                      >
+                        <div className="min-w-[480px]">
+                          <div className="mb-1.5 flex items-end gap-2">
+                            <span className="w-9 shrink-0" />
+                            <div
+                              className={`grid flex-1 gap-[5px] ${HEAT_COLS}`}
+                            >
+                              {Array.from({ length: 24 }, (_, h) => (
+                                <span
+                                  key={h}
+                                  title={hourLabel(h)}
+                                  className={`text-center text-[10px] leading-none tabular-nums ${t.muted}`}
+                                >
+                                  {h % 3 === 0
+                                    ? String(h).padStart(2, "0")
+                                    : ""}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div className="flex flex-col gap-1">
+                            {c.days.map((day, d) => (
+                              <div key={day} className="flex items-center gap-2">
+                                <span
+                                  className={`w-9 shrink-0 text-[10px] ${t.muted}`}
+                                >
+                                  {day}
+                                </span>
+                                <div
+                                  className={`grid flex-1 gap-[5px] ${HEAT_COLS}`}
+                                >
+                                  {Array.from({ length: 24 }, (_, h) => {
+                                    const cell = heatmap.grid[d][h];
+                                    const isBest =
+                                      heatmap.bestByDay[d].hour === h;
+                                    return (
+                                      <button
+                                        key={h}
+                                        type="button"
+                                        title={`${day} ${hourLabel(h)}${
+                                          isBest
+                                            ? c.bestTime.bestOfDaySuffix
+                                            : ""
+                                        }`}
+                                        aria-label={c.bestTime.scheduleAria(
+                                          day,
+                                          hourLabel(h)
+                                        )}
+                                        onClick={() =>
+                                          scheduleFromSlot({ day: d, hour: h })
+                                        }
+                                        className={`aspect-square w-full rounded-[6px] transition-transform hover:scale-125 ${t.ring} ${
+                                          isBest
+                                            ? `ring-[1.5px] ring-offset-1 ${
+                                                isDark
+                                                  ? "ring-white ring-offset-[#0a0a0c]"
+                                                  : "ring-neutral-900 ring-offset-white"
+                                              }`
+                                            : ""
+                                        }`}
+                                        style={{
+                                          background: heatColor(cell.norm),
+                                        }}
+                                      />
+                                    );
+                                  })}
+                                </div>
+                              </div>
                             ))}
                           </div>
-                        </div>
 
-                        <div className="flex flex-col gap-1">
-                          {c.days.map((day, d) => (
-                            <div key={day} className="flex items-center gap-2">
+                          <div className="mt-4 flex items-center justify-end gap-1.5">
+                            <span className={`mr-1 text-[10px] ${t.muted}`}>
+                              {c.bestTime.low}
+                            </span>
+                            {[0, 0.25, 0.5, 0.75, 1].map((v) => (
                               <span
-                                className={`w-9 shrink-0 text-[10px] ${t.muted}`}
-                              >
-                                {day}
-                              </span>
-                              <div
-                                className={`grid flex-1 gap-[5px] ${HEAT_COLS}`}
-                              >
-                                {Array.from({ length: 24 }, (_, h) => {
-                                  const cell = heatmap.grid[d][h];
-                                  const isBest =
-                                    heatmap.bestByDay[d].hour === h;
-                                  return (
-                                    <button
-                                      key={h}
-                                      type="button"
-                                      title={`${day} ${hourLabel(h)}${
-                                        isBest
-                                          ? c.bestTime.bestOfDaySuffix
-                                          : ""
-                                      }`}
-                                      aria-label={c.bestTime.scheduleAria(
-                                        day,
-                                        hourLabel(h)
-                                      )}
-                                      onClick={() =>
-                                        scheduleFromSlot({ day: d, hour: h })
-                                      }
-                                      className={`aspect-square w-full rounded-[6px] transition-transform hover:scale-125 ${t.ring} ${
-                                        isBest
-                                          ? `ring-[1.5px] ring-offset-1 ${
-                                              isDark
-                                                ? "ring-white ring-offset-[#0a0a0c]"
-                                                : "ring-neutral-900 ring-offset-white"
-                                            }`
-                                          : ""
-                                      }`}
-                                      style={{
-                                        background: heatColor(cell.norm),
-                                      }}
-                                    />
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-
-                        <div className="mt-4 flex items-center justify-end gap-1.5">
-                          <span className={`mr-1 text-[10px] ${t.muted}`}>
-                            {c.bestTime.low}
-                          </span>
-                          {[0, 0.25, 0.5, 0.75, 1].map((v) => (
-                            <span
-                              key={v}
-                              className="h-3 w-3 rounded-[3px]"
-                              style={{ background: heatColor(v) }}
-                              aria-hidden="true"
-                            />
-                          ))}
-                          <span className={`ml-1 text-[10px] ${t.muted}`}>
-                            {c.bestTime.high}
-                          </span>
+                                key={v}
+                                className="h-3 w-3 rounded-[3px]"
+                                style={{ background: heatColor(v) }}
+                                aria-hidden="true"
+                              />
+                            ))}
+                            <span className={`ml-1 text-[10px] ${t.muted}`}>
+                              {c.bestTime.high}
+                            </span>
+                          </div>
                         </div>
                       </div>
-                    </div>
+                    )}
                   </section>
 
                   <section
@@ -3290,7 +3969,7 @@ export default function Insights() {
                         {remixable.map((p, i) => (
                           <div
                             key={p.id}
-                            className={`flex gap-3 rounded-2xl border p-3 sm:p-3.5 ${t.inner}`}
+                            className={`flex gap-3 rounded-2xl border p-3 md:p-3.5 ${t.inner}`}
                           >
                             <span
                               className={`flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl ${t.iconBox}`}
@@ -3310,8 +3989,7 @@ export default function Insights() {
                               <p
                                 className={`text-[10px] font-semibold uppercase tracking-wide ${t.muted}`}
                               >
-                                {c.recycle.rank(i + 1)} ·{" "}
-                                {mediaLabel(p.media)}
+                                {c.recycle.rank(i + 1)} · {mediaLabel(p.media)}
                               </p>
                               <div className="mt-0.5 flex flex-wrap items-center justify-between gap-x-2 gap-y-1.5">
                                 <p
@@ -3322,7 +4000,7 @@ export default function Insights() {
                                 <button
                                   type="button"
                                   onClick={() => duplicatePost(p)}
-                                  className={`min-h-9 shrink-0 rounded-md border px-2.5 py-1 text-[11px] font-semibold transition-colors motion-reduce:transition-none sm:min-h-0 ${t.ring} ${
+                                  className={`min-h-10 shrink-0 rounded-md border px-3 py-1 text-[12px] font-semibold transition-colors motion-reduce:transition-none md:min-h-0 md:px-2.5 md:text-[11px] ${t.ring} ${
                                     isDark
                                       ? "border-white/10 text-white hover:border-white/25 hover:bg-white/[0.08]"
                                       : "border-black/10 text-neutral-900 hover:border-black/25 hover:bg-black/[0.06]"
@@ -3347,7 +4025,7 @@ export default function Insights() {
 
                 {/* ── PERFORMANCE PER POST ── */}
                 <section
-                  className={sectionCard}
+                  className={`${sectionCard} min-w-0`}
                   aria-labelledby="perf-title"
                 >
                   <div className="flex flex-wrap items-start justify-between gap-3 px-1">
@@ -3360,9 +4038,7 @@ export default function Insights() {
                           ? periodLabel
                           : fmtRange(prevStart, prevEnd, lang)}
                         {hiddenScheduled > 0 &&
-                          ` · ${c.performance.hiddenScheduled(
-                            hiddenScheduled
-                          )}`}
+                          ` · ${c.performance.hiddenScheduled(hiddenScheduled)}`}
                       </p>
                     </div>
                     <Segmented<PostsPeriod>
@@ -3405,7 +4081,7 @@ export default function Insights() {
                               aria-label={c.performance.sortBy(
                                 c.performance.columns[col.key]
                               )}
-                              className={`flex min-h-9 shrink-0 items-center gap-1 whitespace-nowrap rounded-full border px-3 py-1.5 text-[12px] font-semibold transition-colors ${t.ring} ${
+                              className={`flex min-h-10 shrink-0 items-center gap-1 whitespace-nowrap rounded-full border px-3.5 py-1.5 text-[12px] font-semibold transition-colors ${t.ring} ${
                                 active
                                   ? `border-transparent ${t.sel}`
                                   : `${t.inner} ${t.hover} ${t.text}`
@@ -3430,9 +4106,7 @@ export default function Insights() {
                     <div
                       className={`hidden items-center gap-2 px-4 py-3 text-[12px] font-semibold md:grid ${TABLE_GRID} ${t.head} ${t.text}`}
                     >
-                      <span>
-                        {c.performance.postsCount(sortedRows.length)}
-                      </span>
+                      <span>{c.performance.postsCount(sortedRows.length)}</span>
                       {columns.map((col) => (
                         <button
                           key={col.key}
@@ -3473,7 +4147,7 @@ export default function Insights() {
                           <Activity className="h-5 w-5" aria-hidden="true" />
                         </span>
                         <p
-                          className={`text-[13px] font-medium sm:text-[12px] ${t.text}`}
+                          className={`text-[13px] font-medium md:text-[12px] ${t.text}`}
                         >
                           {youtubeLoading
                             ? c.performance.emptyLoading
@@ -3482,9 +4156,7 @@ export default function Insights() {
                               : c.performance.emptyNoPost}
                         </p>
                         {!youtubeLoading && !needle && (
-                          <p
-                            className={`max-w-[360px] text-[12px] ${t.soft}`}
-                          >
+                          <p className={`max-w-[360px] text-[12px] ${t.soft}`}>
                             {c.performance.emptyLongerPeriod}
                           </p>
                         )}
@@ -3492,7 +4164,7 @@ export default function Insights() {
                           <button
                             type="button"
                             onClick={() => setRange("30d")}
-                            className={`mt-2 min-h-10 rounded-full px-3.5 py-1.5 text-[11px] font-semibold transition-colors sm:min-h-0 ${t.ring} ${t.outlineBtn}`}
+                            className={`mt-2 min-h-11 rounded-full px-4 py-1.5 text-[12px] font-semibold transition-colors md:min-h-0 md:px-3.5 md:text-[11px] ${t.ring} ${t.outlineBtn}`}
                           >
                             {c.performance.showLast30Days}
                           </button>
@@ -3580,7 +4252,7 @@ export default function Insights() {
                                 rel="noopener noreferrer"
                                 aria-label={c.performance.openYouTube}
                                 title={c.performance.openYouTube}
-                                className={`flex h-9 w-9 items-center justify-center rounded-md md:h-8 md:w-8 ${t.soft} ${t.hover} ${t.ring}`}
+                                className={`flex h-10 w-10 items-center justify-center rounded-md md:h-8 md:w-8 ${t.soft} ${t.hover} ${t.ring}`}
                               >
                                 <ExternalLink
                                   className="h-4 w-4"
@@ -3593,7 +4265,7 @@ export default function Insights() {
                                 aria-label={c.performance.duplicatePost}
                                 title={c.performance.duplicatePost}
                                 onClick={() => duplicatePost(p)}
-                                className={`flex h-9 w-9 items-center justify-center rounded-md md:h-8 md:w-8 ${t.soft} ${t.hover} ${t.ring}`}
+                                className={`flex h-10 w-10 items-center justify-center rounded-md md:h-8 md:w-8 ${t.soft} ${t.hover} ${t.ring}`}
                               >
                                 <MoreVertical
                                   className="h-4 w-4"
@@ -3613,7 +4285,7 @@ export default function Insights() {
                         <button
                           type="button"
                           onClick={() => setShowAllPosts((v) => !v)}
-                          className={`min-h-10 rounded-full px-3.5 py-1.5 text-[11px] font-semibold transition-colors sm:min-h-0 ${t.ring} ${t.outlineBtn}`}
+                          className={`min-h-11 rounded-full px-4 py-1.5 text-[12px] font-semibold transition-colors md:min-h-0 md:px-3.5 md:text-[11px] ${t.ring} ${t.outlineBtn}`}
                         >
                           {showAllPosts
                             ? c.performance.showLess
@@ -3628,6 +4300,19 @@ export default function Insights() {
           </div>
         </div>
       </div>
+
+      {/* Feuille « Canaux » (mobile) */}
+      {channelsOpen && isMobile && (
+        <ChannelSheet
+          isDark={isDark}
+          title={c.sheets.channels}
+          channels={channels}
+          selectedKey={viewingAll ? ALL_KEY : channel?.key}
+          allLabel={channels.length > 1 ? c.allNetworks : undefined}
+          onSelect={goChannel}
+          onClose={() => setChannelsOpen(false)}
+        />
+      )}
 
       <Folder
         isOpen={isFolderOpen}
