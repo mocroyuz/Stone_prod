@@ -7,6 +7,9 @@
 // Les deux sont reliés par sessionStorage (queueFrequencyOnboarding).
 // Design aligné sur les maquettes : mêmes textes, mêmes layouts — seules les
 // couleurs diffèrent (palette noir/blanc au lieu des accents verts).
+//
+// Instagram a une étape 0 supplémentaire : <InstagramAccountTypeModal />
+// (choix Professional vs Personal avant de lancer l'OAuth).
 
 import { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
@@ -206,6 +209,50 @@ const PlusIcon = ({ className }: { className?: string }) => (
     <path d="M5 12h14" />
   </Svg>
 );
+const InfoIcon = ({ className }: { className?: string }) => (
+  <Svg className={className}>
+    <circle cx="12" cy="12" r="10" />
+    <path d="M12 16v-4" />
+    <path d="M12 8h.01" />
+  </Svg>
+);
+const BellIcon = ({ className }: { className?: string }) => (
+  <Svg className={className}>
+    <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+    <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+  </Svg>
+);
+const LoopIcon = ({ className }: { className?: string }) => (
+  <Svg className={className}>
+    <path d="m17 2 4 4-4 4" />
+    <path d="M3 11v-1a4 4 0 0 1 4-4h14" />
+    <path d="m7 22-4-4 4-4" />
+    <path d="M21 13v1a4 4 0 0 1-4 4H3" />
+  </Svg>
+);
+const StackIcon = ({ className }: { className?: string }) => (
+  <Svg className={className}>
+    <path d="M12 2 2 7l10 5 10-5-10-5Z" />
+    <path d="m2 12 10 5 10-5" />
+    <path d="m2 17 10 5 10-5" />
+  </Svg>
+);
+const ArrowsIcon = ({ className }: { className?: string }) => (
+  <Svg className={className}>
+    <path d="M17 3l4 4-4 4" />
+    <path d="M21 7H7" />
+    <path d="M7 21l-4-4 4-4" />
+    <path d="M3 17h14" />
+  </Svg>
+);
+
+function FacebookBadgeIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="#1877F2" aria-hidden="true">
+      <path d="M24 12.073C24 5.405 18.627 0 12 0S0 5.405 0 12.073c0 6.026 4.388 11.02 10.125 11.927v-8.437H7.078v-3.49h3.047V9.413c0-3.017 1.792-4.686 4.533-4.686 1.313 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.49h-2.796v8.437C19.612 23.093 24 18.1 24 12.073z" />
+    </svg>
+  );
+}
 
 function Spinner({ className = "h-4 w-4" }: { className?: string }) {
   return (
@@ -651,7 +698,7 @@ export function ConfirmAccountModal({
           <div className="ml-auto flex items-center gap-2">
             <GhostButton p={p} onClick={onReject} disabled={loading}>
               Not this account
-            </GhostButton> 
+            </GhostButton>
             <PrimaryButton p={p} onClick={onConfirm} loading={loading} autoFocus>
               Finish Connection <ArrowIcon className="h-4 w-4" />
             </PrimaryButton>
@@ -932,6 +979,268 @@ export function PostingFrequencyModal({
         </div>
       )}
     </ModalShell>
+  );
+}
+
+/* ============================================================================
+   ÉTAPE 0 (Instagram uniquement) : CHOIX DU TYPE DE COMPTE
+============================================================================ */
+
+export type InstagramAccountType = "professional" | "personal";
+
+const IG_PRO_FEATURES: { label: string; rest: string }[] = [
+  { label: "Automatic posting", rest: "– You schedule and we'll post" },
+  { label: "Notifications", rest: "– We notify you, then you finish in app" },
+  { label: "Community", rest: "– Easily reply to comments" },
+  { label: "Sent Post Metrics", rest: "– View past post performance" },
+];
+
+const IG_PERSONAL_FEATURES: { label: string; rest: string }[] = [
+  { label: "Notifications", rest: "– We notify you, then you finish in app" },
+];
+
+function FeatureLine({
+  label,
+  rest,
+  p,
+}: {
+  label: string;
+  rest: string;
+  p: Palette;
+}) {
+  return (
+    <li className="flex items-start gap-2.5 text-[13.5px] leading-snug">
+      <span className="mt-0.5 shrink-0" style={{ color: p.muted }}>
+        <CheckIcon className="h-4 w-4" />
+      </span>
+      <span>
+        <strong style={{ color: p.text }}>{label}</strong>{" "}
+        <span style={{ color: p.muted }}>{rest}</span>
+      </span>
+    </li>
+  );
+}
+
+export function InstagramAccountTypeModal({
+  isDark,
+  onClose,
+  onChoose,
+}: {
+  isDark: boolean;
+  onClose: () => void;
+  onChoose: (type: InstagramAccountType) => void;
+}) {
+  const p = palette(isDark);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const pressedOnBackdrop = useRef(false);
+  useModalBehavior(onClose, dialogRef);
+
+  const cssVars = {
+    "--s-hover": p.surfaceHover,
+    "--s-text": p.text,
+    "--s-border-strong": p.borderStrong,
+  } as CSSProperties;
+
+  return (
+    <div
+      className="stone-modal fixed inset-0 z-[100] flex items-center justify-center px-4 py-6"
+      style={{
+        ...cssVars,
+        background: p.overlay,
+        backdropFilter: "blur(6px)",
+        animation: "stone-fade 0.2s ease-out both",
+      }}
+      onMouseDown={(e) => {
+        pressedOnBackdrop.current = e.target === e.currentTarget;
+      }}
+      onMouseUp={(e) => {
+        if (pressedOnBackdrop.current && e.target === e.currentTarget) onClose();
+        pressedOnBackdrop.current = false;
+      }}
+    >
+      <Keyframes />
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="stone-ig-type-title"
+        className="relative flex max-h-[calc(100vh-32px)] w-full max-w-[1000px] flex-col overflow-hidden rounded-[20px] border"
+        style={{
+          background: p.bg,
+          borderColor: p.border,
+          color: p.text,
+          boxShadow: "0 30px 80px rgba(0,0,0,0.35)",
+          animation: "stone-pop 0.28s cubic-bezier(.2,.9,.25,1) both",
+        }}
+      >
+        {/* Header : icônes centrées + fermeture */}
+        <div
+          className="relative flex shrink-0 items-center justify-center border-b px-14 py-4"
+          style={{ borderColor: p.border }}
+        >
+          <div className="flex items-center gap-3" style={{ color: p.text }}>
+            <StackIcon className="h-5 w-5" />
+            <span style={{ color: p.muted }}>
+              <ArrowsIcon className="h-5 w-5" />
+            </span>
+            <InstagramIcon className="h-5 w-5" size={20} />
+          </div>
+          <button
+            type="button"
+            aria-label="Fermer"
+            onClick={onClose}
+            className="stone-ghost absolute right-4 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg focus-visible:outline focus-visible:outline-2"
+            style={{ color: p.muted, outlineColor: p.accent }}
+          >
+            <CloseIcon className="h-4 w-4" />
+          </button>
+        </div>
+
+        {/* Contenu scrollable */}
+        <div className="flex-1 overflow-y-auto px-6 py-8 sm:px-10">
+          <div className="mx-auto flex w-full max-w-[860px] flex-col">
+            <h2
+              id="stone-ig-type-title"
+              className="text-balance text-center text-[24px] font-semibold leading-tight tracking-[-0.02em]"
+              style={{ animation: "stone-rise 0.35s ease-out both" }}
+            >
+              How would you like to connect your Instagram Account?
+            </h2>
+            <p
+              className="mx-auto mb-8 mt-3 max-w-[560px] text-center text-[14px] leading-relaxed"
+              style={{
+                color: p.muted,
+                animation: "stone-rise 0.35s ease-out 0.05s both",
+              }}
+            >
+              Features depend on the type of Instagram account you have and the
+              connection you choose.
+            </p>
+
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              {/* Carte Professionnel */}
+              <div
+                className="flex flex-col rounded-[16px] border p-6"
+                style={{
+                  background: p.surface,
+                  borderColor: p.borderStrong,
+                  animation: "stone-rise 0.35s ease-out 0.1s both",
+                }}
+              >
+                <h3 className="text-[18px] font-semibold">
+                  Professional (Business &amp; Creator)
+                </h3>
+                <span
+                  className="mt-2 inline-flex w-fit items-center gap-1.5 rounded-md px-2 py-1 text-[12px] font-medium"
+                  style={{ background: p.surfaceHover, color: p.text }}
+                >
+                  <LoopIcon className="h-3.5 w-3.5" />
+                  Automatic &amp; Notification-based Posting
+                </span>
+
+                <ul className="mt-5 flex flex-col gap-3">
+                  {IG_PRO_FEATURES.map((f) => (
+                    <FeatureLine key={f.label} label={f.label} rest={f.rest} p={p} />
+                  ))}
+                </ul>
+
+                <button
+                  type="button"
+                  onClick={() => onChoose("professional")}
+                  className="stone-btn mt-6 h-[44px] w-full rounded-[10px] text-[14px] font-semibold transition-all active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+                  style={{
+                    background: p.accent,
+                    color: p.accentText,
+                    outlineColor: p.accent,
+                  }}
+                >
+                  Connect to Instagram
+                </button>
+
+                <div
+                  className="mt-6 flex items-start gap-2.5 border-t pt-4 text-[12.5px] leading-relaxed"
+                  style={{ borderColor: p.border, color: p.muted }}
+                >
+                  <InfoIcon className="mt-0.5 h-4 w-4 shrink-0" />
+                  <span>
+                    Instagram will prompt you to easily convert to a professional
+                    account if needed.
+                  </span>
+                </div>
+              </div>
+
+              {/* Carte Personnel */}
+              <div
+                className="flex flex-col rounded-[16px] border p-6"
+                style={{
+                  background: p.surface,
+                  borderColor: p.border,
+                  animation: "stone-rise 0.35s ease-out 0.15s both",
+                }}
+              >
+                <h3 className="text-[18px] font-semibold">Personal</h3>
+                <span
+                  className="mt-2 inline-flex w-fit items-center gap-1.5 rounded-md px-2 py-1 text-[12px] font-medium"
+                  style={{ background: p.surfaceHover, color: p.text }}
+                >
+                  <BellIcon className="h-3.5 w-3.5" />
+                  Notification-Based Posting Only
+                </span>
+
+                <ul className="mt-5 flex flex-col gap-3">
+                  {IG_PERSONAL_FEATURES.map((f) => (
+                    <FeatureLine key={f.label} label={f.label} rest={f.rest} p={p} />
+                  ))}
+                </ul>
+
+                <div className="mt-auto pt-6">
+                  <button
+                    type="button"
+                    onClick={() => onChoose("personal")}
+                    className="stone-ghost h-[44px] w-full rounded-[10px] border text-[14px] font-semibold transition-all active:scale-[0.98] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+                    style={{
+                      borderColor: p.borderStrong,
+                      color: p.text,
+                      outlineColor: p.accent,
+                    }}
+                  >
+                    Setup a Personal Account
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Lien Facebook */}
+            <div className="mt-6 flex flex-wrap items-center gap-2 text-[13px]">
+              <FacebookBadgeIcon className="h-4 w-4 shrink-0" />
+              <button
+                type="button"
+                onClick={() => onChoose("professional")}
+                className="text-left underline underline-offset-2 transition-opacity hover:opacity-80"
+                style={{ color: p.text }}
+              >
+                Connect Instagram through Facebook
+              </button>
+              <span style={{ color: p.muted }}>
+                if your Instagram account is currently linked to Facebook.
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer Help */}
+        <div
+          className="flex shrink-0 items-center border-t px-6 py-3 sm:px-10"
+          style={{ borderColor: p.border }}
+        >
+          <HelpPopover p={p} label="Help" title="Quel type choisir ?">
+            Choisis <strong>Professional</strong> si tu veux publier
+            automatiquement depuis Stone. Choisis <strong>Personal</strong> si tu
+            préfères finaliser chaque publication dans l'app Instagram.
+          </HelpPopover>
+        </div>
+      </div>
+    </div>
   );
 }
 
