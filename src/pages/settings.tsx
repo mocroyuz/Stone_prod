@@ -41,6 +41,11 @@ import {
   disconnectYouTube,
 } from "../services/youtube";
 import {
+  getInstagramStatus,
+  startInstagramLogin,
+  disconnectInstagram,
+} from "../services/instagram";
+import {
   CHANNELS_CHANGED_EVENT,
   CACHE_MAX_AGE_MS,
   clearCache,
@@ -2111,6 +2116,8 @@ function hasSectionInUrl(): boolean {
         "pinterest_error",
         "youtube",
         "youtube_error",
+        "instagram",
+        "instagram_error",
       ].some((k) => params.has(k))
     ) {
       return true;
@@ -2276,6 +2283,8 @@ function initialSection(): SectionKey {
       "pinterest_error",
       "youtube",
       "youtube_error",
+      "instagram",
+      "instagram_error",
     ].some((key) => params.has(key));
     const parsed = JSON.parse(sessionStorage.getItem(RETURN_KEY) ?? "[]");
     const pending = Array.isArray(parsed) && parsed.length > 0;
@@ -4937,11 +4946,13 @@ function ChannelsSection({
     const tiktok = readCache(userId, "tiktok");
     const pinterest = readCache(userId, "pinterest");
     const youtube = readCache(userId, "youtube");
+    const instagram = readCache(userId, "instagram");
     return {
       ...initialConnections,
       ...(tiktok ? { tiktok: tiktok.connection } : {}),
       ...(pinterest ? { pinterest: pinterest.connection } : {}),
       ...(youtube ? { youtube: youtube.connection } : {}),
+      ...(instagram ? { instagram: instagram.connection } : {}),
     };
   });
   const [pendingKey, setPendingKey] = useState<ChannelKey | null>(null);
@@ -4952,6 +4963,7 @@ function ChannelsSection({
   const tiktokBusy = useRef(false);
   const pinterestBusy = useRef(false);
   const youtubeBusy = useRef(false);
+  const instagramBusy = useRef(false);
 
   const startOnboarding = (key: ChannelKey, connection: Connection) => {
     const channel = CHANNELS.find((ch) => ch.key === key);
@@ -4999,17 +5011,25 @@ function ChannelsSection({
     const tiktokError = params.get("tiktok_error");
     const pinterestError = params.get("pinterest_error");
     const youtubeError = params.get("youtube_error");
+    const instagramError = params.get("instagram_error");
     const fromUrl: Record<CacheProvider, boolean> = {
       tiktok: params.has("tiktok") || Boolean(tiktokError),
       pinterest: params.has("pinterest") || Boolean(pinterestError),
       youtube: params.has("youtube") || Boolean(youtubeError),
+      instagram: params.has("instagram") || Boolean(instagramError),
     };
     const oauthErrors: Record<CacheProvider, string | null> = {
       tiktok: tiktokError,
       pinterest: pinterestError,
       youtube: youtubeError,
+      instagram: instagramError,
     };
-    const providers: CacheProvider[] = ["tiktok", "pinterest", "youtube"];
+    const providers: CacheProvider[] = [
+      "tiktok",
+      "pinterest",
+      "youtube",
+      "instagram",
+    ];
     const pendingReturn = new Set<CacheProvider>(readReturned());
     providers.forEach((p) => {
       if (fromUrl[p]) pendingReturn.add(p);
@@ -5020,6 +5040,7 @@ function ChannelsSection({
       tiktok: pendingReturn.has("tiktok"),
       pinterest: pendingReturn.has("pinterest"),
       youtube: pendingReturn.has("youtube"),
+      instagram: pendingReturn.has("instagram"),
     };
     if (tiktokError)
       setErrorMessage(c.channels.oauthError("TikTok", tiktokError));
@@ -5027,12 +5048,20 @@ function ChannelsSection({
       setErrorMessage(c.channels.oauthError("Pinterest", pinterestError));
     if (youtubeError)
       setErrorMessage(c.channels.oauthError("YouTube Shorts", youtubeError));
+    if (instagramError)
+      setErrorMessage(c.channels.oauthError("Instagram", instagramError));
 
     if (returned.tiktok) clearCache(userId, "tiktok");
     if (returned.pinterest) clearCache(userId, "pinterest");
     if (returned.youtube) clearCache(userId, "youtube");
+    if (returned.instagram) clearCache(userId, "instagram");
 
-    if (fromUrl.tiktok || fromUrl.pinterest || fromUrl.youtube) {
+    if (
+      fromUrl.tiktok ||
+      fromUrl.pinterest ||
+      fromUrl.youtube ||
+      fromUrl.instagram
+    ) {
       [
         "tiktok",
         "tiktok_error",
@@ -5040,6 +5069,8 @@ function ChannelsSection({
         "pinterest_error",
         "youtube",
         "youtube_error",
+        "instagram",
+        "instagram_error",
       ].forEach((key) => params.delete(key));
       const qs = params.toString();
       window.history.replaceState(
@@ -5090,6 +5121,7 @@ function ChannelsSection({
     sync("tiktok", returned.tiktok, getTikTokStatus);
     sync("pinterest", returned.pinterest, getPinterestStatus);
     sync("youtube", returned.youtube, getYouTubeStatus);
+    sync("instagram", returned.instagram, getInstagramStatus);
     return () => {
       cancelled = true;
     };
@@ -5107,6 +5139,8 @@ function ChannelsSection({
           readCache(userId, "pinterest")?.connection ?? { connected: false },
         youtube:
           readCache(userId, "youtube")?.connection ?? { connected: false },
+        instagram:
+          readCache(userId, "instagram")?.connection ?? { connected: false },
       }));
     };
     window.addEventListener(CHANNELS_CHANGED_EVENT, refreshConnections);
@@ -5227,6 +5261,38 @@ function ChannelsSection({
     }
   };
 
+  const handleInstagramToggle = async (isReconnect = false) => {
+    if (instagramBusy.current) return;
+    instagramBusy.current = true;
+    setPendingKey("instagram");
+    let redirecting = false;
+    try {
+      if (connections.instagram.connected) {
+        await disconnectInstagram();
+        if (userId) clearCache(userId, "instagram");
+        setConnections((current) => ({
+          ...current,
+          instagram: { connected: false },
+        }));
+        if (!isReconnect) {
+          notify(c.channels.disconnectedToast("Instagram"), "success");
+          return;
+        }
+      }
+      markReturning("instagram");
+      await startInstagramLogin();
+      redirecting = true;
+    } catch (error) {
+      console.error("Instagram OAuth error:", error);
+      setErrorMessage(formatOAuthError("Instagram", error, c));
+    } finally {
+      if (!redirecting) {
+        setPendingKey(null);
+        instagramBusy.current = false;
+      }
+    }
+  };
+
   const handlePlaceholderToggle = (key: ChannelKey) => {
     const wasConnected = connections[key].connected;
     const name = CHANNELS.find((ch) => ch.key === key)?.name ?? key;
@@ -5272,6 +5338,7 @@ function ChannelsSection({
     if (key === "tiktok") return void handleTikTokToggle();
     if (key === "pinterest") return void handlePinterestToggle();
     if (key === "youtube") return void handleYouTubeToggle();
+    if (key === "instagram") return void handleInstagramToggle();
     handlePlaceholderToggle(key);
   }
 
@@ -5280,6 +5347,7 @@ function ChannelsSection({
     if (key === "tiktok") return void handleTikTokToggle(true);
     if (key === "pinterest") return void handlePinterestToggle(true);
     if (key === "youtube") return void handleYouTubeToggle(true);
+    if (key === "instagram") return void handleInstagramToggle(true);
     handlePlaceholderReconnect(key);
   }
 

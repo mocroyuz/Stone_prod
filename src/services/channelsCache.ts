@@ -6,7 +6,7 @@ export type Connection = {
   needsReconnect?: boolean;
 };
 
-export type CacheProvider = "tiktok" | "pinterest" | "youtube";
+export type CacheProvider = "tiktok" | "pinterest" | "youtube" | "instagram";
 export type CachedProfile = { connection: Connection; savedAt: number };
 export type CachedTikTok = CachedProfile;
 
