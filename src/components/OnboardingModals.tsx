@@ -651,7 +651,7 @@ export function ConfirmAccountModal({
           <div className="ml-auto flex items-center gap-2">
             <GhostButton p={p} onClick={onReject} disabled={loading}>
               Not this account
-            </GhostButton>
+            </GhostButton> 
             <PrimaryButton p={p} onClick={onConfirm} loading={loading} autoFocus>
               Finish Connection <ArrowIcon className="h-4 w-4" />
             </PrimaryButton>

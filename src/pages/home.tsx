@@ -28,6 +28,8 @@ import { getCurrentUser, type UserProfile } from "../services/supabase";
 import { createPosts } from "../services/posts";
 import { useYouTubeInsights } from "../services/youtube";
 import { navigateToSettingsSection } from "../utils/settingsNavigation";
+// Demande à Settings de s'ouvrir directement sur la section Channels.
+import { requestChannelsSection } from "../components/ChannelsSection";
 import {
   ArrowLeftRight,
   ArrowRight,
@@ -632,6 +634,25 @@ USER CACHE
 const userProfileCache = {
   profile: null as UserProfile | null,
 };
+
+/* ============================================================
+NAVIGATION → SETTINGS > UTILS > CHANNELS
+============================================================ */
+
+/**
+ * Ouvre la section « Channels » dans Settings > Utils.
+ *
+ * 1. `requestChannelsSection()` pose un flag en sessionStorage que
+ *    `shouldOpenChannelsSection()` lit au montage de Settings.
+ * 2. On navigue ensuite vers Settings.
+ *
+ * Résultat : Settings s'ouvre directement sur l'onglet Channels,
+ * sans jamais passer par l'ancienne page Channels.
+ */
+function openChannelsSection() {
+  requestChannelsSection();
+  navigateToSettingsSection("channels");
+}
 
 /* ============================================================
 NETWORKS
@@ -1356,20 +1377,19 @@ function ChannelAvatar({
 }
 
 /* ============================================================
-CHANNELS
+CHANNELS — ouvre Settings > Utils > Channels
 ============================================================ */
 function Channels({
   isDark,
   lang,
   channels,
-  onAdd,
 }: {
   isDark: boolean;
   lang: Lang;
   channels: ConnectedChannel[];
-  onAdd: () => void;
 }) {
   const c = COPY[lang];
+
   return (
     <div
       className={[
@@ -1382,7 +1402,7 @@ function Channels({
           <button
             type="button"
             aria-label={c.channels.connectAria}
-            onClick={onAdd}
+            onClick={openChannelsSection}
             className={[
               "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition sm:h-9 sm:w-9",
               focusRingClass(isDark),
@@ -1449,7 +1469,7 @@ function Channels({
               type="button"
               aria-label={c.channels.connectAnotherAria}
               title={c.channels.connectAnotherAria}
-              onClick={onAdd}
+              onClick={openChannelsSection}
               className={[
                 "-ml-2 flex h-8 w-8 shrink-0 items-center justify-center sm:h-9 sm:w-9",
                 "relative z-10 rounded-full border transition-all duration-200",
@@ -1486,11 +1506,7 @@ function Channels({
       )}
       <button
         type="button"
-        onClick={() =>
-          channels.length === 0
-            ? onAdd()
-            : navigateToSettingsSection("channels")
-        }
+        onClick={openChannelsSection}
         className={[
           "flex shrink-0 items-center gap-1 rounded-lg px-2 py-2 sm:gap-1.5 sm:px-3",
           "text-[11.5px] font-semibold transition sm:text-[10px]",
@@ -2888,7 +2904,6 @@ export default function Home() {
                 isDark={isDark}
                 lang={lang}
                 channels={connectedChannels}
-                onAdd={() => navigateToSettingsSection("channels")}
               />
             </section>
 
@@ -2897,7 +2912,7 @@ export default function Home() {
                 isDark={isDark}
                 lang={lang}
                 channels={connectedChannels}
-                onConnect={() => navigateToSettingsSection("channels")}
+                onConnect={openChannelsSection}
               />
               <Panel
                 isDark={isDark}
