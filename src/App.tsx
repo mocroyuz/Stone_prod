@@ -190,6 +190,45 @@ function interceptCanvaOAuthCallback() {
 interceptCanvaOAuthCallback();
 
 /* ──────────────────────────────────────────────────────────────
+   BOOTSTRAP : URL path-based → hash-based
+   ──────────────────────────────────────────────────────────────
+   L'app est hash-routée (#/settings/channels), mais OAuth et liens
+   externes peuvent arriver en /settings/channels (sans #).
+   Sans cette conversion, useHashRoute() renvoie "" → landing →
+   reload loop → Vercel rate-limit (ERR_CONNECTION_RESET).
+
+   IMPORTANT : les query params restent AVANT le # pour que
+   window.location.search continue de fonctionner dans les
+   handlers OAuth (ChannelsSection, checkout return, etc.).
+*/
+
+(function bootstrapPathToHash() {
+  if (typeof window === "undefined") return;
+
+  // Ne pas toucher les flux de récupération de mot de passe.
+  if (isRecoveryUrl()) return;
+
+  const { pathname, hash, search } = window.location;
+
+  // Déjà hash-routé → rien à faire.
+  if (hash) return;
+
+  // Racine ou index → rien à faire.
+  if (pathname === "/" || pathname === "/index.html") return;
+
+  // Fichiers statiques et API proxy → ne pas toucher.
+  if (pathname.startsWith("/assets/") || pathname.startsWith("/api/")) return;
+
+  // Canva return est géré séparément (isCanvaReturnPage).
+  if (pathname === "/canva-return") return;
+
+  // /settings/channels?instagram=connected
+  //   → /?instagram=connected#/settings/channels
+  const cleanPath = pathname.replace(/\/+$/, "");
+  window.history.replaceState(null, "", `/${search}#${cleanPath}`);
+})();
+
+/* ──────────────────────────────────────────────────────────────
    GOOGLE / SUPABASE OAUTH REDIRECT
    ────────────────────────────────────────────────────────────── */
 
@@ -213,10 +252,11 @@ interceptCanvaOAuthCallback();
     const description =
       readParam("error_description") || oauthError;
 
+    // Hash-routé : les params restent dans le search.
     window.history.replaceState(
       null,
       "",
-      `/signin?oauth_error=${encodeURIComponent(description)}`
+      `/?oauth_error=${encodeURIComponent(description)}#/signin`
     );
 
     return;
@@ -250,8 +290,8 @@ interceptCanvaOAuthCallback();
     try {
       await saveOAuthSession(accessToken, refreshToken);
 
-      // Redirection vers la page d'accueil du tableau de bord.
-      window.location.replace("/home");
+      // Redirection hash-routée vers la page d'accueil du tableau de bord.
+      window.location.replace("/#/home");
     } catch (error) {
       console.error("[OAuth] Échec de l'enregistrement de session :", error);
 
@@ -262,9 +302,9 @@ interceptCanvaOAuthCallback();
       }
 
       window.location.replace(
-        `/signin?oauth_error=${encodeURIComponent(
+        `/?oauth_error=${encodeURIComponent(
           "Impossible de finaliser la connexion. Veuillez réessayer."
-        )}`
+        )}#/signin`
       );
     }
   })();
