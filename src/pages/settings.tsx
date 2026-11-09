@@ -22,7 +22,9 @@ import Modal from "../components/Modal";
 import {
   ConfirmAccountModal,
   openFrequencyOnboarding,
+  InstagramAccountTypeModal,
   type OnboardingAccount,
+  type InstagramAccountType,
 } from "../components/OnboardingModals";
 import {
   getTikTokStatus,
@@ -4960,6 +4962,7 @@ function ChannelsSection({
   const [onboardingAccount, setOnboardingAccount] =
     useState<OnboardingAccount | null>(null);
   const [confirming, setConfirming] = useState(false);
+  const [igPickerOpen, setIgPickerOpen] = useState(false);
   const tiktokBusy = useRef(false);
   const pinterestBusy = useRef(false);
   const youtubeBusy = useRef(false);
@@ -5263,6 +5266,15 @@ function ChannelsSection({
 
   const handleInstagramToggle = async (isReconnect = false) => {
     if (instagramBusy.current) return;
+    setErrorMessage(null);
+
+    // Première connexion → on ouvre le picker de type de compte.
+    // (Une reconnexion garde le type déjà utilisé, une déconnexion n'en a pas besoin.)
+    if (!connections.instagram.connected && !isReconnect) {
+      setIgPickerOpen(true);
+      return;
+    }
+
     instagramBusy.current = true;
     setPendingKey("instagram");
     let redirecting = false;
@@ -5280,6 +5292,32 @@ function ChannelsSection({
         }
       }
       markReturning("instagram");
+      await startInstagramLogin();
+      redirecting = true;
+    } catch (error) {
+      console.error("Instagram OAuth error:", error);
+      setErrorMessage(formatOAuthError("Instagram", error, c));
+    } finally {
+      if (!redirecting) {
+        setPendingKey(null);
+        instagramBusy.current = false;
+      }
+    }
+  };
+
+  // Appelé depuis <InstagramAccountTypeModal /> quand l'utilisateur choisit
+  // "Professional" ou "Personal". Le type est transmis au service si ton
+  // backend le supporte ; sinon on retombe sur le flow OAuth classique.
+  const handleInstagramChoose = async (_type: InstagramAccountType) => {
+    setIgPickerOpen(false);
+    if (instagramBusy.current) return;
+    instagramBusy.current = true;
+    setPendingKey("instagram");
+    let redirecting = false;
+    try {
+      markReturning("instagram");
+      // TODO: si `startInstagramLogin` accepte un paramètre, faire :
+      //   await startInstagramLogin({ accountType: _type });
       await startInstagramLogin();
       redirecting = true;
     } catch (error) {
@@ -5444,6 +5482,14 @@ function ChannelsSection({
           onConfirm={handleConfirmAccount}
           onReject={handleRejectAccount}
           onClose={handleCloseOnboarding}
+        />
+      )}
+
+      {igPickerOpen && (
+        <InstagramAccountTypeModal
+          isDark={isDark}
+          onClose={() => setIgPickerOpen(false)}
+          onChoose={handleInstagramChoose}
         />
       )}
     </>
