@@ -321,11 +321,9 @@ export function TikTokIcon({
   title = "TikTok",
   mono = "auto",
 }: BrandIconProps) {
-  // La note TikTok est toujours affichée sur un badge noir (sidebar + Settings),
-  // donc on force le blanc par défaut quel que soit le thème. L'ancien
-  // comportement (note noire en light) la rendait invisible sur fond noir.
-  // `mono="black"` reste disponible pour un usage explicite sur fond clair.
-  const main = mono === "black" ? MONO_BLACK : MONO_WHITE;
+  // Par défaut, la note est NOIRE pour être visible sur un fond BLANC.
+  // Si tu utilises un fond noir à l'avenir, tu pourras passer la prop mono="white".
+  const main = mono === "white" ? MONO_WHITE : MONO_BLACK;
 
   return (
     <svg
@@ -341,7 +339,7 @@ export function TikTokIcon({
       <path d={TIKTOK_PATH} fill="#25F4EE" transform="translate(-0.9 -0.9)" />
       {/* Décalage rouge (bas-droite) */}
       <path d={TIKTOK_PATH} fill="#FE2C55" transform="translate(0.9 0.9)" />
-      {/* Note principale : toujours blanche sur fond noir */}
+      {/* Note principale : noire pour ressortir sur le fond blanc */}
       <path d={TIKTOK_PATH} fill={main} />
     </svg>
   );
