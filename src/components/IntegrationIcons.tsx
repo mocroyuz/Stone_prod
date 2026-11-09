@@ -340,8 +340,7 @@ export function YouTubeIcon({
   );
 }
 
-/* Le glyphe est blanc ; le fond reste géré par le composant parent. */
-export const PinterestIcon = createIcon("simple-icons:pinterest", "Pinterest", "#ffffff");
+export const PinterestIcon = createIcon("logos:pinterest", "Pinterest");
 export const ThreadsIcon = createIcon("simple-icons:threads", "Threads", "#ffffff");
 export const XIcon = createIcon("simple-icons:x", "X", "#000000");
 export const LinkedInIcon = createIcon("logos:linkedin-icon", "LinkedIn");
