@@ -1304,20 +1304,17 @@ function ChannelAvatar({
           ].join(" ")}
         />
       )}
-{NetworkIcon && (
-  <span
-    className={[
-      "absolute -bottom-0.5 -right-0.5 flex h-3.5 w-3.5 max-md:h-4 max-md:w-4 items-center justify-center",
-      "rounded-[4px] shadow-[0_0_0_1px_rgba(0,0,0,0.12)] ring-2",
-      channel.key.toLowerCase().includes("tiktok")
-        ? "bg-black text-white"
-        : "bg-white",
-      dotRing,
-    ].join(" ")}
-  >
-    <NetworkIcon className="h-2.5 w-2.5 max-md:h-3 max-md:w-3" />
-  </span>
-)}
+      {NetworkIcon && (
+        <span
+          className={[
+            "absolute -bottom-0.5 -right-0.5 flex h-3.5 w-3.5 max-md:h-4 max-md:w-4 items-center justify-center",
+            "rounded-[4px] bg-white shadow-[0_0_0_1px_rgba(0,0,0,0.12)] ring-2",
+            dotRing,
+          ].join(" ")}
+        >
+          <NetworkIcon className="h-2.5 w-2.5 max-md:h-3 max-md:w-3" />
+        </span>
+      )}
     </span>
   );
 }
