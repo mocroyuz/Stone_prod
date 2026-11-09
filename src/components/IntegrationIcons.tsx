@@ -84,7 +84,7 @@ function createMonoIcon(
 ========================================================= */
 export const ZapierIcon = createIcon("logos:zapier-icon", "Zapier");
 export const ClaudeIcon = createIcon("logos:claude-icon", "Claude");
-export const ChatGPTIcon = createIcon("logos:openai-icon", "ChatGPT");
+export const ChatGPTIcon = createIcon("simple-icons:openai", "ChatGPT", "#ffffff");
 export const NotionIcon = createIcon("logos:notion-icon", "Notion");
 export const GoogleIcon = createIcon("logos:google-icon", "Google");
 export const N8nIcon = createIcon("logos:n8n", "n8n");
@@ -303,7 +303,7 @@ export function InstagramIcon({
   );
 }
 export const FacebookIcon = createIcon("logos:facebook", "Facebook");
-export const TikTokIcon = createIcon("logos:tiktok-icon", "TikTok");
+export const TikTokIcon = createIcon("simple-icons:tiktok", "TikTok", "#ffffff");
 export function YouTubeIcon({
   className = "h-5 w-5",
   size = 20,
@@ -341,7 +341,7 @@ export function YouTubeIcon({
 }
 
 /* Le glyphe est blanc ; le fond reste géré par le composant parent. */
-export const PinterestIcon = createIcon("logos:pinterest", "Pinterest", "#ffffff");
+export const PinterestIcon = createIcon("simple-icons:pinterest", "Pinterest", "#ffffff");
 export const ThreadsIcon = createIcon("simple-icons:threads", "Threads", "#ffffff");
 export const XIcon = createIcon("simple-icons:x", "X", "#000000");
 export const LinkedInIcon = createIcon("logos:linkedin-icon", "LinkedIn");
