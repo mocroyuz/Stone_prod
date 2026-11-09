@@ -305,23 +305,44 @@ export function InstagramIcon({
 export const FacebookIcon = createIcon("logos:facebook", "Facebook");
 export const TikTokIcon = createIcon("logos:tiktok-icon", "TikTok");
 export function YouTubeIcon({
-  className = "h-5 w-5",
-  size = 20,
-  title = "YouTube Shorts",
+  className = "h-5 w-5",
+  size = 20,
+  title = "YouTube Shorts",
 }: BrandIconProps) {
-  return (
-    <SiYoutubeshorts
-      className={className}
-      size={size}
-      color="#FF0033"
-      title={title}
-      aria-label={title}
-      role="img"
-    />
-  );
+  return (
+    <span
+      className={`relative inline-flex items-center justify-center ${className}`}
+      style={{ width: size, height: size }}
+      role="img"
+      aria-label={title}
+    >
+      <SiYoutubeshorts
+        className="h-full w-full"
+        size={size}
+        color="#FF0033"
+        title={title}
+        aria-hidden="true"
+      />
+      {/* Triangle de lecture blanc au centre, sans modifier le fond du logo. */}
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute"
+        style={{
+          width: "27%",
+          height: "32%",
+          left: "36.5%",
+          top: "34%",
+          backgroundColor: "#ffffff",
+          clipPath: "polygon(0 0, 100% 50%, 0 100%)",
+        }}
+      />
+    </span>
+  );
 }
-export const PinterestIcon = createIcon("logos:pinterest", "Pinterest");
-export const ThreadsIcon = createIcon("simple-icons:threads", "Threads", "#000000");
+
+/* Le glyphe est blanc ; le fond reste géré par le composant parent. */
+export const PinterestIcon = createIcon("logos:pinterest", "Pinterest", "#ffffff");
+export const ThreadsIcon = createIcon("simple-icons:threads", "Threads", "#ffffff");
 export const XIcon = createIcon("simple-icons:x", "X", "#000000");
 export const LinkedInIcon = createIcon("logos:linkedin-icon", "LinkedIn");
 /* =========================================================
