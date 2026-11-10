@@ -5124,7 +5124,8 @@ function ChannelsSection({
     sync("tiktok", returned.tiktok, getTikTokStatus);
     sync("pinterest", returned.pinterest, getPinterestStatus);
     sync("youtube", returned.youtube, getYouTubeStatus);
-    sync("instagram", returned.instagram, getInstagramStatus);
+    const instagramJustReturned = Boolean(returned.instagram);
+    sync("instagram", instagramJustReturned, getInstagramStatus);
     return () => {
       cancelled = true;
     };
