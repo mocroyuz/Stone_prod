@@ -465,11 +465,6 @@ function useCommunity(
   const activeCommentsKeyRef = useRef(activeCommentsKey);
   activeCommentsKeyRef.current = activeCommentsKey;
 
-  const [posts, setPosts] = useState<Post[]>(() =>
-    userId && channelKey && isYouTube
-      ? videosCache.get(`${userId}|${channelKey}`)?.posts ?? []
-      : []
-  );
   const [postsError, setPostsError] = useState<string | null>(null);
 
   const [comments, setComments] = useState<YouTubeComment[]>(() => {
@@ -505,7 +500,6 @@ function useCommunity(
     lastVideosReloadRef.current = reloadKey;
 
     if (!userId || !isYouTube || !channelKey) {
-      setPosts([]);
       setPostsError(null);
       return;
     }
@@ -516,7 +510,6 @@ function useCommunity(
     const shouldFetch = forceReload || stale;
 
     if (cached) {
-      setPosts(cached.posts);
       setPostsError(null);
     }
 
@@ -534,14 +527,12 @@ function useCommunity(
             thumbnail: v.thumbnail,
             status: (v as { status?: string }).status,
           }));
-          setPosts(mapped);
           setPostsError(null);
           videosCache.set(key, { posts: mapped, at: Date.now() });
         })
         .catch((e: Error) => {
           if (cancelled) return;
           if (!cached) {
-            setPosts([]);
             setPostsError(e.message);
           }
         });
@@ -1168,7 +1159,7 @@ export default function Community() {
   const [showAll, setShowAll] = useState(false);
   const [isFolderOpen, setIsFolderOpen] = useState(false);
   const [isNewPostOpen, setIsNewPostOpen] = useState(false);
-  const [query, setQuery] = useState("");
+  const [query] = useState("");
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
 
@@ -2560,8 +2551,6 @@ export default function Community() {
         active={isFolderOpen ? "files" : null}
         onChange={handleBottomBarChange}
         onCreatePost={() => handleBottomBarChange("add")}
-        query={query}
-        onQueryChange={setQuery}
       />
       <NewPostModal
         isOpen={isNewPostOpen}

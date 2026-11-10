@@ -246,7 +246,7 @@ function TimeColumn({
   selected: number;
   onSelect: (opt: SimpleTimeOption) => void;
   isDark: boolean;
-  activeRef?: React.RefObject<HTMLButtonElement>;
+  activeRef?: React.RefObject<HTMLButtonElement | null>;
 }) {
   return (
     <div className="tp-scroll flex-1 overflow-y-auto py-1">

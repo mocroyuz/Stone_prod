@@ -2,6 +2,7 @@
 import DashboardSidebar from "../components/Navbar";
 import { useUser } from "../contexts/UserContext";
 import { navigate } from "../hooks/useHashRoute";
+import { useTheme } from "../hooks/useTheme";
 
 type Section = {
   id: string;
@@ -150,6 +151,7 @@ const SECTIONS: Section[] = [
 
 export default function Tos() {
   const { user, loading } = useUser();
+  const { theme, toggle } = useTheme();
 
   const scrollToSection = (id: string) => {
     const el = document.getElementById(`tos-${id}`);
@@ -161,7 +163,7 @@ export default function Tos() {
       {/* Connecté → flèche retour vers /home. Non connecté → navbar.
           Pendant le chargement de la session, on n'affiche rien
           pour éviter un flash de la navbar. */}
-      {!loading && !user && <DashboardSidebar />}
+      {!loading && !user && <DashboardSidebar theme={theme} onToggleTheme={toggle} />}
 
       {!loading && user && (
         <button

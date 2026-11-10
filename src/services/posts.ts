@@ -30,12 +30,8 @@ export type CalendarPost = {
 export const tagHex = (color: string): string =>
   color?.match(/#[0-9a-f]{6}/i)?.[0] ?? "#6366f1";
 
-export function isPostPosted(post: CalendarPost, now: Date): boolean {
-  return (
-    post.status === "published" ||
-    post.status === "external" ||
-    new Date(post.scheduledAt).getTime() <= now.getTime()
-  );
+export function isPostPosted(post: CalendarPost, _now: Date): boolean {
+  return post.status === "published" || post.status === "external";
 }
 
 /* ------------------------------------------------------------------ */
@@ -130,26 +126,19 @@ export async function createPosts(payload: NewPostPayload): Promise<void> {
 
   const formData = new FormData();
 
-  formData.append("title", payload.title ?? "");
-  formData.append("content", payload.content ?? "");
-  formData.append("scheduleMode", payload.scheduleMode);
-  if (payload.scheduledAt) {
-    formData.append("scheduledAt", payload.scheduledAt);
-  }
-
-  // On envoie TOUS les réseaux sélectionnés
-  formData.append("networks", JSON.stringify(payload.networks));
-  
-  // On envoie les réseaux externes (ceux déjà publiés par le frontend)
-  formData.append("externalNetworks", JSON.stringify(payload.externalNetworks ?? []));
-  
-  formData.append("contents", JSON.stringify(payload.contents ?? {}));
-  formData.append("channelKeys", JSON.stringify(payload.channelKeys ?? {}));
-  formData.append("tagIds", JSON.stringify(payload.tagIds ?? []));
-  formData.append("hashtags", JSON.stringify(payload.hashtags ?? []));
-  if (payload.youtube) {
-    formData.append("youtube", JSON.stringify(payload.youtube));
-  }
+  formData.append("data", JSON.stringify({
+    title: payload.title ?? "",
+    content: payload.content ?? "",
+    scheduleMode: payload.scheduleMode,
+    scheduledAt: payload.scheduledAt,
+    networks: payload.networks,
+    externalNetworks: payload.externalNetworks ?? [],
+    contents: payload.contents ?? {},
+    channelKeys: payload.channelKeys ?? {},
+    tagIds: payload.tagIds ?? [],
+    hashtags: payload.hashtags ?? [],
+    youtube: payload.youtube,
+  }));
 
   payload.media.forEach((file) => {
     formData.append("media", file);

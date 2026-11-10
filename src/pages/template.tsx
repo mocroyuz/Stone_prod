@@ -23,7 +23,6 @@ import BottomBar, {
   type BottomBarTab,
 } from "../components/Bottombar";
 
-import { navigate } from "../hooks/useHashRoute";
 
 /* ============================================================================
    Types
@@ -991,8 +990,6 @@ export default function TemplatesPage() {
         active={isFolderOpen ? "files" : null}
         onChange={handleBottomBarChange}
         onCreatePost={() => handleBottomBarChange("add")}
-        query={query}
-        onQueryChange={setQuery}
       />
 
       {/* ============================================================

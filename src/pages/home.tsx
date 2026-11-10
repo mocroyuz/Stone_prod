@@ -2634,7 +2634,6 @@ export default function Home() {
   const c = COPY[lang];
   const isMobile = useIsMobile();
 
-  const [query, setQuery] = useState("");
   const [isNewPostOpen, setIsNewPostOpen] = useState(false);
   const [isFolderOpen, setIsFolderOpen] = useState(false);
   const [user, setUser] = useState<UserProfile | null>(userProfileCache.profile);
@@ -2949,8 +2948,6 @@ export default function Home() {
         active={isFolderOpen ? "files" : null}
         onChange={handleBottomBarChange}
         onCreatePost={() => handleBottomBarChange("add")}
-        query={query}
-        onQueryChange={setQuery}
       />
       <NewPostModal
         isOpen={isNewPostOpen}

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from "react";
 import { createPortal } from "react-dom";
 import { useTheme } from "../hooks/useTheme";
 import DashboardSidebar, {
@@ -455,7 +455,7 @@ const INTEGRATIONS: IntegrationCardData[] = [
   { title: "Google Calendar", meta: "Planning", body: "Sync your calendar and automate scheduling", progress: 65 },
 ];
 
-const ICONS: Record<string, (props: { className?: string }) => JSX.Element | null> = {
+const ICONS: Record<string, (props: { className?: string }) => ReactElement | null> = {
   Zapier: ZapierIcon,
   Claude: ClaudeIcon,
   ChatGPT: ChatGPTIcon,
@@ -764,7 +764,6 @@ export default function Integrations() {
   const [filterOpen, setFilterOpen] = useState(false);
   const filterRef = useRef<HTMLDivElement>(null);
 
-  const [bottomQuery, setBottomQuery] = useState("");
   const [isFolderOpen, setIsFolderOpen] = useState(false);
   const [isNewPostOpen, setIsNewPostOpen] = useState(false);
 
@@ -1480,8 +1479,6 @@ export default function Integrations() {
         active={isFolderOpen ? "files" : null}
         onChange={handleBottomBarChange}
         onCreatePost={() => handleBottomBarChange("add")}
-        query={bottomQuery}
-        onQueryChange={setBottomQuery}
       />
 
       {/* NEW POST */}

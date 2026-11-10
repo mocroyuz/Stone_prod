@@ -28,7 +28,7 @@ import {
   clearNewPostRequest,
   peekNewPostRequest,
   subscribeNewPostRequests,
-} from "../services/Newpostbus";
+} from "../services/NewPostBus";
 // ── Tags ──
 import { listTags, type Tag as ApiTag } from "../services/supabase";
 import { tagHex } from "../services/posts";
@@ -298,6 +298,7 @@ type Copy = {
     youtubePrivate: string;
     youtubeScheduled: string;
     youtubeUploaded: string;
+    youtubeCalendarFailed: string;
     openYouTube: string;
   };
   draft: {
@@ -571,6 +572,7 @@ const COPY: Record<Lang, Copy> = {
       youtubePrivate: "Video uploaded to YouTube, but YouTube forced it to private (your API project hasn't passed the YouTube audit yet).",
       youtubeScheduled: "Video uploaded and scheduled on YouTube.",
       youtubeUploaded: "Video uploaded to YouTube. It can take a few minutes to appear as a Short.",
+      youtubeCalendarFailed: "The calendar entry could not be saved.",
       openYouTube: "Open on YouTube",
     },
     draft: {
@@ -842,6 +844,7 @@ const COPY: Record<Lang, Copy> = {
       youtubePrivate: "Vidéo envoyée sur YouTube, mais YouTube l'a forcée en privé (votre projet API n'a pas encore passé l'audit YouTube).",
       youtubeScheduled: "Vidéo envoyée et programmée sur YouTube.",
       youtubeUploaded: "Vidéo envoyée sur YouTube. L'apparition en Short peut prendre quelques minutes.",
+      youtubeCalendarFailed: "L'entrée n'a pas pu être enregistrée dans le calendrier.",
       openYouTube: "Ouvrir sur YouTube",
     },
     draft: {
@@ -3431,7 +3434,10 @@ export default function NewPostModal({
     );
     const tiktokNow = tiktokSelected && scheduleAction === "now";
     const youtubeNow = youtubeSelected && scheduleAction !== "save_in_folder";
-    const externallyHandled: SocialNetworkId[] = youtubeNow ? ["youtube"] : [];
+    const externallyHandled: SocialNetworkId[] = [
+      ...(youtubeNow ? (["youtube"] as const) : []),
+      ...(tiktokNow && tiktokMode === "direct" ? (["tiktok"] as const) : []),
+    ];
 
     const mediaByNetwork: Partial<Record<SocialNetworkId, File[]>> = {};
     validNetworks.forEach((n) => {
@@ -3623,7 +3629,15 @@ export default function NewPostModal({
       );
 
       if (youtubeOutcome) {
-        setYoutubeResult(youtubeOutcome);
+        setYoutubeResult(
+          backendError
+            ? {
+                ...youtubeOutcome,
+                warning: true,
+                message: `${youtubeOutcome.message} ${c.results.youtubeCalendarFailed}`,
+              }
+            : youtubeOutcome
+        );
         setSubmitProgress(null);
         setIsSubmitting(false);
         return;

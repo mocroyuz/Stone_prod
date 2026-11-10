@@ -1714,7 +1714,7 @@ function Field({
             tokens.inputText,
             tokens.placeholder,
             readOnly ? "cursor-default opacity-70" : tokens.inputFocus,
-            trailing && "pr-11",
+            trailing ? "pr-11" : false,
             error ? "border-red-500" : tokens.inputBorder
           )}
         />

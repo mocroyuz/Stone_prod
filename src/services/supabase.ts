@@ -71,6 +71,7 @@ export interface UserProfile {
   email_confirmed_at?: string;
   created_at?: string;
   provider?: "email" | "google" | "github" | (string & {});
+  identities?: { id?: string }[] | null;
   hasPassword?: boolean;
   mfa_enabled?: boolean;
 }

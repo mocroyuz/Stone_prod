@@ -91,7 +91,7 @@ import {
 import { createPosts } from "../services/posts";
 import { fetchYouTubeVideos, useYouTubeInsights } from "../services/youtube";
 import { readPostingGoal } from "../components/OnboardingModals";
-import { useNewPostRequest } from "../services/Newpostbus";
+import { useNewPostRequest } from "../services/NewPostBus";
 
 /** Route de cette page dans la sidebar (section Favoris). */
 const PAGE_ROUTE = "insights";
@@ -2780,7 +2780,7 @@ export default function Insights() {
   const [channelsOpen, setChannelsOpen] = useState(false);
   const [composerContext, setComposerContext] =
     useState<ComposerContext | null>(null);
-  const [query, setQuery] = useState("");
+  const [query] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
 
   /* ── Composer ── */
@@ -4328,8 +4328,6 @@ export default function Insights() {
         onCreatePost={() =>
           openComposer({ reason: "manual", channelKey: channel?.key })
         }
-        query={query}
-        onQueryChange={setQuery}
       />
       <NewPostModal
         isOpen={isNewPostOpen}

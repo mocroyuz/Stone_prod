@@ -41,6 +41,7 @@ import {
 import type { PointerEvent as RPointerEvent, ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useTheme } from "../hooks/useTheme";
+import { useUser } from "../contexts/UserContext";
 import { navigate } from "../hooks/useHashRoute";
 import DashboardSidebar, {
   useSidebarOffset,
@@ -49,7 +50,7 @@ import DashboardSidebar, {
 import BottomBar, { type BottomBarTab } from "../components/Bottombar";
 import Folder from "../components/Folder";
 import HelpChatButton from "../components/Helpchatbutton";
-import { requestNewPost } from "../services/Newpostbus";
+import { requestNewPost } from "../services/NewPostBus";
 import type { Group, Tag } from "../services/supabase";
 import {
   UNASSIGNED,
@@ -373,6 +374,7 @@ function writeTabToHash(tab: Tab) {
 
 const CREATE_VIEW_STORAGE_KEY = "create.view";
 const CREATE_HIDDEN_GROUPS_STORAGE_KEY = "create.hiddenGroups";
+const CREATE_IDEAS_STORAGE_KEY = "create.ideas:";
 
 function readStoredView(): View {
   if (typeof window === "undefined") return "board";
@@ -436,7 +438,42 @@ function fileToDataUrl(file: File): Promise<string> {
 
 function useBoard() {
   const { groups, tags, status } = useBoardMeta();
+  const { user } = useUser();
+  const userId = user?.id ?? null;
+  const storageKey = userId ? CREATE_IDEAS_STORAGE_KEY + userId : null;
   const [ideas, setIdeas] = useState<Idea[]>([]);
+  const [loadedUserId, setLoadedUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!userId) {
+      setIdeas([]);
+      setLoadedUserId(null);
+      return;
+    }
+    try {
+      const parsed: unknown = JSON.parse(localStorage.getItem(storageKey!) ?? "[]");
+      setIdeas(Array.isArray(parsed) ? parsed.filter((item: unknown): item is Idea => {
+        if (!item || typeof item !== "object") return false;
+        const value = item as Record<string, unknown>;
+        return typeof value.id === "string" && typeof value.title === "string" &&
+          typeof value.description === "string" && typeof value.groupId === "string" &&
+          Array.isArray(value.tagIds) && value.tagIds.every((tag) => typeof tag === "string") &&
+          (value.imageUrl === undefined || typeof value.imageUrl === "string");
+      }) : []);
+    } catch {
+      setIdeas([]);
+    }
+    setLoadedUserId(userId);
+  }, [userId, storageKey]);
+
+  useEffect(() => {
+    if (!storageKey || loadedUserId !== userId) return;
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(ideas));
+    } catch {
+      // shortcut: browser storage quota can reject embedded images; use backend storage when needed.
+    }
+  }, [ideas, loadedUserId, storageKey, userId]);
 
   /* ── Groupes ── */
 
@@ -508,7 +545,7 @@ function useBoard() {
     groups,
     tags,
     status,
-    ideas,
+    ideas: loadedUserId === userId ? ideas : [],
     addGroup,
     renameGroup,
     deleteGroup,
@@ -1816,7 +1853,7 @@ export default function Create() {
   );
   /** Filtre par tags (vide = pas de filtre). Non persisté. */
   const [activeTags, setActiveTags] = useState<string[]>([]);
-  const [query, setQuery] = useState("");
+  const [query] = useState("");
   const [isFolderOpen, setIsFolderOpen] = useState(false);
 
   useEffect(() => {
@@ -2987,8 +3024,6 @@ export default function Create() {
         onCreatePost={() => {
           if (!requestNewPost("")) navigate("schedule");
         }}
-        query={query}
-        onQueryChange={setQuery}
       />
 
       <HelpChatButton isDark={isDark} />

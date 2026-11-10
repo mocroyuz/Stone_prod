@@ -710,11 +710,13 @@ export default function ChannelsSection({
       tiktok: params.has("tiktok") || Boolean(tiktokError),
       pinterest: params.has("pinterest") || Boolean(pinterestError),
       youtube: params.has("youtube") || Boolean(youtubeError),
+      instagram: false,
     };
     const oauthErrors: Record<CacheProvider, string | null> = {
       tiktok: tiktokError,
       pinterest: pinterestError,
       youtube: youtubeError,
+      instagram: null,
     };
 
     const providers: CacheProvider[] = ["tiktok", "pinterest", "youtube"];
@@ -729,6 +731,7 @@ export default function ChannelsSection({
       tiktok: pendingReturn.has("tiktok"),
       pinterest: pendingReturn.has("pinterest"),
       youtube: pendingReturn.has("youtube"),
+      instagram: false,
     };
 
     if (tiktokError)

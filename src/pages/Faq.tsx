@@ -213,7 +213,7 @@ function buildTokens(isDark: boolean): FaqTokens {
 
 export default function Faq() {
   const { user, loading } = useUser();
-  const { theme } = useTheme();
+  const { theme, toggle: toggleTheme } = useTheme();
   const isDark = theme === "dark";
   const t = useMemo(() => buildTokens(isDark), [isDark]);
 
@@ -268,7 +268,7 @@ export default function Faq() {
       {/* Connecté → flèche retour vers /home. Non connecté → navbar.
           Pendant le chargement de la session, on n'affiche rien
           pour éviter un flash de la navbar. */}
-      {!loading && !user && <DashboardSidebar />}
+      {!loading && !user && <DashboardSidebar theme={theme} onToggleTheme={toggleTheme} />}
 
       {!loading && user && (
         <button

@@ -90,7 +90,7 @@ function loadSubscription(userId: string): Promise<Subscription | null> {
 
   setState({ loading: true, error: null });
 
-  const promise: Promise<Subscription | null> = (async () => {
+  const promise = Promise.resolve().then(async () => {
     try {
       const sub = await fetchSubscription();
 
@@ -110,7 +110,7 @@ function loadSubscription(userId: string): Promise<Subscription | null> {
       if (inflight && inflight.promise === promise) inflight = null;
       if (state.userId === userId) setState({ loading: false });
     }
-  })();
+  });
 
   inflight = { userId, promise };
 

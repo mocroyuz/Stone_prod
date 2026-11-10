@@ -587,7 +587,7 @@ export default function PricingSection() {
                     {period === "annual" && (
                       <p className={["mt-1 text-xs", softClass(isDark)].join(" ")}>
                         {c.billedAnnually(
-                          (period === "monthly" ? starterPlan.monthly : starterPlan.annual) * 12
+                          starterPlan.annual * 12
                         )}
                       </p>
                     )}
@@ -649,7 +649,7 @@ export default function PricingSection() {
                       {period === "annual" && (
                         <p className={["mt-1 text-xs", softClass(isDark)].join(" ")}>
                           {c.billedAnnually(
-                            (period === "monthly" ? proPlan.monthly : proPlan.annual) * 12
+                            proPlan.annual * 12
                           )}
                         </p>
                       )}
@@ -703,7 +703,7 @@ export default function PricingSection() {
                       {period === "annual" && (
                         <p className={["mt-1 text-xs", softClass(isDark)].join(" ")}>
                           {c.billedAnnually(
-                            (period === "monthly" ? enterprisePlan.monthly : enterprisePlan.annual) * 12
+                            enterprisePlan.annual * 12
                           )}
                         </p>
                       )}

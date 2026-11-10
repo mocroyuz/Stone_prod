@@ -55,7 +55,7 @@ function createIcon(
 /**
  * Conservé pour compatibilité (imports externes potentiels).
  */
-function createMonoIcon(
+export function createMonoIcon(
   iconName: string,
   defaultTitle: string,
   options: { inherit?: boolean } = {}
@@ -382,7 +382,7 @@ export function YouTubeIcon({
 }
 
 export const PinterestIcon = createIcon("logos:pinterest", "Pinterest");
-export const ThreadsIcon = createIcon("simple-icons:threads", "Threads", "#ffffff");
+export const ThreadsIcon = createMonoIcon("simple-icons:threads", "Threads");
 export const XIcon = createIcon("simple-icons:x", "X", "#000000");
 export const LinkedInIcon = createIcon("logos:linkedin-icon", "LinkedIn");
 

@@ -563,15 +563,6 @@ function MenuItem({
   );
 }
 
-const Divider = ({ isDark }: { isDark: boolean }) => (
-  <div
-    className={[
-      "my-1 h-px",
-      isDark ? "bg-white/[0.07]" : "bg-black/[0.06]",
-    ].join(" ")}
-  />
-);
-
 /* ------------------------------------------------------------------ */
 /* Date helpers                                                        */
 /* ------------------------------------------------------------------ */
@@ -684,9 +675,10 @@ function formatTime(h: number, lang: Lang) {
 const formatEventTime = (start: number, end: number, lang: Lang) =>
   `${formatTime(start, lang)} - ${formatTime(end, lang)}`;
 
-function formatPostTime(iso: string, lang: Lang) {
+function formatPostTime(iso: string, lang: Lang, timezone: string) {
   try {
     return new Date(iso).toLocaleTimeString(intlLocale(lang), {
+      timeZone: TIMEZONE_IDS[timezone] ?? timezone,
       hour: "numeric",
       minute: "2-digit",
       hour12: lang === "en",
@@ -697,6 +689,36 @@ function formatPostTime(iso: string, lang: Lang) {
 }
 
 const TIMEZONES = ["Paris", "London", "New York", "Tokyo"];
+const TIMEZONE_IDS: Record<string, string> = {
+  Paris: "Europe/Paris",
+  London: "Europe/London",
+  "New York": "America/New_York",
+  Tokyo: "Asia/Tokyo",
+};
+
+function dateInTimezone(date: Date, timezone: string): Date {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: TIMEZONE_IDS[timezone] ?? timezone,
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23",
+  }).formatToParts(date);
+  const value = (type: string) => Number(parts.find((part) => part.type === type)?.value);
+  return new Date(value("year"), value("month") - 1, value("day"), value("hour"), value("minute"), value("second"));
+}
+
+function dateFromTimezoneWallTime(date: Date, timezone: string): Date {
+  const wallTime = Date.UTC(date.getFullYear(), date.getMonth(), date.getDate(), date.getHours(), date.getMinutes(), date.getSeconds());
+  let instant = wallTime;
+  for (let i = 0; i < 3; i++) {
+    const rendered = dateInTimezone(new Date(instant), timezone);
+    instant += wallTime - Date.UTC(rendered.getFullYear(), rendered.getMonth(), rendered.getDate(), rendered.getHours(), rendered.getMinutes(), rendered.getSeconds());
+  }
+  return new Date(instant);
+}
+
+function timezoneDayKey(date: Date, timezone: string): string {
+  return dateInTimezone(date, timezone).toDateString();
+}
 
 const NEUTRAL_STYLE = {
   bgLight: "bg-neutral-100",
@@ -945,6 +967,7 @@ function OffScreenPostStack({
   isDark,
   c,
   lang,
+  timezone,
   onSelect,
   bottomOffset = "bottom-24",
 }: {
@@ -953,6 +976,7 @@ function OffScreenPostStack({
   isDark: boolean;
   c: Copy;
   lang: Lang;
+  timezone: string;
   onSelect: (item: OffScreenPost) => void;
   bottomOffset?: string;
 }) {
@@ -969,7 +993,7 @@ function OffScreenPostStack({
       ].join(" ")}
     >
       {shown.map((item) => {
-        const time = formatPostTime(item.post.scheduledAt, lang);
+        const time = formatPostTime(item.post.scheduledAt, lang, timezone);
         const title = postTitle(item.post);
         const hasMedia = Boolean(item.post.media?.[0]);
         return (
@@ -1037,6 +1061,7 @@ function PostChip({
   posted,
   dragging,
   lang,
+  timezone,
   large = false,
   onDragStart,
   onDragEnd,
@@ -1046,11 +1071,12 @@ function PostChip({
   posted: boolean;
   dragging: boolean;
   lang: Lang;
+  timezone: string;
   large?: boolean;
   onDragStart: (e: React.DragEvent, postId: string) => void;
   onDragEnd: () => void;
 }) {
-  const time = formatPostTime(post.scheduledAt, lang);
+  const time = formatPostTime(post.scheduledAt, lang, timezone);
   const title = postTitle(post);
 
   return (
@@ -2331,7 +2357,6 @@ export default function Schedule() {
   const [eventFormOpen, setEventFormOpen] = useState(false);
   const [editingEventId, setEditingEventId] = useState<string | null>(null);
 
-  const [bottomQuery, setBottomQuery] = useState("");
   const [isFolderOpen, setIsFolderOpen] = useState(false);
   const [isNewPostOpen, setIsNewPostOpen] = useState(false);
   const [newPostDate, setNewPostDate] = useState<Date | null>(null);
@@ -2418,12 +2443,13 @@ export default function Schedule() {
     const el = scrollRef.current;
     if (!el || !isGrid) return;
 
-    const inRange = now >= rangeStart && now < rangeEnd;
+    const calendarNow = dateInTimezone(now, timezone);
+    const inRange = calendarNow >= rangeStart && calendarNow < rangeEnd;
     const defaultTarget = inRange
       ? Math.max(
           0,
-          (now.getHours() +
-            now.getMinutes() / 60 -
+          (calendarNow.getHours() +
+            calendarNow.getMinutes() / 60 -
             NOW_CONTEXT_HOURS -
             START_HOUR) *
             HOUR_HEIGHT
@@ -2442,7 +2468,7 @@ export default function Schedule() {
     el.scrollTop = target;
     setScrollTop(el.scrollTop);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rangeStart, view, focusNonce]);
+  }, [rangeStart, view, focusNonce, timezone]);
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -2473,7 +2499,10 @@ export default function Schedule() {
 
   useEffect(() => {
     let cancelled = false;
-    listPosts(rangeStart, rangeEnd)
+    listPosts(
+      dateFromTimezoneWallTime(rangeStart, timezone),
+      dateFromTimezoneWallTime(rangeEnd, timezone)
+    )
       .then((p) => {
         if (!cancelled) setPosts(p);
       })
@@ -2481,7 +2510,7 @@ export default function Schedule() {
     return () => {
       cancelled = true;
     };
-  }, [rangeStart, rangeEnd, postsTick]);
+  }, [rangeStart, rangeEnd, postsTick, timezone]);
 
   useEffect(() => {
     let cancelled = false;
@@ -2532,7 +2561,7 @@ export default function Schedule() {
       date,
       n: date.getDate(),
       label: date.toLocaleDateString(intlLocale(lang), { weekday: "short" }),
-      isToday: date.toDateString() === now.toDateString(),
+      isToday: date.toDateString() === dateInTimezone(now, timezone).toDateString(),
       isCurrentMonth: true,
     });
 
@@ -2552,7 +2581,7 @@ export default function Schedule() {
     const endPad = (7 - (res.length % 7)) % 7;
     for (let i = 0; i < endPad; i++) res.push(null);
     return res;
-  }, [view, viewDate, now, lang, rangeStart, dayCount]);
+  }, [view, viewDate, now, lang, rangeStart, dayCount, timezone]);
 
   const monthLabel = viewDate.toLocaleDateString(intlLocale(lang), {
     month: "long",
@@ -2606,17 +2635,18 @@ export default function Schedule() {
     step(dx < 0 ? 1 : -1);
   };
 
-  const todayInRange = now >= rangeStart && now < rangeEnd;
+  const zonedNow = dateInTimezone(now, timezone);
+  const todayInRange = zonedNow >= rangeStart && zonedNow < rangeEnd;
   const goToday = () => {
-    animateSlide(now < rangeStart ? -1 : 1);
-    setViewDate(new Date());
+    animateSlide(zonedNow < rangeStart ? -1 : 1);
+    setViewDate(zonedNow);
   };
 
-  const nowHour = now.getHours() + now.getMinutes() / 60;
-  const nowLabel = `${now.getHours()}:${String(now.getMinutes()).padStart(2, "0")}`;
+  const nowHour = zonedNow.getHours() + zonedNow.getMinutes() / 60;
+  const nowLabel = `${zonedNow.getHours()}:${String(zonedNow.getMinutes()).padStart(2, "0")}`;
   const showNowLine = nowHour >= START_HOUR && nowHour <= END_HOUR;
 
-  const todayStart = startOfDay(now);
+  const todayStart = startOfDay(zonedNow);
 
   /* ---- événements ---- */
 
@@ -2697,8 +2727,9 @@ export default function Schedule() {
 
     for (const post of posts || []) {
       if (!postVisible(post)) continue;
-      const d = new Date(post.scheduledAt);
-      if (isNaN(d.getTime())) continue;
+      const instant = new Date(post.scheduledAt);
+      if (isNaN(instant.getTime())) continue;
+      const d = dateInTimezone(instant, timezone);
 
       const idx = dayIndexOf(d);
       if (idx < 0 || idx > dayCount - 1) continue;
@@ -2728,15 +2759,15 @@ export default function Schedule() {
       );
     });
     return map;
-  }, [posts, postVisible, dayIndexOf, dayCount]);
+  }, [posts, postVisible, dayIndexOf, dayCount, timezone]);
 
   const monthPostsByDate = useMemo(() => {
     const map = new Map<string, CalendarPost[]>();
     for (const post of posts || []) {
       if (!postVisible(post)) continue;
-      const d = new Date(post.scheduledAt);
-      if (isNaN(d.getTime())) continue;
-      const key = d.toDateString();
+      const instant = new Date(post.scheduledAt);
+      if (isNaN(instant.getTime())) continue;
+      const key = timezoneDayKey(instant, timezone);
       const list = map.get(key) ?? [];
       list.push(post);
       map.set(key, list);
@@ -2748,7 +2779,7 @@ export default function Schedule() {
       )
     );
     return map;
-  }, [posts, postVisible]);
+  }, [posts, postVisible, timezone]);
 
   const monthItemsByDate = useMemo(() => {
     const map = new Map<string, MonthItem[]>();
@@ -2768,7 +2799,7 @@ export default function Schedule() {
         })
       );
       (monthPostsByDate.get(key) ?? []).forEach((post) => {
-        const d = new Date(post.scheduledAt);
+        const d = dateInTimezone(new Date(post.scheduledAt), timezone);
         items.push({
           kind: "post",
           id: `p-${post.id}`,
@@ -2780,7 +2811,7 @@ export default function Schedule() {
       map.set(key, items);
     });
     return map;
-  }, [monthEventsByDate, monthPostsByDate]);
+  }, [monthEventsByDate, monthPostsByDate, timezone]);
 
   const monthRowCount = Math.max(1, Math.ceil(days.length / 7));
   const monthCellHeight = monthGridHeight / monthRowCount;
@@ -2798,10 +2829,10 @@ export default function Schedule() {
   /* ---- drag & drop (desktop) ---- */
 
   const dropDateFor = (post: CalendarPost, date: Date, hour?: number) => {
-    const old = new Date(post.scheduledAt);
+    const old = dateInTimezone(new Date(post.scheduledAt), timezone);
     const next = new Date(date);
     next.setHours(hour ?? old.getHours(), old.getMinutes(), 0, 0);
-    return next;
+    return dateFromTimezoneWallTime(next, timezone);
   };
 
   const hourFromPointer = (e: React.DragEvent) => {
@@ -2974,13 +3005,14 @@ export default function Schedule() {
   const openNewPostAt = (day: Date, hour: number) => {
     const slot = new Date(day);
     slot.setHours(hour, 0, 0, 0);
+    const instant = dateFromTimezoneWallTime(slot, timezone);
 
-    if (slot.getTime() <= Date.now()) {
-      const d = new Date();
+    if (instant.getTime() <= Date.now()) {
+      const d = new Date(zonedNow);
       d.setMinutes(Math.ceil((d.getMinutes() + 1) / 5) * 5, 0, 0);
-      setNewPostDate(d);
+      setNewPostDate(dateFromTimezoneWallTime(d, timezone));
     } else {
-      setNewPostDate(slot);
+      setNewPostDate(instant);
     }
     setIsFolderOpen(false);
     setIsNewPostOpen(true);
@@ -2996,6 +3028,7 @@ export default function Schedule() {
       post={post}
       large={large}
       lang={lang}
+      timezone={timezone}
       isDark={isDark}
       posted={isPostPosted(post, now)}
       dragging={draggedPostId === post.id}
@@ -3041,7 +3074,7 @@ export default function Schedule() {
         .get(dayIndexOf(more.date))
         ?.find((s) => s.hour === slotHour);
       moreItems = (slot?.posts ?? []).map((post) => {
-        const d = new Date(post.scheduledAt);
+        const d = dateInTimezone(new Date(post.scheduledAt), timezone);
         return {
           kind: "post" as const,
           id: `p-${post.id}`,
@@ -3443,6 +3476,7 @@ export default function Schedule() {
                           selected={timezone === tz}
                           onClick={() => {
                             setTimezone(tz);
+                            setViewDate(dateInTimezone(now, tz));
                             setOpenPanel(null);
                           }}
                         >
@@ -3780,6 +3814,7 @@ export default function Schedule() {
                       isDark={isDark}
                       c={c}
                       lang={lang}
+                      timezone={timezone}
                       onSelect={scrollToOffScreenPost}
                     />
                     <OffScreenPostStack
@@ -3788,6 +3823,7 @@ export default function Schedule() {
                       isDark={isDark}
                       c={c}
                       lang={lang}
+                      timezone={timezone}
                       onSelect={scrollToOffScreenPost}
                       bottomOffset="bottom-24"
                     />
@@ -4076,8 +4112,6 @@ export default function Schedule() {
         active={isFolderOpen ? "files" : null}
         onChange={handleBottomBarChange}
         onCreatePost={openNewPost}
-        query={bottomQuery}
-        onQueryChange={setBottomQuery}
       />
 
       <NewPostModal
