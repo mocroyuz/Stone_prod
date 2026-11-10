@@ -230,13 +230,6 @@ const LoopIcon = ({ className }: { className?: string }) => (
     <path d="M21 13v1a4 4 0 0 1-4 4H3" />
   </Svg>
 );
-const StackIcon = ({ className }: { className?: string }) => (
-  <Svg className={className}>
-    <path d="M12 2 2 7l10 5 10-5-10-5Z" />
-    <path d="m2 12 10 5 10-5" />
-    <path d="m2 17 10 5 10-5" />
-  </Svg>
-);
 const ArrowsIcon = ({ className }: { className?: string }) => (
   <Svg className={className}>
     <path d="M17 3l4 4-4 4" />
@@ -1078,9 +1071,14 @@ export function InstagramAccountTypeModal({
           className="relative flex shrink-0 items-center justify-center border-b px-14 py-4"
           style={{ borderColor: p.border }}
         >
-          <div className="flex items-center gap-3" style={{ color: p.text }}>
-            <StackIcon className="h-5 w-5" />
-            <span style={{ color: p.muted }}>
+          <div className="flex items-center gap-3">
+            <img
+              src={isDark ? "/images/icon_nav.png" : "/images/icon.png"}
+              alt="Stone"
+              draggable={false}
+              className="h-6 w-6 shrink-0 select-none object-contain"
+            />
+            <span style={{ color: p.muted }} aria-hidden="true">
               <ArrowsIcon className="h-5 w-5" />
             </span>
             <InstagramIcon className="h-5 w-5" size={20} />
