@@ -4967,6 +4967,28 @@ function ChannelsSection({
   const pinterestBusy = useRef(false);
   const youtubeBusy = useRef(false);
   const instagramBusy = useRef(false);
+  const instagramAwaitingReturn = useRef(false);
+
+  useEffect(() => {
+    const unlockInstagramAfterReturn = () => {
+      if (!instagramAwaitingReturn.current) return;
+      instagramAwaitingReturn.current = false;
+      instagramBusy.current = false;
+      setPendingKey((current) =>
+        current === "instagram" ? null : current
+      );
+    };
+
+    // Au retour du flux OAuth, ou si le navigateur restaure cette page
+    // depuis le cache arrière/avant, le verrou posé avant le départ peut
+    // rester en mémoire et empêcher toute nouvelle tentative.
+    window.addEventListener("focus", unlockInstagramAfterReturn);
+    window.addEventListener("pageshow", unlockInstagramAfterReturn);
+    return () => {
+      window.removeEventListener("focus", unlockInstagramAfterReturn);
+      window.removeEventListener("pageshow", unlockInstagramAfterReturn);
+    };
+  }, []);
 
   const startOnboarding = (key: ChannelKey, connection: Connection) => {
     const channel = CHANNELS.find((ch) => ch.key === key);
@@ -5293,8 +5315,10 @@ function ChannelsSection({
       }
       markReturning("instagram");
       await startInstagramLogin();
+      instagramAwaitingReturn.current = true;
       redirecting = true;
     } catch (error) {
+      instagramAwaitingReturn.current = false;
       console.error("Instagram OAuth error:", error);
       setErrorMessage(formatOAuthError("Instagram", error, c));
     } finally {
@@ -5319,8 +5343,10 @@ function ChannelsSection({
       // TODO: si `startInstagramLogin` accepte un paramètre, faire :
       //   await startInstagramLogin({ accountType: _type });
       await startInstagramLogin();
+      instagramAwaitingReturn.current = true;
       redirecting = true;
     } catch (error) {
+      instagramAwaitingReturn.current = false;
       console.error("Instagram OAuth error:", error);
       setErrorMessage(formatOAuthError("Instagram", error, c));
     } finally {
@@ -5329,6 +5355,17 @@ function ChannelsSection({
         instagramBusy.current = false;
       }
     }
+  };
+
+  const handleInstagramPickerClose = () => {
+    setIgPickerOpen(false);
+    // La fermeture du sélecteur n'est pas une tentative OAuth : ne jamais
+    // laisser un ancien état de chargement bloquer une prochaine ouverture.
+    instagramAwaitingReturn.current = false;
+    instagramBusy.current = false;
+    setPendingKey((current) =>
+      current === "instagram" ? null : current
+    );
   };
 
   const handlePlaceholderToggle = (key: ChannelKey) => {
@@ -5488,7 +5525,7 @@ function ChannelsSection({
       {igPickerOpen && (
         <InstagramAccountTypeModal
           isDark={isDark}
-          onClose={() => setIgPickerOpen(false)}
+          onClose={handleInstagramPickerClose}
           onChoose={handleInstagramChoose}
         />
       )}
