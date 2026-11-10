@@ -20,6 +20,7 @@ const PROVIDER_NAMES: Record<CacheProvider, string> = {
   tiktok: "TikTok",
   youtube: "YouTube Shorts",
   pinterest: "Pinterest",
+  instagram: "Instagram",
 };
 
 function readAll(userId: string | null): ConnectedChannel[] {

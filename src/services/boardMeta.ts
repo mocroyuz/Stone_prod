@@ -4,6 +4,7 @@
 // via useSyncExternalStore.
 
 import { useEffect, useSyncExternalStore } from "react";
+import { useUser } from "../contexts/UserContext";
 import {
   ensureDefaultGroups,
   listGroups,
@@ -53,17 +54,33 @@ export type BoardMetaState = {
   status: BoardMetaStatus;
 };
 
-let state: BoardMetaState = {
+const emptyState: BoardMetaState = {
   groups: [UNASSIGNED_GROUP],
   tags: [],
   status: "idle",
 };
 
+let activeUserId: string | null = null;
+let state: BoardMetaState = emptyState;
+const statesByUser = new Map<string, BoardMetaState>();
 const listeners = new Set<() => void>();
 
-function setState(patch: Partial<BoardMetaState>) {
+function notify() {
+  listeners.forEach((listener) => listener());
+}
+
+function setState(patch: Partial<BoardMetaState>, userId = activeUserId) {
+  if (!userId || userId !== activeUserId) return;
   state = { ...state, ...patch };
-  listeners.forEach((l) => l());
+  statesByUser.set(userId, state);
+  notify();
+}
+
+function activateUser(userId: string | null) {
+  if (activeUserId === userId) return;
+  activeUserId = userId;
+  state = userId ? statesByUser.get(userId) ?? emptyState : emptyState;
+  notify();
 }
 
 function subscribe(listener: () => void) {
@@ -77,44 +94,53 @@ const getSnapshot = () => state;
 
 /* ───────── Chargement unique (dédupliqué) ───────── */
 
-let loadPromise: Promise<void> | null = null;
+const loadPromises = new Map<string, Promise<void>>();
 
-export function loadBoardMeta(): Promise<void> {
+export function loadBoardMeta(userId = activeUserId): Promise<void> {
+  if (!userId) return Promise.resolve();
+  activateUser(userId);
   if (state.status === "ready") return Promise.resolve();
-  if (loadPromise) return loadPromise;
 
-  setState({ status: "loading" });
+  const inflight = loadPromises.get(userId);
+  if (inflight) return inflight;
 
-  loadPromise = (async () => {
+  setState({ status: "loading" }, userId);
+
+  const promise = (async () => {
     try {
       await ensureDefaultGroups();
       const [server, tags] = await Promise.all([listGroups(), listTags()]);
+      if (activeUserId !== userId) return;
       const rank = (g: Group) => {
         const i = DEFAULT_GROUP_ORDER.indexOf(g.label.trim().toLowerCase());
         return i === -1 ? DEFAULT_GROUP_ORDER.length : i;
       };
       const sorted = [...server].sort((a, b) => rank(a) - rank(b));
-      setState({
-        groups: [UNASSIGNED_GROUP, ...sorted],
-        tags,
-        status: "ready",
-      });
+      setState(
+        {
+          groups: [UNASSIGNED_GROUP, ...sorted],
+          tags,
+          status: "ready",
+        },
+        userId
+      );
     } catch (e) {
       console.error("Error loading board meta:", e);
-      setState({ status: "error" });
+      setState({ status: "error" }, userId);
     } finally {
-      loadPromise = null;
+      loadPromises.delete(userId);
     }
   })();
-
-  return loadPromise;
+  loadPromises.set(userId, promise);
+  return promise;
 }
 
 /* ───────── Groupes ───────── */
 
 export async function addGroup(label: string): Promise<string | null> {
+  const userId = activeUserId;
   const l = label.trim();
-  if (!l) return null;
+  if (!userId || !l) return null;
   const existing = state.groups.find(
     (g) => g.label.toLowerCase() === l.toLowerCase()
   );
@@ -122,7 +148,7 @@ export async function addGroup(label: string): Promise<string | null> {
   try {
     const color = NEW_COLORS[(state.groups.length - 1) % NEW_COLORS.length];
     const created = await apiCreateGroup(l, color);
-    setState({ groups: [...state.groups, created] });
+    setState({ groups: [...state.groups, created] }, userId);
     return created.id;
   } catch (e) {
     console.error("Error creating group:", e);
@@ -131,39 +157,43 @@ export async function addGroup(label: string): Promise<string | null> {
 }
 
 export async function renameGroup(id: string, label: string) {
+  const userId = activeUserId;
   const l = label.trim();
   const group = state.groups.find((g) => g.id === id);
-  if (!l || !group || id === UNASSIGNED || l === group.label) return;
+  if (!userId || !l || !group || id === UNASSIGNED || l === group.label) return;
   setState({
     groups: state.groups.map((g) => (g.id === id ? { ...g, label: l } : g)),
-  });
+  }, userId);
   try {
     await apiUpdateGroup(id, { label: l, color: group.color });
   } catch (e) {
     console.error("Error renaming group:", e);
-    setState({
-      groups: state.groups.map((g) => (g.id === id ? group : g)),
-    });
+    setState(
+      { groups: state.groups.map((g) => (g.id === id ? group : g)) },
+      userId
+    );
   }
 }
 
 /** Retourne false si l'API échoue (l'appelant peut rollback ses idées). */
 export async function removeGroup(id: string): Promise<boolean> {
-  if (id === UNASSIGNED) return false;
+  const userId = activeUserId;
+  if (!userId || id === UNASSIGNED) return false;
   const prev = state.groups;
-  setState({ groups: prev.filter((g) => g.id !== id) });
+  setState({ groups: prev.filter((g) => g.id !== id) }, userId);
   try {
     await apiDeleteGroup(id);
     return true;
   } catch (e) {
     console.error("Error deleting group:", e);
-    setState({ groups: prev });
+    setState({ groups: prev }, userId);
     return false;
   }
 }
 
 /** Réordonne en mémoire (l'ordre est perdu au refresh complet). */
 export function moveGroup(id: string, toId: string) {
+  if (!activeUserId) return;
   const cur = state.groups;
   const from = cur.findIndex((g) => g.id === id);
   const to = cur.findIndex((g) => g.id === toId);
@@ -177,8 +207,9 @@ export function moveGroup(id: string, toId: string) {
 /* ───────── Tags ───────── */
 
 export async function addTag(label: string): Promise<string | null> {
+  const userId = activeUserId;
   const l = label.trim();
-  if (!l) return null;
+  if (!userId || !l) return null;
   const existing = state.tags.find(
     (t) => t.label.toLowerCase() === l.toLowerCase()
   );
@@ -186,7 +217,7 @@ export async function addTag(label: string): Promise<string | null> {
   try {
     const color = NEW_COLORS[state.tags.length % NEW_COLORS.length];
     const created = await apiCreateTag(l, color);
-    setState({ tags: [...state.tags, created] });
+    setState({ tags: [...state.tags, created] }, userId);
     return created.id;
   } catch (e) {
     console.error("Error creating tag:", e);
@@ -196,14 +227,16 @@ export async function addTag(label: string): Promise<string | null> {
 
 /** Retourne false si l'API échoue (l'appelant peut rollback ses idées). */
 export async function removeTag(id: string): Promise<boolean> {
+  const userId = activeUserId;
+  if (!userId) return false;
   const prev = state.tags;
-  setState({ tags: prev.filter((t) => t.id !== id) });
+  setState({ tags: prev.filter((t) => t.id !== id) }, userId);
   try {
     await apiDeleteTag(id);
     return true;
   } catch (e) {
     console.error("Error deleting tag:", e);
-    setState({ tags: prev });
+    setState({ tags: prev }, userId);
     return false;
   }
 }
@@ -211,10 +244,17 @@ export async function removeTag(id: string): Promise<boolean> {
 /* ───────── Hook ───────── */
 
 export function useBoardMeta(): BoardMetaState {
-  const s = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+  const { user } = useUser();
+  const userId = user?.id ?? null;
+  const getUserSnapshot = () =>
+    activeUserId === userId ? getSnapshot() : emptyState;
+  const s = useSyncExternalStore(subscribe, getUserSnapshot, () => emptyState);
+
   useEffect(() => {
-    void loadBoardMeta(); // no-op si déjà "ready" ou en cours
-  }, []);
+    activateUser(userId);
+    if (userId) void loadBoardMeta(userId);
+  }, [userId]);
+
   return s;
 }
 

@@ -3,6 +3,7 @@
 // et statistiques / vidéos (Insights).
 
 import { useEffect, useState } from "react";
+import { useUser } from "../contexts/UserContext";
 import { API_BASE_URL, apiRequest } from "./supabase";
 
 /* ═════════════════════════════════════════════════════════════
@@ -600,18 +601,20 @@ export function useYouTubeInsights(
   enabled: boolean,
   reloadKey = 0
 ): { data: YouTubeInsightsData | null; loading: boolean; error: string | null } {
+  const { user } = useUser();
+  const userId = user?.id ?? null;
   const s = start.getTime();
   const e = end.getTime();
-  const key = `${s}|${e}`;
+  const key = `${userId ?? "anonymous"}|${s}|${e}`;
 
   const [data, setData] = useState<YouTubeInsightsData | null>(() =>
-    enabled ? insightsCache.get(key)?.data ?? null : null
+    enabled && userId ? insightsCache.get(key)?.data ?? null : null
   );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!enabled) {
+    if (!enabled || !userId) {
       setData(null);
       setLoading(false);
       setError(null);
@@ -671,7 +674,7 @@ export function useYouTubeInsights(
     return () => {
       cancelled = true;
     };
-  }, [enabled, key, s, e, reloadKey]);
+  }, [enabled, key, s, e, reloadKey, userId]);
 
   return { data, loading, error };
 }

@@ -8,28 +8,7 @@
    Aucune variable d'environnement frontend n'est utilisée.
    ============================================================ */
 
-const API_BASE_URL = "https://stone-serv.onrender.com";
-
-/* ============================================================
-   TOKENS — mêmes clés que supabase.ts
-   ============================================================ */
-
-const ACCESS_TOKEN_KEY = "crossflow_access_token";
-const REFRESH_TOKEN_KEY = "crossflow_refresh_token";
-
-function getStoredToken(): string | null {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem(ACCESS_TOKEN_KEY);
-}
-
-function clearStoredTokens(): void {
-  if (typeof window === "undefined") return;
-
-  localStorage.removeItem(ACCESS_TOKEN_KEY);
-  localStorage.removeItem(REFRESH_TOKEN_KEY);
-
-  window.dispatchEvent(new CustomEvent("stone:auth-expired"));
-}
+import { apiRequest } from "./supabase";
 
 /* ============================================================
    TYPES
@@ -100,69 +79,28 @@ async function stripeRequest<T>(
   path: string,
   options: RequestInit = {},
 ): Promise<T> {
-  const token = getStoredToken();
-
-  if (!token) {
-    throw new StripeServiceError(
-      "Ta session a expiré. Reconnecte-toi.",
-      401,
-      "NO_TOKEN",
-    );
-  }
-
-  const headers = new Headers(options.headers || {});
-
-  if (!(options.body instanceof FormData)) {
-    headers.set("Content-Type", "application/json");
-  }
-
-  headers.set("Authorization", `Bearer ${token}`);
-
-  let response: Response;
-
   try {
-    response = await fetch(`${API_BASE_URL}${path}`, {
-      ...options,
-      headers,
-    });
+    return await apiRequest<T>(path, options);
   } catch (error) {
-    console.error("[StripeService] Erreur réseau :", {
-      url: `${API_BASE_URL}${path}`,
-      error,
-    });
-
-    throw new StripeServiceError(
-      "Impossible de joindre le serveur. Vérifie ta connexion.",
-      0,
-      "NETWORK_ERROR",
-    );
+    if (error instanceof Error) {
+      const meta = error as Error & { status?: unknown; code?: unknown };
+      if (typeof meta.status === "number") {
+        throw new StripeServiceError(
+          error.message,
+          meta.status,
+          typeof meta.code === "string" ? meta.code : undefined,
+        );
+      }
+    }
+    if (error instanceof TypeError) {
+      throw new StripeServiceError(
+        "Impossible de joindre le serveur. Vérifie ta connexion.",
+        0,
+        "NETWORK_ERROR",
+      );
+    }
+    throw error;
   }
-
-  if (response.status === 401) {
-    clearStoredTokens();
-
-    throw new StripeServiceError(
-      "Ta session a expiré. Reconnecte-toi.",
-      401,
-      "SESSION_EXPIRED",
-    );
-  }
-
-  const data = (await response.json().catch(() => null)) as {
-    error?: string;
-    code?: string;
-  } | null;
-
-  if (!response.ok) {
-    throw new StripeServiceError(
-      data?.error ||
-        `Échec de la requête (HTTP ${response.status})`,
-      response.status,
-      data?.code,
-    );
-  }
-
-  return data as T;
 }
 
 /* ============================================================

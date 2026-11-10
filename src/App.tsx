@@ -40,10 +40,7 @@ import CanvaCallback, {
 import { useHashRoute, navigate } from "./hooks/useHashRoute";
 import { useTheme, ThemeProvider, type Theme } from "./hooks/useTheme";
 import { UserProvider, useUser } from "./contexts/UserContext";
-import {
-  isRecoveryUrl,
-  saveOAuthSession,
-} from "./services/supabase";
+import { isRecoveryUrl } from "./services/supabase";
 import { readCheckoutReturn } from "./services/stripe";
 import {
   clearCache,
@@ -54,6 +51,7 @@ import {
 import { getPinterestStatus } from "./services/pinterest";
 import { refreshTikTokCache } from "./services/tiktok";
 import { getYouTubeStatus } from "./services/youtube";
+import { getInstagramStatus } from "./services/instagram";
 
 /* ──────────────────────────────────────────────────────────────
    OAUTH CALLBACK INTERCEPTION
@@ -226,88 +224,6 @@ interceptCanvaOAuthCallback();
   //   → /?instagram=connected#/settings/channels
   const cleanPath = pathname.replace(/\/+$/, "");
   window.history.replaceState(null, "", `/${search}#${cleanPath}`);
-})();
-
-/* ──────────────────────────────────────────────────────────────
-   GOOGLE / SUPABASE OAUTH REDIRECT
-   ────────────────────────────────────────────────────────────── */
-
-(function handleOAuthRedirect() {
-  if (typeof window === "undefined") return;
-  if (isRecoveryUrl()) return;
-
-  const { hash, search } = window.location;
-
-  if (new URLSearchParams(search).has("correlation_jwt")) return;
-
-  const hashParams = new URLSearchParams(hash.replace(/^#\/?/, ""));
-  const searchParams = new URLSearchParams(search);
-
-  const readParam = (key: string): string | null =>
-    hashParams.get(key) ?? searchParams.get(key);
-
-  const oauthError = readParam("error");
-
-  if (oauthError) {
-    const description =
-      readParam("error_description") || oauthError;
-
-    // Hash-routé : les params restent dans le search.
-    window.history.replaceState(
-      null,
-      "",
-      `/?oauth_error=${encodeURIComponent(description)}#/signin`
-    );
-
-    return;
-  }
-
-  const accessToken = readParam("access_token");
-  const refreshToken = readParam("refresh_token");
-  const code = readParam("code");
-
-  // Un code seul indique un flux PKCE qui doit être échangé
-  // contre une session par le client Supabase.
-  if (code && !accessToken) {
-    console.error(
-      "[OAuth] Un code d'autorisation a été reçu sans tokens. Vérifiez la configuration PKCE."
-    );
-    return;
-  }
-
-  if (!accessToken || !refreshToken) return;
-
-  const callbackKey = `oauth_callback_processed:${accessToken}`;
-
-  try {
-    if (sessionStorage.getItem(callbackKey) === "true") return;
-    sessionStorage.setItem(callbackKey, "true");
-  } catch {
-    // Continuer si sessionStorage n'est pas disponible.
-  }
-
-  void (async () => {
-    try {
-      await saveOAuthSession(accessToken, refreshToken);
-
-      // Redirection hash-routée vers la page d'accueil du tableau de bord.
-      window.location.replace("/#/home");
-    } catch (error) {
-      console.error("[OAuth] Échec de l'enregistrement de session :", error);
-
-      try {
-        sessionStorage.removeItem(callbackKey);
-      } catch {
-        // Ignorer
-      }
-
-      window.location.replace(
-        `/?oauth_error=${encodeURIComponent(
-          "Impossible de finaliser la connexion. Veuillez réessayer."
-        )}#/signin`
-      );
-    }
-  })();
 })();
 
 /* ──────────────────────────────────────────────────────────────
@@ -707,11 +623,38 @@ function AppContent(props: AppContentProps) {
         }
       };
 
+      const refreshInstagram = async () => {
+        if (!readCache(userId, "instagram")?.connection.connected) return;
+
+        try {
+          const status = await getInstagramStatus();
+          if (!active) return;
+
+          if (!status.connected) {
+            clearCache(userId, "instagram");
+            return;
+          }
+
+          writeCache(
+            userId,
+            {
+              connected: true,
+              handle: status.account?.display_name ?? undefined,
+              avatarUrl: status.account?.avatar_url ?? undefined,
+            },
+            "instagram"
+          );
+        } catch (error) {
+          console.warn("[Stone] Could not refresh Instagram profile:", error);
+        }
+      };
+
       try {
         await Promise.all([
           refreshTikTok(),
           refreshPinterest(),
           refreshYouTube(),
+          refreshInstagram(),
         ]);
       } finally {
         syncing = false;

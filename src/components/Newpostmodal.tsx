@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { ReactNode } from "react";
+import { useUser } from "../contexts/UserContext";
 import { EmojiPicker as FrimousseEmojiPicker } from "frimousse";
 import {
   Maximize2, Minimize2, X, Tag, FileText, Smile, Hash,
@@ -37,6 +39,7 @@ import {
   publishPhotosToTikTok,
   waitForTikTokPublish,
   type TikTokCreatorInfo,
+  type TikTokCapabilities,
   type TikTokPostOptions,
 } from "../services/tiktok";
 import { publishToYouTube } from "../services/youtube";
@@ -75,7 +78,7 @@ export type SocialNetworkId =
   | "x" | "facebook" | "instagram" | "linkedin"
   | "tiktok" | "youtube" | "pinterest" | "threads";
 
-type NetworkIconComponent = (props: { className?: string }) => JSX.Element;
+type NetworkIconComponent = (props: { className?: string }) => ReactNode;
 type MediaKind = "image" | "video";
 type MediaItem = {
   id: string;
@@ -1156,13 +1159,16 @@ type DraftData = {
   files: File[];
   channelFiles?: Record<string, File[]>;
   youtubeOptions?: YouTubeOptions;
+  tagIds: string[];
 };
 
-let savedDraft: DraftData | null = null;
+const savedDrafts = new Map<string, DraftData>();
 
 const DRAFT_META_KEY = "newpost:draft:v1";
 const DRAFT_DB_NAME = "newpost-drafts";
 const DRAFT_DB_STORE = "files";
+const draftMetaKey = (userId: string) => `${DRAFT_META_KEY}:${encodeURIComponent(userId)}`;
+const draftFileKey = (userId: string, id: string) => `${userId}:${id}`;
 
 type SerializedDraft = {
   title: string;
@@ -1172,6 +1178,7 @@ type SerializedDraft = {
   scheduleAction: ScheduleAction;
   scheduledAt: number;
   youtubeOptions?: YouTubeOptions;
+  tagIds?: string[];
   fileIds: string[];
   channelFileIds?: Record<string, string[]>;
 };
@@ -1193,25 +1200,31 @@ function openDraftDB(): Promise<IDBDatabase> {
   });
 }
 
-async function putDraftFiles(files: Record<string, File>): Promise<void> {
+async function putDraftFiles(
+  userId: string,
+  files: Record<string, File>
+): Promise<void> {
   const db = await openDraftDB();
   try {
     const tx = db.transaction(DRAFT_DB_STORE, "readwrite");
     const store = tx.objectStore(DRAFT_DB_STORE);
-    store.clear();
     for (const [id, file] of Object.entries(files)) {
-      store.put(file, id);
+      store.put(file, draftFileKey(userId, id));
     }
     await new Promise<void>((resolve, reject) => {
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error);
     });
   } finally {
     db.close();
   }
 }
 
-async function readDraftFiles(ids: string[]): Promise<Record<string, File>> {
+async function readDraftFiles(
+  userId: string,
+  ids: string[]
+): Promise<Record<string, File>> {
   if (ids.length === 0) return {};
   const db = await openDraftDB();
   try {
@@ -1222,7 +1235,7 @@ async function readDraftFiles(ids: string[]): Promise<Record<string, File>> {
       ids.map(
         (id) =>
           new Promise<void>((resolve) => {
-            const req = store.get(id);
+            const req = store.get(draftFileKey(userId, id));
             req.onsuccess = () => {
               if (req.result instanceof File) result[id] = req.result;
               resolve();
@@ -1237,15 +1250,26 @@ async function readDraftFiles(ids: string[]): Promise<Record<string, File>> {
   }
 }
 
-async function clearDraftFiles(): Promise<void> {
+async function clearDraftFiles(userId: string): Promise<void> {
   try {
     const db = await openDraftDB();
     try {
       const tx = db.transaction(DRAFT_DB_STORE, "readwrite");
-      tx.objectStore(DRAFT_DB_STORE).clear();
-      await new Promise<void>((resolve) => {
+      const store = tx.objectStore(DRAFT_DB_STORE);
+      const prefix = `${userId}:`;
+      const request = store.openKeyCursor();
+      request.onsuccess = () => {
+        const cursor = request.result;
+        if (!cursor) return;
+        if (typeof cursor.key === "string" && cursor.key.startsWith(prefix)) {
+          cursor.delete();
+        }
+        cursor.continue();
+      };
+      await new Promise<void>((resolve, reject) => {
         tx.oncomplete = () => resolve();
-        tx.onerror = () => resolve();
+        tx.onerror = () => reject(tx.error);
+        tx.onabort = () => reject(tx.error);
       });
     } finally {
       db.close();
@@ -1255,7 +1279,10 @@ async function clearDraftFiles(): Promise<void> {
   }
 }
 
-async function persistDraftToStorage(draft: DraftData): Promise<void> {
+async function persistDraftToStorage(
+  userId: string,
+  draft: DraftData
+): Promise<void> {
   try {
     const filesById: Record<string, File> = {};
     const fileIds: string[] = [];
@@ -1273,7 +1300,7 @@ async function persistDraftToStorage(draft: DraftData): Promise<void> {
         filesById[id] = file;
       }
     }
-    await putDraftFiles(filesById);
+    await putDraftFiles(userId, filesById);
     const serialized: SerializedDraft = {
       title: draft.title,
       masterContent: draft.masterContent,
@@ -1282,20 +1309,21 @@ async function persistDraftToStorage(draft: DraftData): Promise<void> {
       scheduleAction: draft.scheduleAction,
       scheduledAt: draft.scheduledAt,
       youtubeOptions: draft.youtubeOptions,
+      tagIds: draft.tagIds,
       fileIds,
       channelFileIds:
         Object.keys(channelFileIds).length > 0 ? channelFileIds : undefined,
     };
-    localStorage.setItem(DRAFT_META_KEY, JSON.stringify(serialized));
+    localStorage.setItem(draftMetaKey(userId), JSON.stringify(serialized));
   } catch {
     /* Échec de persistance */
   }
 }
 
-async function loadDraftFromStorage(): Promise<DraftData | null> {
+async function loadDraftFromStorage(userId: string): Promise<DraftData | null> {
   let serialized: SerializedDraft | null = null;
   try {
-    const raw = localStorage.getItem(DRAFT_META_KEY);
+    const raw = localStorage.getItem(draftMetaKey(userId));
     if (!raw) return null;
     serialized = JSON.parse(raw) as SerializedDraft;
   } catch {
@@ -1306,7 +1334,7 @@ async function loadDraftFromStorage(): Promise<DraftData | null> {
       ...(serialized.fileIds ?? []),
       ...Object.values(serialized.channelFileIds ?? {}).flat(),
     ];
-    const filesById = await readDraftFiles(allIds);
+    const filesById = await readDraftFiles(userId, allIds);
     const files = (serialized.fileIds ?? [])
       .map((id) => filesById[id])
       .filter(Boolean) as File[];
@@ -1330,19 +1358,20 @@ async function loadDraftFromStorage(): Promise<DraftData | null> {
       files,
       channelFiles,
       youtubeOptions: serialized.youtubeOptions,
+      tagIds: serialized.tagIds ?? [],
     };
   } catch {
     return null;
   }
 }
 
-async function clearDraftFromStorage(): Promise<void> {
+async function clearDraftFromStorage(userId: string): Promise<void> {
   try {
-    localStorage.removeItem(DRAFT_META_KEY);
+    localStorage.removeItem(draftMetaKey(userId));
   } catch {
     /* ignore */
   }
-  await clearDraftFiles();
+  await clearDraftFiles(userId);
 }
 
 function draftHasContent(draft: DraftData): boolean {
@@ -2286,6 +2315,8 @@ export default function NewPostModal({
   onRequestOpen,
   onViewInCalendar,
 }: NewPostModalProps) {
+  const { user } = useUser();
+  const userId = user?.id ?? null;
   const lang = useLanguage();
   const c = COPY[lang];
 
@@ -2358,7 +2389,9 @@ export default function NewPostModal({
   const [googlePhotosError, setGooglePhotosError] = useState<string | null>(null);
   const [googlePhotosTarget, setGooglePhotosTarget] = useState("master");
   const [youtubeOptions, setYoutubeOptions] = useState<YouTubeOptions>(YOUTUBE_DEFAULT_OPTIONS);
-  const [tiktokInfo, setTiktokInfo] = useState<TikTokCreatorInfo | null>(null);
+  const [tiktokInfo, setTiktokInfo] = useState<
+    (TikTokCreatorInfo & { capabilities?: TikTokCapabilities }) | null
+  >(null);
   const [tiktokInfoError, setTiktokInfoError] = useState<string | null>(null);
   const [tiktokInfoAttempt, setTiktokInfoAttempt] = useState(0);
   const [tiktokMode, setTiktokMode] = useState<"direct" | "draft">("draft");
@@ -2512,7 +2545,7 @@ export default function NewPostModal({
     };
   }, [isOpen, showActionMenu, showDateTimePanel, activeEmojiNetwork, showSourceMenu, tagMenuOpen, connectChannelPrompt]);
   useEffect(() => {
-    if (!isOpen || savedDraft) return;
+    if (!isOpen || (userId && savedDrafts.has(userId))) return;
     const id = requestAnimationFrame(() => textareaRefs.current.master?.focus());
     return () => cancelAnimationFrame(id);
   }, [isOpen]);
@@ -2523,12 +2556,12 @@ export default function NewPostModal({
     };
   }, []);
   useEffect(() => {
-    if (savedDraft) return;
+    if (!userId || savedDrafts.has(userId)) return;
     let cancelled = false;
     (async () => {
-      const persisted = await loadDraftFromStorage();
+      const persisted = await loadDraftFromStorage(userId);
       if (cancelled || !persisted || !draftHasContent(persisted)) return;
-      savedDraft = persisted;
+      savedDrafts.set(userId, persisted);
       if (isOpenRef.current && !hasFormContentRef.current) {
         setPendingDraft(persisted);
       }
@@ -2536,10 +2569,12 @@ export default function NewPostModal({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [userId]);
   useEffect(() => {
-    setPendingDraft(isOpen ? savedDraft : null);
-  }, [isOpen]);
+    setPendingDraft(
+      isOpen && userId ? savedDrafts.get(userId) ?? null : null
+    );
+  }, [isOpen, userId]);
   const initialScheduledTime = initialScheduledAt ? initialScheduledAt.getTime() : null;
   useEffect(() => {
     if (isOpen && initialScheduledTime !== null) {
@@ -2697,8 +2732,10 @@ export default function NewPostModal({
   };
 
   const discardAndClose = () => {
-    savedDraft = null;
-    void clearDraftFromStorage();
+    if (userId) {
+      savedDrafts.delete(userId);
+      void clearDraftFromStorage(userId);
+    }
     try {
       clearForm();
     } finally {
@@ -2713,7 +2750,7 @@ export default function NewPostModal({
       return;
     }
     if (pendingDraft && !hasDraftContent) {
-      savedDraft = pendingDraft;
+      if (userId) savedDrafts.set(userId, pendingDraft);
       clearForm();
       onClose();
       return;
@@ -2731,12 +2768,15 @@ export default function NewPostModal({
           Object.entries(channelMedia).map(([k, v]) => [k, v.map((m) => m.file)])
         ),
         youtubeOptions,
+        tagIds,
       };
-      savedDraft = draft;
-      void persistDraftToStorage(draft);
-    } else {
-      savedDraft = null;
-      void clearDraftFromStorage();
+      if (userId) {
+        savedDrafts.set(userId, draft);
+        void persistDraftToStorage(userId, draft);
+      }
+    } else if (userId) {
+      savedDrafts.delete(userId);
+      void clearDraftFromStorage(userId);
     }
     clearForm();
     onClose();
@@ -2760,6 +2800,7 @@ export default function NewPostModal({
     setScheduleAction(pendingDraft.scheduleAction);
     setScheduledAt(new Date(pendingDraft.scheduledAt));
     setYoutubeOptions(pendingDraft.youtubeOptions ?? YOUTUBE_DEFAULT_OPTIONS);
+    setTagIds(pendingDraft.tagIds ?? []);
     setMedia(
       pendingDraft.files.map((file) => ({
         id: makeId(),
@@ -2782,13 +2823,15 @@ export default function NewPostModal({
       )
     );
     caretRefs.current = {};
-    savedDraft = null;
+    if (userId) savedDrafts.delete(userId);
     setPendingDraft(null);
   };
   const ignoreDraft = () => {
-    savedDraft = null;
+    if (userId) {
+      savedDrafts.delete(userId);
+      void clearDraftFromStorage(userId);
+    }
     setPendingDraft(null);
-    void clearDraftFromStorage();
   };
 
   const updateCaret = (target: string, el: HTMLTextAreaElement) => {

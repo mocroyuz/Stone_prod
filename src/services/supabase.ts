@@ -726,6 +726,22 @@ export async function resetPassword(
  * URL de retour OAuth par défaut : `/home`.
  * Doit figurer dans les Redirect URLs autorisées côté Supabase.
  */
+const OAUTH_STATE_STORAGE_KEY = "crossflow_oauth_state";
+const OAUTH_STATE_PARAM = "oauth_state";
+
+export function oauthStateMatches(expected: string | null, received: string | null): boolean {
+  return Boolean(expected && received && expected === received);
+}
+
+function createOAuthState(): string {
+  if (typeof window === "undefined" || !window.crypto?.getRandomValues) {
+    throw new Error("Secure OAuth state generation is unavailable.");
+  }
+  const bytes = new Uint8Array(32);
+  window.crypto.getRandomValues(bytes);
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
 function defaultOAuthRedirect(): string {
   return `${window.location.origin}/home`;
 }
@@ -734,22 +750,44 @@ async function requestOAuthUrl(
   provider: "google" | "github",
   redirectTo?: string
 ): Promise<string> {
-  const response = await fetch(`${API_BASE_URL}/api/auth/${provider}/url`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      redirectTo: redirectTo || defaultOAuthRedirect(),
-    }),
-  });
-
-  const data = await response.json().catch(() => null);
-  if (!response.ok || !data?.success || !data?.url) {
-    throw new Error(
-      data?.error ||
-        `Could not start ${provider === "google" ? "Google" : "GitHub"} sign-in`
-    );
+  const state = createOAuthState();
+  const callback = new URL(redirectTo || defaultOAuthRedirect(), window.location.origin);
+  if (callback.origin !== window.location.origin) {
+    throw new Error("OAuth callbacks must return to this application.");
   }
-  return data.url as string;
+  callback.searchParams.set(OAUTH_STATE_PARAM, state);
+
+  try {
+    sessionStorage.setItem(OAUTH_STATE_STORAGE_KEY, state);
+  } catch {
+    throw new Error("Session storage is required to start OAuth securely.");
+  }
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/auth/${provider}/url`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ redirectTo: callback.toString() }),
+    });
+
+    const data = await response.json().catch(() => null);
+    if (!response.ok || !data?.success || !data?.url) {
+      throw new Error(
+        data?.error ||
+          `Could not start ${provider === "google" ? "Google" : "GitHub"} sign-in`
+      );
+    }
+    return data.url as string;
+  } catch (error) {
+    try {
+      if (sessionStorage.getItem(OAUTH_STATE_STORAGE_KEY) === state) {
+        sessionStorage.removeItem(OAUTH_STATE_STORAGE_KEY);
+      }
+    } catch {
+      // Ignore unavailable browser storage.
+    }
+    throw error;
+  }
 }
 
 export function getGoogleAuthUrl(redirectTo?: string): Promise<string> {
@@ -804,40 +842,80 @@ export function consumeOAuthRedirect(): Promise<OAuthRedirectResult> {
   if (typeof window === "undefined") return Promise.resolve("none");
   if (oauthRedirectPromise) return oauthRedirectPromise;
 
-  const hash = window.location.hash;
-  const idx = hash.indexOf("access_token=");
-  if (idx === -1) return Promise.resolve("none");
+  const { hash, search } = window.location;
+  const searchParams = new URLSearchParams(search);
+  const hashQueryIndex = hash.indexOf("?");
+  const hashParams = new URLSearchParams(
+    hashQueryIndex >= 0
+      ? hash.slice(hashQueryIndex + 1)
+      : hash.replace(/^#\/?/, "")
+  );
+  const readParam = (key: string) =>
+    searchParams.get(key) ?? hashParams.get(key);
 
-  // Tolère un "#/route?access_token=…" comme un "#access_token=…"
-  const params = new URLSearchParams(hash.slice(idx));
-  const accessToken = params.get("access_token");
-  const refreshToken = params.get("refresh_token");
+  const accessToken = readParam("access_token");
+  const refreshToken = readParam("refresh_token");
+  const receivedState = readParam(OAUTH_STATE_PARAM);
+  const hasOAuthResponse = Boolean(
+    accessToken || refreshToken || readParam("code") || readParam("error")
+  );
 
-  // Laisse le flux "mot de passe oublié" à son propre handler.
-  if (params.get("type") === "recovery") return Promise.resolve("none");
+  // Laisse le flux « mot de passe oublié » à son propre handler.
+  if (readParam("type") === "recovery") return Promise.resolve("none");
+  if (!hasOAuthResponse) return Promise.resolve("none");
 
-  const cleanUrl = () =>
-    window.history.replaceState(
-      null,
-      "",
-      window.location.pathname + window.location.search
-    );
+  const cleanUrl = () => {
+    const url = new URL(window.location.href);
+    [
+      OAUTH_STATE_PARAM,
+      "access_token",
+      "refresh_token",
+      "code",
+      "error",
+      "error_description",
+      "expires_in",
+      "token_type",
+      "type",
+    ].forEach((key) => url.searchParams.delete(key));
+    url.hash = "";
+    window.history.replaceState(null, "", url.pathname + url.search);
+  };
 
-  if (!accessToken || !refreshToken) {
-    cleanUrl();
-    return Promise.resolve("error");
+  let expectedState: string | null = null;
+  try {
+    expectedState = sessionStorage.getItem(OAUTH_STATE_STORAGE_KEY);
+    sessionStorage.removeItem(OAUTH_STATE_STORAGE_KEY);
+  } catch {
+    // Refuse le callback si l'anti-CSRF state ne peut pas être vérifié.
   }
 
-  // Nettoie l'URL tout de suite : les tokens ne doivent pas rester visibles.
+  const stateIsValid = oauthStateMatches(expectedState, receivedState);
   cleanUrl();
 
+  if (!stateIsValid || readParam("error") || readParam("code")) {
+    return Promise.resolve("error");
+  }
+  if (!accessToken || !refreshToken) return Promise.resolve("error");
+
   oauthRedirectPromise = (async (): Promise<OAuthRedirectResult> => {
+    const previousAccess = getAccessToken();
+    const previousRefresh = getRefreshToken();
+    const previouslyPending = isMfaPending();
+
     try {
       const pending = await saveOAuthSession(accessToken, refreshToken);
       return pending ? "mfa" : "ready";
     } catch (error) {
       console.error("OAuth redirect handling failed:", error);
-      clearSession();
+      try {
+        if (previousAccess) localStorage.setItem(ACCESS_TOKEN_KEY, previousAccess);
+        else localStorage.removeItem(ACCESS_TOKEN_KEY);
+        if (previousRefresh) localStorage.setItem(REFRESH_TOKEN_KEY, previousRefresh);
+        else localStorage.removeItem(REFRESH_TOKEN_KEY);
+        setMfaPending(previouslyPending);
+      } catch {
+        // Keep the prior session untouched when storage is unavailable.
+      }
       return "error";
     }
   })();
