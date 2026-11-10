@@ -709,25 +709,25 @@ const BLOG_POSTS: BlogPost[] = [
   {
     title: "The Best Time to Post on TikTok in 2026",
     date: "Jul 20, 2026",
-    image: "/images/blog/best-time-tiktok.jpg",
+    // image: "/images/blog/best-time-tiktok.jpg", // à réactiver quand le fichier existera dans public/
     url: BLOG_URL,
   },
   {
     title: "The 11 Best AI Video Editors: I Tested Them All",
     date: "Jul 22, 2026",
-    image: "/images/blog/ai-video-editors.jpg",
+    // image: "/images/blog/ai-video-editors.jpg",
     url: BLOG_URL,
   },
   {
     title: "How to Create a Social Media Content Calendar",
     date: "Jul 24, 2026",
-    image: "/images/blog/content-calendar.jpg",
+    // image: "/images/blog/content-calendar.jpg",
     url: BLOG_URL,
   },
   {
     title: "17 Best AI Tools for Social Media Content",
     date: "Aug 3, 2026",
-    image: "/images/blog/ai-tools.jpg",
+    // image: "/images/blog/ai-tools.jpg",
     url: BLOG_URL,
   },
 ];
