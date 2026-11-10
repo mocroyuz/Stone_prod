@@ -771,7 +771,7 @@ function AppContentInner({
   toggle,
   route: rawRoute,
 }: AppContentProps) {
-  const { user, loading } = useUser();
+  const { user, loading, authError, refreshUser } = useUser();
   const route = normalizeRoute(rawRoute);
 
   const isAuth = AUTH_ROUTES.has(route);
@@ -793,7 +793,7 @@ function AppContentInner({
   useGentleWheelScroll(isLanding || isPricing);
 
   useEffect(() => {
-    if (loading) return;
+    if (loading || (authError && !user && isProtected)) return;
 
     if (isAccountRoute) {
       const query = new URLSearchParams();
@@ -856,6 +856,7 @@ function AppContentInner({
   }, [
     user,
     loading,
+    authError,
     isProtected,
     isAuth,
     isLanding,
@@ -865,8 +866,48 @@ function AppContentInner({
     checkoutReturn.sessionId,
   ]);
 
+  if (authError && !user && isProtected) {
+    return (
+      <main
+        role="alert"
+        aria-live="assertive"
+        className="fixed inset-0 z-[999999] flex flex-col items-center justify-center bg-[#050505] px-6 text-center text-white"
+      >
+        <img
+          src="/images/icon_nav.png"
+          alt="Stone"
+          className="mb-8 h-16 w-16 object-contain"
+        />
+        <h1 className="text-xl font-semibold">Your session could not be checked</h1>
+        <p className="mt-2 max-w-sm text-sm text-white/60">
+          The connection may be slow or temporarily unavailable. Your session has not been cleared.
+        </p>
+        <button
+          type="button"
+          onClick={() => void refreshUser()}
+          className="mt-6 rounded-xl bg-white px-5 py-3 text-sm font-semibold text-black transition hover:bg-white/85 focus:outline-none focus:ring-2 focus:ring-white/70 focus:ring-offset-2 focus:ring-offset-[#050505]"
+        >
+          Try again
+        </button>
+      </main>
+    );
+  }
+
   if (loading && !isPublic && !isAuth) {
-    return <div className="fixed inset-0 z-[999999] bg-[#050505]" />;
+    return (
+      <main
+        role="status"
+        aria-live="polite"
+        className="fixed inset-0 z-[999999] flex flex-col items-center justify-center bg-[#050505] text-white"
+      >
+        <img
+          src="/images/icon_nav.png"
+          alt="Stone"
+          className="h-16 w-16 animate-pulse object-contain"
+        />
+        <p className="mt-5 text-sm text-white/60">Loading your Stone workspace…</p>
+      </main>
+    );
   }
 
   if (isAccountRoute) return null;

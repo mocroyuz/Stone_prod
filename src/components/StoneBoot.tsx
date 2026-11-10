@@ -107,6 +107,43 @@ export default function StoneBoot({
     };
   }, [finish]);
 
+  useEffect(() => {
+    let wasHidden = document.visibilityState === "hidden";
+
+    const markHidden = () => {
+      wasHidden = true;
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        wasHidden = true;
+        return;
+      }
+
+      if (wasHidden) {
+        wasHidden = false;
+        if (!holdRef.current) finish();
+      }
+    };
+
+    const watchdogId = window.setTimeout(() => {
+      if (!holdRef.current) finish();
+    }, 8_000);
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("pageshow", handleVisibilityChange);
+    window.addEventListener("blur", markHidden);
+    window.addEventListener("focus", handleVisibilityChange);
+
+    return () => {
+      window.clearTimeout(watchdogId);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("pageshow", handleVisibilityChange);
+      window.removeEventListener("blur", markHidden);
+      window.removeEventListener("focus", handleVisibilityChange);
+    };
+  }, [finish]);
+
   return (
     <div
       role="status"

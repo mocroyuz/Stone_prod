@@ -3,6 +3,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -17,6 +18,7 @@ import {
 interface UserContextType {
   user: UserProfile | null;
   loading: boolean;
+  authError: boolean;
   refreshUser: () => Promise<UserProfile | null>;
 }
 
@@ -32,25 +34,37 @@ const REFRESH_TOKEN_KEY = "crossflow_refresh_token";
 export function UserProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [authError, setAuthError] = useState(false);
+  const authVersionRef = useRef(0);
+  const hiddenAtRef = useRef(0);
+  const lastResumeCheckAtRef = useRef(0);
 
   /**
-   * Récupère l'utilisateur actuellement connecté et son profil.
-   * getCurrentUser() renvoie null si aucune session n'est stockée
-   * ou si elle est invalide (le refresh du token est géré automatiquement).
+   * Récupère l'utilisateur sans transformer une panne réseau en déconnexion.
+   * Si un utilisateur est déjà chargé, l'UI reste disponible pendant le check.
    */
   const refreshUser = useCallback(async (): Promise<UserProfile | null> => {
+    const requestVersion = authVersionRef.current;
+    if (!user) setLoading(true);
+    setAuthError(false);
+
     try {
-      const userData = await getCurrentUser();
+      const userData = await getCurrentUser({ throwOnError: true });
+      if (requestVersion !== authVersionRef.current) return null;
       setUser(userData);
+      setAuthError(false);
       return userData;
     } catch (error) {
+      if (requestVersion !== authVersionRef.current) return null;
       console.error("Error refreshing user:", error);
-      setUser(null);
-      return null;
+      setAuthError(true);
+      return user;
     } finally {
-      setLoading(false);
+      if (requestVersion === authVersionRef.current) {
+        setLoading(false);
+      }
     }
-  }, []);
+  }, [user]);
 
   /**
    * Vérification initiale de la session au démarrage.
@@ -61,15 +75,17 @@ export function UserProvider({ children }: { children: ReactNode }) {
    */
   useEffect(() => {
     let mounted = true;
+    const requestVersion = authVersionRef.current;
 
     const initializeAuth = async () => {
       try {
         const oauth = await consumeOAuthRedirect(); // ← AVANT getCurrentUser
-        const userData = await getCurrentUser();
+        const userData = await getCurrentUser({ throwOnError: true });
 
-        if (!mounted) return;
+        if (!mounted || requestVersion !== authVersionRef.current) return;
 
         setUser(userData);
+        setAuthError(false);
 
         if (oauth === "ready" && userData) {
           navigate("home"); // ← redirection directe post-login OAuth
@@ -80,11 +96,11 @@ export function UserProvider({ children }: { children: ReactNode }) {
       } catch (error) {
         console.error("Error initializing authentication:", error);
 
-        if (mounted) {
-          setUser(null);
+        if (mounted && requestVersion === authVersionRef.current) {
+          setAuthError(true);
         }
       } finally {
-        if (mounted) {
+        if (mounted && requestVersion === authVersionRef.current) {
           setLoading(false);
         }
       }
@@ -106,6 +122,7 @@ export function UserProvider({ children }: { children: ReactNode }) {
     const handleStorage = (event: StorageEvent) => {
       // event.key === null : localStorage.clear() a été appelé
       if (event.key === null || event.key.startsWith(STORAGE_PREFIX)) {
+        authVersionRef.current += 1;
         void refreshUser();
       }
     };
@@ -124,14 +141,20 @@ export function UserProvider({ children }: { children: ReactNode }) {
    * au lieu de garder un `user` fantôme qui provoque des erreurs en
    * cascade au clic suivant.
    *
-   * Événement émis par `clearStoredTokens()` dans services/stripe.ts :
+   * Événement émis par `clearSession()` et `clearStoredTokens()` :
    *   window.dispatchEvent(new CustomEvent("stone:auth-expired"))
    */
   useEffect(() => {
     const handleAuthExpired = () => {
-      localStorage.removeItem(ACCESS_TOKEN_KEY);
-      localStorage.removeItem(REFRESH_TOKEN_KEY);
+      authVersionRef.current += 1;
+      try {
+        localStorage.removeItem(ACCESS_TOKEN_KEY);
+        localStorage.removeItem(REFRESH_TOKEN_KEY);
+      } catch {
+        // ignore unavailable browser storage
+      }
       setUser(null);
+      setAuthError(false);
       setLoading(false);
     };
 
@@ -142,11 +165,58 @@ export function UserProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  /**
+   * Une pause d'onglet peut dépasser l'expiration de l'access token. Vérifie
+   * la session au retour, sans bloquer l'interface déjà montée.
+   */
+  useEffect(() => {
+    const markHidden = () => {
+      hiddenAtRef.current = Date.now();
+    };
+
+    const handleResume = () => {
+      if (document.visibilityState === "hidden") {
+        markHidden();
+        return;
+      }
+
+      if (!hiddenAtRef.current) return;
+      const awayFor = Date.now() - hiddenAtRef.current;
+      hiddenAtRef.current = 0;
+
+      if (
+        !user ||
+        awayFor < 60_000 ||
+        Date.now() - lastResumeCheckAtRef.current < 30_000
+      ) {
+        return;
+      }
+
+      lastResumeCheckAtRef.current = Date.now();
+      void refreshUser();
+    };
+
+    document.addEventListener("visibilitychange", handleResume);
+    window.addEventListener("pagehide", markHidden);
+    window.addEventListener("pageshow", handleResume);
+    window.addEventListener("blur", markHidden);
+    window.addEventListener("focus", handleResume);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleResume);
+      window.removeEventListener("pagehide", markHidden);
+      window.removeEventListener("pageshow", handleResume);
+      window.removeEventListener("blur", markHidden);
+      window.removeEventListener("focus", handleResume);
+    };
+  }, [refreshUser, user]);
+
   return (
     <UserContext.Provider
       value={{
         user,
         loading,
+        authError,
         refreshUser,
       }}
     >

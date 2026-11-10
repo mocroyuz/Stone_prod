@@ -6,6 +6,46 @@
 
 export const API_BASE_URL = "https://stone-serv.onrender.com";
 
+const API_REQUEST_TIMEOUT_MS = 30_000;
+
+async function withRequestTimeout<T>(
+  operation: (signal: AbortSignal) => Promise<T>,
+  externalSignal?: AbortSignal,
+  timeoutMs = API_REQUEST_TIMEOUT_MS
+): Promise<T> {
+  const controller = new AbortController();
+  let timedOut = false;
+  const abortFromCaller = () => controller.abort(externalSignal?.reason);
+
+  if (externalSignal?.aborted) {
+    abortFromCaller();
+  } else {
+    externalSignal?.addEventListener("abort", abortFromCaller, { once: true });
+  }
+
+  const timeoutId = window.setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, timeoutMs);
+  const createTimeoutError = () => {
+    const error = new Error("The server request timed out. Please try again.");
+    error.name = "TimeoutError";
+    return error;
+  };
+
+  try {
+    const result = await operation(controller.signal);
+    if (timedOut) throw createTimeoutError();
+    return result;
+  } catch (error) {
+    if (timedOut) throw createTimeoutError();
+    throw error;
+  } finally {
+    window.clearTimeout(timeoutId);
+    externalSignal?.removeEventListener("abort", abortFromCaller);
+  }
+}
+
 // ============================================================
 // STORAGE KEYS
 // ============================================================
@@ -215,13 +255,17 @@ function saveSession(session: AuthSession | null): void {
 }
 
 export function clearSession(): void {
-  localStorage.removeItem(ACCESS_TOKEN_KEY);
-  localStorage.removeItem(REFRESH_TOKEN_KEY);
-  setMfaPending(false);
   try {
+    localStorage.removeItem(ACCESS_TOKEN_KEY);
+    localStorage.removeItem(REFRESH_TOKEN_KEY);
+    setMfaPending(false);
     sessionStorage.removeItem(MFA_VERIFIED_KEY);
   } catch {
-    /* ignore */
+    /* ignore if browser storage is unavailable */
+  }
+
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("stone:auth-expired"));
   }
 }
 
@@ -289,10 +333,15 @@ async function refreshAccessToken(): Promise<boolean> {
   if (!refreshPromise) {
     refreshPromise = (async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ refreshToken }),
+        const { response, data } = await withRequestTimeout(async (signal) => {
+          const response = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ refreshToken }),
+            signal,
+          });
+          const data = await response.json().catch(() => null);
+          return { response, data };
         });
 
         if (!response.ok) {
@@ -306,8 +355,6 @@ async function refreshAccessToken(): Promise<boolean> {
           return false;
         }
 
-        const data = await response.json().catch(() => null);
-
         if (data?.session?.access_token) {
           saveSession(data.session);
           return true;
@@ -317,6 +364,9 @@ async function refreshAccessToken(): Promise<boolean> {
         return false;
       } catch (error) {
         console.error("Error refreshing session:", error);
+        if (error instanceof Error && error.name === "TimeoutError") {
+          throw error;
+        }
         return false;
       } finally {
         refreshPromise = null;
@@ -367,17 +417,29 @@ export async function apiRequest<T>(
     headers.set("Authorization", `Bearer ${token}`);
   }
 
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-    ...options,
-    headers,
-  });
+  const sendRequest = async (signal: AbortSignal | null | undefined) => {
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      ...options,
+      headers,
+      signal: signal ?? undefined,
+    });
 
-  let data: unknown = null;
-  try {
-    data = await response.json();
-  } catch {
-    data = null;
-  }
+    let data: unknown = null;
+    try {
+      data = await response.json();
+    } catch {
+      data = null;
+    }
+
+    return { response, data };
+  };
+
+  const needsStartupTimeout =
+    endpoint === "/api/user/profile" ||
+    endpoint === "/api/auth/mfa/status";
+  const { response, data } = needsStartupTimeout
+    ? await withRequestTimeout(sendRequest, options.signal ?? undefined)
+    : await sendRequest(options.signal);
 
   if (!response.ok) {
     const bodyError =
@@ -820,7 +882,9 @@ export async function updatePassword(
 // USER
 // ============================================================
 
-export async function getCurrentUser(): Promise<UserProfile | null> {
+export async function getCurrentUser(
+  options: { throwOnError?: boolean } = {}
+): Promise<UserProfile | null> {
   try {
     if (!hasStoredSession()) return null;
 
@@ -860,6 +924,30 @@ export async function getCurrentUser(): Promise<UserProfile | null> {
     return normalized;
   } catch (error) {
     console.error("Error fetching current user:", error);
+
+    const status =
+      typeof error === "object" && error !== null && "status" in error
+        ? Number((error as { status?: unknown }).status)
+        : undefined;
+
+    if (status === 401) {
+      if (!getRefreshToken()) {
+        clearSession();
+        return null;
+      }
+
+      // Un refresh peut échouer temporairement. Ne pas déconnecter l'utilisateur
+      // tant que le refresh token existe : l'appelant peut conserver son état et réessayer.
+      if (options.throwOnError) throw error;
+      return null;
+    }
+
+    if (status === 403) return null;
+
+    // Une erreur réseau/timeout ne doit pas être interprétée comme une
+    // déconnexion. L'appelant peut conserver l'utilisateur et proposer un retry.
+    if (options.throwOnError) throw error;
+
     return null;
   }
 }
