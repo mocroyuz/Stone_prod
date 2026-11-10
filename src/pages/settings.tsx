@@ -5121,11 +5121,10 @@ function ChannelsSection({
         }
       })();
     };
-    sync("tiktok", returned.tiktok, getTikTokStatus);
-    sync("pinterest", returned.pinterest, getPinterestStatus);
-    sync("youtube", returned.youtube, getYouTubeStatus);
-    const instagramJustReturned = Boolean(returned.instagram);
-    sync("instagram", instagramJustReturned, getInstagramStatus);
+    if (returned.tiktok) sync("tiktok", true, getTikTokStatus);
+    if (returned.pinterest) sync("pinterest", true, getPinterestStatus);
+    if (returned.youtube) sync("youtube", true, getYouTubeStatus);
+    if (returned.instagram) sync("instagram", true, getInstagramStatus);
     return () => {
       cancelled = true;
     };
