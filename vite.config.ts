@@ -15,6 +15,16 @@ export default defineConfig({
 
   plugins: [react(), tailwindcss()],
 
+  server: {
+    proxy: {
+      "/api": {
+        target: "https://stone-serv.onrender.com",
+        changeOrigin: true,
+        secure: true,
+      },
+    },
+  },
+
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "src"),
