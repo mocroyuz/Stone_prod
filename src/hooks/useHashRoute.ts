@@ -1,4 +1,4 @@
-import { useLayoutEffect, useState } from "react";
+import { startTransition, useLayoutEffect, useState } from "react";
 
 /**
  * Lit les anciennes URL avec hash et les remplace par des chemins classiques.
@@ -41,10 +41,15 @@ export function useHashRoute(): string {
 
   useLayoutEffect(() => {
     const onRouteChange = () => {
-      setLocation({
-        route: readRoute(),
-        search: window.location.search,
-        hash: window.location.hash,
+      // Une navigation peut charger un composant lazy. En transition,
+      // React conserve la page actuelle jusqu’à ce que la suivante soit prête,
+      // au lieu d’afficher le fallback Suspense entre les deux.
+      startTransition(() => {
+        setLocation({
+          route: readRoute(),
+          search: window.location.search,
+          hash: window.location.hash,
+        });
       });
       window.scrollTo({ top: 0, behavior: "auto" });
     };
