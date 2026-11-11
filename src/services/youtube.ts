@@ -4,101 +4,19 @@
 
 import { useEffect, useState } from "react";
 import { useUser } from "../contexts/UserContext";
-import { API_BASE_URL, apiRequest } from "./supabase";
+import { apiRequest } from "./supabase";
 
-/* ═════════════════════════════════════════════════════════════
-   1. CLIENT HTTP JSON (avec refresh automatique du token)
-   Utilisé par les commentaires, les vidéos et les insights.
-═════════════════════════════════════════════════════════════ */
-
-const ACCESS_KEY = "crossflow_access_token";
-const REFRESH_KEY = "crossflow_refresh_token";
-const BASE_URL = API_BASE_URL;
-
-function readSession() {
-  return {
-    access: localStorage.getItem(ACCESS_KEY) ?? "",
-    refresh: localStorage.getItem(REFRESH_KEY) ?? "",
-  };
-}
-
-async function parseJson(res: Response): Promise<any> {
-  const text = await res.text();
-  try {
-    return JSON.parse(text);
-  } catch {
-    throw new Error(
-      `Réponse non-JSON de ${res.url} (HTTP ${res.status}) : ${text.slice(0, 80)}`
-    );
-  }
-}
-
-// Un seul refresh à la fois, même si plusieurs requêtes échouent en parallèle
-let refreshing: Promise<string> | null = null;
-
-function refreshAccessToken(): Promise<string> {
-  if (refreshing) return refreshing;
-
-  refreshing = (async () => {
-    const { refresh } = readSession();
-    if (!refresh) throw new Error("Session expirée, reconnecte-toi.");
-
-    const res = await fetch(`${BASE_URL}/api/auth/refresh`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ refreshToken: refresh }),
-    });
-    const data = await parseJson(res);
-
-    if (!res.ok || !data.session?.access_token) {
-      throw new Error("Session expirée, reconnecte-toi.");
-    }
-
-    localStorage.setItem(ACCESS_KEY, data.session.access_token);
-    if (data.session.refresh_token) {
-      localStorage.setItem(REFRESH_KEY, data.session.refresh_token);
-    }
-    return data.session.access_token as string;
-  })().finally(() => {
-    refreshing = null;
-  });
-
-  return refreshing;
-}
-
+/**
+ * Toutes les requêtes YouTube utilisent le client API centralisé :
+ * gestion de session et rafraîchissement du jeton unifiés.
+ */
 type CallInit = { method?: "GET" | "POST"; body?: unknown };
 
-function send(path: string, token: string, init: CallInit): Promise<Response> {
-  const hasBody = init.body !== undefined;
-
-  return fetch(`${BASE_URL}${path}`, {
-    method: init.method ?? "GET",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      ...(hasBody ? { "Content-Type": "application/json" } : {}),
-    },
-    body: hasBody ? JSON.stringify(init.body) : undefined,
-  });
-}
-
 async function apiCall<T>(path: string, init: CallInit = {}): Promise<T> {
-  let { access } = readSession();
-  if (!access) throw new Error("Non connecté : aucun token trouvé (vérifie ACCESS_KEY).");
-
-  let res = await send(path, access, init);
-
-  // Token expiré → refresh puis une seule nouvelle tentative
-  if (res.status === 401) {
-    access = await refreshAccessToken();
-    res = await send(path, access, init);
-  }
-
-  const data = await parseJson(res);
-
-  if (!res.ok || data.success === false) {
-    throw new Error(data.error || `HTTP ${res.status}`);
-  }
-  return data as T;
+  return apiRequest<T>(path, {
+    method: init.method ?? "GET",
+    ...(init.body !== undefined ? { body: JSON.stringify(init.body) } : {}),
+  });
 }
 
 /* ═════════════════════════════════════════════════════════════
