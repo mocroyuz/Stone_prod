@@ -15,7 +15,7 @@ export async function getInstagramStatus(): Promise<{
 
 /**
  * Demande l'URL d'autorisation au backend, vérifie qu'elle pointe vers
- * facebook.com, puis redirige le navigateur. Si tout va bien, la page
+ * instagram.com (ou Facebook en mode historique), puis redirige le navigateur. Si tout va bien, la page
  * quitte l'application : la promesse sert seulement à remonter les erreurs.
  */
 export async function startInstagramLogin(): Promise<void> {
@@ -37,7 +37,8 @@ export async function startInstagramLogin(): Promise<void> {
   const okHost =
     target.hostname === "www.facebook.com" ||
     target.hostname === "facebook.com" ||
-    target.hostname === "www.instagram.com";
+    target.hostname === "www.instagram.com" ||
+    target.hostname === "instagram.com";
   if (target.protocol !== "https:" || !okHost) {
     throw new Error(`URL inattendue (hôte ${target.hostname}).`);
   }
