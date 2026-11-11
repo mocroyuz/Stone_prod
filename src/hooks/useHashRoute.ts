@@ -27,7 +27,7 @@ function normalizeLegacyHashRoute(): void {
 function readRoute(): string {
   normalizeLegacyHashRoute();
   return window.location.pathname
-    .replace(/^\\/+|\\/+$/g, "")
+    .replace(/^\/+|\/+$/g, "")
     .split("/")[0]
     .toLowerCase();
 }
@@ -86,7 +86,7 @@ export function useHashRoute(): string {
         destination.pathname.startsWith("/api/") ||
         destination.pathname.startsWith("/assets/") ||
         destination.pathname === "/canva-return" ||
-        /^\\/(?:tiktok|pinterest|youtube|canva|dropbox|googledrive|googlephotos)\\/callback\\/?$/i.test(destination.pathname)
+        /^\/(?:tiktok|pinterest|youtube|canva|dropbox|googledrive|googlephotos)\/callback\/?$/i.test(destination.pathname)
       ) return;
 
       // Laisse le navigateur gérer les ancres dans la page courante.
