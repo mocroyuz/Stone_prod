@@ -1327,7 +1327,7 @@ function ChannelAvatar({
         >
           <NetworkIcon
             mono={isDark ? "white" : "black"}
-            className="h-[9px] w-[9px] max-md:h-2.5 max-md:w-2.5"
+            className="h-2 w-2"
           />
         </span>
       )}
