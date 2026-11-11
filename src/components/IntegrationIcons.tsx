@@ -357,26 +357,28 @@ export function YouTubeIcon({
       role="img"
       aria-label={title}
     >
-      <SiYoutubeshorts
-        className="h-full w-full"
-        size={size}
-        color="#FF0033"
-        title={title}
-        aria-hidden="true"
-      />
-      {/* Triangle de lecture blanc au centre, sans modifier le fond du logo. */}
-      <span
-        aria-hidden="true"
-        className="pointer-events-none absolute"
-        style={{
-          width: "27%",
-          height: "32%",
-          left: "36.5%",
-          top: "34%",
-          backgroundColor: "#ffffff",
-          clipPath: "polygon(0 0, 100% 50%, 0 100%)",
-        }}
-      />
+      <span className="relative flex h-[84%] w-[84%] items-center justify-center">
+        <SiYoutubeshorts
+          className="h-full w-full"
+          size={size * 0.84}
+          color="#FF0033"
+          title={title}
+          aria-hidden="true"
+        />
+        {/* Triangle de lecture blanc centré sur le logo réduit. */}
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute"
+          style={{
+            width: "27%",
+            height: "32%",
+            left: "36.5%",
+            top: "34%",
+            backgroundColor: "#ffffff",
+            clipPath: "polygon(0 0, 100% 50%, 0 100%)",
+          }}
+        />
+      </span>
     </span>
   );
 }
