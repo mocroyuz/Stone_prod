@@ -5191,7 +5191,7 @@ function ChannelsSection({
           return;
         }
       }
-      if (import.meta.env.VITE_PINTEREST_MANUAL_TOKEN === "true") {
+      if (!import.meta.env.PROD && import.meta.env.VITE_PINTEREST_MANUAL_TOKEN === "true") {
         const token = window.prompt(c.channels.pinterestTokenPrompt);
         if (!token?.trim()) {
           setPendingKey(null);
