@@ -56,11 +56,11 @@ function NetworkBadge({ channel, isDark }: { channel?: ConnectedChannel; isDark:
   if (!Icon) return null;
   return (
     <span
-      className={`absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-white text-black ring-1 ${
+      className={`absolute -bottom-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-white text-black ring-1 ${
         isDark ? "ring-[#0f0f11]" : "ring-white"
       }`}
     >
-      <Icon className="h-2.5 w-2.5" />
+      <Icon className="h-2 w-2" />
     </span>
   );
 }
