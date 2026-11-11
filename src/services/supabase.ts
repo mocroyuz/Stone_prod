@@ -37,8 +37,10 @@ function readStoredValue(key: string): string | null {
       if (session) {
         try {
           session.setItem(key, legacy);
+          // Remove the legacy copy once the session-scoped migration succeeds.
+          window.localStorage.removeItem(key);
         } catch {
-          // ignore
+          // Keep the legacy value if session storage is unavailable.
         }
       }
       return legacy;
