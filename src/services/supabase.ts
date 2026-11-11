@@ -510,12 +510,18 @@ export async function apiRequest<T>(
     return { response, data };
   };
 
-  const needsStartupTimeout =
-    endpoint === "/api/user/profile" ||
-    endpoint === "/api/auth/mfa/status";
-  const { response, data } = needsStartupTimeout
-    ? await withRequestTimeout(sendRequest, options.signal ?? undefined)
-    : await sendRequest(options.signal);
+  // Toutes les requêtes API ont une limite de durée : une connexion réseau
+  // bloquée ne doit pas laisser l'interface en chargement indéfiniment.
+  // L'upload d'avatar dispose d'une marge supplémentaire pour les fichiers.
+  const timeoutMs =
+    endpoint === "/api/user/avatar"
+      ? 120_000
+      : API_REQUEST_TIMEOUT_MS;
+  const { response, data } = await withRequestTimeout(
+    sendRequest,
+    options.signal ?? undefined,
+    timeoutMs
+  );
 
   if (!response.ok) {
     const bodyError =
