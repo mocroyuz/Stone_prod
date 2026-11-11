@@ -17,70 +17,60 @@ function getSafeStorage(): Storage | null {
   }
 }
 
+/**
+ * Les jetons ne sont jamais lus ni écrits dans localStorage.
+ * Les anciennes valeurs sont migrées vers sessionStorage uniquement,
+ * puis supprimées de localStorage. Si sessionStorage est indisponible,
+ * l'authentification échoue de manière fermée.
+ */
 function readStoredValue(key: string): string | null {
   const storage = getSafeStorage();
-  if (storage) {
-    try {
-      const value = storage.getItem(key);
-      if (value !== null) return value;
-    } catch {
-      // ignore
-    }
+  if (!storage) return null;
+
+  try {
+    const current = storage.getItem(key);
+    if (current !== null) return current;
+  } catch {
+    return null;
   }
 
   try {
     const legacy = window.localStorage.getItem(key);
-    if (legacy !== null) {
-      // Migrate legacy tokens to session storage to reduce the blast radius of XSS.
-      const session = getSafeStorage();
-      if (session) {
-        try {
-          session.setItem(key, legacy);
-        } catch {
-          // ignore
-        }
-      }
-      return legacy;
-    }
+    if (legacy === null) return null;
+    storage.setItem(key, legacy);
+    window.localStorage.removeItem(key);
+    return legacy;
   } catch {
-    // ignore
+    return null;
   }
-
-  return null;
 }
 
 function writeStoredValue(key: string, value: string): void {
   const storage = getSafeStorage();
-  if (storage) {
-    try {
-      storage.setItem(key, value);
-      return;
-    } catch {
-      // fall through to legacy storage if sessionStorage is unavailable
-    }
+  if (!storage) {
+    throw new Error("Le stockage de session est indisponible. Autorisez le stockage du navigateur puis reconnectez-vous.");
   }
 
   try {
-    window.localStorage.setItem(key, value);
+    storage.setItem(key, value);
   } catch {
-    // ignore if browser storage is unavailable
+    throw new Error("Impossible d'enregistrer la session de manière sécurisée.");
+  }
+
+  try {
+    window.localStorage.removeItem(key);
+  } catch {
+    // localStorage n'est jamais utilisé comme solution de secours.
   }
 }
 
 function removeStoredValue(key: string): void {
   const storage = getSafeStorage();
   if (storage) {
-    try {
-      storage.removeItem(key);
-    } catch {
-      // ignore
-    }
+    try { storage.removeItem(key); } catch { /* ignore */ }
   }
-
-  try {
-    window.localStorage.removeItem(key);
-  } catch {
-    // ignore
+  if (typeof window !== "undefined") {
+    try { window.localStorage.removeItem(key); } catch { /* ignore */ }
   }
 }
 
