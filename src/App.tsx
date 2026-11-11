@@ -761,6 +761,15 @@ function AppContentInner({
   const { user, loading, authError, refreshUser } = useUser();
   const route = normalizeRoute(rawRoute);
 
+  // Précharge Create pendant que le dashboard Home est affiché :
+  // évite que Suspense remplace toute l’application par l’écran de chargement
+  // lors de la première navigation vers /create.
+  useEffect(() => {
+    if (route === "home") {
+      void import("./pages/Create");
+    }
+  }, [route]);
+
   const isAuth = AUTH_ROUTES.has(route);
   const checkoutReturn = readCheckoutReturn();
   const isAccountRoute = route === "account";
