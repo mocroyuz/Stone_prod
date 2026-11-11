@@ -4,7 +4,8 @@
 // API CONFIGURATION
 // ============================================================
 
-export const API_BASE_URL = "https://stone-serv.onrender.com";
+// Même origine en production (réécriture Vercel) et en développement (proxy Vite).
+export const API_BASE_URL = "";
 
 const API_REQUEST_TIMEOUT_MS = 60_000;
 
