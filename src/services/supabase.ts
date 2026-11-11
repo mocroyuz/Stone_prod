@@ -22,12 +22,24 @@ function readStoredValue(key: string): string | null {
   const storage = getSafeStorage();
 
   // Never fall back to persistent storage for authentication tokens.
-  if (!storage) return null;
+  if (!storage) {
+    try {
+      window.localStorage.removeItem(key);
+    } catch {
+      // ignore unavailable browser storage
+    }
+    return null;
+  }
 
   try {
     const value = storage.getItem(key);
     if (value !== null) return value;
   } catch {
+    try {
+      window.localStorage.removeItem(key);
+    } catch {
+      // ignore unavailable browser storage
+    }
     return null;
   }
 
@@ -40,6 +52,11 @@ function readStoredValue(key: string): string | null {
     window.localStorage.removeItem(key);
     return legacy;
   } catch {
+    try {
+      window.localStorage.removeItem(key);
+    } catch {
+      // ignore unavailable browser storage
+    }
     return null;
   }
 }
