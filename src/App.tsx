@@ -1,4 +1,4 @@
-﻿import { lazy, Suspense, useCallback, useEffect, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 
 import Carousel from "./components/Carousel";
 import ExpertiseSection from "./components/ExpertiseSection";
@@ -559,12 +559,15 @@ function AppContent(props: AppContentProps) {
     let active = true;
     let syncing = false;
     let lastRefreshAt = 0;
+    let deferUntil = 0;
+    let resumeRefreshTimeout: number | null = null;
 
     const refreshProfiles = async () => {
       if (
         !active ||
         syncing ||
         document.visibilityState === "hidden" ||
+        Date.now() < deferUntil ||
         Date.now() - lastRefreshAt < PROFILE_REFRESH_INTERVAL_MS
       ) return;
 
@@ -672,9 +675,24 @@ function AppContent(props: AppContentProps) {
     };
 
     const handleVisibilityChange = () => {
-      if (document.visibilityState === "visible") {
-        void refreshProfiles();
+      if (document.visibilityState !== "visible") {
+        if (resumeRefreshTimeout !== null) {
+          window.clearTimeout(resumeRefreshTimeout);
+          resumeRefreshTimeout = null;
+        }
+        return;
       }
+
+      // Laisse le tableau de bord se réafficher avant de lancer les
+      // vérifications réseau secondaires des profils sociaux.
+      deferUntil = Date.now() + 1_500;
+      if (resumeRefreshTimeout !== null) {
+        window.clearTimeout(resumeRefreshTimeout);
+      }
+      resumeRefreshTimeout = window.setTimeout(() => {
+        resumeRefreshTimeout = null;
+        void refreshProfiles();
+      }, 1_500);
     };
 
     void refreshProfiles();
@@ -689,6 +707,9 @@ function AppContent(props: AppContentProps) {
     return () => {
       active = false;
       window.clearInterval(intervalId);
+      if (resumeRefreshTimeout !== null) {
+        window.clearTimeout(resumeRefreshTimeout);
+      }
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [user?.id]);
