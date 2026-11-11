@@ -1,4 +1,4 @@
-﻿import {
+import {
   useCallback,
   useEffect,
   useId,
@@ -24,7 +24,7 @@ import NewPostModal, {
 import HelpChatButton from "../components/Helpchatbutton";
 import BottomBar, { type BottomBarTab } from "../components/Bottombar";
 import Folder from "../components/Folder";
-import { getCurrentUser, type UserProfile } from "../services/supabase";
+import { useUser } from "../contexts/UserContext";
 import { createPosts } from "../services/posts";
 import { useYouTubeInsights } from "../services/youtube";
 import { navigateToSettingsSection } from "../utils/settingsNavigation";
@@ -627,13 +627,6 @@ const focusRingClass = (isDark: boolean) =>
   isDark
     ? "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
     : "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/25";
-
-/* ============================================================
-USER CACHE
-============================================================ */
-const userProfileCache = {
-  profile: null as UserProfile | null,
-};
 
 /* ============================================================
 NAVIGATION → SETTINGS > UTILS > CHANNELS
@@ -2636,37 +2629,14 @@ export default function Home() {
 
   const [isNewPostOpen, setIsNewPostOpen] = useState(false);
   const [isFolderOpen, setIsFolderOpen] = useState(false);
-  const [user, setUser] = useState<UserProfile | null>(userProfileCache.profile);
-  const [userLoaded, setUserLoaded] = useState(
-    userProfileCache.profile !== null
-  );
+  const { user, loading: userLoading } = useUser();
+  const userLoaded = !userLoading;
   const [now, setNow] = useState(() => new Date());
   const connectedChannels = useConnectedChannels();
 
   useEffect(() => {
     const interval = setInterval(() => setNow(new Date()), 15000);
     return () => clearInterval(interval);
-  }, []);
-
-  useEffect(() => {
-    let mounted = true;
-    async function loadUser() {
-      try {
-        const userData = await getCurrentUser();
-        if (mounted && userData) {
-          userProfileCache.profile = userData;
-          setUser(userData);
-        }
-      } catch (error) {
-        console.error("Error loading user on Home:", error);
-      } finally {
-        if (mounted) setUserLoaded(true);
-      }
-    }
-    loadUser();
-    return () => {
-      mounted = false;
-    };
   }, []);
 
   const fullName = `${user?.first_name || ""} ${user?.last_name || ""}`.trim();
