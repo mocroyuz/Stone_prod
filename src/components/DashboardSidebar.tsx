@@ -2844,10 +2844,12 @@ function useUnreadSync(channels: ConnectedChannel[]) {
     if (!youtubeKey) return;
     let cancelled = false;
     let busy = false;
+    let lastRefreshAt = 0;
 
     const refresh = async () => {
       if (busy || document.hidden) return;
       busy = true;
+      lastRefreshAt = Date.now();
       try {
         let total = 0;
         let pageToken: string | null = null;
@@ -2874,7 +2876,9 @@ function useUnreadSync(channels: ConnectedChannel[]) {
     void refresh();
     const timer = window.setInterval(refresh, UNREAD_POLL_MS);
     const onVisible = () => {
-      if (!document.hidden) void refresh();
+      if (!document.hidden && Date.now() - lastRefreshAt >= 30_000) {
+        void refresh();
+      }
     };
     document.addEventListener("visibilitychange", onVisible);
     return () => {

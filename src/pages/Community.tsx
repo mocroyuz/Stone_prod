@@ -443,6 +443,28 @@ const commentsCacheKey = (
   postId: string | null
 ) => `${userId}|${channelKey}|${tab}|${filter}|${postId ?? "all"}`;
 
+const pendingCommentRequests = new Map<
+  string,
+  ReturnType<typeof fetchYouTubeComments>
+>();
+
+function fetchCommentsOnce(
+  key: string,
+  options: Parameters<typeof fetchYouTubeComments>[0]
+) {
+  const requestKey = `${key}|${options.pageToken ?? "first"}`;
+  const pending = pendingCommentRequests.get(requestKey);
+  if (pending) return pending;
+
+  const request = fetchYouTubeComments(options).finally(() => {
+    if (pendingCommentRequests.get(requestKey) === request) {
+      pendingCommentRequests.delete(requestKey);
+    }
+  });
+  pendingCommentRequests.set(requestKey, request);
+  return request;
+}
+
 /* ───────── Données ───────── */
 
 function useCommunity(
@@ -579,7 +601,7 @@ function useCommunity(
       setLoading(!cached);
       setError(null);
 
-      fetchYouTubeComments({ filter, videoId: postId })
+      fetchCommentsOnce(key, { filter, videoId: postId })
         .then((r) => {
           if (cancelled) return;
           const fresh = Array.isArray(r?.comments) ? r.comments : [];
@@ -625,7 +647,7 @@ function useCommunity(
       busy = true;
 
       try {
-        const r = await fetchYouTubeComments({ filter, videoId: postId });
+        const r = await fetchCommentsOnce(key, { filter, videoId: postId });
         if (cancelled) return;
 
         const fresh = Array.isArray(r?.comments) ? r.comments : [];
@@ -675,7 +697,7 @@ function useCommunity(
     if (!pageToken || !channelKey || !requestKey) return;
     setLoading(true);
     try {
-      const r = await fetchYouTubeComments({
+      const r = await fetchCommentsOnce(requestKey, {
         filter,
         videoId: postId,
         pageToken,

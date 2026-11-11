@@ -8,6 +8,7 @@
   type ReactNode,
 } from "react";
 import { navigate } from "../hooks/useHashRoute";
+import { settingsPath, sectionFromSlug, type SectionKey } from "../utils/settingsRoute";
 import { useTheme, type Theme } from "../hooks/useTheme";
 import { useUser } from "../contexts/UserContext";
 import { notifyMfaStatusChanged, useMfaNudge } from "../hooks/useMfaNudge";
@@ -1882,39 +1883,6 @@ function SectionCard({
 }
 
 /* ── Sidebar ── */
-type SectionKey =
-  | "profile"
-  | "account"
-  | "mfa"
-  | "appearance"
-  | "preferences"
-  | "billing"
-  | "channels"
-  | "tags"
-  | "savedReplies"
-  | "danger";
-
-const SECTION_SLUGS: Record<SectionKey, string> = {
-  profile: "profile",
-  account: "security",
-  mfa: "two-factor",
-  appearance: "appearance",
-  preferences: "preferences",
-  billing: "billing",
-  channels: "channels",
-  tags: "tags",
-  savedReplies: "saved-replies",
-  danger: "danger-zone",
-};
-
-export const settingsPath = (key: SectionKey) =>
-  `settings/${SECTION_SLUGS[key]}`;
-
-export function sectionFromSlug(slug?: string | null): SectionKey | undefined {
-  return (Object.keys(SECTION_SLUGS) as SectionKey[]).find(
-    (key) => SECTION_SLUGS[key] === slug
-  );
-}
 
 function buildSidebarGroups(
   c: Copy

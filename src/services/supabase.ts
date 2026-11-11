@@ -6,7 +6,7 @@
 
 export const API_BASE_URL = "https://stone-serv.onrender.com";
 
-const API_REQUEST_TIMEOUT_MS = 30_000;
+const API_REQUEST_TIMEOUT_MS = 60_000;
 
 async function withRequestTimeout<T>(
   operation: (signal: AbortSignal) => Promise<T>,

@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useState } from "react";
+﻿import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 
 import Carousel from "./components/Carousel";
 import ExpertiseSection from "./components/ExpertiseSection";
@@ -7,35 +7,38 @@ import Navbar from "./components/Navbar";
 import PricingSection from "./components/PricingSection";
 import Footer from "./components/Footer";
 import StoneBoot from "./components/StoneBoot";
-
-import Signup from "./pages/signup";
-import Signin from "./pages/signin";
-import TwoFactor from "./pages/twofactor";
-import ForgotPassword from "./pages/forgotpassword";
-import ResetPassword from "./pages/ResetPassword";
-import DashboardHome from "./pages/home";
-import IntegrationsPage from "./pages/integration";
-import Settings, { sectionFromSlug } from "./pages/settings";
 import CheckoutReturnModal from "./components/CheckoutReturnModal";
-import Schedule from "./pages/schedule";
-import Pricing from "./pages/pricing";
-import Insights from "./pages/Insights";
-import Community from "./pages/Community";
-import Create from "./pages/Create";
-import Faq from "./pages/Faq";
-import Tos from "./pages/tos";
-import Privacy from "./pages/Privacy";
-import TemplatesPage from "./pages/template";
+import { sectionFromSlug } from "./utils/settingsRoute";
 
-import TikTokCallback from "./pages/TikTokCallback";
-import PinterestCallback from "./pages/PinterestCallback";
-import YouTubeCallback from "./pages/Youtubecallback";
-import DropboxCallback from "./pages/DropboxCallback";
-import GoogleDriveCallback from "./pages/GoogleDriveCallback";
-import GooglePhotosCallback from "./pages/GooglePhotosCallback";
-import CanvaCallback, {
-  CanvaReturnConfirmation,
-} from "./pages/Canvacallback";
+const Signup = lazy(() => import("./pages/signup"));
+const Signin = lazy(() => import("./pages/signin"));
+const TwoFactor = lazy(() => import("./pages/twofactor"));
+const ForgotPassword = lazy(() => import("./pages/forgotpassword"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword"));
+const DashboardHome = lazy(() => import("./pages/home"));
+const IntegrationsPage = lazy(() => import("./pages/integration"));
+const Settings = lazy(() => import("./pages/settings"));
+const Schedule = lazy(() => import("./pages/schedule"));
+const Pricing = lazy(() => import("./pages/pricing"));
+const Insights = lazy(() => import("./pages/Insights"));
+const Community = lazy(() => import("./pages/Community"));
+const Create = lazy(() => import("./pages/Create"));
+const Faq = lazy(() => import("./pages/Faq"));
+const Tos = lazy(() => import("./pages/tos"));
+const Privacy = lazy(() => import("./pages/Privacy"));
+const TemplatesPage = lazy(() => import("./pages/template"));
+const TikTokCallback = lazy(() => import("./pages/TikTokCallback"));
+const PinterestCallback = lazy(() => import("./pages/PinterestCallback"));
+const YouTubeCallback = lazy(() => import("./pages/Youtubecallback"));
+const DropboxCallback = lazy(() => import("./pages/DropboxCallback"));
+const GoogleDriveCallback = lazy(() => import("./pages/GoogleDriveCallback"));
+const GooglePhotosCallback = lazy(() => import("./pages/GooglePhotosCallback"));
+const CanvaCallback = lazy(() => import("./pages/Canvacallback"));
+const CanvaReturnConfirmation = lazy(() =>
+  import("./pages/Canvacallback").then((module) => ({
+    default: module.CanvaReturnConfirmation,
+  }))
+);
 
 import { useHashRoute, navigate } from "./hooks/useHashRoute";
 import { useTheme, ThemeProvider, type Theme } from "./hooks/useTheme";
@@ -555,11 +558,18 @@ function AppContent(props: AppContentProps) {
 
     let active = true;
     let syncing = false;
+    let lastRefreshAt = 0;
 
     const refreshProfiles = async () => {
-      if (!active || syncing || document.visibilityState === "hidden") return;
+      if (
+        !active ||
+        syncing ||
+        document.visibilityState === "hidden" ||
+        Date.now() - lastRefreshAt < PROFILE_REFRESH_INTERVAL_MS
+      ) return;
 
       syncing = true;
+      lastRefreshAt = Date.now();
 
       const refreshTikTok = async () => {
         if (!readCache(userId, "tiktok")?.connection.connected) return;
@@ -699,7 +709,20 @@ function AppContent(props: AppContentProps) {
 
   return (
     <>
-      <AppContentInner {...props} />
+      <Suspense
+        fallback={
+          <main className="fixed inset-0 z-[999999] flex flex-col items-center justify-center bg-[#050505] text-white">
+            <img
+              src="/images/icon_nav.png"
+              alt="Stone"
+              className="h-16 w-16 animate-pulse object-contain"
+            />
+            <p className="mt-5 text-sm text-white/60">Loading your Stone workspace…</p>
+          </main>
+        }
+      >
+        <AppContentInner {...props} />
+      </Suspense>
       {showBoot && <StoneBoot onComplete={handleBootComplete} />}
     </>
   );
