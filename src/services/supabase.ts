@@ -366,4 +366,1551 @@ function isTokenExpiring(token: string, marginSeconds = 60): boolean {
   return exp * 1000 - Date.now() < marginSeconds * 1000;
 }
 
-// ... rest of file unchanged
+// ============================================================
+// MFA SESSION GRACE
+// ============================================================
+//
+// Après une vérification MFA réussie (TOTP ou email), on conserve la
+// session AAL2 pendant une courte fenêtre. Sans ça, si le token est proche
+// de l'expiration (< 60s), apiRequest déclenche un /api/auth/refresh
+// qui rétrograde la session en AAL1 et fait échouer les endpoints
+// requireAal2.
+
+const MFA_GRACE_MS = 5 * 60_000;
+
+function markMfaVerified(): void {
+  try {
+    sessionStorage.setItem(MFA_VERIFIED_KEY, String(Date.now()));
+  } catch {
+    /* ignore */
+  }
+}
+
+function inMfaGrace(): boolean {
+  try {
+    const raw = sessionStorage.getItem(MFA_VERIFIED_KEY);
+    if (!raw) return false;
+    const at = Number(raw);
+    return Number.isFinite(at) && Date.now() - at < MFA_GRACE_MS;
+  } catch {
+    return false;
+  }
+}
+
+// ============================================================
+// TOKEN REFRESH
+// ============================================================
+
+let refreshPromise: Promise<boolean> | null = null;
+
+async function refreshAccessToken(): Promise<boolean> {
+  const refreshToken = getRefreshToken();
+  if (!refreshToken) return false;
+
+  if (!refreshPromise) {
+    refreshPromise = (async () => {
+      try {
+        const { response, data } = await withRequestTimeout(async (signal) => {
+          const response = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ refreshToken }),
+            signal,
+          });
+          const data = await response.json().catch(() => null);
+          return { response, data };
+        });
+
+        if (!response.ok) {
+          if (
+            response.status === 400 ||
+            response.status === 401 ||
+            response.status === 403
+          ) {
+            clearSession();
+          }
+          return false;
+        }
+
+        if (data?.session?.access_token) {
+          saveSession(data.session);
+          return true;
+        }
+
+        clearSession();
+        return false;
+      } catch (error) {
+        console.error("Error refreshing session:", error);
+        if (error instanceof Error && error.name === "TimeoutError") {
+          throw error;
+        }
+        return false;
+      } finally {
+        refreshPromise = null;
+      }
+    })();
+  }
+
+  return refreshPromise;
+}
+
+// ============================================================
+// API REQUEST
+// ============================================================
+
+const NO_REFRESH_ENDPOINTS = [
+  "/api/auth/login",
+  "/api/auth/signup",
+  "/api/auth/refresh",
+  "/api/auth/forgot-password",
+  "/api/auth/reset-password",
+];
+
+export async function apiRequest<T>(
+  endpoint: string,
+  options: RequestInit = {},
+  isRetry = false
+): Promise<T> {
+  const canRefresh =
+    !NO_REFRESH_ENDPOINTS.some((path) => endpoint.startsWith(path)) &&
+    Boolean(getRefreshToken());
+
+  // Ne PAS rafraîchir pendant la grâce MFA, sinon retour en AAL1.
+  if (canRefresh && !isRetry && !inMfaGrace()) {
+    const current = getAccessToken();
+    if (!current || isTokenExpiring(current)) {
+      await refreshAccessToken();
+    }
+  }
+
+  const token = getAccessToken();
+  const headers = new Headers(options.headers || {});
+
+  if (!(options.body instanceof FormData)) {
+    headers.set("Content-Type", "application/json");
+  }
+
+  if (token) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
+
+  const sendRequest = async (signal: AbortSignal | null | undefined) => {
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      ...options,
+      headers,
+      signal: signal ?? undefined,
+    });
+
+    let data: unknown = null;
+    try {
+      data = await response.json();
+    } catch {
+      data = null;
+    }
+
+    return { response, data };
+  };
+
+  const needsStartupTimeout =
+    endpoint === "/api/user/profile" ||
+    endpoint === "/api/auth/mfa/status";
+  const { response, data } = needsStartupTimeout
+    ? await withRequestTimeout(sendRequest, options.signal ?? undefined)
+    : await sendRequest(options.signal);
+
+  if (!response.ok) {
+    const bodyError =
+      typeof data === "object" &&
+      data !== null &&
+      "error" in data &&
+      typeof (data as { error?: unknown }).error === "string"
+        ? (data as { error: string }).error
+        : undefined;
+
+    if (
+      response.status === 403 &&
+      typeof data === "object" &&
+      data !== null &&
+      "code" in data &&
+      (data as { code?: unknown }).code === "MFA_REQUIRED"
+    ) {
+      throw new MfaRequiredError(bodyError);
+    }
+
+    if (response.status === 429) {
+      const header = Number(response.headers.get("Retry-After"));
+      const bodyRetry =
+        typeof data === "object" && data !== null
+          ? (data as { retryAfter?: unknown }).retryAfter
+          : undefined;
+
+      const seconds =
+        Number.isFinite(header) && header > 0
+          ? header
+          : typeof bodyRetry === "number" && bodyRetry > 0
+          ? bodyRetry
+          : 60;
+
+      throw new RateLimitError(Math.ceil(seconds), bodyError);
+    }
+
+    if (response.status === 401 && canRefresh && !isRetry) {
+      const refreshed = await refreshAccessToken();
+      if (refreshed) return apiRequest<T>(endpoint, options, true);
+    }
+
+    // Erreur enrichie : conserve `code` (ex : TAG_DUPLICATE), `status` et `data`
+    // pour permettre aux callers (cf. isDuplicateError) de discriminer.
+    const err: ApiErrorWithMeta = new Error(
+      bodyError ?? `Request failed with status ${response.status}`
+    );
+    err.status = response.status;
+    err.data = data;
+    if (
+      typeof data === "object" &&
+      data !== null &&
+      "code" in data &&
+      typeof (data as { code?: unknown }).code === "string"
+    ) {
+      err.code = (data as { code: string }).code;
+    }
+    throw err;
+  }
+
+  return data as T;
+}
+
+// ============================================================
+// SIGN IN / SIGN UP
+// ============================================================
+
+/**
+ * Si le compte a le 2FA, la session renvoyée est AAL1 : on la stocke
+ * mais on marque "MFA en attente". L'appelant doit alors afficher l'écran
+ * de code (voir TwoFactor) tant que `isMfaPending()` est vrai. L'écran
+ * s'adapte à la méthode choisie (app ou email).
+ */
+export async function signIn(email: string, password: string): Promise<AuthResponse> {
+  const result = await apiRequest<AuthResponse>("/api/auth/login", {
+    method: "POST",
+    body: JSON.stringify({ email, password }),
+  });
+
+  saveSession(result.session);
+
+  const needsChallenge =
+    Boolean(result.mfa_required) ||
+    (Boolean(result.mfa_enabled) && Boolean(result.aal) && result.aal !== "aal2");
+
+  setMfaPending(needsChallenge);
+  return result;
+}
+
+export async function signUp(
+  email: string,
+  password: string,
+  firstName = "",
+  lastName = ""
+): Promise<AuthResponse> {
+  const result = await apiRequest<AuthResponse>("/api/auth/signup", {
+    method: "POST",
+    body: JSON.stringify({ email, password, firstName, lastName }),
+  });
+  saveSession(result.session);
+  if (result.session) void ensureDefaultGroups().catch(() => {});
+  return result;
+}
+
+// ============================================================
+// MFA STATUS (lecture AAL + méthode + facteurs vérifiés)
+// ============================================================
+
+export async function getMfaStatus(): Promise<MfaStatus | null> {
+  try {
+    const data = await apiRequest<
+      { success: boolean } & Omit<MfaStatus, "method" | "email_hint"> & {
+          method?: MfaMethod | null;
+          email_hint?: string | null;
+          emailHint?: string | null;
+        }
+    >("/api/auth/mfa/status", { method: "GET" });
+
+    if (!data || !data.success) return null;
+
+    const factors = data.factors ?? [];
+
+    return {
+      aal: data.aal,
+      next_aal: data.next_aal,
+      mfa_enabled: data.mfa_enabled,
+      requires_challenge: data.requires_challenge,
+      factors,
+      method:
+        data.method ??
+        (factors.length > 0 ? "totp" : data.mfa_enabled ? "email" : null),
+      email_hint: data.email_hint ?? data.emailHint ?? null,
+    };
+  } catch (error) {
+    console.error("Error fetching MFA status:", error);
+    return null;
+  }
+}
+
+/**
+ * Resynchronise le flag "MFA en attente" avec le backend.
+ * À appeler au démarrage de l'app et après un retour OAuth
+ * (Google / GitHub ne passent pas par signIn).
+ */
+export async function refreshMfaPending(): Promise<boolean> {
+  if (!getAccessToken() && !getRefreshToken()) {
+    setMfaPending(false);
+    return false;
+  }
+
+  const status = await getMfaStatus();
+  if (!status) return isMfaPending();
+
+  // Ne réinitialise pas la mémoïsation si l'état ne change pas.
+  const saved = loginEmailPromise;
+  setMfaPending(status.requires_challenge);
+  if (status.requires_challenge && saved) loginEmailPromise = saved;
+
+  return status.requires_challenge;
+}
+
+/** true si la MFA est activée mais que la session courante est en AAL1. */
+export async function needsMfaChallenge(): Promise<boolean> {
+  return refreshMfaPending();
+}
+
+// ============================================================
+// FORGOT / RESET PASSWORD
+// ============================================================
+
+export async function requestPasswordReset(email: string): Promise<string> {
+  const result = await apiRequest<{ success: boolean; message?: string }>(
+    "/api/auth/forgot-password",
+    {
+      method: "POST",
+      body: JSON.stringify({ email: email.trim() }),
+    }
+  );
+
+  return (
+    result?.message ||
+    "If an account exists for this email, a password reset link has been sent."
+  );
+}
+
+function readUrlParam(key: string): string | null {
+  if (typeof window === "undefined") return null;
+
+  const raw = `${window.location.hash}&${window.location.search}`;
+  const match = new RegExp(`[#?&]${key}=([^&#]*)`).exec(raw);
+  if (!match) return null;
+
+  try {
+    return decodeURIComponent(match[1].replace(/\+/g, " "));
+  } catch {
+    return match[1];
+  }
+}
+
+export function isRecoveryUrl(): boolean {
+  if (typeof window === "undefined") return false;
+  if (window.location.pathname.replace(/\/+$/, "") === "/reset-password") return true;
+  if (window.location.hash.includes("reset-password")) return true;
+
+  return (
+    readUrlParam("type") === "recovery" &&
+    Boolean(readUrlParam("access_token") || readUrlParam("token_hash"))
+  );
+}
+
+export function readRecoveryParams(): RecoveryParams | null {
+  const type = readUrlParam("type");
+  if (type && type !== "recovery") return null;
+
+  const accessToken = readUrlParam("access_token");
+  const tokenHash = readUrlParam("token_hash");
+  if (!accessToken && !tokenHash) return null;
+
+  return {
+    ...(accessToken ? { accessToken } : {}),
+    ...(tokenHash ? { tokenHash } : {}),
+  };
+}
+
+export function readRecoveryError(): string | null {
+  const description = readUrlParam("error_description");
+  const code = readUrlParam("error_code");
+
+  if (!description && !code) return null;
+  if (code === "otp_expired") {
+    return "This reset link has expired or was already used. Request a new one.";
+  }
+  return description || "This reset link is invalid. Request a new one.";
+}
+
+export function clearRecoveryParamsFromUrl(): void {
+  if (typeof window === "undefined") return;
+  window.history.replaceState(null, "", "/reset-password");
+}
+
+export async function resetPassword(
+  newPassword: string,
+  params: RecoveryParams
+): Promise<string> {
+  if (!params.accessToken && !params.tokenHash) {
+    throw new Error("This reset link is invalid. Request a new one.");
+  }
+
+  const result = await apiRequest<{ success: boolean; message?: string }>(
+    "/api/auth/reset-password",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        password: newPassword,
+        ...(params.tokenHash
+          ? { token_hash: params.tokenHash }
+          : { access_token: params.accessToken }),
+      }),
+    }
+  );
+
+  clearSession();
+
+  return result?.message || "Password updated successfully. You can now sign in.";
+}
+
+// ============================================================
+// OAUTH (Google / GitHub)
+// ============================================================
+//
+// Flux :
+//   1. signInWithGoogle/Github → le backend renvoie l'URL Supabase.
+//   2. Le navigateur part chez le provider, puis revient sur /home avec
+//      les tokens dans le hash :
+//        https://site/home#access_token=…&refresh_token=…
+//      (l'app utilise un routage par hash : "/home" doit donc figurer
+//      dans les Redirect URLs autorisées côté Supabase.)
+//   3. Au démarrage de l'app, consumeOAuthRedirect() lit ces tokens, les
+//      stocke, nettoie l'URL et indique si un code 2FA est requis.
+//      L'appelant (UserContext) charge alors l'utilisateur et navigue
+//      vers "home".
+
+/**
+ * URL de retour OAuth par défaut : `/home`.
+ * Doit figurer dans les Redirect URLs autorisées côté Supabase.
+ */
+const OAUTH_STATE_STORAGE_KEY = "crossflow_oauth_state";
+const OAUTH_STATE_PARAM = "oauth_state";
+
+export function oauthStateMatches(expected: string | null, received: string | null): boolean {
+  return Boolean(expected && received && expected === received);
+}
+
+function createOAuthState(): string {
+  if (typeof window === "undefined" || !window.crypto?.getRandomValues) {
+    throw new Error("Secure OAuth state generation is unavailable.");
+  }
+  const bytes = new Uint8Array(32);
+  window.crypto.getRandomValues(bytes);
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+function defaultOAuthRedirect(): string {
+  return `${window.location.origin}/home`;
+}
+
+async function requestOAuthUrl(
+  provider: "google" | "github",
+  redirectTo?: string
+): Promise<string> {
+  const state = createOAuthState();
+  const callback = new URL(redirectTo || defaultOAuthRedirect(), window.location.origin);
+  if (callback.origin !== window.location.origin) {
+    throw new Error("OAuth callbacks must return to this application.");
+  }
+  callback.searchParams.set(OAUTH_STATE_PARAM, state);
+
+  try {
+    sessionStorage.setItem(OAUTH_STATE_STORAGE_KEY, state);
+  } catch {
+    throw new Error("Session storage is required to start OAuth securely.");
+  }
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/auth/${provider}/url`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ redirectTo: callback.toString() }),
+    });
+
+    const data = await response.json().catch(() => null);
+    if (!response.ok || !data?.success || !data?.url) {
+      throw new Error(
+        data?.error ||
+          `Could not start ${provider === "google" ? "Google" : "GitHub"} sign-in`
+      );
+    }
+    return data.url as string;
+  } catch (error) {
+    try {
+      if (sessionStorage.getItem(OAUTH_STATE_STORAGE_KEY) === state) {
+        sessionStorage.removeItem(OAUTH_STATE_STORAGE_KEY);
+      }
+    } catch {
+      // Ignore unavailable browser storage.
+    }
+    throw error;
+  }
+}
+
+export function getGoogleAuthUrl(redirectTo?: string): Promise<string> {
+  return requestOAuthUrl("google", redirectTo);
+}
+
+export async function signInWithGoogle(redirectTo?: string): Promise<void> {
+  const url = await getGoogleAuthUrl(redirectTo);
+  window.location.href = url;
+}
+
+export function getGithubAuthUrl(redirectTo?: string): Promise<string> {
+  return requestOAuthUrl("github", redirectTo);
+}
+
+export async function signInWithGithub(redirectTo?: string): Promise<void> {
+  const url = await getGithubAuthUrl(redirectTo);
+  window.location.href = url;
+}
+
+/**
+ * Stocke la session OAuth, puis vérifie côté backend si un code 2FA
+ * est requis. Renvoie true si l'écran de challenge doit s'afficher.
+ */
+export async function saveOAuthSession(
+  accessToken: string,
+  refreshToken: string
+): Promise<boolean> {
+  saveSession({ access_token: accessToken, refresh_token: refreshToken });
+  // On bloque l'accès le temps de la vérification.
+  setMfaPending(true);
+  const pending = await refreshMfaPending();
+  return pending;
+}
+
+// Mémoïsé : survit au double-montage de React StrictMode (dev) et évite
+// que deux appels se disputent le même hash.
+let oauthRedirectPromise: Promise<OAuthRedirectResult> | null = null;
+
+/**
+ * À appeler UNE FOIS au démarrage de l'app, AVANT getCurrentUser().
+ *
+ * Détecte `#access_token=…&refresh_token=…` au retour de Google/GitHub,
+ * stocke la session, nettoie l'URL (les tokens ne restent pas dans
+ * l'historique) et renvoie :
+ *   - "none"  : pas de retour OAuth dans l'URL (cas normal)
+ *   - "ready" : session OAuth stockée, utilisateur connecté
+ *   - "mfa"   : session stockée mais un code 2FA est requis
+ *   - "error" : le provider ou Supabase a renvoyé une erreur
+ */
+export function consumeOAuthRedirect(): Promise<OAuthRedirectResult> {
+  if (typeof window === "undefined") return Promise.resolve("none");
+  if (oauthRedirectPromise) return oauthRedirectPromise;
+
+  const { hash, search } = window.location;
+  const searchParams = new URLSearchParams(search);
+  const hashQueryIndex = hash.indexOf("?");
+  const hashParams = new URLSearchParams(
+    hashQueryIndex >= 0
+      ? hash.slice(hashQueryIndex + 1)
+      : hash.replace(/^#\/?/, "")
+  );
+  const readParam = (key: string) =>
+    searchParams.get(key) ?? hashParams.get(key);
+
+  const accessToken = readParam("access_token");
+  const refreshToken = readParam("refresh_token");
+  const receivedState = readParam(OAUTH_STATE_PARAM);
+  const hasOAuthResponse = Boolean(
+    accessToken || refreshToken || readParam("code") || readParam("error")
+  );
+
+  // Laisse le flux « mot de passe oublié » à son propre handler.
+  if (readParam("type") === "recovery") return Promise.resolve("none");
+  if (!hasOAuthResponse) return Promise.resolve("none");
+
+  const cleanUrl = () => {
+    const url = new URL(window.location.href);
+    [
+      OAUTH_STATE_PARAM,
+      "access_token",
+      "refresh_token",
+      "code",
+      "error",
+      "error_description",
+      "expires_in",
+      "token_type",
+      "type",
+    ].forEach((key) => url.searchParams.delete(key));
+    url.hash = "";
+    window.history.replaceState(null, "", url.pathname + url.search);
+  };
+
+  let expectedState: string | null = null;
+  try {
+    expectedState = sessionStorage.getItem(OAUTH_STATE_STORAGE_KEY);
+    sessionStorage.removeItem(OAUTH_STATE_STORAGE_KEY);
+  } catch {
+    // Refuse le callback si l'anti-CSRF state ne peut pas être vérifié.
+  }
+
+  const stateIsValid = oauthStateMatches(expectedState, receivedState);
+  cleanUrl();
+
+  if (!stateIsValid || readParam("error") || readParam("code")) {
+    return Promise.resolve("error");
+  }
+  if (!accessToken || !refreshToken) return Promise.resolve("error");
+
+  oauthRedirectPromise = (async (): Promise<OAuthRedirectResult> => {
+    const previousAccess = getAccessToken();
+    const previousRefresh = getRefreshToken();
+    const previouslyPending = isMfaPending();
+
+    try {
+      const pending = await saveOAuthSession(accessToken, refreshToken);
+      return pending ? "mfa" : "ready";
+    } catch (error) {
+      console.error("OAuth redirect handling failed:", error);
+      try {
+        if (previousAccess) writeStoredValue(ACCESS_TOKEN_KEY, previousAccess);
+        else removeStoredValue(ACCESS_TOKEN_KEY);
+        if (previousRefresh) writeStoredValue(REFRESH_TOKEN_KEY, previousRefresh);
+        else removeStoredValue(REFRESH_TOKEN_KEY);
+        setMfaPending(previouslyPending);
+      } catch {
+        // Keep the prior session untouched when storage is unavailable.
+      }
+      return "error";
+    }
+  })();
+
+  return oauthRedirectPromise;
+}
+
+// ============================================================
+// EMAIL VERIFICATION
+// ============================================================
+
+export async function resendVerificationEmail(): Promise<boolean> {
+  try {
+    await apiRequest("/api/auth/resend-verification", { method: "POST" });
+    return true;
+  } catch (error) {
+    console.error("Error resending verification email:", error);
+    return false;
+  }
+}
+
+// ============================================================
+// UPDATE / SET PASSWORD (protégé par MFA_REQUIRED)
+// ============================================================
+
+export async function updatePassword(
+  currentPassword: string | null,
+  newPassword: string
+): Promise<void> {
+  const body: { currentPassword?: string; newPassword: string } = {
+    newPassword,
+  };
+  if (currentPassword) body.currentPassword = currentPassword;
+
+  await apiRequest("/api/user/password", {
+    method: "PUT",
+    body: JSON.stringify(body),
+  });
+}
+
+// ============================================================
+// USER
+// ============================================================
+
+export async function getCurrentUser(
+  options: { throwOnError?: boolean } = {}
+): Promise<UserProfile | null> {
+  try {
+    if (!hasStoredSession()) return null;
+
+    const response = await apiRequest<{
+      success: boolean;
+      user: Record<string, unknown>;
+    }>("/api/user/profile", { method: "GET" });
+
+    const u = response?.user;
+    if (!response?.success || !u) return null;
+
+    // Le backend renvoie parfois camelCase, parfois snake_case.
+    const normalized: UserProfile = {
+      id: String(u.id ?? ""),
+      email: String(u.email ?? ""),
+      first_name: (u.first_name as string) ?? (u.firstName as string) ?? "",
+      last_name: (u.last_name as string) ?? (u.lastName as string) ?? "",
+      avatar_url: (u.avatar_url as string) ?? (u.avatarUrl as string) ?? undefined,
+      bio: (u.bio as string) ?? undefined,
+      email_confirmed_at:
+        (u.email_confirmed_at as string) ??
+        (u.emailConfirmedAt as string) ??
+        undefined,
+      created_at:
+        (u.created_at as string) ?? (u.createdAt as string) ?? undefined,
+      provider: (u.provider as UserProfile["provider"]) ?? "email",
+      hasPassword:
+        (u.hasPassword as boolean) ??
+        (u.has_password as boolean) ??
+        true,
+      mfa_enabled:
+        (u.mfa_enabled as boolean) ??
+        (u.mfaEnabled as boolean) ??
+        false,
+    };
+
+    return normalized;
+  } catch (error) {
+    console.error("Error fetching current user:", error);
+
+    const status =
+      typeof error === "object" && error !== null && "status" in error
+        ? Number((error as { status?: unknown }).status)
+        : undefined;
+
+    if (status === 401) {
+      if (!getRefreshToken()) {
+        clearSession();
+        return null;
+      }
+
+      // Un refresh peut échouer temporairement. Ne pas déconnecter l'utilisateur
+      // tant que le refresh token existe : l'appelant peut conserver son état et réessayer.
+      if (options.throwOnError) throw error;
+      return null;
+    }
+
+    if (status === 403) return null;
+
+    // Une erreur réseau/timeout ne doit pas être interprétée comme une
+    // déconnexion. L'appelant peut conserver l'utilisateur et proposer un retry.
+    if (options.throwOnError) throw error;
+
+    return null;
+  }
+}
+
+export async function updateUserProfile(
+  profile: Partial<UserProfile>
+): Promise<boolean> {
+  try {
+    const updateData: Record<string, string | null> = {};
+
+    if (profile.first_name !== undefined) updateData.firstName = profile.first_name;
+    if (profile.last_name !== undefined) updateData.lastName = profile.last_name;
+
+    // "" → null pour vraiment effacer côté DB.
+    if (profile.avatar_url !== undefined) {
+      updateData.avatarUrl =
+        profile.avatar_url === "" ? null : profile.avatar_url;
+    }
+
+    if (profile.bio !== undefined) updateData.bio = profile.bio;
+
+    await apiRequest("/api/user/profile", {
+      method: "PUT",
+      body: JSON.stringify(updateData),
+    });
+
+    return true;
+  } catch (error) {
+    console.error("Error updating user profile:", error);
+    return false;
+  }
+}
+
+// ============================================================
+// AVATAR
+// ============================================================
+
+export async function uploadAvatar(
+  file: File,
+  userId?: string
+): Promise<string | null> {
+  try {
+    if (!file) {
+      console.error("No avatar file provided.");
+      return null;
+    }
+
+    if (!file.type.startsWith("image/")) {
+      console.error("The selected file is not an image.");
+      return null;
+    }
+
+    const maxSize = 2 * 1024 * 1024;
+    if (file.size > maxSize) {
+      console.error("Avatar is too large. Maximum size is 2 MB.");
+      return null;
+    }
+
+    const formData = new FormData();
+    formData.append("avatar", file);
+    if (userId) formData.append("userId", userId);
+
+    const data = await apiRequest<{
+      success: boolean;
+      avatar_url?: string;
+      avatarUrl?: string;
+      url?: string;
+    }>("/api/user/avatar", { method: "POST", body: formData });
+
+    const avatarUrl = data?.avatar_url || data?.avatarUrl || data?.url;
+    if (typeof avatarUrl !== "string" || !avatarUrl) {
+      console.error("Server did not return an avatar URL.");
+      return null;
+    }
+    return avatarUrl;
+  } catch (error) {
+    console.error("Error uploading avatar:", error);
+    return null;
+  }
+}
+
+export async function deleteAvatar(filePathOrUrl: string): Promise<boolean> {
+  if (!filePathOrUrl) return false;
+
+  try {
+    await apiRequest("/api/user/avatar", {
+      method: "DELETE",
+      body: JSON.stringify({ filePathOrUrl }),
+    });
+    return true;
+  } catch (error) {
+    console.error("Error deleting avatar:", error);
+    throw error instanceof Error
+      ? error
+      : new Error("Avatar deletion failed");
+  }
+}
+
+// ============================================================
+// SESSIONS
+// ============================================================
+
+/**
+ * Déconnecte tous les autres appareils (la session courante est conservée).
+ * Best-effort : à appeler après activation / désactivation du 2FA.
+ */
+export async function revokeOtherSessions(): Promise<boolean> {
+  try {
+    await apiRequest("/api/auth/sessions/revoke-others", { method: "POST" });
+    return true;
+  } catch (error) {
+    console.warn("Could not revoke other sessions:", error);
+    return false;
+  }
+}
+
+// ============================================================
+// SIGN OUT
+// ============================================================
+
+export async function signOut(): Promise<void> {
+  try {
+    if (getAccessToken()) {
+      try {
+        await apiRequest("/api/auth/logout", { method: "POST" });
+      } catch {
+        // ignore
+      }
+    }
+  } finally {
+    clearSession();
+  }
+}
+
+// ============================================================
+// API HEALTH
+// ============================================================
+
+export async function checkApiHealth(): Promise<boolean> {
+  try {
+    await apiRequest("/api/health", { method: "GET" });
+    return true;
+  } catch (error) {
+    console.error("API health check failed:", error);
+    return false;
+  }
+}
+
+// ============================================================
+// MFA · APP D'AUTHENTIFICATION (TOTP)
+// ============================================================
+//
+// Tout passe par le backend, aucune clé Supabase côté front.
+
+type RawFactor = {
+  id: string;
+  friendlyName?: string | null;
+  friendly_name?: string | null;
+  createdAt?: string | null;
+  created_at?: string | null;
+  status?: string;
+};
+
+/**
+ * Liste les facteurs TOTP. Par défaut : vérifiés uniquement.
+ * `includeUnverified` demande aussi les enrôlements abandonnés
+ * (GET /api/mfa/factors?status=all).
+ */
+export async function listMfaFactors(
+  options: { includeUnverified?: boolean } = {}
+): Promise<MfaFactor[]> {
+  const query = options.includeUnverified ? "?status=all" : "";
+
+  const data = await apiRequest<{ success: boolean; factors: RawFactor[] }>(
+    `/api/mfa/factors${query}`,
+    { method: "GET" }
+  );
+
+  return (data.factors || []).map((f) => ({
+    id: f.id,
+    friendlyName: f.friendlyName ?? f.friendly_name ?? undefined,
+    createdAt: f.createdAt ?? f.created_at ?? null,
+    status: f.status === "unverified" ? "unverified" : "verified",
+  }));
+}
+
+/** Supprime les enrôlements TOTP abandonnés (best-effort). */
+export async function cleanupUnverifiedFactors(): Promise<void> {
+  try {
+    const all = await listMfaFactors({ includeUnverified: true });
+    await Promise.allSettled(
+      all
+        .filter((f) => f.status === "unverified")
+        .map((f) => cancelMfaEnrollment(f.id))
+    );
+  } catch (error) {
+    console.warn("Could not clean up unverified factors:", error);
+  }
+}
+
+/**
+ * Supabase renvoie le QR code sous forme de SVG brut (`<svg ...>`).
+ * Une balise <img> ne sait pas afficher ce texte directement : on le
+ * convertit en URL `data:image/svg+xml`. Si c'est déjà une data URL
+ * (ou une autre forme d'URL), on la laisse telle quelle.
+ */
+function toQrDataUri(qr: string): string {
+  const value = qr.trim();
+
+  if (value.startsWith("data:")) return value;
+
+  if (value.startsWith("<svg") || value.startsWith("<?xml")) {
+    return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(value)}`;
+  }
+
+  return value;
+}
+
+/** Étape 1 : démarre un enrôlement TOTP (QR + secret). */
+export async function startMfaEnrollment(): Promise<{
+  factorId: string;
+  qrCode: string;
+  secret: string;
+}> {
+  // Évite les erreurs "nom déjà pris" / limite de facteurs après un abandon.
+  await cleanupUnverifiedFactors();
+
+  const raw = await apiRequest<Record<string, unknown>>("/api/mfa/enroll", {
+    method: "POST",
+  });
+
+  // Parsing défensif : accepte plusieurs formes de réponse.
+  const data = (raw as { data?: Record<string, unknown> }).data ?? raw;
+  const totp = (data as { totp?: Record<string, unknown> }).totp ?? {};
+  const factor = (data as { factor?: Record<string, unknown> }).factor ?? {};
+
+  const factorId =
+    (raw as any).factorId ??
+    (raw as any).factor_id ??
+    (raw as any).id ??
+    (factor as any).id ??
+    (data as any).factorId ??
+    (data as any).factor_id;
+
+  const qrCode =
+    (raw as any).qrCode ??
+    (raw as any).qr_code ??
+    (raw as any).qr ??
+    (totp as any).qr_code ??
+    (data as any).qrCode ??
+    (data as any).qr_code ??
+    (data as any).qr;
+
+  const secret =
+    (raw as any).secret ??
+    (totp as any).secret ??
+    (data as any).secret;
+
+  if (!factorId || !qrCode || !secret) {
+    throw new Error("Invalid MFA enrollment response from server.");
+  }
+
+  return {
+    factorId: String(factorId),
+    qrCode: toQrDataUri(String(qrCode)),
+    secret: String(secret),
+  };
+}
+
+/**
+ * Étape 2 : vérifie le premier code. La session renvoyée (AAL2) est
+ * stockée localement.
+ */
+export async function confirmMfaEnrollment(
+  factorId: string,
+  code: string
+): Promise<void> {
+  const data = await apiRequest<{
+    success: boolean;
+    session: AuthSession | null;
+  }>("/api/mfa/enroll/verify", {
+    method: "POST",
+    body: JSON.stringify({ factorId, code }),
+  });
+
+  if (!data?.session?.access_token) {
+    throw new Error(
+      "MFA enrollment succeeded but the backend did not return an AAL2 session."
+    );
+  }
+
+  saveSession(data.session);
+  markMfaVerified();
+}
+
+/** Annule un enrôlement non vérifié (aucune AAL2 requise). */
+export async function cancelMfaEnrollment(factorId: string): Promise<void> {
+  await apiRequest(
+    `/api/mfa/factors?factorId=${encodeURIComponent(factorId)}`,
+    { method: "DELETE" }
+  );
+}
+
+/**
+ * Désactive un facteur vérifié. Requiert une session AAL2 : appeler
+ * verifyMfaFactorCode / verifyEmailMfaCode avant, ou passer par le garde
+ * MFA de l'UI (MfaRequiredError → modale).
+ */
+export async function disableMfa(factorId: string): Promise<void> {
+  await apiRequest(
+    `/api/mfa/factors?factorId=${encodeURIComponent(factorId)}`,
+    { method: "DELETE" }
+  );
+}
+
+/**
+ * Vérifie un code TOTP pour un facteur précis et élève la session en
+ * AAL2 (stockage local + grâce). Lève RateLimitError sur 429.
+ * Sert au login, au challenge avant action sensible et à la désactivation.
+ */
+export async function verifyMfaFactorCode(
+  factorId: string,
+  code: string
+): Promise<void> {
+  const data = await apiRequest<{
+    success: boolean;
+    session: AuthSession | null;
+  }>("/api/mfa/verify", {
+    method: "POST",
+    body: JSON.stringify({ factorId, code }),
+  });
+
+  if (!data?.session?.access_token) {
+    throw new Error(
+      "MFA verification succeeded but the backend did not return an AAL2 session."
+    );
+  }
+
+  saveSession(data.session);
+  markMfaVerified();
+  setMfaPending(false);
+}
+
+/** Vérifie un code TOTP juste après le login (facteur = premier vérifié par défaut). */
+export async function verifyMfaLogin(
+  code: string,
+  factorId?: string
+): Promise<void> {
+  let id = factorId;
+
+  if (!id) {
+    const factors = await listMfaFactors();
+    id = factors[0]?.id;
+  }
+
+  if (!id) throw new Error("No authenticator found for this account.");
+
+  await verifyMfaFactorCode(id, code);
+}
+
+// ============================================================
+// MFA · CODE PAR EMAIL
+// ============================================================
+//
+// Contrat backend :
+//
+//   POST   /api/mfa/email/send           body { purpose } → { success, sentTo, resendIn }
+//   POST   /api/mfa/email/enroll/verify  body { code }    → { success, session }   (active la méthode)
+//   POST   /api/mfa/email/verify         body { code }    → { success, session }   (élève en AAL2)
+//   DELETE /api/mfa/email                                 → { success }            (requireAal2)
+//
+// Le code (6 chiffres) est stocké hashé côté serveur, expire après 10 min
+// et est limité en essais. Le renvoi est limité (429 + Retry-After).
+
+/**
+ * Envoie un code par email.
+ *  - "login"     : mémoïsé (un seul envoi même si le composant est monté 2 fois)
+ *  - "enroll"    : activation de la méthode email dans les réglages
+ *  - "challenge" : action sensible (changer le mot de passe, désactiver la 2FA…)
+ */
+export function sendEmailMfaCode(
+  purpose: EmailPurpose = "login",
+  options: { force?: boolean } = {}
+): Promise<EmailCodeSent> {
+  if (purpose === "login" && !options.force && loginEmailPromise) {
+    return loginEmailPromise;
+  }
+
+  const request = (async (): Promise<EmailCodeSent> => {
+    const data = await apiRequest<{
+      success: boolean;
+      sentTo?: string | null;
+      sent_to?: string | null;
+      resendIn?: number;
+      resend_in?: number;
+    }>("/api/mfa/email/send", {
+      method: "POST",
+      body: JSON.stringify({ purpose }),
+    });
+
+    return {
+      sentTo: data.sentTo ?? data.sent_to ?? null,
+      resendIn: data.resendIn ?? data.resend_in ?? 60,
+    };
+  })();
+
+  if (purpose === "login") {
+    loginEmailPromise = request;
+    request.catch(() => {
+      if (loginEmailPromise === request) loginEmailPromise = null;
+    });
+  }
+
+  return request;
+}
+
+/** Vérifie le premier code reçu et active la méthode email (session AAL2). */
+export async function confirmEmailMfaEnrollment(code: string): Promise<void> {
+  const data = await apiRequest<{
+    success: boolean;
+    session: AuthSession | null;
+  }>("/api/mfa/email/enroll/verify", {
+    method: "POST",
+    body: JSON.stringify({ code }),
+  });
+
+  if (!data?.session?.access_token) {
+    throw new Error(
+      "Email verification succeeded but the backend did not return an AAL2 session."
+    );
+  }
+
+  saveSession(data.session);
+  markMfaVerified();
+}
+
+/** Vérifie un code email (login ou action sensible) et élève la session en AAL2. */
+export async function verifyEmailMfaCode(code: string): Promise<void> {
+  const data = await apiRequest<{
+    success: boolean;
+    session: AuthSession | null;
+  }>("/api/mfa/email/verify", {
+    method: "POST",
+    body: JSON.stringify({ code }),
+  });
+
+  if (!data?.session?.access_token) {
+    throw new Error(
+      "Email verification succeeded but the backend did not return an AAL2 session."
+    );
+  }
+
+  saveSession(data.session);
+  markMfaVerified();
+  setMfaPending(false);
+}
+
+/** Désactive la méthode email (requiert AAL2 : peut lever MfaRequiredError). */
+export async function disableEmailMfa(): Promise<void> {
+  await apiRequest("/api/mfa/email", { method: "DELETE" });
+}
+
+// ============================================================
+// TAGS (étiquettes libres, AUCUN tag par défaut)
+// ============================================================
+//
+// Les tags sont créés uniquement par l'utilisateur. Les colonnes du board
+// (To Do, In Progress, Unassigned…) sont des GROUPES : voir la section
+// GROUPS plus bas.
+//
+// `user_id` n'est JAMAIS envoyé : il est géré côté backend.
+//
+// Contrat backend (server.js) :
+//
+//   GET    /api/tags            → { success, tags: [{ id, name, color }] }
+//   POST   /api/tags            → { success, tag }   body: { name, color }
+//   PUT    /api/tags            → { success, tag }   body: { id, name, color }
+//   DELETE /api/tags?id=<id>    → { success }
+//
+// Le front manipule `label` + une classe Tailwind ("bg-[#6366f1]") ;
+// le backend manipule `name` + une couleur hex ("#6366f1").
+// Les conversions sont faites ici.
+//
+// Conflit d'unicité : le backend renvoie HTTP 409 + code "TAG_DUPLICATE"
+// (cf. `isDuplicateError`).
+
+const DEFAULT_TAG_CLASS = "bg-[#6366f1]";
+
+/** Forme d'un tag / groupe telle que renvoyée par le backend. */
+type ServerTag = {
+  id: string;
+  name: string;
+  color?: string | null;
+};
+
+/** "bg-[#6366f1]" → "#6366f1" (null si aucune couleur hex trouvée). */
+const tagColorToHex = (value: string): string | null =>
+  value?.match(/#[0-9a-f]{6}/i)?.[0].toLowerCase() ?? null;
+
+/** "#6366f1" → "bg-[#6366f1]" (classe par défaut si invalide). */
+const tagColorToClass = (hex?: string | null): string =>
+  hex && /^#[0-9a-f]{6}$/i.test(hex)
+    ? `bg-[${hex.toLowerCase()}]`
+    : DEFAULT_TAG_CLASS;
+
+/** Tag / groupe backend → forme front. */
+const fromServerTag = (t: ServerTag): Tag => ({
+  id: t.id,
+  label: t.name,
+  color: tagColorToClass(t.color),
+});
+
+/** Extrait un Tag d'une réponse `{ tag }` (ou d'un tag brut). */
+function parseTagResponse(data: unknown): Tag {
+  const raw = (data as { tag?: ServerTag })?.tag ?? (data as ServerTag);
+
+  if (!raw || typeof raw.id !== "string" || typeof raw.name !== "string") {
+    throw new Error("Invalid tag response from server.");
+  }
+
+  return fromServerTag(raw);
+}
+
+/** Liste les tags de l'utilisateur courant (triés par nom côté backend). */
+export async function listTags(): Promise<Tag[]> {
+  const data = await apiRequest<{ success?: boolean; tags?: ServerTag[] }>(
+    "/api/tags",
+    { method: "GET" }
+  );
+
+  return (data?.tags ?? []).map(fromServerTag);
+}
+
+/**
+ * Crée un tag.
+ * Peut throw une erreur reconnue par `isDuplicateError` si le nom existe déjà.
+ */
+export async function createTag(label: string, color: string): Promise<Tag> {
+  const data = await apiRequest<unknown>("/api/tags", {
+    method: "POST",
+    body: JSON.stringify({ name: label, color: tagColorToHex(color) }),
+  });
+
+  return parseTagResponse(data);
+}
+
+/**
+ * Met à jour un tag existant. Le backend lit `id` dans le BODY
+ * (sans `id`, il créerait un nouveau tag).
+ * Peut throw une erreur reconnue par `isDuplicateError`.
+ */
+export async function updateTag(
+  id: string,
+  patch: { label: string; color: string }
+): Promise<Tag> {
+  const data = await apiRequest<unknown>("/api/tags", {
+    method: "PUT",
+    body: JSON.stringify({
+      id,
+      name: patch.label,
+      color: tagColorToHex(patch.color),
+    }),
+  });
+
+  return parseTagResponse(data);
+}
+
+/** Supprime un tag. */
+export async function deleteTag(id: string): Promise<void> {
+  await apiRequest(`/api/tags?id=${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
+}
+
+/**
+ * Détecte une violation d'unicité côté backend.
+ * Reconnaît :
+ *   - code "TAG_DUPLICATE" / "GROUP_DUPLICATE" (backend) ou "23505"
+ *     (unique_violation Postgres)
+ *   - status HTTP 409 (Conflict)
+ *   - message contenant duplicate / already exists / unique
+ */
+export const isDuplicateError = (e: unknown): boolean => {
+  if (typeof e === "object" && e !== null) {
+    const obj = e as { code?: unknown; status?: unknown };
+    if (
+      obj.code === "TAG_DUPLICATE" ||
+      obj.code === "GROUP_DUPLICATE" ||
+      obj.code === "23505"
+    ) {
+      return true;
+    }
+    if (obj.status === 409) return true;
+  }
+
+  return (
+    e instanceof Error &&
+    /duplicate|already exists|unique/i.test(e.message)
+  );
+};
+
+// ============================================================
+// GROUPS (colonnes du board : To Do, In Progress, …)
+// ============================================================
+//
+// Contrat backend (server.js) — même forme que /api/tags :
+//
+//   GET    /api/groups           → { success, groups: [{ id, name, color }] }
+//   POST   /api/groups           → { success, group }  body: { name, color }
+//   PUT    /api/groups           → { success, group }  body: { id, name, color }
+//   DELETE /api/groups?id=<id>   → { success }
+//
+// Conflit d'unicité : HTTP 409 + code "GROUP_DUPLICATE".
+
+/** Extrait un Group d'une réponse `{ group }` (ou d'un groupe brut). */
+function parseGroupResponse(data: unknown): Group {
+  const raw = (data as { group?: ServerTag })?.group ?? (data as ServerTag);
+
+  if (!raw || typeof raw.id !== "string" || typeof raw.name !== "string") {
+    throw new Error("Invalid group response from server.");
+  }
+
+  return fromServerTag(raw);
+}
+
+/** Liste les groupes de l'utilisateur courant. */
+export async function listGroups(): Promise<Group[]> {
+  const data = await apiRequest<{ success?: boolean; groups?: ServerTag[] }>(
+    "/api/groups",
+    { method: "GET" }
+  );
+
+  return (data?.groups ?? []).map(fromServerTag);
+}
+
+/** Crée un groupe (peut throw une erreur reconnue par `isDuplicateError`). */
+export async function createGroup(label: string, color: string): Promise<Group> {
+  const data = await apiRequest<unknown>("/api/groups", {
+    method: "POST",
+    body: JSON.stringify({ name: label, color: tagColorToHex(color) }),
+  });
+
+  return parseGroupResponse(data);
+}
+
+/** Met à jour un groupe (l'`id` part dans le body). */
+export async function updateGroup(
+  id: string,
+  patch: { label: string; color: string }
+): Promise<Group> {
+  const data = await apiRequest<unknown>("/api/groups", {
+    method: "PUT",
+    body: JSON.stringify({
+      id,
+      name: patch.label,
+      color: tagColorToHex(patch.color),
+    }),
+  });
+
+  return parseGroupResponse(data);
+}
+
+/** Supprime un groupe. */
+export async function deleteGroup(id: string): Promise<void> {
+  await apiRequest(`/api/groups?id=${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
+}
+
+// ============================================================
+// DEFAULT GROUPS SEED
+// ============================================================
+
+const DEFAULT_GROUP_SEEDS = [
+  { label: "To Do", color: "bg-[#0ea5e9]" },
+  { label: "In Progress", color: "bg-[#f97316]" },
+];
+// Nouvelle clé : l'ancien flag "crossflow_default_tags_seeded" concernait
+// la table des tags.
+const DEFAULT_GROUPS_SEEDED_KEY = "crossflow_default_groups_seeded";
+
+let seedPromise: Promise<void> | null = null;
+
+/**
+ * Crée les groupes "To Do" et "In Progress" si le compte ne les a jamais eus.
+ * Idempotent, et ne les recrée pas si l'utilisateur les supprime ensuite
+ * (flag par utilisateur). Couvre aussi les comptes existants.
+ */
+export function ensureDefaultGroups(): Promise<void> {
+  if (seedPromise) return seedPromise;
+
+  seedPromise = (async () => {
+    const user = await getCurrentUser();
+    if (!user) return;
+
+    const flag = `${DEFAULT_GROUPS_SEEDED_KEY}:${user.id}`;
+    try {
+      if (localStorage.getItem(flag) === "1") return;
+    } catch {
+      /* stockage indisponible */
+    }
+
+    const existing = await listGroups();
+    const names = new Set(existing.map((g) => g.label.trim().toLowerCase()));
+
+    for (const seed of DEFAULT_GROUP_SEEDS) {
+      if (names.has(seed.label.toLowerCase())) continue;
+      try {
+        await createGroup(seed.label, seed.color);
+      } catch (e) {
+        if (!isDuplicateError(e)) throw e;
+      }
+    }
+
+    try {
+      localStorage.setItem(flag, "1");
+    } catch {
+      /* ignore */
+    }
+  })().catch((e) => {
+    seedPromise = null; // permet de réessayer
+    throw e;
+  });
+
+  return seedPromise;
+}
+
+/**
+ * @deprecated Les tags n'ont plus de valeurs par défaut (ce sont les
+ * GROUPES qui sont semés : voir `ensureDefaultGroups`). Conservé en no-op
+ * pour ne pas casser d'éventuels imports existants ; à supprimer une fois
+ * les appels retirés.
+ */
+export async function ensureDefaultTags(): Promise<void> {
+  /* volontairement vide */
+}
+
+// ============================================================
+// SAVED REPLIES
+// ============================================================
+//
+// Contrat backend (server.js) :
+//
+//   GET    /api/saved-replies           → { success, replies: SavedReply[] }
+//   POST   /api/saved-replies           → { success, reply }  body: { name, content }
+//   PUT    /api/saved-replies           → { success, reply }  body: { id, name, content }
+//   DELETE /api/saved-replies?id=<id>   → { success }
+
+export type SavedReply = {
+  id: string;
+  name: string;
+  content: string;
+  created_at?: string;
+  updated_at?: string;
+};
+
+function parseSavedReplyResponse(data: unknown): SavedReply {
+  const raw =
+    (data as { reply?: SavedReply })?.reply ?? (data as SavedReply);
+
+  if (
+    !raw ||
+    typeof raw.id !== "string" ||
+    typeof raw.name !== "string" ||
+    typeof raw.content !== "string"
+  ) {
+    throw new Error("Invalid saved reply response from server.");
+  }
+
+  return raw;
+}
+
+/** Liste les réponses enregistrées de l'utilisateur courant. */
+export async function listSavedReplies(): Promise<SavedReply[]> {
+  const data = await apiRequest<{ success?: boolean; replies?: SavedReply[] }>(
+    "/api/saved-replies",
+    { method: "GET" }
+  );
+  return data?.replies ?? [];
+}
+
+/** Crée une réponse enregistrée. */
+export async function createSavedReply(
+  name: string,
+  content: string
+): Promise<SavedReply> {
+  const data = await apiRequest<unknown>("/api/saved-replies", {
+    method: "POST",
+    body: JSON.stringify({ name, content }),
+  });
+  return parseSavedReplyResponse(data);
+}
+
+/** Met à jour une réponse enregistrée (l'`id` part dans le body). */
+export async function updateSavedReply(
+  id: string,
+  patch: { name: string; content: string }
+): Promise<SavedReply> {
+  const data = await apiRequest<unknown>("/api/saved-replies", {
+    method: "PUT",
+    body: JSON.stringify({ id, name: patch.name, content: patch.content }),
+  });
+  return parseSavedReplyResponse(data);
+}
+
+/** Supprime une réponse enregistrée. */
+export async function deleteSavedReply(id: string): Promise<void> {
+  await apiRequest(`/api/saved-replies?id=${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
+}
