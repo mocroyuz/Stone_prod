@@ -4740,7 +4740,7 @@ export default function NewPostModal({
             <a
               href={youtubeResult.url}
               target="_blank"
-              rel="noreferrer"
+              rel="noopener noreferrer"
               className="flex items-center gap-1.5 font-semibold underline underline-offset-2"
             >
               <ExternalLink className="h-3.5 w-3.5" />
@@ -4794,13 +4794,13 @@ export default function NewPostModal({
                 {c.footer.byPosting}{" "}
                 {brandedChosen && (
                   <>
-                    <a href={TIKTOK_BRANDED_URL} target="_blank" rel="noreferrer" className={linkClass}>
+                    <a href={TIKTOK_BRANDED_URL} target="_blank" rel="noopener noreferrer" className={linkClass}>
                       {c.footer.brandedPolicy}
                     </a>
                     {" "}{c.footer.and}{" "}
                   </>
                 )}
-                <a href={TIKTOK_MUSIC_URL} target="_blank" rel="noreferrer" className={linkClass}>
+                <a href={TIKTOK_MUSIC_URL} target="_blank" rel="noopener noreferrer" className={linkClass}>
                   {c.footer.musicPolicy}
                 </a>.
               </p>
