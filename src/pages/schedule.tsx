@@ -2526,7 +2526,7 @@ export default function Schedule() {
     return () => {
       cancelled = true;
     };
-  }, [postsTick]);
+  }, []);
 
   useEffect(() => {
     const onFocus = () => setPostsTick((n) => n + 1);

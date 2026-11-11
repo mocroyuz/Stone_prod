@@ -1132,6 +1132,12 @@ const NETWORK_ICONS: Record<NetworkKey, IconComponent> = {
   threads: ThreadsIcon as IconComponent,
 };
 
+/**
+ * Logos dont la couleur est fixée en noir : ils restent sur un badge blanc,
+ * même en dark mode (sinon ils seraient invisibles).
+ */
+const FIXED_BLACK_ICONS = new Set<IconComponent>([XIcon as IconComponent]);
+
 function getNetworkId(channel: ConnectedChannel): NetworkKey | null {
   const c = channel as unknown as Record<string, unknown>;
   const raw = String(c.platform ?? c.network ?? c.provider ?? channel.key)
@@ -1249,6 +1255,7 @@ function ChannelAvatar({
   NetworkIcon,
   dotRing,
   unreadDot,
+  isDark,
   size = "md",
   hasUnread = false,
 }: {
@@ -1256,6 +1263,7 @@ function ChannelAvatar({
   NetworkIcon?: IconComponent;
   dotRing: string;
   unreadDot: string;
+  isDark: boolean;
   size?: "md" | "lg";
   hasUnread?: boolean;
 }) {
@@ -1308,16 +1316,18 @@ function ChannelAvatar({
         <span
           className={[
             "absolute -bottom-0.5 -right-0.5 flex h-3.5 w-3.5 max-md:h-4 max-md:w-4 items-center justify-center overflow-hidden",
-            "rounded-[4px] bg-white shadow-[0_0_0_1px_rgba(0,0,0,0.12)] ring-2",
+            "rounded-[4px] ring-2",
+            // Même logique que la section Channels des réglages :
+            // badge sombre en dark mode, blanc en light mode.
+            isDark && !FIXED_BLACK_ICONS.has(NetworkIcon)
+              ? "bg-[#0f0f11] text-white"
+              : "bg-white text-black shadow-[0_0_0_1px_rgba(0,0,0,0.12)]",
             dotRing,
           ].join(" ")}
         >
           <NetworkIcon
-            className={
-              NetworkIcon === (YouTubeIcon as IconComponent)
-                ? "h-2 w-2 max-md:h-2.5 max-md:w-2.5"
-                : "h-2.5 w-2.5 max-md:h-3 max-md:w-3"
-            }
+            mono={isDark ? "white" : "black"}
+            className="h-[9px] w-[9px] max-md:h-2.5 max-md:w-2.5"
           />
         </span>
       )}
@@ -1344,6 +1354,7 @@ function ChannelHoverCard({
   onNewPost,
   children,
   hasUnread,
+  isDark,
 }: {
   channel: ConnectedChannel;
   label: string;
@@ -1360,6 +1371,7 @@ function ChannelHoverCard({
   onNewPost: (channelKey: string) => void;
   children: ReactNode;
   hasUnread?: boolean;
+  isDark: boolean;
 }) {
   const anchorRef = useRef<HTMLSpanElement>(null);
   const popRef = useRef<HTMLDivElement>(null);
@@ -1501,6 +1513,7 @@ function ChannelHoverCard({
                 NetworkIcon={NetworkIcon}
                 dotRing={t.dotRing}
                 unreadDot={t.accent}
+                isDark={isDark}
                 hasUnread={hasUnread}
               />
               <span
@@ -2590,6 +2603,7 @@ function SidebarChannelsImpl({
                 onNavigate={onNavigate}
                 onNewPost={onNewPost}
                 hasUnread={hasUnread}
+                isDark={isDark}
               >
                 <button
                   type="button"
@@ -2657,6 +2671,7 @@ function SidebarChannelsImpl({
                     NetworkIcon={NetworkIcon}
                     dotRing={t.dotRing}
                     unreadDot={t.accent}
+                    isDark={isDark}
                     size={compact ? "lg" : "md"}
                     hasUnread={hasUnread}
                   />
@@ -2829,10 +2844,12 @@ function useUnreadSync(channels: ConnectedChannel[]) {
     if (!youtubeKey) return;
     let cancelled = false;
     let busy = false;
+    let lastRefreshAt = 0;
 
     const refresh = async () => {
       if (busy || document.hidden) return;
       busy = true;
+      lastRefreshAt = Date.now();
       try {
         let total = 0;
         let pageToken: string | null = null;
@@ -2859,7 +2876,9 @@ function useUnreadSync(channels: ConnectedChannel[]) {
     void refresh();
     const timer = window.setInterval(refresh, UNREAD_POLL_MS);
     const onVisible = () => {
-      if (!document.hidden) void refresh();
+      if (!document.hidden && Date.now() - lastRefreshAt >= 30_000) {
+        void refresh();
+      }
     };
     document.addEventListener("visibilitychange", onVisible);
     return () => {
