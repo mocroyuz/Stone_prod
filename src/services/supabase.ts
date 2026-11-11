@@ -34,13 +34,22 @@ function readStoredValue(key: string): string | null {
     return null;
   }
 
+  let legacy: string | null = null;
   try {
-    const legacy = window.localStorage.getItem(key);
-    if (legacy === null) return null;
+    legacy = window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+  if (legacy === null) return null;
+
+  try {
     storage.setItem(key, legacy);
     window.localStorage.removeItem(key);
     return legacy;
   } catch {
+    // Si la migration échoue, supprimer la copie persistante plutôt que
+    // de continuer à utiliser un jeton exposé dans localStorage.
+    try { window.localStorage.removeItem(key); } catch { /* ignore */ }
     return null;
   }
 }
