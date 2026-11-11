@@ -24,7 +24,7 @@ interface UserContextType {
 
 const UserContext = createContext<UserContextType | undefined>(undefined);
 
-/** Préfixe des clés de session stockées dans localStorage. */
+/** Préfixe historique des clés de session (migration uniquement). */
 const STORAGE_PREFIX = "crossflow_";
 
 /** Clés de tokens utilisées par l'app (doivent matcher services/stripe.ts). */
@@ -148,6 +148,9 @@ export function UserProvider({ children }: { children: ReactNode }) {
     const handleAuthExpired = () => {
       authVersionRef.current += 1;
       try {
+        sessionStorage.removeItem(ACCESS_TOKEN_KEY);
+        sessionStorage.removeItem(REFRESH_TOKEN_KEY);
+        // Nettoie aussi les anciennes sessions migrées depuis localStorage.
         localStorage.removeItem(ACCESS_TOKEN_KEY);
         localStorage.removeItem(REFRESH_TOKEN_KEY);
       } catch {
