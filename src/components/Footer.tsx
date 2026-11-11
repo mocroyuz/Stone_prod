@@ -98,7 +98,7 @@ export default function Footer() {
                   href={link.href}
                   aria-label={link.label}
                   target="_blank"
-                  rel="noreferrer"
+                  rel="noopener noreferrer"
                   className="flex h-9 w-9 items-center justify-center rounded-md bg-neutral-100 text-neutral-700 transition hover:bg-neutral-200 hover:text-neutral-900 dark:bg-white/[0.08] dark:text-neutral-300 dark:hover:bg-white/[0.14] dark:hover:text-white"
                 >
                   {link.icon}
