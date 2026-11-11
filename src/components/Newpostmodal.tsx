@@ -3806,7 +3806,7 @@ export default function NewPostModal({
             <a
               href={design.editUrl}
               target="_blank"
-              rel="noreferrer"
+              rel="noopener noreferrer"
               className={["flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-semibold transition", textSecondary, hoverSoft].join(" ")}
             >
               <ExternalLink className="h-3.5 w-3.5" />
