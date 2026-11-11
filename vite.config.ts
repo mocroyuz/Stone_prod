@@ -1,4 +1,3 @@
-
 import path from "path";
 import { fileURLToPath } from "url";
 import tailwindcss from "@tailwindcss/vite";
@@ -11,9 +10,9 @@ const __dirname = path.dirname(__filename);
 
 // https://vite.dev/config/
 export default defineConfig({
-  // Autorise l'accès aux variables VITE_* et PUBLIC_*
-  // depuis le frontend via import.meta.env.
-  envPrefix: ["VITE_", "PUBLIC_"],
+  // Expose only VITE_* variables to the frontend. `PUBLIC_*` is intentionally
+  // not used to avoid leaking non-public configuration to the browser.
+  envPrefix: ["VITE_"],
 
   plugins: [
     react(),
