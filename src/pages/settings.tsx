@@ -5114,7 +5114,9 @@ function ChannelsSection({
     if (returned.tiktok) sync("tiktok", true, getTikTokStatus);
     if (returned.pinterest) sync("pinterest", true, getPinterestStatus);
     if (returned.youtube) sync("youtube", true, getYouTubeStatus);
-    // Toujours revalider Instagram : le cache local peut être absent sur un nouvel appareil\n    // même si le compte est déjà lié côté backend.\n    sync("instagram", returned.instagram, getInstagramStatus);
+    // Toujours revalider Instagram : le cache local peut être absent sur un nouvel appareil
+    // même si le compte est déjà lié côté backend.
+    sync("instagram", returned.instagram, getInstagramStatus);
     return () => {
       cancelled = true;
     };
