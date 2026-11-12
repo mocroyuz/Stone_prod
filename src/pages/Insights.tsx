@@ -1048,7 +1048,10 @@ function useScheduledVideoIds(
     if (!forceReload && !stale) return;
 
     let cancelled = false;
-    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    const timer = setTimeout(() => {
+      if (!cancelled) setReady(true);
+    }, SCHEDULED_TIMEOUT_MS);
 
     fetchYouTubeVideos()
       .then((r) => {
@@ -1067,16 +1070,12 @@ function useScheduledVideoIds(
         if (!cancelled) setReady(true);
       })
       .finally(() => {
-        if (timer) clearTimeout(timer);
+        clearTimeout(timer);
       });
-
-    timer = setTimeout(() => {
-      if (!cancelled) setReady(true);
-    }, SCHEDULED_TIMEOUT_MS);
 
     return () => {
       cancelled = true;
-      if (timer) clearTimeout(timer);
+      clearTimeout(timer);
     };
   }, [active, channelKey, reloadKey]);
 
