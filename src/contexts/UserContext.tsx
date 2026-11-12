@@ -12,6 +12,7 @@ import { navigate } from "../hooks/useHashRoute";
 import {
   getCurrentUser,
   consumeOAuthRedirect,
+  refreshMfaPending,
   type UserProfile,
 } from "../services/supabase";
 
@@ -81,18 +82,23 @@ export function UserProvider({ children }: { children: ReactNode }) {
       try {
         const oauth = await consumeOAuthRedirect(); // ← AVANT getCurrentUser
         const userData = await getCurrentUser({ throwOnError: true });
+        // La vérification côté serveur est indispensable : le flag MFA local
+        // disparaît à la fermeture de l'onglet, mais la session AAL1 peut rester valide.
+        const mfaPending = await refreshMfaPending();
 
         if (!mounted || requestVersion !== authVersionRef.current) return;
 
-        setUser(userData);
         setAuthError(false);
 
-        if (oauth === "ready" && userData) {
-          navigate("home"); // ← redirection directe post-login OAuth
+        if (mfaPending) {
+          setUser(null);
+          navigate("two-factor", { replace: true });
+        } else {
+          setUser(userData);
+          if (oauth === "ready" && userData) {
+            navigate("home", { replace: true });
+          }
         }
-        // oauth === "mfa" : getCurrentUser() renvoie null tant que le MFA est
-        // en attente ; envoie ici vers ton écran de challenge 2FA
-        // (ex : navigate("signin")) selon ta logique actuelle.
       } catch (error) {
         console.error("Error initializing authentication:", error);
 
