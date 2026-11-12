@@ -20,10 +20,9 @@ function getSafeStorage(): Storage | null {
 }
 
 /**
- * Les jetons ne sont jamais lus ni écrits dans localStorage.
- * Les anciennes valeurs sont migrées vers sessionStorage uniquement,
- * puis supprimées de localStorage. Si sessionStorage est indisponible,
- * l'authentification échoue de manière fermée.
+ * Les anciens jetons sont lus uniquement pour une migration temporaire.
+ * Le nouvel access token reste en mémoire et le refresh token est conservé
+ * côté serveur dans un cookie HttpOnly.
  */
 function readStoredValue(key: string): string | null {
   const storage = getSafeStorage();
@@ -53,25 +52,6 @@ function readStoredValue(key: string): string | null {
     // de continuer à utiliser un jeton exposé dans localStorage.
     try { window.localStorage.removeItem(key); } catch { /* ignore */ }
     return null;
-  }
-}
-
-function writeStoredValue(key: string, value: string): void {
-  const storage = getSafeStorage();
-  if (!storage) {
-    throw new Error("Le stockage de session est indisponible. Autorisez le stockage du navigateur puis reconnectez-vous.");
-  }
-
-  try {
-    storage.setItem(key, value);
-  } catch {
-    throw new Error("Impossible d'enregistrer la session de manière sécurisée.");
-  }
-
-  try {
-    window.localStorage.removeItem(key);
-  } catch {
-    // localStorage n'est jamais utilisé comme solution de secours.
   }
 }
 
