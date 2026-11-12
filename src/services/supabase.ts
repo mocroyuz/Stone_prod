@@ -4,7 +4,9 @@
 // API CONFIGURATION
 // ============================================================
 
-export const API_BASE_URL = "https://stone-serv.onrender.com";
+// Les appels API passent par le proxy same-origin Vercel (/api/*).
+// Cela permet au navigateur de gérer le cookie de session HttpOnly sans cookie tiers.
+export const API_BASE_URL = "";
 
 const API_REQUEST_TIMEOUT_MS = 60_000;
 
@@ -305,11 +307,22 @@ function setMfaPending(value: boolean): void {
 // TOKEN HELPERS
 // ============================================================
 
+let accessTokenInMemory: string | null = null;
+
 export function getAccessToken(): string | null {
-  return readStoredValue(ACCESS_TOKEN_KEY);
+  if (accessTokenInMemory) return accessTokenInMemory;
+
+  // Migration temporaire des anciennes sessions stockées dans le navigateur.
+  const legacyToken = readStoredValue(ACCESS_TOKEN_KEY);
+  if (legacyToken) {
+    accessTokenInMemory = legacyToken;
+    removeStoredValue(ACCESS_TOKEN_KEY);
+  }
+  return accessTokenInMemory;
 }
 
 export function getRefreshToken(): string | null {
+  // Utilisé uniquement pour migrer une ancienne session vers le cookie HttpOnly.
   return readStoredValue(REFRESH_TOKEN_KEY);
 }
 
@@ -322,15 +335,16 @@ function saveSession(session: AuthSession | null): void {
   if (!session) return;
 
   if (session.access_token) {
-    writeStoredValue(ACCESS_TOKEN_KEY, session.access_token);
+    accessTokenInMemory = session.access_token;
   }
 
-  if (session.refresh_token) {
-    writeStoredValue(REFRESH_TOKEN_KEY, session.refresh_token);
-  }
+  // Le refresh token est conservé exclusivement côté serveur dans un cookie HttpOnly.
+  removeStoredValue(ACCESS_TOKEN_KEY);
+  removeStoredValue(REFRESH_TOKEN_KEY);
 }
 
 export function clearSession(): void {
+  accessTokenInMemory = null;
   removeStoredValue(ACCESS_TOKEN_KEY);
   removeStoredValue(REFRESH_TOKEN_KEY);
   setMfaPending(false);
@@ -402,9 +416,8 @@ function inMfaGrace(): boolean {
 
 let refreshPromise: Promise<boolean> | null = null;
 
-async function refreshAccessToken(): Promise<boolean> {
-  const refreshToken = getRefreshToken();
-  if (!refreshToken) return false;
+async function refreshAccessToken(legacyRefreshToken?: string): Promise<boolean> {
+  const refreshToken = legacyRefreshToken || getRefreshToken();
 
   if (!refreshPromise) {
     refreshPromise = (async () => {
@@ -413,7 +426,10 @@ async function refreshAccessToken(): Promise<boolean> {
           const response = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ refreshToken }),
+            // Le body n'est envoyé que pour migrer une ancienne session.
+            // En fonctionnement normal, le serveur lit le cookie HttpOnly.
+            body: JSON.stringify(refreshToken ? { refreshToken } : {}),
+            credentials: "include",
             signal,
           });
           const data = await response.json().catch(() => null);
@@ -470,9 +486,9 @@ export async function apiRequest<T>(
   options: RequestInit = {},
   isRetry = false
 ): Promise<T> {
-  const canRefresh =
-    !NO_REFRESH_ENDPOINTS.some((path) => endpoint.startsWith(path)) &&
-    Boolean(getRefreshToken());
+  const canRefresh = !NO_REFRESH_ENDPOINTS.some((path) =>
+    endpoint.startsWith(path)
+  );
 
   // Ne PAS rafraîchir pendant la grâce MFA, sinon retour en AAL1.
   if (canRefresh && !isRetry && !inMfaGrace()) {
@@ -496,6 +512,7 @@ export async function apiRequest<T>(
   const sendRequest = async (signal: AbortSignal | null | undefined) => {
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       ...options,
+      credentials: options.credentials ?? "include",
       headers,
       signal: signal ?? undefined,
     });
@@ -850,6 +867,7 @@ async function requestOAuthUrl(
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ redirectTo: callback.toString() }),
+      credentials: "include",
     });
 
     const data = await response.json().catch(() => null);
@@ -895,14 +913,19 @@ export async function signInWithGithub(redirectTo?: string): Promise<void> {
  * est requis. Renvoie true si l'écran de challenge doit s'afficher.
  */
 export async function saveOAuthSession(
-  accessToken: string,
+  _accessToken: string,
   refreshToken: string
 ): Promise<boolean> {
-  saveSession({ access_token: accessToken, refresh_token: refreshToken });
-  // On bloque l'accès le temps de la vérification.
+  // Échange le refresh token reçu dans le callback OAuth contre une session
+  // renouvelée et son cookie HttpOnly, sans conserver le secret côté JavaScript.
+  const restored = await refreshAccessToken(refreshToken);
+  if (!restored) {
+    throw new Error("Could not establish a secure OAuth session.");
+  }
+
+  // On bloque l'accès le temps de la vérification MFA.
   setMfaPending(true);
-  const pending = await refreshMfaPending();
-  return pending;
+  return refreshMfaPending();
 }
 
 // Mémoïsé : survit au double-montage de React StrictMode (dev) et évite
@@ -981,7 +1004,6 @@ export function consumeOAuthRedirect(): Promise<OAuthRedirectResult> {
 
   oauthRedirectPromise = (async (): Promise<OAuthRedirectResult> => {
     const previousAccess = getAccessToken();
-    const previousRefresh = getRefreshToken();
     const previouslyPending = isMfaPending();
 
     try {
@@ -990,10 +1012,9 @@ export function consumeOAuthRedirect(): Promise<OAuthRedirectResult> {
     } catch (error) {
       console.error("OAuth redirect handling failed:", error);
       try {
-        if (previousAccess) writeStoredValue(ACCESS_TOKEN_KEY, previousAccess);
-        else removeStoredValue(ACCESS_TOKEN_KEY);
-        if (previousRefresh) writeStoredValue(REFRESH_TOKEN_KEY, previousRefresh);
-        else removeStoredValue(REFRESH_TOKEN_KEY);
+        accessTokenInMemory = previousAccess;
+        removeStoredValue(ACCESS_TOKEN_KEY);
+        removeStoredValue(REFRESH_TOKEN_KEY);
         setMfaPending(previouslyPending);
       } catch {
         // Keep the prior session untouched when storage is unavailable.
@@ -1046,7 +1067,14 @@ export async function getCurrentUser(
   options: { throwOnError?: boolean } = {}
 ): Promise<UserProfile | null> {
   try {
-    if (!hasStoredSession()) return null;
+    if (isMfaPending()) return null;
+
+    // Après fermeture du navigateur, l'access token mémoire disparaît.
+    // On restaure alors une session depuis le cookie HttpOnly.
+    if (!getAccessToken()) {
+      const restored = await refreshAccessToken();
+      if (!restored) return null;
+    }
 
     const response = await apiRequest<{
       success: boolean;
@@ -1091,13 +1119,8 @@ export async function getCurrentUser(
         : undefined;
 
     if (status === 401) {
-      if (!getRefreshToken()) {
-        clearSession();
-        return null;
-      }
-
-      // Un refresh peut échouer temporairement. Ne pas déconnecter l'utilisateur
-      // tant que le refresh token existe : l'appelant peut conserver son état et réessayer.
+      // apiRequest a déjà tenté le renouvellement via le cookie HttpOnly.
+      clearSession();
       if (options.throwOnError) throw error;
       return null;
     }
