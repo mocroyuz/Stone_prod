@@ -7,6 +7,7 @@ import Navbar from "./components/Navbar";
 import PricingSection from "./components/PricingSection";
 import Footer from "./components/Footer";
 import StoneBoot from "./components/StoneBoot";
+import StoneLoading from "./components/StoneLoading";
 import CheckoutReturnModal from "./components/CheckoutReturnModal";
 import { sectionFromSlug } from "./utils/settingsRoute";
 
@@ -730,18 +731,7 @@ function AppContent(props: AppContentProps) {
 
   return (
     <>
-      <Suspense
-        fallback={
-          <main className="fixed inset-0 z-[999999] flex flex-col items-center justify-center bg-[#050505] text-white">
-            <img
-              src="/images/icon_nav.png"
-              alt="Stone"
-              className="h-16 w-16 animate-pulse object-contain"
-            />
-            <p className="mt-5 text-sm text-white/60">Loading your Stone workspace…</p>
-          </main>
-        }
-      >
+      <Suspense fallback={<StoneLoading />}>
         <AppContentInner {...props} />
       </Suspense>
       {showBoot && <StoneBoot onComplete={handleBootComplete} />}
@@ -890,20 +880,7 @@ function AppContentInner({
   }
 
   if (loading && (!isPublic || isLanding) && !isAuth) {
-    return (
-      <main
-        role="status"
-        aria-live="polite"
-        className="fixed inset-0 z-[999999] flex flex-col items-center justify-center bg-[#050505] text-white"
-      >
-        <img
-          src="/images/icon_nav.png"
-          alt="Stone"
-          className="h-16 w-16 animate-pulse object-contain"
-        />
-        <p className="mt-5 text-sm text-white/60">Loading your Stone workspace…</p>
-      </main>
-    );
+    return <StoneLoading />;
   }
 
   if (isAccountRoute) return null;
