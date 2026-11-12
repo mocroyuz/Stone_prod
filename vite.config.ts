@@ -15,6 +15,17 @@ export default defineConfig({
 
   plugins: [react(), tailwindcss()],
 
+  // Same-origin proxy so the HttpOnly refresh cookie works in local development too.
+  server: {
+    proxy: {
+      "/api": {
+        target: "https://stone-serv.onrender.com",
+        changeOrigin: true,
+        secure: true,
+      },
+    },
+  },
+
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "src"),
