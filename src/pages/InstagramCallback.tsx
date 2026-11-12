@@ -1,9 +1,7 @@
 import { useEffect } from "react";
 import { useTheme } from "../hooks/useTheme";
-import { completeInstagramLogin } from "../services/instagram";
 
 const STORAGE_KEY = "instagram_oauth_params";
-const inflight = new Map<string, Promise<unknown>>();
 
 type CallbackParams = {
   code: string | null;
@@ -50,17 +48,11 @@ export default function InstagramCallback() {
       return;
     }
 
-    let request = inflight.get(code);
-    if (!request) {
-      request = completeInstagramLogin(code, state);
-      inflight.set(code, request);
-    }
-    request
-      .then(() => goToChannels("?instagram=connected"))
-      .catch((err: unknown) => {
-        console.error("[Stone] Instagram callback error:", err);
-        goToChannels(`?instagram_error=${encodeURIComponent(err instanceof Error ? err.message : "Instagram connection failed.")}`);
-      });
+    // Le callback OAuth est traité par le backend GET /api/instagram/callback.
+    // Le POST /api/instagram/auth/callback n'existe pas et empêchait
+    // l'échange du code puis l'enregistrement du compte dans Supabase.
+    const callbackQuery = new URLSearchParams({ code, state });
+    window.location.replace(`/api/instagram/callback?${callbackQuery.toString()}`);
   }, []);
 
   const dark = theme === "dark";
