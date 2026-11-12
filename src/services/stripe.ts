@@ -4,7 +4,7 @@
 /* ============================================================
    CONFIGURATION API
    ------------------------------------------------------------
-   Même backend Railway que services/supabase.ts.
+   Même backend (Render) que services/supabase.ts.
    Aucune variable d'environnement frontend n'est utilisée.
    ============================================================ */
 
