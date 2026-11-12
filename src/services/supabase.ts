@@ -435,11 +435,9 @@ async function refreshAccessToken(legacyRefreshToken?: string): Promise<boolean>
         clearSession();
         return false;
       } catch (error) {
+        // Une panne réseau ne doit pas être confondue avec une session expirée.
         console.error("Error refreshing session:", error);
-        if (error instanceof Error && error.name === "TimeoutError") {
-          throw error;
-        }
-        return false;
+        throw error;
       } finally {
         refreshPromise = null;
       }
@@ -670,7 +668,11 @@ export async function refreshMfaPending(): Promise<boolean> {
   }
 
   const status = await getMfaStatus();
-  if (!status) return isMfaPending();
+  if (!status) {
+    if (isMfaPending()) return true;
+    // Échec fermé : ne jamais ouvrir une session si l'état MFA n'a pas pu être vérifié.
+    throw new Error("Unable to verify multi-factor authentication status.");
+  }
 
   // Ne réinitialise pas la mémoïsation si l'état ne change pas.
   const saved = loginEmailPromise;
