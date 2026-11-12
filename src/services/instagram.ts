@@ -19,7 +19,7 @@ export async function getInstagramStatus(): Promise<{
  * quitte l'application : la promesse sert seulement à remonter les erreurs.
  */
 export async function startInstagramLogin(): Promise<void> {
-  const data = await apiRequest<{ url?: string }>("/api/instagram/auth/url", {
+  const data = await apiRequest<{ url?: string }>("/api/instagram/login", {
     method: "POST",
   });
 
