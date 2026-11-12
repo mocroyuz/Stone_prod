@@ -889,7 +889,7 @@ function AppContentInner({
     );
   }
 
-  if (loading && !isPublic && !isAuth) {
+  if (loading && (!isPublic || isLanding) && !isAuth) {
     return (
       <main
         role="status"
