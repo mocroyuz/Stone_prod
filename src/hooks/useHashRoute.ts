@@ -91,7 +91,7 @@ export function useHashRoute(): string {
         destination.pathname.startsWith("/api/") ||
         destination.pathname.startsWith("/assets/") ||
         destination.pathname === "/canva-return" ||
-        /^\/(?:tiktok|pinterest|youtube|canva|dropbox|googledrive|googlephotos)\/callback\/?$/i.test(destination.pathname)
+        /^\/(?:tiktok|pinterest|youtube|canva|dropbox|googledrive|googlephotos|instagram)\/callback\/?$/i.test(destination.pathname)
       ) return;
 
       // Laisse le navigateur gérer les ancres dans la page courante.

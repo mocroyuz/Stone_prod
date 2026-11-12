@@ -34,6 +34,7 @@ const YouTubeCallback = lazy(() => import("./pages/Youtubecallback"));
 const DropboxCallback = lazy(() => import("./pages/DropboxCallback"));
 const GoogleDriveCallback = lazy(() => import("./pages/GoogleDriveCallback"));
 const GooglePhotosCallback = lazy(() => import("./pages/GooglePhotosCallback"));
+const InstagramCallback = lazy(() => import("./pages/InstagramCallback"));
 const CanvaCallback = lazy(() => import("./pages/Canvacallback"));
 const CanvaReturnConfirmation = lazy(() =>
   import("./pages/Canvacallback").then((module) => ({
@@ -67,6 +68,7 @@ const YOUTUBE_OAUTH_STORAGE_KEY = "youtube_oauth_params";
 const DROPBOX_OAUTH_STORAGE_KEY = "dropbox_oauth_params";
 const GOOGLE_DRIVE_OAUTH_STORAGE_KEY = "google_drive_oauth_params";
 const GOOGLE_PHOTOS_OAUTH_STORAGE_KEY = "google_photos_oauth_params";
+const INSTAGRAM_OAUTH_STORAGE_KEY = "instagram_oauth_params";
 const CANVA_OAUTH_STORAGE_KEY = "canva_oauth_params";
 
 const POST_LOGIN_ROUTE_KEY = "post_login_route";
@@ -102,6 +104,7 @@ const OAUTH_CALLBACK_ROUTES = new Set([
   "dropbox-callback",
   "googledrive-callback",
   "googlephotos-callback",
+  "instagram-callback",
 ]);
 
 type OAuthProvider =
@@ -110,7 +113,8 @@ type OAuthProvider =
   | "youtube"
   | "dropbox"
   | "googledrive"
-  | "googlephotos";
+  | "googlephotos"
+  | "instagram";
 
 function interceptOAuthCallback(
   provider: OAuthProvider,
@@ -160,6 +164,7 @@ interceptOAuthCallback("youtube", YOUTUBE_OAUTH_STORAGE_KEY);
 interceptOAuthCallback("dropbox", DROPBOX_OAUTH_STORAGE_KEY);
 interceptOAuthCallback("googledrive", GOOGLE_DRIVE_OAUTH_STORAGE_KEY);
 interceptOAuthCallback("googlephotos", GOOGLE_PHOTOS_OAUTH_STORAGE_KEY);
+interceptOAuthCallback("instagram", INSTAGRAM_OAUTH_STORAGE_KEY);
 
 function interceptCanvaOAuthCallback() {
   if (typeof window === "undefined") return;
@@ -449,6 +454,7 @@ const PROTECTED_ROUTES = new Set([
   "dropbox-callback",
   "googledrive-callback",
   "googlephotos-callback",
+  "instagram-callback",
 ]);
 
 const DASHBOARD_HOME_ROUTES = new Set([
@@ -973,6 +979,14 @@ function AppContentInner({
     return (
       <div className="relative h-screen w-screen overflow-hidden font-sans">
         <DropboxCallback />
+      </div>
+    );
+  }
+
+  if (route === "instagram-callback") {
+    return (
+      <div className="relative h-screen w-screen overflow-hidden font-sans">
+        <InstagramCallback />
       </div>
     );
   }

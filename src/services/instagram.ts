@@ -19,7 +19,7 @@ export async function getInstagramStatus(): Promise<{
  * quitte l'application : la promesse sert seulement à remonter les erreurs.
  */
 export async function startInstagramLogin(): Promise<void> {
-  const data = await apiRequest<{ url?: string }>("/api/instagram/login", {
+  const data = await apiRequest<{ url?: string }>("/api/instagram/auth/url", {
     method: "POST",
   });
 
@@ -44,6 +44,21 @@ export async function startInstagramLogin(): Promise<void> {
   }
 
   window.location.assign(target.toString());
+}
+
+export async function completeInstagramLogin(
+  code: string,
+  state: string
+): Promise<InstagramAccount | null> {
+  const data = await apiRequest<{
+    connected?: boolean;
+    account?: InstagramAccount | null;
+  }>("/api/instagram/auth/callback", {
+    method: "POST",
+    body: JSON.stringify({ code, state }),
+  });
+
+  return data?.account ?? null;
 }
 
 export async function disconnectInstagram(): Promise<void> {
