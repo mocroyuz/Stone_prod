@@ -46,21 +46,6 @@ export async function startInstagramLogin(): Promise<void> {
   window.location.assign(target.toString());
 }
 
-export async function completeInstagramLogin(
-  code: string,
-  state: string
-): Promise<InstagramAccount | null> {
-  const data = await apiRequest<{
-    connected?: boolean;
-    account?: InstagramAccount | null;
-  }>("/api/instagram/auth/callback", {
-    method: "POST",
-    body: JSON.stringify({ code, state }),
-  });
-
-  return data?.account ?? null;
-}
-
 export async function disconnectInstagram(): Promise<void> {
   await apiRequest("/api/instagram/disconnect", { method: "DELETE" });
 }
