@@ -87,6 +87,7 @@ import {
   TikTokIcon,
   YouTubeIcon,
   PinterestIcon,
+  ThreadsIcon,
 } from "../components/IntegrationIcons";
 import { createPosts } from "../services/posts";
 import { fetchYouTubeVideos, useYouTubeInsights } from "../services/youtube";
@@ -980,16 +981,18 @@ const NETWORK_ICONS: Record<string, NetIcon> = {
   tiktok: TikTokIcon,
   youtube: YouTubeIcon,
   pinterest: PinterestIcon,
+  threads: ThreadsIcon,
 };
 
 function channelNetwork(ch: ConnectedChannel): string | null {
-  const raw = String(ch.platform ?? ch.key).toLowerCase().trim();
+  const raw = String(ch.platform ?? ch.network ?? ch.provider ?? ch.key).toLowerCase().trim();
   if (raw.includes("tiktok")) return "tiktok";
   if (raw.includes("insta")) return "instagram";
   if (raw.includes("youtube") || raw === "yt") return "youtube";
   if (raw.includes("facebook") || raw === "fb") return "facebook";
   if (raw.includes("linkedin")) return "linkedin";
   if (raw.includes("pinterest")) return "pinterest";
+  if (raw.includes("threads")) return "threads";
   if (raw === "x" || raw.includes("twitter")) return "x";
   return null;
 }
