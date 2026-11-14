@@ -6,6 +6,7 @@ export type SectionKey =
   | "preferences"
   | "billing"
   | "channels"
+  | "integrations"
   | "tags"
   | "savedReplies"
   | "danger";
@@ -18,6 +19,7 @@ const SECTION_SLUGS: Record<SectionKey, string> = {
   preferences: "preferences",
   billing: "billing",
   channels: "channels",
+  integrations: "integrations",
   tags: "tags",
   savedReplies: "saved-replies",
   danger: "danger-zone",
