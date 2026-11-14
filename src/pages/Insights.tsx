@@ -3167,6 +3167,7 @@ export default function Insights() {
     <main
       className={[
         "relative h-dvh min-h-dvh w-full overflow-hidden overscroll-none",
+        "compact-window",
         "transition-colors duration-300",
         t.page,
       ].join(" ")}
@@ -3198,7 +3199,7 @@ export default function Insights() {
           <div
             className={[
               "mx-auto flex w-full min-w-0 max-w-[1720px]",
-              "flex-col gap-6 px-[clamp(14px,3vw,48px)] md:gap-8",
+              "flex-col gap-6 px-[clamp(14px,3vw,48px)] md:gap-8 compact-content",
               "pb-[calc(7.5rem+env(safe-area-inset-bottom))] pt-[clamp(16px,3vw,30px)]",
             ].join(" ")}
           >
@@ -3681,7 +3682,7 @@ export default function Insights() {
                       </p>
                     )}
 
-                    <div className="mt-4 grid grid-cols-2 gap-2.5 md:grid-cols-3 md:gap-3 xl:grid-cols-6">
+                    <div className="mt-4 grid grid-cols-2 gap-2.5 md:grid-cols-3 md:gap-3 xl:grid-cols-6 compact-metrics">
                       {summaryBoxes.map((b) => (
                         <MetricBox
                           key={b.key}
