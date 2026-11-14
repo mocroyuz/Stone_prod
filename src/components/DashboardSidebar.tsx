@@ -117,6 +117,7 @@ type Copy = {
     collapse: string;
     expandSidebar: string;
     collapseSidebar: string;
+    sidebarLockedCompact: string;
     stoneHome: string;
     openAccountMenu: string;
     accountMenuAria: string;
@@ -181,6 +182,7 @@ const COPY: Record<Lang, Copy> = {
       collapse: "Collapse",
       expandSidebar: "Expand sidebar",
       collapseSidebar: "Collapse sidebar",
+      sidebarLockedCompact: "Sidebar stays compact at this window width",
       stoneHome: "Stone, go to Home",
       openAccountMenu: "Open account menu",
       accountMenuAria: "Account menu",
@@ -244,6 +246,7 @@ const COPY: Record<Lang, Copy> = {
       collapse: "Réduire",
       expandSidebar: "Développer la barre latérale",
       collapseSidebar: "Réduire la barre latérale",
+      sidebarLockedCompact: "La barre latérale reste compacte à cette largeur d’écran",
       stoneHome: "Stone, aller à l'accueil",
       openAccountMenu: "Ouvrir le menu du compte",
       accountMenuAria: "Menu du compte",
@@ -3263,13 +3266,14 @@ export default function DashboardSidebar({
   ].join(" ");
 
   const toggleCollapsed = useCallback(() => {
+    if (isCompactDesktop) return;
     setMenuOpen(false);
     if (isMobile) {
       setMobileOpen((previous) => !previous);
       return;
     }
     setIsCollapsed((previous) => !previous);
-  }, [isMobile]);
+  }, [isMobile, isCompactDesktop]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -3722,25 +3726,32 @@ export default function DashboardSidebar({
             isMobile ? "pb-[max(10px,env(safe-area-inset-bottom))]" : "",
           ].join(" ")}
         >
-          {!isMobile && !isCompactDesktop && (
+          {!isMobile && (
             <button
               type="button"
+              disabled={isCompactDesktop}
+              aria-disabled={isCompactDesktop || undefined}
               aria-expanded={!compact}
               aria-controls="app-sidebar"
               aria-keyshortcuts="Control+B Meta+B"
               aria-label={
-                isCollapsed
-                  ? c.actions.expandSidebar
-                  : c.actions.collapseSidebar
+                isCompactDesktop
+                  ? c.actions.sidebarLockedCompact
+                  : isCollapsed
+                    ? c.actions.expandSidebar
+                    : c.actions.collapseSidebar
               }
-              title={`${
-                compact ? c.actions.expand : c.actions.collapse
-              } (${TOGGLE_SHORTCUT_LABEL})`}
+              title={
+                isCompactDesktop
+                  ? c.actions.sidebarLockedCompact
+                  : `${compact ? c.actions.expand : c.actions.collapse} (${TOGGLE_SHORTCUT_LABEL})`
+              }
               onClick={toggleCollapsed}
               className={[
                 "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl",
                 "transition-[background-color,color,transform] duration-200",
                 "active:scale-[0.94] motion-reduce:transition-none motion-reduce:active:scale-100",
+                "disabled:cursor-not-allowed disabled:opacity-55 disabled:active:scale-100",
                 compact ? "" : "order-last",
                 focus,
                 t.menuIcon,
@@ -3749,7 +3760,7 @@ export default function DashboardSidebar({
             >
               <SidebarToggleIcon
                 className="h-[18px] w-[18px]"
-                open={!compact}
+                open={isCompactDesktop ? false : !compact}
               />
             </button>
           )}
