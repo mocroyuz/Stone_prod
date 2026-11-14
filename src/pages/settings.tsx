@@ -1605,13 +1605,11 @@ const ChannelsIcon = mkIcon(
   </>
 );
 const ConnectorsIcon = mkIcon(
-  <>
-    <path d="m9.5 9.5-3-3M14.5 9.5l3-3M12 15.5V19" />
-    <circle cx="12" cy="12" r="3.5" />
-    <circle cx="5" cy="5" r="2" />
-    <circle cx="19" cy="5" r="2" />
-    <circle cx="12" cy="21" r="2" />
-  </>
+  <g transform="rotate(-45 12 12)">
+    <path d="M12 22v-5" />
+    <path d="M15 8V2M9 8V2" />
+    <path d="M18 8v4a6 6 0 0 1-12 0V8Z" />
+  </g>
 );
 const DisconnectIcon = mkIcon(
   <>
