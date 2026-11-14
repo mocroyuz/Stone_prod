@@ -345,22 +345,34 @@ export function TikTokIcon({
   );
 }
 
+/**
+ * YouTube Shorts — glyphe rouge officiel posé sur son propre fond qui
+ * s'INVERSE avec le thème : fond blanc en dark mode, fond noir en light mode.
+ * Le rouge (#FF0033) et le triangle blanc restent identiques, donc le logo
+ * garde un contraste net quel que soit le fond de la pastille parente.
+ * La taille suit la classe passée par le parent (h-[11px], h-5…), le style
+ * inline ne la force plus.
+ */
 export function YouTubeIcon({
   className = "h-5 w-5",
-  size = 20,
   title = "YouTube Shorts",
 }: BrandIconProps) {
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
   return (
     <span
-      className={`relative inline-flex items-center justify-center ${className}`}
-      style={{ width: size, height: size }}
+      className={`relative inline-flex shrink-0 items-center justify-center ${className}`}
+      style={{
+        backgroundColor: isDark ? MONO_WHITE : MONO_BLACK,
+        borderRadius: "24%",
+      }}
       role="img"
       aria-label={title}
     >
-      <span className="relative flex h-[84%] w-[84%] items-center justify-center">
+      <span className="relative flex h-[78%] w-[78%] items-center justify-center">
         <SiYoutubeshorts
           className="h-full w-full"
-          size={size * 0.84}
+          size="100%"
           color="#FF0033"
           title={title}
           aria-hidden="true"
