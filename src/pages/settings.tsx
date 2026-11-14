@@ -48,6 +48,7 @@ import {
   startInstagramLogin,
   disconnectInstagram,
 } from "../services/instagram";
+import { getThreadsStatus, startThreadsLogin, disconnectThreads } from "../services/threads";
 import {
   CHANNELS_CHANGED_EVENT,
   CACHE_MAX_AGE_MS,
@@ -2255,6 +2256,8 @@ function initialSection(): SectionKey {
       "youtube_error",
       "instagram",
       "instagram_error",
+      "threads",
+      "threads_error",
     ].some((key) => params.has(key));
     const parsed = JSON.parse(sessionStorage.getItem(RETURN_KEY) ?? "[]");
     const pending = Array.isArray(parsed) && parsed.length > 0;
@@ -4935,6 +4938,7 @@ function ChannelsSection({
   const pinterestBusy = useRef(false);
   const youtubeBusy = useRef(false);
   const instagramBusy = useRef(false);
+  const threadsBusy = useRef(false);
   const instagramAwaitingReturn = useRef(false);
 
   useEffect(() => {
@@ -5010,18 +5014,21 @@ function ChannelsSection({
       pinterest: params.has("pinterest") || Boolean(pinterestError),
       youtube: params.has("youtube") || Boolean(youtubeError),
       instagram: params.has("instagram") || Boolean(instagramError),
+      threads: params.has("threads") || Boolean(params.get("threads_error")),
     };
     const oauthErrors: Record<CacheProvider, string | null> = {
       tiktok: tiktokError,
       pinterest: pinterestError,
       youtube: youtubeError,
       instagram: instagramError,
+      threads: params.get("threads_error"),
     };
     const providers: CacheProvider[] = [
       "tiktok",
       "pinterest",
       "youtube",
       "instagram",
+      "threads",
     ];
     const pendingReturn = new Set<CacheProvider>(readReturned());
     providers.forEach((p) => {
@@ -5048,6 +5055,7 @@ function ChannelsSection({
     if (returned.pinterest) clearCache(userId, "pinterest");
     if (returned.youtube) clearCache(userId, "youtube");
     if (returned.instagram) clearCache(userId, "instagram");
+    if (returned.threads) clearCache(userId, "threads");
 
     if (
       fromUrl.tiktok ||
@@ -5064,6 +5072,8 @@ function ChannelsSection({
         "youtube_error",
         "instagram",
         "instagram_error",
+        "threads",
+        "threads_error",
       ].forEach((key) => params.delete(key));
       const qs = params.toString();
       window.history.replaceState(
@@ -5117,6 +5127,7 @@ function ChannelsSection({
     // Toujours revalider Instagram : le cache local peut être absent sur un nouvel appareil
     // même si le compte est déjà lié côté backend.
     sync("instagram", returned.instagram, getInstagramStatus);
+    sync("threads", returned.threads, getThreadsStatus);
     return () => {
       cancelled = true;
     };
@@ -5136,6 +5147,8 @@ function ChannelsSection({
           readCache(userId, "youtube")?.connection ?? { connected: false },
         instagram:
           readCache(userId, "instagram")?.connection ?? { connected: false },
+        threads:
+          readCache(userId, "threads")?.connection ?? { connected: false },
       }));
     };
     window.addEventListener(CHANNELS_CHANGED_EVENT, refreshConnections);
@@ -5338,6 +5351,35 @@ function ChannelsSection({
     );
   };
 
+  const handleThreadsToggle = async (isReconnect = false) => {
+    if (threadsBusy.current) return;
+    threadsBusy.current = true;
+    setPendingKey("threads");
+    let redirecting = false;
+    try {
+      if (connections.threads.connected) {
+        await disconnectThreads();
+        if (userId) clearCache(userId, "threads");
+        setConnections((current) => ({ ...current, threads: { connected: false } }));
+        if (!isReconnect) {
+          notify(c.channels.disconnectedToast("Threads"), "success");
+          return;
+        }
+      }
+      markReturning("threads");
+      await startThreadsLogin();
+      redirecting = true;
+    } catch (error) {
+      console.error("Threads OAuth error:", error);
+      setErrorMessage(formatOAuthError("Threads", error, c));
+    } finally {
+      if (!redirecting) {
+        setPendingKey(null);
+        threadsBusy.current = false;
+      }
+    }
+  };
+
   const handlePlaceholderToggle = (key: ChannelKey) => {
     const wasConnected = connections[key].connected;
     const name = CHANNELS.find((ch) => ch.key === key)?.name ?? key;
@@ -5384,6 +5426,7 @@ function ChannelsSection({
     if (key === "pinterest") return void handlePinterestToggle();
     if (key === "youtube") return void handleYouTubeToggle();
     if (key === "instagram") return void handleInstagramToggle();
+    if (key === "threads") return void handleThreadsToggle();
     handlePlaceholderToggle(key);
   }
 
@@ -5393,6 +5436,7 @@ function ChannelsSection({
     if (key === "pinterest") return void handlePinterestToggle(true);
     if (key === "youtube") return void handleYouTubeToggle(true);
     if (key === "instagram") return void handleInstagramToggle(true);
+    if (key === "threads") return void handleThreadsToggle(true);
     handlePlaceholderReconnect(key);
   }
 
