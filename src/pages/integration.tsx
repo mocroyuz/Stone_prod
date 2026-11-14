@@ -750,7 +750,9 @@ function IntegrationCard({
    PAGE
 ============================================================ */
 
-export default function Integrations() {
+type IntegrationsProps = { embedded?: boolean };
+
+export default function Integrations({ embedded = false }: IntegrationsProps) {
   const { theme } = useTheme();
   const isDark = theme === "dark";
   const sidebarOffset = useSidebarOffset();
@@ -1225,41 +1227,54 @@ export default function Integrations() {
   return (
     <main
       className={[
-        "relative h-dvh min-h-dvh w-full overflow-hidden overscroll-none",
-        "transition-colors duration-300",
-        pageBgClass(isDark),
+        "relative w-full min-w-0 transition-colors duration-300",
+        embedded ? "min-h-0" : "h-dvh min-h-dvh overflow-hidden overscroll-none",
+        embedded ? "" : pageBgClass(isDark),
       ].join(" ")}
     >
-      <DashboardSidebar theme={theme} />
+      {!embedded && <DashboardSidebar theme={theme} />}
 
-      {/* Mobile : la sidebar est un tiroir → aucun décalage à gauche. */}
       <div
         className={[
-          "h-full min-h-0 px-2 py-2 md:py-3 md:pl-0 md:pr-3",
-          "max-md:pt-[calc(3.5rem+env(safe-area-inset-top))]",
-          "transition-[padding-left] duration-[380ms]",
-          "ease-[cubic-bezier(0.4,0,0.2,1)]",
-          "motion-reduce:transition-none",
+          "min-w-0",
+          embedded
+            ? "w-full"
+            : [
+                "h-full min-h-0 px-2 py-2 md:py-3 md:pl-0 md:pr-3",
+                "max-md:pt-[calc(3.5rem+env(safe-area-inset-top))]",
+                "transition-[padding-left] duration-[380ms]",
+                "ease-[cubic-bezier(0.4,0,0.2,1)]",
+                "motion-reduce:transition-none",
+              ].join(" "),
         ].join(" ")}
-        style={isMobile ? undefined : { paddingLeft: sidebarOffset }}
+        style={embedded || isMobile ? undefined : { paddingLeft: sidebarOffset }}
       >
-        {/* PANNEAU ARRONDI : c'est lui qui scrolle */}
         <div
           className={[
-            "h-full min-h-0 overflow-y-auto overflow-x-hidden overscroll-y-contain",
-            "rounded-2xl border md:rounded-[28px]",
-            "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
-            "transition-colors duration-300",
-            mainPanelClass(isDark),
+            "min-w-0",
+            embedded
+              ? "w-full"
+              : [
+                  "h-full min-h-0 overflow-y-auto overflow-x-hidden overscroll-y-contain",
+                  "rounded-2xl border md:rounded-[28px]",
+                  "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+                  "transition-colors duration-300",
+                  mainPanelClass(isDark),
+                ].join(" "),
           ].join(" ")}
         >
           <div
             className={[
-              "mx-auto flex w-full min-w-0 max-w-[1720px]",
-              "flex-col px-[clamp(14px,3vw,48px)]",
-              "pb-[calc(7.5rem+env(safe-area-inset-bottom))] pt-[clamp(16px,3vw,30px)]",
+              "mx-auto flex w-full min-w-0 max-w-[1720px] flex-col",
+              embedded
+                ? "px-0 pb-0 pt-0"
+                : [
+                    "px-[clamp(14px,3vw,48px)]",
+                    "pb-[calc(7.5rem+env(safe-area-inset-bottom))] pt-[clamp(16px,3vw,30px)]",
+                  ].join(" "),
             ].join(" ")}
           >
+            {!embedded && (
             {/* HEADER — compact sur mobile, ligne unique */}
             <header className="flex min-w-0 shrink-0 items-center justify-between gap-3">
               <div className="flex min-w-0 flex-1 items-center gap-2.5 sm:gap-2.5">
@@ -1310,8 +1325,14 @@ export default function Integrations() {
               </button>
             </header>
 
+            )}
+
             {/* SEARCH + FILTER — pleine largeur sur mobile */}
-            <div className="mt-5 flex flex-wrap items-center gap-2 sm:mt-6">
+            <div
+              className={[
+                embedded ? "mt-0 flex flex-wrap items-center gap-2" : "mt-5 flex flex-wrap items-center gap-2 sm:mt-6",
+              ].join(" ")}
+            >
               <label
                 className={[
                   "flex min-w-0 w-full items-center gap-2.5 rounded-full border px-3.5 py-2.5 transition sm:w-auto sm:flex-1 sm:py-2 sm:max-w-[360px]",
@@ -1464,34 +1485,38 @@ export default function Integrations() {
         </div>
       </div>
 
-      {/* FOLDER */}
-      <Folder
-        isOpen={isFolderOpen}
-        onClose={() => setIsFolderOpen(false)}
-        isDark={isDark}
-        offsetLeft={sidebarOffset}
-      />
+      {!embedded && (
+        <>
+          {/* FOLDER */}
+          <Folder
+            isOpen={isFolderOpen}
+            onClose={() => setIsFolderOpen(false)}
+            isDark={isDark}
+            offsetLeft={sidebarOffset}
+          />
 
-      {/* BOTTOM BAR */}
-      <BottomBar
-        isDark={isDark}
-        offsetLeft={sidebarOffset}
-        active={isFolderOpen ? "files" : null}
-        onChange={handleBottomBarChange}
-        onCreatePost={() => handleBottomBarChange("add")}
-      />
+          {/* BOTTOM BAR */}
+          <BottomBar
+            isDark={isDark}
+            offsetLeft={sidebarOffset}
+            active={isFolderOpen ? "files" : null}
+            onChange={handleBottomBarChange}
+            onCreatePost={() => handleBottomBarChange("add")}
+          />
 
-      {/* NEW POST */}
-      <NewPostModal
-        isOpen={isNewPostOpen}
-        onClose={() => setIsNewPostOpen(false)}
-        isDark={isDark}
-        onSubmit={handleCreatePost}
-        onRequestOpen={() => setIsNewPostOpen(true)}
-      />
+          {/* NEW POST */}
+          <NewPostModal
+            isOpen={isNewPostOpen}
+            onClose={() => setIsNewPostOpen(false)}
+            isDark={isDark}
+            onSubmit={handleCreatePost}
+            onRequestOpen={() => setIsNewPostOpen(true)}
+          />
 
-      {/* HELP */}
-      <HelpChatButton isDark={isDark} />
+          {/* HELP */}
+          <HelpChatButton isDark={isDark} />
+        </>
+      )}
     </main>
   );
 }
