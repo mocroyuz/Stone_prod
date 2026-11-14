@@ -3173,6 +3173,7 @@ export default function Schedule() {
     <main
       className={[
         "relative h-dvh min-h-dvh w-full overflow-hidden overscroll-none",
+        "compact-window",
         "transition-colors duration-300",
         pageBgClass(isDark),
       ].join(" ")}
@@ -3199,7 +3200,7 @@ export default function Schedule() {
         >
           <div
             className={[
-              "flex min-h-0 w-full flex-1 flex-col",
+              "flex min-h-0 w-full flex-1 flex-col compact-content",
               "px-[clamp(14px,3vw,48px)]",
               "pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-[clamp(16px,3vw,30px)] md:pb-4",
             ].join(" ")}
