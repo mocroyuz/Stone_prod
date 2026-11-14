@@ -5041,6 +5041,7 @@ function ChannelsSection({
       pinterest: pendingReturn.has("pinterest"),
       youtube: pendingReturn.has("youtube"),
       instagram: pendingReturn.has("instagram"),
+      threads: pendingReturn.has("threads"),
     };
     if (tiktokError)
       setErrorMessage(c.channels.oauthError("TikTok", tiktokError));
@@ -5050,6 +5051,8 @@ function ChannelsSection({
       setErrorMessage(c.channels.oauthError("YouTube Shorts", youtubeError));
     if (instagramError)
       setErrorMessage(c.channels.oauthError("Instagram", instagramError));
+    const threadsError = params.get("threads_error");
+    if (threadsError) setErrorMessage(c.channels.oauthError("Threads", threadsError));
 
     if (returned.tiktok) clearCache(userId, "tiktok");
     if (returned.pinterest) clearCache(userId, "pinterest");
