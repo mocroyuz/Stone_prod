@@ -6,7 +6,7 @@ export type Connection = {
   needsReconnect?: boolean;
 };
 
-export type CacheProvider = "tiktok" | "pinterest" | "youtube" | "instagram";
+export type CacheProvider = "tiktok" | "pinterest" | "youtube" | "instagram" | "threads";
 export type CachedProfile = { connection: Connection; savedAt: number };
 export type CachedTikTok = CachedProfile;
 
@@ -18,6 +18,7 @@ export const CACHE_PROVIDERS: CacheProvider[] = [
   "youtube",
   "pinterest",
   "instagram",
+  "threads",
 ];
 export const CHANNELS_CHANGED_EVENT = "stone:channels-changed";
 
@@ -26,6 +27,7 @@ const CACHE_PREFIXES: Record<CacheProvider, string> = {
   pinterest: "stone_pinterest_profile_",
   youtube: "stone_youtube_profile_",
   instagram: "stone_instagram_profile_",
+  threads: "stone_threads_profile_",
 };
 
 const memoryCache = new Map<string, CachedProfile>();
