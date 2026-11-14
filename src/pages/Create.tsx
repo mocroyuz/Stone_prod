@@ -2226,6 +2226,7 @@ export default function Create() {
     <main
       className={[
         "relative h-[100dvh] w-full overflow-hidden overscroll-none",
+        "compact-window",
         "transition-colors duration-300",
         page,
       ].join(" ")}
@@ -2253,7 +2254,7 @@ export default function Create() {
         >
           <div
             className={[
-              "flex min-h-0 w-full flex-1 flex-col",
+              "flex min-h-0 w-full flex-1 flex-col compact-content",
               "px-[clamp(14px,3vw,48px)]",
               // pb : place pour la BottomBar flottante sur mobile
               "pb-[calc(6.5rem+env(safe-area-inset-bottom))] pt-[clamp(16px,3vw,30px)] md:pb-6",
