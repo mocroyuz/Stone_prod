@@ -52,6 +52,7 @@ import {
   TikTokIcon,
   YouTubeIcon,
   PinterestIcon,
+  ThreadsIcon,
 } from "../components/IntegrationIcons";
 
 /* ============================================================
@@ -657,7 +658,8 @@ type SocialNetworkKey =
   | "linkedin"
   | "tiktok"
   | "youtube"
-  | "pinterest";
+  | "pinterest"
+  | "threads";
 
 const NETWORK_ICONS: Record<
   SocialNetworkKey,
@@ -670,6 +672,7 @@ const NETWORK_ICONS: Record<
   tiktok: TikTokIcon,
   youtube: YouTubeIcon,
   pinterest: PinterestIcon,
+  threads: ThreadsIcon,
 };
 
 function getNetworkId(channel: ConnectedChannel): SocialNetworkKey | null {
@@ -683,6 +686,7 @@ function getNetworkId(channel: ConnectedChannel): SocialNetworkKey | null {
   if (raw.includes("facebook") || raw === "fb") return "facebook";
   if (raw.includes("linkedin")) return "linkedin";
   if (raw.includes("pinterest")) return "pinterest";
+  if (raw.includes("threads")) return "threads";
   if (raw === "x" || raw.includes("twitter")) return "x";
   return null;
 }
