@@ -51,6 +51,7 @@ import {
   LinkedInIcon,
   TikTokIcon,
   YouTubeIcon,
+  isFullBleedIcon,
   PinterestIcon,
   ThreadsIcon,
 } from "../components/IntegrationIcons";
@@ -1358,7 +1359,12 @@ function ChannelAvatar({
           {initial}
         </div>
       )}
-      {NetworkIcon && (
+      {NetworkIcon && isFullBleedIcon(NetworkIcon) && (
+        <span className="absolute -bottom-1.5 -right-1.5 flex h-5 w-5 items-center justify-center">
+          <NetworkIcon className="h-full w-full" />
+        </span>
+      )}
+      {NetworkIcon && !isFullBleedIcon(NetworkIcon) && (
         <span
           className={[
             "absolute -bottom-1 -right-1 flex h-4 w-4 items-center",
@@ -1893,7 +1899,15 @@ function MiniChannelAvatar({
           {initial}
         </span>
       )}
-      {NetworkIcon && (
+      {NetworkIcon && isFullBleedIcon(NetworkIcon) && (
+        <span
+          className="absolute -bottom-1 -right-1 flex items-center justify-center"
+          style={{ width: badge + 3, height: badge + 3 }}
+        >
+          <NetworkIcon className="h-full w-full" />
+        </span>
+      )}
+      {NetworkIcon && !isFullBleedIcon(NetworkIcon) && (
         <span
           className={[
             "absolute -bottom-0.5 -right-0.5 flex items-center justify-center rounded-full bg-white text-black ring-1",

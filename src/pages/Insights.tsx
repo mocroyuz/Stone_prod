@@ -86,6 +86,7 @@ import {
   LinkedInIcon,
   TikTokIcon,
   YouTubeIcon,
+  isFullBleedIcon,
   PinterestIcon,
   ThreadsIcon,
 } from "../components/IntegrationIcons";
@@ -2022,7 +2023,15 @@ function ChannelAvatar({
           {channelLabel(channel).charAt(0).toUpperCase() || "?"}
         </span>
       )}
-      {Icon && (
+      {Icon && isFullBleedIcon(Icon) && (
+        <span
+          className="absolute -bottom-1 -right-1 flex items-center justify-center"
+          style={{ width: badge + 3, height: badge + 3 }}
+        >
+          <Icon className="h-full w-full" />
+        </span>
+      )}
+      {Icon && !isFullBleedIcon(Icon) && (
         <span
           className={[
             "absolute -bottom-0.5 -right-0.5 flex items-center justify-center rounded-full bg-white text-black ring-2",

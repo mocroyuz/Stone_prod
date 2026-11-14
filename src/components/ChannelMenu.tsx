@@ -13,6 +13,7 @@ import {
   LinkedInIcon,
   TikTokIcon,
   YouTubeIcon,
+  isFullBleedIcon,
   PinterestIcon,
   ThreadsIcon,
 } from "./IntegrationIcons";
@@ -54,6 +55,13 @@ const channelName = (c?: ConnectedChannel) =>
 function NetworkBadge({ channel, isDark }: { channel?: ConnectedChannel; isDark: boolean }) {
   const Icon = getNetworkIcon(channel);
   if (!Icon) return null;
+  if (isFullBleedIcon(Icon)) {
+    return (
+      <span className="absolute -bottom-1.5 -right-1.5 flex h-[18px] w-[18px] items-center justify-center">
+        <Icon className="h-full w-full" />
+      </span>
+    );
+  }
   return (
     <span
       className={`absolute -bottom-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-white text-black ring-1 ${

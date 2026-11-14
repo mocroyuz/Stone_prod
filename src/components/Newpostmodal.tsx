@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import {
   XIcon, FacebookIcon, InstagramIcon, LinkedInIcon,
-  TikTokIcon, YouTubeIcon, PinterestIcon, ThreadsIcon,
+  TikTokIcon, YouTubeIcon, PinterestIcon, ThreadsIcon, isFullBleedIcon,
   CanvaIcon as IntegrationCanvaIcon,
   DropboxIcon as IntegrationDropboxIcon,
   GoogleDriveIcon as IntegrationGoogleDriveIcon,
@@ -1632,15 +1632,27 @@ function Avatar({
           {initial}
         </span>
       )}
-      <span
-        className={[
-          "absolute flex items-center justify-center rounded-full bg-white text-black",
-          s.badge,
-          ringClass,
-        ].join(" ")}
-      >
-        <Icon className={s.icon} />
-      </span>
+      {isFullBleedIcon(Icon) ? (
+        // Logo avec son propre fond : il remplit la pastille, sans anneau.
+        <span
+          className={[
+            "absolute flex items-center justify-center",
+            s.badge.replace(/\bring-\S+/g, "").trim(),
+          ].join(" ")}
+        >
+          <Icon className="h-full w-full" />
+        </span>
+      ) : (
+        <span
+          className={[
+            "absolute flex items-center justify-center rounded-full bg-white text-black",
+            s.badge,
+            ringClass,
+          ].join(" ")}
+        >
+          <Icon className={s.icon} />
+        </span>
+      )}
     </span>
   );
 }

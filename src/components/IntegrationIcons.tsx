@@ -369,7 +369,7 @@ export function YouTubeIcon({
       role="img"
       aria-label={title}
     >
-      <span className="relative flex h-[78%] w-[78%] items-center justify-center">
+      <span className="relative flex h-[82%] w-[82%] items-center justify-center">
         <SiYoutubeshorts
           className="h-full w-full"
           size="100%"
@@ -393,6 +393,16 @@ export function YouTubeIcon({
       </span>
     </span>
   );
+}
+
+/**
+ * Logos qui portent leur propre fond (YouTube Shorts : blanc en dark, noir en
+ * light). Les pastilles parentes ne doivent PAS leur ajouter de fond ni
+ * d'anneau (sinon on voit un contour autour) : elles laissent le logo
+ * remplir tout l'espace via `isFullBleedIcon`.
+ */
+export function isFullBleedIcon(icon: unknown): boolean {
+  return icon === YouTubeIcon;
 }
 
 export const PinterestIcon = createIcon("logos:pinterest", "Pinterest");

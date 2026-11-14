@@ -63,6 +63,7 @@ import {
   LinkedInIcon,
   TikTokIcon,
   YouTubeIcon,
+  isFullBleedIcon,
   PinterestIcon,
   ThreadsIcon,
 } from "../components/IntegrationIcons";
@@ -789,6 +790,17 @@ function NetworkBadge({
   size?: number;
 }) {
   const Icon = NETWORK_ICONS[network] || XIcon;
+  if (isFullBleedIcon(Icon)) {
+    // Logo qui porte son propre fond : il remplit toute la pastille.
+    return (
+      <span
+        className="flex shrink-0 items-center justify-center"
+        style={{ width: size, height: size }}
+      >
+        <Icon className="h-full w-full" />
+      </span>
+    );
+  }
   return (
     <span
       className={[
@@ -1794,7 +1806,15 @@ function ChannelAvatar({
           {label.charAt(0).toUpperCase() || "?"}
         </span>
       )}
-      {Icon && (
+      {Icon && isFullBleedIcon(Icon) && (
+        <span
+          className="absolute -bottom-1 -right-1 flex items-center justify-center"
+          style={{ width: badge + 3, height: badge + 3 }}
+        >
+          <Icon className="h-full w-full" />
+        </span>
+      )}
+      {Icon && !isFullBleedIcon(Icon) && (
         <span
           className={[
             "absolute -bottom-0.5 -right-0.5 flex items-center justify-center rounded-full bg-white text-black ring-2",
