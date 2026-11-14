@@ -953,7 +953,7 @@ function AppContentInner({
 
   if (route === "tiktok-callback") {
     return (
-      <div className="relative h-screen w-screen overflow-hidden font-sans">
+      <div className="relative h-screen w-full overflow-hidden font-sans">
         <TikTokCallback />
       </div>
     );
@@ -961,7 +961,7 @@ function AppContentInner({
 
   if (route === "pinterest-callback") {
     return (
-      <div className="relative h-screen w-screen overflow-hidden font-sans">
+      <div className="relative h-screen w-full overflow-hidden font-sans">
         <PinterestCallback />
       </div>
     );
@@ -969,7 +969,7 @@ function AppContentInner({
 
   if (route === "youtube-callback") {
     return (
-      <div className="relative h-screen w-screen overflow-hidden font-sans">
+      <div className="relative h-screen w-full overflow-hidden font-sans">
         <YouTubeCallback />
       </div>
     );
@@ -977,7 +977,7 @@ function AppContentInner({
 
   if (route === "dropbox-callback") {
     return (
-      <div className="relative h-screen w-screen overflow-hidden font-sans">
+      <div className="relative h-screen w-full overflow-hidden font-sans">
         <DropboxCallback />
       </div>
     );
@@ -985,7 +985,7 @@ function AppContentInner({
 
   if (route === "instagram-callback") {
     return (
-      <div className="relative h-screen w-screen overflow-hidden font-sans">
+      <div className="relative h-screen w-full overflow-hidden font-sans">
         <InstagramCallback />
       </div>
     );
@@ -993,7 +993,7 @@ function AppContentInner({
 
   if (route === "googledrive-callback") {
     return (
-      <div className="relative h-screen w-screen overflow-hidden font-sans">
+      <div className="relative h-screen w-full overflow-hidden font-sans">
         <GoogleDriveCallback />
       </div>
     );
@@ -1001,7 +1001,7 @@ function AppContentInner({
 
   if (route === "googlephotos-callback") {
     return (
-      <div className="relative h-screen w-screen overflow-hidden font-sans">
+      <div className="relative h-screen w-full overflow-hidden font-sans">
         <GooglePhotosCallback />
       </div>
     );
@@ -1009,7 +1009,7 @@ function AppContentInner({
 
   if (route === "canva-callback") {
     return (
-      <div className="relative h-screen w-screen overflow-hidden font-sans">
+      <div className="relative h-screen w-full overflow-hidden font-sans">
         <CanvaCallback />
       </div>
     );
@@ -1017,7 +1017,7 @@ function AppContentInner({
 
   if (route === "integrations") {
     return (
-      <div className="relative h-screen w-screen overflow-hidden font-sans">
+      <div className="relative h-screen w-full overflow-hidden font-sans">
         <IntegrationsPage />
       </div>
     );
@@ -1025,7 +1025,7 @@ function AppContentInner({
 
   if (route === "settings") {
     return (
-      <div className="relative h-screen w-screen overflow-hidden font-sans">
+      <div className="relative h-screen w-full overflow-hidden font-sans">
         <Settings initialSection={sectionFromSlug(settingsSlug(rawRoute))} />
       </div>
     );
@@ -1038,7 +1038,7 @@ function AppContentInner({
 
   if (route === "schedule" || route === "calendar") {
     return (
-      <div className="relative h-screen w-screen overflow-y-auto overflow-x-hidden font-sans">
+      <div className="relative h-screen w-full overflow-y-auto overflow-x-hidden font-sans">
         <Schedule />
       </div>
     );
@@ -1046,7 +1046,7 @@ function AppContentInner({
 
   if (route === "insights") {
     return (
-      <div className="relative h-screen w-screen overflow-y-auto overflow-x-hidden font-sans">
+      <div className="relative h-screen w-full overflow-y-auto overflow-x-hidden font-sans">
         <Insights />
       </div>
     );
@@ -1054,7 +1054,7 @@ function AppContentInner({
 
   if (route === "community") {
     return (
-      <div className="relative h-screen w-screen overflow-hidden font-sans">
+      <div className="relative h-screen w-full overflow-hidden font-sans">
         <Community />
       </div>
     );
@@ -1062,7 +1062,7 @@ function AppContentInner({
 
   if (route === "create") {
     return (
-      <div className="relative h-screen w-screen overflow-hidden font-sans">
+      <div className="relative h-screen w-full overflow-hidden font-sans">
         <Create />
       </div>
     );
@@ -1070,7 +1070,7 @@ function AppContentInner({
 
   if (isTemplate) {
     return (
-      <div className="relative min-h-screen w-screen overflow-y-auto overflow-x-hidden font-sans">
+      <div className="relative min-h-screen w-full overflow-y-auto overflow-x-hidden font-sans">
         <TemplatesPage />
       </div>
     );
@@ -1078,7 +1078,7 @@ function AppContentInner({
 
   if (DASHBOARD_HOME_ROUTES.has(route)) {
     return (
-      <div className="relative h-screen w-screen overflow-hidden font-sans">
+      <div className="relative h-screen w-full overflow-hidden font-sans">
         <DashboardHome />
         {route === "home" && <CheckoutReturnModal />}
       </div>
