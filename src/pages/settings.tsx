@@ -947,7 +947,7 @@ const COPY: Record<Lang, Copy> = {
         preferences: "Préférences",
         billing: "Facturation",
         channels: "Canaux",
-        integrations: "Intégrations",
+        integrations: "Connecteur",
         tags: "Tags",
         savedReplies: "Réponses enregistrées",
         danger: "Zone de danger",
@@ -962,7 +962,7 @@ const COPY: Record<Lang, Copy> = {
       preferences: "Préférences",
       billing: "Facturation",
       channels: "Canaux",
-      integrations: "Intégrations",
+      integrations: "Connecteur",
       tags: "Tags",
       savedReplies: "Réponses enregistrées",
       danger: "Zone de danger",
@@ -1604,11 +1604,13 @@ const ChannelsIcon = mkIcon(
     <circle cx="16.5" cy="16.5" r="2.5" />
   </>
 );
-const PlugIcon = mkIcon(
+const ConnectorsIcon = mkIcon(
   <>
-    <path d="M12 22v-5" />
-    <path d="M9 8V2M15 8V2" />
-    <path d="M18 8v4a6 6 0 0 1-12 0V8h12Z" />
+    <path d="m9.5 9.5-3-3M14.5 9.5l3-3M12 15.5V19" />
+    <circle cx="12" cy="12" r="3.5" />
+    <circle cx="5" cy="5" r="2" />
+    <circle cx="19" cy="5" r="2" />
+    <circle cx="12" cy="21" r="2" />
   </>
 );
 const DisconnectIcon = mkIcon(
@@ -1932,7 +1934,7 @@ function buildSidebarGroups(
       key: "utils",
       items: [
         { key: "channels", label: c.sidebar.sections.channels, icon: <ChannelsIcon /> },
-        { key: "integrations", label: c.sidebar.sections.integrations, icon: <PlugIcon /> },
+        { key: "integrations", label: c.sidebar.sections.integrations, icon: <ConnectorsIcon /> },
         { key: "tags", label: c.sidebar.sections.tags, icon: <TagIcon /> },
         {
           key: "savedReplies",
