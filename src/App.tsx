@@ -885,7 +885,7 @@ function AppContentInner({
     );
   }
 
-  if (loading && (!isPublic || isLanding) && !isAuth) {
+  if (loading && !isPublic && !isAuth) {
     return <StoneLoading />;
   }
 
