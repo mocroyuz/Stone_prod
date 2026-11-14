@@ -418,7 +418,7 @@ function ChannelIcon({
             autour (sinon on voit un contour noir). */}
         {(Icon as unknown) === YouTubeIcon ? (
           <span className="absolute -bottom-1 -right-1 flex h-[22px] w-[22px] items-center justify-center">
-            <Icon className="h-[22px] w-[22px]" size={22} />
+            <YouTubeIcon className="h-[22px] w-[22px]" size={22} contentScale={0.93} />
           </span>
         ) : (
           <span
@@ -451,7 +451,7 @@ function ChannelIcon({
       )}
     >
       {(Icon as unknown) === YouTubeIcon ? (
-        <Icon className="h-[23px] w-[23px]" size={23} />
+        <YouTubeIcon className="h-[23px] w-[23px]" size={23} contentScale={0.93} />
       ) : (
         <Icon className="h-[21px] w-[21px]" size={21} />
       )}
