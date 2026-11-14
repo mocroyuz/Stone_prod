@@ -501,6 +501,7 @@ function Kbd({ children, className }: { children: ReactNode; className?: string 
 Responsive
 ============================================================================ */
 const MOBILE_QUERY = "(max-width: 767px)";
+const COMPACT_DESKTOP_QUERY = "(min-width: 768px) and (max-width: 1100px)";
 
 function subscribeMobile(listener: () => void) {
   if (typeof window === "undefined" || !window.matchMedia) return () => {};
@@ -515,6 +516,25 @@ function getMobileSnapshot(): boolean {
 }
 function useIsMobile(): boolean {
   return useSyncExternalStore(subscribeMobile, getMobileSnapshot, () => false);
+}
+
+function subscribeCompactDesktop(listener: () => void) {
+  if (typeof window === "undefined" || !window.matchMedia) return () => {};
+  const media = window.matchMedia(COMPACT_DESKTOP_QUERY);
+  media.addEventListener("change", listener);
+  return () => media.removeEventListener("change", listener);
+}
+function getCompactDesktopSnapshot(): boolean {
+  return typeof window !== "undefined" && Boolean(window.matchMedia)
+    ? window.matchMedia(COMPACT_DESKTOP_QUERY).matches
+    : false;
+}
+export function useIsCompactDesktop(): boolean {
+  return useSyncExternalStore(
+    subscribeCompactDesktop,
+    getCompactDesktopSnapshot,
+    () => false
+  );
 }
 
 /* ============================================================================
@@ -2829,7 +2849,9 @@ export function useSidebarOffset(): number {
     () => true
   );
   const isMobile = useIsMobile();
+  const isCompactDesktop = useIsCompactDesktop();
   if (isMobile) return 0;
+  if (isCompactDesktop) return SIDEBAR_COLLAPSED_OFFSET;
   return collapsed ? SIDEBAR_COLLAPSED_OFFSET : SIDEBAR_EXPANDED_OFFSET;
 }
 
@@ -2916,6 +2938,7 @@ export default function DashboardSidebar({
   const connectedChannels = useConnectedChannels();
   useUnreadSync(connectedChannels);
   const isMobile = useIsMobile();
+  const isCompactDesktop = useIsCompactDesktop();
   const { show: showMfaNudge } = useMfaNudge();
 
   const unreadCounts = useUnreadCounts();
@@ -2971,7 +2994,7 @@ export default function DashboardSidebar({
   const [loggingOut, setLoggingOut] = useState(false);
   const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
 
-  const compact = isMobile ? false : isCollapsed;
+  const compact = isMobile ? false : isCompactDesktop || isCollapsed;
   const drawerHidden = isMobile && !mobileOpen;
 
   const profileRef = useRef<HTMLDivElement>(null);
@@ -3699,7 +3722,7 @@ export default function DashboardSidebar({
             isMobile ? "pb-[max(10px,env(safe-area-inset-bottom))]" : "",
           ].join(" ")}
         >
-          {!isMobile && (
+          {!isMobile && !isCompactDesktop && (
             <button
               type="button"
               aria-expanded={!compact}
