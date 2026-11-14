@@ -2699,6 +2699,7 @@ export default function Home() {
     <main
       className={[
         "relative h-dvh min-h-dvh w-full overflow-hidden overscroll-none",
+        "compact-window",
         "transition-colors duration-300",
         pageBgClass(isDark),
       ].join(" ")}
@@ -2726,7 +2727,7 @@ export default function Home() {
         >
           <div
             className={[
-              "mx-auto flex w-full min-w-0 max-w-[1720px]",
+              "mx-auto flex w-full min-w-0 max-w-[1720px] compact-content",
               "flex-col px-[clamp(14px,3vw,48px)]",
               "pb-[calc(7.5rem+env(safe-area-inset-bottom))] pt-[clamp(16px,3vw,30px)]",
             ].join(" ")}
@@ -2880,7 +2881,7 @@ export default function Home() {
               />
             </section>
 
-            <div className="mt-8 grid min-w-0 grid-cols-1 gap-7 md:mt-6 md:grid-cols-2 md:grid-rows-[auto_1fr] md:gap-4 xl:gap-6">
+            <div className="mt-8 grid min-w-0 grid-cols-1 gap-7 md:mt-6 md:grid-cols-2 md:grid-rows-[auto_1fr] md:gap-4 xl:gap-6 compact-stack">
               <InsightsPanel
                 isDark={isDark}
                 lang={lang}
