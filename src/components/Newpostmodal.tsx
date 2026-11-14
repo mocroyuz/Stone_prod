@@ -3437,6 +3437,9 @@ export default function NewPostModal({
     const externallyHandled: SocialNetworkId[] = [
       ...(youtubeNow ? (["youtube"] as const) : []),
       ...(tiktokNow && tiktokMode === "direct" ? (["tiktok"] as const) : []),
+      ...(validNetworks.includes("threads") && scheduleAction !== "save_in_folder"
+        ? (["threads"] as const)
+        : []),
     ];
 
     const mediaByNetwork: Partial<Record<SocialNetworkId, File[]>> = {};
