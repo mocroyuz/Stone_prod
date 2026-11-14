@@ -1957,7 +1957,7 @@ function SettingsSidebar({
   return (
     <aside
       className={cx(
-        "flex h-full w-[232px] shrink-0 flex-col overflow-y-auto border-r transition-colors duration-300",
+        "settings-sidebar flex h-full w-[232px] shrink-0 flex-col overflow-y-auto border-r transition-colors duration-300",
         tokens.sidebarBg,
         tokens.cardBorder
       )}
@@ -2421,7 +2421,7 @@ export default function Settings(_props: SettingsProps) {
   return (
     <main
       className={cx(
-        "h-[100dvh] w-full overflow-hidden",
+        "h-[100dvh] w-full overflow-hidden compact-window",
         tokens.pageBg
       )}
     >
@@ -2440,7 +2440,7 @@ export default function Settings(_props: SettingsProps) {
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
           <div
             className={cx(
-              "mx-auto w-full min-w-0 px-[clamp(16px,4vw,48px)]",
+              "mx-auto w-full min-w-0 px-[clamp(16px,4vw,48px)] settings-content compact-content",
               isMobile
                 ? "pt-[calc(12px+env(safe-area-inset-top))] pb-[calc(24px+env(safe-area-inset-bottom))]"
                 : "py-[clamp(24px,4vw,56px)]",
