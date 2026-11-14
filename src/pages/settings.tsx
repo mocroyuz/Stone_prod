@@ -5064,7 +5064,8 @@ function ChannelsSection({
       fromUrl.tiktok ||
       fromUrl.pinterest ||
       fromUrl.youtube ||
-      fromUrl.instagram
+      fromUrl.instagram ||
+      fromUrl.threads
     ) {
       [
         "tiktok",
