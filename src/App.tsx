@@ -17,7 +17,6 @@ const TwoFactor = lazy(() => import("./pages/twofactor"));
 const ForgotPassword = lazy(() => import("./pages/forgotpassword"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const DashboardHome = lazy(() => import("./pages/home"));
-const IntegrationsPage = lazy(() => import("./pages/integration"));
 const Settings = lazy(() => import("./pages/settings"));
 const Schedule = lazy(() => import("./pages/schedule"));
 const Pricing = lazy(() => import("./pages/pricing"));
@@ -1016,11 +1015,8 @@ function AppContentInner({
   }
 
   if (route === "integrations") {
-    return (
-      <div className="relative h-screen w-full overflow-hidden font-sans">
-        <IntegrationsPage />
-      </div>
-    );
+    // Ancienne URL : Intégrations est désormais une section des Paramètres.
+    return <Navigate to="settings/integrations" />;
   }
 
   if (route === "settings") {
