@@ -1,4 +1,6 @@
 ﻿import {
+  lazy,
+  Suspense,
   useCallback,
   useEffect,
   useMemo,
@@ -98,6 +100,8 @@ import {
   type SavedReply,
 } from "../services/supabase";
 
+const IntegrationsPage = lazy(() => import("./integration"));
+
 /* ── Language ── */
 
 type Lang = "fr" | "en";
@@ -159,6 +163,7 @@ type Copy = {
       | "preferences"
       | "billing"
       | "channels"
+      | "integrations"
       | "tags"
       | "savedReplies"
       | "danger",
@@ -174,6 +179,7 @@ type Copy = {
     | "preferences"
     | "billing"
     | "channels"
+    | "integrations"
     | "tags"
     | "savedReplies"
     | "danger",
@@ -520,6 +526,7 @@ const COPY: Record<Lang, Copy> = {
         preferences: "Preferences",
         billing: "Billing",
         channels: "Channels",
+        integrations: "Integrations",
         tags: "Tags",
         savedReplies: "Saved replies",
         danger: "Danger zone",
@@ -534,6 +541,7 @@ const COPY: Record<Lang, Copy> = {
       preferences: "Preferences",
       billing: "Billing",
       channels: "Channels",
+      integrations: "Integrations",
       tags: "Tags",
       savedReplies: "Saved Replies",
       danger: "Danger zone",
@@ -939,6 +947,7 @@ const COPY: Record<Lang, Copy> = {
         preferences: "Préférences",
         billing: "Facturation",
         channels: "Canaux",
+        integrations: "Intégrations",
         tags: "Tags",
         savedReplies: "Réponses enregistrées",
         danger: "Zone de danger",
@@ -953,6 +962,7 @@ const COPY: Record<Lang, Copy> = {
       preferences: "Préférences",
       billing: "Facturation",
       channels: "Canaux",
+      integrations: "Intégrations",
       tags: "Tags",
       savedReplies: "Réponses enregistrées",
       danger: "Zone de danger",
@@ -1594,6 +1604,13 @@ const ChannelsIcon = mkIcon(
     <circle cx="16.5" cy="16.5" r="2.5" />
   </>
 );
+const PlugIcon = mkIcon(
+  <>
+    <path d="M12 22v-5" />
+    <path d="M9 8V2M15 8V2" />
+    <path d="M18 8v4a6 6 0 0 1-12 0V8h12Z" />
+  </>
+);
 const DisconnectIcon = mkIcon(
   <>
     <circle cx="12" cy="12" r="10" />
@@ -1915,6 +1932,7 @@ function buildSidebarGroups(
       key: "utils",
       items: [
         { key: "channels", label: c.sidebar.sections.channels, icon: <ChannelsIcon /> },
+        { key: "integrations", label: c.sidebar.sections.integrations, icon: <PlugIcon /> },
         { key: "tags", label: c.sidebar.sections.tags, icon: <TagIcon /> },
         {
           key: "savedReplies",
@@ -2247,6 +2265,14 @@ function initialSection(): SectionKey {
   try {
     const params = new URLSearchParams(window.location.search);
     if (params.get("section") === "channels") return "channels";
+    if (params.get("section") === "integrations") return "integrations";
+    const integrationReturnParams = [
+      "gdrive_error",
+      "gphotos_error",
+      "canva_error",
+      "dropbox_error",
+    ];
+    if (integrationReturnParams.some((key) => params.has(key))) return "integrations";
     const fromUrl = [
       "tiktok",
       "tiktok_error",
@@ -2444,7 +2470,9 @@ export default function Settings(_props: SettingsProps) {
               isMobile
                 ? "pt-[calc(12px+env(safe-area-inset-top))] pb-[calc(24px+env(safe-area-inset-bottom))]"
                 : "py-[clamp(24px,4vw,56px)]",
-              active === "channels" ? "max-w-[1100px]" : "max-w-[840px]"
+              active === "channels" || active === "integrations"
+                ? "max-w-[1100px]"
+                : "max-w-[840px]"
             )}
           >
             {/* En-tête mobile : retour au menu + fil d'ariane "Settings" */}
@@ -2522,6 +2550,17 @@ export default function Settings(_props: SettingsProps) {
                   isDark={isDark}
                   c={c}
                 />
+              )}
+              {active === "integrations" && (
+                <Suspense
+                  fallback={
+                    <div className={cx("py-8 text-[13px]", tokens.muted)}>
+                      {c.common.loading}
+                    </div>
+                  }
+                >
+                  <IntegrationsPage embedded />
+                </Suspense>
               )}
               {active === "tags" && (
                 <TagsSection
