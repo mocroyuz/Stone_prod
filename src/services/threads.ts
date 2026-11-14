@@ -19,7 +19,7 @@ export async function startThreadsLogin(): Promise<void> {
   let target: URL;
   try { target = new URL(data.url); }
   catch { throw new Error("URL Threads invalide."); }
-  if (target.protocol !== "https:" || !["threads.com", "www.threads.com"].includes(target.hostname)) {
+  if (target.protocol !== "https:" || !["threads.net", "www.threads.net", "threads.com", "www.threads.com"].includes(target.hostname)) {
     throw new Error("Le backend a renvoyé une URL Threads inattendue.");
   }
   window.location.assign(target.toString());
