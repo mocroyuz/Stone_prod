@@ -1,5 +1,5 @@
 import { Icon } from "@iconify/react";
-import { SiYoutubeshorts } from "@icons-pack/react-simple-icons";
+import { SiThreads, SiYoutubeshorts } from "@icons-pack/react-simple-icons";
 import { useTheme } from "../hooks/useTheme";
 
 /**
@@ -384,7 +384,37 @@ export function YouTubeIcon({
 }
 
 export const PinterestIcon = createIcon("logos:pinterest", "Pinterest");
-export const ThreadsIcon = createMonoIcon("simple-icons:threads", "Threads");
+
+/**
+ * Threads — glyphe local (aucun chargement réseau Iconify) qui HÉRITE de la
+ * couleur du parent (`currentColor`).
+ *
+ * Avant : la couleur dépendait du thème global (blanc en dark, noir en light),
+ * alors que la plupart des pastilles (`rounded-full bg-white text-black`)
+ * restent blanches dans les deux thèmes → en dark mode le glyphe blanc était
+ * invisible sur la pastille blanche et on ne voyait qu'un rond blanc.
+ * Chaque pastille définit déjà un `text-*` cohérent avec son fond, donc
+ * `currentColor` est toujours lisible. `mono` reste disponible pour forcer.
+ */
+export function ThreadsIcon({
+  className = "h-5 w-5",
+  size = 20,
+  title = "Threads",
+  mono,
+}: BrandIconProps) {
+  const color =
+    mono === "black" ? MONO_BLACK : mono === "white" ? MONO_WHITE : "currentColor";
+  return (
+    <SiThreads
+      className={className}
+      size={size}
+      color={color}
+      title={title}
+      aria-label={title}
+      role="img"
+    />
+  );
+}
 export const XIcon = createIcon("simple-icons:x", "X", "#000000");
 export const LinkedInIcon = createIcon("logos:linkedin-icon", "LinkedIn");
 

@@ -516,7 +516,7 @@ function Avatar({ account, p }: { account: OnboardingAccount; p: Palette }) {
       ) : (
         <div
           className="flex h-full w-full items-center justify-center rounded-full border"
-          style={{ background: p.surface, borderColor: p.border }}
+          style={{ background: p.surface, borderColor: p.border, color: p.text }}
         >
           <Icon className="h-7 w-7" size={28} />
         </div>
