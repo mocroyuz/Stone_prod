@@ -417,8 +417,8 @@ function ChannelIcon({
             il remplit toute la pastille, plus grand, sans fond ni anneau
             autour (sinon on voit un contour noir). */}
         {(Icon as unknown) === YouTubeIcon ? (
-          <span className="absolute -bottom-1.5 -right-1.5 flex h-6 w-6 items-center justify-center">
-            <Icon className="h-6 w-6" size={24} />
+          <span className="absolute -bottom-1 -right-1 flex h-[22px] w-[22px] items-center justify-center">
+            <Icon className="h-[22px] w-[22px]" size={22} />
           </span>
         ) : (
           <span
@@ -450,7 +450,11 @@ function ChannelIcon({
         connection.connected ? active : idle
       )}
     >
-      <Icon className="h-[21px] w-[21px]" size={21} />
+      {(Icon as unknown) === YouTubeIcon ? (
+        <Icon className="h-[23px] w-[23px]" size={23} />
+      ) : (
+        <Icon className="h-[21px] w-[21px]" size={21} />
+      )}
     </div>
   );
 }
