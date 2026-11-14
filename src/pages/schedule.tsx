@@ -24,6 +24,7 @@ import {
 import { useTheme } from "../hooks/useTheme";
 import { useHashRoute } from "../hooks/useHashRoute";
 import DashboardSidebar, {
+  useIsCompactDesktop,
   useSidebarOffset,
   useFavorites,
 } from "../components/DashboardSidebar";
@@ -2298,6 +2299,7 @@ export default function Schedule() {
   const lang = useLanguage();
   const c = COPY[lang];
   const isMobile = useIsMobile();
+  const isCompactDesktop = useIsCompactDesktop();
 
   const sidebarOffset = useSidebarOffset();
   const channels = useConnectedChannels();
@@ -2340,10 +2342,16 @@ export default function Schedule() {
   const [viewDate, setViewDate] = useState(() => new Date());
   const [openPanel, setOpenPanel] = useState<ToolbarPanel | null>(null);
   const [view, setView] = useState<View>(() =>
-    typeof window !== "undefined" && window.matchMedia(MOBILE_QUERY).matches
-      ? "3days"
-      : "week"
+    isMobile || isCompactDesktop ? "3days" : "week"
   );
+
+  // In a split desktop window, prefer a readable three-day calendar.
+  // Keep other explicit choices (for example month) unchanged.
+  useEffect(() => {
+    if (isCompactDesktop) {
+      setView((current) => (current === "week" ? "3days" : current));
+    }
+  }, [isCompactDesktop]);
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [channelsOpen, setChannelsOpen] = useState(false);
