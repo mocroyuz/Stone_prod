@@ -306,3 +306,30 @@ img,
     animation: none;
   }
 }
+
+/* Adaptive layout for a desktop browser snapped beside another window.
+   This is deliberately separate from the phone breakpoint. */
+@media (min-width: 768px) and (max-width: 1100px) {
+  .compact-window .compact-content {
+    padding-left: clamp(14px, 2vw, 22px) !important;
+    padding-right: clamp(14px, 2vw, 22px) !important;
+  }
+
+  .compact-window .compact-stack {
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-rows: auto !important;
+  }
+
+  .compact-window .compact-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .compact-window .settings-sidebar {
+    width: 196px !important;
+  }
+
+  .compact-window .settings-content {
+    padding-left: 20px !important;
+    padding-right: 20px !important;
+  }
+}
