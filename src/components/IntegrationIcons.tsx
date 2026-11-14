@@ -17,6 +17,8 @@ type IconProps = {
 
 type BrandIconProps = IconProps & {
   title?: string;
+  /** Controls the inner glyph scale independently from its outer tile. */
+  contentScale?: number;
 };
 
 const MONO_BLACK = "#0a0a0a";
@@ -356,6 +358,7 @@ export function TikTokIcon({
 export function YouTubeIcon({
   className = "h-5 w-5",
   title = "YouTube Shorts",
+  contentScale = 0.86,
 }: BrandIconProps) {
   const { theme } = useTheme();
   const isDark = theme === "dark";
@@ -369,7 +372,10 @@ export function YouTubeIcon({
       role="img"
       aria-label={title}
     >
-      <span className="relative flex h-[86%] w-[86%] items-center justify-center">
+      <span
+        className="relative flex items-center justify-center"
+        style={{ width: `${contentScale * 100}%`, height: `${contentScale * 100}%` }}
+      >
         <SiYoutubeshorts
           className="h-full w-full"
           size="100%"
