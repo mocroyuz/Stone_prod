@@ -1224,8 +1224,10 @@ export default function Integrations({ embedded = false }: IntegrationsProps) {
     },
   };
 
+  const PageContainer = embedded ? "div" : "main";
+
   return (
-    <main
+    <PageContainer
       className={[
         "relative w-full min-w-0 transition-colors duration-300",
         embedded ? "min-h-0" : "h-dvh min-h-dvh overflow-hidden overscroll-none",
@@ -1275,8 +1277,7 @@ export default function Integrations({ embedded = false }: IntegrationsProps) {
             ].join(" ")}
           >
             {!embedded && (
-            {/* HEADER — compact sur mobile, ligne unique */}
-            <header className="flex min-w-0 shrink-0 items-center justify-between gap-3">
+              <header className="flex min-w-0 shrink-0 items-center justify-between gap-3">
               <div className="flex min-w-0 flex-1 items-center gap-2.5 sm:gap-2.5">
                 <span
                   className={[
@@ -1517,6 +1518,6 @@ export default function Integrations({ embedded = false }: IntegrationsProps) {
           <HelpChatButton isDark={isDark} />
         </>
       )}
-    </main>
+    </PageContainer>
   );
 }
