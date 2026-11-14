@@ -369,7 +369,7 @@ export function YouTubeIcon({
       role="img"
       aria-label={title}
     >
-      <span className="relative flex h-[82%] w-[82%] items-center justify-center">
+      <span className="relative flex h-[86%] w-[86%] items-center justify-center">
         <SiYoutubeshorts
           className="h-full w-full"
           size="100%"
