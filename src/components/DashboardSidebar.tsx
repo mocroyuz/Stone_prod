@@ -3296,8 +3296,8 @@ export default function DashboardSidebar({
   const handleNavigate = useCallback((route: string) => {
     setMenuOpen(false);
     setMobileOpen(false);
-    if (route === "channels") {
-      navigate("settings/channels");
+    if (route === "channels" || route === "integrations") {
+      navigate(`settings/${route}`);
       return;
     }
     navigate(route);
