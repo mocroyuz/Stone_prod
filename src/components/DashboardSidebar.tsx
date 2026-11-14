@@ -1312,7 +1312,14 @@ function ChannelAvatar({
           ].join(" ")}
         />
       )}
-      {NetworkIcon && (
+      {NetworkIcon && (NetworkIcon as unknown) === YouTubeIcon && (
+        // YouTube Shorts : fond propre (blanc en dark, noir en light),
+        // il remplit toute la pastille, sans fond ni anneau autour.
+        <span className="absolute -bottom-1 -right-1 flex h-[18px] w-[18px] max-md:h-5 max-md:w-5 items-center justify-center">
+          <NetworkIcon className="h-full w-full" />
+        </span>
+      )}
+      {NetworkIcon && (NetworkIcon as unknown) !== YouTubeIcon && (
         <span
           className={[
             "absolute -bottom-0.5 -right-0.5 flex h-3.5 w-3.5 max-md:h-4 max-md:w-4 items-center justify-center overflow-hidden",

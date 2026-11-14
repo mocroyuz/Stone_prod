@@ -413,16 +413,25 @@ function ChannelIcon({
           onError={() => setImageFailed(true)}
           className="h-11 w-11 select-none rounded-[14px] object-cover"
         />
-        <span
-          className={cx(
-            "absolute -bottom-1 -right-1 flex h-[18px] w-[18px] items-center justify-center rounded-[5px] ring-2",
-            isDark
-              ? "bg-[#0a0a0a] text-white ring-[#0a0a0a]"
-              : "bg-white text-black ring-white"
-          )}
-        >
-          <Icon className="h-[11px] w-[11px]" size={11} />
-        </span>
+        {/* YouTube Shorts a son propre fond (blanc en dark, noir en light) :
+            il remplit toute la pastille, plus grand, sans fond ni anneau
+            autour (sinon on voit un contour noir). */}
+        {(Icon as unknown) === YouTubeIcon ? (
+          <span className="absolute -bottom-1.5 -right-1.5 flex h-6 w-6 items-center justify-center">
+            <Icon className="h-6 w-6" size={24} />
+          </span>
+        ) : (
+          <span
+            className={cx(
+              "absolute -bottom-1 -right-1 flex h-[18px] w-[18px] items-center justify-center rounded-[5px] ring-2",
+              isDark
+                ? "bg-[#0a0a0a] text-white ring-[#0a0a0a]"
+                : "bg-white text-black ring-white"
+            )}
+          >
+            <Icon className="h-[11px] w-[11px]" size={11} />
+          </span>
+        )}
       </span>
     );
   }
