@@ -844,47 +844,46 @@ type Tokens = {
 const tokens = (isDark: boolean): Tokens =>
   isDark
     ? {
-        page: "bg-[#050505]",
-        text: "text-white",
-        muted: "text-neutral-600",
-        soft: "text-neutral-400",
-        card: "border-white/[0.06] bg-white/[0.02]",
-        panel: "border-white/[0.06] bg-white/[0.03]",
-        inner: "border-white/[0.05] bg-white/[0.02]",
-        tile: "border-white/[0.04] bg-white/[0.045]",
-        border: "border-white/[0.05]",
-        head: "bg-white/[0.02]",
-        primaryBtn: "bg-white text-black hover:bg-neutral-200",
-        outlineBtn: "border border-white/10 text-white hover:bg-white/[0.07]",
-        iconBox: "bg-white/[0.07] text-neutral-300",
-        ring: "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30",
+        page: "bg-[#07080d]",
+        text: "text-[#f4f3fb]",
+        muted: "text-[#777b8b]",
+        soft: "text-[#a7a9b7]",
+        card: "border-white/[0.075] bg-[#10121a] shadow-[0_14px_42px_rgba(0,0,0,0.18)]",
+        panel: "border-white/[0.075] bg-[#141722]",
+        inner: "border-white/[0.07] bg-white/[0.025]",
+        tile: "border-white/[0.075] bg-[#171a25] shadow-[0_5px_18px_rgba(0,0,0,0.12)]",
+        border: "border-white/[0.07]",
+        head: "bg-white/[0.035]",
+        primaryBtn: "bg-[#aa9cff] text-[#18132b] hover:bg-[#b9adff] shadow-[0_5px_18px_rgba(126,105,255,0.22)]",
+        outlineBtn: "border border-white/10 bg-white/[0.025] text-white hover:bg-white/[0.08]",
+        iconBox: "bg-[#9b8aff]/12 text-[#b8adff]",
+        ring: "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#a99aff]/60",
         hover: "hover:bg-white/[0.06]",
-        sel: "bg-white text-black",
-        idle: "text-neutral-400 hover:text-white",
-        popover: "border-white/10 bg-[#101012]",
-        tip: "bg-[#2e2e31]",
+        sel: "bg-[#aa9cff] text-[#18132b] shadow-[0_3px_12px_rgba(126,105,255,0.18)]",
+        idle: "text-[#a7a9b7] hover:text-white",
+        popover: "border-white/10 bg-[#141722]",
+        tip: "bg-[#29263a]",
       }
     : {
-        page: "bg-[#f5f3ef]",
-        text: "text-neutral-900",
-        muted: "text-neutral-400",
-        soft: "text-neutral-500",
-        card: "border-black/[0.05] bg-neutral-50/70",
-        panel: "border-black/[0.05] bg-white",
-        inner: "border-black/[0.05] bg-white",
-        tile: "border-black/[0.04] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]",
-        border: "border-black/[0.05]",
-        head: "bg-neutral-50",
-        primaryBtn: "bg-neutral-900 text-white hover:bg-neutral-700",
-        outlineBtn:
-          "border border-black/10 text-neutral-900 hover:bg-neutral-100",
-        iconBox: "bg-neutral-200/70 text-neutral-600",
-        ring: "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/25",
-        hover: "hover:bg-black/[0.04]",
-        sel: "bg-neutral-900 text-white",
-        idle: "text-neutral-500 hover:text-neutral-900",
-        popover: "border-black/10 bg-white",
-        tip: "bg-neutral-900",
+        page: "bg-[#f0f2f8]",
+        text: "text-[#171927]",
+        muted: "text-[#9296a7]",
+        soft: "text-[#666c80]",
+        card: "border-[#e7e9f1] bg-white shadow-[0_12px_36px_rgba(28,34,65,0.055)]",
+        panel: "border-[#e8eaf2] bg-[#fbfbfe]",
+        inner: "border-[#e9ebf3] bg-[#f7f8fc]",
+        tile: "border-[#e8eaf2] bg-white shadow-[0_5px_18px_rgba(35,42,80,0.045)]",
+        border: "border-[#e8eaf2]",
+        head: "bg-[#f7f8fc]",
+        primaryBtn: "bg-[#5948dc] text-white hover:bg-[#4938ca] shadow-[0_5px_16px_rgba(89,72,220,0.2)]",
+        outlineBtn: "border border-[#e2e4ed] bg-white text-[#25283a] hover:bg-[#f7f7fc]",
+        iconBox: "bg-[#f0edff] text-[#6250e8]",
+        ring: "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7564ee]/45",
+        hover: "hover:bg-[#f5f5fb]",
+        sel: "bg-[#5948dc] text-white shadow-[0_3px_12px_rgba(89,72,220,0.2)]",
+        idle: "text-[#73788b] hover:text-[#24273a]",
+        popover: "border-[#e5e7ef] bg-white",
+        tip: "bg-[#24263a]",
       };
 
 /* ============================================================
@@ -2319,10 +2318,14 @@ function MetricBox({
   const down = delta != null && delta < 0;
   return (
     <div
-      className={`flex h-full min-w-0 flex-col gap-2 rounded-2xl border px-3.5 py-3.5 md:gap-2.5 md:px-4 md:py-4 ${t.tile}`}
+      className={`group relative flex h-full min-w-0 flex-col gap-2 overflow-hidden rounded-[20px] border px-3.5 py-4 transition-all duration-200 hover:-translate-y-0.5 md:gap-3 md:px-4 md:py-4.5 ${t.tile}`}
     >
       <span
-        className={`flex items-center justify-between gap-2 text-[12px] font-medium md:text-[11px] ${t.soft}`}
+        aria-hidden="true"
+        className="absolute inset-x-4 top-0 h-[2px] rounded-full bg-gradient-to-r from-[#9b8aff]/70 via-[#9b8aff]/20 to-transparent"
+      />
+      <span
+        className={`flex items-center justify-between gap-2 text-[11px] font-semibold tracking-[0.01em] md:text-[11.5px] ${t.soft}`}
       >
         <span className="truncate">{label}</span>
         <button
@@ -2338,7 +2341,7 @@ function MetricBox({
         </button>
       </span>
       <span
-        className={`text-[24px] font-semibold leading-none tracking-[-0.03em] tabular-nums md:text-[30px] ${t.text}`}
+        className={`mt-1 text-[27px] font-bold leading-none tracking-[-0.045em] tabular-nums md:text-[31px] ${t.text}`}
       >
         {value}
       </span>
@@ -2763,6 +2766,9 @@ export default function Insights() {
   const youtubeConnected = channels.some(isYouTubeChannel);
   const isYouTube = Boolean(channel && isYouTubeChannel(channel));
   const fetchYouTube = youtubeConnected && (viewingAll || isYouTube);
+  const hasDemoInsights = channels.some(
+    (ch) => !isYouTubeChannel(ch) && (viewingAll || channel?.key === ch.key)
+  );
 
   const goChannel = (key: string) => {
     setSelectedKey(key);
@@ -2983,8 +2989,8 @@ export default function Insights() {
       : c.summary.glance(summary.posts, summary.reactions, summary.comments);
 
   const TONES: [string, string] = [
-    isDark ? "#ffffff" : "#111111",
-    isDark ? "#7c7c85" : "#a3a3a3",
+    isDark ? "#aa9cff" : "#6250e8",
+    isDark ? "#66627d" : "#c0b8f4",
   ];
 
   const METRIC_OPTIONS: MetricOption[] = [
@@ -3158,12 +3164,9 @@ export default function Insights() {
       <ImageIcon className="h-4 w-4" />
     );
 
-  const sectionCard = `rounded-3xl border p-4 md:p-6 ${t.card}`;
-  const sectionTitle = `text-[16px] font-semibold tracking-[-0.02em] md:text-[17px] ${t.text}`;
-  const sectionSub = `mt-1 text-[12px] ${t.muted}`;
-
-  const heroUid = useId().replace(/[:]/g, "");
-  const heroId = (name: string) => `hero-${name}-${heroUid}`;
+  const sectionCard = `rounded-[24px] border p-4 md:rounded-[28px] md:p-6 ${t.card}`;
+  const sectionTitle = `text-[16px] font-semibold tracking-[-0.025em] md:text-[18px] ${t.text}`;
+  const sectionSub = `mt-1 text-[12px] leading-relaxed md:text-[12.5px] ${t.muted}`;
 
   const canSwitchChannel = channels.length > 1;
   const channelTriggerLabel = viewingAll
@@ -3177,7 +3180,7 @@ export default function Insights() {
       className={[
         "relative h-dvh min-h-dvh w-full overflow-hidden overscroll-none",
         "compact-window",
-        "transition-colors duration-300",
+        "selection:bg-[#9b8aff]/25 transition-colors duration-300",
         t.page,
       ].join(" ")}
     >
@@ -3201,15 +3204,15 @@ export default function Insights() {
             NO_SCROLLBAR,
             "transition-colors duration-300",
             isDark
-              ? "border-white/[0.05] bg-[#0a0a0c]"
-              : "border-black/[0.05] bg-white",
+              ? "border-white/[0.055] bg-[#0c0e14]"
+              : "border-[#e5e8f0] bg-[#f9faff]",
           ].join(" ")}
         >
           <div
             className={[
               "mx-auto flex w-full min-w-0 max-w-[1720px]",
-              "flex-col gap-6 px-[clamp(14px,3vw,48px)] md:gap-8 compact-content",
-              "pb-[calc(7.5rem+env(safe-area-inset-bottom))] pt-[clamp(16px,3vw,30px)]",
+              "flex-col gap-5 px-[clamp(14px,3vw,48px)] md:gap-6 compact-content",
+              "pb-[calc(7.5rem+env(safe-area-inset-bottom))] pt-[clamp(18px,3vw,34px)]",
             ].join(" ")}
           >
             {/* HEADER COMPACT */}
@@ -3217,12 +3220,12 @@ export default function Insights() {
               <div className="relative z-20 flex shrink-0 items-center justify-between gap-3">
                 <div className="flex min-w-0 items-center gap-2.5">
                   <span
-                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border md:h-9 md:w-9 ${t.inner} ${t.soft}`}
+                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border md:h-10 md:w-10 ${t.iconBox} ${t.border}`}
                   >
                     <InsightsIcon />
                   </span>
                   <h1
-                    className={`truncate text-[24px] font-semibold tracking-[-0.03em] md:text-[20px] ${t.text}`}
+                    className={`truncate text-[25px] font-bold tracking-[-0.04em] md:text-[23px] ${t.text}`}
                   >
                     {c.header.title}
                   </h1>
@@ -3391,180 +3394,72 @@ export default function Insights() {
                   </p>
                 )}
 
-                {/* ── HERO ── */}
+                {/* ── DASHBOARD INTRO ── */}
                 <section
                   aria-label={c.hero.eyebrow}
-                  className={`relative isolate h-[230px] overflow-hidden rounded-3xl ring-1 ring-inset md:h-[340px] md:rounded-[36px] ${
-                    isDark ? "bg-white ring-black/10" : "bg-black ring-white/10"
+                  className={`relative isolate overflow-hidden rounded-[26px] border px-5 py-6 md:rounded-[30px] md:px-8 md:py-7 ${
+                    isDark
+                      ? "border-[#a99aff]/15 bg-[radial-gradient(ellipse_at_85%_10%,rgba(132,111,255,0.18),transparent_38%),linear-gradient(115deg,#171925_0%,#11131d_58%,#171526_100%)]"
+                      : "border-[#e4e0ff] bg-[radial-gradient(ellipse_at_86%_8%,rgba(132,111,255,0.15),transparent_38%),linear-gradient(115deg,#ffffff_0%,#faf9ff_58%,#f1efff_100%)] shadow-[0_14px_36px_rgba(70,58,150,0.06)]"
                   }`}
                 >
                   <div
                     aria-hidden="true"
-                    className="pointer-events-none absolute inset-y-0 right-0 w-full opacity-60 [mask-image:linear-gradient(to_right,transparent,black_35%)] md:w-[72%] md:opacity-100"
-                    style={isDark ? { filter: "invert(1)" } : undefined}
-                  >
-                    <svg
-                      viewBox="0 0 600 340"
-                      preserveAspectRatio="xMaxYMid slice"
-                      className="h-full w-full"
-                    >
-                      <defs>
-                        <linearGradient
-                          id={heroId("ring")}
-                          x1="0"
-                          y1="0"
-                          x2="1"
-                          y2="1"
+                    className="pointer-events-none absolute -right-10 -top-24 h-64 w-64 rounded-full border border-[#9b8aff]/15 md:-right-4 md:-top-28 md:h-80 md:w-80"
+                  />
+                  <div
+                    aria-hidden="true"
+                    className="pointer-events-none absolute -right-2 -top-16 h-48 w-48 rounded-full border border-[#9b8aff]/10 md:right-12 md:-top-20 md:h-64 md:w-64"
+                  />
+                  <div className="relative z-10 max-w-[760px]">
+                    <div className="mb-4 flex flex-wrap items-center gap-2">
+                      <span
+                        className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.13em] ${
+                          isDark
+                            ? "border-[#a99aff]/20 bg-[#a99aff]/10 text-[#c6bcff]"
+                            : "border-[#dcd5ff] bg-white/75 text-[#6654dc]"
+                        }`}
+                      >
+                        <Activity className="h-3 w-3" aria-hidden="true" />
+                        {c.hero.eyebrow}
+                      </span>
+                      <span className={`text-[11px] ${t.muted}`}>{periodLabel}</span>
+                      {hasDemoInsights && (
+                        <span
+                          className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-semibold ${
+                            isDark
+                              ? "border-amber-300/15 bg-amber-300/[0.08] text-amber-200"
+                              : "border-amber-200 bg-amber-50 text-amber-700"
+                          }`}
+                          title={
+                            lang === "fr"
+                              ? "Les statistiques de ce réseau sont des données d'exemple, pas des données récupérées auprès du réseau."
+                              : "This network's statistics are sample data, not data retrieved from the network."
+                          }
                         >
-                          <stop offset="0%" stopColor="#ffffff" />
-                          <stop offset="55%" stopColor="#a3a3a3" />
-                          <stop offset="100%" stopColor="#262626" />
-                        </linearGradient>
-                        <linearGradient
-                          id={heroId("ring-2")}
-                          x1="1"
-                          y1="0"
-                          x2="0"
-                          y2="1"
-                        >
-                          <stop offset="0%" stopColor="#525252" />
-                          <stop offset="50%" stopColor="#f5f5f5" />
-                          <stop offset="100%" stopColor="#404040" />
-                        </linearGradient>
-                        <radialGradient
-                          id={heroId("glow")}
-                          cx="70%"
-                          cy="50%"
-                          r="55%"
-                        >
-                          <stop
-                            offset="0%"
-                            stopColor="#ffffff"
-                            stopOpacity="0.22"
-                          />
-                          <stop
-                            offset="60%"
-                            stopColor="#737373"
-                            stopOpacity="0.07"
-                          />
-                          <stop offset="100%" stopColor="#000" stopOpacity="0" />
-                        </radialGradient>
-                        <filter
-                          id={heroId("blur")}
-                          x="-30%"
-                          y="-30%"
-                          width="160%"
-                          height="160%"
-                        >
-                          <feGaussianBlur stdDeviation="10" />
-                        </filter>
-                        <filter
-                          id={heroId("soft")}
-                          x="-30%"
-                          y="-30%"
-                          width="160%"
-                          height="160%"
-                        >
-                          <feGaussianBlur stdDeviation="1.6" />
-                        </filter>
-                      </defs>
-
-                      <rect
-                        width="600"
-                        height="340"
-                        fill={`url(#${heroId("glow")})`}
-                      />
-
-                      <g transform="translate(440 170)" fill="none">
-                        <g filter={`url(#${heroId("blur")})`} opacity="0.85">
-                          <ellipse
-                            rx="170"
-                            ry="120"
-                            transform="rotate(-28)"
-                            stroke={`url(#${heroId("ring")})`}
-                            strokeWidth="44"
-                          />
-                          <ellipse
-                            rx="125"
-                            ry="84"
-                            transform="rotate(-28)"
-                            stroke={`url(#${heroId("ring-2")})`}
-                            strokeWidth="36"
-                          />
-                          <ellipse
-                            rx="80"
-                            ry="50"
-                            transform="rotate(-28)"
-                            stroke={`url(#${heroId("ring")})`}
-                            strokeWidth="28"
-                          />
-                        </g>
-                        <g filter={`url(#${heroId("soft")})`}>
-                          <ellipse
-                            rx="170"
-                            ry="120"
-                            transform="rotate(-28)"
-                            stroke={`url(#${heroId("ring")})`}
-                            strokeWidth="8"
-                          />
-                          <ellipse
-                            rx="148"
-                            ry="102"
-                            transform="rotate(-28)"
-                            stroke="#ffffff"
-                            strokeOpacity="0.7"
-                            strokeWidth="2.5"
-                          />
-                          <ellipse
-                            rx="125"
-                            ry="84"
-                            transform="rotate(-28)"
-                            stroke={`url(#${heroId("ring-2")})`}
-                            strokeWidth="7"
-                          />
-                          <ellipse
-                            rx="102"
-                            ry="67"
-                            transform="rotate(-28)"
-                            stroke="#d4d4d4"
-                            strokeOpacity="0.7"
-                            strokeWidth="2.5"
-                          />
-                          <ellipse
-                            rx="80"
-                            ry="50"
-                            transform="rotate(-28)"
-                            stroke={`url(#${heroId("ring")})`}
-                            strokeWidth="6"
-                          />
-                        </g>
-                      </g>
-                    </svg>
-                  </div>
-
-                  <div className="absolute bottom-0 left-0 z-10 flex max-w-[480px] flex-col gap-1.5 p-5 md:p-10">
-                    <p
-                      className={`text-[11px] font-medium ${
-                        isDark ? "text-neutral-500" : "text-white/60"
-                      }`}
-                    >
-                      {c.hero.eyebrow}
-                    </p>
+                          {lang === "fr" ? "Aperçu de démonstration" : "Demo preview"}
+                        </span>
+                      )}
+                    </div>
                     <h2
-                      className={`text-[clamp(24px,3vw,38px)] font-semibold leading-[1.05] tracking-[-0.035em] ${
-                        isDark ? "text-neutral-900" : "text-white"
+                      className={`max-w-[680px] text-[clamp(25px,3.2vw,38px)] font-bold leading-[1.08] tracking-[-0.045em] ${
+                        isDark ? "text-white" : "text-[#202139]"
                       }`}
                     >
                       {c.hero.title}
                     </h2>
                     <p
-                      className={`max-w-[380px] text-[12.5px] leading-relaxed max-md:line-clamp-3 ${
-                        isDark ? "text-neutral-500" : "text-white/60"
+                      className={`mt-3 max-w-[620px] text-[12.5px] leading-[1.75] md:text-[13px] ${
+                        isDark ? "text-[#b3b2c4]" : "text-[#696d82]"
                       }`}
                     >
                       {c.hero.subtitle}
                     </p>
                   </div>
+                  <div
+                    aria-hidden="true"
+                    className="pointer-events-none absolute bottom-0 right-[9%] hidden h-1 w-28 rounded-full bg-gradient-to-r from-transparent via-[#9b8aff]/50 to-transparent md:block"
+                  />
                 </section>
 
                 {/* ── NUMBERS ── */}
