@@ -4611,7 +4611,7 @@ function BillingSection({
       >
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
-            <p className={cx("text-[11px] font-medium uppercase tracking-wide", tokens.muted)}>Statut</p>
+            <p className={cx("text-[11px] font-medium uppercase tracking-wide", tokens.group)}>Statut</p>
             <p className={cx("mt-1 text-[14px] font-medium", tokens.heading)}>
               {loading ? "Chargement…" : subscription ? statusLabel[subscription.status] ?? subscription.status : "Aucun abonnement actif"}
             </p>
@@ -4639,7 +4639,7 @@ function BillingSection({
       >
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <div className={cx("flex h-10 w-10 items-center justify-center rounded-xl border", tokens.icon)}>
+            <div className={cx("flex h-10 w-10 items-center justify-center rounded-xl border", tokens.cardBorder, tokens.muted)}>
               <CardIcon />
             </div>
             <div>
