@@ -37,6 +37,7 @@ import {
   Heart,
   House,
   MessageCircle,
+  PenLine,
   Search,
   Settings,
   Users,
@@ -3097,7 +3098,9 @@ export default function Insights() {
 
   const mediaLabel = (m: PostRow["media"]) => c.media[m];
   const kpiIcons = [Users, CalendarDays, Heart, MessageCircle];
-  const recycleCandidates = remixable.length ? remixable : ranked.slice(0, 4);
+  const recycleCandidates = (remixable.length ? remixable : ranked)
+    .filter((post) => post.label.toLowerCase().includes(query.trim().toLowerCase()))
+    .slice(0, 4);
   const weekActivity = c.days.map((label, day) => {
     const currentCount = posts.filter((post) => dayIndexMon(post.date) === day).length;
     const previousCount = previousPosts.filter((post) => dayIndexMon(post.date) === day).length;
