@@ -2683,8 +2683,8 @@ function BestTimeMobile({
                           isBest
                             ? `ring-2 ring-offset-2 ${
                                 isDark
-                                  ? "ring-[#14b8a6] ring-offset-[#101012]"
-                                  : "ring-[#0f766e] ring-offset-white"
+                                  ? "ring-white ring-offset-[#101012]"
+                                  : "ring-black ring-offset-white"
                               }`
                             : ""
                         }`}
@@ -3720,7 +3720,7 @@ export default function Insights() {
                                           isBest
                                             ? `ring-[1.5px] ring-offset-1 ${
                                                 isDark
-                                                  ? "ring-[#14b8a6] ring-offset-[#0a0a0c]"
+                                                  ? "ring-white ring-offset-[#0a0a0c]"
                                                   : "ring-[#0f766e] ring-offset-white"
                                               }`
                                             : ""
@@ -3837,14 +3837,14 @@ export default function Insights() {
                             key={`${slot.day}-${slot.hour}`}
                             type="button"
                             onClick={() => scheduleFromSlot(slot)}
-                            className="min-w-0 rounded-xl border px-2 py-2.5 text-left transition-colors hover:bg-teal-500/10"
+                            className="min-w-0 rounded-md border border-white/10 bg-white/[0.035] px-2 py-2.5 text-left transition-colors hover:bg-white/[0.08]"
                             style={{
-                              borderColor: "rgba(20,184,166,.3)",
-                              background: isDark ? "rgba(20,184,166,.08)" : "rgba(20,184,166,.06)",
+                              borderColor: "rgba(255,255,255,.12)",
+                              background: "rgba(255,255,255,.035)",
                             }}
                             title={c.bestTime.scheduleAria(c.daysLong[slot.day], hourLabel(slot.hour))}
                           >
-                            <span className="block truncate text-[10px] font-medium text-teal-600 dark:text-teal-300">
+                            <span className="block truncate text-[10px] font-medium text-neutral-400">
                               {index === 0 ? (lang === "fr" ? "Meilleur" : "Best") : c.days[slot.day]}
                             </span>
                             <span className={`mt-1 block text-[14px] font-bold tabular-nums ${t.text}`}>
