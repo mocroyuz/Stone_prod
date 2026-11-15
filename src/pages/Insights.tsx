@@ -1680,7 +1680,7 @@ function InsightsChart({
   const axisWidth = isMobile ? 34 : 40;
 
   return (
-    <div className="h-[210px] w-full md:h-[260px]">
+    <div className="h-[190px] w-full md:h-[205px]">
       <ResponsiveContainer width="100%" height="100%">
         <AreaChart
           data={data}
@@ -2319,7 +2319,7 @@ function MetricBox({
   const up = delta != null && delta > 0;
   const down = delta != null && delta < 0;
   return (
-    <div className={`group relative flex min-h-[78px] min-w-0 items-stretch overflow-hidden rounded-[7px] border ${t.tile}`}>
+    <div className={`group relative flex min-h-[76px] min-w-0 items-stretch overflow-hidden rounded-[7px] border ${t.tile}`}>
       <div className="flex min-w-0 flex-1 flex-col justify-center gap-1.5 px-3 py-2.5">
         <span className={`truncate text-[10px] font-medium md:text-[11px] ${t.soft}`}>{label}</span>
         <span className={`text-[23px] font-semibold leading-none tracking-[-0.04em] tabular-nums md:text-[25px] ${t.text}`}>{value}</span>
@@ -2334,7 +2334,7 @@ function MetricBox({
         aria-label={info}
         title={isMobile ? undefined : info}
         onClick={() => { if (isMobile) setHint(true); }}
-        className={`my-2 flex w-[54px] shrink-0 items-center justify-center border-l ${t.border} ${t.muted} ${t.ring}`}
+        className={`my-2 flex w-[50px] shrink-0 items-center justify-center border-l ${t.border} ${t.muted} ${t.ring}`}
       >
         <span className={`flex h-9 w-9 items-center justify-center rounded-md border ${t.border} ${t.inner}`}>
           {label.toLowerCase().includes("post") ? <CalendarClock className="h-4 w-4" /> : label.toLowerCase().includes("comment") ? <Send className="h-4 w-4" /> : label.toLowerCase().includes("réaction") || label.toLowerCase().includes("reaction") ? <Zap className="h-4 w-4" /> : <Activity className="h-4 w-4" />}
@@ -3489,7 +3489,7 @@ export default function Insights() {
                   </div>
                 </section>
 
-                <div className="grid min-w-0 items-stretch gap-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+                <div className="grid min-w-0 items-stretch gap-2 lg:grid-cols-[minmax(0,1.08fr)_minmax(0,0.92fr)]">
                 {/* ── TRENDS ── */}
                 <section
                   className={`${sectionCard} min-w-0`}
@@ -3640,13 +3640,13 @@ export default function Insights() {
                     {isMobile ? (
                       <BestTimeMobile heatmap={heatmap} c={c} t={t} isDark={isDark} onSchedule={scheduleFromSlot} />
                     ) : (
-                      <div className="mt-5 grid h-[150px] grid-cols-7 items-end gap-2 border-b px-1">
+                      <div className="mt-4 grid h-[138px] grid-cols-7 items-end gap-2 border-b px-1">
                         {c.days.map((day, d) => {
                           const slot = heatmap.bestByDay[d];
                           const value = Math.max(0.08, slot.norm);
                           return (
                             <button key={day} type="button" onClick={() => scheduleFromSlot({ day: d, hour: slot.hour })} title={c.bestTime.scheduleAria(day, hourLabel(slot.hour))} aria-label={c.bestTime.scheduleAria(day, hourLabel(slot.hour))} className={`group flex h-full min-w-0 flex-col items-center justify-end gap-2 rounded-md px-1 pb-2 ${t.ring}`}>
-                              <span className="flex h-[112px] w-full items-end justify-center">
+                              <span className="flex h-[100px] w-full items-end justify-center">
                                 <span className={`block w-full max-w-8 rounded-t-[3px] transition-opacity group-hover:opacity-75 ${isDark ? "bg-[#bcbcbc]" : "bg-[#555555]"}`} style={{ height: `${Math.max(7, Math.round(value * 100))}%` }} />
                               </span>
                               <span className={`text-[10px] ${t.muted}`}>{day}</span>
@@ -3678,14 +3678,14 @@ export default function Insights() {
                         {c.recycle.emptyHint}
                       </p>
                     ) : (
-                      <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                      <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
                         {remixable.map((p, i) => (
                           <div
                             key={p.id}
                             className={`flex min-w-0 flex-col gap-2 rounded-[7px] border p-2.5 ${t.inner}`}
                           >
                             <span
-                              className={`flex h-[58px] w-full shrink-0 items-center justify-center overflow-hidden rounded-md ${t.iconBox}`}
+                              className={`flex h-[68px] w-full shrink-0 items-center justify-center overflow-hidden rounded-md ${t.iconBox}`}
                             >
                               {p.thumbnailUrl ? (
                                 <img
