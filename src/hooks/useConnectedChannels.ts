@@ -21,6 +21,7 @@ const PROVIDER_NAMES: Record<CacheProvider, string> = {
   youtube: "YouTube Shorts",
   pinterest: "Pinterest",
   instagram: "Instagram",
+  threads: "Threads",
 };
 
 function readAll(userId: string | null): ConnectedChannel[] {
