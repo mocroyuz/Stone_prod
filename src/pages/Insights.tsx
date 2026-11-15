@@ -2936,7 +2936,7 @@ export default function Insights() {
     : 0;
   const remixable = ranked
     .filter((p) => postScore(p) >= avgScore * 1.25)
-    .slice(0, 3);
+    .slice(0, 4);
 
   const subhead =
     heatmap.sample === 0
@@ -3166,8 +3166,8 @@ export default function Insights() {
           <div
             className={[
               "mx-auto flex w-full min-w-0 max-w-none",
-              "flex-col gap-2 px-[clamp(12px,1.5vw,22px)] md:gap-2 compact-content",
-              "pb-[calc(7.5rem+env(safe-area-inset-bottom))] pt-[clamp(12px,1.5vw,20px)]",
+              "flex-col gap-2 px-[clamp(12px,1.35vw,20px)] md:gap-2 compact-content",
+              "pb-[calc(7.5rem+env(safe-area-inset-bottom))] pt-[clamp(12px,1.2vw,18px)]",
             ].join(" ")}
           >
             {/* HEADER COMPACT */}
@@ -3177,7 +3177,7 @@ export default function Insights() {
                   <div className="min-w-0">
                   <div className={`mb-1 flex items-center gap-1.5 text-[10px] ${t.muted}`}><Activity className="h-3 w-3" /> Analytics</div>
                   <h1 className={`truncate text-[21px] font-semibold tracking-[-0.035em] md:text-[22px] ${t.text}`}>
-                    {c.header.title}
+                    {lang === "fr" ? "Vos performances en un coup d'œil" : "Fresh analytics from everything"}
                   </h1>
                   <p className={`mt-0.5 text-[10px] ${t.muted}`}>{periodLabel}{channel ? ` · ${channelLabel(channel)}` : ""}</p>
                 </div>
@@ -3471,7 +3471,7 @@ export default function Insights() {
                       </p>
                     )}
 
-                    <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-4 md:gap-2 compact-metrics">
+                    <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4 md:gap-2 compact-metrics">
                       {summaryBoxes.slice(0, 4).map((b) => (
                         <MetricBox
                           key={b.key}
@@ -3543,7 +3543,7 @@ export default function Insights() {
                   </div>
 
                   <div
-                    className={`mt-3 rounded-[7px] border p-2.5 md:p-3 ${t.panel}`}
+                    className={`mt-3 rounded-[7px] border p-2 md:p-2.5 ${t.panel}`}
                   >
                     <div className="flex flex-wrap items-end justify-between gap-3 pl-1 md:gap-4 md:pl-2">
                       <div className="min-w-0">
@@ -3640,7 +3640,7 @@ export default function Insights() {
                     {isMobile ? (
                       <BestTimeMobile heatmap={heatmap} c={c} t={t} isDark={isDark} onSchedule={scheduleFromSlot} />
                     ) : (
-                      <div className="mt-4 grid h-[138px] grid-cols-7 items-end gap-2 border-b px-1">
+                      <div className="mt-4 grid h-[142px] grid-cols-7 items-end gap-2 border-b px-1">
                         {c.days.map((day, d) => {
                           const slot = heatmap.bestByDay[d];
                           const value = Math.max(0.08, slot.norm);
