@@ -2330,12 +2330,12 @@ function MetricBox({
             "text-[10px] font-semibold tabular-nums md:text-[9px]",
             up
               ? isDark
-                ? "bg-emerald-500/10 text-emerald-400"
-                : "bg-emerald-500/10 text-emerald-600"
+                ? "bg-white/[0.08] text-white"
+                : "bg-black/[0.06] text-black"
               : down
                 ? isDark
-                  ? "bg-rose-500/10 text-rose-400"
-                  : "bg-rose-500/10 text-rose-600"
+                  ? "bg-white/[0.08] text-white"
+                  : "bg-black/[0.06] text-black"
                 : t.muted,
           ].join(" ")}
         >
@@ -3344,7 +3344,7 @@ export default function Insights() {
                     role="alert"
                     className={`flex flex-wrap items-center justify-between gap-3 rounded-xl border px-4 py-3 ${t.panel}`}
                   >
-                    <p className="min-w-0 break-words text-[12.5px] text-red-500">
+                    <p className="min-w-0 break-words text-[12.5px] text-neutral-500">
                       {c.errors.youtube(yt.error)}
                     </p>
                     <button
@@ -3470,7 +3470,7 @@ export default function Insights() {
                         >
                           <div
                             className={`h-full rounded-full transition-[width] duration-300 ${
-                              goalReached ? "bg-emerald-500" : "bg-amber-500"
+                              isDark ? "bg-white" : "bg-black"
                             }`}
                             style={{ width: `${goalPct}%` }}
                           />
@@ -3502,13 +3502,14 @@ export default function Insights() {
                           delta={b.delta}
                           isDark={isDark}
                           isMobile={isMobile}
-                          lang={lang}                        />
+                          lang={lang}
+                        />
                       ))}
                     </div>
                   </div>
                 </section>
 
-                <div className="grid min-w-0 items-start gap-4 xl:grid-cols-[minmax(0,1.65fr)_minmax(340px,0.9fr)]">
+                <div className="grid min-w-0 items-start gap-4 xl:grid-cols-[minmax(0,1.65fr)_minmax(400px,0.9fr)]">
                 {/* ── TRENDS ── */}
                 <section
                   className={`${sectionCard} min-w-0`}
@@ -3579,11 +3580,9 @@ export default function Insights() {
                           {mainDelta != null && (
                             <span
                               className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-semibold ${
-                                mainDelta > 0
-                                  ? "bg-emerald-500/10 text-emerald-500"
-                                  : mainDelta < 0
-                                    ? "bg-rose-500/10 text-rose-500"
-                                    : `${t.tile} ${t.muted}`
+                                mainDelta !== 0
+                                  ? isDark ? "bg-white/[0.08] text-white" : "bg-black/[0.06] text-black"
+                                  : `${t.tile} ${t.muted}`
                               }`}
                             >
                               {mainDelta > 0 ? "+" : ""}
