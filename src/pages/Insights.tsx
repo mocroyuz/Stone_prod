@@ -26,7 +26,20 @@ import {
 import { createPortal } from "react-dom";
 import {
   Activity,
+  ArrowUpRight,
+  BarChart3,
   Bookmark,
+  Cable,
+  CalendarDays,
+  CheckCircle2,
+  Clock3,
+  FolderOpen,
+  Heart,
+  House,
+  MessageCircle,
+  Search,
+  Settings,
+  Users,
   CalendarClock,
   Check,
   ChevronDown,
@@ -62,7 +75,6 @@ import {
 import { navigate, useHashRoute } from "../hooks/useHashRoute";
 import { navigateToSettingsSection } from "../utils/settingsNavigation";
 import DashboardSidebar, {
-  useSidebarOffset,
   useFavorites,
 } from "../components/DashboardSidebar";
 import BottomBar, { type BottomBarTab } from "../components/Bottombar";
@@ -2718,9 +2730,9 @@ const HEAT_COLS = "grid-cols-[repeat(24,minmax(0,1fr))]";
 export default function Insights() {
   const isDark = true;
   const t = useMemo(() => tokens(isDark), [isDark]);
-  const sidebarOffset = useSidebarOffset();
-  const channels = useConnectedChannels();
   const isMobile = useIsMobile();
+  const sidebarOffset = isMobile ? 0 : 218;
+  const channels = useConnectedChannels();
 
   const lang = useLanguage();
   const c = COPY[lang];
@@ -2776,7 +2788,7 @@ export default function Insights() {
   const [channelsOpen, setChannelsOpen] = useState(false);
   const [composerContext, setComposerContext] =
     useState<ComposerContext | null>(null);
-  const [query] = useState("");
+  const [query, setQuery] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
 
   /* ── Composer ── */
@@ -3084,6 +3096,30 @@ export default function Insights() {
   ];
 
   const mediaLabel = (m: PostRow["media"]) => c.media[m];
+  const kpiIcons = [Users, CalendarDays, Heart, MessageCircle];
+  const recycleCandidates = remixable.length ? remixable : ranked.slice(0, 4);
+  const weekActivity = c.days.map((label, day) => {
+    const currentCount = posts.filter((post) => dayIndexMon(post.date) === day).length;
+    const previousCount = previousPosts.filter((post) => dayIndexMon(post.date) === day).length;
+    const slot = heatmap.bestByDay[day];
+    return {
+      day,
+      label,
+      currentCount,
+      previousCount,
+      hour: slot.hour,
+      strength: heatmap.grid[day][slot.hour].norm,
+    };
+  });
+  const maxWeekActivity = Math.max(
+    1,
+    ...weekActivity.flatMap((item) => [item.currentCount, item.previousCount])
+  );
+  const sectionCard = "rounded-[7px] border border-white/[0.08] bg-[#191919] p-3.5 shadow-[0_8px_22px_rgba(0,0,0,0.14)]";
+  const sectionTitle = "text-[12px] font-medium tracking-[0.005em] text-[#eeeeee]";
+  const sectionSub = "mt-0.5 text-[10px] leading-relaxed text-[#858585]";
+  const fieldClass = "h-8 rounded-md border border-white/[0.08] bg-[#202020] px-2.5 text-[10px] text-[#d5d5d5] outline-none placeholder:text-[#686868] focus:border-white/20";
+
 
   const exportCsv = () => {
     const rowsCsv: (string | number)[][] = [
@@ -3152,712 +3188,348 @@ export default function Insights() {
       : "";
 
   return (
-    <main
-      className={[
-        "relative h-dvh min-h-dvh w-full overflow-hidden overscroll-none",
-        "compact-window",
-        "selection:bg-black/15 transition-colors duration-300",
-        t.page,
-      ].join(" ")}
-    >
-      <DashboardSidebar theme="dark" />
-
+    <main className="relative min-h-dvh w-full overflow-x-hidden bg-[#1b1b1b] text-[#ededed] md:overflow-hidden">
       <div
-        className={[
-          "h-full min-h-0 px-2 py-2 md:py-3 md:pl-0 md:pr-3",
-          "max-md:pt-[calc(3.5rem+env(safe-area-inset-top))]",
-          "transition-[padding-left] duration-[380ms]",
-          "ease-[cubic-bezier(0.4,0,0.2,1)]",
-          "motion-reduce:transition-none",
-        ].join(" ")}
-        // Sur mobile la sidebar est un tiroir : aucun décalage à gauche.
-        style={isMobile ? undefined : { paddingLeft: sidebarOffset }}
+        className="relative flex min-h-dvh w-full overflow-hidden border-white/[0.08] bg-[#151515] shadow-[0_24px_80px_rgba(0,0,0,0.4)] md:my-[7vh] md:ml-[clamp(16px,6.8vw,82px)] md:h-[86vh] md:min-h-[620px] md:w-[calc(100%-clamp(16px,6.8vw,82px))] md:rounded-l-[10px] md:border"
+        style={!isMobile ? { height: "86vh", minHeight: 620, marginTop: "7vh", marginBottom: "7vh", marginLeft: "clamp(16px, 6.8vw, 82px)", width: "calc(100% - clamp(16px, 6.8vw, 82px))" } : undefined}
       >
-        <div
-          className={[
-            "h-full min-h-0 overflow-y-auto overflow-x-hidden overscroll-y-contain",
-            "rounded-md border md:rounded-lg",
-            NO_SCROLLBAR,
-            "transition-colors duration-300",
-            "border-white/[0.07] bg-[#0b0b0b]",
-          ].join(" ")}
-        >
-          <div
-            className={[
-              "mx-auto flex w-full min-w-0 max-w-[1600px]",
-              "flex-col gap-3 px-[clamp(14px,2.5vw,40px)] md:gap-3 compact-content",
-              "pb-[calc(7.5rem+env(safe-area-inset-bottom))] pt-[clamp(14px,2vw,24px)]",
-            ].join(" ")}
+        <aside className="hidden w-[218px] shrink-0 flex-col border-r border-white/[0.07] bg-[#101010] px-[11px] py-[10px] md:flex">
+          <button
+            type="button"
+            onClick={() => navigate("home")}
+            className="flex h-[38px] shrink-0 items-center justify-between rounded-md border border-white/[0.07] bg-[#1d1d1d] px-2.5 text-left transition-colors hover:bg-[#242424]"
           >
-            {/* HEADER COMPACT */}
-            <div className="flex flex-col gap-3">
-              <div className="relative z-20 flex shrink-0 items-center justify-between gap-3">
-                <div className="flex min-w-0 items-center gap-2.5">\n                  <h1
-                    className={`truncate text-[18px] font-semibold tracking-[-0.025em] md:text-[19px] ${t.text}`}
-                  >
-                    {c.header.title}
-                  </h1>
-                </div>
+            <span className="flex items-center gap-2.5">
+              <span className="flex h-[23px] w-[23px] items-center justify-center rounded-[5px] border border-white/10 bg-[#292929] text-[12px] font-semibold text-white">S</span>
+              <span className="text-[12px] font-medium tracking-[-0.02em] text-[#eeeeee]">Stone</span>
+            </span>
+            <ChevronDown className="h-3.5 w-3.5 text-[#777777]" />
+          </button>
 
-                <div className="flex min-w-0 items-center gap-1.5 md:gap-2.5 print:hidden">
-                  <div className="max-md:hidden">
+          <div className="mt-3 flex h-[31px] items-center gap-2 rounded-md px-2 text-[#868686] transition-colors hover:bg-white/[0.035]">
+            <Search className="h-3.5 w-3.5 shrink-0" />
+            <input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder={lang === "fr" ? "Rechercher" : "Search"}
+              aria-label={lang === "fr" ? "Rechercher une publication" : "Search posts"}
+              className="min-w-0 flex-1 bg-transparent text-[11px] text-[#dddddd] outline-none placeholder:text-[#777777]"
+            />
+            <kbd className="rounded border border-white/[0.08] px-1.5 py-0.5 text-[9px] text-[#747474]">/</kbd>
+          </div>
+
+          <div className="mt-1 flex flex-col gap-[2px]">
+            <button type="button" onClick={() => navigate("schedule")} className="flex h-[30px] items-center gap-2.5 rounded-md px-2 text-left text-[11px] text-[#858585] transition-colors hover:bg-white/[0.045] hover:text-[#eeeeee]">
+              <CalendarDays className="h-[13px] w-[13px]" />
+              {lang === "fr" ? "Calendrier" : "Calendar"}
+            </button>
+            <button type="button" onClick={() => openComposer({ reason: "manual", channelKey: channel?.key })} className="flex h-[30px] items-center gap-2.5 rounded-md px-2 text-left text-[11px] text-[#858585] transition-colors hover:bg-white/[0.045] hover:text-[#eeeeee]">
+              <PenLine className="h-[13px] w-[13px]" />
+              {lang === "fr" ? "Nouvelle publication" : "New post"}
+            </button>
+          </div>
+
+          <div className="my-2 border-t border-white/[0.08]" />
+
+          <div className="flex flex-col gap-[2px]">
+            <button type="button" onClick={() => navigate("home")} className="flex h-[31px] items-center gap-2.5 rounded-md px-2 text-left text-[11px] text-[#858585] transition-colors hover:bg-white/[0.045] hover:text-[#eeeeee]">
+              <House className="h-[13px] w-[13px]" />
+              {lang === "fr" ? "Accueil" : "Dashboard"}
+            </button>
+            <button type="button" aria-current="page" className="flex h-[31px] items-center gap-2.5 rounded-md border border-white/[0.045] bg-[#242424] px-2 text-left text-[11px] font-medium text-[#eeeeee] shadow-[inset_0_1px_0_rgba(255,255,255,0.025)]">
+              <BarChart3 className="h-[13px] w-[13px]" />
+              Insights
+            </button>
+            <button type="button" onClick={() => navigateToSettingsSection("channels")} className="flex h-[31px] items-center gap-2.5 rounded-md px-2 text-left text-[11px] text-[#858585] transition-colors hover:bg-white/[0.045] hover:text-[#eeeeee]">
+              <Users className="h-[13px] w-[13px]" />
+              {lang === "fr" ? "Canaux" : "Channels"}
+            </button>
+            <button type="button" onClick={() => navigateToSettingsSection("integrations")} className="flex h-[31px] items-center gap-2.5 rounded-md px-2 text-left text-[11px] text-[#858585] transition-colors hover:bg-white/[0.045] hover:text-[#eeeeee]">
+              <Cable className="h-[13px] w-[13px]" />
+              {lang === "fr" ? "Connecteurs" : "Integrations"}
+            </button>
+            <button type="button" onClick={() => navigate("settings")} className="flex h-[31px] items-center gap-2.5 rounded-md px-2 text-left text-[11px] text-[#858585] transition-colors hover:bg-white/[0.045] hover:text-[#eeeeee]">
+              <Settings className="h-[13px] w-[13px]" />
+              {lang === "fr" ? "Paramètres" : "Settings"}
+            </button>
+          </div>
+
+          <div className="my-2 border-t border-white/[0.08]" />
+          <div className="flex items-center justify-between px-2 pb-1 pt-0.5">
+            <span className="text-[9px] font-semibold uppercase tracking-[0.12em] text-[#686868]">{lang === "fr" ? "Vos canaux" : "Your channels"}</span>
+            <span className="text-[9px] tabular-nums text-[#686868]">{channels.length}</span>
+          </div>
+          <div className="flex min-h-0 flex-col gap-[2px] overflow-y-auto">
+            {channels.slice(0, 7).map((item) => (
+              <button
+                key={item.key}
+                type="button"
+                onClick={() => goChannel(item.key)}
+                className={"flex h-[29px] items-center gap-2 rounded-md px-2 text-left text-[10px] transition-colors " + (channel?.key === item.key ? "bg-white/[0.07] text-[#eeeeee]" : "text-[#858585] hover:bg-white/[0.04] hover:text-[#dddddd]")}
+              >
+                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#a6a6a6]" />
+                <span className="min-w-0 flex-1 truncate">{channelLabel(item)}</span>
+                {channel?.key === item.key && <span className="h-1 w-1 rounded-full bg-white" />}
+              </button>
+            ))}
+            <button type="button" onClick={() => navigateToSettingsSection("channels")} className="mt-1 flex h-[29px] items-center gap-2 rounded-md px-2 text-left text-[10px] text-[#777777] transition-colors hover:bg-white/[0.04] hover:text-white">
+              <Plus className="h-3 w-3" />
+              {lang === "fr" ? "Connecter un canal" : "Connect a channel"}
+            </button>
+          </div>
+
+          <div className="mt-auto rounded-md border border-white/[0.08] bg-[#191919] p-2.5">
+            <div className="flex items-center justify-between">
+              <span className="flex h-[25px] w-[25px] items-center justify-center rounded border border-white/10 bg-[#222222] text-[11px] text-[#d8d8d8]">S</span>
+              <button type="button" onClick={() => navigate("pricing")} aria-label={lang === "fr" ? "Voir les offres" : "View plans"} className="text-[#777777] transition-colors hover:text-white"><ArrowUpRight className="h-3.5 w-3.5" /></button>
+            </div>
+            <p className="mt-3 text-[11px] font-medium text-[#ededed]">{lang === "fr" ? "Passez à Stone Pro" : "Upgrade to Stone Pro"}</p>
+            <p className="mt-1 text-[10px] leading-[1.45] text-[#777777]">{lang === "fr" ? "Débloquez plus de canaux et des analyses avancées." : "Unlock more channels and advanced analytics."}</p>
+            <button type="button" onClick={() => navigate("pricing")} className="mt-2.5 h-[29px] w-full rounded-md border border-white/[0.09] bg-[#272727] text-[10px] font-medium text-[#e5e5e5] transition-colors hover:bg-[#303030]">
+              {lang === "fr" ? "Découvrir les offres" : "View plans"}
+            </button>
+          </div>
+        </aside>
+
+        <div className="min-w-0 flex-1 overflow-y-auto bg-[#191919] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="mx-auto flex min-h-full w-full max-w-[1500px] flex-col gap-3.5 p-3.5 sm:p-4 md:gap-3.5 md:p-[18px]">
+            <header className="flex flex-col gap-3">
+              <div className="flex items-center gap-2 text-[11px] text-[#8a8a8a]">
+                <BarChart3 className="h-[14px] w-[14px] text-[#9b9b9b]" />
+                <span>Analytics</span>
+                {hasDemoInsights && <span className="rounded border border-white/[0.08] px-1.5 py-0.5 text-[9px] text-[#777777]">{lang === "fr" ? "Aperçu simulé pour certains canaux" : "Sample data for some channels"}</span>}
+              </div>
+
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <h1 className="text-[20px] font-medium leading-tight tracking-[-0.035em] text-[#f0f0f0] sm:text-[22px]">
+                    {lang === "fr" ? "Vos performances en un coup d'œil" : "Fresh analytics from everything"}
+                  </h1>
+                  <p className="mt-1 text-[10px] text-[#777777]">{periodLabel} · {channelTriggerLabel || c.allNetworks}</p>
+                </div>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <div className="hidden sm:block">
                     <ChannelMenu
                       channels={channels}
                       current={channel}
-                      isDark={isDark}
+                      isDark={true}
                       onSelect={goChannel}
-                      allOption={
-                        channels.length > 1
-                          ? { key: ALL_KEY, label: c.allNetworks }
-                          : undefined
-                      }
+                      allOption={channels.length > 1 ? { key: ALL_KEY, label: c.allNetworks } : undefined}
                       selectedKey={viewingAll ? ALL_KEY : channel?.key}
                     />
                   </div>
-
-                  <div className="flex items-center gap-0.5 md:gap-2">
-                    {fetchYouTube && (
-                      <IconBtn
-                        label={c.header.refresh}
-                        t={t}
-                        align="end"
-                        onClick={() => setReloadKey((k) => k + 1)}
-                      >
-                        <RefreshCw
-                          className={`h-[18px] w-[18px] ${
-                            yt.loading
-                              ? "animate-spin motion-reduce:animate-none"
-                              : ""
-                          }`}
-                          aria-hidden="true"
-                        />
-                      </IconBtn>
-                    )}
-
-                    <button
-                      type="button"
-                      onClick={exportCsv}
-                      disabled={!channels.length}
-                      aria-label={c.header.export}
-                      title={c.header.export}
-                      className={`flex h-10 items-center justify-center gap-2 rounded-full text-[12px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40 max-md:w-10 md:h-9 md:px-4 ${t.ring} ${t.outlineBtn}`}
-                    >
-                      <Download className="h-4 w-4" aria-hidden="true" />
-                      <span className="max-md:sr-only">{c.header.export}</span>
+                  {fetchYouTube && (
+                    <button type="button" onClick={() => setReloadKey((key) => key + 1)} title={c.header.refresh} aria-label={c.header.refresh} className="flex h-8 w-8 items-center justify-center rounded-md border border-white/[0.08] bg-[#202020] text-[#aaaaaa] transition-colors hover:bg-[#292929]">
+                      <RefreshCw className={"h-3.5 w-3.5 " + (yt.loading ? "animate-spin" : "")} />
                     </button>
-                  </div>
-
-                  <button
-                    type="button"
-                    aria-label={
-                      saved ? c.header.removeFavorite : c.header.addFavorite
-                    }
-                    aria-pressed={saved}
-                    title={saved ? c.header.removeFavorite : c.header.addFavorite}
-                    onClick={() => toggleFavorite(PAGE_ROUTE)}
-                    className={[
-                      "flex h-10 w-10 shrink-0 items-center justify-center rounded-lg transition-colors motion-reduce:transition-none md:ml-1 md:h-9 md:w-9",
-                      t.ring,
-                      t.soft,
-                      t.hover,
-                    ].join(" ")}
-                  >
-                    <Bookmark
-                      className={`h-5 w-5 ${saved ? "fill-current" : ""}`}
-                      aria-hidden="true"
-                    />
+                  )}
+                  <button type="button" onClick={exportCsv} disabled={!channels.length} className="flex h-8 items-center gap-2 rounded-md border border-white/[0.09] bg-[#202020] px-3 text-[10px] font-medium text-[#dddddd] transition-colors hover:bg-[#292929] disabled:opacity-40">
+                    <Download className="h-3.5 w-3.5" />
+                    {c.header.export}
                   </button>
                 </div>
               </div>
 
-              {/* Mobile : sélecteur de canal pleine largeur → feuille glissable */}
-              {channels.length > 0 && (
-                <button
-                  type="button"
-                  aria-haspopup="dialog"
-                  aria-label={c.sheets.channels}
-                  disabled={!canSwitchChannel}
-                  onClick={() => setChannelsOpen(true)}
-                  className={[
-                    "flex min-h-12 w-full items-center gap-2.5 rounded-2xl border px-2.5 text-left transition active:scale-[0.99] disabled:active:scale-100 md:hidden",
-                    t.ring,
-                    t.panel,
-                  ].join(" ")}
-                >
-                  {viewingAll ? (
-                    <AllNetworksBadge isDark={isDark} size={32} />
-                  ) : channel ? (
-                    <ChannelAvatar
-                      channel={channel}
-                      isDark={isDark}
-                      size={32}
-                      ringClass={isDark ? "ring-[#0a0a0c]" : "ring-white"}
-                    />
-                  ) : null}
-                  <span
-                    className={`min-w-0 flex-1 truncate text-[14px] font-semibold ${t.text}`}
-                  >
-                    {channelTriggerLabel}
-                  </span>
-                  {canSwitchChannel && (
-                    <ChevronDown
-                      className={`h-4 w-4 shrink-0 ${t.soft}`}
-                      aria-hidden="true"
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/[0.07] pb-3">
+                <div className="flex flex-wrap items-center gap-1">
+                  {(["7d", "30d", "mtd", "custom"] as Range[]).map((key) => (
+                    <button key={key} type="button" aria-pressed={range === key} onClick={() => setRange(key)} className={"rounded-sm px-2.5 py-1.5 text-[10px] transition-colors " + (range === key ? "bg-[#303030] text-white" : "text-[#858585] hover:bg-white/[0.04] hover:text-[#dddddd]")}>
+                      {c.ranges[key]}
+                    </button>
+                  ))}
+                  {range === "custom" && (
+                    <RangePicker
+                      range={range}
+                      start={start}
+                      end={end}
+                      onStartChange={setCustomStart}
+                      onEndChange={setCustomEnd}
+                      t={t}
+                      isDark={true}
+                      isMobile={isMobile}
+                      lang={lang}
                     />
                   )}
+                </div>
+                <button type="button" onClick={() => navigate("tags")} className="flex h-7 items-center gap-1.5 rounded-sm px-2 text-[10px] text-[#8a8a8a] transition-colors hover:bg-white/[0.04] hover:text-white">
+                  <Tag className="h-3 w-3" />
+                  {c.tagsButton}
+                  <ChevronDown className="h-3 w-3" />
                 </button>
-              )}
-            </div>
+              </div>
+            </header>
+
+            {fetchYouTube && yt.error && (
+              <div role="alert" className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-white/[0.08] bg-[#202020] px-3 py-2 text-[10px] text-[#c2c2c2]">
+                <span>{c.errors.youtube(yt.error)}</span>
+                <button type="button" onClick={() => setReloadKey((key) => key + 1)} className="rounded border border-white/10 px-2 py-1 text-[#eeeeee]">{c.errors.retry}</button>
+              </div>
+            )}
+            {youtubeLoading && <p role="status" aria-live="polite" className="text-[10px] text-[#888888]">{c.errors.loading}</p>}
 
             {!channels.length ? (
-              <section
-                className={`flex flex-col items-center gap-3 rounded-2xl border px-6 py-16 text-center md:rounded-xl md:py-20 ${t.panel}`}
-              >
-                <span
-                  className={`flex h-11 w-11 items-center justify-center rounded-full ${t.iconBox}`}
-                >
-                  <Activity className="h-5 w-5" aria-hidden="true" />
-                </span>
-                <h2 className={`text-[15px] font-semibold md:text-[14px] ${t.text}`}>
-                  {c.noChannels.title}
-                </h2>
-                <p className={`max-w-[360px] text-[13px] md:text-[12px] ${t.soft}`}>
-                  {c.noChannels.description}
-                </p>
-                <button
-                  type="button"
-                  onClick={() => navigateToSettingsSection("channels")}
-                  className={`mt-2 flex min-h-11 items-center gap-1.5 rounded-xl px-5 py-2 text-[13px] font-semibold md:min-h-0 md:rounded-md md:px-4 md:text-[11px] ${t.ring} ${t.primaryBtn}`}
-                >
-                  <Plus className="h-3.5 w-3.5" aria-hidden="true" />
-                  {c.noChannels.connect}
-                </button>
+              <section className="flex min-h-[300px] flex-col items-center justify-center rounded-md border border-white/[0.08] bg-[#1b1b1b] px-6 text-center">
+                <BarChart3 className="h-7 w-7 text-[#777777]" />
+                <h2 className="mt-3 text-[14px] font-medium text-[#eeeeee]">{c.noChannels.title}</h2>
+                <p className="mt-1 max-w-[320px] text-[11px] leading-relaxed text-[#858585]">{c.noChannels.description}</p>
+                <button type="button" onClick={() => navigateToSettingsSection("channels")} className="mt-3 rounded-md border border-white/10 bg-[#282828] px-3 py-2 text-[11px] text-white">{c.noChannels.connect}</button>
               </section>
             ) : (
               <>
-                {fetchYouTube && yt.error && (
-                  <div
-                    role="alert"
-                    className={`flex flex-wrap items-center justify-between gap-3 rounded-xl border px-4 py-3 ${t.panel}`}
-                  >
-                    <p className="min-w-0 break-words text-[12.5px] text-neutral-500">
-                      {c.errors.youtube(yt.error)}
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => setReloadKey((k) => k + 1)}
-                      className={`min-h-10 rounded-full px-3.5 py-1.5 text-[12px] font-semibold transition-colors md:min-h-0 md:text-[11px] ${t.ring} ${t.outlineBtn}`}
-                    >
-                      {c.errors.retry}
-                    </button>
-                  </div>
-                )}
-                {youtubeLoading && (
-                  <p
-                    className={`text-[12.5px] ${t.soft}`}
-                    role="status"
-                    aria-live="polite"
-                  >
-                    {c.errors.loading}
-                  </p>
-                )}
-
-                {/* ── NUMBERS ── */}
-                <section
-                  aria-labelledby="all-title"
-                  className="flex min-w-0 flex-col gap-3"
-                >
-                  <div>
-                    <h2
-                      id="all-title"
-                      className={`text-[21px] font-semibold tracking-[-0.03em] md:text-[24px] ${t.text}`}
-                    >
-                      {c.overview.title}
-                    </h2>
-                    <div className="mt-1 flex flex-wrap items-center gap-2">
-                      <p className={`text-[12px] ${t.muted}`}>{c.overview.subtitle}</p>
-                      {hasDemoInsights && <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${t.border} ${t.soft}`}>{lang === "fr" ? "Données de démonstration" : "Demo data"}</span>}
+                <section className="flex min-w-0 flex-col gap-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-[10px] text-[#858585]">{c.summary.title}</p>
+                      <p className="mt-0.5 text-[9px] text-[#666666]">{periodLabel} · {compareLabel}</p>
+                    </div>
+                    <div className="flex items-center gap-2 text-[9px] text-[#8a8a8a]" aria-label={c.summary.goalAria(postsThisWeek, goal)}>
+                      <span>{c.summary.goalProgress(postsThisWeek, goal)}</span>
+                      <span className="h-1 w-[72px] overflow-hidden rounded-full bg-[#303030]">
+                        <span className="block h-full rounded-full bg-[#bcbcbc]" style={{ width: goalPct + "%" }} />
+                      </span>
                     </div>
                   </div>
-
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div className="flex min-w-0 max-w-full flex-wrap items-center gap-3">
-                      <div
-                        role="tablist"
-                        aria-label={c.overview.dateRangeAria}
-                        className={`inline-flex max-w-full items-center gap-0.5 overflow-x-auto rounded-full border p-1 ${NO_SCROLLBAR} ${t.panel}`}
-                      >
-                        {(["7d", "30d", "mtd", "custom"] as Range[]).map(
-                          (key) => {
-                            const active = range === key;
-                            return (
-                              <button
-                                key={key}
-                                type="button"
-                                role="tab"
-                                aria-selected={active}
-                                onClick={() => setRange(key)}
-                                className={`flex shrink-0 items-center gap-2 whitespace-nowrap rounded-sm px-2.5 py-1.5 text-[10px] font-medium transition-colors md:px-3 md:text-[11px] ${t.ring} ${
-                                  active ? t.sel : t.idle
-                                }`}
-                              >
-                                {c.ranges[key]}
-                                {key === "custom" && (
-                                  <span
-                                    className={`flex h-5 w-5 items-center justify-center rounded-full ${
-                                      active
-                                        ? isDark
-                                          ? "bg-black/15 text-black"
-                                          : "bg-white/20 text-white"
-                                        : isDark
-                                          ? "bg-white/15 text-white"
-                                          : "bg-black/10 text-black"
-                                    }`}
-                                    aria-hidden="true"
-                                  >
-                                    <Zap className="h-3 w-3 fill-current" />
-                                  </span>
-                                )}
-                              </button>
-                            );
-                          }
-                        )}
-                      </div>
-                      {range === "custom" && (
-                        <RangePicker
-                          range={range}
-                          start={start}
-                          end={end}
-                          onStartChange={setCustomStart}
-                          onEndChange={setCustomEnd}
-                          t={t}
-                          isDark={isDark}
-                          isMobile={isMobile}
-                          lang={lang}
-                        />
-                      )}
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => navigate("tags")}
-                      className={`flex min-h-10 items-center gap-2 rounded-md px-3 py-2 text-[13px] font-semibold transition-colors md:min-h-0 ${t.ring} ${t.hover} ${t.text}`}
-                    >
-                      <Tag className="h-4 w-4" aria-hidden="true" />
-                      {c.tagsButton}
-                      <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
-                    </button>
+                  <div className="grid grid-cols-2 gap-2 xl:grid-cols-4">
+                    {summaryBoxes.slice(0, 4).map((item, index) => {
+                      const Icon = kpiIcons[index];
+                      const increasing = item.delta != null && item.delta > 0;
+                      const decreasing = item.delta != null && item.delta < 0;
+                      return (
+                        <article key={item.key} className="flex min-h-[78px] min-w-0 overflow-hidden rounded-[7px] border border-white/[0.09] bg-[#1d1d1d]">
+                          <div className="flex min-w-0 flex-1 flex-col justify-center px-3 py-2.5">
+                            <p className="truncate text-[10px] text-[#9a9a9a]">{c.summary.labels[item.key]}</p>
+                            <p className="mt-1 text-[23px] font-medium leading-none tracking-[-0.04em] tabular-nums text-[#f0f0f0]">{item.value}</p>
+                            {item.delta != null && (
+                              <p className="mt-1.5 text-[9px] tabular-nums text-[#888888]">
+                                {increasing ? "+" : ""}{item.delta}% {c.summary.vsPreviousShort}
+                              </p>
+                            )}
+                          </div>
+                          <div className="flex w-[66px] shrink-0 items-center justify-center border-l border-white/[0.07] bg-[#202020]">
+                            <span className="flex h-[42px] w-[42px] items-center justify-center rounded-[7px] border border-white/[0.06] bg-[#242424] text-[#999999] shadow-[inset_0_1px_0_rgba(255,255,255,0.025)]">
+                              <Icon className="h-[19px] w-[19px]" />
+                            </span>
+                          </div>
+                        </article>
+                      );
+                    })}
                   </div>
+                </section>
 
-                  <div className="flex min-w-0 flex-col gap-3">
-                    <div className="flex flex-wrap items-start justify-between gap-3 px-1">
-                      <div className="min-w-0">
-                        <h3 className={sectionTitle}>{c.summary.title}</h3>
-                        <p className={sectionSub}>
-                          {periodLabel} · {compareLabel}
-                        </p>
+                <div className="grid min-w-0 grid-cols-1 gap-2.5 xl:grid-cols-[minmax(0,1.2fr)_minmax(300px,0.88fr)]">
+                  <section className="min-w-0 rounded-[7px] border border-white/[0.08] bg-[#1b1b1b] p-3">
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div>
+                        <h2 className="text-[12px] font-medium text-[#ededed]">{c.trends.title}</h2>
+                        <p className="mt-0.5 text-[9px] text-[#777777]">{c.trends.subtitle(periodLabel)}</p>
                       </div>
-                      <div
-                        className="flex w-full items-center gap-2 md:w-auto"
-                        aria-label={c.summary.goalAria(postsThisWeek, goal)}
-                      >
-                        <div
-                          className={`h-1.5 w-full overflow-hidden rounded-full md:w-24 ${t.inner}`}
-                        >
-                          <div
-                            className={`h-full rounded-full transition-[width] duration-300 ${
-                              isDark ? "bg-white" : "bg-black"
-                            }`}
-                            style={{ width: `${goalPct}%` }}
-                          />
-                        </div>
-                        <span
-                          className={`shrink-0 text-[11px] font-semibold tabular-nums ${t.soft}`}
-                        >
-                          {c.summary.goalProgress(postsThisWeek, goal)}
+                      <div className="flex flex-wrap items-center gap-1">
+                        <span className="rounded border border-white/[0.08] bg-[#222222] px-2 py-1 text-[9px] text-[#aaaaaa]">
+                          <CalendarClock className="mr-1 inline h-3 w-3" />
+                          {range === "custom" ? fmtRange(start, end, lang) : c.ranges[range]}
                         </span>
+                        <button type="button" aria-pressed={compare} onClick={() => setCompare((value) => !value)} className={"rounded border px-2 py-1 text-[9px] " + (compare ? "border-white/20 bg-[#343434] text-white" : "border-white/[0.08] text-[#888888] hover:bg-white/[0.04]")}>
+                          {compare ? c.trends.previousPeriod : c.trends.compareToggle}
+                        </button>
                       </div>
                     </div>
-
-                    {glance && (
-                      <p
-                        className={`mt-3 px-1 text-[13px] leading-relaxed ${t.soft}`}
-                      >
-                        {glance}
-                      </p>
-                    )}
-
-                    <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-4 md:gap-2 compact-metrics">
-                      {summaryBoxes.slice(0, 4).map((b) => (
-                        <MetricBox
-                          key={b.key}
-                          label={c.summary.labels[b.key]}
-                          value={b.value}
-                          info={c.summary.info[b.key]}
-                          t={t}
-                          delta={b.delta}
-                          isDark={isDark}
-                          isMobile={isMobile}
-                          lang={lang}
-                        />
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {METRIC_OPTIONS.map((option) => (
+                        <button key={option.key} type="button" aria-pressed={metricA === option.key} onClick={() => setMetricA(option.key)} className={"rounded-sm px-2 py-1 text-[9px] transition-colors " + (metricA === option.key ? "bg-[#353535] text-white" : "text-[#777777] hover:bg-white/[0.04] hover:text-[#dddddd]")}>
+                          {option.label}
+                        </button>
                       ))}
                     </div>
-                  </div>
-                </section>
-
-                <div className="grid min-w-0 grid-cols-1 items-start gap-3 xl:grid-cols-2">
-                {/* ── TRENDS ── */}
-                <section
-                  className={`${sectionCard} min-w-0`}
-                  aria-labelledby="metrics-title"
-                >
-                  <div className="flex flex-wrap items-start justify-between gap-3 px-1">
-                    <div className="min-w-0">
-                      <h3 id="metrics-title" className={sectionTitle}>
-                        {c.trends.title}
-                      </h3>
-                      <p className={sectionSub}>
-                        {c.trends.subtitle(periodLabel)}
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      aria-pressed={compare}
-                      onClick={() => setCompare((cv) => !cv)}
-                      className={`flex min-h-10 items-center gap-2 rounded-lg border px-3 py-2 text-[12px] font-semibold transition-colors md:min-h-0 ${t.ring} ${
-                        compare
-                          ? `border-transparent ${t.sel}`
-                          : `${t.inner} ${t.hover} ${t.text}`
-                      }`}
-                    >
-                      <span
-                        className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded border border-current"
-                        aria-hidden="true"
-                      >
-                        {compare && (
-                          <Check className="h-2.5 w-2.5" strokeWidth={3} />
-                        )}
-                      </span>
-                      {c.trends.compareToggle}
-                    </button>
-                  </div>
-
-                  <div
-                    className={`mt-4 max-w-full overflow-x-auto ${NO_SCROLLBAR}`}
-                  >
-                    <Segmented<NumKey>
-                      label={c.trends.metricAria}
-                      value={metricA}
-                      onChange={setMetricA}
-                      t={t}
-                      options={METRIC_OPTIONS.map((m) => ({
-                        key: m.key,
-                        label: m.label,
-                        icon: m.icon,
-                      }))}
-                    />
-                  </div>
-
-                  <div
-                    className={`mt-3 rounded-md border p-2.5 md:p-3.5 ${t.panel}`}
-                  >
-                    <div className="flex flex-wrap items-end justify-between gap-3 pl-1 md:gap-4 md:pl-2">
-                      <div className="min-w-0">
-                        <p className={`text-[11px] font-medium ${t.soft}`}>
-                          {mainSeries.label} ·{" "}
-                          {mainSeries.agg === "sum"
-                            ? c.trends.total
-                            : c.trends.ending}
-                        </p>
-                        <p
-                          className={`mt-1.5 flex flex-wrap items-center gap-2 text-[26px] font-bold leading-none tracking-tight tabular-nums md:gap-3 md:text-[28px] ${t.text}`}
-                        >
-                          {nf(seriesTotal(mainSeries), lang)}
-                          {mainDelta != null && (
-                            <span
-                              className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-semibold ${
-                                mainDelta !== 0
-                                  ? isDark ? "bg-white/[0.08] text-white" : "bg-black/[0.06] text-black"
-                                  : `${t.tile} ${t.muted}`
-                              }`}
-                            >
-                              {mainDelta > 0 ? "+" : ""}
-                              {mainDelta}%
-                              <span className="max-md:sr-only">
-                                {" "}
-                                {c.summary.vsPreviousShort}
-                              </span>
-                            </span>
-                          )}
-                        </p>
-                      </div>
-                      {compare && (
-                        <div
-                          className={`flex items-center gap-4 text-[11px] ${t.soft}`}
-                        >
-                          <span className="flex items-center gap-1.5">
-                            <span
-                              className="h-0.5 w-5 bg-current"
-                              aria-hidden="true"
-                            />
-                            {c.trends.thisPeriod}
-                          </span>
-                          <span className="flex items-center gap-1.5">
-                            <span
-                              className="w-5 border-t-2 border-dashed border-current"
-                              aria-hidden="true"
-                            />
-                            {c.trends.previousPeriod}
-                          </span>
+                    <div className="mt-2 flex flex-wrap items-end justify-between gap-2">
+                      <div>
+                        <p className="text-[9px] text-[#858585]">{mainSeries.label}</p>
+                        <div className="mt-0.5 flex items-center gap-2">
+                          <strong className="text-[23px] font-medium leading-none tabular-nums text-[#eeeeee]">{nf(seriesTotal(mainSeries), lang)}</strong>
+                          {mainDelta != null && <span className="text-[9px] text-[#929292]">{mainDelta > 0 ? "+" : ""}{mainDelta}%</span>}
                         </div>
-                      )}
-                    </div>
-
-                    <div className="mt-4 md:mt-6">
-                      <InsightsChart
-                        data={chartData}
-                        view={chartView}
-                        isDark={isDark}
-                        isMobile={isMobile}
-                        lang={lang}
-                        seriesLabel={mainSeries.label}
-                        seriesColor={TONES[0]}
-                        hasSecondAxis={false}
-                      />
-                    </div>
-                  </div>
-                </section>
-
-                {/* ── BEST TIME + RECYCLE ── */}
-                <div className="contents">
-                  <section
-                    className={`${sectionCard} min-w-0`}
-                    aria-labelledby="besttime-title"
-                  >
-                    <div className="flex flex-wrap items-start justify-between gap-3 px-1">
-                      <div className="min-w-0">
-                        <h3 id="besttime-title" className={sectionTitle}>
-                          {c.bestTime.title}
-                        </h3>
-                        <p className={sectionSub}>{subhead}</p>
-                        <p className={`mt-1 text-[10.5px] ${t.muted}`}>
-                          {bestTimesNote}
-                        </p>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => scheduleFromSlot(heatmap.best)}
-                        className={`min-h-11 shrink-0 rounded-full px-3.5 py-1.5 text-[12px] font-semibold max-md:w-full md:min-h-0 md:text-[11px] ${t.ring} ${t.outlineBtn}`}
-                      >
-                        {c.bestTime.useLabel(heatmap.label)}
+                      <div className="flex items-center gap-3 text-[9px] text-[#777777]">
+                        <span className="flex items-center gap-1"><span className="h-[2px] w-4 bg-[#d7d7d7]" />{c.trends.thisPeriod}</span>
+                        {compare && <span className="flex items-center gap-1"><span className="w-4 border-t border-dashed border-[#777777]" />{c.trends.previousPeriod}</span>}
+                      </div>
+                    </div>
+                    <div className="mt-1">
+                      <InsightsChart data={chartData} view={chartView} isDark={true} isMobile={isMobile} lang={lang} seriesLabel={mainSeries.label} seriesColor="#d3d3d3" hasSecondAxis={false} />
+                    </div>
+                  </section>
+
+                  <section className="min-w-0 rounded-[7px] border border-white/[0.08] bg-[#1b1b1b] p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <h2 className="text-[12px] font-medium text-[#ededed]">{c.bestTime.title}</h2>
+                        <p className="mt-0.5 text-[9px] text-[#777777]">{bestTimesNote}</p>
+                      </div>
+                      <button type="button" onClick={() => scheduleFromSlot(heatmap.best)} className="shrink-0 rounded border border-white/[0.09] bg-[#242424] px-2 py-1 text-[9px] text-[#d7d7d7] transition-colors hover:bg-[#303030]">
+                        {lang === "fr" ? "Programmer" : "Schedule"}
                       </button>
                     </div>
-
-                    {isMobile ? (
-                      <BestTimeMobile
-                        heatmap={heatmap}
-                        c={c}
-                        t={t}
-                        isDark={isDark}
-                        onSchedule={scheduleFromSlot}
-                      />
-                    ) : (
-                      <div
-                        className={`mt-4 overflow-x-auto overscroll-x-contain px-1 pb-1 ${NO_SCROLLBAR}`}
-                      >
-                        <div className="min-w-[480px]">
-                          <div className="mb-1.5 flex items-end gap-2">
-                            <span className="w-9 shrink-0" />
-                            <div
-                              className={`grid flex-1 gap-[5px] ${HEAT_COLS}`}
-                            >
-                              {Array.from({ length: 24 }, (_, h) => (
-                                <span
-                                  key={h}
-                                  title={hourLabel(h)}
-                                  className={`text-center text-[10px] leading-none tabular-nums ${t.muted}`}
-                                >
-                                  {h % 3 === 0
-                                    ? String(h).padStart(2, "0")
-                                    : ""}
-                                </span>
-                              ))}
-                            </div>
-                          </div>
-
-                          <div className="flex flex-col gap-1">
-                            {c.days.map((day, d) => (
-                              <div key={day} className="flex items-center gap-2">
-                                <span
-                                  className={`w-9 shrink-0 text-[10px] ${t.muted}`}
-                                >
-                                  {day}
-                                </span>
-                                <div
-                                  className={`grid flex-1 gap-[5px] ${HEAT_COLS}`}
-                                >
-                                  {Array.from({ length: 24 }, (_, h) => {
-                                    const cell = heatmap.grid[d][h];
-                                    const isBest =
-                                      heatmap.bestByDay[d].hour === h;
-                                    return (
-                                      <button
-                                        key={h}
-                                        type="button"
-                                        title={`${day} ${hourLabel(h)}${
-                                          isBest
-                                            ? c.bestTime.bestOfDaySuffix
-                                            : ""
-                                        }`}
-                                        aria-label={c.bestTime.scheduleAria(
-                                          day,
-                                          hourLabel(h)
-                                        )}
-                                        onClick={() =>
-                                          scheduleFromSlot({ day: d, hour: h })
-                                        }
-                                        className={`aspect-square w-full rounded-[6px] transition-transform hover:scale-125 ${t.ring} ${
-                                          isBest
-                                            ? `ring-[1.5px] ring-offset-1 ${
-                                                isDark
-                                                  ? "ring-white ring-offset-[#0a0a0c]"
-                                                  : "ring-[#0f766e] ring-offset-white"
-                                              }`
-                                            : ""
-                                        }`}
-                                        style={{
-                                          background: heatColor(cell.norm),
-                                        }}
-                                      />
-                                    );
-                                  })}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-
-                          <div className="mt-4 flex items-center justify-end gap-1.5">
-                            <span className={`mr-1 text-[10px] ${t.muted}`}>
-                              {c.bestTime.low}
-                            </span>
-                            {[0, 0.25, 0.5, 0.75, 1].map((v) => (
-                              <span
-                                key={v}
-                                className="h-3 w-3 rounded-[3px]"
-                                style={{ background: heatColor(v) }}
-                                aria-hidden="true"
-                              />
-                            ))}
-                            <span className={`ml-1 text-[10px] ${t.muted}`}>
-                              {c.bestTime.high}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </section>
-
-                  <section
-                    className={`${sectionCard} min-w-0 xl:col-span-2`}
-                    aria-labelledby="recycle-title"
-                  >
-                    <div className="px-1">
-                      <h3 id="recycle-title" className={sectionTitle}>
-                        {c.recycle.title}
-                      </h3>
-                      <p className={sectionSub}>{c.recycle.subtitle}</p>
+                    <div className="mt-3 flex items-center gap-3 text-[9px] text-[#777777]">
+                      <span className="flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-[#d6d6d6]" />{c.trends.thisPeriod}</span>
+                      <span className="flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full bg-[#555555]" />{c.trends.previousPeriod}</span>
                     </div>
-                    {remixable.length === 0 ? (
-                      <p className={`mt-4 text-[12px] ${t.soft}`}>
-                        {c.recycle.emptyHint}
-                      </p>
-                    ) : (
-                      <div className="mt-4 grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
-                        {remixable.map((p, i) => (
-                          <div
-                            key={p.id}
-                            className={`flex min-w-0 gap-3 rounded-md border p-3 ${t.inner}`}
-                          >
-                            <span
-                              className={`flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-md ${t.iconBox}`}
-                            >
-                              {p.thumbnailUrl ? (
-                                <img
-                                  src={p.thumbnailUrl}
-                                  alt=""
-                                  referrerPolicy="no-referrer"
-                                  className="h-full w-full object-cover"
-                                />
-                              ) : (
-                                mediaIcon(p.media)
-                              )}
+                    <div className="mt-3 grid grid-cols-7 gap-1.5">
+                      {weekActivity.map((item) => {
+                        const currentHeight = Math.max(9, Math.round((item.currentCount / maxWeekActivity) * 100));
+                        const previousHeight = Math.max(7, Math.round((item.previousCount / maxWeekActivity) * 100));
+                        return (
+                          <button key={item.day} type="button" onClick={() => scheduleFromSlot({ day: item.day, hour: item.hour })} title={c.bestTime.scheduleAria(c.daysLong[item.day], hourLabel(item.hour))} className="group flex min-w-0 flex-col items-center rounded-sm px-0.5 pt-1 transition-colors hover:bg-white/[0.035]">
+                            <span className="flex h-[112px] w-full items-end justify-center gap-1 border-b border-white/[0.08] px-0.5">
+                              <span className="w-[38%] rounded-t-[3px] bg-gradient-to-t from-[#676767] to-[#b9b9b9] transition-opacity group-hover:opacity-100" style={{ height: currentHeight + "%", opacity: item.currentCount ? 1 : 0.24 }} />
+                              <span className="w-[38%] rounded-t-[3px] bg-[#4c4c4c] transition-opacity group-hover:bg-[#666666]" style={{ height: previousHeight + "%", opacity: item.previousCount ? 1 : 0.3 }} />
                             </span>
-                            <div className="min-w-0 flex-1">
-                              <p
-                                className={`text-[10px] font-semibold uppercase tracking-wide ${t.muted}`}
-                              >
-                                {c.recycle.rank(i + 1)} · {mediaLabel(p.media)}
-                              </p>
-                              <div className="mt-0.5 flex flex-wrap items-center justify-between gap-x-2 gap-y-1.5">
-                                <p
-                                  className={`min-w-0 max-w-full flex-1 truncate text-[13px] font-semibold ${t.text}`}
-                                >
-                                  {p.label}
-                                </p>
-                                <button
-                                  type="button"
-                                  onClick={() => duplicatePost(p)}
-                                  className={`min-h-10 shrink-0 rounded-md border px-3 py-1 text-[12px] font-semibold transition-colors motion-reduce:transition-none md:min-h-0 md:px-2.5 md:text-[11px] ${t.ring} ${
-                                    isDark
-                                      ? "border-white/10 text-white hover:border-white/25 hover:bg-white/[0.08]"
-                                      : "border-black/10 text-neutral-900 hover:border-black/25 hover:bg-black/[0.06]"
-                                  }`}
-                                >
-                                  {c.recycle.duplicate}
-                                </button>
-                              </div>
-                              <p className={`mt-1 text-[11px] ${t.soft}`}>
-                                {c.recycle.engagement(
-                                  p.reactions,
-                                  p.engRate.toFixed(1)
-                                )}
-                              </p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    <div className="mt-4 border-t pt-3" style={{ borderColor: isDark ? "rgba(255,255,255,.08)" : "rgba(0,0,0,.08)" }}>
-                      <p className={`mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] ${t.muted}`}>
-                        {lang === "fr" ? "Créneaux recommandés" : "Recommended slots"}
-                      </p>
-                      <div className="grid grid-cols-3 gap-2">
-                        {heatmap.recommendations.map((slot, index) => (
-                          <button
-                            key={`${slot.day}-${slot.hour}`}
-                            type="button"
-                            onClick={() => scheduleFromSlot(slot)}
-                            className="min-w-0 rounded-md border border-white/10 bg-white/[0.035] px-2 py-2.5 text-left transition-colors hover:bg-white/[0.08]"
-                            style={{
-                              borderColor: "rgba(255,255,255,.12)",
-                              background: "rgba(255,255,255,.035)",
-                            }}
-                            title={c.bestTime.scheduleAria(c.daysLong[slot.day], hourLabel(slot.hour))}
-                          >
-                            <span className="block truncate text-[10px] font-medium text-neutral-400">
-                              {index === 0 ? (lang === "fr" ? "Meilleur" : "Best") : c.days[slot.day]}
-                            </span>
-                            <span className={`mt-1 block text-[14px] font-bold tabular-nums ${t.text}`}>
-                              {c.days[slot.day]} · {hourLabel(slot.hour)}
-                            </span>
+                            <span className="mt-1.5 text-[9px] text-[#8d8d8d]">{item.label}</span>
+                            <span className="mt-0.5 text-[8px] tabular-nums text-[#b4b4b4]">{hourLabel(item.hour)}</span>
                           </button>
-                        ))}
-                      </div>
+                        );
+                      })}
                     </div>
+                    <p className="mt-2 text-[9px] leading-relaxed text-[#777777]">{subhead}</p>
                   </section>
                 </div>
 
-                </div>
+                <section className="rounded-[7px] border border-white/[0.08] bg-[#1b1b1b] p-3">
+                  <div className="mb-2.5 flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <h2 className="text-[12px] font-medium text-[#ededed]">{c.recycle.title}</h2>
+                      <p className="mt-0.5 text-[9px] text-[#777777]">{c.recycle.subtitle}</p>
+                    </div>
+                    <div className="flex h-7 w-[180px] max-w-full items-center gap-2 rounded border border-white/[0.08] bg-[#222222] px-2">
+                      <Search className="h-3 w-3 text-[#777777]" />
+                      <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={lang === "fr" ? "Rechercher une publication" : "Search posts"} className="min-w-0 flex-1 bg-transparent text-[9px] text-[#dddddd] outline-none placeholder:text-[#777777]" />
+                    </div>
+                  </div>
+                  {recycleCandidates.length ? (
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                      {recycleCandidates.map((post, index) => (
+                        <article key={post.id} className="min-w-0 rounded-[6px] border border-white/[0.07] bg-[#191919] p-2.5 transition-colors hover:bg-[#1e1e1e]">
+                          <div className="flex items-start justify-between gap-2">
+                            <span className="flex h-[58px] w-[74px] shrink-0 items-center justify-center overflow-hidden rounded-md border border-white/[0.06] bg-[#222222] text-[#8c8c8c]">
+                              {post.thumbnailUrl ? <img src={post.thumbnailUrl} alt="" loading="lazy" className="h-full w-full object-cover" /> : mediaIcon(post.media)}
+                            </span>
+                            <span className="rounded-sm border border-white/[0.07] px-1.5 py-1 text-[8px] text-[#878787]">{c.recycle.rank(index + 1)}</span>
+                          </div>
+                          <p className="mt-2 truncate text-[11px] font-medium text-[#e7e7e7]" title={post.label}>{post.label}</p>
+                          <p className="mt-1 min-h-[26px] text-[9px] leading-relaxed text-[#818181]">{c.recycle.engagement(post.reactions, post.engRate.toFixed(1))} · {fmt(post.date, lang)}</p>
+                          <div className="mt-2 flex items-center justify-between border-t border-white/[0.06] pt-2">
+                            <span className="text-[8px] uppercase tracking-[0.08em] text-[#777777]">{mediaLabel(post.media)}</span>
+                            <button type="button" onClick={() => duplicatePost(post)} className="flex items-center gap-1 rounded border border-white/[0.08] bg-[#242424] px-2 py-1 text-[9px] text-[#dddddd] transition-colors hover:bg-[#303030]">
+                              <Copy className="h-3 w-3" />
+                              {c.recycle.duplicate}
+                            </button>
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex min-h-[95px] items-center justify-center text-center text-[10px] text-[#777777]">{c.recycle.emptyHint}</div>
+                  )}
+                </section>
+
                 {/* ── PERFORMANCE PER POST ── */}
                 <section
                   className={`${sectionCard} min-w-0`}
@@ -4136,10 +3808,13 @@ export default function Insights() {
         </div>
       </div>
 
-      {/* Feuille « Canaux » (mobile) */}
+      <div className="md:hidden">
+        <DashboardSidebar theme="dark" />
+      </div>
+
       {channelsOpen && isMobile && (
         <ChannelSheet
-          isDark={isDark}
+          isDark={true}
           title={c.sheets.channels}
           channels={channels}
           selectedKey={viewingAll ? ALL_KEY : channel?.key}
@@ -4152,27 +3827,25 @@ export default function Insights() {
       <Folder
         isOpen={isFolderOpen}
         onClose={() => setIsFolderOpen(false)}
-        isDark={isDark}
+        isDark={true}
         offsetLeft={sidebarOffset}
       />
       <BottomBar
-        isDark={isDark}
+        isDark={true}
         offsetLeft={sidebarOffset}
         active={isFolderOpen ? "files" : null}
         onChange={handleBottomBarChange}
-        onCreatePost={() =>
-          openComposer({ reason: "manual", channelKey: channel?.key })
-        }
+        onCreatePost={() => openComposer({ reason: "manual", channelKey: channel?.key })}
       />
       <NewPostModal
         isOpen={isNewPostOpen}
         onClose={closeComposer}
-        isDark={isDark}
+        isDark={true}
         onSubmit={handleCreatePost}
         onRequestOpen={() => setIsNewPostOpen(true)}
         {...({ initialContext: composerContext } as Record<string, unknown>)}
       />
-      <HelpChatButton isDark={isDark} />
+      <HelpChatButton isDark={true} />
     </main>
   );
 }
