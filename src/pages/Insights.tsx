@@ -2199,7 +2199,7 @@ function Segmented<T extends string>({
     <div
       role="group"
       aria-label={label}
-      className={`inline-flex max-w-full flex-nowrap items-center gap-0.5 overflow-x-auto rounded-full border p-1 ${NO_SCROLLBAR} ${t.panel}`}
+      className={`inline-flex max-w-full flex-nowrap items-center gap-0.5 overflow-x-auto rounded-md border p-1 ${NO_SCROLLBAR} ${t.panel}`}
     >
       {options.map((o) => {
         const active = value === o.key;
@@ -3214,14 +3214,8 @@ export default function Insights() {
             {/* HEADER COMPACT */}
             <div className="flex flex-col gap-3">
               <div className="relative z-20 flex shrink-0 items-center justify-between gap-3">
-                <div className="flex min-w-0 items-center gap-2.5">
-                  <span
-                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border md:h-10 md:w-10 ${t.iconBox} ${t.border}`}
-                  >
-                    <InsightsIcon />
-                  </span>
-                  <h1
-                    className={`truncate text-[25px] font-bold tracking-[-0.04em] md:text-[23px] ${t.text}`}
+                <div className="flex min-w-0 items-center gap-2.5">\n                  <h1
+                    className={`truncate text-[18px] font-semibold tracking-[-0.025em] md:text-[19px] ${t.text}`}
                   >
                     {c.header.title}
                   </h1>
@@ -3425,7 +3419,7 @@ export default function Insights() {
                                 role="tab"
                                 aria-selected={active}
                                 onClick={() => setRange(key)}
-                                className={`flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full px-3 py-2 text-[12px] font-semibold transition-colors md:px-4 md:text-[13px] ${t.ring} ${
+                                className={`flex shrink-0 items-center gap-2 whitespace-nowrap rounded-sm px-2.5 py-1.5 text-[10px] font-medium transition-colors md:px-3 md:text-[11px] ${t.ring} ${
                                   active ? t.sel : t.idle
                                 }`}
                               >
@@ -3477,7 +3471,7 @@ export default function Insights() {
                     </button>
                   </div>
 
-                  <div className={sectionCard}>
+                  <div className="flex min-w-0 flex-col gap-3">
                     <div className="flex flex-wrap items-start justify-between gap-3 px-1">
                       <div className="min-w-0">
                         <h3 className={sectionTitle}>{c.summary.title}</h3>
@@ -3587,7 +3581,7 @@ export default function Insights() {
                   </div>
 
                   <div
-                    className={`mt-3 rounded-2xl border p-3 md:p-5 ${t.panel}`}
+                    className={`mt-3 rounded-md border p-2.5 md:p-3.5 ${t.panel}`}
                   >
                     <div className="flex flex-wrap items-end justify-between gap-3 pl-1 md:gap-4 md:pl-2">
                       <div className="min-w-0">
