@@ -1629,12 +1629,18 @@ const ChannelsIcon = mkIcon(
     <circle cx="16.5" cy="16.5" r="2.5" />
   </>
 );
-const ConnectorsIcon = mkIcon(
-  <g transform="rotate(-45 12 12)">
-    <path d="M12 22v-5" />
-    <path d="M15 8V2M9 8V2" />
-    <path d="M18 8v4a6 6 0 0 1-12 0V8Z" />
-  </g>
+const ConnectorsIcon = ({
+  className = "h-[18px] w-[18px]",
+}: {
+  className?: string;
+}) => (
+  <img
+    src="/images/connectors-icon.svg"
+    alt=""
+    aria-hidden="true"
+    draggable={false}
+    className={className}
+  />
 );
 const DisconnectIcon = mkIcon(
   <>
