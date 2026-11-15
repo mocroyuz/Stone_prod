@@ -986,7 +986,7 @@ const NETWORK_ICONS: Record<string, NetIcon> = {
 };
 
 function channelNetwork(ch: ConnectedChannel): string | null {
-  const raw = String(ch.platform ?? ch.network ?? ch.provider ?? ch.key).toLowerCase().trim();
+  const raw = String(ch.platform ?? ch.key).toLowerCase().trim();
   if (raw.includes("tiktok")) return "tiktok";
   if (raw.includes("insta")) return "instagram";
   if (raw.includes("youtube") || raw === "yt") return "youtube";
