@@ -21,6 +21,7 @@ import {
   type ChannelKey,
   type ConnectionState,
 } from "../data/channelConfig";
+import { isFullBleedIcon } from "../components/IntegrationIcons";
 import Modal from "../components/Modal";
 import {
   ConfirmAccountModal,
@@ -4769,12 +4770,18 @@ function ChannelAvatar({
         />
         <span
           className={cx(
-            "absolute -right-1 -bottom-1 flex h-[18px] w-[18px] items-center justify-center",
-            "rounded-[5px] text-black ring-2",
+            "absolute -right-1 -bottom-1 flex items-center justify-center ring-2",
+            isFullBleedIcon(Icon)
+              ? "h-[22px] w-[22px] rounded-[6px]"
+              : "h-[18px] w-[18px] rounded-[5px]",
+            "text-black",
             t.avatarBadgeBg
           )}
         >
-          <Icon className="h-[11px] w-[11px]" size={11} />
+          <Icon
+            className={isFullBleedIcon(Icon) ? "h-[18px] w-[18px]" : "h-[11px] w-[11px]"}
+            size={isFullBleedIcon(Icon) ? 18 : 11}
+          />
         </span>
       </span>
     );
