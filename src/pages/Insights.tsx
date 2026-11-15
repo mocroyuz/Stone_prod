@@ -40,13 +40,13 @@ import {
   Image as ImageIcon,
   Layers,
   MoreVertical,
-  Pencil,
   Play,
   Plus,
   RefreshCw,
   Search,
   Send,
   Tag,
+  TrendingDown,
   TrendingUp,
   Users,
   Zap,
@@ -3111,7 +3111,26 @@ export default function Insights() {
     [dates, chartSeries, lang]
   );
 
+  const seriesTotal = (sd: SeriesDef) =>
+    sd.agg === "sum"
+      ? current.reduce((a, p) => a + p[sd.key], 0)
+      : current[days - 1]?.[sd.key] ?? 0;
+  const prevSeriesTotal = (sd: SeriesDef) =>
+    sd.agg === "sum"
+      ? previous.reduce((a, p) => a + p[sd.key], 0)
+      : previous[previous.length - 1]?.[sd.key] ?? 0;
   const mainSeries = activeSeries[0];
+  const mainDelta = pctDelta(
+    seriesTotal(mainSeries),
+    prevSeriesTotal(mainSeries)
+  );
+  const compareLabel = c.summary.comparedTo(
+    fmtRange(prevStart, prevEnd, lang)
+  );
+  const glance =
+    summary.posts === 0
+      ? null
+      : c.summary.glance(summary.posts, summary.reactions, summary.comments);
 
   const weekdayData: WeekdayRow[] = useMemo(() => {
     const acc: WeekdayRow[] = c.days.map((day) => ({ day, a: 0, b: 0 }));
@@ -3125,10 +3144,38 @@ export default function Insights() {
     return acc;
   }, [current, c.days]);
 
-  const cycleRange = () =>
-    setRange((r) =>
-      r === "7d" ? "30d" : r === "30d" ? "mtd" : r === "mtd" ? "custom" : "7d"
-    );
+  const bestWeekday = useMemo(() => {
+    let best = -1;
+    let max = 0;
+    weekdayData.forEach((row, i) => {
+      const total = row.a + row.b;
+      if (total > max) {
+        max = total;
+        best = i;
+      }
+    });
+    return best >= 0 ? weekdayData[best].day : null;
+  }, [weekdayData]);
+
+  const searchInput = (
+    <label
+      className={
+        "flex h-9 w-full items-center gap-2 rounded-lg border px-3 text-[12px] transition-colors sm:w-[220px] " +
+        (isDark ? "focus-within:border-white/25 " : "focus-within:border-black/30 ") +
+        t.panel + " " + t.muted
+      }
+    >
+      <Search className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+      <input
+        type="search"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder={lang === "fr" ? "Rechercher" : "Search"}
+        aria-label={lang === "fr" ? "Rechercher une publication" : "Search posts"}
+        className={"min-w-0 flex-1 bg-transparent outline-none placeholder:text-current " + t.text}
+      />
+    </label>
+  );
 
   const statIcons: Record<string, ReactNode> = {
     followers: <Users className="h-5 w-5" aria-hidden="true" />,
@@ -3259,6 +3306,7 @@ export default function Insights() {
                 </div>
               </div>
               <h2 className={"text-[22px] font-medium tracking-[-0.02em] md:text-[24px] " + t.text}>{lang === "fr" ? "Vos performances en un coup d'œil" : "Fresh analytics from everything"}</h2>
+              <p className={"-mt-3 text-[12px] leading-relaxed " + t.muted}>{periodLabel} · {compareLabel}{glance ? " · " + glance : ""}</p>
             </header>
 
             {channels.length > 0 && <button type="button" aria-haspopup="dialog" disabled={!canSwitchChannel} onClick={() => setChannelsOpen(true)} className={"flex min-h-11 w-full items-center gap-2 rounded-lg border px-3 text-left md:hidden " + t.ring + " " + t.panel}><span className={"min-w-0 flex-1 truncate text-[13px] font-medium " + t.text}>{channelTriggerLabel}</span>{canSwitchChannel && <ChevronDown className={"h-4 w-4 " + t.muted} />}</button>}
@@ -3286,9 +3334,16 @@ export default function Insights() {
                   <button type="button" onClick={() => navigate("tags")} className={"flex h-9 items-center gap-2 rounded-lg px-3 text-[11px] " + t.ring + " " + t.hover + " " + t.text}><Tag className="h-3.5 w-3.5" />{c.tagsButton}<ChevronDown className="h-3.5 w-3.5" /></button>
                 </div>
 
-                {hasDemoInsights && <p className={"-mt-1 text-[11px] " + t.muted}>{lang === "fr" ? "Certaines données sont estimées selon l'activité disponible." : "Some data is estimated from available activity."}</p>}
+                {hasDemoInsights && <p className={"-mt-1 text-[12px] " + t.muted}>{lang === "fr" ? "Certaines données sont estimées selon l'activité disponible." : "Some data is estimated from available activity."}</p>}
 
-                <section aria-label={c.summary.title} className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+                {summary.posts === 0 && !youtubeLoading && (
+                  <div role="status" className={"flex flex-wrap items-center justify-between gap-3 rounded-xl border px-4 py-3 " + t.panel}>
+                    <p className={"text-[13px] " + t.soft}>{c.performance.emptyNoPost}</p>
+                    {days < 30 && <button type="button" onClick={() => setRange("30d")} className={"h-8 rounded-lg border px-3 text-[12px] font-medium " + t.ring + " " + t.outlineBtn}>{c.performance.showLast30Days}</button>}
+                  </div>
+                )}
+
+                <section aria-label={c.summary.title} aria-busy={youtubeLoading} className={"grid grid-cols-2 gap-4 transition-opacity lg:grid-cols-4 " + (youtubeLoading ? "opacity-60" : "")}>
                   {summaryBoxes.slice(0, 4).map((b) => (
                     <MetricBox
                       key={b.key}
@@ -3308,18 +3363,39 @@ export default function Insights() {
                 </section>
 
                 <div className="grid min-w-0 grid-cols-1 items-stretch gap-4 lg:grid-cols-2">
-                  <section className={panelCard + " min-w-0"} aria-labelledby="trend-panel-title">
-                    <div className="flex items-center justify-between gap-3">
-                      <h2 id="trend-panel-title" className={"text-[15px] font-medium " + t.text}>{mainSeries.label}</h2>
-                      <button type="button" onClick={cycleRange} aria-label={c.overview.dateRangeAria} className={"flex h-9 items-center gap-2 rounded-lg border px-3 text-[12px] " + t.ring + " " + t.outlineBtn}><Calendar className="h-3.5 w-3.5" aria-hidden="true" />{periodLabel}</button>
+                  <section className={panelCard + " flex min-w-0 flex-col"} aria-labelledby="trend-panel-title">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <h2 id="trend-panel-title" className={"text-[13px] " + t.muted}>{mainSeries.label}</h2>
+                        <div className="mt-1 flex items-baseline gap-2.5">
+                          <span className={"text-[28px] font-medium leading-none tracking-[-0.03em] tabular-nums " + t.text}>{nf(seriesTotal(mainSeries), lang)}</span>
+                          {mainDelta != null && <span className={"flex items-center gap-1 text-[12px] tabular-nums " + t.muted}>{mainDelta < 0 ? <TrendingDown className="h-3.5 w-3.5" aria-hidden="true" /> : <TrendingUp className="h-3.5 w-3.5" aria-hidden="true" />}{mainDelta > 0 ? "+" : ""}{mainDelta}%</span>}
+                        </div>
+                      </div>
+                      <span className={"flex h-9 shrink-0 items-center gap-2 rounded-lg border px-3 text-[12px] " + t.panel + " " + t.soft}><Calendar className="h-3.5 w-3.5" aria-hidden="true" />{periodLabel}</span>
                     </div>
-                    <div className="mt-4"><InsightsChart data={chartData} view="both" isDark={isDark} isMobile={isMobile} lang={lang} seriesLabel={mainSeries.label} seriesColor={TONES[0]} /></div>
+                    <div className={"mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] " + t.muted}>
+                      <span className="flex items-center gap-2"><span className={"h-0.5 w-4 rounded-full " + (isDark ? "bg-white" : "bg-black")} aria-hidden="true" />{c.trends.thisPeriod}</span>
+                      <span className="flex items-center gap-2"><span className="w-4 border-t border-dashed border-current" aria-hidden="true" />{c.trends.previousPeriod}</span>
+                    </div>
+                    <div className="mt-3"><InsightsChart data={chartData} view="both" isDark={isDark} isMobile={isMobile} lang={lang} seriesLabel={mainSeries.label} seriesColor={TONES[0]} /></div>
+                    <dl className={"mt-4 grid grid-cols-2 gap-3 border-t pt-4 " + t.border}>
+                      {summaryBoxes.slice(4).map((b) => (
+                        <div key={b.key} className="min-w-0">
+                          <dt className={"truncate text-[12px] " + t.muted}>{c.summary.labels[b.key]}</dt>
+                          <dd className={"mt-0.5 text-[17px] font-medium tabular-nums " + t.text}>{b.value}</dd>
+                        </div>
+                      ))}
+                    </dl>
                   </section>
 
-                  <section className={panelCard + " min-w-0"} aria-labelledby="weekday-title">
-                    <div className="flex items-center justify-between gap-3">
-                      <h2 id="weekday-title" className={"text-[15px] font-medium " + t.text}>{lang === "fr" ? "Activité par jour" : "Activity by weekday"}</h2>
-                      <div className={"flex items-center gap-3 text-[12px] " + t.muted}>
+                  <section className={panelCard + " flex min-w-0 flex-col"} aria-labelledby="weekday-title">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <h2 id="weekday-title" className={"text-[15px] font-medium " + t.text}>{lang === "fr" ? "Activité par jour" : "Activity by weekday"}</h2>
+                        <p className={"mt-1 text-[12px] " + t.muted}>{bestWeekday ? (lang === "fr" ? "Jour le plus actif : " : "Most active day: ") + bestWeekday : (lang === "fr" ? "Pas encore d'activité sur cette période" : "No activity in this period yet")}</p>
+                      </div>
+                      <div className={"flex shrink-0 items-center gap-3 text-[12px] " + t.muted}>
                         <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[#bdbdbd]" aria-hidden="true" />{c.summary.labels.reactions}</span>
                         <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[#555555]" aria-hidden="true" />{c.summary.labels.comments}</span>
                       </div>
@@ -3328,57 +3404,48 @@ export default function Insights() {
                   </section>
                 </div>
 
-                <section className={panelCard + " min-w-0"} aria-labelledby="recycle-title">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <h2 id="recycle-title" className={"text-[15px] font-medium " + t.text}>{c.recycle.title}</h2>
-                    <label className={"flex h-9 w-full items-center gap-2 rounded-lg border px-3 text-[12px] transition-colors sm:w-[240px] " + (isDark ? "focus-within:border-white/25 " : "focus-within:border-black/30 ") + t.panel + " " + t.muted}>
-                      <Search className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                      <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={lang === "fr" ? "Rechercher" : "Search"} aria-label={lang === "fr" ? "Rechercher une publication" : "Search posts"} className={"min-w-0 flex-1 bg-transparent outline-none placeholder:text-current " + t.text} />
-                    </label>
-                  </div>
-                  {(() => {
-                    const cards = remixable.filter((p) => !needle || p.label.toLowerCase().includes(needle));
-                    if (cards.length === 0) return <p className={"mt-4 text-xs " + t.soft}>{needle ? c.performance.emptyNoMatch : c.recycle.emptyHint}</p>;
-                    return (
-                      <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                        {cards.map((p) => (
-                          <article key={p.id} className={"flex min-w-0 flex-col rounded-xl border p-4 " + t.inner + " " + t.lift}>
-                            <div className="flex items-start justify-between gap-2">
-                              <div className={"relative h-[60px] w-[80px] shrink-0 rounded-lg border " + (isDark ? "shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_4px_10px_-3px_rgba(0,0,0,0.55)] " : "shadow-[0_3px_8px_-3px_rgba(16,24,40,0.18)] ") + t.border + " " + (isDark ? "bg-[#1a1a1d]" : "bg-[#ececec]")}>
-                                <span className={"absolute -top-[5px] left-0 h-[7px] w-8 rounded-t-md border border-b-0 " + t.border + " " + (isDark ? "bg-[#1a1a1d]" : "bg-[#ececec]")} aria-hidden="true" />
-                                {p.thumbnailUrl ? <img src={p.thumbnailUrl} alt="" referrerPolicy="no-referrer" loading="lazy" className="h-full w-full rounded-lg object-cover opacity-60" /> : <span className={"flex h-full w-full items-center justify-center " + t.muted}>{mediaIcon(p.media)}</span>}
-                                <span className={"absolute bottom-2 right-2 h-px w-3 " + (isDark ? "bg-white/30" : "bg-black/25")} aria-hidden="true" />
-                              </div>
-                              <div className={"flex items-center gap-1.5 text-[12px] " + t.soft}>
-                                <span className="tabular-nums">{nf(p.reactions, lang)}+</span>
-                                <span className="flex -space-x-1.5" aria-hidden="true">{[0, 1, 2].map((i) => <span key={i} className={"h-[18px] w-[18px] rounded-full border-2 " + (isDark ? "border-[#141416] " : "border-[#f6f6f6] ") + (["bg-[#8c8c8c]", "bg-[#666666]", "bg-[#4a4a4a]"][i])} />)}</span>
-                              </div>
-                            </div>
-                            <h3 className={"mt-4 truncate text-[15px] font-medium " + t.text}>{p.label}</h3>
-                            <p className={"mt-1 line-clamp-2 min-h-[2.6em] text-[13px] leading-snug " + t.muted}>{c.recycle.engagement(p.reactions, p.engRate.toFixed(1))}</p>
-                            <div className="mt-4 flex items-center gap-2">
-                              <button type="button" onClick={() => duplicatePost(p)} className={"flex h-9 flex-1 items-center justify-center gap-2 rounded-lg border text-[13px] font-medium " + t.ring + " " + t.outlineBtn}><Copy className="h-3.5 w-3.5" aria-hidden="true" />{c.recycle.duplicate}</button>
-                              {isYouTube ? (
-                                <a href={"https://www.youtube.com/watch?v=" + p.id} target="_blank" rel="noopener noreferrer" className={"flex h-9 flex-1 items-center justify-center gap-2 rounded-lg text-[13px] " + t.ring + " " + t.soft + " " + t.hover}><ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />{lang === "fr" ? "Ouvrir" : "Open"}</a>
-                              ) : (
-                                <button type="button" onClick={() => openComposer({ reason: "manual", channelKey: channel?.key })} className={"flex h-9 flex-1 items-center justify-center gap-2 rounded-lg text-[13px] " + t.ring + " " + t.soft + " " + t.hover}><Pencil className="h-3.5 w-3.5" aria-hidden="true" />{lang === "fr" ? "Nouveau" : "New"}</button>
-                              )}
-                            </div>
-                          </article>
-                        ))}
-                      </div>
-                    );
-                  })()}
-                </section>
-
                 <section className={sectionCard + " min-w-0"} aria-labelledby="besttime-title">
-                    <div className="flex flex-wrap items-start justify-between gap-2"><div className="min-w-0"><h2 id="besttime-title" className={sectionTitle}>{c.bestTime.title}</h2><p className={sectionSub}>{subhead}</p></div><button type="button" onClick={() => scheduleFromSlot(heatmap.best)} className={"h-8 shrink-0 rounded-lg border px-3 text-[10px] font-medium " + t.ring + " " + t.outlineBtn}>{c.bestTime.useLabel(heatmap.label)}</button></div>
-                    <div className={"mt-3 flex items-center gap-3 text-[9px] " + t.muted}><span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[#bdbdbd]" />{c.bestTime.high}</span><span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-white/20" />{c.bestTime.low}</span></div>
+                    <div className="flex flex-wrap items-start justify-between gap-2"><div className="min-w-0"><h2 id="besttime-title" className={sectionTitle}>{c.bestTime.title}</h2><p className={sectionSub}>{subhead}</p></div><button type="button" onClick={() => scheduleFromSlot(heatmap.best)} className={"h-8 shrink-0 rounded-lg border px-3 text-[12px] font-medium " + t.ring + " " + t.outlineBtn}>{c.bestTime.useLabel(heatmap.label)}</button></div>
+                    <div className={"mt-3 flex items-center gap-3 text-[11px] " + t.muted}><span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[#bdbdbd]" />{c.bestTime.high}</span><span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-white/20" />{c.bestTime.low}</span></div>
                     {isMobile ? <BestTimeMobile heatmap={heatmap} c={c} t={t} isDark={isDark} onSchedule={scheduleFromSlot} /> : (
-                      <div className="mt-3 grid h-[190px] grid-cols-7 items-end gap-2 border-b px-1">{c.days.map((day, d) => { const slot = heatmap.bestByDay[d]; const intensity = Math.max(0.08, slot.norm); return <button key={day} type="button" onClick={() => scheduleFromSlot({ day: d, hour: slot.hour })} title={c.bestTime.scheduleAria(day, hourLabel(slot.hour))} aria-label={c.bestTime.scheduleAria(day, hourLabel(slot.hour))} className={"group flex h-full min-w-0 flex-col items-center justify-end gap-2 rounded-lg px-1 pb-2 " + t.ring}><span className="flex h-[145px] w-full items-end justify-center"><span className={"block w-full max-w-8 rounded-t-[4px] transition-opacity group-hover:opacity-70 " + (isDark ? "bg-[#bdbdbd]" : "bg-[#666666]")} style={{ height: Math.max(7, Math.round(intensity * 100)) + "%" }} /></span><span className={"text-[10px] " + t.muted}>{day}</span><span className={"text-[9px] tabular-nums " + t.soft}>{hourLabel(slot.hour)}</span></button>; })}</div>
+                      <div className="mt-3 grid h-[190px] grid-cols-7 items-end gap-2 border-b px-1">{c.days.map((day, d) => { const slot = heatmap.bestByDay[d]; const intensity = Math.max(0.08, slot.norm); return <button key={day} type="button" onClick={() => scheduleFromSlot({ day: d, hour: slot.hour })} title={c.bestTime.scheduleAria(day, hourLabel(slot.hour))} aria-label={c.bestTime.scheduleAria(day, hourLabel(slot.hour))} className={"group flex h-full min-w-0 flex-col items-center justify-end gap-2 rounded-lg px-1 pb-2 " + t.ring}><span className="flex h-[145px] w-full items-end justify-center"><span className={"block w-full max-w-8 rounded-t-[4px] transition-opacity group-hover:opacity-70 " + (isDark ? "bg-[#bdbdbd]" : "bg-[#666666]")} style={{ height: Math.max(7, Math.round(intensity * 100)) + "%" }} /></span><span className={"text-[12px] " + t.muted}>{day}</span><span className={"text-[11px] tabular-nums " + t.soft}>{hourLabel(slot.hour)}</span></button>; })}</div>
                     )}
-                    <p className={"mt-3 text-[10px] leading-relaxed " + t.muted}>{bestTimesNote}</p>
+                    <p className={"mt-3 text-[12px] leading-relaxed " + t.muted}>{bestTimesNote}</p>
                   </section>
+
+                <section className={panelCard + " min-w-0"} aria-labelledby="recycle-title">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <h2 id="recycle-title" className={sectionTitle}>{c.recycle.title}</h2>
+                      <p className={sectionSub}>{c.recycle.subtitle}</p>
+                    </div>
+                    <span className={"text-[12px] " + t.muted}>{remixable.length} {lang === "fr" ? "publications" : "posts"}</span>
+                  </div>
+                  {remixable.length === 0 ? <p className={"mt-4 text-[13px] " + t.soft}>{c.recycle.emptyHint}</p> : (
+                    <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                      {remixable.map((p, i) => (
+                        <article key={p.id} className={"flex min-w-0 flex-col rounded-xl border p-4 " + t.inner + " " + t.lift}>
+                          <div className="flex items-start justify-between gap-2">
+                            <div className={"relative h-[60px] w-[80px] shrink-0 rounded-lg border " + (isDark ? "shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_4px_10px_-3px_rgba(0,0,0,0.55)] " : "shadow-[0_3px_8px_-3px_rgba(16,24,40,0.18)] ") + t.border + " " + (isDark ? "bg-[#1a1a1d]" : "bg-[#ececec]")}>
+                              <span className={"absolute -top-[5px] left-0 h-[7px] w-8 rounded-t-md border border-b-0 " + t.border + " " + (isDark ? "bg-[#1a1a1d]" : "bg-[#ececec]")} aria-hidden="true" />
+                              {p.thumbnailUrl ? <img src={p.thumbnailUrl} alt="" referrerPolicy="no-referrer" loading="lazy" className="h-full w-full rounded-lg object-cover opacity-70" /> : <span className={"flex h-full w-full items-center justify-center " + t.muted}>{mediaIcon(p.media)}</span>}
+                            </div>
+                            <div className="flex flex-col items-end gap-1">
+                              <span className={"rounded-md border px-1.5 py-0.5 text-[11px] font-medium " + t.border + " " + t.soft}>{c.recycle.rank(i + 1)}</span>
+                              <span className={"text-[11px] " + t.muted}>{c.media[p.media]}</span>
+                            </div>
+                          </div>
+                          <h3 className={"mt-4 truncate text-[15px] font-medium " + t.text}>{p.label}</h3>
+                          <p className={"mt-1 line-clamp-2 min-h-[2.6em] text-[13px] leading-snug " + t.muted}>{c.recycle.engagement(p.reactions, p.engRate.toFixed(1))}</p>
+                          <div className="mt-4 flex items-center gap-2">
+                            <button type="button" onClick={() => duplicatePost(p)} className={"flex h-9 flex-1 items-center justify-center gap-2 rounded-lg border text-[13px] font-medium " + t.ring + " " + t.outlineBtn}><Copy className="h-3.5 w-3.5" aria-hidden="true" />{c.recycle.duplicate}</button>
+                            {isYouTube && <a href={"https://www.youtube.com/watch?v=" + p.id} target="_blank" rel="noopener noreferrer" aria-label={c.performance.openYouTube} title={c.performance.openYouTube} className={"flex h-9 w-9 shrink-0 items-center justify-center rounded-lg " + t.ring + " " + t.soft + " " + t.hover}><ExternalLink className="h-4 w-4" aria-hidden="true" /></a>}
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                  )}
+                </section>
 
                 {/* ── PERFORMANCE PER POST ── */}
                 <section
@@ -3398,7 +3465,7 @@ export default function Insights() {
                           ` · ${c.performance.hiddenScheduled(hiddenScheduled)}`}
                       </p>
                     </div>
-                    <Segmented<PostsPeriod>
+                    <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto">{searchInput}<Segmented<PostsPeriod>
                       label={c.performance.periodAria}
                       value={postsPeriod}
                       onChange={setPostsPeriod}
@@ -3411,7 +3478,7 @@ export default function Insights() {
                           label: c.performance.periodPrevious,
                         },
                       ]}
-                    />
+                    /></div>
                   </div>
 
                   <div
