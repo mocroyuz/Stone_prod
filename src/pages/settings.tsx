@@ -4770,7 +4770,10 @@ function ChannelAvatar({
         />
         <span
           className={cx(
-            "absolute -right-1 -bottom-1 flex items-center justify-center ring-2",
+            cx(
+              "absolute -right-1 -bottom-1 flex items-center justify-center",
+              isFullBleedIcon(Icon) ? "ring-0" : "ring-2"
+            ),
             isFullBleedIcon(Icon)
               ? "h-[22px] w-[22px] rounded-[6px]"
               : "h-[18px] w-[18px] rounded-[5px]",
