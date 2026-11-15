@@ -3365,12 +3365,12 @@ export default function Insights() {
                 {/* ── NUMBERS ── */}
                 <section
                   aria-labelledby="all-title"
-                  className="flex min-w-0 flex-col gap-4"
+                  className="flex min-w-0 flex-col gap-3"
                 >
                   <div>
                     <h2
                       id="all-title"
-                      className={`text-[24px] font-semibold tracking-[-0.03em] md:text-[28px] ${t.text}`}
+                      className={`text-[21px] font-semibold tracking-[-0.03em] md:text-[24px] ${t.text}`}
                     >
                       {c.overview.title}
                     </h2>
@@ -3505,7 +3505,7 @@ export default function Insights() {
                   </div>
                 </section>
 
-                <div className="flex min-w-0 flex-col gap-3">
+                <div className="grid min-w-0 grid-cols-1 items-start gap-3 xl:grid-cols-2">
                 {/* ── TRENDS ── */}
                 <section
                   className={`${sectionCard} min-w-0`}
@@ -3629,7 +3629,7 @@ export default function Insights() {
                 </section>
 
                 {/* ── BEST TIME + RECYCLE ── */}
-                <div className="grid min-w-0 grid-cols-1 items-start gap-3 xl:grid-cols-2">
+                <div className="contents">
                   <section
                     className={`${sectionCard} min-w-0`}
                     aria-labelledby="besttime-title"
@@ -3758,7 +3758,7 @@ export default function Insights() {
                   </section>
 
                   <section
-                    className={`${sectionCard} min-w-0`}
+                    className={`${sectionCard} min-w-0 xl:col-span-2`}
                     aria-labelledby="recycle-title"
                   >
                     <div className="px-1">
@@ -3772,14 +3772,14 @@ export default function Insights() {
                         {c.recycle.emptyHint}
                       </p>
                     ) : (
-                      <div className="mt-4 flex flex-col gap-2.5">
+                      <div className="mt-4 grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
                         {remixable.map((p, i) => (
                           <div
                             key={p.id}
-                            className={`flex gap-3 rounded-2xl border p-3 md:p-3.5 ${t.inner}`}
+                            className={`flex min-w-0 gap-3 rounded-md border p-3 ${t.inner}`}
                           >
                             <span
-                              className={`flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl ${t.iconBox}`}
+                              className={`flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-md ${t.iconBox}`}
                             >
                               {p.thumbnailUrl ? (
                                 <img
