@@ -28,6 +28,7 @@ import {
   Activity,
   Bookmark,
   CalendarClock,
+  Calendar,
   Check,
   ChevronDown,
   ChevronRight,
@@ -37,22 +38,25 @@ import {
   Eye,
   FileText,
   Image as ImageIcon,
-  Info,
   Layers,
   MoreVertical,
+  Pencil,
   Play,
   Plus,
   RefreshCw,
+  Search,
   Send,
   Tag,
-  TrendingDown,
   TrendingUp,
+  Users,
   Zap,
 } from "lucide-react";
 import {
   ResponsiveContainer,
   AreaChart,
   Area,
+  BarChart,
+  Bar,
   Line,
   XAxis,
   YAxis,
@@ -844,14 +848,14 @@ type Tokens = {
 const tokens = (isDark: boolean): Tokens =>
   isDark
     ? {
-        page: "bg-[#050505]", text: "text-white", muted: "text-[#858585]", soft: "text-[#b0b0b0]",
-        card: "border-white/[0.09] bg-[#101010] shadow-[0_14px_42px_rgba(0,0,0,0.22)]",
-        panel: "border-white/[0.09] bg-[#151515]", inner: "border-white/[0.08] bg-white/[0.025]",
-        tile: "border-white/[0.09] bg-[#191919] shadow-[0_5px_18px_rgba(0,0,0,0.14)]",
-        border: "border-white/[0.09]", head: "bg-white/[0.04]",
+        page: "bg-[#101010]", text: "text-white", muted: "text-[#858585]", soft: "text-[#b0b0b0]",
+        card: "border-white/[0.07] bg-[#161616]",
+        panel: "border-white/[0.07] bg-[#1a1a1a]", inner: "border-white/[0.07] bg-white/[0.03]",
+        tile: "border-white/[0.07] bg-[#161616]",
+        border: "border-white/[0.07]", head: "bg-white/[0.03]",
         primaryBtn: "bg-white text-black hover:bg-neutral-200 shadow-none",
-        outlineBtn: "border border-white/15 bg-white/[0.025] text-white hover:bg-white/[0.08]",
-        iconBox: "bg-white/[0.09] text-white", ring: "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60",
+        outlineBtn: "border border-white/[0.09] bg-[#1f1f1f] text-white hover:bg-white/[0.08]",
+        iconBox: "bg-white/[0.07] text-white", ring: "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60",
         hover: "hover:bg-white/[0.06]", sel: "bg-white text-black shadow-none",
         idle: "text-[#a0a0a0] hover:text-white", popover: "border-white/10 bg-[#151515]", tip: "bg-[#292929]",
       }
@@ -1441,7 +1445,7 @@ const CROSS_DAY_SHARE = 0.15;
 
 type BestTimes = {
   grid: { value: number; norm: number; count: number }[][];
-  bestByDay: { day: number; hour: number }[];
+  bestByDay: { day: number; hour: number; norm: number }[];
   best: { day: number; hour: number };
   recommendations: { day: number; hour: number; norm: number }[];
   label: string;
@@ -1523,7 +1527,7 @@ function buildBestTimes(
     row.forEach((cell, h) => {
       if (cell.value > row[hour].value) hour = h;
     });
-    return { day, hour };
+    return { day, hour, norm: row[hour].norm };
   });
   const ranked = grid.flatMap((row, day) =>
     row.map((cell, hour) => ({ day, hour, norm: cell.norm, value: cell.value }))
@@ -1651,10 +1655,7 @@ function InsightsChart({
   isMobile,
   lang,
   seriesLabel,
-  seriesLabel2,
   seriesColor,
-  seriesColor2,
-  hasSecondAxis,
 }: {
   data: ChartRow[];
   view: ChartView;
@@ -1662,47 +1663,38 @@ function InsightsChart({
   isMobile: boolean;
   lang: Lang;
   seriesLabel: string;
-  seriesLabel2?: string;
   seriesColor: string;
-  seriesColor2?: string;
-  hasSecondAxis: boolean;
 }) {
   const uid = useId().replace(/:/g, "");
-  const gradLeft = `gradLeft-${uid}`;
-  const gradRight = `gradRight-${uid}`;
+  const hatch = `hatch-${uid}`;
   const c = COPY[lang];
 
   const showThis = view === "this" || view === "both";
   const showPrev = view === "comparison" || view === "both";
 
-  const axis = isDark ? "#6b6b72" : "#a3a3a3";
+  const axis = isDark ? "#7a7a7a" : "#a3a3a3";
   const grid = isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.07)";
-  const axisWidth = isMobile ? 34 : 40;
+  const hatchStroke = isDark ? "rgba(255,255,255,0.16)" : "rgba(0,0,0,0.14)";
+  const prevStroke = isDark ? "#8a8a8a" : "#9a9a9a";
 
   return (
-    <div className="h-[190px] w-full md:h-[205px]">
+    <div className="h-[220px] w-full md:h-[236px]">
       <ResponsiveContainer width="100%" height="100%">
         <AreaChart
           data={data}
-          margin={{
-            top: 12,
-            right: hasSecondAxis ? 40 : 8,
-            left: 0,
-            bottom: 0,
-          }}
+          margin={{ top: 8, right: 6, left: 0, bottom: 0 }}
           accessibilityLayer
         >
           <defs>
-            <linearGradient id={gradLeft} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={seriesColor} stopOpacity={0.22} />
-              <stop offset="100%" stopColor={seriesColor} stopOpacity={0} />
-            </linearGradient>
-            {hasSecondAxis && seriesColor2 && (
-              <linearGradient id={gradRight} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={seriesColor2} stopOpacity={0.14} />
-                <stop offset="100%" stopColor={seriesColor2} stopOpacity={0} />
-              </linearGradient>
-            )}
+            <pattern
+              id={hatch}
+              patternUnits="userSpaceOnUse"
+              width="6"
+              height="6"
+              patternTransform="rotate(45)"
+            >
+              <line x1="0" y1="0" x2="0" y2="6" stroke={hatchStroke} strokeWidth="1" />
+            </pattern>
           </defs>
 
           <CartesianGrid stroke={grid} vertical={false} />
@@ -1712,93 +1704,198 @@ function InsightsChart({
             tick={{ fill: axis, fontSize: 11 }}
             axisLine={false}
             tickLine={false}
-            tickMargin={8}
-            minTickGap={isMobile ? 36 : 24}
+            tickMargin={10}
+            minTickGap={isMobile ? 36 : 28}
           />
-
           <YAxis
             yAxisId="left"
+            domain={[0, "auto"]}
+            tickCount={5}
+            allowDecimals={false}
             tick={{ fill: axis, fontSize: 11 }}
             axisLine={false}
             tickLine={false}
             tickFormatter={(v) => nf(Number(v), lang)}
-            width={axisWidth}
+            width={isMobile ? 34 : 40}
           />
-          {hasSecondAxis && (
-            <YAxis
-              yAxisId="right"
-              orientation="right"
-              tick={{ fill: axis, fontSize: 11 }}
-              axisLine={false}
-              tickLine={false}
-              tickFormatter={(v) => nf(Number(v), lang)}
-              width={axisWidth}
-            />
-          )}
 
           <Tooltip
-            cursor={{ stroke: axis, strokeOpacity: 0.6, strokeDasharray: "3 3" }}
+            cursor={{ stroke: axis, strokeOpacity: 0.5, strokeDasharray: "3 3" }}
             content={<ChartTooltip isDark={isDark} lang={lang} />}
           />
 
-          {showPrev && (
-            <>
-              <Line
-                yAxisId="left"
-                type="monotone"
-                dataKey="left_prev"
-                stroke={seriesColor}
-                strokeOpacity={0.5}
-                strokeDasharray="5 5"
-                strokeWidth={2}
-                dot={false}
-                name={`${seriesLabel} ${c.trends.prevSuffix}`}
-                isAnimationActive={false}
-              />
-              {hasSecondAxis && seriesColor2 && (
-                <Line
-                  yAxisId="right"
-                  type="monotone"
-                  dataKey="right_prev"
-                  stroke={seriesColor2}
-                  strokeOpacity={0.5}
-                  strokeDasharray="5 5"
-                  strokeWidth={2}
-                  dot={false}
-                  name={`${seriesLabel2} ${c.trends.prevSuffix}`}
-                  isAnimationActive={false}
-                />
-              )}
-            </>
+          {showThis && (
+            <Area
+              yAxisId="left"
+              type="monotone"
+              dataKey="left_this"
+              stroke={seriesColor}
+              strokeWidth={2}
+              fill={`url(#${hatch})`}
+              fillOpacity={1}
+              name={seriesLabel}
+              isAnimationActive={false}
+            />
           )}
 
-          {showThis && (
-            <>
-              <Area
-                yAxisId="left"
-                type="monotone"
-                dataKey="left_this"
-                stroke={seriesColor}
-                strokeWidth={2.5}
-                fill={`url(#${gradLeft})`}
-                name={seriesLabel}
-                isAnimationActive={false}
-              />
-              {hasSecondAxis && seriesColor2 && (
-                <Area
-                  yAxisId="right"
-                  type="monotone"
-                  dataKey="right_this"
-                  stroke={seriesColor2}
-                  strokeWidth={2.5}
-                  fill={`url(#${gradRight})`}
-                  name={seriesLabel2}
-                  isAnimationActive={false}
-                />
-              )}
-            </>
+          {showPrev && (
+            <Line
+              yAxisId="left"
+              type="monotone"
+              dataKey="left_prev"
+              stroke={prevStroke}
+              strokeDasharray="5 4"
+              strokeWidth={1.75}
+              dot={false}
+              name={`${seriesLabel} ${c.trends.prevSuffix}`}
+              isAnimationActive={false}
+            />
           )}
         </AreaChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+type WeekdayRow = { day: string; a: number; b: number };
+
+function WeekdayTooltip({
+  active,
+  payload,
+  label,
+  isDark,
+  labelA,
+  labelB,
+  lang,
+}: {
+  active?: boolean;
+  payload?: ReadonlyArray<{ value?: number | string; dataKey?: string | number }>;
+  label?: string | number;
+  isDark: boolean;
+  labelA: string;
+  labelB: string;
+  lang: Lang;
+}) {
+  if (!active || !payload?.length) return null;
+  const val = (k: string) =>
+    Number(payload.find((p) => p.dataKey === k)?.value) || 0;
+  return (
+    <div
+      className={`min-w-[104px] rounded-md px-2.5 py-2 text-[11px] shadow-[0_8px_30px_rgba(0,0,0,0.35)] ${
+        isDark
+          ? "bg-[#101010] text-white ring-1 ring-white/10"
+          : "bg-white text-neutral-900 ring-1 ring-black/10"
+      }`}
+    >
+      <div className="mb-1 opacity-60">{label}</div>
+      <div className="flex items-center justify-between gap-4">
+        <span className="flex items-center gap-1.5">
+          <span className="h-1.5 w-1.5 rounded-full bg-[#bdbdbd]" aria-hidden="true" />
+          {labelA}
+        </span>
+        <b className="tabular-nums">{nf(val("a"), lang)}</b>
+      </div>
+      <div className="flex items-center justify-between gap-4">
+        <span className="flex items-center gap-1.5">
+          <span className="h-1.5 w-1.5 rounded-full bg-[#555555]" aria-hidden="true" />
+          {labelB}
+        </span>
+        <b className="tabular-nums">{nf(val("b"), lang)}</b>
+      </div>
+    </div>
+  );
+}
+
+function WeekdayBars({
+  data,
+  isDark,
+  isMobile,
+  lang,
+  labelA,
+  labelB,
+}: {
+  data: WeekdayRow[];
+  isDark: boolean;
+  isMobile: boolean;
+  lang: Lang;
+  labelA: string;
+  labelB: string;
+}) {
+  const uid = useId().replace(/:/g, "");
+  const gA = `barA-${uid}`;
+  const gB = `barB-${uid}`;
+  const axis = isDark ? "#7a7a7a" : "#a3a3a3";
+  const grid = isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.07)";
+  const aTop = isDark ? "#b9b9b9" : "#3a3a3a";
+  const aMid = isDark ? "#8c8c8c" : "#6a6a6a";
+  const aBot = isDark ? "#3b3b3b" : "#c9c9c9";
+  const bTop = isDark ? "#4a4a4a" : "#b5b5b5";
+  const bBot = isDark ? "#2c2c2c" : "#dcdcdc";
+
+  return (
+    <div className="h-[220px] w-full md:h-[236px]">
+      <ResponsiveContainer width="100%" height="100%">
+        <BarChart
+          data={data}
+          margin={{ top: 8, right: 6, left: 0, bottom: 0 }}
+          barGap={4}
+          barCategoryGap="24%"
+          accessibilityLayer
+        >
+          <defs>
+            <linearGradient id={gA} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={aTop} />
+              <stop offset="72%" stopColor={aMid} />
+              <stop offset="100%" stopColor={aBot} />
+            </linearGradient>
+            <linearGradient id={gB} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={bTop} />
+              <stop offset="100%" stopColor={bBot} />
+            </linearGradient>
+          </defs>
+          <CartesianGrid stroke={grid} vertical={false} />
+          <XAxis
+            dataKey="day"
+            tick={{ fill: axis, fontSize: 11 }}
+            axisLine={false}
+            tickLine={false}
+            tickMargin={10}
+          />
+          <YAxis
+            tickCount={4}
+            allowDecimals={false}
+            tick={{ fill: axis, fontSize: 11 }}
+            axisLine={false}
+            tickLine={false}
+            tickFormatter={(v) => nf(Number(v), lang)}
+            width={isMobile ? 34 : 40}
+          />
+          <Tooltip
+            cursor={{ fill: "transparent", stroke: axis, strokeOpacity: 0.3 }}
+            content={
+              <WeekdayTooltip
+                isDark={isDark}
+                labelA={labelA}
+                labelB={labelB}
+                lang={lang}
+              />
+            }
+          />
+          <Bar
+            dataKey="a"
+            fill={`url(#${gA})`}
+            radius={[3, 3, 0, 0]}
+            maxBarSize={30}
+            isAnimationActive={false}
+          />
+          <Bar
+            dataKey="b"
+            fill={`url(#${gB})`}
+            radius={[3, 3, 0, 0]}
+            maxBarSize={30}
+            isAnimationActive={false}
+          />
+        </BarChart>
       </ResponsiveContainer>
     </div>
   );
@@ -2304,6 +2401,9 @@ function MetricBox({
   isDark,
   isMobile,
   lang,
+  icon,
+  active = false,
+  onSelect,
 }: {
   label: string;
   value: string;
@@ -2313,34 +2413,60 @@ function MetricBox({
   isDark: boolean;
   isMobile: boolean;
   lang: Lang;
+  icon: ReactNode;
+  active?: boolean;
+  onSelect?: () => void;
 }) {
   const c = COPY[lang];
   const [hint, setHint] = useState(false);
   const up = delta != null && delta > 0;
-  const down = delta != null && delta < 0;
   return (
-    <div className={`group relative flex min-h-[76px] min-w-0 items-stretch overflow-hidden rounded-[7px] border ${t.tile}`}>
-      <div className="flex min-w-0 flex-1 flex-col justify-center gap-1.5 px-3 py-2.5">
-        <span className={`truncate text-[10px] font-medium md:text-[11px] ${t.soft}`}>{label}</span>
-        <span className={`text-[23px] font-semibold leading-none tracking-[-0.04em] tabular-nums md:text-[25px] ${t.text}`}>{value}</span>
-        {delta != null && (
-          <span className={`text-[9px] font-medium tabular-nums ${t.muted}`}>
-            {up ? "+" : ""}{delta}% {c.summary.vsPreviousShort}
+    <div
+      className={`group relative flex min-h-[80px] min-w-0 items-stretch overflow-hidden rounded-lg border transition-colors ${t.tile} ${
+        active ? (isDark ? "border-white/20" : "border-black/30") : ""
+      }`}
+    >
+      <button
+        type="button"
+        onClick={onSelect}
+        aria-pressed={onSelect ? active : undefined}
+        className={`flex min-w-0 flex-1 flex-col justify-center gap-1.5 px-3.5 py-3 text-left ${t.ring}`}
+      >
+        <span className={`truncate text-[13px] ${t.muted}`}>{label}</span>
+        <span className="flex items-baseline gap-2">
+          <span className={`text-[28px] font-medium leading-none tracking-[-0.03em] tabular-nums ${t.text}`}>
+            {value}
           </span>
-        )}
-      </div>
+          {delta != null && (
+            <span className={`text-[10px] font-medium tabular-nums ${t.muted}`}>
+              {up ? "+" : ""}
+              {delta}% {c.summary.vsPreviousShort}
+            </span>
+          )}
+        </span>
+      </button>
       <button
         type="button"
         aria-label={info}
         title={isMobile ? undefined : info}
-        onClick={() => { if (isMobile) setHint(true); }}
-        className={`my-2 flex w-[50px] shrink-0 items-center justify-center border-l ${t.border} ${t.muted} ${t.ring}`}
+        onClick={() => {
+          if (isMobile) setHint(true);
+        }}
+        className={`flex w-[92px] shrink-0 items-center justify-center border-l ${t.border} ${t.muted} ${t.ring} ${
+          isDark ? "bg-white/[0.015]" : "bg-black/[0.02]"
+        }`}
       >
-        <span className={`flex h-9 w-9 items-center justify-center rounded-md border ${t.border} ${t.inner}`}>
-          {label.toLowerCase().includes("post") ? <CalendarClock className="h-4 w-4" /> : label.toLowerCase().includes("comment") ? <Send className="h-4 w-4" /> : label.toLowerCase().includes("réaction") || label.toLowerCase().includes("reaction") ? <Zap className="h-4 w-4" /> : <Activity className="h-4 w-4" />}
+        <span
+          className={`flex h-11 w-11 items-center justify-center rounded-lg border shadow-[0_6px_14px_rgba(0,0,0,0.25)] ${t.border} ${
+            isDark ? "bg-[#202020] text-[#d4d4d4]" : "bg-white text-neutral-700"
+          }`}
+        >
+          {icon}
         </span>
       </button>
-      {hint && isMobile && <HintSheet isDark={isDark} title={label} text={info} onClose={() => setHint(false)} />}
+      {hint && isMobile && (
+        <HintSheet isDark={isDark} title={label} text={info} onClose={() => setHint(false)} />
+      )}
     </div>
   );
 }
@@ -2535,26 +2661,6 @@ function RangePicker({
   );
 }
 
-function InsightsIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className="h-[18px] w-[18px]"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M3 3v18h18" />
-      <path d="M18 17V9" />
-      <path d="M13 17V5" />
-      <path d="M8 17v-3" />
-    </svg>
-  );
-}
-
 /* ============================================================
    MEILLEUR MOMENT — version mobile
    7 lignes (une par jour) : bande de chaleur + meilleure heure.
@@ -2693,7 +2799,6 @@ function BestTimeMobile({
 
 /** Tableau des posts : cartes sous md, grille 6 colonnes dès md. */
 const TABLE_GRID = "md:grid-cols-[minmax(0,2.3fr)_1fr_1fr_1fr_1fr_44px]";
-const HEAT_COLS = "grid-cols-[repeat(24,minmax(0,1fr))]";
 
 export default function Insights() {
   const { theme } = useTheme();
@@ -2744,7 +2849,6 @@ export default function Insights() {
     addDays(startOfDay(new Date()), -29)
   );
   const [customEnd, setCustomEnd] = useState(() => startOfDay(new Date()));
-  const [compare, setCompare] = useState(false);
   const [showAllPosts, setShowAllPosts] = useState(false);
   const [postsPeriod, setPostsPeriod] = useState<PostsPeriod>("this");
   const [metricA, setMetricA] = useState<NumKey>("posts");
@@ -2757,7 +2861,7 @@ export default function Insights() {
   const [channelsOpen, setChannelsOpen] = useState(false);
   const [composerContext, setComposerContext] =
     useState<ComposerContext | null>(null);
-  const [query] = useState("");
+  const [query, setQuery] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
 
   /* ── Composer ── */
@@ -2856,9 +2960,6 @@ export default function Insights() {
   const prevStart = previous[0]?.date ?? addDays(start, -days);
   const prevEnd = previous[days - 1]?.date ?? addDays(start, -1);
   const periodLabel = fmtRange(start, end, lang);
-  const compareLabel = c.summary.comparedTo(
-    fmtRange(prevStart, prevEnd, lang)
-  );
 
   const prevTotals = useMemo(() => {
     const sum = (key: NumKey) => previous.reduce((a, p) => a + p[key], 0);
@@ -2912,7 +3013,6 @@ export default function Insights() {
   const goal = readPostingGoal(goalKey) ?? readPostingGoal("youtube") ?? 3;
   const goalPct =
     goal > 0 ? Math.min(100, Math.round((postsThisWeek / goal) * 100)) : 0;
-  const goalReached = postsThisWeek >= goal;
 
   const platformKey = (channel?.platform ?? "default").toLowerCase();
   const heatmap = useMemo(
@@ -2942,11 +3042,6 @@ export default function Insights() {
     heatmap.sample === 0
       ? c.bestTime.emptySubhead
       : c.bestTime.filledSubhead(heatmap.label);
-
-  const glance =
-    summary.posts === 0
-      ? null
-      : c.summary.glance(summary.posts, summary.reactions, summary.comments);
 
   const TONES: [string, string] = [isDark ? "#f5f5f5" : "#171717", "#858585"];
 
@@ -2984,7 +3079,6 @@ export default function Insights() {
       agg: "sum",
     },
   ];
-  const chartView: ChartView = compare ? "both" : "this";
 
   const activeSeries: SeriesDef[] = useMemo(() => {
     const o =
@@ -3016,19 +3110,31 @@ export default function Insights() {
     [dates, chartSeries, lang]
   );
 
-  const seriesTotal = (s: SeriesDef) =>
-    s.agg === "sum"
-      ? current.reduce((a, p) => a + p[s.key], 0)
-      : current[days - 1]?.[s.key] ?? 0;
-  const prevSeriesTotal = (s: SeriesDef) =>
-    s.agg === "sum"
-      ? previous.reduce((a, p) => a + p[s.key], 0)
-      : previous[previous.length - 1]?.[s.key] ?? 0;
   const mainSeries = activeSeries[0];
-  const mainDelta = pctDelta(
-    seriesTotal(mainSeries),
-    prevSeriesTotal(mainSeries)
-  );
+
+  const weekdayData: WeekdayRow[] = useMemo(() => {
+    const acc: WeekdayRow[] = c.days.map((day) => ({ day, a: 0, b: 0 }));
+    for (const p of current) {
+      const i = dayIndexMon(p.date);
+      if (acc[i]) {
+        acc[i].a += p.reactions;
+        acc[i].b += p.comments;
+      }
+    }
+    return acc;
+  }, [current, c.days]);
+
+  const cycleRange = () =>
+    setRange((r) =>
+      r === "7d" ? "30d" : r === "30d" ? "mtd" : r === "mtd" ? "custom" : "7d"
+    );
+
+  const statIcons: Record<string, ReactNode> = {
+    followers: <Users className="h-5 w-5" aria-hidden="true" />,
+    posts: <FileText className="h-5 w-5" aria-hidden="true" />,
+    reactions: <Zap className="h-5 w-5" aria-hidden="true" />,
+    comments: <Send className="h-5 w-5" aria-hidden="true" />,
+  };
 
   /* ── Tableau des posts ── */
   const rows = postsPeriod === "this" ? posts : previousPosts;
@@ -3064,7 +3170,6 @@ export default function Insights() {
     { key: "videoViews", render: (p) => nf(p.videoViews, lang) },
   ];
 
-  const mediaLabel = (m: PostRow["media"]) => c.media[m];
 
   const exportCsv = () => {
     const rowsCsv: (string | number)[][] = [
@@ -3122,6 +3227,7 @@ export default function Insights() {
     );
 
   const sectionCard = `rounded-[7px] border p-3 md:rounded-[7px] md:p-3 ${t.card}`;
+  const panelCard = `rounded-lg border p-4 ${t.card}`;
   const sectionTitle = `text-[12px] font-semibold tracking-[-0.01em] md:text-[13px] ${t.text}`;
   const sectionSub = `mt-0.5 text-[10px] leading-relaxed md:text-[10px] ${t.muted}`;
 
@@ -3136,13 +3242,12 @@ export default function Insights() {
     <main className={["relative h-dvh min-h-dvh w-full overflow-hidden overscroll-none compact-window selection:bg-black/15 transition-colors duration-300", t.page].join(" ")}>
       <DashboardSidebar theme={theme} />
       <div className="h-full min-h-0 px-2 py-2 md:py-3 md:pr-3 max-md:pt-[calc(3.5rem+env(safe-area-inset-top))] transition-[padding-left] duration-[380ms]" style={isMobile ? undefined : { paddingLeft: sidebarOffset }}>
-        <div className={["h-full min-h-0 overflow-y-auto overflow-x-hidden overscroll-y-contain rounded-lg border", NO_SCROLLBAR, "transition-colors duration-300", isDark ? "border-white/[0.07] bg-[#111111]" : "border-[#e5e5e5] bg-[#f8f8f8]"].join(" ")}>
-          <div className="mx-auto flex w-full min-w-0 flex-col gap-3 px-[clamp(14px,1.6vw,24px)] pb-[calc(7.5rem+env(safe-area-inset-bottom))] pt-5 md:gap-3">
-            <header className="flex flex-wrap items-center justify-between gap-4 border-b pb-4">
+        <div className={["h-full min-h-0 overflow-y-auto overflow-x-hidden overscroll-y-contain rounded-lg border", NO_SCROLLBAR, "transition-colors duration-300", isDark ? "border-white/[0.07] bg-[#131313]" : "border-[#e5e5e5] bg-[#f8f8f8]"].join(" ")}>
+          <div className="mx-auto flex w-full min-w-0 flex-col gap-3 px-[clamp(14px,1.6vw,24px)] pb-[calc(7.5rem+env(safe-area-inset-bottom))] pt-5 md:gap-4">
+            <header className="flex flex-wrap items-end justify-between gap-4 pb-1">
               <div className="min-w-0">
-                <div className={"mb-2 flex items-center gap-2 text-xs " + t.muted}><Activity className="h-4 w-4" /> Analytics</div>
-                <h1 className={"text-[22px] font-semibold tracking-[-0.035em] md:text-2xl " + t.text}>{lang === "fr" ? "Vos performances en un coup d'œil" : "Fresh analytics from everything"}</h1>
-                <p className={"mt-1 text-[11px] " + t.muted}>{periodLabel}{channel ? " · " + channelLabel(channel) : ""}</p>
+                <div className={"mb-6 flex items-center gap-2 text-[14px] " + t.muted}><Activity className="h-4 w-4" /> Analytics</div>
+                <h1 className={"text-[22px] font-medium tracking-[-0.02em] md:text-[24px] " + t.text}>{lang === "fr" ? "Vos performances en un coup d'œil" : "Fresh analytics from everything"}</h1>
               </div>
               <div className="flex min-w-0 items-center gap-2 print:hidden">
                 <div className="hidden md:block"><ChannelMenu channels={channels} current={channel} isDark={isDark} onSelect={goChannel} allOption={channels.length > 1 ? { key: ALL_KEY, label: c.allNetworks } : undefined} selectedKey={viewingAll ? ALL_KEY : channel?.key} /></div>
@@ -3173,31 +3278,96 @@ export default function Insights() {
                     </div>
                     {range === "custom" && <RangePicker range={range} start={start} end={end} onStartChange={setCustomStart} onEndChange={setCustomEnd} t={t} isDark={isDark} isMobile={isMobile} lang={lang} />}
                   </div>
+                  <div className="hidden items-center gap-2 sm:flex" aria-label={c.summary.goalAria(postsThisWeek, goal)}><span className={"text-[11px] " + t.muted}>{c.summary.goalProgress(postsThisWeek, goal)}</span><div className={"h-1.5 w-20 overflow-hidden rounded-full " + t.inner}><div className={"h-full rounded-full " + (isDark ? "bg-white" : "bg-black")} style={{ width: goalPct + "%" }} /></div></div>
                   <button type="button" onClick={() => navigate("tags")} className={"flex h-9 items-center gap-2 rounded-md px-3 text-[11px] " + t.ring + " " + t.hover + " " + t.text}><Tag className="h-3.5 w-3.5" />{c.tagsButton}<ChevronDown className="h-3.5 w-3.5" /></button>
                 </div>
 
-                <section aria-labelledby="overview-title" className="flex min-w-0 flex-col gap-2">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div><h2 id="overview-title" className={"text-[13px] font-semibold " + t.text}>{c.summary.title}</h2><p className={"mt-0.5 text-[10px] " + t.muted}>{periodLabel} · {compareLabel}</p></div>
-                    <div className="flex items-center gap-2" aria-label={c.summary.goalAria(postsThisWeek, goal)}><span className={"text-[10px] " + t.muted}>{c.summary.goalProgress(postsThisWeek, goal)}</span><div className={"h-1.5 w-20 overflow-hidden rounded-full " + t.inner}><div className={"h-full rounded-full " + (isDark ? "bg-white" : "bg-black")} style={{ width: goalPct + "%" }} /></div></div>
-                  </div>
-                  {hasDemoInsights && <p className={"text-[10px] " + t.muted}>{lang === "fr" ? "Certaines données sont estimées selon l'activité disponible." : "Some data is estimated from available activity."}</p>}
-                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">{summaryBoxes.slice(0, 4).map((b) => <MetricBox key={b.key} label={c.summary.labels[b.key]} value={b.value} info={c.summary.info[b.key]} t={t} delta={b.delta} isDark={isDark} isMobile={isMobile} lang={lang} />)}</div>
+                {hasDemoInsights && <p className={"-mt-1 text-[11px] " + t.muted}>{lang === "fr" ? "Certaines données sont estimées selon l'activité disponible." : "Some data is estimated from available activity."}</p>}
+
+                <section aria-label={c.summary.title} className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                  {summaryBoxes.slice(0, 4).map((b) => (
+                    <MetricBox
+                      key={b.key}
+                      label={c.summary.labels[b.key]}
+                      value={b.value}
+                      info={c.summary.info[b.key]}
+                      t={t}
+                      delta={b.delta}
+                      isDark={isDark}
+                      isMobile={isMobile}
+                      lang={lang}
+                      icon={statIcons[b.key]}
+                      active={metricA === b.key}
+                      onSelect={() => setMetricA(b.key as NumKey)}
+                    />
+                  ))}
                 </section>
 
-                <div className="grid min-w-0 grid-cols-1 items-stretch gap-3 lg:grid-cols-[minmax(0,1.08fr)_minmax(0,0.92fr)]">
-                  <section className={sectionCard + " min-w-0"} aria-labelledby="trend-panel-title">
-                    <div className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0"><h2 id="trend-panel-title" className={sectionTitle}>{c.trends.title}</h2><p className={sectionSub}>{c.trends.subtitle(periodLabel)}</p></div>
-                      <button type="button" aria-pressed={compare} onClick={() => setCompare((v) => !v)} className={"flex h-8 items-center gap-2 rounded-md border px-2.5 text-[10px] " + t.ring + " " + (compare ? t.sel : t.outlineBtn)}><span className="h-2 w-2 rounded-full border border-current" />{c.trends.compareToggle}</button>
+                <div className="grid min-w-0 grid-cols-1 items-stretch gap-3 lg:grid-cols-2">
+                  <section className={panelCard + " min-w-0"} aria-labelledby="trend-panel-title">
+                    <div className="flex items-center justify-between gap-3">
+                      <h2 id="trend-panel-title" className={"text-[15px] font-medium " + t.text}>{mainSeries.label}</h2>
+                      <button type="button" onClick={cycleRange} aria-label={c.overview.dateRangeAria} className={"flex h-8 items-center gap-2 rounded-md border px-3 text-[12px] " + t.ring + " " + t.outlineBtn}><Calendar className="h-3.5 w-3.5" aria-hidden="true" />{periodLabel}</button>
                     </div>
-                    <div className="mt-3 overflow-x-auto">{/* metric selector */}<Segmented<NumKey> label={c.trends.metricAria} value={metricA} onChange={setMetricA} t={t} options={METRIC_OPTIONS.map((m) => ({ key: m.key, label: m.label, icon: m.icon }))} /></div>
-                    <div className={"mt-3 rounded-md border p-2.5 " + t.panel}>
-                      <div className="flex items-end justify-between gap-3"><div><p className={"text-[10px] " + t.soft}>{mainSeries.label}</p><p className={"mt-1 text-[25px] font-semibold leading-none tabular-nums " + t.text}>{nf(seriesTotal(mainSeries), lang)}</p></div><div className={"flex items-center gap-3 text-[9px] " + t.muted}><span className="flex items-center gap-1"><span className="h-0.5 w-4 bg-current" />{c.trends.thisPeriod}</span>{compare && <span className="flex items-center gap-1"><span className="w-4 border-t border-dashed border-current" />{c.trends.previousPeriod}</span>}</div></div>
-                      <div className="mt-3"><InsightsChart data={chartData} view={chartView} isDark={isDark} isMobile={isMobile} lang={lang} seriesLabel={mainSeries.label} seriesColor={TONES[0]} hasSecondAxis={false} /></div>
-                    </div>
+                    <div className="mt-4"><InsightsChart data={chartData} view="both" isDark={isDark} isMobile={isMobile} lang={lang} seriesLabel={mainSeries.label} seriesColor={TONES[0]} /></div>
                   </section>
 
-                  <section className={sectionCard + " min-w-0"} aria-labelledby="besttime-title">
+                  <section className={panelCard + " min-w-0"} aria-labelledby="weekday-title">
+                    <div className="flex items-center justify-between gap-3">
+                      <h2 id="weekday-title" className={"text-[15px] font-medium " + t.text}>{lang === "fr" ? "Activité par jour" : "Activity by weekday"}</h2>
+                      <div className={"flex items-center gap-3 text-[12px] " + t.muted}>
+                        <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[#bdbdbd]" aria-hidden="true" />{c.summary.labels.reactions}</span>
+                        <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[#555555]" aria-hidden="true" />{c.summary.labels.comments}</span>
+                      </div>
+                    </div>
+                    <div className="mt-4"><WeekdayBars data={weekdayData} isDark={isDark} isMobile={isMobile} lang={lang} labelA={c.summary.labels.reactions} labelB={c.summary.labels.comments} /></div>
+                  </section>
+                </div>
+
+                <section className={panelCard + " min-w-0"} aria-labelledby="recycle-title">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <h2 id="recycle-title" className={"text-[15px] font-medium " + t.text}>{c.recycle.title}</h2>
+                    <label className={"flex h-8 w-full items-center gap-2 rounded-md border px-2.5 text-[12px] sm:w-[220px] " + t.panel + " " + t.muted}>
+                      <Search className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                      <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={lang === "fr" ? "Rechercher" : "Search"} aria-label={lang === "fr" ? "Rechercher une publication" : "Search posts"} className={"min-w-0 flex-1 bg-transparent outline-none placeholder:text-current " + t.text} />
+                    </label>
+                  </div>
+                  {(() => {
+                    const cards = remixable.filter((p) => !needle || p.label.toLowerCase().includes(needle));
+                    if (cards.length === 0) return <p className={"mt-4 text-xs " + t.soft}>{needle ? c.performance.emptyNoMatch : c.recycle.emptyHint}</p>;
+                    return (
+                      <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                        {cards.map((p) => (
+                          <article key={p.id} className={"flex min-w-0 flex-col rounded-lg border p-3 " + t.inner}>
+                            <div className="flex items-start justify-between gap-2">
+                              <div className={"relative h-[60px] w-[80px] shrink-0 rounded-md border " + t.border + " " + (isDark ? "bg-[#242424]" : "bg-[#ececec]")}>
+                                <span className={"absolute -top-[5px] left-0 h-[7px] w-8 rounded-t-md border border-b-0 " + t.border + " " + (isDark ? "bg-[#242424]" : "bg-[#ececec]")} aria-hidden="true" />
+                                {p.thumbnailUrl ? <img src={p.thumbnailUrl} alt="" referrerPolicy="no-referrer" loading="lazy" className="h-full w-full rounded-md object-cover opacity-60" /> : <span className={"flex h-full w-full items-center justify-center " + t.muted}>{mediaIcon(p.media)}</span>}
+                                <span className={"absolute bottom-2 right-2 h-px w-3 " + (isDark ? "bg-white/30" : "bg-black/25")} aria-hidden="true" />
+                              </div>
+                              <div className={"flex items-center gap-1.5 text-[12px] " + t.soft}>
+                                <span className="tabular-nums">{nf(p.reactions, lang)}+</span>
+                                <span className="flex -space-x-1.5" aria-hidden="true">{[0, 1, 2].map((i) => <span key={i} className={"h-[18px] w-[18px] rounded-full border-2 " + (isDark ? "border-[#1a1a1a] " : "border-[#f6f6f6] ") + (["bg-[#8c8c8c]", "bg-[#666666]", "bg-[#4a4a4a]"][i])} />)}</span>
+                              </div>
+                            </div>
+                            <h3 className={"mt-4 truncate text-[15px] font-medium " + t.text}>{p.label}</h3>
+                            <p className={"mt-1 line-clamp-2 min-h-[2.6em] text-[13px] leading-snug " + t.muted}>{c.recycle.engagement(p.reactions, p.engRate.toFixed(1))}</p>
+                            <div className="mt-4 flex items-center gap-2">
+                              <button type="button" onClick={() => duplicatePost(p)} className={"flex h-9 flex-1 items-center justify-center gap-2 rounded-md border text-[13px] " + t.ring + " " + t.outlineBtn}><Copy className="h-3.5 w-3.5" aria-hidden="true" />{c.recycle.duplicate}</button>
+                              {isYouTube ? (
+                                <a href={"https://www.youtube.com/watch?v=" + p.id} target="_blank" rel="noopener noreferrer" className={"flex h-9 flex-1 items-center justify-center gap-2 rounded-md text-[13px] " + t.ring + " " + t.soft + " " + t.hover}><ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />{lang === "fr" ? "Ouvrir" : "Open"}</a>
+                              ) : (
+                                <button type="button" onClick={() => openComposer({ reason: "manual", channelKey: channel?.key })} className={"flex h-9 flex-1 items-center justify-center gap-2 rounded-md text-[13px] " + t.ring + " " + t.soft + " " + t.hover}><Pencil className="h-3.5 w-3.5" aria-hidden="true" />{lang === "fr" ? "Nouveau" : "New"}</button>
+                              )}
+                            </div>
+                          </article>
+                        ))}
+                      </div>
+                    );
+                  })()}
+                </section>
+
+                <section className={sectionCard + " min-w-0"} aria-labelledby="besttime-title">
                     <div className="flex flex-wrap items-start justify-between gap-2"><div className="min-w-0"><h2 id="besttime-title" className={sectionTitle}>{c.bestTime.title}</h2><p className={sectionSub}>{subhead}</p></div><button type="button" onClick={() => scheduleFromSlot(heatmap.best)} className={"h-8 shrink-0 rounded-md border px-3 text-[10px] font-medium " + t.ring + " " + t.outlineBtn}>{c.bestTime.useLabel(heatmap.label)}</button></div>
                     <div className={"mt-3 flex items-center gap-3 text-[9px] " + t.muted}><span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[#bdbdbd]" />{c.bestTime.high}</span><span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-white/20" />{c.bestTime.low}</span></div>
                     {isMobile ? <BestTimeMobile heatmap={heatmap} c={c} t={t} isDark={isDark} onSchedule={scheduleFromSlot} /> : (
@@ -3205,23 +3375,8 @@ export default function Insights() {
                     )}
                     <p className={"mt-3 text-[10px] leading-relaxed " + t.muted}>{bestTimesNote}</p>
                   </section>
-                </div>
 
-                <section className={sectionCard + " min-w-0"} aria-labelledby="recycle-title">
-                  <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 id="recycle-title" className={sectionTitle}>{c.recycle.title}</h2><p className={sectionSub}>{c.recycle.subtitle}</p></div><span className={"text-[10px] " + t.muted}>{remixable.length} {lang === "fr" ? "publications" : "posts"}</span></div>
-                  {remixable.length === 0 ? <p className={"mt-4 text-xs " + t.soft}>{c.recycle.emptyHint}</p> : (
-                    <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">{remixable.map((p, i) => (
-                      <article key={p.id} className={"min-w-0 overflow-hidden rounded-md border p-2.5 " + t.inner}>
-                        <div className={"relative flex h-[112px] items-center justify-center overflow-hidden rounded-md " + t.iconBox}>{p.thumbnailUrl ? <img src={p.thumbnailUrl} alt="" referrerPolicy="no-referrer" loading="lazy" className="h-full w-full object-cover" /> : mediaIcon(p.media)}<span className={"absolute right-2 top-2 rounded border px-1.5 py-0.5 text-[9px] " + t.border + " " + t.panel}>{c.recycle.rank(i + 1)}</span></div>
-                        <div className="mt-3 flex items-center justify-between gap-2"><span className={"truncate text-[13px] font-semibold " + t.text}>{p.label}</span><span className={"shrink-0 text-[9px] " + t.muted}>{mediaLabel(p.media)}</span></div>
-                        <p className={"mt-1 text-[10px] " + t.soft}>{c.recycle.engagement(p.reactions, p.engRate.toFixed(1))}</p>
-                        <button type="button" onClick={() => duplicatePost(p)} className={"mt-3 flex h-8 w-full items-center justify-center gap-2 rounded-md border text-[10px] font-medium " + t.ring + " " + t.outlineBtn}><Copy className="h-3.5 w-3.5" />{c.recycle.duplicate}</button>
-                      </article>
-                    ))}</div>
-                  )}
-                </section>
-
-                                {/* ── PERFORMANCE PER POST ── */}
+                {/* ── PERFORMANCE PER POST ── */}
                 <section
                   className={`${sectionCard} min-w-0`}
                   aria-labelledby="perf-title"
