@@ -2318,7 +2318,7 @@ function MetricBox({
   const down = delta != null && delta < 0;
   return (
     <div
-      className={`group relative flex h-full min-w-0 flex-col gap-2 overflow-hidden rounded-[20px] border px-3.5 py-4 transition-all duration-200 hover:-translate-y-0.5 md:gap-3 md:px-4 md:py-4.5 ${t.tile}`}
+      className={`group relative flex h-full min-w-0 flex-col gap-2 overflow-hidden rounded-[20px] border px-3.5 py-4 transition-all duration-200 hover:-translate-y-0.5 md:gap-3 md:px-4 md:py-[18px] ${t.tile}`}
     >
       <span
         aria-hidden="true"
