@@ -52,7 +52,7 @@ import {
   disconnectInstagram,
 } from "../services/instagram";
 import { getThreadsStatus, startThreadsLogin, disconnectThreads } from "../services/threads";
-import { fetchSubscription, type Subscription } from "../services/stripe";
+import { fetchInvoices, fetchSubscription, type StripeInvoice, type Subscription } from "../services/stripe";
 import {
   CHANNELS_CHANGED_EVENT,
   CACHE_MAX_AGE_MS,
@@ -410,6 +410,13 @@ type Copy = {
       title: string;
       description: string;
       none: string;
+      loading: string;
+      view: string;
+      download: string;
+      paid: string;
+      open: string;
+      void: string;
+      uncollectible: string;
     };
     notAvailable: string;
   };
@@ -807,8 +814,15 @@ const COPY: Record<Lang, Copy> = {
       },
       invoices: {
         title: "Invoices",
-        description: "Download past receipts.",
+        description: "Your automatically generated Stripe invoices.",
         none: "No invoices yet.",
+        loading: "Loading invoices…",
+        view: "View",
+        download: "Download PDF",
+        paid: "Paid",
+        open: "Awaiting payment",
+        void: "Voided",
+        uncollectible: "Uncollectible",
       },
       notAvailable: "Billing isn't available yet",
     },
@@ -1248,8 +1262,15 @@ const COPY: Record<Lang, Copy> = {
       },
       invoices: {
         title: "Factures",
-        description: "Téléchargez vos reçus passés.",
+        description: "Vos factures Stripe générées automatiquement.",
         none: "Aucune facture pour l'instant.",
+        loading: "Chargement des factures…",
+        view: "Consulter",
+        download: "Télécharger le PDF",
+        paid: "Payée",
+        open: "En attente de paiement",
+        void: "Annulée",
+        uncollectible: "Irrécouvrable",
       },
       notAvailable: "La facturation n'est pas encore disponible",
     },
@@ -4558,26 +4579,35 @@ function BillingSection({
   c: Copy;
 }) {
   const [subscription, setSubscription] = useState<Subscription | null>(null);
+  const [invoices, setInvoices] = useState<StripeInvoice[]>([]);
   const [loading, setLoading] = useState(true);
+  const [invoicesLoading, setInvoicesLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
-    fetchSubscription()
-      .then((value) => {
-        if (!cancelled) setSubscription(value);
-      })
-      .catch(() => {
-        if (!cancelled) setSubscription(null);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
+    Promise.allSettled([fetchSubscription(), fetchInvoices()]).then(([subResult, invoiceResult]) => {
+      if (cancelled) return;
+      if (subResult.status === "fulfilled") {
+        setSubscription(subResult.value);
+      } else {
+        console.error("Error loading Stripe subscription:", subResult.reason);
+        notify("Impossible de charger l'abonnement Stripe.", "error");
+      }
+      if (invoiceResult.status === "fulfilled") {
+        setInvoices(invoiceResult.value);
+      } else {
+        console.error("Error loading Stripe invoices:", invoiceResult.reason);
+        notify("Impossible de charger les factures Stripe.", "error");
+      }
+      setLoading(false);
+      setInvoicesLoading(false);
+    });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [notify]);
 
-  const date = (timestamp?: number) =>
+  const date = (timestamp?: number | null) =>
     timestamp
       ? new Date(timestamp * 1000).toLocaleDateString(undefined, {
           day: "numeric",
@@ -4585,6 +4615,11 @@ function BillingSection({
           year: "numeric",
         })
       : "—";
+  const money = (amount: number, currency: string) =>
+    new Intl.NumberFormat(undefined, {
+      style: "currency",
+      currency: (currency || "eur").toUpperCase(),
+    }).format(amount / 100);
   const payment = subscription?.payment_method;
   const paymentLabel = payment?.brand
     ? `${payment.brand.charAt(0).toUpperCase()}${payment.brand.slice(1)} •••• ${payment.last4 ?? ""}`
@@ -4600,6 +4635,13 @@ function BillingSection({
     incomplete: "Incomplet",
     incomplete_expired: "Expiré",
     paused: "En pause",
+  };
+  const invoiceStatusLabel: Record<string, string> = {
+    paid: c.billing.invoices.paid,
+    open: c.billing.invoices.open,
+    draft: "Brouillon",
+    void: c.billing.invoices.void,
+    uncollectible: c.billing.invoices.uncollectible,
   };
 
   return (
@@ -4660,9 +4702,54 @@ function BillingSection({
         description={c.billing.invoices.description}
         tokens={tokens}
       >
-        <p className={cx("text-[13px]", tokens.body)}>
-          {c.billing.invoices.none}
-        </p>
+        {invoicesLoading ? (
+          <p className={cx("text-[13px]", tokens.body)}>{c.billing.invoices.loading}</p>
+        ) : invoices.length === 0 ? (
+          <p className={cx("text-[13px]", tokens.body)}>{c.billing.invoices.none}</p>
+        ) : (
+          <div className={cx("divide-y", tokens.divide)}>
+            {invoices.map((invoice) => (
+              <div key={invoice.id} className="flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <p className={cx("truncate text-[13px] font-medium", tokens.heading)}>
+                    {invoice.number || invoice.id}
+                  </p>
+                  <p className={cx("mt-1 text-[12px]", tokens.body)}>
+                    {date(invoice.created)} · {invoice.description}
+                  </p>
+                  <p className={cx("mt-1 text-[12px]", tokens.body)}>
+                    {invoiceStatusLabel[invoice.status] ?? invoice.status}
+                  </p>
+                </div>
+                <div className="flex shrink-0 items-center gap-3">
+                  <span className={cx("text-[13px] font-semibold tabular-nums", tokens.heading)}>
+                    {money(invoice.status === "paid" ? invoice.amount_paid : invoice.total, invoice.currency)}
+                  </span>
+                  {invoice.hosted_invoice_url ? (
+                    <a
+                      href={invoice.hosted_invoice_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={cx("text-[12px] font-medium underline underline-offset-4", tokens.link)}
+                    >
+                      {c.billing.invoices.view}
+                    </a>
+                  ) : null}
+                  {invoice.invoice_pdf ? (
+                    <a
+                      href={invoice.invoice_pdf}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={cx("text-[12px] font-medium underline underline-offset-4", tokens.link)}
+                    >
+                      {c.billing.invoices.download}
+                    </a>
+                  ) : null}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </SectionCard>
     </>
   );
