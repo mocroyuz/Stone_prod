@@ -2178,7 +2178,7 @@ function MobileSettingsMenu({
   c: Copy;
   isDark: boolean;
 }) {
-  const groups = buildSidebarGroups(c);
+  const groups = buildSidebarGroups(c, isDark);
   const { show: showMfaNudge } = useMfaNudge();
 
   return (
