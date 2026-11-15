@@ -844,46 +844,28 @@ type Tokens = {
 const tokens = (isDark: boolean): Tokens =>
   isDark
     ? {
-        page: "bg-[#07080d]",
-        text: "text-[#f4f3fb]",
-        muted: "text-[#777b8b]",
-        soft: "text-[#a7a9b7]",
-        card: "border-white/[0.075] bg-[#10121a] shadow-[0_14px_42px_rgba(0,0,0,0.18)]",
-        panel: "border-white/[0.075] bg-[#141722]",
-        inner: "border-white/[0.07] bg-white/[0.025]",
-        tile: "border-white/[0.075] bg-[#171a25] shadow-[0_5px_18px_rgba(0,0,0,0.12)]",
-        border: "border-white/[0.07]",
-        head: "bg-white/[0.035]",
-        primaryBtn: "bg-[#aa9cff] text-[#18132b] hover:bg-[#b9adff] shadow-[0_5px_18px_rgba(126,105,255,0.22)]",
-        outlineBtn: "border border-white/10 bg-white/[0.025] text-white hover:bg-white/[0.08]",
-        iconBox: "bg-[#9b8aff]/12 text-[#b8adff]",
-        ring: "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#a99aff]/60",
-        hover: "hover:bg-white/[0.06]",
-        sel: "bg-[#aa9cff] text-[#18132b] shadow-[0_3px_12px_rgba(126,105,255,0.18)]",
-        idle: "text-[#a7a9b7] hover:text-white",
-        popover: "border-white/10 bg-[#141722]",
-        tip: "bg-[#29263a]",
+        page: "bg-[#050505]", text: "text-white", muted: "text-[#858585]", soft: "text-[#b0b0b0]",
+        card: "border-white/[0.09] bg-[#101010] shadow-[0_14px_42px_rgba(0,0,0,0.22)]",
+        panel: "border-white/[0.09] bg-[#151515]", inner: "border-white/[0.08] bg-white/[0.025]",
+        tile: "border-white/[0.09] bg-[#191919] shadow-[0_5px_18px_rgba(0,0,0,0.14)]",
+        border: "border-white/[0.09]", head: "bg-white/[0.04]",
+        primaryBtn: "bg-white text-black hover:bg-neutral-200 shadow-none",
+        outlineBtn: "border border-white/15 bg-white/[0.025] text-white hover:bg-white/[0.08]",
+        iconBox: "bg-white/[0.09] text-white", ring: "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60",
+        hover: "hover:bg-white/[0.06]", sel: "bg-white text-black shadow-none",
+        idle: "text-[#a0a0a0] hover:text-white", popover: "border-white/10 bg-[#151515]", tip: "bg-[#292929]",
       }
     : {
-        page: "bg-[#f0f2f8]",
-        text: "text-[#171927]",
-        muted: "text-[#9296a7]",
-        soft: "text-[#666c80]",
-        card: "border-[#e7e9f1] bg-white shadow-[0_12px_36px_rgba(28,34,65,0.055)]",
-        panel: "border-[#e8eaf2] bg-[#fbfbfe]",
-        inner: "border-[#e9ebf3] bg-[#f7f8fc]",
-        tile: "border-[#e8eaf2] bg-white shadow-[0_5px_18px_rgba(35,42,80,0.045)]",
-        border: "border-[#e8eaf2]",
-        head: "bg-[#f7f8fc]",
-        primaryBtn: "bg-[#5948dc] text-white hover:bg-[#4938ca] shadow-[0_5px_16px_rgba(89,72,220,0.2)]",
-        outlineBtn: "border border-[#e2e4ed] bg-white text-[#25283a] hover:bg-[#f7f7fc]",
-        iconBox: "bg-[#f0edff] text-[#6250e8]",
-        ring: "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7564ee]/45",
-        hover: "hover:bg-[#f5f5fb]",
-        sel: "bg-[#5948dc] text-white shadow-[0_3px_12px_rgba(89,72,220,0.2)]",
-        idle: "text-[#73788b] hover:text-[#24273a]",
-        popover: "border-[#e5e7ef] bg-white",
-        tip: "bg-[#24263a]",
+        page: "bg-[#f3f3f3]", text: "text-[#111111]", muted: "text-[#777777]", soft: "text-[#555555]",
+        card: "border-[#e5e5e5] bg-white shadow-[0_12px_36px_rgba(0,0,0,0.035)]",
+        panel: "border-[#e7e7e7] bg-[#fafafa]", inner: "border-[#e7e7e7] bg-[#f6f6f6]",
+        tile: "border-[#e7e7e7] bg-white shadow-[0_5px_18px_rgba(0,0,0,0.035)]",
+        border: "border-[#e7e7e7]", head: "bg-[#f5f5f5]",
+        primaryBtn: "bg-black text-white hover:bg-neutral-800 shadow-none",
+        outlineBtn: "border border-black/10 bg-white text-black hover:bg-black/[0.04]",
+        iconBox: "bg-black/[0.06] text-black", ring: "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/35",
+        hover: "hover:bg-black/[0.04]", sel: "bg-black text-white shadow-none",
+        idle: "text-[#777777] hover:text-black", popover: "border-[#e5e5e5] bg-white", tip: "bg-[#242424]",
       };
 
 /* ============================================================
@@ -1197,8 +1179,7 @@ function buildSampleInsights(
   lang: Lang
 ): InsightsData {
   const days = Math.max(
-    1,
-    Math.round((end.getTime() - start.getTime()) / DAY) + 1
+    1,    Math.round((end.getTime() - start.getTime()) / DAY) + 1
   );
   const rnd = mulberry32(seedFrom(`${platform}:${toInput(start)}:${days}`));
   const demos = COPY[lang].demo;
@@ -1553,12 +1534,9 @@ function buildBestTimes(
   };
 }
 
-const heatColor = (v: number) =>
-  `hsla(320, 85%, ${72 - 20 * v}%, ${0.1 + 0.9 * v})`;
-
-/** Couleur de chaleur posée par-dessus la couleur de fond de la classe. */
-const heatLayer = (v: number) => {
-  const c = heatColor(v);
+const heatColor = (v: number, isDark: boolean) => isDark ? `rgba(255,255,255,${0.045 + 0.72 * v})` : `rgba(0,0,0,${0.045 + 0.62 * v})`;
+const heatLayer = (v: number, isDark: boolean) => {
+  const c = heatColor(v, isDark);
   return { backgroundImage: `linear-gradient(${c}, ${c})` };
 };
 
@@ -2397,8 +2375,7 @@ type MetricOption = {
 
 function RangePicker({
   range,
-  start,
-  end,
+  start,  end,
   onStartChange,
   onEndChange,
   t,
@@ -2643,7 +2620,7 @@ function BestTimeMobile({
                   <span
                     key={h}
                     className="flex-1"
-                    style={heatLayer(cell.norm)}
+                    style={heatLayer(cell.norm, isDark)}
                   />
                 ))}
               </span>
@@ -2708,7 +2685,7 @@ function BestTimeMobile({
                               }`
                             : ""
                         }`}
-                        style={heatLayer(cell.norm)}
+                        style={heatLayer(cell.norm, isDark)}
                       >
                         {String(h).padStart(2, "0")}
                       </button>
@@ -2988,10 +2965,7 @@ export default function Insights() {
       ? null
       : c.summary.glance(summary.posts, summary.reactions, summary.comments);
 
-  const TONES: [string, string] = [
-    isDark ? "#aa9cff" : "#6250e8",
-    isDark ? "#66627d" : "#c0b8f4",
-  ];
+  const TONES: [string, string] = [isDark ? "#f5f5f5" : "#171717", "#858585"];
 
   const METRIC_OPTIONS: MetricOption[] = [
     {
@@ -3180,7 +3154,7 @@ export default function Insights() {
       className={[
         "relative h-dvh min-h-dvh w-full overflow-hidden overscroll-none",
         "compact-window",
-        "selection:bg-[#9b8aff]/25 transition-colors duration-300",
+        "selection:bg-black/15 transition-colors duration-300",
         t.page,
       ].join(" ")}
     >
@@ -3203,15 +3177,13 @@ export default function Insights() {
             "rounded-2xl border md:rounded-[28px]",
             NO_SCROLLBAR,
             "transition-colors duration-300",
-            isDark
-              ? "border-white/[0.055] bg-[#0c0e14]"
-              : "border-[#e5e8f0] bg-[#f9faff]",
+            isDark ? "border-white/[0.07] bg-[#0b0b0b]" : "border-[#e5e5e5] bg-[#f8f8f8]",
           ].join(" ")}
         >
           <div
             className={[
-              "mx-auto flex w-full min-w-0 max-w-[1720px]",
-              "flex-col gap-5 px-[clamp(14px,3vw,48px)] md:gap-6 compact-content",
+              "mx-auto flex w-full min-w-0 max-w-[1600px]",
+              "flex-col gap-4 px-[clamp(14px,2.5vw,40px)] md:gap-5 compact-content",
               "pb-[calc(7.5rem+env(safe-area-inset-bottom))] pt-[clamp(18px,3vw,34px)]",
             ].join(" ")}
           >
@@ -3394,74 +3366,6 @@ export default function Insights() {
                   </p>
                 )}
 
-                {/* ── DASHBOARD INTRO ── */}
-                <section
-                  aria-label={c.hero.eyebrow}
-                  className={`relative isolate overflow-hidden rounded-[26px] border px-5 py-6 md:rounded-[30px] md:px-8 md:py-7 ${
-                    isDark
-                      ? "border-[#a99aff]/15 bg-[radial-gradient(ellipse_at_85%_10%,rgba(132,111,255,0.18),transparent_38%),linear-gradient(115deg,#171925_0%,#11131d_58%,#171526_100%)]"
-                      : "border-[#e4e0ff] bg-[radial-gradient(ellipse_at_86%_8%,rgba(132,111,255,0.15),transparent_38%),linear-gradient(115deg,#ffffff_0%,#faf9ff_58%,#f1efff_100%)] shadow-[0_14px_36px_rgba(70,58,150,0.06)]"
-                  }`}
-                >
-                  <div
-                    aria-hidden="true"
-                    className="pointer-events-none absolute -right-10 -top-24 h-64 w-64 rounded-full border border-[#9b8aff]/15 md:-right-4 md:-top-28 md:h-80 md:w-80"
-                  />
-                  <div
-                    aria-hidden="true"
-                    className="pointer-events-none absolute -right-2 -top-16 h-48 w-48 rounded-full border border-[#9b8aff]/10 md:right-12 md:-top-20 md:h-64 md:w-64"
-                  />
-                  <div className="relative z-10 max-w-[760px]">
-                    <div className="mb-4 flex flex-wrap items-center gap-2">
-                      <span
-                        className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.13em] ${
-                          isDark
-                            ? "border-[#a99aff]/20 bg-[#a99aff]/10 text-[#c6bcff]"
-                            : "border-[#dcd5ff] bg-white/75 text-[#6654dc]"
-                        }`}
-                      >
-                        <Activity className="h-3 w-3" aria-hidden="true" />
-                        {c.hero.eyebrow}
-                      </span>
-                      <span className={`text-[11px] ${t.muted}`}>{periodLabel}</span>
-                      {hasDemoInsights && (
-                        <span
-                          className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-semibold ${
-                            isDark
-                              ? "border-amber-300/15 bg-amber-300/[0.08] text-amber-200"
-                              : "border-amber-200 bg-amber-50 text-amber-700"
-                          }`}
-                          title={
-                            lang === "fr"
-                              ? "Les statistiques de ce réseau sont des données d'exemple, pas des données récupérées auprès du réseau."
-                              : "This network's statistics are sample data, not data retrieved from the network."
-                          }
-                        >
-                          {lang === "fr" ? "Aperçu de démonstration" : "Demo preview"}
-                        </span>
-                      )}
-                    </div>
-                    <h2
-                      className={`max-w-[680px] text-[clamp(25px,3.2vw,38px)] font-bold leading-[1.08] tracking-[-0.045em] ${
-                        isDark ? "text-white" : "text-[#202139]"
-                      }`}
-                    >
-                      {c.hero.title}
-                    </h2>
-                    <p
-                      className={`mt-3 max-w-[620px] text-[12.5px] leading-[1.75] md:text-[13px] ${
-                        isDark ? "text-[#b3b2c4]" : "text-[#696d82]"
-                      }`}
-                    >
-                      {c.hero.subtitle}
-                    </p>
-                  </div>
-                  <div
-                    aria-hidden="true"
-                    className="pointer-events-none absolute bottom-0 right-[9%] hidden h-1 w-28 rounded-full bg-gradient-to-r from-transparent via-[#9b8aff]/50 to-transparent md:block"
-                  />
-                </section>
-
                 {/* ── NUMBERS ── */}
                 <section
                   aria-labelledby="all-title"
@@ -3474,9 +3378,10 @@ export default function Insights() {
                     >
                       {c.overview.title}
                     </h2>
-                    <p className={`mt-0.5 text-[12px] ${t.muted}`}>
-                      {c.overview.subtitle}
-                    </p>
+                    <div className="mt-1 flex flex-wrap items-center gap-2">
+                      <p className={`text-[12px] ${t.muted}`}>{c.overview.subtitle}</p>
+                      {hasDemoInsights && <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${t.border} ${t.soft}`}>{lang === "fr" ? "Données de démonstration" : "Demo data"}</span>}
+                    </div>
                   </div>
 
                   <div className="flex flex-wrap items-center justify-between gap-3">
@@ -3597,13 +3502,13 @@ export default function Insights() {
                           delta={b.delta}
                           isDark={isDark}
                           isMobile={isMobile}
-                          lang={lang}
-                        />
+                          lang={lang}                        />
                       ))}
                     </div>
                   </div>
                 </section>
 
+                <div className="grid min-w-0 items-start gap-4 xl:grid-cols-[minmax(0,1.65fr)_minmax(340px,0.9fr)]">
                 {/* ── TRENDS ── */}
                 <section
                   className={`${sectionCard} min-w-0`}
@@ -3729,7 +3634,7 @@ export default function Insights() {
                 </section>
 
                 {/* ── BEST TIME + RECYCLE ── */}
-                <div className="grid items-start gap-4 lg:grid-cols-2">
+                <div className="flex min-w-0 flex-col gap-4">
                   <section
                     className={`${sectionCard} min-w-0`}
                     aria-labelledby="besttime-title"
@@ -3826,7 +3731,7 @@ export default function Insights() {
                                             : ""
                                         }`}
                                         style={{
-                                          background: heatColor(cell.norm),
+                                          background: heatColor(cell.norm, isDark),
                                         }}
                                       />
                                     );
@@ -3844,7 +3749,7 @@ export default function Insights() {
                               <span
                                 key={v}
                                 className="h-3 w-3 rounded-[3px]"
-                                style={{ background: heatColor(v) }}
+                                style={{ background: heatColor(v, isDark) }}
                                 aria-hidden="true"
                               />
                             ))}
@@ -3930,6 +3835,7 @@ export default function Insights() {
                   </section>
                 </div>
 
+                </div>
                 {/* ── PERFORMANCE PER POST ── */}
                 <section
                   className={`${sectionCard} min-w-0`}
