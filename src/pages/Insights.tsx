@@ -1680,7 +1680,7 @@ function InsightsChart({
   const axisWidth = isMobile ? 34 : 40;
 
   return (
-    <div className="h-[220px] w-full md:h-[320px]">
+    <div className="h-[210px] w-full md:h-[260px]">
       <ResponsiveContainer width="100%" height="100%">
         <AreaChart
           data={data}
@@ -2319,69 +2319,28 @@ function MetricBox({
   const up = delta != null && delta > 0;
   const down = delta != null && delta < 0;
   return (
-    <div
-      className={`group relative flex h-full min-w-0 flex-col gap-2 overflow-hidden rounded-[20px] border px-3.5 py-4 transition-all duration-200 hover:-translate-y-0.5 md:gap-3 md:px-4 md:py-[18px] ${t.tile}`}
-    >
-      <span
-        aria-hidden="true"
-        className="absolute inset-x-4 top-0 h-[2px] rounded-full bg-gradient-to-r from-current/50 via-current/15 to-transparent opacity-50"
-      />
-      <span
-        className={`flex items-center justify-between gap-2 text-[11px] font-semibold tracking-[0.01em] md:text-[11.5px] ${t.soft}`}
+    <div className={`group relative flex min-h-[78px] min-w-0 items-stretch overflow-hidden rounded-[7px] border ${t.tile}`}>
+      <div className="flex min-w-0 flex-1 flex-col justify-center gap-1.5 px-3 py-2.5">
+        <span className={`truncate text-[10px] font-medium md:text-[11px] ${t.soft}`}>{label}</span>
+        <span className={`text-[23px] font-semibold leading-none tracking-[-0.04em] tabular-nums md:text-[25px] ${t.text}`}>{value}</span>
+        {delta != null && (
+          <span className={`text-[9px] font-medium tabular-nums ${t.muted}`}>
+            {up ? "+" : ""}{delta}% {c.summary.vsPreviousShort}
+          </span>
+        )}
+      </div>
+      <button
+        type="button"
+        aria-label={info}
+        title={isMobile ? undefined : info}
+        onClick={() => { if (isMobile) setHint(true); }}
+        className={`my-2 flex w-[54px] shrink-0 items-center justify-center border-l ${t.border} ${t.muted} ${t.ring}`}
       >
-        <span className="truncate">{label}</span>
-        <button
-          type="button"
-          aria-label={info}
-          title={isMobile ? undefined : info}
-          onClick={() => {
-            if (isMobile) setHint(true);
-          }}
-          className={`-mr-1.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full md:-mr-0.5 md:h-6 md:w-6 ${t.muted} ${t.ring}`}
-        >
-          <Info className="h-3.5 w-3.5" aria-hidden="true" />
-        </button>
-      </span>
-      <span
-        className={`mt-0.5 text-[23px] font-semibold leading-none tracking-[-0.04em] tabular-nums md:text-[24px] ${t.text}`}
-      >
-        {value}
-      </span>
-      {delta != null && (
-        <span
-          className={[
-            "inline-flex w-fit max-w-full items-center gap-0.5 rounded-full px-1.5 py-0.5",
-            "text-[10px] font-semibold tabular-nums md:text-[9px]",
-            up
-              ? isDark
-                ? "bg-white/[0.08] text-white"
-                : "bg-black/[0.06] text-black"
-              : down
-                ? isDark
-                  ? "bg-white/[0.08] text-white"
-                  : "bg-black/[0.06] text-black"
-                : t.muted,
-          ].join(" ")}
-        >
-          {up ? (
-            <TrendingUp className="h-2.5 w-2.5 shrink-0" aria-hidden="true" />
-          ) : down ? (
-            <TrendingDown className="h-2.5 w-2.5 shrink-0" aria-hidden="true" />
-          ) : null}
-          <span className="sr-only">{up ? "↑ " : down ? "↓ " : ""}</span>
-          {up ? "+" : ""}
-          {delta}%<span className="max-md:sr-only"> {c.summary.vsPreviousShort}</span>
+        <span className={`flex h-9 w-9 items-center justify-center rounded-md border ${t.border} ${t.inner}`}>
+          {label.toLowerCase().includes("post") ? <CalendarDays className="h-4 w-4" /> : label.toLowerCase().includes("comment") ? <MessageCircle className="h-4 w-4" /> : label.toLowerCase().includes("réaction") || label.toLowerCase().includes("reaction") ? <Heart className="h-4 w-4" /> : <Users className="h-4 w-4" />}
         </span>
-      )}
-
-      {hint && isMobile && (
-        <HintSheet
-          isDark={isDark}
-          title={label}
-          text={info}
-          onClose={() => setHint(false)}
-        />
-      )}
+      </button>
+      {hint && isMobile && <HintSheet isDark={isDark} title={label} text={info} onClose={() => setHint(false)} />}
     </div>
   );
 }
@@ -3474,7 +3433,7 @@ export default function Insights() {
                     </button>
                   </div>
 
-                  <div className={sectionCard}>
+                  <div className="rounded-none border-0 bg-transparent p-0">
                     <div className="flex flex-wrap items-start justify-between gap-3 px-1">
                       <div className="min-w-0">
                         <h3 className={sectionTitle}>{c.summary.title}</h3>
@@ -3584,7 +3543,7 @@ export default function Insights() {
                   </div>
 
                   <div
-                    className={`mt-3 rounded-2xl border p-3 md:p-5 ${t.panel}`}
+                    className={`mt-3 rounded-[7px] border p-2.5 md:p-3 ${t.panel}`}
                   >
                     <div className="flex flex-wrap items-end justify-between gap-3 pl-1 md:gap-4 md:pl-2">
                       <div className="min-w-0">
@@ -3719,14 +3678,14 @@ export default function Insights() {
                         {c.recycle.emptyHint}
                       </p>
                     ) : (
-                      <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                      <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
                         {remixable.map((p, i) => (
                           <div
                             key={p.id}
-                            className={`flex min-w-0 gap-2 rounded-[7px] border p-2 ${t.inner}`}
+                            className={`flex min-w-0 flex-col gap-2 rounded-[7px] border p-2.5 ${t.inner}`}
                           >
                             <span
-                              className={`flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-md ${t.iconBox}`}
+                              className={`flex h-[58px] w-full shrink-0 items-center justify-center overflow-hidden rounded-md ${t.iconBox}`}
                             >
                               {p.thumbnailUrl ? (
                                 <img
