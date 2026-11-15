@@ -5175,7 +5175,7 @@ function ChannelsSection({
       : "Free";
   const maxChannels =
     activePlanKey === "pro" || activePlanKey === "enterprise"
-      ? CHANNELS.length
+      ? CHANNELS.filter((channel) => channel.key !== "facebook").length
       : 3;
 
   const startOnboarding = (key: ChannelKey, connection: Connection) => {
