@@ -531,7 +531,7 @@ function IntegrationCard({
   return (
     <div
       className={[
-        "group flex h-full flex-col rounded-2xl border p-4 transition sm:p-3.5",
+        "group flex min-w-0 items-center gap-3 rounded-xl border px-3 py-3 transition sm:gap-4 sm:px-3.5",
         cardClass(isDark),
         focusRingClass(isDark),
         isDark
@@ -716,7 +716,7 @@ function IntegrationCard({
         )}
       </div>
 
-      <div className="mt-3 flex items-start gap-2">
+      <div className="mt-0 flex min-w-0 flex-1 items-center gap-2">
         {data.meta && (
           <span
             className={[
@@ -729,7 +729,7 @@ function IntegrationCard({
         )}
         <p
           className={[
-            "text-[12.5px] leading-[1.45] sm:text-[12px]",
+            "min-w-0 truncate text-[12.5px] leading-[1.45] sm:text-[12px]",
             isDark ? "text-neutral-400" : "text-neutral-600",
           ].join(" ")}
         >
@@ -931,6 +931,11 @@ export default function Integrations({ embedded = false }: IntegrationsProps) {
   );
 
   const hasActiveFilters = needle.length > 0 || filter !== "Toutes";
+  const installed = visible.filter((item) => Boolean(services[item.title]?.connected));
+  const popularNames = ["Gmail", "Google Drive", "Canva", "Dropbox", "Google Photos", "Google Calendar"];
+  const popular = visible.filter((item) => popularNames.includes(item.title) && !services[item.title]?.connected);
+  const popularSet = new Set(popularNames);
+  const discoveries = visible.filter((item) => !popularSet.has(item.title) && !services[item.title]?.connected);
 
   const resetFilters = () => {
     setQuery("");
@@ -1328,19 +1333,15 @@ export default function Integrations({ embedded = false }: IntegrationsProps) {
 
             )}
 
-            {/* SEARCH + FILTER — pleine largeur sur mobile */}
-            <div
-              className={[
-                embedded ? "mt-0 flex flex-wrap items-center gap-2" : "mt-5 flex flex-wrap items-center gap-2 sm:mt-6",
-              ].join(" ")}
-            >
+            {/* SEARCH — largeur complète, comme la référence */}
+            <div className={embedded ? "mt-0" : "mt-5 sm:mt-6"}>
               <label
                 className={[
-                  "flex min-w-0 w-full items-center gap-2.5 rounded-full border px-3.5 py-2.5 transition sm:w-auto sm:flex-1 sm:py-2 sm:max-w-[360px]",
+                  "flex h-14 w-full items-center gap-3 rounded-full border px-5 transition sm:h-16",
                   "focus-within:ring-2",
                   isDark
-                    ? "border-white/[0.08] bg-white/[0.03] text-neutral-500 focus-within:ring-white/20"
-                    : "border-black/[0.06] bg-white text-neutral-400 focus-within:ring-black/15",
+                    ? "border-white/[0.12] bg-white/[0.035] text-neutral-400 focus-within:ring-white/20"
+                    : "border-black/[0.12] bg-white text-neutral-500 focus-within:ring-black/10",
                 ].join(" ")}
               >
                 <SearchIcon />
@@ -1348,133 +1349,150 @@ export default function Integrations({ embedded = false }: IntegrationsProps) {
                   type="search"
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
-                  placeholder="Rechercher une intégration"
-                  aria-label="Rechercher une intégration"
+                  placeholder="Rechercher des connecteurs"
+                  aria-label="Rechercher des connecteurs"
                   className={[
-                    "w-full min-w-0 bg-transparent text-[14px] outline-none placeholder:text-inherit sm:text-[13px]",
+                    "w-full min-w-0 bg-transparent text-[15px] outline-none placeholder:text-inherit sm:text-[16px]",
                     "[&::-webkit-search-cancel-button]:appearance-none",
-                    isDark ? "text-white" : "text-neutral-800",
+                    isDark ? "text-white" : "text-neutral-900",
                   ].join(" ")}
                 />
               </label>
-
-              <div className="relative flex min-w-0 flex-1 items-center justify-end gap-2 sm:flex-none" ref={filterRef}>
-                <button
-                  type="button"
-                  onClick={() => setFilterOpen((value) => !value)}
-                  aria-haspopup="menu"
-                  aria-expanded={filterOpen}
-                  className={[
-                    "flex min-h-11 items-center gap-2 rounded-full border px-4 py-2 text-[13px] font-medium transition sm:min-h-0 sm:text-[12.5px]",
-                    focusRingClass(isDark),
-                    isDark
-                      ? "border-white/[0.08] bg-white/[0.03] text-neutral-200 hover:bg-white/[0.06]"
-                      : "border-black/[0.06] bg-white text-neutral-700 hover:bg-neutral-50",
-                  ].join(" ")}
-                >
-                  {filter}
-                  <span
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                <span className={[
+                  "inline-flex items-center rounded-full px-5 py-2.5 text-[13px] font-medium",
+                  isDark ? "bg-white/[0.08] text-neutral-200" : "bg-neutral-100 text-neutral-800",
+                ].join(" ")}>Public</span>
+                <div className="relative" ref={filterRef}>
+                  <button
+                    type="button"
+                    onClick={() => setFilterOpen((value) => !value)}
+                    aria-haspopup="menu"
+                    aria-expanded={filterOpen}
                     className={[
-                      "flex transition-transform duration-200",
-                      filterOpen ? "rotate-180" : "",
-                    ].join(" ")}
-                  >
-                    <ChevronDownIcon />
-                  </span>
-                </button>
-
-                {filterOpen && (
-                  <div
-                    role="menu"
-                    className={[
-                      "absolute right-0 z-20 mt-2 w-44 max-w-[calc(100vw-32px)] overflow-hidden rounded-xl border py-1 shadow-lg",
+                      "flex min-h-10 items-center gap-2 rounded-full border px-3.5 py-2 text-[12px] font-medium transition",
+                      focusRingClass(isDark),
                       isDark
-                        ? "border-white/[0.08] bg-[#16161a]"
-                        : "border-black/[0.06] bg-white",
+                        ? "border-white/[0.09] text-neutral-300 hover:bg-white/[0.05]"
+                        : "border-black/[0.08] text-neutral-600 hover:bg-black/[0.03]",
                     ].join(" ")}
                   >
-                    {FILTERS.map((option) => {
-                      const selected = option === filter;
-                      return (
+                    {filter}
+                    <span className={["flex transition-transform duration-200", filterOpen ? "rotate-180" : ""].join(" ")}>
+                      <ChevronDownIcon />
+                    </span>
+                  </button>
+                  {filterOpen && (
+                    <div
+                      role="menu"
+                      className={[
+                        "absolute right-0 z-30 mt-2 w-40 overflow-hidden rounded-xl border py-1 shadow-xl",
+                        isDark ? "border-white/[0.08] bg-[#171719]" : "border-black/[0.07] bg-white",
+                      ].join(" ")}
+                    >
+                      {FILTERS.map((option) => (
                         <button
                           key={option}
                           type="button"
                           role="menuitemradio"
-                          aria-checked={selected}
-                          onClick={() => {
-                            setFilter(option);
-                            setFilterOpen(false);
-                          }}
+                          aria-checked={option === filter}
+                          onClick={() => { setFilter(option); setFilterOpen(false); }}
                           className={[
-                            "flex min-h-11 w-full items-center justify-between px-4 py-2.5 text-left text-[13px] transition sm:min-h-0 sm:text-[12.5px]",
-                            selected
-                              ? isDark
-                                ? "font-semibold text-white"
-                                : "font-semibold text-neutral-900"
-                              : isDark
-                                ? "text-neutral-400 hover:bg-white/[0.05]"
-                                : "text-neutral-500 hover:bg-black/[0.03]",
+                            "flex w-full items-center justify-between px-3.5 py-2.5 text-left text-[12px]",
+                            option === filter
+                              ? isDark ? "font-semibold text-white" : "font-semibold text-neutral-900"
+                              : isDark ? "text-neutral-400 hover:bg-white/[0.05]" : "text-neutral-500 hover:bg-black/[0.03]",
                           ].join(" ")}
                         >
                           {option}
-                          {selected && <CheckIcon />}
+                          {option === filter && <CheckIcon />}
                         </button>
-                      );
-                    })}
-                  </div>
-                )}
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
-            {/* COMPTE — sous la barre de recherche, discret */}
-            <p
-              aria-live="polite"
-              className={["mt-2.5 text-[12px] sm:hidden", mutedClass(isDark)].join(" ")}
-            >
-              {visible.length}{" "}
-              {visible.length === 1 ? "integration" : "integrations"}
-            </p>
-            <span
-              aria-live="polite"
-              className={["ml-auto hidden text-[12px] sm:block", mutedClass(isDark)].join(" ")}
-            >
-              {visible.length}{" "}
-              {visible.length === 1 ? "integration" : "integrations"}
-            </span>
+            {/* CONNECTEURS INSTALLÉS */}
+            <section className="mt-10 sm:mt-12">
+              <h2 className={["mb-5 flex items-center gap-2 text-[19px] font-semibold tracking-[-0.025em] sm:text-[21px]", strongClass(isDark)].join(" ")}>
+                Installés <span className={mutedClass(isDark)}><ArrowRightIcon /></span>
+              </h2>
+              {installed.length > 0 ? (
+                <div className="flex flex-wrap items-center gap-3">
+                  {installed.map((item) => {
+                    const Icon = ICONS[item.title];
+                    return (
+                      <div
+                        key={item.title}
+                        title={item.title}
+                        aria-label={item.title}
+                        className={[
+                          "flex h-14 w-14 items-center justify-center rounded-2xl border shadow-sm",
+                          isDark ? "border-white/[0.09] bg-[#171719]" : "border-black/[0.06] bg-white",
+                        ].join(" ")}
+                      >
+                        {Icon && <Icon className="h-7 w-7" />}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className={["text-[13px]", mutedClass(isDark)].join(" ")}>
+                  Vos connecteurs actifs apparaîtront ici après leur connexion.
+                </p>
+              )}
+            </section>
 
-            {/* GRID */}
-            <div className="mt-4 grid grid-cols-1 items-start gap-3 sm:mt-5 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
-              {visible.map((card) => (
-                <IntegrationCard
-                  key={card.title}
-                  data={card}
-                  isDark={isDark}
-                  service={services[card.title]}
-                />
-              ))}
-            </div>
+            {/* LES PLUS UTILISÉS */}
+            <section className="mt-12 sm:mt-14">
+              <h2 className={["mb-5 flex items-center gap-2 text-[19px] font-semibold tracking-[-0.025em] sm:text-[21px]", strongClass(isDark)].join(" ")}>
+                Les plus utilisés <span className={mutedClass(isDark)}><ArrowRightIcon /></span>
+              </h2>
+              {popular.length > 0 ? (
+                <div className="grid grid-cols-1 gap-x-8 gap-y-2 sm:grid-cols-2">
+                  {popular.map((card) => (
+                    <IntegrationCard key={card.title} data={card} isDark={isDark} service={services[card.title]} />
+                  ))}
+                </div>
+              ) : (
+                <p className={["text-[13px]", mutedClass(isDark)].join(" ")}>Aucun connecteur dans cette catégorie.</p>
+              )}
+            </section>
+
+            {/* NOUVEAUTÉS */}
+            <section className="mt-12 sm:mt-14">
+              <h2 className={["mb-5 flex items-center gap-2 text-[19px] font-semibold tracking-[-0.025em] sm:text-[21px]", strongClass(isDark)].join(" ")}>
+                Nouveautés à découvrir <span className={mutedClass(isDark)}><ArrowRightIcon /></span>
+              </h2>
+              {discoveries.length > 0 ? (
+                <div className="grid grid-cols-1 gap-x-8 gap-y-2 sm:grid-cols-2">
+                  {discoveries.map((card) => (
+                    <IntegrationCard key={card.title} data={card} isDark={isDark} service={services[card.title]} />
+                  ))}
+                </div>
+              ) : (
+                <p className={["text-[13px]", mutedClass(isDark)].join(" ")}>Vous avez découvert tous les connecteurs disponibles.</p>
+              )}
+            </section>
 
             {visible.length === 0 && (
-              <div
-                className={[
-                  "mt-6 flex min-h-[280px] flex-col items-center justify-center gap-3",
-                  "rounded-2xl border px-4 py-10 text-center",
-                  panelSurfaceClass(isDark),
-                ].join(" ")}
-              >
+              <div className={[
+                "mt-8 flex min-h-[180px] flex-col items-center justify-center gap-3 rounded-2xl border px-4 py-10 text-center",
+                panelSurfaceClass(isDark),
+              ].join(" ")}>
                 <p className={["text-[13px]", mutedClass(isDark)].join(" ")}>
-                  Aucune intégration ne correspond à votre recherche.
+                  Aucun connecteur ne correspond à votre recherche.
                 </p>
                 {hasActiveFilters && (
                   <button
                     type="button"
                     onClick={resetFilters}
                     className={[
-                      "flex min-h-11 items-center rounded-full border px-4 text-[13px] font-semibold transition sm:min-h-0 sm:text-[12px]",
+                      "rounded-full border px-4 py-2 text-[12px] font-semibold transition",
                       focusRingClass(isDark),
-                      isDark
-                        ? "border-white/10 text-white hover:bg-white/[0.07]"
-                        : "border-black/10 text-neutral-900 hover:bg-neutral-100",
+                      isDark ? "border-white/10 text-white hover:bg-white/[0.07]" : "border-black/10 text-neutral-900 hover:bg-neutral-100",
                     ].join(" ")}
                   >
                     Réinitialiser les filtres
