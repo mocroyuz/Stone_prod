@@ -1640,6 +1640,7 @@ const ConnectorsIcon = ({
     aria-hidden="true"
     draggable={false}
     className={className}
+    style={isDark ? { filter: "invert(1)" } : undefined}
   />
 );
 const DisconnectIcon = mkIcon(
@@ -1994,12 +1995,14 @@ function SettingsSidebar({
   onBack,
   tokens,
   c,
+  isDark,
 }: {
   active: SectionKey;
   onSelect: (key: SectionKey) => void;
   onBack: () => void;
   tokens: Tokens;
   c: Copy;
+  isDark: boolean;
 }) {
   const groups = buildSidebarGroups(c);
   const { show: showMfaNudge } = useMfaNudge();
@@ -2490,6 +2493,7 @@ export default function Settings(_props: SettingsProps) {
             onBack={handleBack}
             tokens={tokens}
             c={c}
+            isDark={isDark}
           />
         )}
 
