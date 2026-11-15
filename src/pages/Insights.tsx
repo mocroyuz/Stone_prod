@@ -61,7 +61,6 @@ import {
 } from "recharts";
 import { navigate, useHashRoute } from "../hooks/useHashRoute";
 import { navigateToSettingsSection } from "../utils/settingsNavigation";
-import { useTheme } from "../hooks/useTheme";
 import DashboardSidebar, {
   useSidebarOffset,
   useFavorites,
@@ -2576,26 +2575,6 @@ function RangePicker({
   );
 }
 
-function InsightsIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className="h-[18px] w-[18px]"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M3 3v18h18" />
-      <path d="M18 17V9" />
-      <path d="M13 17V5" />
-      <path d="M8 17v-3" />
-    </svg>
-  );
-}
-
 /* ============================================================
    MEILLEUR MOMENT — version mobile
    7 lignes (une par jour) : bande de chaleur + meilleure heure.
@@ -2737,7 +2716,6 @@ const TABLE_GRID = "md:grid-cols-[minmax(0,2.3fr)_1fr_1fr_1fr_1fr_44px]";
 const HEAT_COLS = "grid-cols-[repeat(24,minmax(0,1fr))]";
 
 export default function Insights() {
-  const { theme } = useTheme();
   const isDark = true;
   const t = useMemo(() => tokens(isDark), [isDark]);
   const sidebarOffset = useSidebarOffset();
