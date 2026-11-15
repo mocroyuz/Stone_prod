@@ -1443,6 +1443,7 @@ type BestTimes = {
   grid: { value: number; norm: number; count: number }[][];
   bestByDay: { day: number; hour: number }[];
   best: { day: number; hour: number };
+  recommendations: { day: number; hour: number; norm: number }[];
   label: string;
   sample: number;
   confidence: "baseline" | "early" | "solid";
@@ -1453,28 +1454,30 @@ function buildBestTimes(
   platform: string,
   lang: Lang
 ): BestTimes {
-  const n = posts.length;
-  const scores = posts.map(postScore).sort((a, b) => a - b);
+  const validPosts = posts.filter(
+    (p) => p.date instanceof Date && Number.isFinite(p.date.getTime())
+  );
+  const n = validPosts.length;
+  const scores = validPosts.map((p) => Math.max(0, postScore(p))).sort((a, b) => a - b);
   const median = n ? scores[Math.floor(n / 2)] : 0;
-  const mean = n ? scores.reduce((a, s) => a + s, 0) / n : 0;
-  const ref = median > 0 ? median : mean > 0 ? mean : 1;
-
+  const ref = median > 0 ? median : 1;
   const mk = () => Array.from({ length: 7 }, () => new Array<number>(24).fill(0));
   const sum = mk();
   const wt = mk();
   const raw = mk();
 
-  for (const p of posts) {
+  for (const p of validPosts) {
     const d = dayIndexMon(p.date);
     const h = p.date.getHours();
-    const lift = Math.min(4, postScore(p) / ref);
+    // Log compression limits the influence of one viral post while preserving
+    // the relative signal between ordinary and high-performing publications.
+    const lift = Math.min(2.5, Math.log1p(Math.max(0, postScore(p))) / Math.log1p(ref));
     raw[d][h] += 1;
-    HOUR_KERNEL.forEach((w, o) => {
-      const offsets = o === 0 ? [0] : [-o, o];
-      for (const off of offsets) {
-        const hh = (h + off + 24) % 24;
-        sum[d][hh] += lift * w;
-        wt[d][hh] += w;
+    HOUR_KERNEL.forEach((weight, offset) => {
+      for (const shift of offset === 0 ? [0] : [-offset, offset]) {
+        const hour = (h + shift + 24) % 24;
+        sum[d][hour] += lift * weight;
+        wt[d][hour] += weight;
       }
     });
   }
@@ -1492,14 +1495,16 @@ function buildBestTimes(
   let max = -Infinity;
   const values = Array.from({ length: 7 }, (_, d) =>
     Array.from({ length: 24 }, (_, h) => {
-      const s = sum[d][h] + CROSS_DAY_SHARE * (hourSum[h] - sum[d][h]);
-      const c = wt[d][h] + CROSS_DAY_SHARE * (hourWt[h] - wt[d][h]);
-      const v =
-        (PRIOR_STRENGTH * priorLift(platform, d, h) + s) /
-        (PRIOR_STRENGTH + c);
-      if (v < min) min = v;
-      if (v > max) max = v;
-      return v;
+      const observed = sum[d][h] + CROSS_DAY_SHARE * (hourSum[h] - sum[d][h]);
+      const evidence = wt[d][h] + CROSS_DAY_SHARE * (hourWt[h] - wt[d][h]);
+      // The platform baseline is a prior, not a substitute for account data.
+      const priorWeight = n === 0 ? 1 : Math.max(0.35, PRIOR_STRENGTH / (1 + n * 0.22));
+      const value =
+        (priorWeight * priorLift(platform, d, h) + observed) /
+        (priorWeight + evidence);
+      min = Math.min(min, value);
+      max = Math.max(max, value);
+      return value;
     })
   );
 
@@ -1520,23 +1525,42 @@ function buildBestTimes(
     });
     return { day, hour };
   });
-  const best = bestByDay.reduce((a, b) =>
-    grid[b.day][b.hour].value > grid[a.day][a.hour].value ? b : a
-  );
-
+  const ranked = grid.flatMap((row, day) =>
+    row.map((cell, hour) => ({ day, hour, norm: cell.norm, value: cell.value }))
+  ).sort((a, b) => b.value - a.value);
+  // Offer distinct slots rather than three nearly identical adjacent hours.
+  const recommendations: BestTimes["recommendations"] = [];
+  for (const candidate of ranked) {
+    if (recommendations.every((picked) =>
+      picked.day !== candidate.day ||
+      Math.min(
+        Math.abs(picked.hour - candidate.hour),
+        24 - Math.abs(picked.hour - candidate.hour)
+      ) >= 3
+    )) {
+      recommendations.push({
+        day: candidate.day,
+        hour: candidate.hour,
+        norm: candidate.norm,
+      });
+      if (recommendations.length === 3) break;
+    }
+  }
+  const best = recommendations[0] ?? { day: 0, hour: 12, norm: 0 };
   return {
     grid,
     bestByDay,
     best,
+    recommendations,
     label: `${days[best.day]} ${hourLabel(best.hour)}`,
     sample: n,
     confidence: n < 5 ? "baseline" : n < 15 ? "early" : "solid",
   };
 }
 
-const heatColor = (v: number, isDark: boolean) => isDark ? `rgba(255,255,255,${0.045 + 0.72 * v})` : `rgba(0,0,0,${0.045 + 0.62 * v})`;
-const heatLayer = (v: number, isDark: boolean) => {
-  const c = heatColor(v, isDark);
+const heatColor = (v: number) => `rgba(20,184,166,${0.08 + 0.78 * v})`;
+const heatLayer = (v: number) => {
+  const c = heatColor(v);
   return { backgroundImage: `linear-gradient(${c}, ${c})` };
 };
 
@@ -2620,7 +2644,7 @@ function BestTimeMobile({
                   <span
                     key={h}
                     className="flex-1"
-                    style={heatLayer(cell.norm, isDark)}
+                    style={heatLayer(cell.norm)}
                   />
                 ))}
               </span>
@@ -2680,12 +2704,12 @@ function BestTimeMobile({
                           isBest
                             ? `ring-2 ring-offset-2 ${
                                 isDark
-                                  ? "ring-white ring-offset-[#101012]"
-                                  : "ring-neutral-900 ring-offset-[#f6f4f0]"
+                                  ? "ring-[#14b8a6] ring-offset-[#101012]"
+                                  : "ring-[#0f766e] ring-offset-white"
                               }`
                             : ""
                         }`}
-                        style={heatLayer(cell.norm, isDark)}
+                        style={heatLayer(cell.norm)}
                       >
                         {String(h).padStart(2, "0")}
                       </button>
@@ -3724,13 +3748,13 @@ export default function Insights() {
                                           isBest
                                             ? `ring-[1.5px] ring-offset-1 ${
                                                 isDark
-                                                  ? "ring-white ring-offset-[#0a0a0c]"
-                                                  : "ring-neutral-900 ring-offset-white"
+                                                  ? "ring-[#14b8a6] ring-offset-[#0a0a0c]"
+                                                  : "ring-[#0f766e] ring-offset-white"
                                               }`
                                             : ""
                                         }`}
                                         style={{
-                                          background: heatColor(cell.norm, isDark),
+                                          background: heatColor(cell.norm),
                                         }}
                                       />
                                     );
@@ -3748,7 +3772,7 @@ export default function Insights() {
                               <span
                                 key={v}
                                 className="h-3 w-3 rounded-[3px]"
-                                style={{ background: heatColor(v, isDark) }}
+                                style={{ background: heatColor(v) }}
                                 aria-hidden="true"
                               />
                             ))}
@@ -3831,6 +3855,33 @@ export default function Insights() {
                         ))}
                       </div>
                     )}
+                    <div className="mt-4 border-t pt-3" style={{ borderColor: isDark ? "rgba(255,255,255,.08)" : "rgba(0,0,0,.08)" }}>
+                      <p className={`mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] ${t.muted}`}>
+                        {lang === "fr" ? "Créneaux recommandés" : "Recommended slots"}
+                      </p>
+                      <div className="grid grid-cols-3 gap-2">
+                        {heatmap.recommendations.map((slot, index) => (
+                          <button
+                            key={`${slot.day}-${slot.hour}`}
+                            type="button"
+                            onClick={() => scheduleFromSlot(slot)}
+                            className="min-w-0 rounded-xl border px-2 py-2.5 text-left transition-colors hover:bg-teal-500/10"
+                            style={{
+                              borderColor: "rgba(20,184,166,.3)",
+                              background: isDark ? "rgba(20,184,166,.08)" : "rgba(20,184,166,.06)",
+                            }}
+                            title={c.bestTime.scheduleAria(c.daysLong[slot.day], hourLabel(slot.hour))}
+                          >
+                            <span className="block truncate text-[10px] font-medium text-teal-600 dark:text-teal-300">
+                              {index === 0 ? (lang === "fr" ? "Meilleur" : "Best") : c.days[slot.day]}
+                            </span>
+                            <span className={`mt-1 block text-[14px] font-bold tabular-nums ${t.text}`}>
+                              {c.days[slot.day]} · {hourLabel(slot.hour)}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   </section>
                 </div>
 
