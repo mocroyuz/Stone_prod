@@ -3162,7 +3162,7 @@ export default function Insights() {
       <ImageIcon className="h-4 w-4" />
     );
 
-  const sectionCard = `rounded-[24px] border p-4 md:rounded-[28px] md:p-6 ${t.card}`;
+  const sectionCard = `rounded-xl border p-4 md:rounded-2xl md:p-5 ${t.card}`;
   const sectionTitle = `text-[16px] font-semibold tracking-[-0.025em] md:text-[18px] ${t.text}`;
   const sectionSub = `mt-1 text-[12px] leading-relaxed md:text-[12.5px] ${t.muted}`;
 
@@ -3515,7 +3515,7 @@ export default function Insights() {
                       </p>
                     )}
 
-                    <div className="mt-4 grid grid-cols-2 gap-2.5 md:grid-cols-3 md:gap-3 xl:grid-cols-6 compact-metrics">
+                    <div className="mt-4 grid grid-cols-2 gap-2 md:grid-cols-4 md:gap-2.5 compact-metrics">
                       {summaryBoxes.map((b) => (
                         <MetricBox
                           key={b.key}
@@ -3533,7 +3533,7 @@ export default function Insights() {
                   </div>
                 </section>
 
-                <div className="grid min-w-0 items-start gap-4 xl:grid-cols-[minmax(0,1.65fr)_minmax(400px,0.9fr)]">
+                <div className="grid min-w-0 grid-cols-1 items-start gap-4 xl:grid-cols-2">
                 {/* ── TRENDS ── */}
                 <section
                   className={`${sectionCard} min-w-0`}
