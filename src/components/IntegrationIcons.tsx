@@ -356,7 +356,7 @@ export function TikTokIcon({
 export function YouTubeIcon({
   className = "h-5 w-5",
   title = "YouTube Shorts",
-  contentScale = 0.86,
+  contentScale = 0.74,
 }: BrandIconProps) {
   return (
     <span
