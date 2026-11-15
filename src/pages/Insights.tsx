@@ -1558,7 +1558,7 @@ function buildBestTimes(
   };
 }
 
-const heatColor = (v: number) => `rgba(20,184,166,${0.08 + 0.78 * v})`;
+const heatColor = (v: number) => `rgba(235,235,235,${0.06 + 0.72 * v})`;
 const heatLayer = (v: number) => {
   const c = heatColor(v);
   return { backgroundImage: `linear-gradient(${c}, ${c})` };
@@ -1675,12 +1675,12 @@ function InsightsChart({
   const showThis = view === "this" || view === "both";
   const showPrev = view === "comparison" || view === "both";
 
-  const axis = isDark ? "#6b6b72" : "#a3a3a3";
-  const grid = isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.07)";
+  const axis = "#777777";
+  const grid = "rgba(255,255,255,0.08)";
   const axisWidth = isMobile ? 34 : 40;
 
   return (
-    <div className="h-[220px] w-full md:h-[320px]">
+    <div className="h-[190px] w-full md:h-[235px]">
       <ResponsiveContainer width="100%" height="100%">
         <AreaChart
           data={data}
@@ -2320,14 +2320,14 @@ function MetricBox({
   const down = delta != null && delta < 0;
   return (
     <div
-      className={`group relative flex h-full min-w-0 flex-col gap-2 overflow-hidden rounded-[20px] border px-3.5 py-4 transition-all duration-200 hover:-translate-y-0.5 md:gap-3 md:px-4 md:py-[18px] ${t.tile}`}
+      className={`group relative flex h-full min-w-0 flex-col gap-1.5 overflow-hidden rounded-md border px-3 py-2.5 transition-colors duration-200 md:gap-2 md:px-3.5 md:py-3 ${t.tile}`}
     >
       <span
         aria-hidden="true"
-        className="absolute inset-x-4 top-0 h-[2px] rounded-full bg-gradient-to-r from-current/50 via-current/15 to-transparent opacity-50"
+        className="absolute inset-x-3 top-0 h-px bg-white/10"
       />
       <span
-        className={`flex items-center justify-between gap-2 text-[11px] font-semibold tracking-[0.01em] md:text-[11.5px] ${t.soft}`}
+        className={`flex items-center justify-between gap-2 text-[9px] font-medium tracking-[0.01em] md:text-[10px] ${t.soft}`}
       >
         <span className="truncate">{label}</span>
         <button
@@ -2343,7 +2343,7 @@ function MetricBox({
         </button>
       </span>
       <span
-        className={`mt-1 text-[27px] font-bold leading-none tracking-[-0.045em] tabular-nums md:text-[31px] ${t.text}`}
+        className={`mt-1 text-[21px] font-semibold leading-none tracking-[-0.035em] tabular-nums md:text-[23px] ${t.text}`}
       >
         {value}
       </span>
@@ -2738,7 +2738,7 @@ const HEAT_COLS = "grid-cols-[repeat(24,minmax(0,1fr))]";
 
 export default function Insights() {
   const { theme } = useTheme();
-  const isDark = theme === "dark";
+  const isDark = true;
   const t = useMemo(() => tokens(isDark), [isDark]);
   const sidebarOffset = useSidebarOffset();
   const channels = useConnectedChannels();
@@ -3162,9 +3162,9 @@ export default function Insights() {
       <ImageIcon className="h-4 w-4" />
     );
 
-  const sectionCard = `rounded-lg border p-3 md:rounded-xl md:p-4 ${t.card}`;
-  const sectionTitle = `text-[13px] font-semibold tracking-[-0.01em] md:text-[14px] ${t.text}`;
-  const sectionSub = `mt-0.5 text-[10px] leading-relaxed md:text-[11px] ${t.muted}`;
+  const sectionCard = `rounded-[7px] border p-3 md:rounded-lg md:p-4 ${t.card}`;
+  const sectionTitle = `text-[12px] font-semibold tracking-[-0.01em] md:text-[13px] ${t.text}`;
+  const sectionSub = `mt-0.5 text-[10px] leading-relaxed md:text-[10px] ${t.muted}`;
 
   const canSwitchChannel = channels.length > 1;
   const channelTriggerLabel = viewingAll
@@ -3182,7 +3182,7 @@ export default function Insights() {
         t.page,
       ].join(" ")}
     >
-      <DashboardSidebar theme={theme} />
+      <DashboardSidebar theme="dark" />
 
       <div
         className={[
@@ -3198,17 +3198,17 @@ export default function Insights() {
         <div
           className={[
             "h-full min-h-0 overflow-y-auto overflow-x-hidden overscroll-y-contain",
-            "rounded-2xl border md:rounded-[28px]",
+            "rounded-md border md:rounded-lg",
             NO_SCROLLBAR,
             "transition-colors duration-300",
-            isDark ? "border-white/[0.07] bg-[#0b0b0b]" : "border-[#e5e5e5] bg-[#f8f8f8]",
+            "border-white/[0.07] bg-[#0b0b0b]",
           ].join(" ")}
         >
           <div
             className={[
               "mx-auto flex w-full min-w-0 max-w-[1600px]",
-              "flex-col gap-4 px-[clamp(14px,2.5vw,40px)] md:gap-5 compact-content",
-              "pb-[calc(7.5rem+env(safe-area-inset-bottom))] pt-[clamp(18px,3vw,34px)]",
+              "flex-col gap-3 px-[clamp(14px,2.5vw,40px)] md:gap-3 compact-content",
+              "pb-[calc(7.5rem+env(safe-area-inset-bottom))] pt-[clamp(14px,2vw,24px)]",
             ].join(" ")}
           >
             {/* HEADER COMPACT */}
