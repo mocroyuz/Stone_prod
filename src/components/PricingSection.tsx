@@ -103,7 +103,7 @@ const COPY: Record<Lang, Copy> = {
     yearly: "Yearly",
     saveBadge: "SAVE 20%",
     perMonth: "/Month",
-    billedAnnually: (total) => `$${total} billed annually`,
+    billedAnnually: (total) => `€${total} billed annually`,
     redirecting: "Redirecting...",
     manageSubscription: "Manage subscription",
     returnSuccess: "Payment confirmed — your subscription is being activated.",
@@ -142,7 +142,7 @@ const COPY: Record<Lang, Copy> = {
       enterprise: {
         badge: "ENTERPRISE",
         description: "Advanced solutions for large organizations.",
-        cta: "Contact sales",
+        cta: "Get started",
         features: [
           "Everything in Pro",
           "Custom channel limits",
@@ -166,7 +166,7 @@ const COPY: Record<Lang, Copy> = {
     yearly: "Annuel",
     saveBadge: "ÉCONOMISEZ 20 %",
     perMonth: "/mois",
-    billedAnnually: (total) => `${total} $ facturés annuellement`,
+    billedAnnually: (total) => `${total} € facturés annuellement`,
     redirecting: "Redirection…",
     manageSubscription: "Gérer l'abonnement",
     returnSuccess:
@@ -207,7 +207,7 @@ const COPY: Record<Lang, Copy> = {
         badge: "ENTERPRISE",
         description:
           "Des solutions avancées pour les grandes organisations.",
-        cta: "Contacter les ventes",
+        cta: "S'abonner",
         features: [
           "Tout ce qui est inclus dans Pro",
           "Limites de canaux personnalisées",
@@ -330,13 +330,10 @@ const CheckIcon = ({ isDark }: { isDark: boolean }) => (
 const plans = [
   { key: "starter", monthly: 19, annual: 15 },
   { key: "pro", monthly: 49, annual: 39, featured: true },
-  { key: "enterprise", monthly: 99, annual: 79, salesOnly: true },
+  { key: "enterprise", monthly: 99, annual: 79 },
 ] as const;
 
 type Plan = (typeof plans)[number];
-
-const ENTERPRISE_MAILTO =
-  "mailto:sales@stone.app?subject=Enterprise%20plan";
 
 /* ============================================================
    HELPERS
@@ -423,11 +420,6 @@ export default function PricingSection() {
       setCheckoutError(null);
       setReturnBanner(null);
 
-      if ("salesOnly" in plan && plan.salesOnly) {
-        window.location.href = ENTERPRISE_MAILTO;
-        return;
-      }
-
       if (!isLoggedIn) {
         navigate("signup");
         return;
@@ -456,7 +448,6 @@ export default function PricingSection() {
   );
 
   const getButtonText = (plan: Plan): string => {
-    if ("salesOnly" in plan && plan.salesOnly) return c.plans[plan.key].cta;
     if (isLoggedIn && hasActiveSubscription) return c.manageSubscription;
     return c.plans[plan.key].cta;
   };
@@ -580,7 +571,7 @@ export default function PricingSection() {
                   <div className="mb-[clamp(8px,1.2vh,16px)]">
                     <div className="flex items-baseline gap-1">
                       <span className={["text-[clamp(28px,4vh,40px)] font-medium tracking-tight", strongClass(isDark)].join(" ")}>
-                        ${period === "monthly" ? starterPlan.monthly : starterPlan.annual}
+                        €${period === "monthly" ? starterPlan.monthly : starterPlan.annual}
                       </span>
                       <span className={["text-sm", softClass(isDark)].join(" ")}>{c.perMonth}</span>
                     </div>
@@ -642,7 +633,7 @@ export default function PricingSection() {
                     <div className="mb-[clamp(8px,1.2vh,16px)]">
                       <div className="flex items-baseline gap-1">
                         <span className={["text-[clamp(32px,4.5vh,48px)] font-medium tracking-tight", strongClass(isDark)].join(" ")}>
-                          ${period === "monthly" ? proPlan.monthly : proPlan.annual}
+                          €${period === "monthly" ? proPlan.monthly : proPlan.annual}
                         </span>
                         <span className={["text-sm", softClass(isDark)].join(" ")}>{c.perMonth}</span>
                       </div>
@@ -696,7 +687,7 @@ export default function PricingSection() {
                     <div className="mb-[clamp(8px,1.2vh,16px)]">
                       <div className="flex items-baseline gap-1">
                         <span className={["text-[clamp(32px,4.5vh,48px)] font-medium tracking-tight", strongClass(isDark)].join(" ")}>
-                          ${period === "monthly" ? enterprisePlan.monthly : enterprisePlan.annual}
+                          €${period === "monthly" ? enterprisePlan.monthly : enterprisePlan.annual}
                         </span>
                         <span className={["text-sm", softClass(isDark)].join(" ")}>{c.perMonth}</span>
                       </div>
