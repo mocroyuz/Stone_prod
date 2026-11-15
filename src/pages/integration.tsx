@@ -930,11 +930,6 @@ export default function Integrations({ embedded = false }: IntegrationsProps) {
   );
 
   const hasActiveFilters = needle.length > 0 || filter !== "Toutes";
-  const installed = visible.filter((item) => Boolean(services[item.title]?.connected));
-  const popularNames = ["Gmail", "Google Drive", "Canva", "Dropbox", "Google Photos", "Google Calendar"];
-  const popular = visible.filter((item) => popularNames.includes(item.title) && !services[item.title]?.connected);
-  const popularSet = new Set(popularNames);
-  const discoveries = visible.filter((item) => !popularSet.has(item.title) && !services[item.title]?.connected);
 
   const resetFilters = () => {
     setQuery("");
@@ -1227,6 +1222,12 @@ export default function Integrations({ embedded = false }: IntegrationsProps) {
       onDisconnect: handleGPhotosDisconnect,
     },
   };
+
+  const installed = visible.filter((item) => Boolean(services[item.title]?.connected));
+  const popularNames = ["Gmail", "Google Drive", "Canva", "Dropbox", "Google Photos", "Google Calendar"];
+  const popular = visible.filter((item) => popularNames.includes(item.title) && !services[item.title]?.connected);
+  const popularSet = new Set(popularNames);
+  const discoveries = visible.filter((item) => !popularSet.has(item.title) && !services[item.title]?.connected);
 
   const PageContainer = embedded ? "div" : "main";
 
