@@ -3207,24 +3207,21 @@ export default function Insights() {
           <div
             className={[
               "mx-auto flex w-full min-w-0 max-w-[1600px]",
-              "flex-col gap-3 px-[clamp(14px,2vw,32px)] md:gap-3 compact-content",
-              "pb-[calc(7.5rem+env(safe-area-inset-bottom))] pt-[clamp(18px,3vw,34px)]",
+              "flex-col gap-2 px-[clamp(14px,1.8vw,28px)] md:gap-2 compact-content",
+              "pb-[calc(7.5rem+env(safe-area-inset-bottom))] pt-[clamp(14px,2vw,24px)]",
             ].join(" ")}
           >
             {/* HEADER COMPACT */}
-            <div className="flex flex-col gap-3">
-              <div className="relative z-20 flex shrink-0 items-center justify-between gap-3">
+            <div className="flex flex-col gap-2">
+              <div className={`relative z-20 flex shrink-0 items-center justify-between gap-3 border-b pb-3 ${t.border}`}>
                 <div className="flex min-w-0 items-center gap-2.5">
-                  <span
-                    className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border md:h-10 md:w-10 ${t.iconBox} ${t.border}`}
-                  >
-                    <InsightsIcon />
-                  </span>
-                  <h1
-                    className={`truncate text-[25px] font-bold tracking-[-0.04em] md:text-[23px] ${t.text}`}
-                  >
+                  <div className="min-w-0">
+                  <div className={`mb-1 flex items-center gap-1.5 text-[10px] ${t.muted}`}><Activity className="h-3 w-3" /> Analytics</div>
+                  <h1 className={`truncate text-[21px] font-semibold tracking-[-0.035em] md:text-[22px] ${t.text}`}>
                     {c.header.title}
                   </h1>
+                  <p className={`mt-0.5 text-[10px] ${t.muted}`}>{periodLabel}{channel ? ` · ${channelLabel(channel)}` : ""}</p>
+                </div>
                 </div>
 
                 <div className="flex min-w-0 items-center gap-1.5 md:gap-2.5 print:hidden">
@@ -3393,12 +3390,12 @@ export default function Insights() {
                 {/* ── NUMBERS ── */}
                 <section
                   aria-labelledby="all-title"
-                  className="flex min-w-0 flex-col gap-4"
+                  className="flex min-w-0 flex-col gap-2"
                 >
                   <div>
                     <h2
                       id="all-title"
-                      className={`text-[24px] font-semibold tracking-[-0.03em] md:text-[28px] ${t.text}`}
+                      className={`sr-only text-[24px] font-semibold tracking-[-0.03em] md:text-[28px] ${t.text}`}
                     >
                       {c.overview.title}
                     </h2>
@@ -3533,7 +3530,7 @@ export default function Insights() {
                   </div>
                 </section>
 
-                <div className="grid min-w-0 items-stretch gap-2 xl:grid-cols-[minmax(0,1.35fr)_minmax(390px,0.95fr)]">
+                <div className="grid min-w-0 items-stretch gap-2 xl:grid-cols-[minmax(0,1.35fr)_minmax(340px,0.95fr)]">
                 {/* ── TRENDS ── */}
                 <section
                   className={`${sectionCard} min-w-0`}
@@ -3682,105 +3679,22 @@ export default function Insights() {
                     </div>
 
                     {isMobile ? (
-                      <BestTimeMobile
-                        heatmap={heatmap}
-                        c={c}
-                        t={t}
-                        isDark={isDark}
-                        onSchedule={scheduleFromSlot}
-                      />
+                      <BestTimeMobile heatmap={heatmap} c={c} t={t} isDark={isDark} onSchedule={scheduleFromSlot} />
                     ) : (
-                      <div
-                        className={`mt-4 overflow-x-auto overscroll-x-contain px-1 pb-1 ${NO_SCROLLBAR}`}
-                      >
-                        <div className="min-w-[480px]">
-                          <div className="mb-1.5 flex items-end gap-2">
-                            <span className="w-9 shrink-0" />
-                            <div
-                              className={`grid flex-1 gap-[5px] ${HEAT_COLS}`}
-                            >
-                              {Array.from({ length: 24 }, (_, h) => (
-                                <span
-                                  key={h}
-                                  title={hourLabel(h)}
-                                  className={`text-center text-[10px] leading-none tabular-nums ${t.muted}`}
-                                >
-                                  {h % 3 === 0
-                                    ? String(h).padStart(2, "0")
-                                    : ""}
-                                </span>
-                              ))}
-                            </div>
-                          </div>
-
-                          <div className="flex flex-col gap-1">
-                            {c.days.map((day, d) => (
-                              <div key={day} className="flex items-center gap-2">
-                                <span
-                                  className={`w-9 shrink-0 text-[10px] ${t.muted}`}
-                                >
-                                  {day}
-                                </span>
-                                <div
-                                  className={`grid flex-1 gap-[5px] ${HEAT_COLS}`}
-                                >
-                                  {Array.from({ length: 24 }, (_, h) => {
-                                    const cell = heatmap.grid[d][h];
-                                    const isBest =
-                                      heatmap.bestByDay[d].hour === h;
-                                    return (
-                                      <button
-                                        key={h}
-                                        type="button"
-                                        title={`${day} ${hourLabel(h)}${
-                                          isBest
-                                            ? c.bestTime.bestOfDaySuffix
-                                            : ""
-                                        }`}
-                                        aria-label={c.bestTime.scheduleAria(
-                                          day,
-                                          hourLabel(h)
-                                        )}
-                                        onClick={() =>
-                                          scheduleFromSlot({ day: d, hour: h })
-                                        }
-                                        className={`aspect-square w-full rounded-[6px] transition-transform hover:scale-125 ${t.ring} ${
-                                          isBest
-                                            ? `ring-[1.5px] ring-offset-1 ${
-                                                isDark
-                                                  ? "ring-[#14b8a6] ring-offset-[#0a0a0c]"
-                                                  : "ring-[#0f766e] ring-offset-white"
-                                              }`
-                                            : ""
-                                        }`}
-                                        style={{
-                                          background: heatColor(cell.norm),
-                                        }}
-                                      />
-                                    );
-                                  })}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-
-                          <div className="mt-4 flex items-center justify-end gap-1.5">
-                            <span className={`mr-1 text-[10px] ${t.muted}`}>
-                              {c.bestTime.low}
-                            </span>
-                            {[0, 0.25, 0.5, 0.75, 1].map((v) => (
-                              <span
-                                key={v}
-                                className="h-3 w-3 rounded-[3px]"
-                                style={{ background: heatColor(v) }}
-                                aria-hidden="true"
-                              />
-                            ))}
-                            <span className={`ml-1 text-[10px] ${t.muted}`}>
-                              {c.bestTime.high}
-                            </span>
-                          </div>
-                        </div>
+                      <div className="mt-5 grid h-[150px] grid-cols-7 items-end gap-2 border-b px-1">
+                        {c.days.map((day, d) => {
+                          const slot = heatmap.bestByDay[d];
+                          const value = Math.max(0.08, slot.norm);
+                          return (
+                            <button key={day} type="button" onClick={() => scheduleFromSlot({ day: d, hour: slot.hour })} title={c.bestTime.scheduleAria(day, hourLabel(slot.hour))} aria-label={c.bestTime.scheduleAria(day, hourLabel(slot.hour))} className={`group flex h-full min-w-0 flex-col items-center justify-end gap-2 rounded-md px-1 pb-2 ${t.ring}`}>
+                              <span className="flex h-[112px] w-full items-end justify-center">
+                                <span className={`block w-full max-w-8 rounded-t-[3px] transition-opacity group-hover:opacity-75 ${isDark ? "bg-[#bcbcbc]" : "bg-[#555555]"}`} style={{ height: `${Math.max(7, Math.round(value * 100))}%` }} />
+                              </span>
+                              <span className={`text-[10px] ${t.muted}`}>{day}</span>
+                              <span className={`text-[9px] tabular-nums ${t.soft}`}>{hourLabel(slot.hour)}</span>
+                            </button>
+                          );
+                        })}
                       </div>
                     )}
                   </section>
