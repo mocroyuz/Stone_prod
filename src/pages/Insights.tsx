@@ -2337,7 +2337,7 @@ function MetricBox({
         className={`my-2 flex w-[54px] shrink-0 items-center justify-center border-l ${t.border} ${t.muted} ${t.ring}`}
       >
         <span className={`flex h-9 w-9 items-center justify-center rounded-md border ${t.border} ${t.inner}`}>
-          {label.toLowerCase().includes("post") ? <CalendarDays className="h-4 w-4" /> : label.toLowerCase().includes("comment") ? <MessageCircle className="h-4 w-4" /> : label.toLowerCase().includes("réaction") || label.toLowerCase().includes("reaction") ? <Heart className="h-4 w-4" /> : <Users className="h-4 w-4" />}
+          {label.toLowerCase().includes("post") ? <CalendarClock className="h-4 w-4" /> : label.toLowerCase().includes("comment") ? <Send className="h-4 w-4" /> : label.toLowerCase().includes("réaction") || label.toLowerCase().includes("reaction") ? <Zap className="h-4 w-4" /> : <Activity className="h-4 w-4" />}
         </span>
       </button>
       {hint && isMobile && <HintSheet isDark={isDark} title={label} text={info} onClose={() => setHint(false)} />}
