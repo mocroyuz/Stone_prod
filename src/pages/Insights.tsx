@@ -3118,10 +3118,7 @@ export default function Insights() {
     1,
     ...weekActivity.flatMap((item) => [item.currentCount, item.previousCount])
   );
-  const sectionCard = "rounded-[7px] border border-white/[0.08] bg-[#191919] p-3.5 shadow-[0_8px_22px_rgba(0,0,0,0.14)]";
-  const sectionTitle = "text-[12px] font-medium tracking-[0.005em] text-[#eeeeee]";
-  const sectionSub = "mt-0.5 text-[10px] leading-relaxed text-[#858585]";
-  const fieldClass = "h-8 rounded-md border border-white/[0.08] bg-[#202020] px-2.5 text-[10px] text-[#d5d5d5] outline-none placeholder:text-[#686868] focus:border-white/20";
+
 
 
   const exportCsv = () => {
