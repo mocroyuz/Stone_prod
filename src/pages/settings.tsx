@@ -52,6 +52,7 @@ import {
   disconnectInstagram,
 } from "../services/instagram";
 import { getThreadsStatus, startThreadsLogin, disconnectThreads } from "../services/threads";
+import { fetchSubscription, type Subscription } from "../services/stripe";
 import {
   CHANNELS_CHANGED_EVENT,
   CACHE_MAX_AGE_MS,
@@ -4556,7 +4557,51 @@ function BillingSection({
   notify: Notify;
   c: Copy;
 }) {
-  const soon = () => notify(c.billing.notAvailable, "error");
+  const [subscription, setSubscription] = useState<Subscription | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchSubscription()
+      .then((value) => {
+        if (!cancelled) setSubscription(value);
+      })
+      .catch(() => {
+        if (!cancelled) setSubscription(null);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const date = (timestamp?: number) =>
+    timestamp
+      ? new Date(timestamp * 1000).toLocaleDateString(undefined, {
+          day: "numeric",
+          month: "long",
+          year: "numeric",
+        })
+      : "—";
+  const payment = subscription?.payment_method;
+  const paymentLabel = payment?.brand
+    ? `${payment.brand.charAt(0).toUpperCase()}${payment.brand.slice(1)} •••• ${payment.last4 ?? ""}`
+    : payment?.type === "card"
+      ? "Carte bancaire"
+      : payment?.type ?? "Aucun moyen de paiement enregistré";
+  const statusLabel: Record<string, string> = {
+    active: "Actif",
+    trialing: "Essai gratuit",
+    past_due: "Paiement en retard",
+    canceled: "Résilié",
+    unpaid: "Impayé",
+    incomplete: "Incomplet",
+    incomplete_expired: "Expiré",
+    paused: "En pause",
+  };
+
   return (
     <>
       <SectionCard
@@ -4564,28 +4609,27 @@ function BillingSection({
         description={c.billing.plan.description}
         tokens={tokens}
       >
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="grid gap-4 sm:grid-cols-2">
           <div>
-            <div className="flex items-center gap-2">
-              <p className={cx("text-[14px] font-medium", tokens.heading)}>
-                {c.billing.plan.proTrial}
-              </p>
-              <span
-                className={cx(
-                  "rounded-full px-2 py-0.5 text-[11px] font-medium",
-                  tokens.warn
-                )}
-              >
-                {c.billing.plan.endsOn}
-              </span>
-            </div>
-            <p className={cx("mt-0.5 text-[12.5px]", tokens.body)}>
-              {c.billing.plan.noCard}
+            <p className={cx("text-[11px] font-medium uppercase tracking-wide", tokens.muted)}>Statut</p>
+            <p className={cx("mt-1 text-[14px] font-medium", tokens.heading)}>
+              {loading ? "Chargement…" : subscription ? statusLabel[subscription.status] ?? subscription.status : "Aucun abonnement actif"}
             </p>
           </div>
-          <Button tokens={tokens} onClick={soon}>
-            {c.billing.plan.upgrade}
-          </Button>
+          <div>
+            <p className={cx("text-[11px] font-medium uppercase tracking-wide", tokens.muted)}>Début de l'abonnement</p>
+            <p className={cx("mt-1 text-[14px] font-medium", tokens.heading)}>
+              {loading ? "Chargement…" : date(subscription?.started_at ?? subscription?.current_period_start)}
+            </p>
+          </div>
+          <div>
+            <p className={cx("text-[11px] font-medium uppercase tracking-wide", tokens.muted)}>
+              {subscription?.cancel_at_period_end ? "Fin de l'abonnement" : "Prochain renouvellement"}
+            </p>
+            <p className={cx("mt-1 text-[14px] font-medium", tokens.heading)}>
+              {loading ? "Chargement…" : date(subscription?.current_period_end)}
+            </p>
+          </div>
         </div>
       </SectionCard>
       <SectionCard
@@ -4594,17 +4638,21 @@ function BillingSection({
         tokens={tokens}
       >
         <div className="flex items-center justify-between gap-3">
-          <p className={cx("text-[13px]", tokens.body)}>
-            {c.billing.payment.noMethod}
-          </p>
-          <Button
-            tokens={tokens}
-            variant="secondary"
-            onClick={soon}
-            className="!px-3.5 !py-2 !font-medium"
-          >
-            {c.billing.payment.addCard}
-          </Button>
+          <div className="flex items-center gap-3">
+            <div className={cx("flex h-10 w-10 items-center justify-center rounded-xl border", tokens.icon)}>
+              <CardIcon />
+            </div>
+            <div>
+              <p className={cx("text-[13px] font-medium", tokens.heading)}>
+                {loading ? "Chargement…" : paymentLabel}
+              </p>
+              {payment?.exp_month && payment.exp_year ? (
+                <p className={cx("mt-0.5 text-[12px]", tokens.body)}>
+                  Expire le {String(payment.exp_month).padStart(2, "0")}/{payment.exp_year}
+                </p>
+              ) : null}
+            </div>
+          </div>
         </div>
       </SectionCard>
       <SectionCard
