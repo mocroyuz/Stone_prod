@@ -2199,7 +2199,7 @@ function Segmented<T extends string>({
     <div
       role="group"
       aria-label={label}
-      className={`inline-flex max-w-full flex-nowrap items-center gap-0.5 overflow-x-auto rounded-full border p-1 ${NO_SCROLLBAR} ${t.panel}`}
+      className={`inline-flex max-w-full flex-nowrap items-center gap-0.5 overflow-x-auto rounded-[6px] border p-1 ${NO_SCROLLBAR} ${t.panel}`}
     >
       {options.map((o) => {
         const active = value === o.key;
@@ -3121,7 +3121,7 @@ export default function Insights() {
       <ImageIcon className="h-4 w-4" />
     );
 
-  const sectionCard = `rounded-[8px] border p-3 md:rounded-[9px] md:p-3 ${t.card}`;
+  const sectionCard = `rounded-[7px] border p-3 md:rounded-[7px] md:p-3 ${t.card}`;
   const sectionTitle = `text-[12px] font-semibold tracking-[-0.01em] md:text-[13px] ${t.text}`;
   const sectionSub = `mt-0.5 text-[10px] leading-relaxed md:text-[10px] ${t.muted}`;
 
@@ -3157,7 +3157,7 @@ export default function Insights() {
         <div
           className={[
             "h-full min-h-0 overflow-y-auto overflow-x-hidden overscroll-y-contain",
-            "rounded-lg border md:rounded-[10px]",
+            "rounded-[7px] border md:rounded-[7px]",
             NO_SCROLLBAR,
             "transition-colors duration-300",
             isDark ? "border-white/[0.07] bg-[#0b0b0b]" : "border-[#e5e5e5] bg-[#f8f8f8]",
@@ -3165,9 +3165,9 @@ export default function Insights() {
         >
           <div
             className={[
-              "mx-auto flex w-full min-w-0 max-w-[1600px]",
-              "flex-col gap-2 px-[clamp(14px,1.8vw,28px)] md:gap-2 compact-content",
-              "pb-[calc(7.5rem+env(safe-area-inset-bottom))] pt-[clamp(14px,2vw,24px)]",
+              "mx-auto flex w-full min-w-0 max-w-none",
+              "flex-col gap-2 px-[clamp(12px,1.5vw,22px)] md:gap-2 compact-content",
+              "pb-[calc(7.5rem+env(safe-area-inset-bottom))] pt-[clamp(12px,1.5vw,20px)]",
             ].join(" ")}
           >
             {/* HEADER COMPACT */}
@@ -3224,7 +3224,7 @@ export default function Insights() {
                       disabled={!channels.length}
                       aria-label={c.header.export}
                       title={c.header.export}
-                      className={`flex h-10 items-center justify-center gap-2 rounded-full text-[12px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40 max-md:w-10 md:h-9 md:px-4 ${t.ring} ${t.outlineBtn}`}
+                      className={`flex h-10 items-center justify-center gap-2 rounded-[6px] text-[11px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 max-md:w-10 md:h-9 md:px-4 ${t.ring} ${t.outlineBtn}`}
                     >
                       <Download className="h-4 w-4" aria-hidden="true" />
                       <span className="max-md:sr-only">{c.header.export}</span>
@@ -3381,7 +3381,7 @@ export default function Insights() {
                                 role="tab"
                                 aria-selected={active}
                                 onClick={() => setRange(key)}
-                                className={`flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full px-3 py-2 text-[12px] font-semibold transition-colors md:px-4 md:text-[13px] ${t.ring} ${
+                                className={`flex shrink-0 items-center gap-2 whitespace-nowrap rounded-[4px] px-3 py-1.5 text-[11px] font-medium transition-colors md:px-3 md:text-[11px] ${t.ring} ${
                                   active ? t.sel : t.idle
                                 }`}
                               >
@@ -3489,7 +3489,7 @@ export default function Insights() {
                   </div>
                 </section>
 
-                <div className="grid min-w-0 items-stretch gap-2 xl:grid-cols-[minmax(0,1.35fr)_minmax(340px,0.95fr)]">
+                <div className="grid min-w-0 items-stretch gap-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
                 {/* ── TRENDS ── */}
                 <section
                   className={`${sectionCard} min-w-0`}
@@ -3631,7 +3631,7 @@ export default function Insights() {
                       <button
                         type="button"
                         onClick={() => scheduleFromSlot(heatmap.best)}
-                        className={`min-h-11 shrink-0 rounded-full px-3.5 py-1.5 text-[12px] font-semibold max-md:w-full md:min-h-0 md:text-[11px] ${t.ring} ${t.outlineBtn}`}
+                        className={`min-h-11 shrink-0 rounded-[6px] px-3 py-1.5 text-[11px] font-medium max-md:w-full md:min-h-0 md:text-[10px] ${t.ring} ${t.outlineBtn}`}
                       >
                         {c.bestTime.useLabel(heatmap.label)}
                       </button>
