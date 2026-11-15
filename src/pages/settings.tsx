@@ -16,7 +16,6 @@ import { useUser } from "../contexts/UserContext";
 import { notifyMfaStatusChanged, useMfaNudge } from "../hooks/useMfaNudge";
 import {
   CHANNELS,
-  PLAN,
   type Channel,
   type ChannelKey,
   type ConnectionState,
@@ -435,6 +434,7 @@ type Copy = {
     optionsFor: (name: string) => string;
     dismiss: string;
     secureOAuth: string;
+    unavailable: string;
     connectedToast: (name: string) => string;
     disconnectedToast: (name: string) => string;
     limitError: (plan: string, max: number) => string;
@@ -843,6 +843,7 @@ const COPY: Record<Lang, Copy> = {
       optionsFor: (name) => `Options for ${name}`,
       dismiss: "Dismiss",
       secureOAuth: "Secure OAuth connections",
+      unavailable: "Facebook Page connection is not available yet.",
       connectedToast: (name) => `${name} connected successfully!`,
       disconnectedToast: (name) => `${name} disconnected successfully!`,
       limitError: (plan, max) =>
@@ -1292,6 +1293,7 @@ const COPY: Record<Lang, Copy> = {
       optionsFor: (name) => `Options pour ${name}`,
       dismiss: "Fermer",
       secureOAuth: "Connexions OAuth sécurisées",
+      unavailable: "La connexion des Pages Facebook n'est pas encore disponible.",
       connectedToast: (name) => `${name} connecté avec succès !`,
       disconnectedToast: (name) => `${name} déconnecté avec succès !`,
       limitError: (plan, max) =>
@@ -4796,18 +4798,6 @@ function formatOAuthError(provider: string, error: unknown, c: Copy): string {
   return c.channels.oauthError(provider, raw);
 }
 
-function mockHandleFor(key: ChannelKey): string {
-  const handles: Record<ChannelKey, string> = {
-    instagram: "@ronan.studio",
-    facebook: "Ronan Studio",
-    threads: "@ronan.studio",
-    tiktok: "",
-    youtube: "",
-    pinterest: "",
-  };
-  return handles[key];
-}
-
 function toConnection(status: StatusResponse): Connection {
   if (!status.connected) {
     return { connected: false };
@@ -4998,7 +4988,7 @@ function ChannelRow({
           {isConnected ? connection.handle || channel.name : channel.name}
         </span>
         <span className="truncate text-[12.5px] text-neutral-400">
-          {isConnected ? c.channels.connected : channel.subtitle}
+          {disabled ? c.channels.unavailable : isConnected ? c.channels.connected : channel.subtitle}
         </span>
       </div>
       {isConnected ? (
@@ -5118,6 +5108,8 @@ function ChannelsSection({
     useState<OnboardingAccount | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [igPickerOpen, setIgPickerOpen] = useState(false);
+  const [subscription, setSubscription] = useState<Subscription | null>(null);
+  const [subscriptionLoading, setSubscriptionLoading] = useState(true);
   const tiktokBusy = useRef(false);
   const pinterestBusy = useRef(false);
   const youtubeBusy = useRef(false);
@@ -5145,6 +5137,46 @@ function ChannelsSection({
       window.removeEventListener("pageshow", unlockInstagramAfterReturn);
     };
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    setSubscriptionLoading(true);
+    fetchSubscription()
+      .then((current) => {
+        if (!cancelled) setSubscription(current);
+      })
+      .catch((error) => {
+        console.error("[Stone] Could not load channel plan:", error);
+        if (!cancelled) {
+          notify(
+            "Impossible de vérifier votre abonnement. La limite de sécurité est conservée.",
+            "error"
+          );
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setSubscriptionLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [userId, notify]);
+
+  const activeSubscription = Boolean(
+    subscription &&
+      (subscription.status === "active" || subscription.status === "trialing")
+  );
+  const activePlanKey = activeSubscription
+    ? subscription?.plan_key ?? subscription?.plan ?? null
+    : null;
+  const planName =
+    activeSubscription && subscription?.plan_name
+      ? subscription.plan_name
+      : "Free";
+  const maxChannels =
+    activePlanKey === "pro" || activePlanKey === "enterprise"
+      ? CHANNELS.length
+      : 3;
 
   const startOnboarding = (key: ChannelKey, connection: Connection) => {
     const channel = CHANNELS.find((ch) => ch.key === key);
@@ -5182,8 +5214,8 @@ function ChannelsSection({
     () => CHANNELS.filter((ch) => connections[ch.key].connected).length,
     [connections]
   );
-  const limitReached = connectedCount >= PLAN.maxChannels;
-  const slotsLeft = Math.max(0, PLAN.maxChannels - connectedCount);
+  const limitReached = connectedCount >= maxChannels;
+  const slotsLeft = Math.max(0, maxChannels - connectedCount);
 
   useEffect(() => {
     if (!userId) return;
@@ -5568,40 +5600,12 @@ function ChannelsSection({
     }
   };
 
-  const handlePlaceholderToggle = (key: ChannelKey) => {
-    const wasConnected = connections[key].connected;
-    const name = CHANNELS.find((ch) => ch.key === key)?.name ?? key;
-    setPendingKey(key);
-    window.setTimeout(() => {
-      if (wasConnected) {
-        setConnections((current) => ({
-          ...current,
-          [key]: { connected: false },
-        }));
-        notify(c.channels.disconnectedToast(name), "success");
-      } else {
-        const connection: Connection = {
-          connected: true,
-          handle: mockHandleFor(key),
-        };
-        setConnections((current) => ({ ...current, [key]: connection }));
-        startOnboarding(key, connection);
-      }
-      setPendingKey(null);
-    }, 450);
+  const handlePlaceholderToggle = (_key: ChannelKey) => {
+    setErrorMessage(c.channels.unavailable);
   };
 
-  const handlePlaceholderReconnect = (key: ChannelKey) => {
-    setPendingKey(key);
-    window.setTimeout(() => {
-      const connection: Connection = {
-        connected: true,
-        handle: mockHandleFor(key),
-      };
-      setConnections((current) => ({ ...current, [key]: connection }));
-      startOnboarding(key, connection);
-      setPendingKey(null);
-    }, 450);
+  const handlePlaceholderReconnect = (_key: ChannelKey) => {
+    setErrorMessage(c.channels.unavailable);
   };
 
   function handleToggle(key: ChannelKey) {
@@ -5628,7 +5632,7 @@ function ChannelsSection({
     handlePlaceholderReconnect(key);
   }
 
-  const handleUpgrade = () => console.log("[Stone] Upgrade clicked");
+  const handleUpgrade = () => navigate("pricing");
 
   const panelSurface = isDark
     ? "border-white/[0.07] bg-white/[0.03]"
@@ -5659,13 +5663,17 @@ function ChannelsSection({
           </div>
           <div>
             <h2 className={cx("text-lg font-bold tracking-tight", strongText)}>
-              {c.channels.plan.title(PLAN.name)}
+              {c.channels.plan.title(planName)}
             </h2>
             <p className={cx("mt-1 text-[13px]", mutedText)}>
-              {c.channels.plan.description(PLAN.name, PLAN.maxChannels)}{" "}
-              {slotsLeft > 0
+              {subscriptionLoading
+                ? c.common.loading
+                : c.channels.plan.description(planName, maxChannels)}{" "}
+              {!subscriptionLoading && slotsLeft > 0
                 ? c.channels.plan.slotsLeft(slotsLeft)
-                : c.channels.plan.limitReached}
+                : !subscriptionLoading
+                  ? c.channels.plan.limitReached
+                  : ""}
             </p>
           </div>
         </div>
@@ -5699,7 +5707,7 @@ function ChannelsSection({
             channel={channel}
             connection={connections[channel.key]}
             pending={pendingKey === channel.key}
-            disabled={false}
+            disabled={channel.key === "facebook"}
             t={t}
             isDark={isDark}
             onToggle={() => handleToggle(channel.key)}
