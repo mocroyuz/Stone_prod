@@ -348,25 +348,21 @@ export function TikTokIcon({
 }
 
 /**
- * YouTube Shorts — glyphe rouge officiel posé sur son propre fond qui
- * s'INVERSE avec le thème : fond blanc en dark mode, fond noir en light mode.
- * Le rouge (#FF0033) et le triangle blanc restent identiques, donc le logo
- * garde un contraste net quel que soit le fond de la pastille parente.
- * La taille suit la classe passée par le parent (h-[11px], h-5…), le style
- * inline ne la force plus.
+ * YouTube Shorts — glyphe rouge officiel toujours posé sur un fond blanc,
+ * quel que soit le thème. Le rouge (#FF0033) et le triangle blanc restent
+ * identiques pour conserver le contraste et l'apparence de marque partout.
+ * La taille suit la classe passée par le parent (h-[11px], h-5…).
  */
 export function YouTubeIcon({
   className = "h-5 w-5",
   title = "YouTube Shorts",
   contentScale = 0.86,
 }: BrandIconProps) {
-  const { theme } = useTheme();
-  const isDark = theme === "dark";
   return (
     <span
       className={`relative inline-flex shrink-0 items-center justify-center ${className}`}
       style={{
-        backgroundColor: isDark ? MONO_WHITE : MONO_BLACK,
+        backgroundColor: MONO_WHITE,
         borderRadius: "24%",
       }}
       role="img"
@@ -402,8 +398,8 @@ export function YouTubeIcon({
 }
 
 /**
- * Logos qui portent leur propre fond (YouTube Shorts : blanc en dark, noir en
- * light). Les pastilles parentes ne doivent PAS leur ajouter de fond ni
+ * Logos qui portent leur propre fond (YouTube Shorts : blanc dans tous les thèmes).
+ * Les pastilles parentes ne doivent PAS leur ajouter de fond ni
  * d'anneau (sinon on voit un contour autour) : elles laissent le logo
  * remplir tout l'espace via `isFullBleedIcon`.
  */
