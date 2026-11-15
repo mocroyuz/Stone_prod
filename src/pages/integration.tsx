@@ -897,38 +897,28 @@ export default function Integrations({ embedded = false }: IntegrationsProps) {
     };
   }, [filterOpen]);
 
+  // Toutes les données de filtrage sont construites avant le rendu.
+  // Aucun callback de filtre ne dépend d'une constante déclarée plus bas.
   const needle = query.trim().toLowerCase();
+  const connectionState: Record<string, boolean> = {
+    Canva: canvaConnected,
+    Dropbox: dropboxConnected,
+    "Google Drive": gdriveConnected,
+    "Google Photos": gphotosConnected,
+  };
 
-  const visible = useMemo(
-    () =>
-      INTEGRATIONS.filter((item) => {
-        const matchesQuery =
-          needle.length === 0 ||
-          `${item.title} ${item.meta ?? ""}`.toLowerCase().includes(needle);
+  const matchesSearchAndFilter = (item: IntegrationCardData): boolean => {
+    const matchesQuery =
+      needle.length === 0 ||
+      `${item.title} ${item.meta ?? ""}`.toLowerCase().includes(needle);
+    const isConnected = connectionState[item.title] === true;
+    const matchesFilter =
+      filter === "Toutes" ||
+      (filter === "Connectées" ? isConnected : !isConnected);
+    return matchesQuery && matchesFilter;
+  };
 
-        let isConnected: boolean;
-        if (item.title === "Canva") isConnected = canvaConnected;
-        else if (item.title === "Dropbox") isConnected = dropboxConnected;
-        else if (item.title === "Google Drive") isConnected = gdriveConnected;
-        else if (item.title === "Google Photos") isConnected = gphotosConnected;
-        else isConnected = false;
-
-        const matchesFilter =
-          filter === "Toutes" ||
-          (filter === "Connectées" ? isConnected : !isConnected);
-
-        return matchesQuery && matchesFilter;
-      }),
-    [
-      needle,
-      filter,
-      canvaConnected,
-      dropboxConnected,
-      gdriveConnected,
-      gphotosConnected,
-    ]
-  );
-
+  const visible = INTEGRATIONS.filter(matchesSearchAndFilter);
   const hasActiveFilters = needle.length > 0 || filter !== "Toutes";
 
   const resetFilters = () => {
@@ -1223,11 +1213,20 @@ export default function Integrations({ embedded = false }: IntegrationsProps) {
     },
   };
 
-  const installed = visible.filter((item) => Boolean(services[item.title]?.connected));
+  const isServiceConnected = (item: IntegrationCardData): boolean =>
+    connectionState[item.title] === true;
+
+  const installed = INTEGRATIONS.filter(
+    (item) => isServiceConnected(item)
+  );
   const popularNames = ["Gmail", "Google Drive", "Canva", "Dropbox", "Google Photos", "Google Calendar"];
-  const popular = visible.filter((item) => popularNames.includes(item.title) && !services[item.title]?.connected);
+  const popular = visible.filter(
+    (item) => popularNames.includes(item.title) && !isServiceConnected(item)
+  );
   const popularSet = new Set(popularNames);
-  const discoveries = visible.filter((item) => !popularSet.has(item.title) && !services[item.title]?.connected);
+  const discoveries = visible.filter(
+    (item) => !popularSet.has(item.title) && !isServiceConnected(item)
+  );
 
   const PageContainer = embedded ? "div" : "main";
 
