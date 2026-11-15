@@ -1631,8 +1631,10 @@ const ChannelsIcon = mkIcon(
 );
 const ConnectorsIcon = ({
   className = "h-[18px] w-[18px]",
+  isDark = false,
 }: {
   className?: string;
+  isDark?: boolean;
 }) => (
   <img
     src="/images/connectors-icon.svg"
@@ -1935,7 +1937,8 @@ function SectionCard({
 /* ── Sidebar ── */
 
 function buildSidebarGroups(
-  c: Copy
+  c: Copy,
+  isDark: boolean
 ): {
   key: SidebarGroupKey;
   items: { key: SectionKey; label: string; icon: ReactNode; badge?: string }[];
@@ -1964,7 +1967,7 @@ function buildSidebarGroups(
       key: "utils",
       items: [
         { key: "channels", label: c.sidebar.sections.channels, icon: <ChannelsIcon /> },
-        { key: "integrations", label: c.sidebar.sections.integrations, icon: <ConnectorsIcon /> },
+        { key: "integrations", label: c.sidebar.sections.integrations, icon: <ConnectorsIcon isDark={isDark} /> },
         { key: "tags", label: c.sidebar.sections.tags, icon: <TagIcon /> },
         {
           key: "savedReplies",
@@ -2004,7 +2007,7 @@ function SettingsSidebar({
   c: Copy;
   isDark: boolean;
 }) {
-  const groups = buildSidebarGroups(c);
+  const groups = buildSidebarGroups(c, isDark);
   const { show: showMfaNudge } = useMfaNudge();
   return (
     <aside
@@ -2166,12 +2169,14 @@ function MobileSettingsMenu({
   onBack,
   tokens,
   c,
+  isDark,
 }: {
   active: SectionKey;
   onSelect: (key: SectionKey) => void;
   onBack: () => void;
   tokens: Tokens;
   c: Copy;
+  isDark: boolean;
 }) {
   const groups = buildSidebarGroups(c);
   const { show: showMfaNudge } = useMfaNudge();
@@ -2471,6 +2476,7 @@ export default function Settings(_props: SettingsProps) {
           onBack={handleBack}
           tokens={tokens}
           c={c}
+          isDark={isDark}
         />
         {toastNode}
       </main>
