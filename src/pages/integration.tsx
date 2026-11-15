@@ -474,7 +474,6 @@ const ICONS: Record<string, (props: { className?: string }) => ReactElement | nu
 const FILTERS = ["Toutes", "Connectées", "Disponibles"] as const;
 type Filter = (typeof FILTERS)[number];
 
-const CONNECTED_THRESHOLD = 60;
 
 /* ============================================================
    CARD
@@ -539,7 +538,7 @@ function IntegrationCard({
           : "hover:bg-[#f6f4f0] hover:border-black/[0.12]",
       ].join(" ")}
     >
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex min-w-0 flex-1 items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-3">
           {Icon && (
             <div
@@ -912,7 +911,7 @@ export default function Integrations({ embedded = false }: IntegrationsProps) {
         else if (item.title === "Dropbox") isConnected = dropboxConnected;
         else if (item.title === "Google Drive") isConnected = gdriveConnected;
         else if (item.title === "Google Photos") isConnected = gphotosConnected;
-        else isConnected = item.progress >= CONNECTED_THRESHOLD;
+        else isConnected = false;
 
         const matchesFilter =
           filter === "Toutes" ||
