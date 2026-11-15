@@ -35,8 +35,17 @@ export type Subscription = {
   plan?: PlanKey | null;
   plan_key?: PlanKey | null;
   plan_name?: string | null;
+  current_period_start?: number;
+  started_at?: number;
   current_period_end: number;
   cancel_at_period_end: boolean;
+  payment_method?: {
+    type: string;
+    brand: string | null;
+    last4: string | null;
+    exp_month: number | null;
+    exp_year: number | null;
+  } | null;
 };
 
 type CheckoutSessionResponse = {
