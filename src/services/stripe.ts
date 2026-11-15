@@ -59,6 +59,27 @@ type PortalSessionResponse = {
   url: string;
 };
 
+export type StripeInvoice = {
+  id: string;
+  number: string;
+  status: string;
+  currency: string;
+  total: number;
+  amount_paid: number;
+  amount_due: number;
+  created: number;
+  period_start: number | null;
+  period_end: number | null;
+  description: string;
+  hosted_invoice_url: string | null;
+  invoice_pdf: string | null;
+};
+
+type InvoicesResponse = {
+  success: boolean;
+  invoices: StripeInvoice[];
+};
+
 type SubscriptionResponse = {
   success: boolean;
   subscription: Subscription | null;
@@ -148,6 +169,18 @@ export async function fetchSubscription(): Promise<Subscription | null> {
   );
 
   return data.subscription;
+}
+
+/* ============================================================
+   HISTORIQUE DES FACTURES
+   ============================================================ */
+
+export async function fetchInvoices(): Promise<StripeInvoice[]> {
+  const data = await stripeRequest<InvoicesResponse>(
+    "/api/stripe/invoices",
+    { method: "GET" },
+  );
+  return Array.isArray(data.invoices) ? data.invoices : [];
 }
 
 /* ============================================================
