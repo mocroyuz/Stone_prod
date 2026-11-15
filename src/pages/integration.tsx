@@ -540,26 +540,26 @@ function IntegrationCard({
   return (
     <article
       className={[
-        "group flex min-w-0 items-center gap-4 rounded-xl px-1 py-4 sm:gap-5 sm:px-2 sm:py-[18px]",
+        "group flex min-w-0 items-center gap-3 rounded-xl px-1 py-3 sm:gap-4 sm:px-2 sm:py-3.5",
         "transition-colors duration-200",
         isDark ? "hover:bg-white/[0.035]" : "hover:bg-black/[0.025]",
       ].join(" ")}
     >
       <div
         className={[
-          "flex h-[50px] w-[50px] shrink-0 items-center justify-center overflow-hidden rounded-[13px] border",
+          "flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl border",
           isDark
             ? "border-white/[0.12] bg-[#202024] text-neutral-100"
             : "border-black/[0.09] bg-white text-neutral-800 shadow-[0_1px_2px_rgba(0,0,0,0.025)]",
         ].join(" ")}
       >
-        {Icon && <Icon className="h-[29px] w-[29px]" />}
+        {Icon && <Icon className="h-6 w-6" />}
       </div>
 
       <div className="min-w-0 flex-1">
         <h3
           className={[
-            "truncate text-[17px] font-semibold leading-[1.25] tracking-[-0.025em] sm:text-[19px]",
+            "truncate text-[15px] font-semibold leading-[1.25] tracking-[-0.02em] sm:text-[16px]",
             strongClass(isDark),
           ].join(" ")}
         >
@@ -567,7 +567,7 @@ function IntegrationCard({
         </h3>
         <p
           className={[
-            "mt-1.5 line-clamp-2 text-[14px] leading-[1.45] sm:text-[16px]",
+            "mt-1 line-clamp-2 text-[12px] leading-[1.45] sm:text-[13px]",
             isDark ? "text-neutral-400" : "text-neutral-600",
           ].join(" ")}
         >
@@ -589,7 +589,7 @@ function IntegrationCard({
             aria-expanded={menuOpen || sheetOpen}
             onClick={() => (isMobile ? setSheetOpen(true) : setMenuOpen((v) => !v))}
             className={[
-              "flex h-11 w-11 items-center justify-center rounded-full transition-colors",
+              "flex h-9 w-9 items-center justify-center rounded-full transition-colors",
               focusRingClass(isDark),
               isDark
                 ? "text-neutral-400 hover:bg-white/[0.08] hover:text-white"
@@ -686,7 +686,7 @@ function IntegrationCard({
           aria-busy={service?.busy}
           aria-label={`Connecter ${data.title}`}
           className={[
-            "flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition-colors disabled:cursor-default",
+            "flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors disabled:cursor-default",
             service?.busy ? "animate-pulse opacity-60" : "",
             focusRingClass(isDark),
             isDark
@@ -1231,7 +1231,7 @@ export default function Integrations({ embedded = false }: IntegrationsProps) {
               embedded
                 ? "px-0 pb-0 pt-0"
                 : [
-                    "px-[clamp(20px,2.1vw,36px)]",
+                    "px-[clamp(18px,1.8vw,30px)]",
                     "pb-[calc(7.5rem+env(safe-area-inset-bottom))] pt-[clamp(16px,3vw,30px)]",
                   ].join(" "),
             ].join(" ")}
@@ -1292,7 +1292,7 @@ export default function Integrations({ embedded = false }: IntegrationsProps) {
             <div className={embedded ? "mt-0" : "mt-5 sm:mt-6"}>
               <label
                 className={[
-                  "flex h-14 w-full items-center gap-3 rounded-full border px-5 transition sm:h-16",
+                  "flex h-12 w-full items-center gap-3 rounded-full border px-4 transition sm:h-14",
                   "focus-within:ring-2",
                   isDark
                     ? "border-white/[0.12] bg-white/[0.035] text-neutral-400 focus-within:ring-white/20"
@@ -1307,7 +1307,7 @@ export default function Integrations({ embedded = false }: IntegrationsProps) {
                   placeholder="Rechercher des connecteurs"
                   aria-label="Rechercher des connecteurs"
                   className={[
-                    "w-full min-w-0 bg-transparent text-[15px] outline-none placeholder:text-inherit sm:text-[16px]",
+                    "w-full min-w-0 bg-transparent text-[13px] outline-none placeholder:text-inherit sm:text-[14px]",
                     "[&::-webkit-search-cancel-button]:appearance-none",
                     isDark ? "text-white" : "text-neutral-900",
                   ].join(" ")}
@@ -1315,7 +1315,7 @@ export default function Integrations({ embedded = false }: IntegrationsProps) {
               </label>
               <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
                 <span className={[
-                  "inline-flex items-center rounded-full px-5 py-2.5 text-[13px] font-medium",
+                  "inline-flex items-center rounded-full px-4 py-2 text-[12px] font-medium",
                   isDark ? "bg-white/[0.08] text-neutral-200" : "bg-neutral-100 text-neutral-800",
                 ].join(" ")}>Public</span>
                 <div className="relative" ref={filterRef}>
@@ -1370,12 +1370,12 @@ export default function Integrations({ embedded = false }: IntegrationsProps) {
             </div>
 
             {/* CONNECTEURS INSTALLÉS */}
-            <section className="mt-10 sm:mt-12">
-              <h2 className={["mb-6 flex items-center gap-2 text-[21px] font-semibold tracking-[-0.03em] sm:mb-7 sm:text-[23px]", strongClass(isDark)].join(" ")}>
+            <section className="mt-8 sm:mt-9">
+              <h2 className={["mb-4 flex items-center gap-2 text-[18px] font-semibold tracking-[-0.025em] sm:mb-5 sm:text-[19px]", strongClass(isDark)].join(" ")}>
                 Installés <span className={mutedClass(isDark)}><ArrowRightIcon /></span>
               </h2>
               {installed.length > 0 ? (
-                <div className="flex flex-wrap items-center gap-3 sm:gap-3.5">
+                <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
                   {installed.map((item) => {
                     const Icon = ICONS[item.title];
                     return (
@@ -1384,11 +1384,11 @@ export default function Integrations({ embedded = false }: IntegrationsProps) {
                         title={item.title}
                         aria-label={item.title}
                         className={[
-                          "flex h-[52px] w-[52px] items-center justify-center rounded-[14px] border shadow-sm",
+                          "flex h-11 w-11 items-center justify-center rounded-xl border shadow-sm",
                           isDark ? "border-white/[0.09] bg-[#171719]" : "border-black/[0.06] bg-white",
                         ].join(" ")}
                       >
-                        {Icon && <Icon className="h-7 w-7" />}
+                        {Icon && <Icon className="h-6 w-6" />}
                       </div>
                     );
                   })}
@@ -1401,12 +1401,12 @@ export default function Integrations({ embedded = false }: IntegrationsProps) {
             </section>
 
             {/* LES PLUS UTILISÉS */}
-            <section className="mt-14 sm:mt-[68px]">
-              <h2 className={["mb-6 flex items-center gap-2 text-[21px] font-semibold tracking-[-0.03em] sm:mb-7 sm:text-[23px]", strongClass(isDark)].join(" ")}>
+            <section className="mt-8 sm:mt-9">
+              <h2 className={["mb-4 flex items-center gap-2 text-[18px] font-semibold tracking-[-0.025em] sm:mb-5 sm:text-[19px]", strongClass(isDark)].join(" ")}>
                 Les plus utilisés <span className={mutedClass(isDark)}><ArrowRightIcon /></span>
               </h2>
               {popular.length > 0 ? (
-                <div className="grid grid-cols-1 gap-x-10 gap-y-2 lg:grid-cols-2 lg:gap-x-12 lg:gap-y-3">
+                <div className="grid grid-cols-1 gap-x-8 gap-y-1 lg:grid-cols-2 lg:gap-x-10 lg:gap-y-2">
                   {popular.map((card) => (
                     <IntegrationCard key={card.title} data={card} isDark={isDark} service={services[card.title]} />
                   ))}
@@ -1417,12 +1417,12 @@ export default function Integrations({ embedded = false }: IntegrationsProps) {
             </section>
 
             {/* NOUVEAUTÉS */}
-            <section className="mt-14 sm:mt-[68px]">
-              <h2 className={["mb-5 flex items-center gap-2 text-[19px] font-semibold tracking-[-0.025em] sm:text-[21px]", strongClass(isDark)].join(" ")}>
+            <section className="mt-8 sm:mt-9">
+              <h2 className={["mb-4 flex items-center gap-2 text-[18px] font-semibold tracking-[-0.025em] sm:text-[19px]", strongClass(isDark)].join(" ")}>
                 Nouveautés à découvrir <span className={mutedClass(isDark)}><ArrowRightIcon /></span>
               </h2>
               {discoveries.length > 0 ? (
-                <div className="grid grid-cols-1 gap-x-10 gap-y-2 lg:grid-cols-2 lg:gap-x-12 lg:gap-y-3">
+                <div className="grid grid-cols-1 gap-x-8 gap-y-1 lg:grid-cols-2 lg:gap-x-10 lg:gap-y-2">
                   {discoveries.map((card) => (
                     <IntegrationCard key={card.title} data={card} isDark={isDark} service={services[card.title]} />
                   ))}
