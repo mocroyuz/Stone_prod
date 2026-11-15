@@ -2343,7 +2343,7 @@ function MetricBox({
         </button>
       </span>
       <span
-        className={`mt-1 text-[27px] font-bold leading-none tracking-[-0.045em] tabular-nums md:text-[31px] ${t.text}`}
+        className={`mt-0.5 text-[23px] font-semibold leading-none tracking-[-0.04em] tabular-nums md:text-[24px] ${t.text}`}
       >
         {value}
       </span>
@@ -3162,9 +3162,9 @@ export default function Insights() {
       <ImageIcon className="h-4 w-4" />
     );
 
-  const sectionCard = `rounded-[24px] border p-4 md:rounded-[28px] md:p-6 ${t.card}`;
-  const sectionTitle = `text-[16px] font-semibold tracking-[-0.025em] md:text-[18px] ${t.text}`;
-  const sectionSub = `mt-1 text-[12px] leading-relaxed md:text-[12.5px] ${t.muted}`;
+  const sectionCard = `rounded-[8px] border p-3 md:rounded-[9px] md:p-3 ${t.card}`;
+  const sectionTitle = `text-[12px] font-semibold tracking-[-0.01em] md:text-[13px] ${t.text}`;
+  const sectionSub = `mt-0.5 text-[10px] leading-relaxed md:text-[10px] ${t.muted}`;
 
   const canSwitchChannel = channels.length > 1;
   const channelTriggerLabel = viewingAll
@@ -3198,7 +3198,7 @@ export default function Insights() {
         <div
           className={[
             "h-full min-h-0 overflow-y-auto overflow-x-hidden overscroll-y-contain",
-            "rounded-2xl border md:rounded-[28px]",
+            "rounded-lg border md:rounded-[10px]",
             NO_SCROLLBAR,
             "transition-colors duration-300",
             isDark ? "border-white/[0.07] bg-[#0b0b0b]" : "border-[#e5e5e5] bg-[#f8f8f8]",
@@ -3207,7 +3207,7 @@ export default function Insights() {
           <div
             className={[
               "mx-auto flex w-full min-w-0 max-w-[1600px]",
-              "flex-col gap-4 px-[clamp(14px,2.5vw,40px)] md:gap-5 compact-content",
+              "flex-col gap-3 px-[clamp(14px,2vw,32px)] md:gap-3 compact-content",
               "pb-[calc(7.5rem+env(safe-area-inset-bottom))] pt-[clamp(18px,3vw,34px)]",
             ].join(" ")}
           >
@@ -3515,8 +3515,8 @@ export default function Insights() {
                       </p>
                     )}
 
-                    <div className="mt-4 grid grid-cols-2 gap-2.5 md:grid-cols-3 md:gap-3 xl:grid-cols-6 compact-metrics">
-                      {summaryBoxes.map((b) => (
+                    <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-4 md:gap-2 compact-metrics">
+                      {summaryBoxes.slice(0, 4).map((b) => (
                         <MetricBox
                           key={b.key}
                           label={c.summary.labels[b.key]}
@@ -3533,7 +3533,7 @@ export default function Insights() {
                   </div>
                 </section>
 
-                <div className="grid min-w-0 items-start gap-4 xl:grid-cols-[minmax(0,1.65fr)_minmax(400px,0.9fr)]">
+                <div className="grid min-w-0 items-stretch gap-2 xl:grid-cols-[minmax(0,1.35fr)_minmax(390px,0.95fr)]">
                 {/* ── TRENDS ── */}
                 <section
                   className={`${sectionCard} min-w-0`}
@@ -3641,7 +3641,7 @@ export default function Insights() {
                       )}
                     </div>
 
-                    <div className="mt-4 md:mt-6">
+                    <div className="mt-3 md:mt-4">
                       <InsightsChart
                         data={chartData}
                         view={chartView}
@@ -3657,7 +3657,7 @@ export default function Insights() {
                 </section>
 
                 {/* ── BEST TIME + RECYCLE ── */}
-                <div className="flex min-w-0 flex-col gap-4">
+                <div className="flex min-w-0 flex-col">
                   <section
                     className={`${sectionCard} min-w-0`}
                     aria-labelledby="besttime-title"
@@ -3785,7 +3785,12 @@ export default function Insights() {
                     )}
                   </section>
 
-                  <section
+
+                </div>
+
+                </div>
+
+                                  <section
                     className={`${sectionCard} min-w-0`}
                     aria-labelledby="recycle-title"
                   >
@@ -3800,14 +3805,14 @@ export default function Insights() {
                         {c.recycle.emptyHint}
                       </p>
                     ) : (
-                      <div className="mt-4 flex flex-col gap-2.5">
+                      <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
                         {remixable.map((p, i) => (
                           <div
                             key={p.id}
-                            className={`flex gap-3 rounded-2xl border p-3 md:p-3.5 ${t.inner}`}
+                            className={`flex min-w-0 gap-2 rounded-[7px] border p-2 ${t.inner}`}
                           >
                             <span
-                              className={`flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl ${t.iconBox}`}
+                              className={`flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-md ${t.iconBox}`}
                             >
                               {p.thumbnailUrl ? (
                                 <img
@@ -3883,9 +3888,7 @@ export default function Insights() {
                       </div>
                     </div>
                   </section>
-                </div>
 
-                </div>
                 {/* ── PERFORMANCE PER POST ── */}
                 <section
                   className={`${sectionCard} min-w-0`}
