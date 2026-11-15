@@ -843,33 +843,34 @@ type Tokens = {
   idle: string;
   popover: string;
   tip: string;
+  lift: string;
 };
 
 const tokens = (isDark: boolean): Tokens =>
   isDark
     ? {
         page: "bg-[#101010]", text: "text-white", muted: "text-[#858585]", soft: "text-[#b0b0b0]",
-        card: "border-white/[0.07] bg-[#161616]",
+        card: "border-white/[0.07] bg-[#161616] shadow-[inset_0_1px_0_rgba(255,255,255,0.035),0_1px_2px_rgba(0,0,0,0.35),0_14px_28px_-18px_rgba(0,0,0,0.65)]",
         panel: "border-white/[0.07] bg-[#1a1a1a]", inner: "border-white/[0.07] bg-white/[0.03]",
-        tile: "border-white/[0.07] bg-[#161616]",
+        tile: "border-white/[0.07] bg-[#161616] shadow-[inset_0_1px_0_rgba(255,255,255,0.035),0_1px_2px_rgba(0,0,0,0.35)]",
         border: "border-white/[0.07]", head: "bg-white/[0.03]",
         primaryBtn: "bg-white text-black hover:bg-neutral-200 shadow-none",
-        outlineBtn: "border border-white/[0.09] bg-[#1f1f1f] text-white hover:bg-white/[0.08]",
+        outlineBtn: "border border-white/[0.09] bg-[#1f1f1f] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_1px_2px_rgba(0,0,0,0.4)] transition-[background-color,transform] duration-150 hover:bg-[#262626] active:translate-y-px motion-reduce:transition-none",
         iconBox: "bg-white/[0.07] text-white", ring: "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60",
-        hover: "hover:bg-white/[0.06]", sel: "bg-white text-black shadow-none",
-        idle: "text-[#a0a0a0] hover:text-white", popover: "border-white/10 bg-[#151515]", tip: "bg-[#292929]",
+        hover: "hover:bg-white/[0.06]", sel: "bg-white text-black shadow-[0_1px_2px_rgba(0,0,0,0.35)]",
+        idle: "text-[#a0a0a0] hover:text-white", popover: "border-white/10 bg-[#151515]", tip: "bg-[#292929]", lift: "transition-[border-color,box-shadow,transform] duration-200 motion-reduce:transition-none hover:-translate-y-px hover:border-white/[0.13] hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_10px_24px_-12px_rgba(0,0,0,0.7)]",
       }
     : {
         page: "bg-[#f3f3f3]", text: "text-[#111111]", muted: "text-[#777777]", soft: "text-[#555555]",
-        card: "border-[#e5e5e5] bg-white shadow-[0_12px_36px_rgba(0,0,0,0.035)]",
+        card: "border-[#e5e5e5] bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04),0_14px_28px_-18px_rgba(16,24,40,0.12)]",
         panel: "border-[#e7e7e7] bg-[#fafafa]", inner: "border-[#e7e7e7] bg-[#f6f6f6]",
-        tile: "border-[#e7e7e7] bg-white shadow-[0_5px_18px_rgba(0,0,0,0.035)]",
+        tile: "border-[#e7e7e7] bg-white shadow-[0_1px_2px_rgba(16,24,40,0.05)]",
         border: "border-[#e7e7e7]", head: "bg-[#f5f5f5]",
         primaryBtn: "bg-black text-white hover:bg-neutral-800 shadow-none",
-        outlineBtn: "border border-black/10 bg-white text-black hover:bg-black/[0.04]",
+        outlineBtn: "border border-black/10 bg-white text-black shadow-[0_1px_2px_rgba(16,24,40,0.06)] transition-[background-color,transform] duration-150 hover:bg-black/[0.03] active:translate-y-px motion-reduce:transition-none",
         iconBox: "bg-black/[0.06] text-black", ring: "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/35",
-        hover: "hover:bg-black/[0.04]", sel: "bg-black text-white shadow-none",
-        idle: "text-[#777777] hover:text-black", popover: "border-[#e5e5e5] bg-white", tip: "bg-[#242424]",
+        hover: "hover:bg-black/[0.04]", sel: "bg-black text-white shadow-[0_1px_2px_rgba(0,0,0,0.25)]",
+        idle: "text-[#777777] hover:text-black", popover: "border-[#e5e5e5] bg-white", tip: "bg-[#242424]", lift: "transition-[border-color,box-shadow,transform] duration-200 motion-reduce:transition-none hover:-translate-y-px hover:border-black/15 hover:shadow-[0_10px_24px_-12px_rgba(16,24,40,0.18)]",
       };
 
 /* ============================================================
@@ -1624,7 +1625,7 @@ function ChartTooltip({
 
   return (
     <div
-      className={`min-w-[140px] max-w-[calc(100vw-48px)] rounded-lg px-3 py-2 text-[12px] shadow-[0_8px_30px_rgba(0,0,0,0.35)] md:min-w-[160px] md:px-3.5 md:py-2.5 ${
+      className={`min-w-[140px] max-w-[calc(100vw-48px)] rounded-xl px-3 py-2 text-[12px] shadow-[0_2px_4px_rgba(0,0,0,0.25),0_16px_36px_-8px_rgba(0,0,0,0.5)] md:min-w-[160px] md:px-3.5 md:py-2.5 ${
         isDark
           ? "bg-[#101012] text-white ring-1 ring-white/10"
           : "bg-white text-neutral-900 ring-1 ring-black/10"
@@ -1781,7 +1782,7 @@ function WeekdayTooltip({
     Number(payload.find((p) => p.dataKey === k)?.value) || 0;
   return (
     <div
-      className={`min-w-[104px] rounded-md px-2.5 py-2 text-[11px] shadow-[0_8px_30px_rgba(0,0,0,0.35)] ${
+      className={`min-w-[104px] rounded-lg px-2.5 py-2 text-[11px] shadow-[0_2px_4px_rgba(0,0,0,0.25),0_16px_36px_-8px_rgba(0,0,0,0.5)] ${
         isDark
           ? "bg-[#101010] text-white ring-1 ring-white/10"
           : "bg-white text-neutral-900 ring-1 ring-black/10"
@@ -1884,14 +1885,14 @@ function WeekdayBars({
           <Bar
             dataKey="a"
             fill={`url(#${gA})`}
-            radius={[3, 3, 0, 0]}
+            radius={[4, 4, 0, 0]}
             maxBarSize={30}
             isAnimationActive={false}
           />
           <Bar
             dataKey="b"
             fill={`url(#${gB})`}
-            radius={[3, 3, 0, 0]}
+            radius={[4, 4, 0, 0]}
             maxBarSize={30}
             isAnimationActive={false}
           />
@@ -2296,7 +2297,7 @@ function Segmented<T extends string>({
     <div
       role="group"
       aria-label={label}
-      className={`inline-flex max-w-full flex-nowrap items-center gap-0.5 overflow-x-auto rounded-[6px] border p-1 ${NO_SCROLLBAR} ${t.panel}`}
+      className={`inline-flex max-w-full flex-nowrap items-center gap-0.5 overflow-x-auto rounded-lg border p-1 ${NO_SCROLLBAR} ${t.panel}`}
     >
       {options.map((o) => {
         const active = value === o.key;
@@ -2306,7 +2307,7 @@ function Segmented<T extends string>({
             type="button"
             aria-pressed={active}
             onClick={() => onChange(o.key)}
-            className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 md:px-3.5 ${
+            className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-3 md:px-3.5 ${
               size === "lg"
                 ? "py-2 text-[12px] md:text-[13px]"
                 : "py-2 text-[12px] md:py-1.5"
@@ -2381,7 +2382,7 @@ function IconBtn({
       <span
         role="tooltip"
         className={[
-          "pointer-events-none absolute top-full z-50 mt-2 w-max max-w-[240px] rounded-md px-3 py-2 text-[12.5px] font-medium leading-snug text-white opacity-0 shadow-lg transition-opacity duration-150 motion-reduce:transition-none max-md:hidden group-hover:opacity-100 group-hover:delay-300 group-focus-within:opacity-100 [@media(hover:none)]:hidden",
+          "pointer-events-none absolute top-full z-50 mt-2 w-max max-w-[240px] rounded-lg px-3 py-2 text-[12.5px] font-medium leading-snug text-white opacity-0 shadow-lg transition-opacity duration-150 motion-reduce:transition-none max-md:hidden group-hover:opacity-100 group-hover:delay-300 group-focus-within:opacity-100 [@media(hover:none)]:hidden",
           t.tip,
           align === "end" ? "right-0" : "left-1/2 -translate-x-1/2",
         ].join(" ")}
@@ -2422,8 +2423,8 @@ function MetricBox({
   const up = delta != null && delta > 0;
   return (
     <div
-      className={`group relative flex min-h-[80px] min-w-0 items-stretch overflow-hidden rounded-lg border transition-colors ${t.tile} ${
-        active ? (isDark ? "border-white/20" : "border-black/30") : ""
+      className={`group relative flex min-h-[88px] min-w-0 items-stretch overflow-hidden rounded-xl border ${t.tile} ${t.lift} ${
+        active ? (isDark ? "border-white/20 ring-1 ring-inset ring-white/[0.06]" : "border-black/30 ring-1 ring-inset ring-black/[0.04]") : ""
       }`}
     >
       <button
@@ -2432,7 +2433,7 @@ function MetricBox({
         aria-pressed={onSelect ? active : undefined}
         className={`flex min-w-0 flex-1 flex-col justify-center gap-1.5 px-3.5 py-3 text-left ${t.ring}`}
       >
-        <span className={`truncate text-[13px] ${t.muted}`}>{label}</span>
+        <span className={`truncate text-[13px] tracking-[-0.005em] ${t.muted}`}>{label}</span>
         <span className="flex items-baseline gap-2">
           <span className={`text-[28px] font-medium leading-none tracking-[-0.03em] tabular-nums ${t.text}`}>
             {value}
@@ -2457,7 +2458,7 @@ function MetricBox({
         }`}
       >
         <span
-          className={`flex h-11 w-11 items-center justify-center rounded-lg border shadow-[0_6px_14px_rgba(0,0,0,0.25)] ${t.border} ${
+          className={`flex h-11 w-11 items-center justify-center rounded-[10px] border ${isDark ? "shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_8px_16px_-6px_rgba(0,0,0,0.6)]" : "shadow-[0_6px_14px_-6px_rgba(16,24,40,0.22)]"} ${t.border} ${
             isDark ? "bg-[#202020] text-[#d4d4d4]" : "bg-white text-neutral-700"
           }`}
         >
@@ -2702,7 +2703,7 @@ function BestTimeMobile({
                 {day}
               </span>
               <span
-                className={`flex h-6 min-w-0 flex-1 items-stretch gap-px overflow-hidden rounded-md ${base}`}
+                className={`flex h-6 min-w-0 flex-1 items-stretch gap-px overflow-hidden rounded-lg ${base}`}
                 aria-hidden="true"
               >
                 {heatmap.grid[d].map((cell, h) => (
@@ -3226,10 +3227,10 @@ export default function Insights() {
       <ImageIcon className="h-4 w-4" />
     );
 
-  const sectionCard = `rounded-[7px] border p-3 md:rounded-[7px] md:p-3 ${t.card}`;
-  const panelCard = `rounded-lg border p-4 ${t.card}`;
-  const sectionTitle = `text-[12px] font-semibold tracking-[-0.01em] md:text-[13px] ${t.text}`;
-  const sectionSub = `mt-0.5 text-[10px] leading-relaxed md:text-[10px] ${t.muted}`;
+  const sectionCard = `rounded-xl border p-4 md:p-5 ${t.card}`;
+  const panelCard = `rounded-xl border p-4 md:p-5 ${t.card}`;
+  const sectionTitle = `text-[15px] font-medium tracking-[-0.01em] ${t.text}`;
+  const sectionSub = `mt-1 text-[12px] leading-relaxed ${t.muted}`;
 
   const canSwitchChannel = channels.length > 1;
   const channelTriggerLabel = viewingAll
@@ -3242,7 +3243,7 @@ export default function Insights() {
     <main className={["relative h-dvh min-h-dvh w-full overflow-hidden overscroll-none compact-window selection:bg-black/15 transition-colors duration-300", t.page].join(" ")}>
       <DashboardSidebar theme={theme} />
       <div className="h-full min-h-0 px-2 py-2 md:py-3 md:pr-3 max-md:pt-[calc(3.5rem+env(safe-area-inset-top))] transition-[padding-left] duration-[380ms]" style={isMobile ? undefined : { paddingLeft: sidebarOffset }}>
-        <div className={["h-full min-h-0 overflow-y-auto overflow-x-hidden overscroll-y-contain rounded-lg border", NO_SCROLLBAR, "transition-colors duration-300", isDark ? "border-white/[0.07] bg-[#131313]" : "border-[#e5e5e5] bg-[#f8f8f8]"].join(" ")}>
+        <div className={["h-full min-h-0 overflow-y-auto overflow-x-hidden overscroll-y-contain rounded-xl border", NO_SCROLLBAR, "transition-colors duration-300", isDark ? "border-white/[0.07] bg-[#131313] shadow-[0_1px_2px_rgba(0,0,0,0.4),0_28px_56px_-28px_rgba(0,0,0,0.7)]" : "border-[#e5e5e5] bg-[#f8f8f8] shadow-[0_1px_2px_rgba(16,24,40,0.04),0_28px_56px_-32px_rgba(16,24,40,0.18)]"].join(" ")}>
           <div className="mx-auto flex w-full min-w-0 flex-col gap-3 px-[clamp(14px,1.6vw,24px)] pb-[calc(7.5rem+env(safe-area-inset-bottom))] pt-5 md:gap-4">
             <header className="flex flex-wrap items-end justify-between gap-4 pb-1">
               <div className="min-w-0">
@@ -3252,39 +3253,39 @@ export default function Insights() {
               <div className="flex min-w-0 items-center gap-2 print:hidden">
                 <div className="hidden md:block"><ChannelMenu channels={channels} current={channel} isDark={isDark} onSelect={goChannel} allOption={channels.length > 1 ? { key: ALL_KEY, label: c.allNetworks } : undefined} selectedKey={viewingAll ? ALL_KEY : channel?.key} /></div>
                 {fetchYouTube && <IconBtn label={c.header.refresh} t={t} align="end" onClick={() => setReloadKey((k) => k + 1)}><RefreshCw className={"h-4 w-4 " + (yt.loading ? "animate-spin motion-reduce:animate-none" : "")} /></IconBtn>}
-                <button type="button" onClick={exportCsv} disabled={!channels.length} className={"flex h-9 items-center gap-2 rounded-md border px-3 text-[11px] font-medium disabled:opacity-40 " + t.ring + " " + t.outlineBtn}><Download className="h-4 w-4" />{c.header.export}</button>
-                <button type="button" aria-label={saved ? c.header.removeFavorite : c.header.addFavorite} aria-pressed={saved} onClick={() => toggleFavorite(PAGE_ROUTE)} className={"flex h-9 w-9 items-center justify-center rounded-md " + t.ring + " " + t.hover + " " + t.soft}><Bookmark className={"h-4 w-4 " + (saved ? "fill-current" : "")} /></button>
+                <button type="button" onClick={exportCsv} disabled={!channels.length} className={"flex h-9 items-center gap-2 rounded-lg border px-3 text-[11px] font-medium disabled:opacity-40 " + t.ring + " " + t.outlineBtn}><Download className="h-4 w-4" />{c.header.export}</button>
+                <button type="button" aria-label={saved ? c.header.removeFavorite : c.header.addFavorite} aria-pressed={saved} onClick={() => toggleFavorite(PAGE_ROUTE)} className={"flex h-9 w-9 items-center justify-center rounded-lg " + t.ring + " " + t.hover + " " + t.soft}><Bookmark className={"h-4 w-4 " + (saved ? "fill-current" : "")} /></button>
               </div>
             </header>
 
-            {channels.length > 0 && <button type="button" aria-haspopup="dialog" disabled={!canSwitchChannel} onClick={() => setChannelsOpen(true)} className={"flex min-h-11 w-full items-center gap-2 rounded-md border px-3 text-left md:hidden " + t.ring + " " + t.panel}><span className={"min-w-0 flex-1 truncate text-[13px] font-medium " + t.text}>{channelTriggerLabel}</span>{canSwitchChannel && <ChevronDown className={"h-4 w-4 " + t.muted} />}</button>}
+            {channels.length > 0 && <button type="button" aria-haspopup="dialog" disabled={!canSwitchChannel} onClick={() => setChannelsOpen(true)} className={"flex min-h-11 w-full items-center gap-2 rounded-lg border px-3 text-left md:hidden " + t.ring + " " + t.panel}><span className={"min-w-0 flex-1 truncate text-[13px] font-medium " + t.text}>{channelTriggerLabel}</span>{canSwitchChannel && <ChevronDown className={"h-4 w-4 " + t.muted} />}</button>}
 
             {!channels.length ? (
               <section className={"flex flex-col items-center gap-3 rounded-lg border px-6 py-16 text-center " + t.panel}>
                 <span className={"flex h-12 w-12 items-center justify-center rounded-lg " + t.iconBox}><Activity className="h-5 w-5" /></span>
                 <h2 className={"text-sm font-semibold " + t.text}>{c.noChannels.title}</h2>
                 <p className={"max-w-sm text-xs " + t.soft}>{c.noChannels.description}</p>
-                <button type="button" onClick={() => navigateToSettingsSection("channels")} className={"mt-2 flex min-h-10 items-center gap-2 rounded-md px-4 text-xs font-semibold " + t.ring + " " + t.primaryBtn}><Plus className="h-4 w-4" />{c.noChannels.connect}</button>
+                <button type="button" onClick={() => navigateToSettingsSection("channels")} className={"mt-2 flex min-h-10 items-center gap-2 rounded-lg px-4 text-xs font-semibold " + t.ring + " " + t.primaryBtn}><Plus className="h-4 w-4" />{c.noChannels.connect}</button>
               </section>
             ) : (
               <>
-                {fetchYouTube && yt.error && <div role="alert" className={"flex flex-wrap items-center justify-between gap-3 rounded-md border px-4 py-3 " + t.panel}><p className={"min-w-0 break-words text-xs " + t.soft}>{c.errors.youtube(yt.error)}</p><button type="button" onClick={() => setReloadKey((k) => k + 1)} className={"rounded-md border px-3 py-2 text-xs " + t.ring + " " + t.outlineBtn}>{c.errors.retry}</button></div>}
+                {fetchYouTube && yt.error && <div role="alert" className={"flex flex-wrap items-center justify-between gap-3 rounded-lg border px-4 py-3 " + t.panel}><p className={"min-w-0 break-words text-xs " + t.soft}>{c.errors.youtube(yt.error)}</p><button type="button" onClick={() => setReloadKey((k) => k + 1)} className={"rounded-lg border px-3 py-2 text-xs " + t.ring + " " + t.outlineBtn}>{c.errors.retry}</button></div>}
                 {youtubeLoading && <p className={"text-xs " + t.soft} role="status">{c.errors.loading}</p>}
 
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="flex min-w-0 flex-wrap items-center gap-2">
-                    <div role="tablist" aria-label={c.overview.dateRangeAria} className={"inline-flex max-w-full items-center gap-1 rounded-md border p-1 " + t.panel + " " + NO_SCROLLBAR}>
-                      {(["7d", "30d", "mtd", "custom"] as Range[]).map((key) => <button key={key} type="button" role="tab" aria-selected={range === key} onClick={() => setRange(key)} className={"shrink-0 rounded-[4px] px-3 py-1.5 text-[11px] font-medium " + t.ring + " " + (range === key ? t.sel : t.idle)}>{c.ranges[key]}</button>)}
+                    <div role="tablist" aria-label={c.overview.dateRangeAria} className={"inline-flex max-w-full items-center gap-1 rounded-lg border p-1 " + t.panel + " " + NO_SCROLLBAR}>
+                      {(["7d", "30d", "mtd", "custom"] as Range[]).map((key) => <button key={key} type="button" role="tab" aria-selected={range === key} onClick={() => setRange(key)} className={"shrink-0 rounded-lg px-3 py-1.5 text-[12px] font-medium transition-colors " + t.ring + " " + (range === key ? t.sel : t.idle)}>{c.ranges[key]}</button>)}
                     </div>
                     {range === "custom" && <RangePicker range={range} start={start} end={end} onStartChange={setCustomStart} onEndChange={setCustomEnd} t={t} isDark={isDark} isMobile={isMobile} lang={lang} />}
                   </div>
                   <div className="hidden items-center gap-2 sm:flex" aria-label={c.summary.goalAria(postsThisWeek, goal)}><span className={"text-[11px] " + t.muted}>{c.summary.goalProgress(postsThisWeek, goal)}</span><div className={"h-1.5 w-20 overflow-hidden rounded-full " + t.inner}><div className={"h-full rounded-full " + (isDark ? "bg-white" : "bg-black")} style={{ width: goalPct + "%" }} /></div></div>
-                  <button type="button" onClick={() => navigate("tags")} className={"flex h-9 items-center gap-2 rounded-md px-3 text-[11px] " + t.ring + " " + t.hover + " " + t.text}><Tag className="h-3.5 w-3.5" />{c.tagsButton}<ChevronDown className="h-3.5 w-3.5" /></button>
+                  <button type="button" onClick={() => navigate("tags")} className={"flex h-9 items-center gap-2 rounded-lg px-3 text-[11px] " + t.ring + " " + t.hover + " " + t.text}><Tag className="h-3.5 w-3.5" />{c.tagsButton}<ChevronDown className="h-3.5 w-3.5" /></button>
                 </div>
 
                 {hasDemoInsights && <p className={"-mt-1 text-[11px] " + t.muted}>{lang === "fr" ? "Certaines données sont estimées selon l'activité disponible." : "Some data is estimated from available activity."}</p>}
 
-                <section aria-label={c.summary.title} className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                <section aria-label={c.summary.title} className="grid grid-cols-2 gap-4 lg:grid-cols-4">
                   {summaryBoxes.slice(0, 4).map((b) => (
                     <MetricBox
                       key={b.key}
@@ -3303,11 +3304,11 @@ export default function Insights() {
                   ))}
                 </section>
 
-                <div className="grid min-w-0 grid-cols-1 items-stretch gap-3 lg:grid-cols-2">
+                <div className="grid min-w-0 grid-cols-1 items-stretch gap-4 lg:grid-cols-2">
                   <section className={panelCard + " min-w-0"} aria-labelledby="trend-panel-title">
                     <div className="flex items-center justify-between gap-3">
                       <h2 id="trend-panel-title" className={"text-[15px] font-medium " + t.text}>{mainSeries.label}</h2>
-                      <button type="button" onClick={cycleRange} aria-label={c.overview.dateRangeAria} className={"flex h-8 items-center gap-2 rounded-md border px-3 text-[12px] " + t.ring + " " + t.outlineBtn}><Calendar className="h-3.5 w-3.5" aria-hidden="true" />{periodLabel}</button>
+                      <button type="button" onClick={cycleRange} aria-label={c.overview.dateRangeAria} className={"flex h-9 items-center gap-2 rounded-lg border px-3 text-[12px] " + t.ring + " " + t.outlineBtn}><Calendar className="h-3.5 w-3.5" aria-hidden="true" />{periodLabel}</button>
                     </div>
                     <div className="mt-4"><InsightsChart data={chartData} view="both" isDark={isDark} isMobile={isMobile} lang={lang} seriesLabel={mainSeries.label} seriesColor={TONES[0]} /></div>
                   </section>
@@ -3327,7 +3328,7 @@ export default function Insights() {
                 <section className={panelCard + " min-w-0"} aria-labelledby="recycle-title">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <h2 id="recycle-title" className={"text-[15px] font-medium " + t.text}>{c.recycle.title}</h2>
-                    <label className={"flex h-8 w-full items-center gap-2 rounded-md border px-2.5 text-[12px] sm:w-[220px] " + t.panel + " " + t.muted}>
+                    <label className={"flex h-9 w-full items-center gap-2 rounded-lg border px-3 text-[12px] transition-colors sm:w-[240px] " + (isDark ? "focus-within:border-white/25 " : "focus-within:border-black/30 ") + t.panel + " " + t.muted}>
                       <Search className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                       <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={lang === "fr" ? "Rechercher" : "Search"} aria-label={lang === "fr" ? "Rechercher une publication" : "Search posts"} className={"min-w-0 flex-1 bg-transparent outline-none placeholder:text-current " + t.text} />
                     </label>
@@ -3336,13 +3337,13 @@ export default function Insights() {
                     const cards = remixable.filter((p) => !needle || p.label.toLowerCase().includes(needle));
                     if (cards.length === 0) return <p className={"mt-4 text-xs " + t.soft}>{needle ? c.performance.emptyNoMatch : c.recycle.emptyHint}</p>;
                     return (
-                      <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                      <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
                         {cards.map((p) => (
-                          <article key={p.id} className={"flex min-w-0 flex-col rounded-lg border p-3 " + t.inner}>
+                          <article key={p.id} className={"flex min-w-0 flex-col rounded-xl border p-4 " + t.inner + " " + t.lift}>
                             <div className="flex items-start justify-between gap-2">
-                              <div className={"relative h-[60px] w-[80px] shrink-0 rounded-md border " + t.border + " " + (isDark ? "bg-[#242424]" : "bg-[#ececec]")}>
+                              <div className={"relative h-[60px] w-[80px] shrink-0 rounded-lg border " + (isDark ? "shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_4px_10px_-3px_rgba(0,0,0,0.55)] " : "shadow-[0_3px_8px_-3px_rgba(16,24,40,0.18)] ") + t.border + " " + (isDark ? "bg-[#242424]" : "bg-[#ececec]")}>
                                 <span className={"absolute -top-[5px] left-0 h-[7px] w-8 rounded-t-md border border-b-0 " + t.border + " " + (isDark ? "bg-[#242424]" : "bg-[#ececec]")} aria-hidden="true" />
-                                {p.thumbnailUrl ? <img src={p.thumbnailUrl} alt="" referrerPolicy="no-referrer" loading="lazy" className="h-full w-full rounded-md object-cover opacity-60" /> : <span className={"flex h-full w-full items-center justify-center " + t.muted}>{mediaIcon(p.media)}</span>}
+                                {p.thumbnailUrl ? <img src={p.thumbnailUrl} alt="" referrerPolicy="no-referrer" loading="lazy" className="h-full w-full rounded-lg object-cover opacity-60" /> : <span className={"flex h-full w-full items-center justify-center " + t.muted}>{mediaIcon(p.media)}</span>}
                                 <span className={"absolute bottom-2 right-2 h-px w-3 " + (isDark ? "bg-white/30" : "bg-black/25")} aria-hidden="true" />
                               </div>
                               <div className={"flex items-center gap-1.5 text-[12px] " + t.soft}>
@@ -3353,11 +3354,11 @@ export default function Insights() {
                             <h3 className={"mt-4 truncate text-[15px] font-medium " + t.text}>{p.label}</h3>
                             <p className={"mt-1 line-clamp-2 min-h-[2.6em] text-[13px] leading-snug " + t.muted}>{c.recycle.engagement(p.reactions, p.engRate.toFixed(1))}</p>
                             <div className="mt-4 flex items-center gap-2">
-                              <button type="button" onClick={() => duplicatePost(p)} className={"flex h-9 flex-1 items-center justify-center gap-2 rounded-md border text-[13px] " + t.ring + " " + t.outlineBtn}><Copy className="h-3.5 w-3.5" aria-hidden="true" />{c.recycle.duplicate}</button>
+                              <button type="button" onClick={() => duplicatePost(p)} className={"flex h-9 flex-1 items-center justify-center gap-2 rounded-lg border text-[13px] font-medium " + t.ring + " " + t.outlineBtn}><Copy className="h-3.5 w-3.5" aria-hidden="true" />{c.recycle.duplicate}</button>
                               {isYouTube ? (
-                                <a href={"https://www.youtube.com/watch?v=" + p.id} target="_blank" rel="noopener noreferrer" className={"flex h-9 flex-1 items-center justify-center gap-2 rounded-md text-[13px] " + t.ring + " " + t.soft + " " + t.hover}><ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />{lang === "fr" ? "Ouvrir" : "Open"}</a>
+                                <a href={"https://www.youtube.com/watch?v=" + p.id} target="_blank" rel="noopener noreferrer" className={"flex h-9 flex-1 items-center justify-center gap-2 rounded-lg text-[13px] " + t.ring + " " + t.soft + " " + t.hover}><ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />{lang === "fr" ? "Ouvrir" : "Open"}</a>
                               ) : (
-                                <button type="button" onClick={() => openComposer({ reason: "manual", channelKey: channel?.key })} className={"flex h-9 flex-1 items-center justify-center gap-2 rounded-md text-[13px] " + t.ring + " " + t.soft + " " + t.hover}><Pencil className="h-3.5 w-3.5" aria-hidden="true" />{lang === "fr" ? "Nouveau" : "New"}</button>
+                                <button type="button" onClick={() => openComposer({ reason: "manual", channelKey: channel?.key })} className={"flex h-9 flex-1 items-center justify-center gap-2 rounded-lg text-[13px] " + t.ring + " " + t.soft + " " + t.hover}><Pencil className="h-3.5 w-3.5" aria-hidden="true" />{lang === "fr" ? "Nouveau" : "New"}</button>
                               )}
                             </div>
                           </article>
@@ -3368,10 +3369,10 @@ export default function Insights() {
                 </section>
 
                 <section className={sectionCard + " min-w-0"} aria-labelledby="besttime-title">
-                    <div className="flex flex-wrap items-start justify-between gap-2"><div className="min-w-0"><h2 id="besttime-title" className={sectionTitle}>{c.bestTime.title}</h2><p className={sectionSub}>{subhead}</p></div><button type="button" onClick={() => scheduleFromSlot(heatmap.best)} className={"h-8 shrink-0 rounded-md border px-3 text-[10px] font-medium " + t.ring + " " + t.outlineBtn}>{c.bestTime.useLabel(heatmap.label)}</button></div>
+                    <div className="flex flex-wrap items-start justify-between gap-2"><div className="min-w-0"><h2 id="besttime-title" className={sectionTitle}>{c.bestTime.title}</h2><p className={sectionSub}>{subhead}</p></div><button type="button" onClick={() => scheduleFromSlot(heatmap.best)} className={"h-8 shrink-0 rounded-lg border px-3 text-[10px] font-medium " + t.ring + " " + t.outlineBtn}>{c.bestTime.useLabel(heatmap.label)}</button></div>
                     <div className={"mt-3 flex items-center gap-3 text-[9px] " + t.muted}><span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[#bdbdbd]" />{c.bestTime.high}</span><span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-white/20" />{c.bestTime.low}</span></div>
                     {isMobile ? <BestTimeMobile heatmap={heatmap} c={c} t={t} isDark={isDark} onSchedule={scheduleFromSlot} /> : (
-                      <div className="mt-3 grid h-[190px] grid-cols-7 items-end gap-2 border-b px-1">{c.days.map((day, d) => { const slot = heatmap.bestByDay[d]; const intensity = Math.max(0.08, slot.norm); return <button key={day} type="button" onClick={() => scheduleFromSlot({ day: d, hour: slot.hour })} title={c.bestTime.scheduleAria(day, hourLabel(slot.hour))} aria-label={c.bestTime.scheduleAria(day, hourLabel(slot.hour))} className={"group flex h-full min-w-0 flex-col items-center justify-end gap-2 rounded-md px-1 pb-2 " + t.ring}><span className="flex h-[145px] w-full items-end justify-center"><span className={"block w-full max-w-8 rounded-t-[4px] transition-opacity group-hover:opacity-70 " + (isDark ? "bg-[#bdbdbd]" : "bg-[#666666]")} style={{ height: Math.max(7, Math.round(intensity * 100)) + "%" }} /></span><span className={"text-[10px] " + t.muted}>{day}</span><span className={"text-[9px] tabular-nums " + t.soft}>{hourLabel(slot.hour)}</span></button>; })}</div>
+                      <div className="mt-3 grid h-[190px] grid-cols-7 items-end gap-2 border-b px-1">{c.days.map((day, d) => { const slot = heatmap.bestByDay[d]; const intensity = Math.max(0.08, slot.norm); return <button key={day} type="button" onClick={() => scheduleFromSlot({ day: d, hour: slot.hour })} title={c.bestTime.scheduleAria(day, hourLabel(slot.hour))} aria-label={c.bestTime.scheduleAria(day, hourLabel(slot.hour))} className={"group flex h-full min-w-0 flex-col items-center justify-end gap-2 rounded-lg px-1 pb-2 " + t.ring}><span className="flex h-[145px] w-full items-end justify-center"><span className={"block w-full max-w-8 rounded-t-[4px] transition-opacity group-hover:opacity-70 " + (isDark ? "bg-[#bdbdbd]" : "bg-[#666666]")} style={{ height: Math.max(7, Math.round(intensity * 100)) + "%" }} /></span><span className={"text-[10px] " + t.muted}>{day}</span><span className={"text-[9px] tabular-nums " + t.soft}>{hourLabel(slot.hour)}</span></button>; })}</div>
                     )}
                     <p className={"mt-3 text-[10px] leading-relaxed " + t.muted}>{bestTimesNote}</p>
                   </section>
@@ -3411,7 +3412,7 @@ export default function Insights() {
                   </div>
 
                   <div
-                    className={`mt-4 overflow-hidden rounded-2xl border ${t.panel}`}
+                    className={`mt-5 overflow-hidden rounded-xl border ${t.panel}`}
                   >
                     {/* Mobile (< md) : compteur + tri en puces scrollables */}
                     <div className="md:hidden">
@@ -3605,7 +3606,7 @@ export default function Insights() {
                                 rel="noopener noreferrer"
                                 aria-label={c.performance.openYouTube}
                                 title={c.performance.openYouTube}
-                                className={`flex h-10 w-10 items-center justify-center rounded-md md:h-8 md:w-8 ${t.soft} ${t.hover} ${t.ring}`}
+                                className={`flex h-10 w-10 items-center justify-center rounded-lg md:h-8 md:w-8 ${t.soft} ${t.hover} ${t.ring}`}
                               >
                                 <ExternalLink
                                   className="h-4 w-4"
@@ -3618,7 +3619,7 @@ export default function Insights() {
                                 aria-label={c.performance.duplicatePost}
                                 title={c.performance.duplicatePost}
                                 onClick={() => duplicatePost(p)}
-                                className={`flex h-10 w-10 items-center justify-center rounded-md md:h-8 md:w-8 ${t.soft} ${t.hover} ${t.ring}`}
+                                className={`flex h-10 w-10 items-center justify-center rounded-lg md:h-8 md:w-8 ${t.soft} ${t.hover} ${t.ring}`}
                               >
                                 <MoreVertical
                                   className="h-4 w-4"
