@@ -337,6 +337,24 @@ function ArrowRightIcon() {
   );
 }
 
+function PlusIcon() {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      className="h-[25px] w-[25px]"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      aria-hidden="true"
+    >
+      <path d="M12 5v14M5 12h14" />
+    </svg>
+  );
+}
+
+
+
 function BookmarkIcon({
   className,
   filled = false,
@@ -499,26 +517,18 @@ function IntegrationCard({
 }) {
   const Icon = ICONS[data.title];
   const isMobile = useIsMobile();
-
-  // Desktop : menu "trois points" en dropdown ancré à la carte.
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
-
-  // Mobile : les options passent en feuille glissable (comme Home).
   const [sheetOpen, setSheetOpen] = useState(false);
 
   useEffect(() => {
     if (!menuOpen || isMobile) return;
-
     const onPointerDown = (event: PointerEvent) => {
-      if (!menuRef.current?.contains(event.target as Node)) {
-        setMenuOpen(false);
-      }
+      if (!menuRef.current?.contains(event.target as Node)) setMenuOpen(false);
     };
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") setMenuOpen(false);
     };
-
     document.addEventListener("pointerdown", onPointerDown);
     document.addEventListener("keydown", onKeyDown);
     return () => {
@@ -528,220 +538,166 @@ function IntegrationCard({
   }, [menuOpen, isMobile]);
 
   return (
-    <div
+    <article
       className={[
-        "group flex min-w-0 items-center gap-3 rounded-xl border px-3 py-3 transition sm:gap-4 sm:px-3.5",
-        cardClass(isDark),
-        focusRingClass(isDark),
-        isDark
-          ? "hover:bg-[#19191c] hover:border-white/[0.12]"
-          : "hover:bg-[#f6f4f0] hover:border-black/[0.12]",
+        "group flex min-w-0 items-center gap-4 rounded-xl px-1 py-4 sm:gap-5 sm:px-2 sm:py-[18px]",
+        "transition-colors duration-200",
+        isDark ? "hover:bg-white/[0.035]" : "hover:bg-black/[0.025]",
       ].join(" ")}
     >
-      <div className="flex min-w-0 flex-1 items-center justify-between gap-2">
-        <div className="flex min-w-0 items-center gap-3">
-          {Icon && (
-            <div
-              className={[
-                "flex h-11 w-11 shrink-0 items-center justify-center rounded-[14px] border sm:h-10 sm:w-10 sm:rounded-xl",
-                isDark
-                  ? "border-white/[0.08] bg-white/[0.04] text-neutral-300"
-                  : "border-black/[0.06] bg-[#f6f4f0] text-neutral-600",
-              ].join(" ")}
-            >
-              <Icon className="h-[21px] w-[21px] sm:h-[19px] sm:w-[19px]" />
-            </div>
-          )}
-          <h3
-            className={[
-              "truncate text-[15px] font-semibold tracking-[-0.01em] sm:text-[13.5px]",
-              strongClass(isDark),
-            ].join(" ")}
-          >
-            {data.title}
-          </h3>
-        </div>
-
-        {service?.connected ? (
-          <div ref={menuRef} className="relative shrink-0">
-            <button
-              type="button"
-              aria-label={`Options pour ${data.title}`}
-              aria-haspopup="menu"
-              aria-expanded={menuOpen || sheetOpen}
-              onClick={() => (isMobile ? setSheetOpen(true) : setMenuOpen((v) => !v))}
-              className={[
-                "flex h-10 w-10 items-center justify-center rounded-lg transition-colors sm:h-8 sm:w-8",
-                focusRingClass(isDark),
-                mutedClass(isDark),
-                isDark
-                  ? "hover:bg-white/[0.06] hover:text-white"
-                  : "hover:bg-black/[0.05] hover:text-neutral-900",
-              ].join(" ")}
-            >
-              <MoreIcon />
-            </button>
-
-            {/* Desktop : dropdown */}
-            {menuOpen && !isMobile && (
-              <div
-                role="menu"
-                className={[
-                  "absolute right-0 top-10 z-50 w-44 max-w-[calc(100vw-32px)] rounded-xl border p-1 shadow-xl",
-                  isDark
-                    ? "border-white/[0.08] bg-[#16161a]"
-                    : "border-black/[0.06] bg-white",
-                ].join(" ")}
-              >
-                <button
-                  type="button"
-                  role="menuitem"
-                  disabled={service.busy}
-                  onClick={() => {
-                    setMenuOpen(false);
-                    service.onReconnect();
-                  }}
-                  className={[
-                    "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-[11px] font-medium disabled:opacity-40",
-                    isDark
-                      ? "text-neutral-200 hover:bg-white/[0.06] hover:text-white"
-                      : "text-neutral-700 hover:bg-black/[0.04] hover:text-neutral-900",
-                  ].join(" ")}
-                >
-                  <RefreshIcon />
-                  Reconnect
-                </button>
-
-                <div
-                  className={[
-                    "my-1 h-px",
-                    isDark ? "bg-white/[0.06]" : "bg-black/[0.06]",
-                  ].join(" ")}
-                />
-
-                <button
-                  type="button"
-                  role="menuitem"
-                  disabled={service.busy}
-                  onClick={() => {
-                    setMenuOpen(false);
-                    service.onDisconnect();
-                  }}
-                  className={[
-                    "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-[11px] font-medium disabled:opacity-40",
-                    isDark
-                      ? "text-rose-400 hover:bg-rose-500/[0.07]"
-                      : "text-rose-600 hover:bg-rose-500/[0.07]",
-                  ].join(" ")}
-                >
-                  <DisconnectIcon />
-                  Disconnect
-                </button>
-              </div>
-            )}
-
-            {/* Mobile : feuille glissable */}
-            {sheetOpen && isMobile && service && (
-              <BottomSheet
-                isDark={isDark}
-                title={data.title}
-                onClose={() => setSheetOpen(false)}
-              >
-                {(close) => (
-                  <div role="menu" className="flex flex-col gap-1 pt-1">
-                    <button
-                      type="button"
-                      role="menuitem"
-                      disabled={service.busy}
-                      onClick={() => {
-                        close();
-                        service.onReconnect();
-                      }}
-                      className={[
-                        "flex min-h-14 w-full items-center gap-3 rounded-2xl px-3 text-left text-[15px] font-semibold transition disabled:opacity-40",
-                        focusRingClass(isDark),
-                        isDark
-                          ? "text-neutral-200 active:bg-white/[0.06]"
-                          : "text-neutral-700 active:bg-black/[0.04]",
-                      ].join(" ")}
-                    >
-                      <RefreshIcon />
-                      Reconnect
-                    </button>
-                    <button
-                      type="button"
-                      role="menuitem"
-                      disabled={service.busy}
-                      onClick={() => {
-                        close();
-                        service.onDisconnect();
-                      }}
-                      className={[
-                        "flex min-h-14 w-full items-center gap-3 rounded-2xl px-3 text-left text-[15px] font-semibold transition disabled:opacity-40",
-                        focusRingClass(isDark),
-                        isDark
-                          ? "text-rose-400 active:bg-rose-500/[0.07]"
-                          : "text-rose-600 active:bg-rose-500/[0.07]",
-                      ].join(" ")}
-                    >
-                      <DisconnectIcon />
-                      Disconnect
-                    </button>
-                  </div>
-                )}
-              </BottomSheet>
-            )}
-          </div>
-        ) : (
-          <button
-            type="button"
-            onClick={service?.onConnect}
-            disabled={service?.busy}
-            aria-busy={service?.busy}
-            aria-label={
-              service ? `Connecter ${data.title}` : `Configurer ${data.title}`
-            }
-            className={[
-              "flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition disabled:cursor-default sm:h-7 sm:w-7",
-              service?.busy ? "animate-pulse opacity-60" : "",
-              focusRingClass(isDark),
-              isDark
-                ? "text-neutral-400 hover:bg-white/10 hover:text-white"
-                : "text-neutral-400 hover:bg-black/5 hover:text-neutral-900",
-            ].join(" ")}
-          >
-            <ArrowRightIcon />
-          </button>
-        )}
+      <div
+        className={[
+          "flex h-[50px] w-[50px] shrink-0 items-center justify-center overflow-hidden rounded-[13px] border",
+          isDark
+            ? "border-white/[0.12] bg-[#202024] text-neutral-100"
+            : "border-black/[0.09] bg-white text-neutral-800 shadow-[0_1px_2px_rgba(0,0,0,0.025)]",
+        ].join(" ")}
+      >
+        {Icon && <Icon className="h-[29px] w-[29px]" />}
       </div>
 
-      <div className="mt-0 flex min-w-0 flex-1 items-center gap-2">
-        {data.meta && (
-          <span
-            className={[
-              "shrink-0 text-[11px] font-medium tracking-wide sm:text-[10.5px]",
-              isDark ? "text-neutral-500" : "text-neutral-400",
-            ].join(" ")}
-          >
-            {data.meta}
-          </span>
-        )}
+      <div className="min-w-0 flex-1">
+        <h3
+          className={[
+            "truncate text-[17px] font-semibold leading-[1.25] tracking-[-0.025em] sm:text-[19px]",
+            strongClass(isDark),
+          ].join(" ")}
+        >
+          {data.title}
+        </h3>
         <p
           className={[
-            "min-w-0 truncate text-[12.5px] leading-[1.45] sm:text-[12px]",
+            "mt-1.5 line-clamp-2 text-[14px] leading-[1.45] sm:text-[16px]",
             isDark ? "text-neutral-400" : "text-neutral-600",
           ].join(" ")}
         >
           {data.body}
         </p>
+        {service?.error && (
+          <p role="alert" className="mt-1.5 text-[12px] leading-relaxed text-red-400">
+            {service.error}
+          </p>
+        )}
       </div>
 
-      {service?.error && (
-        <p role="alert" className="mt-3 text-[11px] leading-relaxed text-red-400">
-          {service.error}
-        </p>
+      {service?.connected ? (
+        <div ref={menuRef} className="relative shrink-0">
+          <button
+            type="button"
+            aria-label={`Options pour ${data.title}`}
+            aria-haspopup="menu"
+            aria-expanded={menuOpen || sheetOpen}
+            onClick={() => (isMobile ? setSheetOpen(true) : setMenuOpen((v) => !v))}
+            className={[
+              "flex h-11 w-11 items-center justify-center rounded-full transition-colors",
+              focusRingClass(isDark),
+              isDark
+                ? "text-neutral-400 hover:bg-white/[0.08] hover:text-white"
+                : "text-neutral-500 hover:bg-black/[0.055] hover:text-neutral-900",
+            ].join(" ")}
+          >
+            <MoreIcon />
+          </button>
+
+          {menuOpen && !isMobile && (
+            <div
+              role="menu"
+              className={[
+                "absolute right-0 top-12 z-50 w-48 rounded-xl border p-1.5 shadow-xl",
+                isDark ? "border-white/[0.1] bg-[#1b1b1f]" : "border-black/[0.08] bg-white",
+              ].join(" ")}
+            >
+              <button
+                type="button"
+                role="menuitem"
+                disabled={service.busy}
+                onClick={() => { setMenuOpen(false); service.onReconnect(); }}
+                className={[
+                  "flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-[13px] font-medium disabled:opacity-40",
+                  isDark ? "text-neutral-200 hover:bg-white/[0.06]" : "text-neutral-700 hover:bg-black/[0.04]",
+                ].join(" ")}
+              >
+                <RefreshIcon />
+                Reconnecter
+              </button>
+              <div className={["my-1 h-px", isDark ? "bg-white/[0.07]" : "bg-black/[0.06]"].join(" ")} />
+              <button
+                type="button"
+                role="menuitem"
+                disabled={service.busy}
+                onClick={() => { setMenuOpen(false); service.onDisconnect(); }}
+                className={[
+                  "flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-[13px] font-medium disabled:opacity-40",
+                  isDark ? "text-rose-400 hover:bg-rose-500/[0.08]" : "text-rose-600 hover:bg-rose-500/[0.07]",
+                ].join(" ")}
+              >
+                <DisconnectIcon />
+                Déconnecter
+              </button>
+            </div>
+          )}
+
+          {sheetOpen && isMobile && (
+            <BottomSheet
+              isDark={isDark}
+              title={data.title}
+              onClose={() => setSheetOpen(false)}
+            >
+              {(close) => (
+                <div role="menu" className="flex flex-col gap-1 pt-1">
+                  <button
+                    type="button"
+                    role="menuitem"
+                    disabled={service.busy}
+                    onClick={() => { close(); service.onReconnect(); }}
+                    className={[
+                      "flex min-h-14 w-full items-center gap-3 rounded-2xl px-3 text-left text-[15px] font-semibold disabled:opacity-40",
+                      focusRingClass(isDark),
+                      isDark ? "text-neutral-200 active:bg-white/[0.06]" : "text-neutral-700 active:bg-black/[0.04]",
+                    ].join(" ")}
+                  >
+                    <RefreshIcon />
+                    Reconnecter
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    disabled={service.busy}
+                    onClick={() => { close(); service.onDisconnect(); }}
+                    className={[
+                      "flex min-h-14 w-full items-center gap-3 rounded-2xl px-3 text-left text-[15px] font-semibold disabled:opacity-40",
+                      focusRingClass(isDark),
+                      isDark ? "text-rose-400 active:bg-rose-500/[0.07]" : "text-rose-600 active:bg-rose-500/[0.07]",
+                    ].join(" ")}
+                  >
+                    <DisconnectIcon />
+                    Déconnecter
+                  </button>
+                </div>
+              )}
+            </BottomSheet>
+          )}
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={service?.onConnect}
+          disabled={service?.busy}
+          aria-busy={service?.busy}
+          aria-label={`Connecter ${data.title}`}
+          className={[
+            "flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition-colors disabled:cursor-default",
+            service?.busy ? "animate-pulse opacity-60" : "",
+            focusRingClass(isDark),
+            isDark
+              ? "text-neutral-300 hover:bg-white/[0.08] hover:text-white"
+              : "text-neutral-800 hover:bg-black/[0.05]",
+          ].join(" ")}
+        >
+          <PlusIcon />
+        </button>
       )}
-    </div>
+    </article>
   );
 }
 
@@ -1275,7 +1231,7 @@ export default function Integrations({ embedded = false }: IntegrationsProps) {
               embedded
                 ? "px-0 pb-0 pt-0"
                 : [
-                    "px-[clamp(14px,3vw,48px)]",
+                    "px-[clamp(20px,2.1vw,36px)]",
                     "pb-[calc(7.5rem+env(safe-area-inset-bottom))] pt-[clamp(16px,3vw,30px)]",
                   ].join(" "),
             ].join(" ")}
@@ -1415,11 +1371,11 @@ export default function Integrations({ embedded = false }: IntegrationsProps) {
 
             {/* CONNECTEURS INSTALLÉS */}
             <section className="mt-10 sm:mt-12">
-              <h2 className={["mb-5 flex items-center gap-2 text-[19px] font-semibold tracking-[-0.025em] sm:text-[21px]", strongClass(isDark)].join(" ")}>
+              <h2 className={["mb-6 flex items-center gap-2 text-[21px] font-semibold tracking-[-0.03em] sm:mb-7 sm:text-[23px]", strongClass(isDark)].join(" ")}>
                 Installés <span className={mutedClass(isDark)}><ArrowRightIcon /></span>
               </h2>
               {installed.length > 0 ? (
-                <div className="flex flex-wrap items-center gap-3">
+                <div className="flex flex-wrap items-center gap-3 sm:gap-3.5">
                   {installed.map((item) => {
                     const Icon = ICONS[item.title];
                     return (
@@ -1428,7 +1384,7 @@ export default function Integrations({ embedded = false }: IntegrationsProps) {
                         title={item.title}
                         aria-label={item.title}
                         className={[
-                          "flex h-14 w-14 items-center justify-center rounded-2xl border shadow-sm",
+                          "flex h-[52px] w-[52px] items-center justify-center rounded-[14px] border shadow-sm",
                           isDark ? "border-white/[0.09] bg-[#171719]" : "border-black/[0.06] bg-white",
                         ].join(" ")}
                       >
@@ -1445,12 +1401,12 @@ export default function Integrations({ embedded = false }: IntegrationsProps) {
             </section>
 
             {/* LES PLUS UTILISÉS */}
-            <section className="mt-12 sm:mt-14">
+            <section className="mt-14 sm:mt-[68px]">
               <h2 className={["mb-5 flex items-center gap-2 text-[19px] font-semibold tracking-[-0.025em] sm:text-[21px]", strongClass(isDark)].join(" ")}>
                 Les plus utilisés <span className={mutedClass(isDark)}><ArrowRightIcon /></span>
               </h2>
               {popular.length > 0 ? (
-                <div className="grid grid-cols-1 gap-x-8 gap-y-2 sm:grid-cols-2">
+                <div className="grid grid-cols-1 gap-x-10 gap-y-2 lg:grid-cols-2 lg:gap-x-12 lg:gap-y-3">
                   {popular.map((card) => (
                     <IntegrationCard key={card.title} data={card} isDark={isDark} service={services[card.title]} />
                   ))}
