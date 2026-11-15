@@ -3133,636 +3133,95 @@ export default function Insights() {
       : "";
 
   return (
-    <main
-      className={[
-        "relative h-dvh min-h-dvh w-full overflow-hidden overscroll-none",
-        "compact-window",
-        "selection:bg-black/15 transition-colors duration-300",
-        t.page,
-      ].join(" ")}
-    >
+    <main className={["relative h-dvh min-h-dvh w-full overflow-hidden overscroll-none compact-window selection:bg-black/15 transition-colors duration-300", t.page].join(" ")}>
       <DashboardSidebar theme={theme} />
-
-      <div
-        className={[
-          "h-full min-h-0 px-2 py-2 md:py-3 md:pl-0 md:pr-3",
-          "max-md:pt-[calc(3.5rem+env(safe-area-inset-top))]",
-          "transition-[padding-left] duration-[380ms]",
-          "ease-[cubic-bezier(0.4,0,0.2,1)]",
-          "motion-reduce:transition-none",
-        ].join(" ")}
-        // Sur mobile la sidebar est un tiroir : aucun décalage à gauche.
-        style={isMobile ? undefined : { paddingLeft: sidebarOffset }}
-      >
-        <div
-          className={[
-            "h-full min-h-0 overflow-y-auto overflow-x-hidden overscroll-y-contain",
-            "rounded-[7px] border md:rounded-[7px]",
-            NO_SCROLLBAR,
-            "transition-colors duration-300",
-            isDark ? "border-white/[0.07] bg-[#0b0b0b]" : "border-[#e5e5e5] bg-[#f8f8f8]",
-          ].join(" ")}
-        >
-          <div
-            className={[
-              "mx-auto flex w-full min-w-0 max-w-none",
-              "flex-col gap-2 px-[clamp(12px,1.35vw,20px)] md:gap-2 compact-content",
-              "pb-[calc(7.5rem+env(safe-area-inset-bottom))] pt-[clamp(12px,1.2vw,18px)]",
-            ].join(" ")}
-          >
-            {/* HEADER COMPACT */}
-            <div className="flex flex-col gap-2">
-              <div className={`relative z-20 flex shrink-0 items-center justify-between gap-3 border-b pb-3 ${t.border}`}>
-                <div className="flex min-w-0 items-center gap-2.5">
-                  <div className="min-w-0">
-                  <div className={`mb-1 flex items-center gap-1.5 text-[10px] ${t.muted}`}><Activity className="h-3 w-3" /> Analytics</div>
-                  <h1 className={`truncate text-[21px] font-semibold tracking-[-0.035em] md:text-[22px] ${t.text}`}>
-                    {lang === "fr" ? "Vos performances en un coup d'œil" : "Fresh analytics from everything"}
-                  </h1>
-                  <p className={`mt-0.5 text-[10px] ${t.muted}`}>{periodLabel}{channel ? ` · ${channelLabel(channel)}` : ""}</p>
-                </div>
-                </div>
-
-                <div className="flex min-w-0 items-center gap-1.5 md:gap-2.5 print:hidden">
-                  <div className="max-md:hidden">
-                    <ChannelMenu
-                      channels={channels}
-                      current={channel}
-                      isDark={isDark}
-                      onSelect={goChannel}
-                      allOption={
-                        channels.length > 1
-                          ? { key: ALL_KEY, label: c.allNetworks }
-                          : undefined
-                      }
-                      selectedKey={viewingAll ? ALL_KEY : channel?.key}
-                    />
-                  </div>
-
-                  <div className="flex items-center gap-0.5 md:gap-2">
-                    {fetchYouTube && (
-                      <IconBtn
-                        label={c.header.refresh}
-                        t={t}
-                        align="end"
-                        onClick={() => setReloadKey((k) => k + 1)}
-                      >
-                        <RefreshCw
-                          className={`h-[18px] w-[18px] ${
-                            yt.loading
-                              ? "animate-spin motion-reduce:animate-none"
-                              : ""
-                          }`}
-                          aria-hidden="true"
-                        />
-                      </IconBtn>
-                    )}
-
-                    <button
-                      type="button"
-                      onClick={exportCsv}
-                      disabled={!channels.length}
-                      aria-label={c.header.export}
-                      title={c.header.export}
-                      className={`flex h-10 items-center justify-center gap-2 rounded-[6px] text-[11px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 max-md:w-10 md:h-9 md:px-4 ${t.ring} ${t.outlineBtn}`}
-                    >
-                      <Download className="h-4 w-4" aria-hidden="true" />
-                      <span className="max-md:sr-only">{c.header.export}</span>
-                    </button>
-                  </div>
-
-                  <button
-                    type="button"
-                    aria-label={
-                      saved ? c.header.removeFavorite : c.header.addFavorite
-                    }
-                    aria-pressed={saved}
-                    title={saved ? c.header.removeFavorite : c.header.addFavorite}
-                    onClick={() => toggleFavorite(PAGE_ROUTE)}
-                    className={[
-                      "flex h-10 w-10 shrink-0 items-center justify-center rounded-lg transition-colors motion-reduce:transition-none md:ml-1 md:h-9 md:w-9",
-                      t.ring,
-                      t.soft,
-                      t.hover,
-                    ].join(" ")}
-                  >
-                    <Bookmark
-                      className={`h-5 w-5 ${saved ? "fill-current" : ""}`}
-                      aria-hidden="true"
-                    />
-                  </button>
-                </div>
+      <div className="h-full min-h-0 px-2 py-2 md:py-3 md:pr-3 max-md:pt-[calc(3.5rem+env(safe-area-inset-top))] transition-[padding-left] duration-[380ms]" style={isMobile ? undefined : { paddingLeft: sidebarOffset }}>
+        <div className={["h-full min-h-0 overflow-y-auto overflow-x-hidden overscroll-y-contain rounded-lg border", NO_SCROLLBAR, "transition-colors duration-300", isDark ? "border-white/[0.07] bg-[#111111]" : "border-[#e5e5e5] bg-[#f8f8f8]"].join(" ")}>
+          <div className="mx-auto flex w-full min-w-0 flex-col gap-3 px-[clamp(14px,1.6vw,24px)] pb-[calc(7.5rem+env(safe-area-inset-bottom))] pt-5 md:gap-3">
+            <header className="flex flex-wrap items-center justify-between gap-4 border-b pb-4">
+              <div className="min-w-0">
+                <div className={"mb-2 flex items-center gap-2 text-xs " + t.muted}><Activity className="h-4 w-4" /> Analytics</div>
+                <h1 className={"text-[22px] font-semibold tracking-[-0.035em] md:text-2xl " + t.text}>{lang === "fr" ? "Vos performances en un coup d'œil" : "Fresh analytics from everything"}</h1>
+                <p className={"mt-1 text-[11px] " + t.muted}>{periodLabel}{channel ? " · " + channelLabel(channel) : ""}</p>
               </div>
+              <div className="flex min-w-0 items-center gap-2 print:hidden">
+                <div className="hidden md:block"><ChannelMenu channels={channels} current={channel} isDark={isDark} onSelect={goChannel} allOption={channels.length > 1 ? { key: ALL_KEY, label: c.allNetworks } : undefined} selectedKey={viewingAll ? ALL_KEY : channel?.key} /></div>
+                {fetchYouTube && <IconBtn label={c.header.refresh} t={t} align="end" onClick={() => setReloadKey((k) => k + 1)}><RefreshCw className={"h-4 w-4 " + (yt.loading ? "animate-spin motion-reduce:animate-none" : "")} /></IconBtn>}
+                <button type="button" onClick={exportCsv} disabled={!channels.length} className={"flex h-9 items-center gap-2 rounded-md border px-3 text-[11px] font-medium disabled:opacity-40 " + t.ring + " " + t.outlineBtn}><Download className="h-4 w-4" />{c.header.export}</button>
+                <button type="button" aria-label={saved ? c.header.removeFavorite : c.header.addFavorite} aria-pressed={saved} onClick={() => toggleFavorite(PAGE_ROUTE)} className={"flex h-9 w-9 items-center justify-center rounded-md " + t.ring + " " + t.hover + " " + t.soft}><Bookmark className={"h-4 w-4 " + (saved ? "fill-current" : "")} /></button>
+              </div>
+            </header>
 
-              {/* Mobile : sélecteur de canal pleine largeur → feuille glissable */}
-              {channels.length > 0 && (
-                <button
-                  type="button"
-                  aria-haspopup="dialog"
-                  aria-label={c.sheets.channels}
-                  disabled={!canSwitchChannel}
-                  onClick={() => setChannelsOpen(true)}
-                  className={[
-                    "flex min-h-12 w-full items-center gap-2.5 rounded-2xl border px-2.5 text-left transition active:scale-[0.99] disabled:active:scale-100 md:hidden",
-                    t.ring,
-                    t.panel,
-                  ].join(" ")}
-                >
-                  {viewingAll ? (
-                    <AllNetworksBadge isDark={isDark} size={32} />
-                  ) : channel ? (
-                    <ChannelAvatar
-                      channel={channel}
-                      isDark={isDark}
-                      size={32}
-                      ringClass={isDark ? "ring-[#0a0a0c]" : "ring-white"}
-                    />
-                  ) : null}
-                  <span
-                    className={`min-w-0 flex-1 truncate text-[14px] font-semibold ${t.text}`}
-                  >
-                    {channelTriggerLabel}
-                  </span>
-                  {canSwitchChannel && (
-                    <ChevronDown
-                      className={`h-4 w-4 shrink-0 ${t.soft}`}
-                      aria-hidden="true"
-                    />
-                  )}
-                </button>
-              )}
-            </div>
+            {channels.length > 0 && <button type="button" aria-haspopup="dialog" disabled={!canSwitchChannel} onClick={() => setChannelsOpen(true)} className={"flex min-h-11 w-full items-center gap-2 rounded-md border px-3 text-left md:hidden " + t.ring + " " + t.panel}><span className={"min-w-0 flex-1 truncate text-[13px] font-medium " + t.text}>{channelTriggerLabel}</span>{canSwitchChannel && <ChevronDown className={"h-4 w-4 " + t.muted} />}</button>}
 
             {!channels.length ? (
-              <section
-                className={`flex flex-col items-center gap-3 rounded-2xl border px-6 py-16 text-center md:rounded-xl md:py-20 ${t.panel}`}
-              >
-                <span
-                  className={`flex h-11 w-11 items-center justify-center rounded-full ${t.iconBox}`}
-                >
-                  <Activity className="h-5 w-5" aria-hidden="true" />
-                </span>
-                <h2 className={`text-[15px] font-semibold md:text-[14px] ${t.text}`}>
-                  {c.noChannels.title}
-                </h2>
-                <p className={`max-w-[360px] text-[13px] md:text-[12px] ${t.soft}`}>
-                  {c.noChannels.description}
-                </p>
-                <button
-                  type="button"
-                  onClick={() => navigateToSettingsSection("channels")}
-                  className={`mt-2 flex min-h-11 items-center gap-1.5 rounded-xl px-5 py-2 text-[13px] font-semibold md:min-h-0 md:rounded-md md:px-4 md:text-[11px] ${t.ring} ${t.primaryBtn}`}
-                >
-                  <Plus className="h-3.5 w-3.5" aria-hidden="true" />
-                  {c.noChannels.connect}
-                </button>
+              <section className={"flex flex-col items-center gap-3 rounded-lg border px-6 py-16 text-center " + t.panel}>
+                <span className={"flex h-12 w-12 items-center justify-center rounded-lg " + t.iconBox}><Activity className="h-5 w-5" /></span>
+                <h2 className={"text-sm font-semibold " + t.text}>{c.noChannels.title}</h2>
+                <p className={"max-w-sm text-xs " + t.soft}>{c.noChannels.description}</p>
+                <button type="button" onClick={() => navigateToSettingsSection("channels")} className={"mt-2 flex min-h-10 items-center gap-2 rounded-md px-4 text-xs font-semibold " + t.ring + " " + t.primaryBtn}><Plus className="h-4 w-4" />{c.noChannels.connect}</button>
               </section>
             ) : (
               <>
-                {fetchYouTube && yt.error && (
-                  <div
-                    role="alert"
-                    className={`flex flex-wrap items-center justify-between gap-3 rounded-xl border px-4 py-3 ${t.panel}`}
-                  >
-                    <p className="min-w-0 break-words text-[12.5px] text-neutral-500">
-                      {c.errors.youtube(yt.error)}
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => setReloadKey((k) => k + 1)}
-                      className={`min-h-10 rounded-full px-3.5 py-1.5 text-[12px] font-semibold transition-colors md:min-h-0 md:text-[11px] ${t.ring} ${t.outlineBtn}`}
-                    >
-                      {c.errors.retry}
-                    </button>
+                {fetchYouTube && yt.error && <div role="alert" className={"flex flex-wrap items-center justify-between gap-3 rounded-md border px-4 py-3 " + t.panel}><p className={"min-w-0 break-words text-xs " + t.soft}>{c.errors.youtube(yt.error)}</p><button type="button" onClick={() => setReloadKey((k) => k + 1)} className={"rounded-md border px-3 py-2 text-xs " + t.ring + " " + t.outlineBtn}>{c.errors.retry}</button></div>}
+                {youtubeLoading && <p className={"text-xs " + t.soft} role="status">{c.errors.loading}</p>}
+
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex min-w-0 flex-wrap items-center gap-2">
+                    <div role="tablist" aria-label={c.overview.dateRangeAria} className={"inline-flex max-w-full items-center gap-1 rounded-md border p-1 " + t.panel + " " + NO_SCROLLBAR}>
+                      {(["7d", "30d", "mtd", "custom"] as Range[]).map((key) => <button key={key} type="button" role="tab" aria-selected={range === key} onClick={() => setRange(key)} className={"shrink-0 rounded-[4px] px-3 py-1.5 text-[11px] font-medium " + t.ring + " " + (range === key ? t.sel : t.idle)}>{c.ranges[key]}</button>)}
+                    </div>
+                    {range === "custom" && <RangePicker range={range} start={start} end={end} onStartChange={setCustomStart} onEndChange={setCustomEnd} t={t} isDark={isDark} isMobile={isMobile} lang={lang} />}
                   </div>
-                )}
-                {youtubeLoading && (
-                  <p
-                    className={`text-[12.5px] ${t.soft}`}
-                    role="status"
-                    aria-live="polite"
-                  >
-                    {c.errors.loading}
-                  </p>
-                )}
-
-                {/* ── NUMBERS ── */}
-                <section
-                  aria-labelledby="all-title"
-                  className="flex min-w-0 flex-col gap-2"
-                >
-                  <div>
-                    <h2
-                      id="all-title"
-                      className={`sr-only text-[24px] font-semibold tracking-[-0.03em] md:text-[28px] ${t.text}`}
-                    >
-                      {c.overview.title}
-                    </h2>
-                    <div className="mt-1 flex flex-wrap items-center gap-2">
-                      <p className={`text-[12px] ${t.muted}`}>{c.overview.subtitle}</p>
-                      {hasDemoInsights && <span className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold ${t.border} ${t.soft}`}>{lang === "fr" ? "Données de démonstration" : "Demo data"}</span>}
-                    </div>
-                  </div>
-
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div className="flex min-w-0 max-w-full flex-wrap items-center gap-3">
-                      <div
-                        role="tablist"
-                        aria-label={c.overview.dateRangeAria}
-                        className={`inline-flex max-w-full items-center gap-0.5 overflow-x-auto rounded-full border p-1 ${NO_SCROLLBAR} ${t.panel}`}
-                      >
-                        {(["7d", "30d", "mtd", "custom"] as Range[]).map(
-                          (key) => {
-                            const active = range === key;
-                            return (
-                              <button
-                                key={key}
-                                type="button"
-                                role="tab"
-                                aria-selected={active}
-                                onClick={() => setRange(key)}
-                                className={`flex shrink-0 items-center gap-2 whitespace-nowrap rounded-[4px] px-3 py-1.5 text-[11px] font-medium transition-colors md:px-3 md:text-[11px] ${t.ring} ${
-                                  active ? t.sel : t.idle
-                                }`}
-                              >
-                                {c.ranges[key]}
-                                {key === "custom" && (
-                                  <span
-                                    className={`flex h-5 w-5 items-center justify-center rounded-full ${
-                                      active
-                                        ? isDark
-                                          ? "bg-black/15 text-black"
-                                          : "bg-white/20 text-white"
-                                        : isDark
-                                          ? "bg-white/15 text-white"
-                                          : "bg-black/10 text-black"
-                                    }`}
-                                    aria-hidden="true"
-                                  >
-                                    <Zap className="h-3 w-3 fill-current" />
-                                  </span>
-                                )}
-                              </button>
-                            );
-                          }
-                        )}
-                      </div>
-                      {range === "custom" && (
-                        <RangePicker
-                          range={range}
-                          start={start}
-                          end={end}
-                          onStartChange={setCustomStart}
-                          onEndChange={setCustomEnd}
-                          t={t}
-                          isDark={isDark}
-                          isMobile={isMobile}
-                          lang={lang}
-                        />
-                      )}
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => navigate("tags")}
-                      className={`flex min-h-10 items-center gap-2 rounded-md px-3 py-2 text-[13px] font-semibold transition-colors md:min-h-0 ${t.ring} ${t.hover} ${t.text}`}
-                    >
-                      <Tag className="h-4 w-4" aria-hidden="true" />
-                      {c.tagsButton}
-                      <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
-                    </button>
-                  </div>
-
-                  <div className="rounded-none border-0 bg-transparent p-0">
-                    <div className="flex flex-wrap items-start justify-between gap-3 px-1">
-                      <div className="min-w-0">
-                        <h3 className={sectionTitle}>{c.summary.title}</h3>
-                        <p className={sectionSub}>
-                          {periodLabel} · {compareLabel}
-                        </p>
-                      </div>
-                      <div
-                        className="flex w-full items-center gap-2 md:w-auto"
-                        aria-label={c.summary.goalAria(postsThisWeek, goal)}
-                      >
-                        <div
-                          className={`h-1.5 w-full overflow-hidden rounded-full md:w-24 ${t.inner}`}
-                        >
-                          <div
-                            className={`h-full rounded-full transition-[width] duration-300 ${
-                              isDark ? "bg-white" : "bg-black"
-                            }`}
-                            style={{ width: `${goalPct}%` }}
-                          />
-                        </div>
-                        <span
-                          className={`shrink-0 text-[11px] font-semibold tabular-nums ${t.soft}`}
-                        >
-                          {c.summary.goalProgress(postsThisWeek, goal)}
-                        </span>
-                      </div>
-                    </div>
-
-                    {glance && (
-                      <p
-                        className={`mt-3 px-1 text-[13px] leading-relaxed ${t.soft}`}
-                      >
-                        {glance}
-                      </p>
-                    )}
-
-                    <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-4 md:gap-2 compact-metrics">
-                      {summaryBoxes.slice(0, 4).map((b) => (
-                        <MetricBox
-                          key={b.key}
-                          label={c.summary.labels[b.key]}
-                          value={b.value}
-                          info={c.summary.info[b.key]}
-                          t={t}
-                          delta={b.delta}
-                          isDark={isDark}
-                          isMobile={isMobile}
-                          lang={lang}
-                        />
-                      ))}
-                    </div>
-                  </div>
-                </section>
-
-                <div className="grid min-w-0 items-stretch gap-2 lg:grid-cols-[minmax(0,1.08fr)_minmax(0,0.92fr)]">
-                {/* ── TRENDS ── */}
-                <section
-                  className={`${sectionCard} min-w-0`}
-                  aria-labelledby="metrics-title"
-                >
-                  <div className="flex flex-wrap items-start justify-between gap-3 px-1">
-                    <div className="min-w-0">
-                      <h3 id="metrics-title" className={sectionTitle}>
-                        {c.trends.title}
-                      </h3>
-                      <p className={sectionSub}>
-                        {c.trends.subtitle(periodLabel)}
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      aria-pressed={compare}
-                      onClick={() => setCompare((cv) => !cv)}
-                      className={`flex min-h-10 items-center gap-2 rounded-lg border px-3 py-2 text-[12px] font-semibold transition-colors md:min-h-0 ${t.ring} ${
-                        compare
-                          ? `border-transparent ${t.sel}`
-                          : `${t.inner} ${t.hover} ${t.text}`
-                      }`}
-                    >
-                      <span
-                        className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded border border-current"
-                        aria-hidden="true"
-                      >
-                        {compare && (
-                          <Check className="h-2.5 w-2.5" strokeWidth={3} />
-                        )}
-                      </span>
-                      {c.trends.compareToggle}
-                    </button>
-                  </div>
-
-                  <div
-                    className={`mt-4 max-w-full overflow-x-auto ${NO_SCROLLBAR}`}
-                  >
-                    <Segmented<NumKey>
-                      label={c.trends.metricAria}
-                      value={metricA}
-                      onChange={setMetricA}
-                      t={t}
-                      options={METRIC_OPTIONS.map((m) => ({
-                        key: m.key,
-                        label: m.label,
-                        icon: m.icon,
-                      }))}
-                    />
-                  </div>
-
-                  <div
-                    className={`mt-3 rounded-[7px] border p-2 md:p-2.5 ${t.panel}`}
-                  >
-                    <div className="flex flex-wrap items-end justify-between gap-3 pl-1 md:gap-4 md:pl-2">
-                      <div className="min-w-0">
-                        <p className={`text-[11px] font-medium ${t.soft}`}>
-                          {mainSeries.label} ·{" "}
-                          {mainSeries.agg === "sum"
-                            ? c.trends.total
-                            : c.trends.ending}
-                        </p>
-                        <p
-                          className={`mt-1.5 flex flex-wrap items-center gap-2 text-[26px] font-bold leading-none tracking-tight tabular-nums md:gap-3 md:text-[28px] ${t.text}`}
-                        >
-                          {nf(seriesTotal(mainSeries), lang)}
-                          {mainDelta != null && (
-                            <span
-                              className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-semibold ${
-                                mainDelta !== 0
-                                  ? isDark ? "bg-white/[0.08] text-white" : "bg-black/[0.06] text-black"
-                                  : `${t.tile} ${t.muted}`
-                              }`}
-                            >
-                              {mainDelta > 0 ? "+" : ""}
-                              {mainDelta}%
-                              <span className="max-md:sr-only">
-                                {" "}
-                                {c.summary.vsPreviousShort}
-                              </span>
-                            </span>
-                          )}
-                        </p>
-                      </div>
-                      {compare && (
-                        <div
-                          className={`flex items-center gap-4 text-[11px] ${t.soft}`}
-                        >
-                          <span className="flex items-center gap-1.5">
-                            <span
-                              className="h-0.5 w-5 bg-current"
-                              aria-hidden="true"
-                            />
-                            {c.trends.thisPeriod}
-                          </span>
-                          <span className="flex items-center gap-1.5">
-                            <span
-                              className="w-5 border-t-2 border-dashed border-current"
-                              aria-hidden="true"
-                            />
-                            {c.trends.previousPeriod}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="mt-3 md:mt-4">
-                      <InsightsChart
-                        data={chartData}
-                        view={chartView}
-                        isDark={isDark}
-                        isMobile={isMobile}
-                        lang={lang}
-                        seriesLabel={mainSeries.label}
-                        seriesColor={TONES[0]}
-                        hasSecondAxis={false}
-                      />
-                    </div>
-                  </div>
-                </section>
-
-                {/* ── BEST TIME + RECYCLE ── */}
-                <div className="flex min-w-0 flex-col">
-                  <section
-                    className={`${sectionCard} min-w-0`}
-                    aria-labelledby="besttime-title"
-                  >
-                    <div className="flex flex-wrap items-start justify-between gap-3 px-1">
-                      <div className="min-w-0">
-                        <h3 id="besttime-title" className={sectionTitle}>
-                          {c.bestTime.title}
-                        </h3>
-                        <p className={sectionSub}>{subhead}</p>
-                        <p className={`mt-1 text-[10.5px] ${t.muted}`}>
-                          {bestTimesNote}
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => scheduleFromSlot(heatmap.best)}
-                        className={`min-h-11 shrink-0 rounded-[6px] px-3 py-1.5 text-[11px] font-medium max-md:w-full md:min-h-0 md:text-[10px] ${t.ring} ${t.outlineBtn}`}
-                      >
-                        {c.bestTime.useLabel(heatmap.label)}
-                      </button>
-                    </div>
-
-                    {isMobile ? (
-                      <BestTimeMobile heatmap={heatmap} c={c} t={t} isDark={isDark} onSchedule={scheduleFromSlot} />
-                    ) : (
-                      <div className="mt-4 grid h-[142px] grid-cols-7 items-end gap-2 border-b px-1">
-                        {c.days.map((day, d) => {
-                          const slot = heatmap.bestByDay[d];
-                          const value = Math.max(0.08, slot.norm);
-                          return (
-                            <button key={day} type="button" onClick={() => scheduleFromSlot({ day: d, hour: slot.hour })} title={c.bestTime.scheduleAria(day, hourLabel(slot.hour))} aria-label={c.bestTime.scheduleAria(day, hourLabel(slot.hour))} className={`group flex h-full min-w-0 flex-col items-center justify-end gap-2 rounded-md px-1 pb-2 ${t.ring}`}>
-                              <span className="flex h-[100px] w-full items-end justify-center">
-                                <span className={`block w-full max-w-8 rounded-t-[3px] transition-opacity group-hover:opacity-75 ${isDark ? "bg-[#bcbcbc]" : "bg-[#555555]"}`} style={{ height: `${Math.max(7, Math.round(value * 100))}%` }} />
-                              </span>
-                              <span className={`text-[10px] ${t.muted}`}>{day}</span>
-                              <span className={`text-[9px] tabular-nums ${t.soft}`}>{hourLabel(slot.hour)}</span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </section>
-
-
+                  <button type="button" onClick={() => navigate("tags")} className={"flex h-9 items-center gap-2 rounded-md px-3 text-[11px] " + t.ring + " " + t.hover + " " + t.text}><Tag className="h-3.5 w-3.5" />{c.tagsButton}<ChevronDown className="h-3.5 w-3.5" /></button>
                 </div>
 
-                </div>
+                <section aria-labelledby="overview-title" className="flex min-w-0 flex-col gap-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div><h2 id="overview-title" className={"text-[13px] font-semibold " + t.text}>{c.summary.title}</h2><p className={"mt-0.5 text-[10px] " + t.muted}>{periodLabel} · {compareLabel}</p></div>
+                    <div className="flex items-center gap-2" aria-label={c.summary.goalAria(postsThisWeek, goal)}><span className={"text-[10px] " + t.muted}>{c.summary.goalProgress(postsThisWeek, goal)}</span><div className={"h-1.5 w-20 overflow-hidden rounded-full " + t.inner}><div className={"h-full rounded-full " + (isDark ? "bg-white" : "bg-black")} style={{ width: goalPct + "%" }} /></div></div>
+                  </div>
+                  {hasDemoInsights && <p className={"text-[10px] " + t.muted}>{lang === "fr" ? "Certaines données sont estimées selon l'activité disponible." : "Some data is estimated from available activity."}</p>}
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">{summaryBoxes.slice(0, 4).map((b) => <MetricBox key={b.key} label={c.summary.labels[b.key]} value={b.value} info={c.summary.info[b.key]} t={t} delta={b.delta} isDark={isDark} isMobile={isMobile} lang={lang} />)}</div>
+                </section>
 
-                                  <section
-                    className={`${sectionCard} min-w-0`}
-                    aria-labelledby="recycle-title"
-                  >
-                    <div className="px-1">
-                      <h3 id="recycle-title" className={sectionTitle}>
-                        {c.recycle.title}
-                      </h3>
-                      <p className={sectionSub}>{c.recycle.subtitle}</p>
+                <div className="grid min-w-0 grid-cols-1 items-stretch gap-3 lg:grid-cols-[minmax(0,1.08fr)_minmax(0,0.92fr)]">
+                  <section className={sectionCard + " min-w-0"} aria-labelledby="trend-panel-title">
+                    <div className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0"><h2 id="trend-panel-title" className={sectionTitle}>{c.trends.title}</h2><p className={sectionSub}>{c.trends.subtitle(periodLabel)}</p></div>
+                      <button type="button" aria-pressed={compare} onClick={() => setCompare((v) => !v)} className={"flex h-8 items-center gap-2 rounded-md border px-2.5 text-[10px] " + t.ring + " " + (compare ? t.sel : t.outlineBtn)}><span className="h-2 w-2 rounded-full border border-current" />{c.trends.compareToggle}</button>
                     </div>
-                    {remixable.length === 0 ? (
-                      <p className={`mt-4 text-[12px] ${t.soft}`}>
-                        {c.recycle.emptyHint}
-                      </p>
-                    ) : (
-                      <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
-                        {remixable.map((p, i) => (
-                          <div
-                            key={p.id}
-                            className={`flex min-w-0 flex-col gap-2 rounded-[7px] border p-2.5 ${t.inner}`}
-                          >
-                            <span
-                              className={`flex h-[68px] w-full shrink-0 items-center justify-center overflow-hidden rounded-md ${t.iconBox}`}
-                            >
-                              {p.thumbnailUrl ? (
-                                <img
-                                  src={p.thumbnailUrl}
-                                  alt=""
-                                  referrerPolicy="no-referrer"
-                                  className="h-full w-full object-cover"
-                                />
-                              ) : (
-                                mediaIcon(p.media)
-                              )}
-                            </span>
-                            <div className="min-w-0 flex-1">
-                              <p
-                                className={`text-[10px] font-semibold uppercase tracking-wide ${t.muted}`}
-                              >
-                                {c.recycle.rank(i + 1)} · {mediaLabel(p.media)}
-                              </p>
-                              <div className="mt-0.5 flex flex-wrap items-center justify-between gap-x-2 gap-y-1.5">
-                                <p
-                                  className={`min-w-0 max-w-full flex-1 truncate text-[13px] font-semibold ${t.text}`}
-                                >
-                                  {p.label}
-                                </p>
-                                <button
-                                  type="button"
-                                  onClick={() => duplicatePost(p)}
-                                  className={`min-h-10 shrink-0 rounded-md border px-3 py-1 text-[12px] font-semibold transition-colors motion-reduce:transition-none md:min-h-0 md:px-2.5 md:text-[11px] ${t.ring} ${
-                                    isDark
-                                      ? "border-white/10 text-white hover:border-white/25 hover:bg-white/[0.08]"
-                                      : "border-black/10 text-neutral-900 hover:border-black/25 hover:bg-black/[0.06]"
-                                  }`}
-                                >
-                                  {c.recycle.duplicate}
-                                </button>
-                              </div>
-                              <p className={`mt-1 text-[11px] ${t.soft}`}>
-                                {c.recycle.engagement(
-                                  p.reactions,
-                                  p.engRate.toFixed(1)
-                                )}
-                              </p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    <div className="mt-4 border-t pt-3" style={{ borderColor: isDark ? "rgba(255,255,255,.08)" : "rgba(0,0,0,.08)" }}>
-                      <p className={`mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] ${t.muted}`}>
-                        {lang === "fr" ? "Créneaux recommandés" : "Recommended slots"}
-                      </p>
-                      <div className="grid grid-cols-3 gap-2">
-                        {heatmap.recommendations.map((slot, index) => (
-                          <button
-                            key={`${slot.day}-${slot.hour}`}
-                            type="button"
-                            onClick={() => scheduleFromSlot(slot)}
-                            className="min-w-0 rounded-xl border px-2 py-2.5 text-left transition-colors hover:bg-teal-500/10"
-                            style={{
-                              borderColor: "rgba(20,184,166,.3)",
-                              background: isDark ? "rgba(20,184,166,.08)" : "rgba(20,184,166,.06)",
-                            }}
-                            title={c.bestTime.scheduleAria(c.daysLong[slot.day], hourLabel(slot.hour))}
-                          >
-                            <span className="block truncate text-[10px] font-medium text-teal-600 dark:text-teal-300">
-                              {index === 0 ? (lang === "fr" ? "Meilleur" : "Best") : c.days[slot.day]}
-                            </span>
-                            <span className={`mt-1 block text-[14px] font-bold tabular-nums ${t.text}`}>
-                              {c.days[slot.day]} · {hourLabel(slot.hour)}
-                            </span>
-                          </button>
-                        ))}
-                      </div>
+                    <div className="mt-3 overflow-x-auto">{/* metric selector */}<Segmented<NumKey> label={c.trends.metricAria} value={metricA} onChange={setMetricA} t={t} options={METRIC_OPTIONS.map((m) => ({ key: m.key, label: m.label, icon: m.icon }))} /></div>
+                    <div className={"mt-3 rounded-md border p-2.5 " + t.panel}>
+                      <div className="flex items-end justify-between gap-3"><div><p className={"text-[10px] " + t.soft}>{mainSeries.label}</p><p className={"mt-1 text-[25px] font-semibold leading-none tabular-nums " + t.text}>{nf(seriesTotal(mainSeries), lang)}</p></div><div className={"flex items-center gap-3 text-[9px] " + t.muted}><span className="flex items-center gap-1"><span className="h-0.5 w-4 bg-current" />{c.trends.thisPeriod}</span>{compare && <span className="flex items-center gap-1"><span className="w-4 border-t border-dashed border-current" />{c.trends.previousPeriod}</span>}</div></div>
+                      <div className="mt-3"><InsightsChart data={chartData} view={chartView} isDark={isDark} isMobile={isMobile} lang={lang} seriesLabel={mainSeries.label} seriesColor={TONES[0]} hasSecondAxis={false} /></div>
                     </div>
                   </section>
 
-                {/* ── PERFORMANCE PER POST ── */}
+                  <section className={sectionCard + " min-w-0"} aria-labelledby="besttime-title">
+                    <div className="flex flex-wrap items-start justify-between gap-2"><div className="min-w-0"><h2 id="besttime-title" className={sectionTitle}>{c.bestTime.title}</h2><p className={sectionSub}>{subhead}</p></div><button type="button" onClick={() => scheduleFromSlot(heatmap.best)} className={"h-8 shrink-0 rounded-md border px-3 text-[10px] font-medium " + t.ring + " " + t.outlineBtn}>{c.bestTime.useLabel(heatmap.label)}</button></div>
+                    <div className={"mt-3 flex items-center gap-3 text-[9px] " + t.muted}><span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[#bdbdbd]" />{c.bestTime.high}</span><span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-white/20" />{c.bestTime.low}</span></div>
+                    {isMobile ? <BestTimeMobile heatmap={heatmap} c={c} t={t} isDark={isDark} onSchedule={scheduleFromSlot} /> : (
+                      <div className="mt-3 grid h-[190px] grid-cols-7 items-end gap-2 border-b px-1">{c.days.map((day, d) => { const slot = heatmap.bestByDay[d]; const intensity = Math.max(0.08, slot.norm); return <button key={day} type="button" onClick={() => scheduleFromSlot({ day: d, hour: slot.hour })} title={c.bestTime.scheduleAria(day, hourLabel(slot.hour))} aria-label={c.bestTime.scheduleAria(day, hourLabel(slot.hour))} className={"group flex h-full min-w-0 flex-col items-center justify-end gap-2 rounded-md px-1 pb-2 " + t.ring}><span className="flex h-[145px] w-full items-end justify-center"><span className={"block w-full max-w-8 rounded-t-[4px] transition-opacity group-hover:opacity-70 " + (isDark ? "bg-[#bdbdbd]" : "bg-[#666666]")} style={{ height: Math.max(7, Math.round(intensity * 100)) + "%" }} /></span><span className={"text-[10px] " + t.muted}>{day}</span><span className={"text-[9px] tabular-nums " + t.soft}>{hourLabel(slot.hour)}</span></button>; })}</div>
+                    )}
+                    <p className={"mt-3 text-[10px] leading-relaxed " + t.muted}>{bestTimesNote}</p>
+                  </section>
+                </div>
+
+                <section className={sectionCard + " min-w-0"} aria-labelledby="recycle-title">
+                  <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 id="recycle-title" className={sectionTitle}>{c.recycle.title}</h2><p className={sectionSub}>{c.recycle.subtitle}</p></div><span className={"text-[10px] " + t.muted}>{remixable.length} {lang === "fr" ? "publications" : "posts"}</span></div>
+                  {remixable.length === 0 ? <p className={"mt-4 text-xs " + t.soft}>{c.recycle.emptyHint}</p> : (
+                    <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">{remixable.map((p, i) => (
+                      <article key={p.id} className={"min-w-0 overflow-hidden rounded-md border p-2.5 " + t.inner}>
+                        <div className={"relative flex h-[112px] items-center justify-center overflow-hidden rounded-md " + t.iconBox}>{p.thumbnailUrl ? <img src={p.thumbnailUrl} alt="" referrerPolicy="no-referrer" loading="lazy" className="h-full w-full object-cover" /> : mediaIcon(p.media)}<span className={"absolute right-2 top-2 rounded border px-1.5 py-0.5 text-[9px] " + t.border + " " + t.panel}>{c.recycle.rank(i + 1)}</span></div>
+                        <div className="mt-3 flex items-center justify-between gap-2"><span className={"truncate text-[13px] font-semibold " + t.text}>{p.label}</span><span className={"shrink-0 text-[9px] " + t.muted}>{mediaLabel(p.media)}</span></div>
+                        <p className={"mt-1 text-[10px] " + t.soft}>{c.recycle.engagement(p.reactions, p.engRate.toFixed(1))}</p>
+                        <button type="button" onClick={() => duplicatePost(p)} className={"mt-3 flex h-8 w-full items-center justify-center gap-2 rounded-md border text-[10px] font-medium " + t.ring + " " + t.outlineBtn}><Copy className="h-3.5 w-3.5" />{c.recycle.duplicate}</button>
+                      </article>
+                    ))}</div>
+                  )}
+                </section>
+
+                                {/* ── PERFORMANCE PER POST ── */}
                 <section
                   className={`${sectionCard} min-w-0`}
                   aria-labelledby="perf-title"
@@ -4034,12 +3493,12 @@ export default function Insights() {
                     )}
                   </div>
                 </section>
+
               </>
             )}
           </div>
         </div>
       </div>
-
       {/* Feuille « Canaux » (mobile) */}
       {channelsOpen && isMobile && (
         <ChannelSheet
@@ -4078,5 +3537,5 @@ export default function Insights() {
       />
       <HelpChatButton isDark={isDark} />
     </main>
-  );
+  );  );
 }
