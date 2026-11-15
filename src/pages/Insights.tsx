@@ -3294,7 +3294,7 @@ export default function Insights() {
           </div>
         </aside>
 
-        <div className="min-w-0 flex-1 overflow-y-auto bg-[#191919] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="min-w-0 flex-1 overflow-y-auto bg-[#191919] max-md:pt-[calc(3.5rem+env(safe-area-inset-top))] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <div className="mx-auto flex min-h-full w-full max-w-[1500px] flex-col gap-3.5 p-3.5 sm:p-4 md:gap-3.5 md:p-[18px]">
             <header className="flex flex-col gap-3">
               <div className="flex items-center gap-2 text-[11px] text-[#8a8a8a]">
@@ -3392,7 +3392,7 @@ export default function Insights() {
                       </span>
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-2 xl:grid-cols-4">
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                     {summaryBoxes.slice(0, 4).map((item, index) => {
                       const Icon = kpiIcons[index];
                       const increasing = item.delta != null && item.delta > 0;
@@ -3419,7 +3419,7 @@ export default function Insights() {
                   </div>
                 </section>
 
-                <div className="grid min-w-0 grid-cols-1 gap-2.5 xl:grid-cols-[minmax(0,1.2fr)_minmax(300px,0.88fr)]">
+                <div className="grid min-w-0 grid-cols-1 gap-2.5 lg:grid-cols-[minmax(0,1.2fr)_minmax(300px,0.88fr)]">
                   <section className="min-w-0 rounded-[7px] border border-white/[0.08] bg-[#1b1b1b] p-3">
                     <div className="flex flex-wrap items-start justify-between gap-2">
                       <div>
@@ -3507,7 +3507,7 @@ export default function Insights() {
                     </div>
                   </div>
                   {recycleCandidates.length ? (
-                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
                       {recycleCandidates.map((post, index) => (
                         <article key={post.id} className="min-w-0 rounded-[6px] border border-white/[0.07] bg-[#191919] p-2.5 transition-colors hover:bg-[#1e1e1e]">
                           <div className="flex items-start justify-between gap-2">
