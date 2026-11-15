@@ -2300,7 +2300,7 @@ function MetricBox({
     >
       <span
         aria-hidden="true"
-        className="absolute inset-x-4 top-0 h-[2px] rounded-full bg-gradient-to-r from-[#9b8aff]/70 via-[#9b8aff]/20 to-transparent"
+        className="absolute inset-x-4 top-0 h-[2px] rounded-full bg-gradient-to-r from-current/50 via-current/15 to-transparent opacity-50"
       />
       <span
         className={`flex items-center justify-between gap-2 text-[11px] font-semibold tracking-[0.01em] md:text-[11.5px] ${t.soft}`}
