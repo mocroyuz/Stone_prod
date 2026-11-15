@@ -1402,7 +1402,7 @@ export default function Integrations({ embedded = false }: IntegrationsProps) {
 
             {/* LES PLUS UTILISÉS */}
             <section className="mt-14 sm:mt-[68px]">
-              <h2 className={["mb-5 flex items-center gap-2 text-[19px] font-semibold tracking-[-0.025em] sm:text-[21px]", strongClass(isDark)].join(" ")}>
+              <h2 className={["mb-6 flex items-center gap-2 text-[21px] font-semibold tracking-[-0.03em] sm:mb-7 sm:text-[23px]", strongClass(isDark)].join(" ")}>
                 Les plus utilisés <span className={mutedClass(isDark)}><ArrowRightIcon /></span>
               </h2>
               {popular.length > 0 ? (
@@ -1417,12 +1417,12 @@ export default function Integrations({ embedded = false }: IntegrationsProps) {
             </section>
 
             {/* NOUVEAUTÉS */}
-            <section className="mt-12 sm:mt-14">
+            <section className="mt-14 sm:mt-[68px]">
               <h2 className={["mb-5 flex items-center gap-2 text-[19px] font-semibold tracking-[-0.025em] sm:text-[21px]", strongClass(isDark)].join(" ")}>
                 Nouveautés à découvrir <span className={mutedClass(isDark)}><ArrowRightIcon /></span>
               </h2>
               {discoveries.length > 0 ? (
-                <div className="grid grid-cols-1 gap-x-8 gap-y-2 sm:grid-cols-2">
+                <div className="grid grid-cols-1 gap-x-10 gap-y-2 lg:grid-cols-2 lg:gap-x-12 lg:gap-y-3">
                   {discoveries.map((card) => (
                     <IntegrationCard key={card.title} data={card} isDark={isDark} service={services[card.title]} />
                   ))}
