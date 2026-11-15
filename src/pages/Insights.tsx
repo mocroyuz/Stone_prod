@@ -3537,5 +3537,5 @@ export default function Insights() {
       />
       <HelpChatButton isDark={isDark} />
     </main>
-  );  );
+  );
 }
