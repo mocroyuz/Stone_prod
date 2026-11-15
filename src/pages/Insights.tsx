@@ -3162,9 +3162,9 @@ export default function Insights() {
       <ImageIcon className="h-4 w-4" />
     );
 
-  const sectionCard = `rounded-xl border p-4 md:rounded-2xl md:p-5 ${t.card}`;
-  const sectionTitle = `text-[16px] font-semibold tracking-[-0.025em] md:text-[18px] ${t.text}`;
-  const sectionSub = `mt-1 text-[12px] leading-relaxed md:text-[12.5px] ${t.muted}`;
+  const sectionCard = `rounded-lg border p-3 md:rounded-xl md:p-4 ${t.card}`;
+  const sectionTitle = `text-[13px] font-semibold tracking-[-0.01em] md:text-[14px] ${t.text}`;
+  const sectionSub = `mt-0.5 text-[10px] leading-relaxed md:text-[11px] ${t.muted}`;
 
   const canSwitchChannel = channels.length > 1;
   const channelTriggerLabel = viewingAll
@@ -3515,8 +3515,8 @@ export default function Insights() {
                       </p>
                     )}
 
-                    <div className="mt-4 grid grid-cols-2 gap-2 md:grid-cols-4 md:gap-2.5 compact-metrics">
-                      {summaryBoxes.map((b) => (
+                    <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-4 md:gap-2 compact-metrics">
+                      {summaryBoxes.slice(0, 4).map((b) => (
                         <MetricBox
                           key={b.key}
                           label={c.summary.labels[b.key]}
@@ -3533,7 +3533,7 @@ export default function Insights() {
                   </div>
                 </section>
 
-                <div className="grid min-w-0 grid-cols-1 items-start gap-4 xl:grid-cols-2">
+                <div className="flex min-w-0 flex-col gap-3">
                 {/* ── TRENDS ── */}
                 <section
                   className={`${sectionCard} min-w-0`}
@@ -3657,7 +3657,7 @@ export default function Insights() {
                 </section>
 
                 {/* ── BEST TIME + RECYCLE ── */}
-                <div className="flex min-w-0 flex-col gap-4">
+                <div className="grid min-w-0 grid-cols-1 items-start gap-3 xl:grid-cols-2">
                   <section
                     className={`${sectionCard} min-w-0`}
                     aria-labelledby="besttime-title"
