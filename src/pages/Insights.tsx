@@ -849,19 +849,19 @@ type Tokens = {
 const tokens = (isDark: boolean): Tokens =>
   isDark
     ? {
-        page: "bg-[#101010]", text: "text-white", muted: "text-[#858585]", soft: "text-[#b0b0b0]",
-        card: "border-white/[0.07] bg-[#161616] shadow-[inset_0_1px_0_rgba(255,255,255,0.035),0_1px_2px_rgba(0,0,0,0.35),0_14px_28px_-18px_rgba(0,0,0,0.65)]",
-        panel: "border-white/[0.07] bg-[#1a1a1a]", inner: "border-white/[0.07] bg-white/[0.03]",
-        tile: "border-white/[0.07] bg-[#161616] shadow-[inset_0_1px_0_rgba(255,255,255,0.035),0_1px_2px_rgba(0,0,0,0.35)]",
+        page: "bg-[#050505]", text: "text-white", muted: "text-[#858585]", soft: "text-[#b0b0b0]",
+        card: "border-white/[0.07] bg-[#0f0f11] shadow-[inset_0_1px_0_rgba(255,255,255,0.035),0_1px_2px_rgba(0,0,0,0.35),0_14px_28px_-18px_rgba(0,0,0,0.65)]",
+        panel: "border-white/[0.07] bg-[#121214]", inner: "border-white/[0.07] bg-white/[0.03]",
+        tile: "border-white/[0.07] bg-[#0f0f11] shadow-[inset_0_1px_0_rgba(255,255,255,0.035),0_1px_2px_rgba(0,0,0,0.35)]",
         border: "border-white/[0.07]", head: "bg-white/[0.03]",
         primaryBtn: "bg-white text-black hover:bg-neutral-200 shadow-none",
-        outlineBtn: "border border-white/[0.09] bg-[#1f1f1f] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_1px_2px_rgba(0,0,0,0.4)] transition-[background-color,transform] duration-150 hover:bg-[#262626] active:translate-y-px motion-reduce:transition-none",
+        outlineBtn: "border border-white/[0.09] bg-[#17171a] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_1px_2px_rgba(0,0,0,0.4)] transition-[background-color,transform] duration-150 hover:bg-[#1e1e22] active:translate-y-px motion-reduce:transition-none",
         iconBox: "bg-white/[0.07] text-white", ring: "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60",
         hover: "hover:bg-white/[0.06]", sel: "bg-white text-black shadow-[0_1px_2px_rgba(0,0,0,0.35)]",
         idle: "text-[#a0a0a0] hover:text-white", popover: "border-white/10 bg-[#151515]", tip: "bg-[#292929]", lift: "transition-[border-color,box-shadow,transform] duration-200 motion-reduce:transition-none hover:-translate-y-px hover:border-white/[0.13] hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_10px_24px_-12px_rgba(0,0,0,0.7)]",
       }
     : {
-        page: "bg-[#f3f3f3]", text: "text-[#111111]", muted: "text-[#777777]", soft: "text-[#555555]",
+        page: "bg-[#f5f3ef]", text: "text-[#111111]", muted: "text-[#777777]", soft: "text-[#555555]",
         card: "border-[#e5e5e5] bg-white shadow-[0_1px_2px_rgba(16,24,40,0.04),0_14px_28px_-18px_rgba(16,24,40,0.12)]",
         panel: "border-[#e7e7e7] bg-[#fafafa]", inner: "border-[#e7e7e7] bg-[#f6f6f6]",
         tile: "border-[#e7e7e7] bg-white shadow-[0_1px_2px_rgba(16,24,40,0.05)]",
@@ -2459,7 +2459,7 @@ function MetricBox({
       >
         <span
           className={`flex h-11 w-11 items-center justify-center rounded-[10px] border ${isDark ? "shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_8px_16px_-6px_rgba(0,0,0,0.6)]" : "shadow-[0_6px_14px_-6px_rgba(16,24,40,0.22)]"} ${t.border} ${
-            isDark ? "bg-[#202020] text-[#d4d4d4]" : "bg-white text-neutral-700"
+            isDark ? "bg-[#18181b] text-[#d4d4d4]" : "bg-white text-neutral-700"
           }`}
         >
           {icon}
@@ -3243,19 +3243,22 @@ export default function Insights() {
     <main className={["relative h-dvh min-h-dvh w-full overflow-hidden overscroll-none compact-window selection:bg-black/15 transition-colors duration-300", t.page].join(" ")}>
       <DashboardSidebar theme={theme} />
       <div className="h-full min-h-0 px-2 py-2 md:py-3 md:pr-3 max-md:pt-[calc(3.5rem+env(safe-area-inset-top))] transition-[padding-left] duration-[380ms]" style={isMobile ? undefined : { paddingLeft: sidebarOffset }}>
-        <div className={["h-full min-h-0 overflow-y-auto overflow-x-hidden overscroll-y-contain rounded-xl border", NO_SCROLLBAR, "transition-colors duration-300", isDark ? "border-white/[0.07] bg-[#131313] shadow-[0_1px_2px_rgba(0,0,0,0.4),0_28px_56px_-28px_rgba(0,0,0,0.7)]" : "border-[#e5e5e5] bg-[#f8f8f8] shadow-[0_1px_2px_rgba(16,24,40,0.04),0_28px_56px_-32px_rgba(16,24,40,0.18)]"].join(" ")}>
-          <div className="mx-auto flex w-full min-w-0 flex-col gap-3 px-[clamp(14px,1.6vw,24px)] pb-[calc(7.5rem+env(safe-area-inset-bottom))] pt-5 md:gap-4">
-            <header className="flex flex-wrap items-end justify-between gap-4 pb-1">
-              <div className="min-w-0">
-                <div className={"mb-6 flex items-center gap-2 text-[14px] " + t.muted}><Activity className="h-4 w-4" /> Analytics</div>
-                <h1 className={"text-[22px] font-medium tracking-[-0.02em] md:text-[24px] " + t.text}>{lang === "fr" ? "Vos performances en un coup d'œil" : "Fresh analytics from everything"}</h1>
+        <div className={["h-full min-h-0 overflow-y-auto overflow-x-hidden overscroll-y-contain rounded-2xl border md:rounded-[28px]", NO_SCROLLBAR, "transition-colors duration-300", isDark ? "border-white/[0.07] bg-[#0a0a0c]" : "border-black/[0.06] bg-white"].join(" ")}>
+          <div className="mx-auto flex w-full min-w-0 flex-col gap-3 px-[clamp(14px,3vw,48px)] pb-[calc(7.5rem+env(safe-area-inset-bottom))] pt-[clamp(16px,3vw,30px)] md:gap-4">
+            <header className="flex flex-col gap-5">
+              <div className="relative z-20 flex shrink-0 items-center justify-between gap-2 md:gap-3">
+                <div className="flex min-w-0 items-center gap-2.5">
+                  <span className={"flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border md:h-9 md:w-9 " + (isDark ? "border-white/[0.07] bg-white/[0.04] text-neutral-400" : "border-black/[0.06] bg-white text-neutral-500")}><Activity className="h-[17px] w-[17px]" strokeWidth={1.8} aria-hidden="true" /></span>
+                  <h1 className={"truncate text-[24px] font-semibold tracking-[-0.03em] md:text-[20px] " + t.text}>{c.header.title}</h1>
+                  <button type="button" aria-label={saved ? c.header.removeFavorite : c.header.addFavorite} title={saved ? c.header.removeFavorite : c.header.addFavorite} aria-pressed={saved} onClick={() => toggleFavorite(PAGE_ROUTE)} className={"flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors motion-reduce:transition-none md:h-9 md:w-9 " + t.ring + " " + (isDark ? "hover:bg-white/[0.06]" : "hover:bg-black/[0.04]")}><Bookmark className="h-5 w-5" strokeWidth={1.8} fill={saved ? "currentColor" : "none"} /></button>
+                </div>
+                <div className="flex shrink-0 items-center gap-2 md:gap-2.5 print:hidden">
+                  <div className="hidden md:block"><ChannelMenu channels={channels} current={channel} isDark={isDark} onSelect={goChannel} allOption={channels.length > 1 ? { key: ALL_KEY, label: c.allNetworks } : undefined} selectedKey={viewingAll ? ALL_KEY : channel?.key} /></div>
+                  {fetchYouTube && <IconBtn label={c.header.refresh} t={t} align="end" onClick={() => setReloadKey((k) => k + 1)}><RefreshCw className={"h-4 w-4 " + (yt.loading ? "animate-spin motion-reduce:animate-none" : "")} /></IconBtn>}
+                  <button type="button" onClick={exportCsv} disabled={!channels.length} className={"flex h-9 items-center gap-2 rounded-lg border px-3 text-[12px] font-medium disabled:opacity-40 " + t.ring + " " + t.outlineBtn}><Download className="h-4 w-4" />{c.header.export}</button>
+                </div>
               </div>
-              <div className="flex min-w-0 items-center gap-2 print:hidden">
-                <div className="hidden md:block"><ChannelMenu channels={channels} current={channel} isDark={isDark} onSelect={goChannel} allOption={channels.length > 1 ? { key: ALL_KEY, label: c.allNetworks } : undefined} selectedKey={viewingAll ? ALL_KEY : channel?.key} /></div>
-                {fetchYouTube && <IconBtn label={c.header.refresh} t={t} align="end" onClick={() => setReloadKey((k) => k + 1)}><RefreshCw className={"h-4 w-4 " + (yt.loading ? "animate-spin motion-reduce:animate-none" : "")} /></IconBtn>}
-                <button type="button" onClick={exportCsv} disabled={!channels.length} className={"flex h-9 items-center gap-2 rounded-lg border px-3 text-[11px] font-medium disabled:opacity-40 " + t.ring + " " + t.outlineBtn}><Download className="h-4 w-4" />{c.header.export}</button>
-                <button type="button" aria-label={saved ? c.header.removeFavorite : c.header.addFavorite} aria-pressed={saved} onClick={() => toggleFavorite(PAGE_ROUTE)} className={"flex h-9 w-9 items-center justify-center rounded-lg " + t.ring + " " + t.hover + " " + t.soft}><Bookmark className={"h-4 w-4 " + (saved ? "fill-current" : "")} /></button>
-              </div>
+              <h2 className={"text-[22px] font-medium tracking-[-0.02em] md:text-[24px] " + t.text}>{lang === "fr" ? "Vos performances en un coup d'œil" : "Fresh analytics from everything"}</h2>
             </header>
 
             {channels.length > 0 && <button type="button" aria-haspopup="dialog" disabled={!canSwitchChannel} onClick={() => setChannelsOpen(true)} className={"flex min-h-11 w-full items-center gap-2 rounded-lg border px-3 text-left md:hidden " + t.ring + " " + t.panel}><span className={"min-w-0 flex-1 truncate text-[13px] font-medium " + t.text}>{channelTriggerLabel}</span>{canSwitchChannel && <ChevronDown className={"h-4 w-4 " + t.muted} />}</button>}
@@ -3341,14 +3344,14 @@ export default function Insights() {
                         {cards.map((p) => (
                           <article key={p.id} className={"flex min-w-0 flex-col rounded-xl border p-4 " + t.inner + " " + t.lift}>
                             <div className="flex items-start justify-between gap-2">
-                              <div className={"relative h-[60px] w-[80px] shrink-0 rounded-lg border " + (isDark ? "shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_4px_10px_-3px_rgba(0,0,0,0.55)] " : "shadow-[0_3px_8px_-3px_rgba(16,24,40,0.18)] ") + t.border + " " + (isDark ? "bg-[#242424]" : "bg-[#ececec]")}>
-                                <span className={"absolute -top-[5px] left-0 h-[7px] w-8 rounded-t-md border border-b-0 " + t.border + " " + (isDark ? "bg-[#242424]" : "bg-[#ececec]")} aria-hidden="true" />
+                              <div className={"relative h-[60px] w-[80px] shrink-0 rounded-lg border " + (isDark ? "shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_4px_10px_-3px_rgba(0,0,0,0.55)] " : "shadow-[0_3px_8px_-3px_rgba(16,24,40,0.18)] ") + t.border + " " + (isDark ? "bg-[#1a1a1d]" : "bg-[#ececec]")}>
+                                <span className={"absolute -top-[5px] left-0 h-[7px] w-8 rounded-t-md border border-b-0 " + t.border + " " + (isDark ? "bg-[#1a1a1d]" : "bg-[#ececec]")} aria-hidden="true" />
                                 {p.thumbnailUrl ? <img src={p.thumbnailUrl} alt="" referrerPolicy="no-referrer" loading="lazy" className="h-full w-full rounded-lg object-cover opacity-60" /> : <span className={"flex h-full w-full items-center justify-center " + t.muted}>{mediaIcon(p.media)}</span>}
                                 <span className={"absolute bottom-2 right-2 h-px w-3 " + (isDark ? "bg-white/30" : "bg-black/25")} aria-hidden="true" />
                               </div>
                               <div className={"flex items-center gap-1.5 text-[12px] " + t.soft}>
                                 <span className="tabular-nums">{nf(p.reactions, lang)}+</span>
-                                <span className="flex -space-x-1.5" aria-hidden="true">{[0, 1, 2].map((i) => <span key={i} className={"h-[18px] w-[18px] rounded-full border-2 " + (isDark ? "border-[#1a1a1a] " : "border-[#f6f6f6] ") + (["bg-[#8c8c8c]", "bg-[#666666]", "bg-[#4a4a4a]"][i])} />)}</span>
+                                <span className="flex -space-x-1.5" aria-hidden="true">{[0, 1, 2].map((i) => <span key={i} className={"h-[18px] w-[18px] rounded-full border-2 " + (isDark ? "border-[#141416] " : "border-[#f6f6f6] ") + (["bg-[#8c8c8c]", "bg-[#666666]", "bg-[#4a4a4a]"][i])} />)}</span>
                               </div>
                             </div>
                             <h3 className={"mt-4 truncate text-[15px] font-medium " + t.text}>{p.label}</h3>
