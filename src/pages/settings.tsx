@@ -5611,7 +5611,7 @@ function ChannelsSection({
   function handleToggle(key: ChannelKey) {
     setErrorMessage(null);
     if (!connections[key].connected && limitReached) {
-      setErrorMessage(c.channels.limitError(PLAN.name, PLAN.maxChannels));
+      setErrorMessage(c.channels.limitError(planName, maxChannels));
       return;
     }
     if (key === "tiktok") return void handleTikTokToggle();
