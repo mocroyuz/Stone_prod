@@ -10,6 +10,7 @@
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Inter Tight", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-script: "Pinyon Script", "Snell Roundhand", cursive;
 }
 
 html,
@@ -126,6 +127,30 @@ img,
 
 .integration-float {
   animation: integration-float 6s ease-in-out infinite;
+}
+
+/* Entrée de la landing : fondu + légère montée, décalée par élément. */
+.hero-rise {
+  opacity: 0;
+  animation: hero-rise 800ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes hero-rise {
+  from {
+    opacity: 0;
+    transform: translateY(22px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-rise {
+    opacity: 1;
+    animation: none;
+  }
 }
 
 .confirmation-icon {

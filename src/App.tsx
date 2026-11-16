@@ -1,6 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 
 import Carousel from "./components/Carousel";
+import Hero from "./components/Hero";
 import ExpertiseSection from "./components/ExpertiseSection";
 import IntegrationSection from "./components/IntegrationSection";
 import Navbar from "./components/Navbar";
@@ -328,6 +329,8 @@ function useGentleWheelScroll(enabled: boolean) {
 function Home() {
   return (
     <main className="relative z-10 w-full">
+      <Hero />
+
       <section
         id="our-work"
         className="scroll-mt-20 flex min-h-screen w-full items-center justify-center px-[clamp(12px,3vw,48px)] pt-[clamp(78px,9vw,130px)] pb-[clamp(30px,6vw,90px)]"
