@@ -356,6 +356,12 @@ function mockHandleFor(key: ChannelKey): string {
     tiktok: "",
     youtube: "",
     pinterest: "",
+    linkedin: "",
+    x: "",
+    bluesky: "",
+    mastodon: "",
+    google_business: "",
+    reddit: "",
   };
   return handles[key];
 }
@@ -631,13 +637,18 @@ function ChannelRow({
             </div>
           )}
         </div>
+      ) : channel.comingSoon ? (
+        <span className={cx(
+          "shrink-0 rounded-full px-2.5 py-1 text-[10px] font-semibold",
+          isDark ? "bg-white/[0.07] text-neutral-400" : "bg-black/[0.045] text-neutral-500"
+        )}>Soon</span>
       ) : (
         <ChevronRightIcon
           className={cx(
             "h-4 w-4 shrink-0 transition-transform group-hover:translate-x-0.5",
             tokens.subtle
           )}
-        />}
+        />
       )}
     </div>
   );
