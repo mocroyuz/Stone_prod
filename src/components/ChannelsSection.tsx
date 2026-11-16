@@ -22,6 +22,12 @@ import {
   YouTubeIcon,
   PinterestIcon,
   ThreadsIcon,
+  LinkedInIcon,
+  XIcon,
+  BlueskyIcon,
+  MastodonIcon,
+  GoogleBusinessIcon,
+  RedditIcon,
 } from "./IntegrationIcons";
 
 import {
@@ -60,7 +66,13 @@ export type ChannelKey =
   | "tiktok"
   | "youtube"
   | "pinterest"
-  | "threads";
+  | "threads"
+  | "linkedin"
+  | "x"
+  | "bluesky"
+  | "mastodon"
+  | "google_business"
+  | "reddit";
 
 export type IconComponent = ComponentType<{
   className?: string;
@@ -73,6 +85,7 @@ export type Channel = {
   subtitle: string;
   accountLabel: string;
   icon: IconComponent;
+  comingSoon?: boolean;
 };
 
 export type ConnectionState = Record<ChannelKey, Connection>;
@@ -153,6 +166,12 @@ export const CHANNELS: Channel[] = [
     accountLabel: "Pinterest Account",
     icon: PinterestIcon,
   },
+  { key: "linkedin", name: "LinkedIn", subtitle: "Page or profile", accountLabel: "LinkedIn Account", icon: LinkedInIcon, comingSoon: true },
+  { key: "x", name: "X", subtitle: "Profile", accountLabel: "X Account", icon: XIcon, comingSoon: true },
+  { key: "bluesky", name: "Bluesky", subtitle: "Profile", accountLabel: "Bluesky Account", icon: BlueskyIcon, comingSoon: true },
+  { key: "mastodon", name: "Mastodon", subtitle: "Profile", accountLabel: "Mastodon Account", icon: MastodonIcon, comingSoon: true },
+  { key: "google_business", name: "Google Business Profile", subtitle: "Business listing", accountLabel: "Business Profile", icon: GoogleBusinessIcon, comingSoon: true },
+  { key: "reddit", name: "Reddit", subtitle: "Community", accountLabel: "Reddit Account", icon: RedditIcon, comingSoon: true },
 ];
 
 const initialConnections: ConnectionState = {
@@ -162,6 +181,12 @@ const initialConnections: ConnectionState = {
   youtube: { connected: false },
   pinterest: { connected: false },
   threads: { connected: false },
+  linkedin: { connected: false },
+  x: { connected: false },
+  bluesky: { connected: false },
+  mastodon: { connected: false },
+  google_business: { connected: false },
+  reddit: { connected: false },
 };
 
 const cx = (...parts: (string | false | null | undefined)[]) =>
@@ -502,7 +527,7 @@ function ChannelRow({
     };
   }, [menuOpen]);
 
-  const clickable = !isConnected && !pending;
+  const clickable = !channel.comingSoon && !isConnected && !pending;
 
   return (
     <div
@@ -531,7 +556,7 @@ function ChannelRow({
           {isConnected ? connection.handle || channel.name : channel.name}
         </span>
         <span className={cx("truncate text-[12.5px]", tokens.subtle)}>
-          {pending ? "Please wait…" : isConnected ? "Connected" : channel.subtitle}
+          {channel.comingSoon ? "Bientôt disponible" : pending ? "Please wait…" : isConnected ? "Connected" : channel.subtitle}
         </span>
       </div>
 
@@ -612,7 +637,7 @@ function ChannelRow({
             "h-4 w-4 shrink-0 transition-transform group-hover:translate-x-0.5",
             tokens.subtle
           )}
-        />
+        />}
       )}
     </div>
   );
