@@ -5728,7 +5728,7 @@ function ChannelsSection({
           <ChannelRow
             key={channel.key}
             channel={channel}
-            connection={connections[channel.key]}
+            connection={connections[channel.key] ?? { connected: false }}
             pending={pendingKey === channel.key}
             disabled={channel.key === "facebook"}
             t={t}
