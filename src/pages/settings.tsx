@@ -4486,20 +4486,35 @@ function PreferencesSection({
   lang: Lang;
 }) {
   const [language, setLanguageState] = useState<"fr" | "en">(lang);
-  const [prefs, setPrefs] = useState<Record<string, boolean>>({
-    productUpdates: true,
-    securityAlerts: true,
-    weeklyDigest: false,
-    mentions: true,
-    marketing: false,
+  const [prefs, setPrefs] = useState<Record<string, boolean>>(() => {
+    const defaults = {
+      productUpdates: true,
+      securityAlerts: true,
+      weeklyDigest: false,
+      mentions: true,
+      marketing: false,
+    };
+    try {
+      const stored = localStorage.getItem("stone:notification-preferences");
+      if (!stored) return defaults;
+      const parsed = JSON.parse(stored) as Partial<typeof defaults>;
+      return { ...defaults, ...parsed };
+    } catch {
+      return defaults;
+    }
   });
 
   useEffect(() => {
     setLanguageState(lang);
   }, [lang]);
 
-  const savedPrefs = useRef(prefs);
-  const dirty = JSON.stringify(prefs) !== JSON.stringify(savedPrefs.current);
+  useEffect(() => {
+    try {
+      localStorage.setItem("stone:notification-preferences", JSON.stringify(prefs));
+    } catch {
+      /* stockage indisponible : les préférences restent actives pour la session */
+    }
+  }, [prefs]);
 
   const setLanguage = (next: "fr" | "en") => {
     if (next === language) return;
@@ -4518,12 +4533,6 @@ function PreferencesSection({
     notify(COPY[next].preferences.languageUpdated, "success");
   };
 
-  const save = () => {
-    savedPrefs.current = prefs;
-    setPrefs((prev) => ({ ...prev }));
-    notify(c.preferences.saved);
-  };
-
   const NOTIFICATION_KEYS = [
     "productUpdates",
     "securityAlerts",
@@ -4537,18 +4546,6 @@ function PreferencesSection({
       title={c.preferences.title}
       description={c.preferences.description}
       tokens={tokens}
-      footer={
-        <>
-          {dirty && (
-            <span className={cx("text-[12.5px]", tokens.subtle)}>
-              {c.common.unsavedChanges}
-            </span>
-          )}
-          <Button tokens={tokens} onClick={save} disabled={!dirty}>
-            {c.preferences.save}
-          </Button>
-        </>
-      }
     >
       <Row
         title={c.preferences.language}
