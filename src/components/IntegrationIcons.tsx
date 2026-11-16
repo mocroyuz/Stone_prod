@@ -439,11 +439,41 @@ export function ThreadsIcon({
     />
   );
 }
-export const XIcon = createIcon("simple-icons:x", "X", "#000000");
+// X est monochrome : son glyphe suit automatiquement le thème.
+export const XIcon = createMonoIcon("simple-icons:x", "X");
 export const LinkedInIcon = createIcon("logos:linkedin-icon", "LinkedIn");
 export const BlueskyIcon = createIcon("simple-icons:bluesky", "Bluesky", "#0085ff");
 export const MastodonIcon = createIcon("simple-icons:mastodon", "Mastodon", "#6364ff");
-export const GoogleBusinessIcon = createIcon("simple-icons:googlebusinessprofile", "Google Business Profile", "#4285F4");
+
+/**
+ * Google Business Profile — icône de vitrine dessinée localement.
+ * Pas de dépendance à un identifiant Iconify susceptible de manquer :
+ * le SVG est embarqué dans l'application et reste visible hors réseau.
+ */
+export function GoogleBusinessIcon({
+  className = "h-5 w-5",
+  size = 20,
+}: IconProps) {
+  return (
+    <svg
+      className={className}
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-label="Google Business Profile"
+      role="img"
+    >
+      <path d="M4 9.2 5.6 4h12.8L20 9.2" stroke="#4285F4" strokeWidth="1.8" strokeLinejoin="round" />
+      <path d="M4 9.2h16v10.3H4V9.2Z" fill="#FFFFFF" stroke="#4285F4" strokeWidth="1.5" />
+      <path d="M4 9.2c0 1.35 1.05 2.35 2.35 2.35S8.7 10.55 8.7 9.2c0 1.35 1.05 2.35 2.35 2.35S13.4 10.55 13.4 9.2c0 1.35 1.05 2.35 2.35 2.35S18.1 10.55 18.1 9.2c0 1.35.85 2.35 1.9 2.35" fill="#FBBC04" stroke="#EA4335" strokeWidth="1.1" strokeLinejoin="round" />
+      <path d="M8 19.5v-5.7h4.2v5.7" fill="#34A853" />
+      <path d="M15 14h2.8v2.8H15z" fill="#4285F4" />
+      <path d="M3.5 19.5h17" stroke="#4285F4" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
 export const RedditIcon = createIcon("logos:reddit-icon", "Reddit", "#ff4500");
 
 /* =========================================================
