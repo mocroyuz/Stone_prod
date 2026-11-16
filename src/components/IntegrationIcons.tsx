@@ -443,7 +443,7 @@ export const XIcon = createIcon("simple-icons:x", "X", "#000000");
 export const LinkedInIcon = createIcon("logos:linkedin-icon", "LinkedIn");
 export const BlueskyIcon = createIcon("simple-icons:bluesky", "Bluesky", "#0085ff");
 export const MastodonIcon = createIcon("simple-icons:mastodon", "Mastodon", "#6364ff");
-export const GoogleBusinessIcon = createIcon("logos:google-my-business", "Google Business Profile");
+export const GoogleBusinessIcon = createIcon("simple-icons:googlebusinessprofile", "Google Business Profile", "#4285F4");
 export const RedditIcon = createIcon("logos:reddit-icon", "Reddit", "#ff4500");
 
 /* =========================================================
