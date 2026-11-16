@@ -4804,6 +4804,12 @@ const initialConnections: ConnectionState = {
   youtube: { connected: false },
   pinterest: { connected: false },
   threads: { connected: false },
+  linkedin: { connected: false },
+  x: { connected: false },
+  bluesky: { connected: false },
+  mastodon: { connected: false },
+  google_business: { connected: false },
+  reddit: { connected: false },
 };
 
 function formatOAuthError(provider: string, error: unknown, c: Copy): string {
@@ -5227,7 +5233,8 @@ function ChannelsSection({
   };
 
   const connectedCount = useMemo(
-    () => CHANNELS.filter((ch) => connections[ch.key].connected).length,
+    () =>
+      CHANNELS.filter((ch) => connections[ch.key]?.connected === true).length,
     [connections]
   );
   const limitReached = connectedCount >= maxChannels;
