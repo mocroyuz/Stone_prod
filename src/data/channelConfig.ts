@@ -7,6 +7,12 @@ import {
   ThreadsIcon,
   TikTokIcon,
   YouTubeIcon,
+  LinkedInIcon,
+  XIcon,
+  BlueskyIcon,
+  MastodonIcon,
+  GoogleBusinessIcon,
+  RedditIcon,
 } from "../components/IntegrationIcons";
 import type { Connection } from "../services/channelsCache";
 
