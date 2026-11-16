@@ -441,6 +441,10 @@ export function ThreadsIcon({
 }
 export const XIcon = createIcon("simple-icons:x", "X", "#000000");
 export const LinkedInIcon = createIcon("logos:linkedin-icon", "LinkedIn");
+export const BlueskyIcon = createIcon("simple-icons:bluesky", "Bluesky", "#0085ff");
+export const MastodonIcon = createIcon("simple-icons:mastodon", "Mastodon", "#6364ff");
+export const GoogleBusinessIcon = createIcon("logos:google-my-business", "Google Business Profile");
+export const RedditIcon = createIcon("logos:reddit-icon", "Reddit", "#ff4500");
 
 /* =========================================================
    MCP
