@@ -16,7 +16,13 @@ export type ChannelKey =
   | "tiktok"
   | "youtube"
   | "pinterest"
-  | "threads";
+  | "threads"
+  | "linkedin"
+  | "x"
+  | "bluesky"
+  | "mastodon"
+  | "google_business"
+  | "reddit";
 
 export type IconComponent = ComponentType<{
   className?: string;
@@ -81,4 +87,10 @@ export const CHANNELS: Channel[] = [
     accountLabel: "Pinterest Account",
     icon: PinterestIcon,
   },
+  { key: "linkedin", name: "LinkedIn", subtitle: "Page or profile · Bientôt disponible", accountLabel: "LinkedIn Account", icon: LinkedInIcon },
+  { key: "x", name: "X", subtitle: "Profile · Bientôt disponible", accountLabel: "X Account", icon: XIcon },
+  { key: "bluesky", name: "Bluesky", subtitle: "Profile · Bientôt disponible", accountLabel: "Bluesky Account", icon: BlueskyIcon },
+  { key: "mastodon", name: "Mastodon", subtitle: "Profile · Bientôt disponible", accountLabel: "Mastodon Account", icon: MastodonIcon },
+  { key: "google_business", name: "Google Business Profile", subtitle: "Business listing · Bientôt disponible", accountLabel: "Business Profile", icon: GoogleBusinessIcon },
+  { key: "reddit", name: "Reddit", subtitle: "Community · Bientôt disponible", accountLabel: "Reddit Account", icon: RedditIcon },
 ];
