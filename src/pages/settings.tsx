@@ -6504,19 +6504,9 @@ function DangerSection({
         tokens={tokens}
         danger
       >
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className={cx("text-[13px]", tokens.body)}>
-            {c.danger.disabledDemo}
-          </p>
-          <Button
-            tokens={tokens}
-            variant="secondary"
-            onClick={() => navigate("contact")}
-            className="!px-3.5 !py-2 !font-medium"
-          >
-            {c.danger.deleteWord === "supprimer" ? "Nous contacter" : "Contact Us"}
-          </Button>
-        </div>
+        <p className={cx("text-[13px] leading-relaxed", tokens.body)}>
+          {c.danger.disabledDemo}
+        </p>
       </SectionCard>
     </>
   );
