@@ -19,7 +19,7 @@ const SECTIONS: Section[] = [
     title: "Introduction",
     paragraphs: [
       "This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our website, platform, products, and services (collectively, the “Service”).",
-      "This notice is being updated. The legal identity and postal address of the controller, the complete retention schedule, provider locations and the privacy contact must be published after verification. Use of the Service does not, by itself, constitute consent to optional processing.",
+      "Important: this notice is incomplete. The controller’s full legal identity and postal address, the complete retention schedule, provider locations and the dedicated privacy contact still need to be verified and published. Use of the Service does not, by itself, constitute consent to optional processing.",
     ],
   },
   {
@@ -67,10 +67,10 @@ const SECTIONS: Section[] = [
     id: "sharing",
     title: "How We Share Your Information",
     paragraphs: [
-      "We do not sell your personal data. We may share your information only in the following limited circumstances:",
+      "Stone may disclose personal data to providers and platforms where this is necessary to deliver features requested by you or to meet legal obligations. The complete provider contract and international-transfer inventory is still being verified:",
     ],
     list: [
-      "Service providers — trusted third parties who help us operate the Service (hosting, payments, analytics, email delivery), bound by confidentiality agreements.",
+      "Service providers — hosting, authentication, database, storage and payment providers. Their precise contractual status, locations and sub-processors must be confirmed before this notice is final.",
       "Business transfers — in connection with a merger, acquisition, or sale of assets, in which case we will notify you.",
       "Legal requirements — when required by law, court order, or to protect our rights, property, or safety.",
       "With your consent — when you explicitly authorize us to share your information.",
