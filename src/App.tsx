@@ -10,7 +10,6 @@ import Footer from "./components/Footer";
 import StoneBoot from "./components/StoneBoot";
 import StoneLoading from "./components/StoneLoading";
 import CheckoutReturnModal from "./components/CheckoutReturnModal";
-import CookieConsentManager from "./components/CookieConsentManager";
 import { sectionFromSlug } from "./utils/settingsRoute";
 
 const Signup = lazy(() => import("./pages/signup"));
@@ -519,7 +518,6 @@ export default function App() {
     <ThemeProvider>
       <UserProvider>
         <AppBoot />
-        <CookieConsentManager />
       </UserProvider>
     </ThemeProvider>
   );
