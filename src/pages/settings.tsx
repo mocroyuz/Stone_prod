@@ -6435,9 +6435,7 @@ function DangerSection({
   notify: Notify;
   c: Copy;
 }) {
-  const [confirm, setConfirm] = useState("");
   const [exporting, setExporting] = useState(false);
-  const canDelete = confirm.trim().toLowerCase() === c.danger.deleteWord;
 
   const handleExport = async () => {
     if (exporting) return;
@@ -6472,10 +6470,6 @@ function DangerSection({
     }
   };
 
-  const handleDelete = () => {
-    if (!canDelete) return;
-    notify(c.danger.disabledDemo, "error");
-  };
   return (
     <>
       <SectionCard
@@ -6503,25 +6497,20 @@ function DangerSection({
         description={c.danger.deleteDescription}
         tokens={tokens}
         danger
-        footer={
+      >
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className={cx("text-[13px]", tokens.body)}>
+            {c.danger.disabledDemo}
+          </p>
           <Button
             tokens={tokens}
-            variant="danger"
-            disabled={true}
-            onClick={handleDelete}
+            variant="secondary"
+            onClick={() => navigate("contact")}
+            className="!px-3.5 !py-2 !font-medium"
           >
-            {c.danger.deleteButton}
+            {c.danger.deleteWord === "supprimer" ? "Nous contacter" : "Contact Us"}
           </Button>
-        }
-      >
-        <Field
-          label={c.danger.typeToConfirm(c.danger.deleteWord)}
-          value={confirm}
-          onChange={setConfirm}
-          placeholder={c.danger.deleteWord}
-          onEnter={handleDelete}
-          tokens={tokens}
-        />
+        </div>
       </SectionCard>
     </>
   );
