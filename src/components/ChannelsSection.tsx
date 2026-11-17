@@ -11,6 +11,7 @@ import {
   ConfirmAccountModal,
   openFrequencyOnboarding,
   type OnboardingAccount,
+  type OnboardingChannelKey,
 } from "./OnboardingModals";
 import { useUser } from "../contexts/UserContext";
 import { navigate } from "../hooks/useHashRoute";
@@ -400,10 +401,15 @@ function markReturning(provider: CacheProvider) {
   writeReturned(Array.from(new Set([...readReturned(), provider])));
 }
 
+function isOnboardingChannelKey(key: ChannelKey): key is OnboardingChannelKey {
+  return ["instagram", "facebook", "tiktok", "youtube", "pinterest", "threads"].includes(key);
+}
+
 function buildAccount(
   channel: Channel,
   connection: Connection
-): OnboardingAccount {
+): OnboardingAccount | null {
+  if (!isOnboardingChannelKey(channel.key)) return null;
   return {
     key: channel.key,
     name: channel.name,
