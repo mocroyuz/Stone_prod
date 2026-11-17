@@ -6509,6 +6509,7 @@ function DangerSection({
             ? "Votre compte Stone a été supprimé."
             : "Your Stone account has been deleted.");
       notify(message, warnings.length ? "error" : "success");
+      clearCache();
       window.setTimeout(() => clearSession(), 900);
     } catch (error) {
       notify(
