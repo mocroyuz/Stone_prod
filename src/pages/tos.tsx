@@ -11,14 +11,14 @@ type Section = {
   list?: string[];
 };
 
-const LAST_UPDATED = "January 1, 2025";
+const LAST_UPDATED = "November 17, 2026";
 
 const SECTIONS: Section[] = [
   {
     id: "acceptance",
     title: "Acceptance of Terms",
     paragraphs: [
-      "These Terms of Service (“Terms”) govern your access to and use of our website, platform, products, and services (collectively, the “Service”). By accessing or using the Service, you agree to be bound by these Terms.",
+      "These Terms of Service (“Terms”) describe the rules for accessing and using Stone. Important: the operator’s full legal identity, postal address and legal contact details have not yet been added. These Terms are incomplete and require review before they can serve as final contractual terms.",
       "If you do not agree to these Terms, you must not access or use the Service. If you are entering into these Terms on behalf of a company or other legal entity, you represent that you have the authority to bind that entity.",
     ],
   },
@@ -26,7 +26,7 @@ const SECTIONS: Section[] = [
     id: "service",
     title: "Description of Service",
     paragraphs: [
-      "We provide AI automation, workflow integration, and related digital products designed to help teams ship faster. The Service may include software, APIs, documentation, and support.",
+      "Stone is a social media management platform. Depending on the connected networks and enabled features, it allows users to connect social accounts, prepare and schedule content, manage a publication calendar and access available performance information.",
       "We may modify, suspend, or discontinue any part of the Service at any time, with or without notice. We will use reasonable efforts to notify you of material changes that affect your use of the Service.",
     ],
   },
@@ -50,8 +50,8 @@ const SECTIONS: Section[] = [
     id: "trials",
     title: "Free Trials and Refunds",
     paragraphs: [
-      "We offer a 14-day free trial on every plan — no credit card required. You get full access to all features so you can evaluate the product on real use cases.",
-      "We also offer a 30-day money-back guarantee on all first-time subscriptions. If the product does not fit your needs, contact support and we will issue a full refund.",
+      "Any trial, promotional offer or introductory price is available only when expressly displayed during the relevant signup or checkout flow, together with its applicable conditions.",
+      "Refunds and withdrawal rights are governed by the applicable mandatory consumer laws and the specific terms displayed when you subscribe. No additional money-back guarantee is promised by this document.",
     ],
   },
   {
@@ -81,15 +81,15 @@ const SECTIONS: Section[] = [
     id: "data",
     title: "Customer Data and Privacy",
     paragraphs: [
-      "You retain all rights to the data you submit to the Service (“Customer Data”). You grant us a limited license to process Customer Data solely to provide, secure, and improve the Service.",
-      "Our collection and use of personal data is described in our Privacy Policy. Data is stored in EU-based data centers by default, and we comply with GDPR and SOC 2 standards.",
+      "You retain the rights you hold in the content and data you submit to Stone (“Customer Data”). You authorize Stone to host, process, transmit and publish that data only as needed to provide the features you request, operate and secure the Service, and comply with legal obligations.",
+      "Our collection and use of personal data is described in the Privacy Policy. Data may be processed by the hosting, database, payment and social-network providers used by the features you enable. Provider locations and contractual safeguards must be checked in the Privacy Policy; Stone does not make a blanket claim here that all data is hosted in the EU or that it is SOC 2 certified.",
     ],
   },
   {
     id: "third-party",
     title: "Third-Party Services",
     paragraphs: [
-      "The Service may integrate with third-party tools (for example, Slack, Notion, HubSpot, or Zapier). Your use of those services is governed by their own terms and privacy policies.",
+      "Stone may connect to social and content services including Instagram, Facebook, TikTok, YouTube, Pinterest, Threads, Google Drive, Google Photos, Dropbox and Canva, depending on availability. Your use of those services is also governed by their own terms and privacy policies.",
       "We are not responsible for the acts, omissions, or content of any third-party service, and we do not warrant their availability or reliability.",
     ],
   },
@@ -136,15 +136,15 @@ const SECTIONS: Section[] = [
     id: "law",
     title: "Governing Law",
     paragraphs: [
-      "These Terms are governed by and construed in accordance with the laws of France, without regard to its conflict-of-law principles.",
-      "Any dispute arising out of or relating to these Terms or the Service shall be subject to the exclusive jurisdiction of the competent courts of Paris, France.",
+      "The applicable law is determined by the mandatory rules that apply to the operator and the customer. This clause must be finalized after the operator’s legal identity and customer categories have been confirmed.",
+      "Any dispute will be handled by the competent courts determined under the applicable mandatory rules. No exclusive venue is designated by this draft.",
     ],
   },
   {
     id: "contact",
     title: "Contact",
     paragraphs: [
-      "If you have any questions about these Terms, you can reach us at legal@example.com or via our contact page.",
+      "The operator’s legal contact email and postal address have not yet been published. They must be added before these Terms are used as the final contractual notice.",
     ],
   },
 ];
@@ -277,19 +277,9 @@ export default function Tos() {
 
           {/* footer */}
           <div className="mt-[clamp(40px,5vw,72px)] flex flex-col items-center gap-[clamp(4px,0.6vw,8px)]">
-            <p className="text-[clamp(11.5px,1.2vw,13.5px)] text-neutral-500">
-              Questions about these Terms?
+            <p className="text-center text-[clamp(11.5px,1.2vw,13.5px)] text-neutral-500">
+              Legal contact details are not yet published. These Terms are incomplete.
             </p>
-            <button
-              type="button"
-              onClick={() => navigate("contact")}
-              className="group inline-flex items-center gap-[6px] text-[clamp(11.5px,1.2vw,13.5px)] font-medium text-neutral-900"
-            >
-              Contact Us
-              <span className="flex h-[18px] w-[18px] items-center justify-center rounded-full bg-neutral-900 text-[10px] text-white transition-transform duration-300 group-hover:translate-x-[2px]">
-                →
-              </span>
-            </button>
           </div>
         </div>
       </main>
