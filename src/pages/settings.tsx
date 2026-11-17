@@ -64,6 +64,7 @@ import {
 } from "../services/channelsCache";
 import {
   apiRequest,
+  clearSession,
   getCurrentUser,
   updateUserProfile,
   uploadAvatar,
@@ -937,11 +938,11 @@ const COPY: Record<Lang, Copy> = {
       exportRequested: "Your data export has been downloaded.",
       deleteTitle: "Delete account",
       deleteDescription:
-        "Self-service account deletion is not yet available. Use Contact Us to request erasure. Some records may need to be retained where the law requires it.",
+        "Permanently delete your Stone account and the data stored by Stone. Active subscriptions are cancelled first. Some billing records and data on connected platforms may be retained or require separate action.",
       deleteButton: "Delete my account",
       typeToConfirm: (word) => `Type "${word}" to confirm`,
       deleteWord: "delete",
-      disabledDemo: "Self-service deletion is not available yet. Please use Contact Us to submit a deletion request.",
+      disabledDemo: "This action is permanent. You may need to revoke access separately in Pinterest or Threads, and billing records may be retained where required by law.",
     },
     toast: {
       successUpdated: "Saved",
@@ -1390,11 +1391,11 @@ const COPY: Record<Lang, Copy> = {
       exportRequested: "Votre export de données a été téléchargé.",
       deleteTitle: "Supprimer le compte",
       deleteDescription:
-        "La suppression autonome du compte n’est pas encore disponible. Utilisez la page Contact pour demander l’effacement. Certaines données peuvent devoir être conservées lorsque la loi l’exige.",
+        "Supprime définitivement votre compte Stone et les données stockées par Stone. Les abonnements actifs sont d’abord résiliés. Certaines données de facturation et données présentes sur les plateformes connectées peuvent être conservées ou nécessiter une action séparée.",
       deleteButton: "Supprimer mon compte",
       typeToConfirm: (word) => `Saisissez « ${word} » pour confirmer`,
       deleteWord: "supprimer",
-      disabledDemo: "La suppression autonome n’est pas encore disponible. Utilisez la page Contact pour envoyer une demande d’effacement.",
+      disabledDemo: "Cette action est définitive. Vous devrez peut-être révoquer séparément l’accès de Stone dans Pinterest ou Threads. Certaines données de facturation peuvent être conservées lorsque la loi l’exige.",
     },
     toast: {
       successUpdated: "Enregistré",
@@ -6442,6 +6443,9 @@ function DangerSection({
   c: Copy;
 }) {
   const [exporting, setExporting] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState("");
+  const [deleting, setDeleting] = useState(false);
+  const confirmationWord = c.danger.deleteWord === "supprimer" ? "SUPPRIMER" : "DELETE";
 
   const handleExport = async () => {
     if (exporting) return;
@@ -6476,6 +6480,38 @@ function DangerSection({
     }
   };
 
+  const handleDelete = async () => {
+    if (deleting || confirmDelete.trim().toUpperCase() !== confirmationWord) return;
+    setDeleting(true);
+    try {
+      const result = await apiRequest<{
+        success: boolean;
+        remote_revocation_warnings?: string[];
+        billing_records_retained?: boolean;
+      }>("/api/user/account", {
+        method: "DELETE",
+        body: JSON.stringify({ confirmation: confirmationWord }),
+      });
+      if (!result?.success) throw new Error("Account deletion was not confirmed.");
+      const warnings = result.remote_revocation_warnings || [];
+      const message = warnings.length
+        ? (c.danger.deleteWord === "supprimer"
+            ? "Compte supprimé. Certaines autorisations doivent être révoquées manuellement : "
+            : "Account deleted. Some permissions need to be revoked manually: ") + warnings.join("; ")
+        : (c.danger.deleteWord === "supprimer"
+            ? "Votre compte Stone a été supprimé."
+            : "Your Stone account has been deleted.");
+      notify(message, warnings.length ? "error" : "success");
+      window.setTimeout(() => clearSession(), 900);
+    } catch (error) {
+      notify(
+        error instanceof Error ? error.message : "Account deletion failed.",
+        "error"
+      );
+      setDeleting(false);
+    }
+  };
+
   return (
     <>
       <SectionCard
@@ -6504,9 +6540,29 @@ function DangerSection({
         tokens={tokens}
         danger
       >
-        <p className={cx("text-[13px] leading-relaxed", tokens.body)}>
-          {c.danger.disabledDemo}
-        </p>
+        <div className="flex flex-col gap-3">
+          <p className={cx("text-[13px] leading-relaxed", tokens.body)}>
+            {c.danger.disabledDemo}
+          </p>
+          <Field
+            label={c.danger.typeToConfirm(confirmationWord)}
+            value={confirmDelete}
+            onChange={setConfirmDelete}
+            placeholder={confirmationWord}
+            tokens={tokens}
+          />
+          <div className="flex justify-end">
+            <Button
+              tokens={tokens}
+              variant="danger"
+              disabled={deleting || confirmDelete.trim().toUpperCase() !== confirmationWord}
+              onClick={handleDelete}
+              className="!px-3.5 !py-2 !font-medium"
+            >
+              {deleting ? c.common.sending : c.danger.deleteButton}
+            </Button>
+          </div>
+        </div>
       </SectionCard>
     </>
   );
