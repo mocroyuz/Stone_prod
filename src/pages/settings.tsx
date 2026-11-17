@@ -52,7 +52,7 @@ import {
   disconnectInstagram,
 } from "../services/instagram";
 import { getThreadsStatus, startThreadsLogin, disconnectThreads } from "../services/threads";
-import { fetchInvoices, fetchSubscription, type StripeInvoice, type Subscription } from "../services/stripe";
+import { fetchInvoices, fetchSubscription, openBillingPortal, type StripeInvoice, type Subscription } from "../services/stripe";
 import {
   CHANNELS_CHANGED_EVENT,
   CACHE_MAX_AGE_MS,
@@ -4601,6 +4601,25 @@ function BillingSection({
   const [invoices, setInvoices] = useState<StripeInvoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [invoicesLoading, setInvoicesLoading] = useState(true);
+  const [portalBusy, setPortalBusy] = useState(false);
+
+  // Le portail Stripe permet de changer ou d'ajouter une carte en toute sécurité.
+  const handleManageCard = async () => {
+    if (portalBusy) return;
+    setPortalBusy(true);
+    try {
+      await openBillingPortal();
+    } catch (error) {
+      console.error("Error opening Stripe billing portal:", error);
+      notify(
+        error instanceof Error && error.message
+          ? error.message
+          : "Impossible d'ouvrir la gestion de la carte. Réessayez.",
+        "error"
+      );
+      setPortalBusy(false);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -4714,6 +4733,20 @@ function BillingSection({
               ) : null}
             </div>
           </div>
+          <Button
+            tokens={tokens}
+            variant="secondary"
+            onClick={handleManageCard}
+            disabled={loading || portalBusy}
+            aria-busy={portalBusy}
+            className="shrink-0"
+          >
+            {portalBusy
+              ? "Ouverture…"
+              : payment
+                ? "Modifier la carte"
+                : c.billing.payment.addCard}
+          </Button>
         </div>
       </SectionCard>
       <SectionCard
