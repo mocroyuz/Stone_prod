@@ -150,7 +150,7 @@ const SECTIONS: Section[] = [
     id: "contact",
     title: "Contact Us",
     paragraphs: [
-      "For questions about this notice or personal data, use the Contact Us page. The direct privacy contact and the controller\u2019s full legal identity and postal address still need to be added to this notice. No Data Protection Officer is identified here unless one has formally been appointed.",
+      "A dedicated privacy request contact channel is not currently published. The controller must add a working privacy email address and postal address before this notice can be considered complete. No Data Protection Officer is identified here unless one has formally been appointed.",
     ],
   },
 ];
@@ -283,19 +283,9 @@ export default function Privacy() {
 
           {/* footer */}
           <div className="mt-[clamp(40px,5vw,72px)] flex flex-col items-center gap-[clamp(4px,0.6vw,8px)]">
-            <p className="text-[clamp(11.5px,1.2vw,13.5px)] text-neutral-500">
-              Questions about your data?
+            <p className="text-center text-[clamp(11.5px,1.2vw,13.5px)] text-neutral-500">
+              Privacy contact details are not yet published. This notice is incomplete.
             </p>
-            <button
-              type="button"
-              onClick={() => navigate("contact")}
-              className="group inline-flex items-center gap-[6px] text-[clamp(11.5px,1.2vw,13.5px)] font-medium text-neutral-900"
-            >
-              Contact Us
-              <span className="flex h-[18px] w-[18px] items-center justify-center rounded-full bg-neutral-900 text-[10px] text-white transition-transform duration-300 group-hover:translate-x-[2px]">
-                →
-              </span>
-            </button>
           </div>
         </div>
       </main>
