@@ -284,7 +284,7 @@ function ChevronRightIcon({ className }: { className?: string }) {
   return (
     <svg
       viewBox="0 0 24 24"
-      className={className ?? "h-[16px] w-[16px]"}
+      className={className ?? "h-[14px] w-[14px]"}
       fill="none"
       stroke="currentColor"
       strokeWidth="1.8"
@@ -301,7 +301,7 @@ function PlusIcon() {
   return (
     <svg
       viewBox="0 0 24 24"
-      className="h-[25px] w-[25px]"
+      className="h-[20px] w-[20px]"
       fill="none"
       stroke="currentColor"
       strokeWidth="1.8"
@@ -508,34 +508,32 @@ function IntegrationCard({
         "group flex min-w-0 items-center gap-3 sm:gap-4",
         isConnectedRow
           ? [
-              "border-b px-0 py-4 sm:py-5",
+              "border-b px-0 py-2.5 sm:py-3",
               isDark ? "border-white/[0.07]" : "border-black/[0.07]",
             ].join(" ")
           : [
-              "rounded-2xl px-3 py-3 sm:py-3.5",
-              "transition-colors duration-200",
-              isDark ? "hover:bg-white/[0.05]" : "hover:bg-black/[0.04]",
+              "rounded-xl px-2 py-2",
             ].join(" "),
       ].join(" ")}
     >
       <div
         className={[
           "flex shrink-0 items-center justify-center overflow-hidden rounded-xl border",
-          isConnectedRow ? "h-[52px] w-[52px] sm:h-16 sm:w-16" : "h-12 w-12",
+          isConnectedRow ? "h-10 w-10 sm:h-11 sm:w-11" : "h-9 w-9",
           isDark
             ? "border-white/[0.12] bg-[#202024] text-neutral-100"
-            : "border-black/[0.08] bg-white text-neutral-800 shadow-[0_1px_3px_rgba(0,0,0,0.06)]",
+            : "border-black/[0.08] bg-white text-neutral-800",
         ].join(" ")}
       >
         {Icon && (
-          <Icon className={isConnectedRow ? "h-7 w-7 sm:h-8 sm:w-8" : "h-6 w-6"} />
+          <Icon className={isConnectedRow ? "h-5 w-5 sm:h-6 sm:w-6" : "h-5 w-5"} />
         )}
       </div>
 
       <div className="min-w-0 flex-1">
         <h3
           className={[
-            "truncate text-[15px] font-semibold leading-[1.25] tracking-[-0.02em] sm:text-[16px]",
+            "truncate text-[13px] font-semibold leading-[1.25] tracking-[-0.02em] sm:text-[14px]",
             strongClass(isDark),
           ].join(" ")}
         >
@@ -543,7 +541,7 @@ function IntegrationCard({
         </h3>
         <p
           className={[
-            "mt-1 line-clamp-2 text-[12px] leading-[1.45] sm:text-[13px]",
+            "mt-0.5 line-clamp-2 text-[11px] leading-[1.4] sm:text-[12px]",
             isDark ? "text-neutral-400" : "text-neutral-600",
           ].join(" ")}
         >
@@ -567,7 +565,7 @@ function IntegrationCard({
             className={[
               "flex h-9 items-center justify-center transition-colors",
               isConnectedRow
-                ? "gap-2 rounded-lg px-2 text-[15px] sm:px-2.5"
+                ? "gap-1.5 rounded-lg px-2 text-[12px] sm:px-2.5"
                 : "w-9 rounded-lg",
               focusRingClass(isDark),
               isDark
@@ -589,7 +587,7 @@ function IntegrationCard({
             <div
               role="menu"
               className={[
-                "absolute right-0 top-12 z-50 w-48 rounded-xl border p-1.5 shadow-xl",
+                "absolute right-0 top-12 z-50 w-48 rounded-xl border p-1.5",
                 isDark ? "border-white/[0.1] bg-[#1b1b1f]" : "border-black/[0.08] bg-white",
               ].join(" ")}
             >
@@ -672,12 +670,12 @@ function IntegrationCard({
           aria-busy={service?.busy}
           aria-label={`Connecter ${data.title}`}
           className={[
-            "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors disabled:cursor-default",
+            "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors disabled:cursor-default",
             service?.busy ? "animate-pulse opacity-60" : "",
             focusRingClass(isDark),
             isDark
-              ? "text-neutral-300 group-hover:bg-white/[0.08] hover:text-white"
-              : "text-neutral-800 group-hover:bg-black/[0.07]",
+              ? "text-neutral-300 hover:bg-white/[0.08] hover:text-white"
+              : "text-neutral-800 hover:bg-black/[0.07]",
           ].join(" ")}
         >
           <PlusIcon />
@@ -1287,11 +1285,11 @@ export default function Integrations({ embedded = false }: IntegrationsProps) {
                     type="button"
                     onClick={() => setChosenView("catalog")}
                     className={[
-                      "inline-flex h-10 items-center gap-1.5 rounded-full border px-4 text-[13px] font-medium transition-colors",
+                      "inline-flex h-8 items-center gap-1 rounded-full border px-3 text-[12px] font-medium transition-colors",
                       focusRingClass(isDark),
                       isDark
                         ? "border-white/[0.12] text-neutral-200 hover:bg-white/[0.06]"
-                        : "border-black/[0.1] bg-white text-neutral-800 shadow-sm hover:bg-black/[0.03]",
+                        : "border-black/[0.1] bg-white text-neutral-800 hover:bg-black/[0.03]",
                     ].join(" ")}
                   >
                     Catalogue
@@ -1319,11 +1317,11 @@ export default function Integrations({ embedded = false }: IntegrationsProps) {
                 <div className={embedded ? "mt-0" : "mt-5 sm:mt-6"}>
                   <label
                     className={[
-                      "flex h-12 w-full items-center gap-3 rounded-full border px-4 transition sm:h-14",
+                      "flex h-10 w-full items-center gap-2.5 rounded-full border px-3.5 transition",
                       "focus-within:ring-2",
                       isDark
                         ? "border-white/[0.12] bg-white/[0.035] text-neutral-400 focus-within:ring-white/20"
-                        : "border-black/[0.12] bg-white text-neutral-500 shadow-[0_1px_2px_rgba(0,0,0,0.04)] focus-within:ring-black/10",
+                        : "border-black/[0.12] bg-white text-neutral-500 focus-within:ring-black/10",
                     ].join(" ")}
                   >
                     <SearchIcon />
@@ -1334,7 +1332,7 @@ export default function Integrations({ embedded = false }: IntegrationsProps) {
                       placeholder="Rechercher des intégrations"
                       aria-label="Rechercher des intégrations"
                       className={[
-                        "w-full min-w-0 bg-transparent text-[14px] outline-none placeholder:text-inherit sm:text-[15px]",
+                        "w-full min-w-0 bg-transparent text-[13px] outline-none placeholder:text-inherit",
                         "[&::-webkit-search-cancel-button]:appearance-none",
                         isDark ? "text-white" : "text-neutral-900",
                       ].join(" ")}
@@ -1343,9 +1341,9 @@ export default function Integrations({ embedded = false }: IntegrationsProps) {
                 </div>
 
                 {/* INSTALLÉS */}
-                <section className="mt-8 sm:mt-9">
+                <section className="mt-5 sm:mt-6">
                   <div className="mb-4 flex items-center justify-between gap-3 sm:mb-5">
-                    <h2 className={["flex items-center gap-1.5 text-[18px] font-semibold tracking-[-0.025em] sm:text-[19px]", strongClass(isDark)].join(" ")}>
+                    <h2 className={["flex items-center gap-1.5 text-[15px] font-semibold tracking-[-0.025em] sm:text-[16px]", strongClass(isDark)].join(" ")}>
                       Installés
                       <span className={mutedClass(isDark)}><ChevronRightIcon /></span>
                     </h2>
@@ -1354,7 +1352,7 @@ export default function Integrations({ embedded = false }: IntegrationsProps) {
                         type="button"
                         onClick={() => setChosenView("connected")}
                         className={[
-                          "inline-flex h-9 items-center gap-1 rounded-full px-3.5 text-[13px] font-medium transition-colors",
+                          "inline-flex h-8 items-center gap-1 rounded-full px-3 text-[12px] font-medium transition-colors",
                           focusRingClass(isDark),
                           isDark
                             ? "text-neutral-300 hover:bg-white/[0.07]"
@@ -1376,10 +1374,10 @@ export default function Integrations({ embedded = false }: IntegrationsProps) {
                             title={item.title}
                             aria-label={item.title}
                             className={[
-                              "flex h-12 w-12 items-center justify-center rounded-xl border",
+                              "flex h-9 w-9 items-center justify-center rounded-xl border",
                               isDark
-                                ? "border-white/[0.12] bg-[#202024] shadow-[0_2px_8px_rgba(0,0,0,0.35)]"
-                                : "border-black/[0.06] bg-white shadow-[0_2px_8px_rgba(0,0,0,0.08)]",
+                                ? "border-white/[0.12] bg-[#202024]"
+                                : "border-black/[0.08] bg-white",
                             ].join(" ")}
                           >
                             {Icon && <Icon className="h-6 w-6" />}
@@ -1394,7 +1392,7 @@ export default function Integrations({ embedded = false }: IntegrationsProps) {
                   )}
                   <span
                     className={[
-                      "mt-6 inline-flex items-center rounded-full px-4 py-2 text-[13px] font-medium",
+                      "mt-4 inline-flex items-center rounded-full px-3 py-1.5 text-[12px] font-medium",
                       isDark ? "bg-white/[0.08] text-neutral-200" : "bg-neutral-100 text-neutral-800",
                     ].join(" ")}
                   >
@@ -1403,8 +1401,8 @@ export default function Integrations({ embedded = false }: IntegrationsProps) {
                 </section>
 
                 {/* LES PLUS UTILISÉS */}
-                <section className="mt-10 sm:mt-12">
-                  <h2 className={["mb-3 flex items-center gap-1.5 text-[18px] font-semibold tracking-[-0.025em] sm:mb-4 sm:text-[19px]", strongClass(isDark)].join(" ")}>
+                <section className="mt-6 sm:mt-7">
+                  <h2 className={["mb-2 flex items-center gap-1 text-[15px] font-semibold tracking-[-0.025em] sm:text-[16px]", strongClass(isDark)].join(" ")}>
                     Les plus utilisés
                     <span className={mutedClass(isDark)}><ChevronRightIcon /></span>
                   </h2>
@@ -1420,8 +1418,8 @@ export default function Integrations({ embedded = false }: IntegrationsProps) {
                 </section>
 
                 {/* NOUVEAUTÉS À DÉCOUVRIR */}
-                <section className="mt-10 sm:mt-12">
-                  <h2 className={["mb-3 flex items-center gap-1.5 text-[18px] font-semibold tracking-[-0.025em] sm:mb-4 sm:text-[19px]", strongClass(isDark)].join(" ")}>
+                <section className="mt-6 sm:mt-7">
+                  <h2 className={["mb-2 flex items-center gap-1 text-[15px] font-semibold tracking-[-0.025em] sm:text-[16px]", strongClass(isDark)].join(" ")}>
                     Nouveautés à découvrir
                     <span className={mutedClass(isDark)}><ChevronRightIcon /></span>
                   </h2>
