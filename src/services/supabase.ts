@@ -509,7 +509,7 @@ export async function apiRequest<T>(
   // bloquée ne doit pas laisser l'interface en chargement indéfiniment.
   // L'upload d'avatar dispose d'une marge supplémentaire pour les fichiers.
   const timeoutMs =
-    endpoint === "/api/user/avatar"
+    endpoint === "/api/user/avatar" || endpoint === "/api/user/account"
       ? 120_000
       : API_REQUEST_TIMEOUT_MS;
   const { response, data } = await withRequestTimeout(
