@@ -930,17 +930,17 @@ const COPY: Record<Lang, Copy> = {
     danger: {
       exportTitle: "Export data",
       exportDescription:
-        "Download a copy of everything tied to your account.",
-      exportHint: "You'll receive an email with a download link.",
-      requestExport: "Request export",
-      exportRequested: "Export requested",
+        "Download the account and content records currently stored in Stone as JSON. Media files and data held directly by connected platforms or Stripe are not included.",
+      exportHint: "The export downloads immediately as a JSON file. OAuth tokens and security credentials are excluded.",
+      requestExport: "Download JSON",
+      exportRequested: "Your data export has been downloaded.",
       deleteTitle: "Delete account",
       deleteDescription:
-        "This permanently removes your account, workspace, and all data. This cannot be undone.",
+        "Self-service account deletion is not yet available. Use Contact Us to request erasure. Some records may need to be retained where the law requires it.",
       deleteButton: "Delete my account",
       typeToConfirm: (word) => `Type "${word}" to confirm`,
       deleteWord: "delete",
-      disabledDemo: "Account deletion is disabled in this demo",
+      disabledDemo: "Self-service deletion is not available yet. Please use Contact Us to submit a deletion request.",
     },
     toast: {
       successUpdated: "Saved",
@@ -1382,18 +1382,18 @@ const COPY: Record<Lang, Copy> = {
     danger: {
       exportTitle: "Exporter les données",
       exportDescription:
-        "Téléchargez une copie de tout ce qui est lié à votre compte.",
+        "Téléchargez au format JSON les données de compte et de contenu actuellement stockées dans Stone. Les fichiers médias et les données détenues directement par les plateformes connectées ou Stripe ne sont pas inclus.",
       exportHint:
-        "Vous recevrez un e-mail avec un lien de téléchargement.",
-      requestExport: "Demander l'export",
-      exportRequested: "Export demandé",
+        "L’export est téléchargé immédiatement au format JSON. Les jetons OAuth et les identifiants de sécurité sont exclus.",
+      requestExport: "Télécharger le JSON",
+      exportRequested: "Votre export de données a été téléchargé.",
       deleteTitle: "Supprimer le compte",
       deleteDescription:
-        "Cela supprime définitivement votre compte, votre espace de travail et toutes les données. Cette action est irréversible.",
+        "La suppression autonome du compte n’est pas encore disponible. Utilisez la page Contact pour demander l’effacement. Certaines données peuvent devoir être conservées lorsque la loi l’exige.",
       deleteButton: "Supprimer mon compte",
       typeToConfirm: (word) => `Saisissez « ${word} » pour confirmer`,
       deleteWord: "supprimer",
-      disabledDemo: "La suppression de compte est désactivée dans cette démo",
+      disabledDemo: "La suppression autonome n’est pas encore disponible. Utilisez la page Contact pour envoyer une demande d’effacement.",
     },
     toast: {
       successUpdated: "Enregistré",
@@ -6507,7 +6507,7 @@ function DangerSection({
           <Button
             tokens={tokens}
             variant="danger"
-            disabled={!canDelete}
+            disabled={true}
             onClick={handleDelete}
           >
             {c.danger.deleteButton}
