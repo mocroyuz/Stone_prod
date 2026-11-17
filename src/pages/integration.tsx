@@ -1365,22 +1365,34 @@ export default function Integrations({ embedded = false }: IntegrationsProps) {
                     )}
                   </div>
                   {hasConnected ? (
-                    <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
+                    <div className="flex flex-wrap items-center gap-2.5 pb-6 sm:gap-3">
                       {installed.map((item) => {
                         const Icon = ICONS[item.title];
                         return (
                           <div
                             key={item.title}
-                            title={item.title}
+                            tabIndex={0}
                             aria-label={item.title}
-                            className={[
-                              "flex h-11 w-11 items-center justify-center rounded-xl border",
-                              isDark
-                                ? "border-white/[0.12] bg-[#202024]"
-                                : "border-black/[0.08] bg-white",
-                            ].join(" ")}
+                            className="group relative outline-none"
                           >
-                            {Icon && <Icon className="h-6 w-6" />}
+                            <div
+                              className={[
+                                "flex h-11 w-11 items-center justify-center rounded-xl border transition-transform duration-150 group-hover:-translate-y-0.5 group-focus-visible:-translate-y-0.5",
+                                isDark
+                                  ? "border-white/[0.12] bg-[#202024]"
+                                  : "border-black/[0.08] bg-white",
+                              ].join(" ")}
+                            >
+                              {Icon && <Icon className="h-6 w-6" />}
+                            </div>
+                            <span
+                              className={[
+                                "pointer-events-none absolute left-1/2 top-full z-10 mt-1.5 -translate-x-1/2 whitespace-nowrap text-[13px] opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100",
+                                mutedClass(isDark),
+                              ].join(" ")}
+                            >
+                              {item.title}
+                            </span>
                           </div>
                         );
                       })}
@@ -1390,14 +1402,6 @@ export default function Integrations({ embedded = false }: IntegrationsProps) {
                       Vos apps connectées apparaîtront ici.
                     </p>
                   )}
-                  <span
-                    className={[
-                      "mt-4 inline-flex items-center rounded-full px-3 py-1.5 text-[12px] font-medium",
-                      isDark ? "bg-white/[0.08] text-neutral-200" : "bg-neutral-100 text-neutral-800",
-                    ].join(" ")}
-                  >
-                    Public
-                  </span>
                 </section>
 
                 {/* LES PLUS UTILISÉS */}
