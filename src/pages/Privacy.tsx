@@ -89,7 +89,7 @@ const SECTIONS: Section[] = [
     title: "Data Retention",
     paragraphs: [
       "We retain your personal data for as long as your account is active or as needed to provide the Service. We may also retain certain information as necessary to comply with legal obligations, resolve disputes, and enforce our agreements.",
-      "A complete self-service account deletion process is not yet available. Do not rely on this notice as confirmation that deletion has been completed. The deletion process, including connected services, storage objects, backups and legally required records, must be completed and verified before a deletion period can be promised.",
+      "You can initiate account deletion from Settings. Stone cancels active subscriptions, attempts to revoke supported social-platform authorizations, removes the account records and user-owned media stored by Stone, and then deletes the Stone authentication account. Pinterest and Threads may require you to revoke Stone manually in those platform settings. Existing temporary TikTok media is removed by the scheduled cleanup process. Content already published to social platforms and files kept in external services are not deleted from those services by Stone. Stripe invoices and billing records may be retained where required by law; the Stripe customer is unlinked from the deleted Stone account.",
     ],
   },
   {
