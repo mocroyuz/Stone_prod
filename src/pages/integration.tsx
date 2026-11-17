@@ -224,11 +224,6 @@ const mainPanelClass = (isDark: boolean) =>
     ? "border-white/[0.07] bg-[#0f0f11]"
     : "border-black/[0.06] bg-white";
 
-const cardClass = (isDark: boolean) =>
-  isDark
-    ? "border-white/[0.07] bg-[#141416]"
-    : "border-black/[0.06] bg-white";
-
 const panelSurfaceClass = (isDark: boolean) =>
   isDark
     ? "border-white/[0.07] bg-white/[0.03]"
