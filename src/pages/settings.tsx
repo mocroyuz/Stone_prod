@@ -62,6 +62,7 @@ import {
   type Connection,
 } from "../services/channelsCache";
 import {
+  apiRequest,
   getCurrentUser,
   updateUserProfile,
   uploadAvatar,
@@ -6435,7 +6436,42 @@ function DangerSection({
   c: Copy;
 }) {
   const [confirm, setConfirm] = useState("");
+  const [exporting, setExporting] = useState(false);
   const canDelete = confirm.trim().toLowerCase() === c.danger.deleteWord;
+
+  const handleExport = async () => {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      const result = await apiRequest<Record<string, unknown>>(
+        "/api/user/export",
+        { method: "GET" }
+      );
+      if (!result || result.success !== true) {
+        throw new Error("The personal data export could not be generated.");
+      }
+      const blob = new Blob([JSON.stringify(result, null, 2)], {
+        type: "application/json;charset=utf-8",
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `stone-personal-data-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      notify(c.danger.exportRequested);
+    } catch (error) {
+      notify(
+        error instanceof Error ? error.message : "Personal data export failed.",
+        "error"
+      );
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const handleDelete = () => {
     if (!canDelete) return;
     notify(c.danger.disabledDemo, "error");
@@ -6454,10 +6490,11 @@ function DangerSection({
           <Button
             tokens={tokens}
             variant="secondary"
-            onClick={() => notify(c.danger.exportRequested)}
+            disabled={exporting}
+            onClick={handleExport}
             className="!px-3.5 !py-2 !font-medium"
           >
-            {c.danger.requestExport}
+            {exporting ? c.common.sending : c.danger.requestExport}
           </Button>
         </div>
       </SectionCard>
