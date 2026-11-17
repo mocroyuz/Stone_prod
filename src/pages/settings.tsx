@@ -6493,11 +6493,18 @@ function DangerSection({
         body: JSON.stringify({ confirmation: confirmationWord }),
       });
       if (!result?.success) throw new Error("Account deletion was not confirmed.");
-      const warnings = result.remote_revocation_warnings || [];
+      const warnings = [...(result.remote_revocation_warnings || [])];
+      if (result.billing_records_retained) {
+        warnings.push(
+          c.danger.deleteWord === "supprimer"
+            ? "Les factures et données de facturation requises peuvent être conservées."
+            : "Invoices and required billing records may be retained."
+        );
+      }
       const message = warnings.length
         ? (c.danger.deleteWord === "supprimer"
-            ? "Compte supprimé. Certaines autorisations doivent être révoquées manuellement : "
-            : "Account deleted. Some permissions need to be revoked manually: ") + warnings.join("; ")
+            ? "Compte supprimé. Points à noter : "
+            : "Account deleted. Please note: ") + warnings.join("; ")
         : (c.danger.deleteWord === "supprimer"
             ? "Votre compte Stone a été supprimé."
             : "Your Stone account has been deleted.");
