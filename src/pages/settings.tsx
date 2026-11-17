@@ -4733,20 +4733,23 @@ function BillingSection({
               ) : null}
             </div>
           </div>
-          <Button
-            tokens={tokens}
-            variant="secondary"
+          <button
+            type="button"
             onClick={handleManageCard}
             disabled={loading || portalBusy}
             aria-busy={portalBusy}
-            className="shrink-0"
+            aria-label={payment ? "Modifier la carte" : c.billing.payment.addCard}
+            title={payment ? "Modifier la carte" : c.billing.payment.addCard}
+            className={cx(
+              "flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-50",
+              tokens.muted,
+              tokens.ghostHover,
+              tokens.ring,
+              portalBusy && "animate-pulse"
+            )}
           >
-            {portalBusy
-              ? "Ouverture…"
-              : payment
-                ? "Modifier la carte"
-                : c.billing.payment.addCard}
-          </Button>
+            <PencilIcon />
+          </button>
         </div>
       </SectionCard>
       <SectionCard
