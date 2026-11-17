@@ -2337,6 +2337,7 @@ function initialSection(): SectionKey {
 }
 
 export default function Settings(_props: SettingsProps) {
+  const { user } = useUser();
   const { theme, toggle } = useTheme();
   const isDark = theme === "dark";
   const tokens = useMemo<Tokens>(() => (isDark ? DARK : LIGHT), [isDark]);
@@ -2623,7 +2624,7 @@ export default function Settings(_props: SettingsProps) {
                 />
               )}
               {active === "danger" && (
-                <DangerSection tokens={tokens} notify={notify} c={c} />
+                <DangerSection tokens={tokens} notify={notify} c={c} userId={user?.id ?? null} />
               )}
             </div>
           </div>
@@ -6437,10 +6438,12 @@ function DangerSection({
   tokens,
   notify,
   c,
+  userId,
 }: {
   tokens: Tokens;
   notify: Notify;
   c: Copy;
+  userId: string | null;
 }) {
   const [exporting, setExporting] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState("");
@@ -6509,7 +6512,11 @@ function DangerSection({
             ? "Votre compte Stone a été supprimé."
             : "Your Stone account has been deleted.");
       notify(message, warnings.length ? "error" : "success");
-      clearCache();
+      if (userId) {
+        for (const provider of ["tiktok", "pinterest", "youtube", "instagram", "threads"] as const) {
+          clearCache(userId, provider);
+        }
+      }
       window.setTimeout(() => clearSession(), 900);
     } catch (error) {
       notify(
