@@ -27,6 +27,7 @@ import {
   openFrequencyOnboarding,
   InstagramAccountTypeModal,
   type OnboardingAccount,
+  type OnboardingChannelKey,
   type InstagramAccountType,
 } from "../components/OnboardingModals";
 import {
@@ -4854,10 +4855,15 @@ function markReturning(provider: CacheProvider) {
   writeReturned(Array.from(new Set([...readReturned(), provider])));
 }
 
+function isOnboardingChannelKey(key: ChannelKey): key is OnboardingChannelKey {
+  return ["instagram", "facebook", "tiktok", "youtube", "pinterest", "threads"].includes(key);
+}
+
 function buildAccount(
   channel: Channel,
   connection: Connection
-): OnboardingAccount {
+): OnboardingAccount | null {
+  if (!isOnboardingChannelKey(channel.key)) return null;
   return {
     key: channel.key,
     name: channel.name,
