@@ -32,6 +32,7 @@ const SECTIONS: Section[] = [
       "Account data: name, email address, password, company name, and billing details.",
       "Usage data: pages visited, features used, session duration, IP address, browser type, and device information.",
       "Content data: any data you submit, upload, or generate through the Service.",
+      "Uploaded media: profile avatars and post media are stored in public Storage buckets and can be retrieved by anyone who has the media URL. Do not upload confidential or sensitive files unless you intend to make them accessible by URL.",
       "Communication data: messages you send to our support team or via in-app chat.",
     ],
   },
@@ -81,6 +82,7 @@ const SECTIONS: Section[] = [
     title: "Data Storage and Security",
     paragraphs: [
       "Stone encrypts OAuth credentials stored by its backend using AES-256-GCM when the production encryption key is configured. This statement does not mean that every category of data or every provider storage system has been independently verified as encrypted at rest. Hosting regions and provider-side security settings depend on the actual configuration of each provider and must be confirmed before they can be stated.",
+      "Profile avatars and post media are stored in public Storage buckets. Anyone with the corresponding URL may retrieve those files. Temporary TikTok media is stored in a private bucket but is served through temporary public API URLs so the publishing platform can fetch it.",
       "We maintain administrative, technical, and physical safeguards designed to protect your information. However, no method of transmission over the Internet or electronic storage is 100% secure, and we cannot guarantee absolute security.",
     ],
   },
