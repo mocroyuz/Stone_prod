@@ -1377,10 +1377,10 @@ export default function Integrations({ embedded = false }: IntegrationsProps) {
                           >
                             <div
                               className={[
-                                "flex h-11 w-11 items-center justify-center rounded-xl border transition-all duration-200 ease-out group-hover:-translate-y-0.5 group-focus-visible:-translate-y-0.5",
+                                "flex h-11 w-11 items-center justify-center rounded-xl transition-all duration-200 ease-out group-hover:-translate-y-0.5 group-focus-visible:-translate-y-0.5",
                                 isDark
-                                  ? "border-white/[0.12] bg-[#202024] group-hover:border-white/30 group-hover:bg-[#2a2a2f] group-focus-visible:border-white/30"
-                                  : "border-black/[0.08] bg-white group-hover:border-black/25 group-hover:bg-neutral-50 group-focus-visible:border-black/25",
+                                  ? "bg-[#202024] group-hover:bg-[#2a2a2f]"
+                                  : "bg-neutral-100 group-hover:bg-neutral-200/70",
                               ].join(" ")}
                             >
                               {Icon && <Icon className="h-6 w-6" />}
