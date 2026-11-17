@@ -930,7 +930,7 @@ const COPY: Record<Lang, Copy> = {
     danger: {
       exportTitle: "Export data",
       exportDescription:
-        "Download the account and content records currently stored in Stone as JSON. Media files and data held directly by connected platforms or Stripe are not included.",
+        "Download the account and content records currently stored in Stone as JSON. Media files and data held directly by connected platforms or Stripe are not included. Any unavailable database tables are listed in the export.",
       exportHint: "The export downloads immediately as a JSON file. OAuth tokens and security credentials are excluded.",
       requestExport: "Download JSON",
       exportRequested: "Your data export has been downloaded.",
@@ -1382,7 +1382,7 @@ const COPY: Record<Lang, Copy> = {
     danger: {
       exportTitle: "Exporter les données",
       exportDescription:
-        "Téléchargez au format JSON les données de compte et de contenu actuellement stockées dans Stone. Les fichiers médias et les données détenues directement par les plateformes connectées ou Stripe ne sont pas inclus.",
+        "Téléchargez au format JSON les données de compte et de contenu actuellement stockées dans Stone. Les fichiers médias et les données détenues directement par les plateformes connectées ou Stripe ne sont pas inclus. Les tables indisponibles sont signalées dans le fichier.",
       exportHint:
         "L’export est téléchargé immédiatement au format JSON. Les jetons OAuth et les identifiants de sécurité sont exclus.",
       requestExport: "Télécharger le JSON",
