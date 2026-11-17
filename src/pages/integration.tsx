@@ -280,54 +280,19 @@ function SearchIcon() {
   );
 }
 
-function ChevronDownIcon() {
+function ChevronRightIcon({ className }: { className?: string }) {
   return (
     <svg
       viewBox="0 0 24 24"
-      className="h-[14px] w-[14px]"
+      className={className ?? "h-[16px] w-[16px]"}
       fill="none"
       stroke="currentColor"
-      strokeWidth="2"
+      strokeWidth="1.8"
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"
     >
-      <path d="m6 9 6 6 6-6" />
-    </svg>
-  );
-}
-
-function CheckIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className={className ?? "h-[12px] w-[12px]"}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.6"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="m4 12 6 6L20 6" />
-    </svg>
-  );
-}
-
-function ArrowRightIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className="h-[15px] w-[15px] sm:h-[14px] sm:w-[14px]"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M5 12h14" />
-      <path d="m13 6 6 6-6 6" />
+      <path d="m9 6 6 6-6 6" />
     </svg>
   );
 }
@@ -484,9 +449,10 @@ const ICONS: Record<string, (props: { className?: string }) => ReactElement | nu
   "Google Calendar": GoogleCalendarIcon,
 };
 
-const FILTERS = ["Toutes", "Connectées", "Disponibles"] as const;
-type Filter = (typeof FILTERS)[number];
+type View = "connected" | "catalog";
 
+/** Nombre de services dont l'état de connexion est vérifié au chargement. */
+const STATUS_CHECK_COUNT = 4;
 
 /* ============================================================
    CARD
@@ -505,12 +471,16 @@ function IntegrationCard({
   data,
   isDark,
   service,
+  variant = "catalog",
 }: {
   data: IntegrationCardData;
   isDark: boolean;
   service?: ServiceConnection;
+  /** "connected" : ligne d'une app connectée ; "catalog" : ligne du catalogue. */
+  variant?: "catalog" | "connected";
 }) {
   const Icon = ICONS[data.title];
+  const isConnectedRow = variant === "connected";
   const isMobile = useIsMobile();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -535,20 +505,31 @@ function IntegrationCard({
   return (
     <article
       className={[
-        "group flex min-w-0 items-center gap-3 rounded-xl px-1 py-3 sm:gap-4 sm:px-2 sm:py-3.5",
-        "transition-colors duration-200",
-        isDark ? "hover:bg-white/[0.035]" : "hover:bg-black/[0.025]",
+        "group flex min-w-0 items-center gap-3 sm:gap-4",
+        isConnectedRow
+          ? [
+              "border-b px-0 py-4 sm:py-5",
+              isDark ? "border-white/[0.07]" : "border-black/[0.07]",
+            ].join(" ")
+          : [
+              "rounded-2xl px-3 py-3 sm:py-3.5",
+              "transition-colors duration-200",
+              isDark ? "hover:bg-white/[0.05]" : "hover:bg-black/[0.04]",
+            ].join(" "),
       ].join(" ")}
     >
       <div
         className={[
-          "flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl border",
+          "flex shrink-0 items-center justify-center overflow-hidden rounded-xl border",
+          isConnectedRow ? "h-[52px] w-[52px] sm:h-16 sm:w-16" : "h-12 w-12",
           isDark
             ? "border-white/[0.12] bg-[#202024] text-neutral-100"
-            : "border-black/[0.09] bg-white text-neutral-800 shadow-[0_1px_2px_rgba(0,0,0,0.025)]",
+            : "border-black/[0.08] bg-white text-neutral-800 shadow-[0_1px_3px_rgba(0,0,0,0.06)]",
         ].join(" ")}
       >
-        {Icon && <Icon className="h-6 w-6" />}
+        {Icon && (
+          <Icon className={isConnectedRow ? "h-7 w-7 sm:h-8 sm:w-8" : "h-6 w-6"} />
+        )}
       </div>
 
       <div className="min-w-0 flex-1">
@@ -584,14 +565,24 @@ function IntegrationCard({
             aria-expanded={menuOpen || sheetOpen}
             onClick={() => (isMobile ? setSheetOpen(true) : setMenuOpen((v) => !v))}
             className={[
-              "flex h-9 w-9 items-center justify-center rounded-full transition-colors",
+              "flex h-9 items-center justify-center transition-colors",
+              isConnectedRow
+                ? "gap-2 rounded-lg px-2 text-[15px] sm:px-2.5"
+                : "w-9 rounded-lg",
               focusRingClass(isDark),
               isDark
                 ? "text-neutral-400 hover:bg-white/[0.08] hover:text-white"
                 : "text-neutral-500 hover:bg-black/[0.055] hover:text-neutral-900",
             ].join(" ")}
           >
-            <MoreIcon />
+            {isConnectedRow ? (
+              <>
+                <span className="hidden sm:inline">Gérer la connexion</span>
+                <ChevronRightIcon className="h-[18px] w-[18px]" />
+              </>
+            ) : (
+              <MoreIcon />
+            )}
           </button>
 
           {menuOpen && !isMobile && (
@@ -681,12 +672,12 @@ function IntegrationCard({
           aria-busy={service?.busy}
           aria-label={`Connecter ${data.title}`}
           className={[
-            "flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-colors disabled:cursor-default",
+            "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors disabled:cursor-default",
             service?.busy ? "animate-pulse opacity-60" : "",
             focusRingClass(isDark),
             isDark
-              ? "text-neutral-300 hover:bg-white/[0.08] hover:text-white"
-              : "text-neutral-800 hover:bg-black/[0.05]",
+              ? "text-neutral-300 group-hover:bg-white/[0.08] hover:text-white"
+              : "text-neutral-800 group-hover:bg-black/[0.07]",
           ].join(" ")}
         >
           <PlusIcon />
@@ -712,9 +703,9 @@ export default function Integrations({ embedded = false }: IntegrationsProps) {
   const saved = isFavorite(PAGE_ROUTE);
 
   const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState<Filter>("Toutes");
-  const [filterOpen, setFilterOpen] = useState(false);
-  const filterRef = useRef<HTMLDivElement>(null);
+  // Choix explicite de l'utilisateur ; sinon la vue dépend des apps connectées.
+  const [chosenView, setChosenView] = useState<View | null>(null);
+  const [settledChecks, setSettledChecks] = useState(0);
 
   const [isFolderOpen, setIsFolderOpen] = useState(false);
   const [isNewPostOpen, setIsNewPostOpen] = useState(false);
@@ -755,6 +746,9 @@ export default function Integrations({ embedded = false }: IntegrationsProps) {
               : "Impossible de vérifier la connexion Canva."
           );
         }
+      })
+      .finally(() => {
+        if (active) setSettledChecks((count) => count + 1);
       });
 
     return () => {
@@ -778,6 +772,9 @@ export default function Integrations({ embedded = false }: IntegrationsProps) {
               : "Impossible de vérifier la connexion Dropbox."
           );
         }
+      })
+      .finally(() => {
+        if (active) setSettledChecks((count) => count + 1);
       });
 
     return () => {
@@ -800,6 +797,9 @@ export default function Integrations({ embedded = false }: IntegrationsProps) {
               : "Impossible de vérifier la connexion Google Drive."
           );
         }
+      })
+      .finally(() => {
+        if (active) setSettledChecks((count) => count + 1);
       });
 
     return () => {
@@ -822,6 +822,9 @@ export default function Integrations({ embedded = false }: IntegrationsProps) {
               : "Impossible de vérifier la connexion Google Photos."
           );
         }
+      })
+      .finally(() => {
+        if (active) setSettledChecks((count) => count + 1);
       });
 
     return () => {
@@ -829,27 +832,6 @@ export default function Integrations({ embedded = false }: IntegrationsProps) {
     };
   }, []);
 
-  // Fermeture du dropdown de filtre (clic extérieur / Escape).
-  useEffect(() => {
-    if (!filterOpen) return;
-
-    const onPointerDown = (e: PointerEvent) => {
-      if (!filterRef.current?.contains(e.target as Node)) setFilterOpen(false);
-    };
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setFilterOpen(false);
-    };
-
-    document.addEventListener("pointerdown", onPointerDown);
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("pointerdown", onPointerDown);
-      document.removeEventListener("keydown", onKeyDown);
-    };
-  }, [filterOpen]);
-
-  // Toutes les données de filtrage sont construites avant le rendu.
-  // Aucun callback de filtre ne dépend d'une constante déclarée plus bas.
   const needle = query.trim().toLowerCase();
   const connectionState: Record<string, boolean> = {
     Canva: canvaConnected,
@@ -858,24 +840,14 @@ export default function Integrations({ embedded = false }: IntegrationsProps) {
     "Google Photos": gphotosConnected,
   };
 
-  const matchesSearchAndFilter = (item: IntegrationCardData): boolean => {
-    const matchesQuery =
-      needle.length === 0 ||
-      `${item.title} ${item.meta ?? ""}`.toLowerCase().includes(needle);
-    const isConnected = connectionState[item.title] === true;
-    const matchesFilter =
-      filter === "Toutes" ||
-      (filter === "Connectées" ? isConnected : !isConnected);
-    return matchesQuery && matchesFilter;
-  };
+  const matchesSearch = (item: IntegrationCardData): boolean =>
+    needle.length === 0 ||
+    `${item.title} ${item.meta ?? ""}`.toLowerCase().includes(needle);
 
-  const visible = INTEGRATIONS.filter(matchesSearchAndFilter);
-  const hasActiveFilters = needle.length > 0 || filter !== "Toutes";
+  const visible = INTEGRATIONS.filter(matchesSearch);
+  const hasActiveSearch = needle.length > 0;
 
-  const resetFilters = () => {
-    setQuery("");
-    setFilter("Toutes");
-  };
+  const resetSearch = () => setQuery("");
 
   const handleBottomBarChange = (id: BottomBarTab) => {
     switch (id) {
@@ -1171,13 +1143,22 @@ export default function Integrations({ embedded = false }: IntegrationsProps) {
     (item) => isServiceConnected(item)
   );
   const popularNames = ["Gmail", "Google Drive", "Canva", "Dropbox", "Google Photos", "Google Calendar"];
-  const popular = visible.filter(
-    (item) => popularNames.includes(item.title) && !isServiceConnected(item)
-  );
+  const popular = visible.filter((item) => popularNames.includes(item.title));
   const popularSet = new Set(popularNames);
-  const discoveries = visible.filter(
-    (item) => !popularSet.has(item.title) && !isServiceConnected(item)
-  );
+  const discoveries = visible.filter((item) => !popularSet.has(item.title));
+
+  // Vue affichée : apps connectées s'il y en a, sinon le catalogue.
+  // Tant que l'état de connexion n'est pas connu, on n'affiche rien de trompeur.
+  const checksDone = settledChecks >= STATUS_CHECK_COUNT;
+  const hasConnected = installed.length > 0;
+  const view: View | null =
+    chosenView === "catalog"
+      ? "catalog"
+      : !checksDone && chosenView === null
+        ? null
+        : hasConnected
+          ? "connected"
+          : "catalog";
 
   const PageContainer = embedded ? "div" : "main";
 
@@ -1283,172 +1264,202 @@ export default function Integrations({ embedded = false }: IntegrationsProps) {
 
             )}
 
-            {/* SEARCH — largeur complète, comme la référence */}
-            <div className={embedded ? "mt-0" : "mt-5 sm:mt-6"}>
-              <label
-                className={[
-                  "flex h-12 w-full items-center gap-3 rounded-full border px-4 transition sm:h-14",
-                  "focus-within:ring-2",
-                  isDark
-                    ? "border-white/[0.12] bg-white/[0.035] text-neutral-400 focus-within:ring-white/20"
-                    : "border-black/[0.12] bg-white text-neutral-500 focus-within:ring-black/10",
-                ].join(" ")}
+            {/* CHARGEMENT — état de connexion en cours de vérification */}
+            {view === null && (
+              <p
+                role="status"
+                className={["mt-6 text-[13px]", mutedClass(isDark)].join(" ")}
               >
-                <SearchIcon />
-                <input
-                  type="search"
-                  value={query}
-                  onChange={(event) => setQuery(event.target.value)}
-                  placeholder="Rechercher des connecteurs"
-                  aria-label="Rechercher des connecteurs"
-                  className={[
-                    "w-full min-w-0 bg-transparent text-[13px] outline-none placeholder:text-inherit sm:text-[14px]",
-                    "[&::-webkit-search-cancel-button]:appearance-none",
-                    isDark ? "text-white" : "text-neutral-900",
-                  ].join(" ")}
-                />
-              </label>
-              <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-                <span className={[
-                  "inline-flex items-center rounded-full px-4 py-2 text-[12px] font-medium",
-                  isDark ? "bg-white/[0.08] text-neutral-200" : "bg-neutral-100 text-neutral-800",
-                ].join(" ")}>Public</span>
-                <div className="relative" ref={filterRef}>
+                Chargement des intégrations…
+              </p>
+            )}
+
+            {/* APPS CONNECTÉES — vue par défaut quand au moins une app est connectée */}
+            {view === "connected" && (
+              <section className={embedded ? "mt-0" : "mt-6"}>
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <p className={["text-[13px]", mutedClass(isDark)].join(" ")}>
+                    {installed.length === 1
+                      ? "1 app connectée"
+                      : `${installed.length} apps connectées`}
+                  </p>
                   <button
                     type="button"
-                    onClick={() => setFilterOpen((value) => !value)}
-                    aria-haspopup="menu"
-                    aria-expanded={filterOpen}
+                    onClick={() => setChosenView("catalog")}
                     className={[
-                      "flex min-h-10 items-center gap-2 rounded-full border px-3.5 py-2 text-[12px] font-medium transition",
+                      "inline-flex h-10 items-center gap-1.5 rounded-full border px-4 text-[13px] font-medium transition-colors",
                       focusRingClass(isDark),
                       isDark
-                        ? "border-white/[0.09] text-neutral-300 hover:bg-white/[0.05]"
-                        : "border-black/[0.08] text-neutral-600 hover:bg-black/[0.03]",
+                        ? "border-white/[0.12] text-neutral-200 hover:bg-white/[0.06]"
+                        : "border-black/[0.1] bg-white text-neutral-800 shadow-sm hover:bg-black/[0.03]",
                     ].join(" ")}
                   >
-                    {filter}
-                    <span className={["flex transition-transform duration-200", filterOpen ? "rotate-180" : ""].join(" ")}>
-                      <ChevronDownIcon />
-                    </span>
+                    Catalogue
+                    <ChevronRightIcon className="h-4 w-4" />
                   </button>
-                  {filterOpen && (
-                    <div
-                      role="menu"
-                      className={[
-                        "absolute right-0 z-30 mt-2 w-40 overflow-hidden rounded-xl border py-1 shadow-xl",
-                        isDark ? "border-white/[0.08] bg-[#171719]" : "border-black/[0.07] bg-white",
-                      ].join(" ")}
-                    >
-                      {FILTERS.map((option) => (
-                        <button
-                          key={option}
-                          type="button"
-                          role="menuitemradio"
-                          aria-checked={option === filter}
-                          onClick={() => { setFilter(option); setFilterOpen(false); }}
-                          className={[
-                            "flex w-full items-center justify-between px-3.5 py-2.5 text-left text-[12px]",
-                            option === filter
-                              ? isDark ? "font-semibold text-white" : "font-semibold text-neutral-900"
-                              : isDark ? "text-neutral-400 hover:bg-white/[0.05]" : "text-neutral-500 hover:bg-black/[0.03]",
-                          ].join(" ")}
-                        >
-                          {option}
-                          {option === filter && <CheckIcon />}
-                        </button>
-                      ))}
-                    </div>
-                  )}
                 </div>
-              </div>
-            </div>
+                <div>
+                  {installed.map((card) => (
+                    <IntegrationCard
+                      key={card.title}
+                      data={card}
+                      isDark={isDark}
+                      service={services[card.title]}
+                      variant="connected"
+                    />
+                  ))}
+                </div>
+              </section>
+            )}
 
-            {/* CONNECTEURS INSTALLÉS */}
-            <section className="mt-8 sm:mt-9">
-              <h2 className={["mb-4 flex items-center gap-2 text-[18px] font-semibold tracking-[-0.025em] sm:mb-5 sm:text-[19px]", strongClass(isDark)].join(" ")}>
-                Installés <span className={mutedClass(isDark)}><ArrowRightIcon /></span>
-              </h2>
-              {installed.length > 0 ? (
-                <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
-                  {installed.map((item) => {
-                    const Icon = ICONS[item.title];
-                    return (
-                      <div
-                        key={item.title}
-                        title={item.title}
-                        aria-label={item.title}
+            {/* CATALOGUE — affiché quand aucune app n'est connectée, ou sur demande */}
+            {view === "catalog" && (
+              <>
+                {/* SEARCH — largeur complète */}
+                <div className={embedded ? "mt-0" : "mt-5 sm:mt-6"}>
+                  <label
+                    className={[
+                      "flex h-12 w-full items-center gap-3 rounded-full border px-4 transition sm:h-14",
+                      "focus-within:ring-2",
+                      isDark
+                        ? "border-white/[0.12] bg-white/[0.035] text-neutral-400 focus-within:ring-white/20"
+                        : "border-black/[0.12] bg-white text-neutral-500 shadow-[0_1px_2px_rgba(0,0,0,0.04)] focus-within:ring-black/10",
+                    ].join(" ")}
+                  >
+                    <SearchIcon />
+                    <input
+                      type="search"
+                      value={query}
+                      onChange={(event) => setQuery(event.target.value)}
+                      placeholder="Rechercher des intégrations"
+                      aria-label="Rechercher des intégrations"
+                      className={[
+                        "w-full min-w-0 bg-transparent text-[14px] outline-none placeholder:text-inherit sm:text-[15px]",
+                        "[&::-webkit-search-cancel-button]:appearance-none",
+                        isDark ? "text-white" : "text-neutral-900",
+                      ].join(" ")}
+                    />
+                  </label>
+                </div>
+
+                {/* INSTALLÉS */}
+                <section className="mt-8 sm:mt-9">
+                  <div className="mb-4 flex items-center justify-between gap-3 sm:mb-5">
+                    <h2 className={["flex items-center gap-1.5 text-[18px] font-semibold tracking-[-0.025em] sm:text-[19px]", strongClass(isDark)].join(" ")}>
+                      Installés
+                      <span className={mutedClass(isDark)}><ChevronRightIcon /></span>
+                    </h2>
+                    {hasConnected && (
+                      <button
+                        type="button"
+                        onClick={() => setChosenView("connected")}
                         className={[
-                          "flex h-11 w-11 items-center justify-center rounded-xl border shadow-sm",
-                          isDark ? "border-white/[0.09] bg-[#171719]" : "border-black/[0.06] bg-white",
+                          "inline-flex h-9 items-center gap-1 rounded-full px-3.5 text-[13px] font-medium transition-colors",
+                          focusRingClass(isDark),
+                          isDark
+                            ? "text-neutral-300 hover:bg-white/[0.07]"
+                            : "text-neutral-600 hover:bg-black/[0.05]",
                         ].join(" ")}
                       >
-                        {Icon && <Icon className="h-6 w-6" />}
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <p className={["text-[13px]", mutedClass(isDark)].join(" ")}>
-                  Vos connecteurs actifs apparaîtront ici après leur connexion.
-                </p>
-              )}
-            </section>
-
-            {/* LES PLUS UTILISÉS */}
-            <section className="mt-8 sm:mt-9">
-              <h2 className={["mb-4 flex items-center gap-2 text-[18px] font-semibold tracking-[-0.025em] sm:mb-5 sm:text-[19px]", strongClass(isDark)].join(" ")}>
-                Les plus utilisés <span className={mutedClass(isDark)}><ArrowRightIcon /></span>
-              </h2>
-              {popular.length > 0 ? (
-                <div className="grid grid-cols-1 gap-x-8 gap-y-1 lg:grid-cols-2 lg:gap-x-10 lg:gap-y-2">
-                  {popular.map((card) => (
-                    <IntegrationCard key={card.title} data={card} isDark={isDark} service={services[card.title]} />
-                  ))}
-                </div>
-              ) : (
-                <p className={["text-[13px]", mutedClass(isDark)].join(" ")}>Aucun connecteur dans cette catégorie.</p>
-              )}
-            </section>
-
-            {/* NOUVEAUTÉS */}
-            <section className="mt-8 sm:mt-9">
-              <h2 className={["mb-4 flex items-center gap-2 text-[18px] font-semibold tracking-[-0.025em] sm:text-[19px]", strongClass(isDark)].join(" ")}>
-                Nouveautés à découvrir <span className={mutedClass(isDark)}><ArrowRightIcon /></span>
-              </h2>
-              {discoveries.length > 0 ? (
-                <div className="grid grid-cols-1 gap-x-8 gap-y-1 lg:grid-cols-2 lg:gap-x-10 lg:gap-y-2">
-                  {discoveries.map((card) => (
-                    <IntegrationCard key={card.title} data={card} isDark={isDark} service={services[card.title]} />
-                  ))}
-                </div>
-              ) : (
-                <p className={["text-[13px]", mutedClass(isDark)].join(" ")}>Vous avez découvert tous les connecteurs disponibles.</p>
-              )}
-            </section>
-
-            {visible.length === 0 && (
-              <div className={[
-                "mt-8 flex min-h-[180px] flex-col items-center justify-center gap-3 rounded-2xl border px-4 py-10 text-center",
-                panelSurfaceClass(isDark),
-              ].join(" ")}>
-                <p className={["text-[13px]", mutedClass(isDark)].join(" ")}>
-                  Aucun connecteur ne correspond à votre recherche.
-                </p>
-                {hasActiveFilters && (
-                  <button
-                    type="button"
-                    onClick={resetFilters}
+                        Gérer les apps connectées
+                        <ChevronRightIcon className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+                  {hasConnected ? (
+                    <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
+                      {installed.map((item) => {
+                        const Icon = ICONS[item.title];
+                        return (
+                          <div
+                            key={item.title}
+                            title={item.title}
+                            aria-label={item.title}
+                            className={[
+                              "flex h-12 w-12 items-center justify-center rounded-xl border",
+                              isDark
+                                ? "border-white/[0.12] bg-[#202024] shadow-[0_2px_8px_rgba(0,0,0,0.35)]"
+                                : "border-black/[0.06] bg-white shadow-[0_2px_8px_rgba(0,0,0,0.08)]",
+                            ].join(" ")}
+                          >
+                            {Icon && <Icon className="h-6 w-6" />}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className={["text-[13px]", mutedClass(isDark)].join(" ")}>
+                      Vos apps connectées apparaîtront ici.
+                    </p>
+                  )}
+                  <span
                     className={[
-                      "rounded-full border px-4 py-2 text-[12px] font-semibold transition",
-                      focusRingClass(isDark),
-                      isDark ? "border-white/10 text-white hover:bg-white/[0.07]" : "border-black/10 text-neutral-900 hover:bg-neutral-100",
+                      "mt-6 inline-flex items-center rounded-full px-4 py-2 text-[13px] font-medium",
+                      isDark ? "bg-white/[0.08] text-neutral-200" : "bg-neutral-100 text-neutral-800",
                     ].join(" ")}
                   >
-                    Réinitialiser les filtres
-                  </button>
+                    Public
+                  </span>
+                </section>
+
+                {/* LES PLUS UTILISÉS */}
+                <section className="mt-10 sm:mt-12">
+                  <h2 className={["mb-3 flex items-center gap-1.5 text-[18px] font-semibold tracking-[-0.025em] sm:mb-4 sm:text-[19px]", strongClass(isDark)].join(" ")}>
+                    Les plus utilisés
+                    <span className={mutedClass(isDark)}><ChevronRightIcon /></span>
+                  </h2>
+                  {popular.length > 0 ? (
+                    <div className="grid grid-cols-1 gap-x-6 gap-y-1 lg:grid-cols-2">
+                      {popular.map((card) => (
+                        <IntegrationCard key={card.title} data={card} isDark={isDark} service={services[card.title]} />
+                      ))}
+                    </div>
+                  ) : (
+                    <p className={["text-[13px]", mutedClass(isDark)].join(" ")}>Aucune intégration ne correspond.</p>
+                  )}
+                </section>
+
+                {/* NOUVEAUTÉS À DÉCOUVRIR */}
+                <section className="mt-10 sm:mt-12">
+                  <h2 className={["mb-3 flex items-center gap-1.5 text-[18px] font-semibold tracking-[-0.025em] sm:mb-4 sm:text-[19px]", strongClass(isDark)].join(" ")}>
+                    Nouveautés à découvrir
+                    <span className={mutedClass(isDark)}><ChevronRightIcon /></span>
+                  </h2>
+                  {discoveries.length > 0 ? (
+                    <div className="grid grid-cols-1 gap-x-6 gap-y-1 lg:grid-cols-2">
+                      {discoveries.map((card) => (
+                        <IntegrationCard key={card.title} data={card} isDark={isDark} service={services[card.title]} />
+                      ))}
+                    </div>
+                  ) : (
+                    <p className={["text-[13px]", mutedClass(isDark)].join(" ")}>Aucune intégration ne correspond.</p>
+                  )}
+                </section>
+
+                {visible.length === 0 && (
+                  <div className={[
+                    "mt-8 flex min-h-[180px] flex-col items-center justify-center gap-3 rounded-2xl border px-4 py-10 text-center",
+                    panelSurfaceClass(isDark),
+                  ].join(" ")}>
+                    <p className={["text-[13px]", mutedClass(isDark)].join(" ")}>
+                      Aucune intégration ne correspond à votre recherche.
+                    </p>
+                    {hasActiveSearch && (
+                      <button
+                        type="button"
+                        onClick={resetSearch}
+                        className={[
+                          "rounded-full border px-4 py-2 text-[12px] font-semibold transition",
+                          focusRingClass(isDark),
+                          isDark ? "border-white/10 text-white hover:bg-white/[0.07]" : "border-black/10 text-neutral-900 hover:bg-neutral-100",
+                        ].join(" ")}
+                      >
+                        Effacer la recherche
+                      </button>
+                    )}
+                  </div>
                 )}
-              </div>
+              </>
             )}
           </div>
         </div>

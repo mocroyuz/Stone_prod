@@ -111,14 +111,6 @@ const SECTIONS: Section[] = [
     ],
   },
   {
-    id: "cookies",
-    title: "Cookies and Tracking",
-    paragraphs: [
-      "The Service uses browser storage and session mechanisms required for authentication and operation. A complete production inventory of cookies, local storage, SDKs and third-party traceurs has not yet been verified. Browser settings alone may not provide all the controls required for optional traceurs.",
-      "No analytics or advertising tracker integration was identified in the source-code review. This does not exclude scripts or cookies configured outside the repository. Optional analytics or advertising traceurs must not be activated until an effective consent mechanism blocks them before consent and allows withdrawal.",
-    ],
-  },
-  {
     id: "third-party",
     title: "Third-Party Services",
     paragraphs: [
