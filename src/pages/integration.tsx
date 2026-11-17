@@ -533,7 +533,7 @@ function IntegrationCard({
       <div className="min-w-0 flex-1">
         <h3
           className={[
-            "truncate text-[14px] font-semibold leading-[1.25] tracking-[-0.02em] sm:text-[15px]",
+            "truncate text-[14px] font-bold leading-[1.25] tracking-[-0.02em] sm:text-[15px]",
             strongClass(isDark),
           ].join(" ")}
         >
@@ -670,12 +670,12 @@ function IntegrationCard({
           aria-busy={service?.busy}
           aria-label={`Connecter ${data.title}`}
           className={[
-            "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors disabled:cursor-default",
+            "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors disabled:cursor-default active:scale-90",
             service?.busy ? "animate-pulse opacity-60" : "",
             focusRingClass(isDark),
             isDark
-              ? "text-neutral-300 hover:bg-white/[0.08] hover:text-white"
-              : "text-neutral-800 hover:bg-black/[0.07]",
+              ? "text-neutral-300 hover:bg-white/[0.12] hover:text-white"
+              : "text-neutral-700 hover:bg-black/[0.09] hover:text-neutral-950",
           ].join(" ")}
         >
           <PlusIcon />
@@ -1377,18 +1377,18 @@ export default function Integrations({ embedded = false }: IntegrationsProps) {
                           >
                             <div
                               className={[
-                                "flex h-11 w-11 items-center justify-center rounded-xl border transition-transform duration-150 group-hover:-translate-y-0.5 group-focus-visible:-translate-y-0.5",
+                                "flex h-11 w-11 items-center justify-center rounded-xl border transition-all duration-200 ease-out group-hover:-translate-y-0.5 group-focus-visible:-translate-y-0.5",
                                 isDark
-                                  ? "border-white/[0.12] bg-[#202024]"
-                                  : "border-black/[0.08] bg-white",
+                                  ? "border-white/[0.12] bg-[#202024] group-hover:border-white/30 group-hover:bg-[#2a2a2f] group-focus-visible:border-white/30"
+                                  : "border-black/[0.08] bg-white group-hover:border-black/25 group-hover:bg-neutral-50 group-focus-visible:border-black/25",
                               ].join(" ")}
                             >
                               {Icon && <Icon className="h-6 w-6" />}
                             </div>
                             <span
                               className={[
-                                "pointer-events-none absolute left-1/2 top-full z-10 mt-1.5 -translate-x-1/2 whitespace-nowrap text-[13px] opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100",
-                                mutedClass(isDark),
+                                "pointer-events-none absolute left-1/2 top-full z-10 mt-1.5 -translate-x-1/2 translate-y-[-3px] whitespace-nowrap text-[13px] font-bold tracking-[-0.01em] opacity-0 transition-all duration-200 ease-out group-hover:translate-y-0 group-hover:opacity-100 group-focus-visible:translate-y-0 group-focus-visible:opacity-100",
+                                strongClass(isDark),
                               ].join(" ")}
                             >
                               {item.title}
