@@ -11,7 +11,7 @@ type Section = {
   list?: string[];
 };
 
-const LAST_UPDATED = "January 1, 2025";
+const LAST_UPDATED = "November 17, 2026";
 
 const SECTIONS: Section[] = [
   {
@@ -19,7 +19,7 @@ const SECTIONS: Section[] = [
     title: "Introduction",
     paragraphs: [
       "This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our website, platform, products, and services (collectively, the “Service”).",
-      "We are committed to protecting your privacy. Please read this policy carefully. By using the Service, you consent to the practices described in this policy.",
+      "This notice is being updated. The legal identity and postal address of the controller, the complete retention schedule, provider locations and the privacy contact must be published after verification. Use of the Service does not, by itself, constitute consent to optional processing.",
     ],
   },
   {
@@ -80,7 +80,7 @@ const SECTIONS: Section[] = [
     id: "data-storage",
     title: "Data Storage and Security",
     paragraphs: [
-      "All data is encrypted in transit and at rest. We never train models on your private data. Data is stored in EU-based data centers by default, with regional options available on Enterprise plans.",
+      "Stone encrypts OAuth credentials stored by its backend using AES-256-GCM when the production encryption key is configured. This statement does not mean that every category of data or every provider storage system has been independently verified as encrypted at rest. Hosting regions and provider-side security settings depend on the actual configuration of each provider and must be confirmed before they can be stated.",
       "We maintain administrative, technical, and physical safeguards designed to protect your information. However, no method of transmission over the Internet or electronic storage is 100% secure, and we cannot guarantee absolute security.",
     ],
   },
@@ -89,7 +89,7 @@ const SECTIONS: Section[] = [
     title: "Data Retention",
     paragraphs: [
       "We retain your personal data for as long as your account is active or as needed to provide the Service. We may also retain certain information as necessary to comply with legal obligations, resolve disputes, and enforce our agreements.",
-      "When you delete your account, we will delete or anonymize your personal data within 30 days, except where retention is required by law.",
+      "A complete self-service account deletion process is not yet available. Do not rely on this notice as confirmation that deletion has been completed. The deletion process, including connected services, storage objects, backups and legally required records, must be completed and verified before a deletion period can be promised.",
     ],
   },
   {
@@ -112,15 +112,15 @@ const SECTIONS: Section[] = [
     id: "cookies",
     title: "Cookies and Tracking",
     paragraphs: [
-      "We use cookies and similar tracking technologies to operate the Service, analyze usage, and improve your experience. You can control cookies through your browser settings.",
-      "We use strictly necessary cookies (required for the Service to function), analytical cookies (to understand how the Service is used), and optional marketing cookies (only with your consent).",
+      "The Service uses browser storage and session mechanisms required for authentication and operation. A complete production inventory of cookies, local storage, SDKs and third-party traceurs has not yet been verified. Browser settings alone may not provide all the controls required for optional traceurs.",
+      "No analytics or advertising tracker integration was identified in the source-code review. This does not exclude scripts or cookies configured outside the repository. Optional analytics or advertising traceurs must not be activated until an effective consent mechanism blocks them before consent and allows withdrawal.",
     ],
   },
   {
     id: "third-party",
     title: "Third-Party Services",
     paragraphs: [
-      "The Service may contain links to or integrations with third-party websites and services (for example, Slack, Notion, HubSpot, or Zapier). We are not responsible for the privacy practices of those third parties.",
+      "Depending on the features used, Stone can connect to Supabase, Render, Vercel, Stripe, Meta services, Google services, TikTok, Pinterest, Threads, Dropbox and Canva. The exact roles, processing locations, contractual terms and international transfers for each provider are still being verified. Each connected platform also processes data under its own privacy terms.",
       "We encourage you to review the privacy policies of any third-party service you connect to or visit.",
     ],
   },
@@ -135,14 +135,14 @@ const SECTIONS: Section[] = [
     id: "international",
     title: "International Data Transfers",
     paragraphs: [
-      "Your information may be transferred to and processed in countries other than your country of residence. When we transfer personal data outside the EEA, we use appropriate safeguards such as Standard Contractual Clauses approved by the European Commission.",
+      "Some providers may process data outside the European Economic Area. The countries, recipients and transfer mechanisms applicable to Stone have not yet been fully verified. We will identify the actual transfers and applicable safeguards before making a compliance statement about them.",
     ],
   },
   {
     id: "changes",
     title: "Changes to This Policy",
     paragraphs: [
-      "We may update this Privacy Policy from time to time. Material changes will be notified by email or in-app at least 14 days before they take effect.",
+      "We may update this notice when the Service or applicable requirements change. We will communicate material changes through an appropriate channel where required by law. Continued use of the Service is not a substitute for consent where consent is legally required.",
       "Your continued use of the Service after the effective date of the revised policy constitutes your acceptance of the changes.",
     ],
   },
@@ -150,7 +150,7 @@ const SECTIONS: Section[] = [
     id: "contact",
     title: "Contact Us",
     paragraphs: [
-      "If you have any questions about this Privacy Policy or our data practices, you can reach our Data Protection Officer at privacy@example.com or via our contact page.",
+      "For questions about this notice or personal data, use the Contact Us page. The direct privacy contact and the controller\u2019s full legal identity and postal address still need to be added to this notice. No Data Protection Officer is identified here unless one has formally been appointed.",
     ],
   },
 ];
