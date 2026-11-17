@@ -284,7 +284,7 @@ function ChevronRightIcon({ className }: { className?: string }) {
   return (
     <svg
       viewBox="0 0 24 24"
-      className={className ?? "h-[14px] w-[14px]"}
+      className={className ?? "h-[15px] w-[15px]"}
       fill="none"
       stroke="currentColor"
       strokeWidth="1.8"
@@ -301,7 +301,7 @@ function PlusIcon() {
   return (
     <svg
       viewBox="0 0 24 24"
-      className="h-[20px] w-[20px]"
+      className="h-[22px] w-[22px]"
       fill="none"
       stroke="currentColor"
       strokeWidth="1.8"
@@ -508,32 +508,32 @@ function IntegrationCard({
         "group flex min-w-0 items-center gap-3 sm:gap-4",
         isConnectedRow
           ? [
-              "border-b px-0 py-2.5 sm:py-3",
+              "border-b px-0 py-3 sm:py-3.5",
               isDark ? "border-white/[0.07]" : "border-black/[0.07]",
             ].join(" ")
           : [
-              "rounded-xl px-2 py-2",
+              "rounded-xl px-2 py-2.5",
             ].join(" "),
       ].join(" ")}
     >
       <div
         className={[
           "flex shrink-0 items-center justify-center overflow-hidden rounded-xl border",
-          isConnectedRow ? "h-10 w-10 sm:h-11 sm:w-11" : "h-9 w-9",
+          isConnectedRow ? "h-12 w-12 sm:h-[52px] sm:w-[52px]" : "h-11 w-11",
           isDark
             ? "border-white/[0.12] bg-[#202024] text-neutral-100"
             : "border-black/[0.08] bg-white text-neutral-800",
         ].join(" ")}
       >
         {Icon && (
-          <Icon className={isConnectedRow ? "h-5 w-5 sm:h-6 sm:w-6" : "h-5 w-5"} />
+          <Icon className={isConnectedRow ? "h-6 w-6 sm:h-7 sm:w-7" : "h-6 w-6"} />
         )}
       </div>
 
       <div className="min-w-0 flex-1">
         <h3
           className={[
-            "truncate text-[13px] font-semibold leading-[1.25] tracking-[-0.02em] sm:text-[14px]",
+            "truncate text-[14px] font-semibold leading-[1.25] tracking-[-0.02em] sm:text-[15px]",
             strongClass(isDark),
           ].join(" ")}
         >
@@ -541,7 +541,7 @@ function IntegrationCard({
         </h3>
         <p
           className={[
-            "mt-0.5 line-clamp-2 text-[11px] leading-[1.4] sm:text-[12px]",
+            "mt-0.5 line-clamp-2 text-[12px] leading-[1.4] sm:text-[13px]",
             isDark ? "text-neutral-400" : "text-neutral-600",
           ].join(" ")}
         >
@@ -565,7 +565,7 @@ function IntegrationCard({
             className={[
               "flex h-9 items-center justify-center transition-colors",
               isConnectedRow
-                ? "gap-1.5 rounded-lg px-2 text-[12px] sm:px-2.5"
+                ? "gap-1.5 rounded-lg px-2 text-[13px] sm:px-2.5"
                 : "w-9 rounded-lg",
               focusRingClass(isDark),
               isDark
@@ -670,7 +670,7 @@ function IntegrationCard({
           aria-busy={service?.busy}
           aria-label={`Connecter ${data.title}`}
           className={[
-            "flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors disabled:cursor-default",
+            "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors disabled:cursor-default",
             service?.busy ? "animate-pulse opacity-60" : "",
             focusRingClass(isDark),
             isDark
@@ -1314,10 +1314,10 @@ export default function Integrations({ embedded = false }: IntegrationsProps) {
             {view === "catalog" && (
               <>
                 {/* SEARCH — largeur complète */}
-                <div className={embedded ? "mt-0" : "mt-5 sm:mt-6"}>
+                <div className={embedded ? "mt-0" : "mt-7 sm:mt-8"}>
                   <label
                     className={[
-                      "flex h-10 w-full items-center gap-2.5 rounded-full border px-3.5 transition",
+                      "flex h-11 w-full items-center gap-3 rounded-full border px-4 transition",
                       "focus-within:ring-2",
                       isDark
                         ? "border-white/[0.12] bg-white/[0.035] text-neutral-400 focus-within:ring-white/20"
@@ -1332,7 +1332,7 @@ export default function Integrations({ embedded = false }: IntegrationsProps) {
                       placeholder="Rechercher des intégrations"
                       aria-label="Rechercher des intégrations"
                       className={[
-                        "w-full min-w-0 bg-transparent text-[13px] outline-none placeholder:text-inherit",
+                        "w-full min-w-0 bg-transparent text-[14px] outline-none placeholder:text-inherit",
                         "[&::-webkit-search-cancel-button]:appearance-none",
                         isDark ? "text-white" : "text-neutral-900",
                       ].join(" ")}
@@ -1341,9 +1341,9 @@ export default function Integrations({ embedded = false }: IntegrationsProps) {
                 </div>
 
                 {/* INSTALLÉS */}
-                <section className="mt-5 sm:mt-6">
+                <section className="mt-7 sm:mt-8">
                   <div className="mb-4 flex items-center justify-between gap-3 sm:mb-5">
-                    <h2 className={["flex items-center gap-1.5 text-[15px] font-semibold tracking-[-0.025em] sm:text-[16px]", strongClass(isDark)].join(" ")}>
+                    <h2 className={["flex items-center gap-1.5 text-[16px] font-semibold tracking-[-0.025em] sm:text-[17px]", strongClass(isDark)].join(" ")}>
                       Installés
                       <span className={mutedClass(isDark)}><ChevronRightIcon /></span>
                     </h2>
@@ -1374,7 +1374,7 @@ export default function Integrations({ embedded = false }: IntegrationsProps) {
                             title={item.title}
                             aria-label={item.title}
                             className={[
-                              "flex h-9 w-9 items-center justify-center rounded-xl border",
+                              "flex h-11 w-11 items-center justify-center rounded-xl border",
                               isDark
                                 ? "border-white/[0.12] bg-[#202024]"
                                 : "border-black/[0.08] bg-white",
@@ -1401,8 +1401,8 @@ export default function Integrations({ embedded = false }: IntegrationsProps) {
                 </section>
 
                 {/* LES PLUS UTILISÉS */}
-                <section className="mt-6 sm:mt-7">
-                  <h2 className={["mb-2 flex items-center gap-1 text-[15px] font-semibold tracking-[-0.025em] sm:text-[16px]", strongClass(isDark)].join(" ")}>
+                <section className="mt-7 sm:mt-8">
+                  <h2 className={["mb-2.5 flex items-center gap-1 text-[16px] font-semibold tracking-[-0.025em] sm:text-[17px]", strongClass(isDark)].join(" ")}>
                     Les plus utilisés
                     <span className={mutedClass(isDark)}><ChevronRightIcon /></span>
                   </h2>
@@ -1418,8 +1418,8 @@ export default function Integrations({ embedded = false }: IntegrationsProps) {
                 </section>
 
                 {/* NOUVEAUTÉS À DÉCOUVRIR */}
-                <section className="mt-6 sm:mt-7">
-                  <h2 className={["mb-2 flex items-center gap-1 text-[15px] font-semibold tracking-[-0.025em] sm:text-[16px]", strongClass(isDark)].join(" ")}>
+                <section className="mt-7 sm:mt-8">
+                  <h2 className={["mb-2.5 flex items-center gap-1 text-[16px] font-semibold tracking-[-0.025em] sm:text-[17px]", strongClass(isDark)].join(" ")}>
                     Nouveautés à découvrir
                     <span className={mutedClass(isDark)}><ChevronRightIcon /></span>
                   </h2>
