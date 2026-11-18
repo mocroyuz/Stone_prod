@@ -1,0 +1,74 @@
+/* Styles propres à la landing page — tout est préfixé « lp- » pour ne
+   jamais interférer avec les autres pages. */
+
+.lp-reveal {
+  opacity: 0;
+  transform: translateY(22px);
+  transition:
+    opacity 700ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 700ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition-delay: var(--lp-delay, 0ms);
+  will-change: opacity, transform;
+}
+
+.lp-reveal[data-visible="true"] {
+  opacity: 1;
+  transform: none;
+  will-change: auto;
+}
+
+@keyframes lp-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+.lp-float {
+  animation: lp-float 6s ease-in-out infinite;
+  animation-delay: var(--lp-delay, 0ms);
+}
+
+@keyframes lp-pop {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.lp-pop {
+  animation: lp-pop 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Mobile : mouvements plus courts et plus rapides, pas de flottement. */
+@media (max-width: 767px) {
+  .lp-reveal {
+    transform: translateY(12px);
+    transition-duration: 450ms;
+    transition-delay: 0ms;
+  }
+
+  .lp-float {
+    animation: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lp-reveal {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+
+  .lp-float,
+  .lp-pop {
+    animation: none;
+  }
+}
