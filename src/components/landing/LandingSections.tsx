@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import {
   ArrowRight,
   ArrowUpRight,
@@ -8,7 +8,6 @@ import {
   ChartNoAxesCombined,
   MessageCircle,
   PanelsTopLeft,
-  Sparkles,
 } from "lucide-react";
 import AppPreview from "./AppPreview";
 import { InsightsPreview, MediaPreview, StatusPreview } from "./FeaturePreviews";
@@ -51,7 +50,7 @@ function ShowcaseRow({
   title: string;
   description: string;
   points: string[];
-  preview: React.ReactNode;
+  preview: ReactNode;
   reverse?: boolean;
 }) {
   return (
