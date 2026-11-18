@@ -1,12 +1,9 @@
 import type { ReactNode } from "react";
 import {
-  AccountsPreview,
   CommentsPreview,
   ComposerPreview,
   InsightsPreview,
-  MediaPreview,
   MonthPreview,
-  StatusPreview,
 } from "./FeaturePreviews";
 import Reveal from "./Reveal";
 
@@ -39,50 +36,50 @@ export default function FeaturesSection() {
     <section id="fonctionnalites" className="lp-section lp-features-section">
       <div className="lp-container">
         <Reveal className="lp-section-heading">
-          <span className="lp-eyebrow">Un espace. Tout le workflow.</span>
-          <h2>Du premier brouillon<br />au <em>post publié.</em></h2>
-          <p>Les outils essentiels pour organiser votre communication et garder une vision claire de vos contenus.</p>
+          <span className="lp-eyebrow">Tout ce qu’il faut. Rien de superflu.</span>
+          <h2>Un workflow social<br />pensé pour <em>avancer.</em></h2>
+          <p>
+            De la préparation de vos contenus à leur suivi, chaque outil trouve sa place dans une interface claire.
+          </p>
         </Reveal>
+
         <div className="lp-feature-grid">
-          <FeatureCard className="lp-feature-span-7 lp-feature-card-main" label="01 · Publication"
-            title="Publiez sans vous disperser."
-            description="Préparez un contenu, sélectionnez vos réseaux et adaptez votre publication à chaque plateforme."
+          <FeatureCard
+            className="lp-feature-span-7 lp-feature-card-main"
+            label="01 · Création"
+            title="Préparez vos contenus au même endroit."
+            description="Rédigez vos publications, ajoutez vos médias et adaptez chaque contenu aux réseaux sélectionnés."
             preview={<ComposerPreview />}
           />
-          <FeatureCard className="lp-feature-span-5" delay={70} label="02 · Planification"
-            title="Une vue claire sur votre calendrier."
-            description="Visualisez votre rythme de publication à la semaine ou au mois."
+          <FeatureCard
+            className="lp-feature-span-5"
+            label="02 · Calendrier"
+            delay={70}
+            title="Gardez une vue claire sur la suite."
+            description="Visualisez les publications à venir et organisez votre rythme éditorial."
             preview={<MonthPreview />}
           />
-          <FeatureCard className="lp-feature-span-4" label="03 · Organisation"
-            title="Gardez le fil de chaque post."
-            description="Retrouvez les brouillons, publications programmées, contenus publiés et statuts."
-            preview={<StatusPreview />}
-          />
-          <FeatureCard className="lp-feature-span-4" delay={70} label="04 · Analyse"
-            title="Comprenez ce qui fonctionne."
-            description="Consultez vos indicateurs YouTube et suivez l’évolution de vos contenus."
+          <FeatureCard
+            className="lp-feature-span-5"
+            label="03 · Insights"
+            delay={100}
+            title="Comprenez vos performances."
+            description="Retrouvez les indicateurs disponibles pour vos contenus YouTube."
             preview={<InsightsPreview />}
           />
-          <FeatureCard className="lp-feature-span-4" delay={140} label="05 · Communauté"
-            title="Ne perdez pas le fil des échanges."
-            description="Centralisez la lecture et la gestion des commentaires YouTube."
+          <FeatureCard
+            className="lp-feature-span-7"
+            label="04 · Commentaires"
+            delay={160}
+            title="Gardez le lien avec votre communauté."
+            description="Consultez et gérez les commentaires de vos vidéos YouTube depuis Stone."
             preview={<CommentsPreview />}
           />
-          <FeatureCard className="lp-feature-span-7" delay={70} label="06 · Création"
-            title="Vos médias, au bon format."
-            description="Préparez vos visuels et importez vos fichiers depuis Canva, Dropbox, Google Drive ou Google Photos."
-            preview={<MediaPreview />}
-          />
-          <FeatureCard className="lp-feature-span-5" delay={140} label="07 · Connexions"
-            title="Tous vos comptes au même endroit."
-            description="Visualisez vos comptes sociaux et leur état de connexion depuis Stone."
-            preview={<AccountsPreview />}
-          />
         </div>
+
         <p className="lp-feature-footnote">
-          Aperçus illustratifs avec du contenu de démonstration. Les commentaires et les Insights détaillés présentés
-          ici concernent actuellement YouTube.
+          Les aperçus sont illustratifs. Les fonctionnalités avancées de commentaires et d’Insights présentées ici
+          sont actuellement disponibles pour YouTube.
         </p>
       </div>
     </section>

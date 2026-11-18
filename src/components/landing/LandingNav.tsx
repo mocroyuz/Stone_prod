@@ -4,10 +4,9 @@ import { useTheme } from "../../hooks/useTheme";
 
 const LINKS = [
   { label: "Fonctionnalités", href: "#fonctionnalites", section: true },
-  { label: "Réseaux", href: "#reseaux", section: true },
-  { label: "FAQ", href: "/faq" },
-  { label: "Confidentialité", href: "/privacy" },
-  { label: "Conditions", href: "/tos" },
+  { label: "Le produit", href: "#produit", section: true },
+  { label: "Tarifs", href: "#tarifs", section: true },
+  { label: "FAQ", href: "#faq", section: true },
 ] as const;
 
 function scrollToSection(id: string) {
@@ -44,7 +43,7 @@ export default function LandingNav() {
       key={link.href}
       href={link.href}
       onClick={(event) => {
-        if ("section" in link && link.section) {
+        if (link.section) {
           event.preventDefault();
           scrollToSection(link.href.slice(1));
         }
