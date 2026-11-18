@@ -10,7 +10,7 @@ import {
   PanelsTopLeft,
 } from "lucide-react";
 import AppPreview from "./AppPreview";
-import { InsightsPreview, MediaPreview, StatusPreview } from "./FeaturePreviews";
+import { MediaPreview, StatusPreview } from "./FeaturePreviews";
 import Reveal from "./Reveal";
 
 const TRUST_ITEMS = [
@@ -152,8 +152,8 @@ export function PricingOverviewSection() {
         <div className="lp-pricing-grid">
           {PLANS.map((plan, index) => (
             <Reveal key={plan.name} delay={index * 70}>
-              <article className={plan.featured ? "lp-plan-card lp-plan-featured" : "lp-plan-card"}>
-                {plan.featured && <span className="lp-plan-popular">Le plus choisi</span>}
+              <article className={plan.name === "Pro" ? "lp-plan-card lp-plan-featured" : "lp-plan-card"}>
+                {plan.name === "Pro" && <span className="lp-plan-popular">Le plus choisi</span>}
                 <div className="lp-plan-head">
                   <span className="lp-plan-name">{plan.name}</span>
                   <p>{plan.description}</p>
