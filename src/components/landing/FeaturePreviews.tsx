@@ -21,7 +21,7 @@ function Frame({ children, className }: { children: ReactNode; className?: strin
 
 /* ───────── 1. Programmation multi-réseaux ───────── */
 
-const COMPOSER_NETWORKS: LandingNetwork[] = ["instagram", "threads", "youtube", "tiktok", "pinterest"];
+const COMPOSER_NETWORKS: LandingNetwork[] = ["instagram", "threads", "youtube", "tiktok", "pinterest", "facebook"];
 
 export function ComposerPreview() {
   return (
