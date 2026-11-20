@@ -23,12 +23,21 @@ import Reveal from "./Reveal";
 import "./landing.css";
 import "./stone-reference.css";
 
-const networks: LandingNetwork[] = [
-  "instagram",
-  "threads",
-  "youtube",
-  "tiktok",
-  "pinterest",
+const networks: {
+  id: LandingNetwork;
+  status: string;
+  state: "available" | "sandbox" | "unavailable";
+}[] = [
+  { id: "instagram", status: "Connexion disponible", state: "available" },
+  { id: "threads", status: "Connexion disponible", state: "available" },
+  { id: "youtube", status: "Connexion disponible", state: "available" },
+  { id: "tiktok", status: "Sandbox", state: "sandbox" },
+  { id: "pinterest", status: "Sandbox", state: "sandbox" },
+  {
+    id: "facebook",
+    status: "Non disponible pour le moment",
+    state: "unavailable",
+  },
 ];
 
 const stats = [
@@ -38,14 +47,14 @@ const stats = [
     note: "Vos contenus et vos comptes réunis",
   },
   {
-    value: "5",
-    label: "plateformes",
-    note: "Vos réseaux depuis une seule interface",
+    value: "6",
+    label: "réseaux répertoriés",
+    note: "Disponibilité indiquée pour chaque plateforme",
   },
   {
     value: "3",
-    label: "étapes pour publier",
-    note: "Connecter, planifier et suivre",
+    label: "connexions disponibles",
+    note: "Instagram, Threads et YouTube",
   },
   {
     value: "1",
@@ -60,10 +69,13 @@ const plans = [
     price: "19",
     description: "Pour structurer votre présence.",
     features: [
-      "3 canaux sociaux",
+      "Jusqu'à 3 canaux",
       "10 publications par canal",
-      "Insights de base",
-      "Calendrier éditorial",
+      "Statistiques de base",
+      "Calendrier de contenu",
+      "Jusqu'à 100 idées",
+      "Jusqu'à 50 tags",
+      "Extension web incluse",
     ],
   },
   {
@@ -73,8 +85,11 @@ const plans = [
     features: [
       "Tous les canaux",
       "Publications illimitées",
-      "Insights avancés",
+      "Statistiques avancées",
+      "Calendrier de contenu",
       "Idées illimitées",
+      "Jusqu'à 250 tags",
+      "Extension web incluse",
     ],
     featured: true,
   },
@@ -83,10 +98,14 @@ const plans = [
     price: "99",
     description: "Pour les équipes ambitieuses.",
     features: [
-      "Tout inclus dans Pro",
-      "Limites personnalisées",
+      "Tout ce qui est inclus dans Pro",
+      "Limites de canaux personnalisées",
+      "Publications illimitées",
+      "Statistiques avancées",
+      "Calendrier de contenu",
+      "Idées et tags illimités",
       "Support prioritaire",
-      "Accompagnement",
+      "Accompagnement dédié",
     ],
   },
 ];
@@ -98,7 +117,7 @@ const faq = [
   },
   {
     q: "Quels réseaux sont pris en charge ?",
-    a: "Instagram, Threads et YouTube disposent de connexions disponibles. TikTok et Pinterest sont actuellement en sandbox.",
+    a: "Instagram, Threads et YouTube disposent de connexions disponibles. TikTok et Pinterest sont actuellement en mode sandbox. La connexion des Pages Facebook n'est pas encore disponible.",
   },
   {
     q: "Puis-je adapter un post à chaque plateforme ?",
@@ -139,17 +158,17 @@ const spotlightPosts: {
 const steps = [
   {
     number: "01",
-    title: "Connectez",
+    title: "Connect",
     description: "Reliez vos comptes sociaux à votre espace Stone.",
   },
   {
     number: "02",
-    title: "Créez & planifiez",
+    title: "Create & Schedule",
     description: "Préparez vos contenus et organisez leur publication.",
   },
   {
     number: "03",
-    title: "Suivez",
+    title: "Analyze & Grow",
     description: "Consultez les résultats disponibles et ajustez votre rythme.",
   },
 ];
@@ -281,7 +300,11 @@ export default function LandingPage() {
             </div>
           </Reveal>
 
-          <div className="stone-ref-mockup" aria-label="Aperçu du workspace Stone">
+          <div
+            className="stone-ref-mockup"
+            role="group"
+            aria-label="Aperçus visuels du workspace Stone"
+          >
             <div
               className="stone-ref-collage stone-ref-collage-left"
               aria-hidden="true"
@@ -428,12 +451,14 @@ export default function LandingPage() {
 
           <div className="stone-ref-network-grid">
             {networks.map((network, index) => (
-              <Reveal key={network} delay={index * 45}>
+              <Reveal key={network.id} delay={index * 45}>
                 <article>
-                  <NetworkLogo network={network} size={38} />
-                  <strong>{NETWORK_LABELS[network]}</strong>
-                  <span>
-                    {index < 3 ? "Connexion disponible" : "Sandbox"}
+                  <NetworkLogo network={network.id} size={38} />
+                  <strong>{NETWORK_LABELS[network.id]}</strong>
+                  <span
+                    className={`stone-ref-network-status is-${network.state}`}
+                  >
+                    {network.status}
                   </span>
                 </article>
               </Reveal>
