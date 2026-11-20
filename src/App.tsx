@@ -721,6 +721,7 @@ const HOME_PLANS = [
   {
     name: "Starter",
     price: "19",
+    featured: false,
     description: "Tout ce qu'il faut pour bien démarrer.",
     features: [
       "Jusqu'à 3 canaux",
@@ -750,6 +751,7 @@ const HOME_PLANS = [
   {
     name: "Enterprise",
     price: "99",
+    featured: false,
     description: "Des solutions avancées pour les grandes organisations.",
     features: [
       "Tout ce qui est inclus dans Pro",
