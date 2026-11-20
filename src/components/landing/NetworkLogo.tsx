@@ -1,6 +1,7 @@
 import { useId } from "react";
 import { SiPinterest } from "@icons-pack/react-simple-icons";
 import {
+  FacebookIcon,
   ThreadsIcon,
   TikTokIcon,
   YouTubeIcon,
@@ -12,7 +13,8 @@ export type LandingNetwork =
   | "threads"
   | "youtube"
   | "tiktok"
-  | "pinterest";
+  | "pinterest"
+  | "facebook";
 
 export const NETWORK_LABELS: Record<LandingNetwork, string> = {
   instagram: "Instagram",
@@ -20,6 +22,7 @@ export const NETWORK_LABELS: Record<LandingNetwork, string> = {
   youtube: "YouTube Shorts",
   tiktok: "TikTok",
   pinterest: "Pinterest",
+  facebook: "Facebook",
 };
 
 const INSTAGRAM_PATH =
@@ -83,6 +86,7 @@ export default function NetworkLogo({ network, size = 28, className }: Props) {
     >
       {network === "instagram" && <InstagramGlyph size={glyph} />}
       {network === "threads" && <ThreadsIcon size={glyph} className="block" mono="black" />}
+      {network === "facebook" && <FacebookIcon size={glyph} className="block" title="Facebook" />}
       {network === "tiktok" && <TikTokIcon size={glyph} className="block" />}
       {network === "pinterest" && (
         <SiPinterest size={glyph} color="#E60023" className="block" aria-hidden="true" />
