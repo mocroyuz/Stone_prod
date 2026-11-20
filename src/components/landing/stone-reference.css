@@ -485,8 +485,8 @@
 }
 
 @keyframes stone-ref-side-drift {
-  0%, 100% { margin-top: 0; }
-  50% { margin-top: -7px; }
+  0%, 100% { translate: 0 0; }
+  50% { translate: 0 -7px; }
 }
 
 @media (min-width: 641px) and (max-width: 900px) {
@@ -604,5 +604,175 @@
   .stone-ref-price-grid article {
     animation: none !important;
     transition: none !important;
+  }
+}
+
+
+/* ── Final product polish ── */
+.stone-ref-mockup {
+  animation: stone-ref-stage-in 900ms cubic-bezier(.2,.8,.2,1) both;
+}
+
+.stone-ref-device,
+.stone-ref-collage,
+.stone-ref-floating {
+  will-change: transform;
+}
+
+.stone-ref-network-grid {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.stone-ref-network-grid article {
+  min-width: 0;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 12px;
+  padding: 20px 16px;
+}
+
+.stone-ref-network-grid article strong {
+  line-height: 1.25;
+}
+
+.stone-ref-network-grid .stone-ref-network-status {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  max-width: 100%;
+  min-height: 24px;
+  padding: 5px 8px;
+  border: 1px solid #e7e7e7;
+  border-radius: 999px;
+  background: #fafafa;
+  color: #626262;
+  font-size: 8px;
+  font-weight: 700;
+  line-height: 1.35;
+  white-space: normal;
+}
+
+.stone-ref-network-grid .stone-ref-network-status.is-available {
+  border-color: #dedede;
+  background: #f5f5f5;
+  color: #222;
+}
+
+.stone-ref-network-grid .stone-ref-network-status.is-sandbox {
+  border-style: dashed;
+  background: #fff;
+  color: #777;
+}
+
+.stone-ref-network-grid .stone-ref-network-status.is-unavailable {
+  border-color: #e7e7e7;
+  background: #f7f7f7;
+  color: #777;
+}
+
+.stone-ref-price-grid article {
+  display: flex;
+  min-height: 500px;
+  flex-direction: column;
+}
+
+.stone-ref-price-grid article > p {
+  min-height: 34px;
+}
+
+.stone-ref-price-grid article > a {
+  min-height: 42px;
+}
+
+.stone-ref-price-grid article ul {
+  margin-top: 20px;
+}
+
+.stone-ref-page a:focus-visible,
+.stone-ref-page button:focus-visible,
+.stone-ref-page summary:focus-visible {
+  outline: 2px solid #111;
+  outline-offset: 4px;
+}
+
+.stone-ref-page button,
+.stone-ref-page a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.stone-ref-footer nav a:hover {
+  color: #111;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+@keyframes stone-ref-stage-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 22px, 0) scale(.99);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@media (max-width: 1100px) {
+  .stone-ref-network-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .stone-ref-network-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .stone-ref-network-grid article {
+    min-height: 138px;
+    padding: 15px;
+  }
+
+  .stone-ref-price-grid article {
+    min-height: 0;
+  }
+}
+
+@media (max-width: 380px) {
+  .stone-ref-page {
+    padding: 7px;
+  }
+
+  .stone-ref-page .lp-nav {
+    width: calc(100% - 20px);
+  }
+
+  .stone-ref-hero h1 {
+    font-size: 38px;
+  }
+
+  .stone-ref-device-post-state {
+    display: none;
+  }
+
+  .stone-ref-network-grid .stone-ref-network-status {
+    font-size: 7px;
+    padding-inline: 6px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stone-ref-mockup {
+    animation: none !important;
+  }
+
+  .stone-ref-device,
+  .stone-ref-collage,
+  .stone-ref-floating,
+  .stone-ref-project-card,
+  .stone-ref-network-grid article,
+  .stone-ref-how-grid article,
+  .stone-ref-price-grid article {
+    will-change: auto;
   }
 }
