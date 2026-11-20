@@ -1,17 +1,12 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 
 import Navbar from "./components/Navbar";
-import Carousel from "./components/Carousel";
-import ExpertiseSection from "./components/ExpertiseSection";
-import IntegrationSection from "./components/IntegrationSection";
-import PricingSection from "./components/PricingSection";
-import Footer from "./components/Footer";
-import { navigate } from "./hooks/useHashRoute";
 import StoneBoot from "./components/StoneBoot";
 import StoneLoading from "./components/StoneLoading";
 import CheckoutReturnModal from "./components/CheckoutReturnModal";
 import { sectionFromSlug } from "./utils/settingsRoute";
 
+const LandingPage = lazy(() => import("./components/landing/LandingPage"));
 const Signup = lazy(() => import("./pages/signup"));
 const Signin = lazy(() => import("./pages/signin"));
 const TwoFactor = lazy(() => import("./pages/twofactor"));
@@ -691,60 +686,6 @@ function AppContent(props: AppContentProps) {
    APP CONTENT (routing)
    ────────────────────────────────────────────────────────────── */
 
-function Home() {
-  return (
-    <main className="relative z-10 w-full">
-      <section
-        id="our-work"
-        className="scroll-mt-20 flex min-h-screen w-full items-center justify-center px-[clamp(12px,3vw,48px)] pt-[clamp(78px,9vw,130px)] pb-[clamp(30px,6vw,90px)]"
-      >
-        <div className="relative w-full max-w-[1280px]">
-          <h2 className="text-center font-display text-[clamp(38px,6.6vw,86px)] leading-[1.02] font-bold tracking-[-0.035em] tint text-neutral-900 dark:text-white">
-            What We&rsquo;ve Built
-          </h2>
-
-          <Carousel />
-
-          <div className="mt-[clamp(22px,2.8vw,38px)] flex justify-center">
-            <a
-              href="/signup"
-              onClick={(event) => {
-                event.preventDefault();
-                navigate("signup");
-              }}
-              className="group inline-flex items-center gap-2 rounded-full bg-neutral-900 px-[clamp(20px,2.1vw,32px)] py-[clamp(11px,1.15vw,16px)] text-[clamp(12px,1.05vw,15px)] font-medium text-white shadow-[0_18px_30px_-18px_rgba(0,0,0,0.8)] transition hover:bg-neutral-800 dark:bg-white dark:text-neutral-900 dark:hover:bg-neutral-200"
-            >
-              Start your 7-day free trial
-
-              <svg
-                viewBox="0 0 12 12"
-                className="h-3 w-3 transition-transform duration-300 group-hover:translate-x-[2px]"
-                fill="none"
-              >
-                <path
-                  d="M2.5 6h7M6.6 2.8 9.8 6l-3.2 3.2"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </a>
-          </div>
-        </div>
-      </section>
-
-      <ExpertiseSection />
-      <IntegrationSection />
-      <PricingSection />
-
-      <div className="pt-32 sm:pt-52 lg:pt-64">
-        <Footer />
-      </div>
-    </main>
-  );
-}
-
 function AppContentInner({
   theme,
   toggle,
@@ -778,7 +719,7 @@ function AppContentInner({
 
   const isUnknown = !isAuth && !PROTECTED_ROUTES.has(route) && !isPublic;
 
-  useGentleWheelScroll(isLanding || isPricing);
+  useGentleWheelScroll(isPricing);
 
   useEffect(() => {
     if (loading || (authError && !user && isProtected)) return;
@@ -1087,10 +1028,5 @@ function AppContentInner({
     );
   }
 
-  return (
-    <div className="tint relative min-h-screen w-full overflow-x-hidden bg-white font-sans dark:bg-[#050505]">
-      <Navbar theme={theme} onToggleTheme={toggle} />
-      <Home />
-    </div>
-  );
+  return <LandingPage />;
 }
