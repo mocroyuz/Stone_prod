@@ -1,0 +1,24 @@
+/* Visual direction inspired by the supplied portfolio reference: centred hero, layered product preview and calm motion. */
+.lp-reference-hero { padding-bottom: clamp(40px,6vw,84px); }
+.lp-reference-hero-content { width:min(1120px,calc(100% - 48px)); margin:0 auto; padding:clamp(45px,7vw,88px) 0 10px; text-align:center; }
+.lp-reference-hero-content .lp-hero-eyebrow { margin-inline:auto; }
+.lp-reference-title { margin:25px auto 0; font-family:var(--font-display); font-size:clamp(44px,6.6vw,84px); line-height:.98; letter-spacing:-.075em; font-weight:850; max-width:900px; }
+.lp-reference-title em { font-style:normal; color:var(--lp-muted); }
+.lp-reference-description { max-width:580px; margin:20px auto 0; color:var(--lp-muted); font-size:clamp(13px,1.3vw,16px); line-height:1.8; }
+.lp-reference-actions { justify-content:center; }
+.lp-reference-stage { position:relative; width:min(980px,100%); margin:clamp(44px,6vw,75px) auto 0; padding:0 24px 42px; }
+.lp-reference-preview { position:relative; overflow:hidden; border:1px solid var(--lp-line); border-radius:20px; background:var(--lp-surface); box-shadow:0 30px 80px rgba(0,0,0,.14),0 5px 15px rgba(0,0,0,.04); animation:lp-ref-float-in 1s cubic-bezier(.22,1,.36,1) both; }
+.dark .lp-reference-preview { box-shadow:0 32px 90px rgba(0,0,0,.55); }
+.lp-reference-preview .lp-app-window { border:0!important; border-radius:0!important; }
+.lp-reference-float { position:absolute; display:flex; align-items:center; gap:11px; padding:14px 17px; border:1px solid var(--lp-line); border-radius:14px; background:var(--lp-surface); box-shadow:0 18px 40px rgba(0,0,0,.12); color:var(--lp-ink); text-align:left; }
+.lp-reference-float > svg { flex-shrink:0; }
+.lp-reference-float strong { display:block; font-size:11px; font-weight:800; }
+.lp-reference-float small { display:block; margin-top:4px; color:var(--lp-muted); font-size:9px; }
+.lp-reference-float-one { top:-20px; right:0; }
+.lp-reference-float-two { bottom:4px; left:0; }
+.lp-reference-proof { display:flex; justify-content:center; gap:12px; align-items:center; margin-top:25px; color:var(--lp-muted); font-size:10px; font-weight:750; letter-spacing:.04em; }
+.lp-reference-proof b { opacity:.45; }
+@keyframes lp-ref-float-in { from {opacity:0; transform:translateY(28px) scale(.985)} to {opacity:1; transform:none} }
+@media (max-width:800px) { .lp-reference-hero-content {width:calc(100% - 40px)} .lp-reference-stage {padding-inline:8px; margin-top:40px} .lp-reference-float-one {right:-3px;top:-16px} .lp-reference-float-two {left:-3px;bottom:0} }
+@media (max-width:560px) { .lp-reference-title {font-size:clamp(42px,12vw,58px)} .lp-reference-description {font-size:12px} .lp-reference-stage {padding:0 0 40px} .lp-reference-float {padding:9px 11px; gap:8px; border-radius:11px} .lp-reference-float strong {font-size:8px} .lp-reference-float small {font-size:7px} .lp-reference-proof {gap:8px;font-size:9px} }
+@media (prefers-reduced-motion:reduce) { .lp-reference-preview {animation:none} }
