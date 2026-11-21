@@ -331,6 +331,7 @@ function Header() {
   };
 
   return (
+    <>
     <header
       className={[
         "fixed inset-x-0 top-0 z-50 border-b bg-white/60 backdrop-blur-xl backdrop-saturate-150 transition-shadow duration-300",
@@ -413,19 +414,20 @@ function Header() {
           </button>
         </div>
 
-        {open && (
-          <div className="fixed inset-0 z-[60] md:hidden">
-            <button
-              type="button"
-              aria-label="Close menu"
-              onClick={() => setOpen(false)}
-              className="absolute inset-0 bg-black/35 backdrop-blur-[2px]"
-            />
-            <MobileMenuSheet onClose={() => setOpen(false)} go={go} />
-          </div>
-        )}
       </Col>
     </header>
+    {open && (
+      <div className="fixed inset-0 z-[60] md:hidden">
+        <button
+          type="button"
+          aria-label="Close menu"
+          onClick={() => setOpen(false)}
+          className="absolute inset-0 bg-black/35 backdrop-blur-[2px]"
+        />
+        <MobileMenuSheet onClose={() => setOpen(false)} go={go} />
+      </div>
+    )}
+  </>
   );
 }
 
