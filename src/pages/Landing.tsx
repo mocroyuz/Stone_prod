@@ -338,7 +338,7 @@ function Header() {
         scrolled ? "shadow-[0_10px_30px_-18px_rgba(0,0,0,0.25)]" : "shadow-none",
       ].join(" ")}
     >
-      <Col className="relative flex h-[72px] items-center justify-between px-5 sm:px-7 lg:h-[90px]">
+      <Col className="relative flex h-[72px] items-center justify-between px-3 sm:px-5 lg:h-[90px]">
         <a
           href="/"
           onClick={(e) => {
@@ -349,7 +349,7 @@ function Header() {
           className={["flex items-center gap-2 rounded-md", FOCUS].join(" ")}
         >
           <StoneLogoMark />
-          <span className="text-[21px] font-medium tracking-[-0.04em]">
+          <span className="text-[21px] font-bold tracking-[-0.045em]">
             Stone
           </span>
         </a>
@@ -391,8 +391,7 @@ function Header() {
           <a
             href="/signup"
             className={[
-              "inline-flex h-11 items-center gap-3 rounded-full pl-6 pr-4 text-[11.5px] font-semibold uppercase tracking-[0.03em]",
-              BTN_DARK,
+              "inline-flex h-12 items-center justify-center rounded-full bg-white px-7 text-[14px] font-semibold normal-case tracking-[-0.02em] text-[#111] shadow-[0_0_0_1px_rgba(0,0,0,0.06),0_2px_4px_rgba(0,0,0,0.05),0_8px_20px_-12px_rgba(0,0,0,0.18)] transition duration-200 hover:bg-neutral-100 active:translate-y-px",
               FOCUS,
             ].join(" ")}
           >
