@@ -295,6 +295,14 @@ function scrollToSection(id: string) {
 
 function Header() {
   const [open, setOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 8);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -313,8 +321,9 @@ function Header() {
   return (
     <header
       className={[
-        "sticky top-0 z-40 border-b bg-white/90 backdrop-blur-md",
+        "fixed inset-x-0 top-0 z-50 border-b bg-white/60 backdrop-blur-xl backdrop-saturate-150 transition-shadow duration-300",
         HAIR,
+        scrolled ? "shadow-[0_10px_30px_-18px_rgba(0,0,0,0.25)]" : "shadow-none",
       ].join(" ")}
     >
       <Col className="relative flex h-[72px] items-center justify-between px-5 sm:px-7 lg:h-[90px]">
@@ -630,7 +639,7 @@ function Features() {
   const [active, setActive] = useState(0);
 
   return (
-    <Bleed id="features" className="scroll-mt-20">
+    <Bleed id="features" className="scroll-mt-24">
       <Col>
         <div className={["border-b px-5 pb-14 pt-16 text-center sm:px-7 lg:pb-[64px] lg:pt-[84px]", HAIR].join(" ")}>
           <Badge chip="AI" label="AI Support" />
@@ -840,7 +849,7 @@ function WorkflowCard({
 
 function Workflows() {
   return (
-    <Bleed id="workflows" className="scroll-mt-20">
+    <Bleed id="workflows" className="scroll-mt-24">
       <Col className="py-3 sm:py-4">
         <div className="grid gap-3 sm:gap-[23px] lg:grid-cols-2">
           <WorkflowCard
@@ -909,7 +918,7 @@ function ReportChart() {
 
 function Analytics() {
   return (
-    <Bleed id="analytics" className="scroll-mt-20">
+    <Bleed id="analytics" className="scroll-mt-24">
       <Col>
         <div className="px-5 pb-[34px] pt-[70px] sm:px-7 lg:pb-[34px] lg:pt-[88px]">
           <SectionTag>Book a Demo</SectionTag>
@@ -1011,7 +1020,7 @@ function Analytics() {
 
 function Faq() {
   return (
-    <Bleed id="faq" className="scroll-mt-20">
+    <Bleed id="faq" className="scroll-mt-24">
       <Col>
         <div className="px-5 pb-12 pt-[56px] text-center sm:px-7 lg:pb-[58px] lg:pt-[62px]">
           <SectionTag>FAQs</SectionTag>
@@ -1252,6 +1261,8 @@ export default function Landing() {
       className="min-h-screen bg-white font-display text-[#0c0c0d] antialiased selection:bg-[#0c0c0d] selection:text-white"
     >
       <Header />
+      {/* La barre est en position fixe : on réserve sa hauteur. */}
+      <div aria-hidden="true" className="h-[73px] lg:h-[91px]" />
       <main>
         <Hero />
         <TrustedBy />
