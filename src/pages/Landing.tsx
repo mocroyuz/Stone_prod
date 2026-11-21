@@ -347,8 +347,7 @@ function Header() {
           }}
           aria-label="Stone — home"
           className={["flex items-center gap-2 rounded-md", FOCUS].join(" ")}
-        >
-          <StoneLogoMark />
+        >          <StoneLogoMark />
           <span className="text-[20px] font-bold tracking-[-0.04em]">
             Stone
           </span>
@@ -697,8 +696,7 @@ function Features() {
                   <h3 className="mt-[34px] text-[21px] font-medium leading-tight tracking-[-0.035em] text-[#0c0c0d]">
                     {title}
                   </h3>
-                  <p className="mt-3.5 max-w-[290px] text-[13.5px] leading-[1.65] text-neutral-500">
-                    {text}
+                  <p className="mt-3.5 max-w-[290px] text-[13.5px] leading-[1.65] text-neutral-500">                    {text}
                   </p>
                 </div>
               </li>
@@ -1047,8 +1045,7 @@ function Faq() {
               alt="A robotic hand reaching toward a human hand"
               width={760}
               height={800}
-              loading="lazy"
-              decoding="async"
+              loading="lazy"              decoding="async"
               className="absolute left-[8%] top-[4%] w-[78%] max-w-[520px] mix-blend-multiply"
             />
           </div>
@@ -1153,7 +1150,7 @@ function SiteFooter() {
   return (
     <footer>
       <Col>
-        <div className="grid gap-12 px-5 pb-[72px] pt-[56px] sm:px-7 lg:grid-cols-[1.75fr_1.08fr_0.95fr_1fr] lg:gap-0 lg:pb-[150px]">
+        <div className="grid gap-12 px-5 pb-[72px] pt-[56px] sm:px-7 lg:grid-cols-[1.55fr_1fr_1fr_1fr] lg:gap-0 lg:px-12 lg:pb-[112px] lg:pt-[72px]">
           <div>
             <a
               href="/"
@@ -1207,7 +1204,7 @@ function SiteFooter() {
           </div>
 
           {FOOTER_COLUMNS.map((column, index) => (
-            <nav key={`${column.title}-${index}`} aria-label={column.title}>
+            <nav key={`${column.title}-${index}`} aria-label={column.title} className="lg:border-l lg:border-black/[0.075] lg:pl-10">
               <h2 className="text-[18px] font-medium tracking-[-0.035em] text-[#0c0c0d]">
                 {column.title}
               </h2>
