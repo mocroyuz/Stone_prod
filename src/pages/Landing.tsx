@@ -338,7 +338,7 @@ function Header() {
         scrolled ? "shadow-[0_10px_30px_-18px_rgba(0,0,0,0.25)]" : "shadow-none",
       ].join(" ")}
     >
-      <Col className="relative flex h-[72px] max-w-[1800px] items-center justify-between px-5 sm:px-8 lg:px-10 lg:h-[90px]">
+      <Col className="relative flex h-[72px] max-w-[1800px] items-center justify-between px-8 sm:px-12 lg:px-16 lg:h-[90px]">
         <a
           href="/"
           onClick={(e) => {
