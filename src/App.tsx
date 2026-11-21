@@ -11,6 +11,7 @@ const Signin = lazy(() => import("./pages/signin"));
 const TwoFactor = lazy(() => import("./pages/twofactor"));
 const ForgotPassword = lazy(() => import("./pages/forgotpassword"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
+const Landing = lazy(() => import("./pages/Landing"));
 const DashboardHome = lazy(() => import("./pages/home"));
 const Settings = lazy(() => import("./pages/settings"));
 const Schedule = lazy(() => import("./pages/schedule"));
@@ -686,15 +687,6 @@ function AppContent(props: AppContentProps) {
    ────────────────────────────────────────────────────────────── */
 
 
-/* PUBLIC HOME - minimal root screen */
-function Home() {
-  return (
-    <main className="flex min-h-screen w-full items-center justify-center bg-black text-white">
-      <h1 className="text-center text-2xl font-normal">hello world</h1>
-    </main>
-  );
-}
-
 function AppContentInner({
   theme,
   toggle,
@@ -1038,8 +1030,8 @@ function AppContentInner({
   }
 
   return (
-    <div className="relative min-h-screen w-full overflow-x-hidden bg-white font-sans dark:bg-[#050505]">
-      <Home />
+    <div className="relative min-h-screen w-full overflow-x-hidden bg-white font-sans">
+      <Landing />
     </div>
   );
 }
