@@ -647,7 +647,7 @@ function Interlude() {
 ============================================================ */
 
 function Features() {
-  const [active, setActive] = useState(0);
+  const [active, setActive] = useState<number | null>(null);
 
   return (
     <Bleed id="features" className="scroll-mt-24">
@@ -666,7 +666,7 @@ function Features() {
 
         <ul
           className="grid md:grid-cols-3"
-          onMouseLeave={() => setActive(0)}
+          onMouseLeave={() => setActive(null)}
         >
           {FEATURES.map(({ icon: Icon, title, text }, index) => {
             const isActive = active === index;
