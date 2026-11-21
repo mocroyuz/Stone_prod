@@ -31,7 +31,6 @@ import {
   LogoOrbit,
   LogoPollinate,
   LogoWaves,
-  MedicoMark,
   PetalSpinner,
 } from "../components/landing/LandingGraphics";
 
@@ -49,6 +48,7 @@ const IMG = {
   ],
   analyticsPortrait: "/images/landing/analytics-portrait.jpg",
   hands: "/images/landing/hands.jpg",
+  stoneMark: "/images/landing/stone-mark.png",
 };
 
 type NavLink =
@@ -276,6 +276,18 @@ function MiniTag({ icon: Icon, label }: { icon: LucideIcon; label: string }) {
   );
 }
 
+function StoneLogoMark() {
+  return (
+    <img
+      src={IMG.stoneMark}
+      alt=""
+      aria-hidden="true"
+      decoding="async"
+      className="h-[28px] w-auto"
+    />
+  );
+}
+
 function scrollToSection(id: string) {
   if (id === "top") {
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -333,12 +345,12 @@ function Header() {
             e.preventDefault();
             go("top");
           }}
-          aria-label="Medico — home"
+          aria-label="Stone — home"
           className={["flex items-center gap-2 rounded-md", FOCUS].join(" ")}
         >
-          <MedicoMark className="h-[26px] w-[26px]" />
+          <StoneLogoMark />
           <span className="text-[21px] font-medium tracking-[-0.04em]">
-            Medico
+            Stone
           </span>
         </a>
 
@@ -384,7 +396,7 @@ function Header() {
               FOCUS,
             ].join(" ")}
           >
-            Book a call
+            Get started
             <ArrowUpRight className="h-3.5 w-3.5" strokeWidth={2} />
           </a>
           <button
@@ -647,7 +659,7 @@ function Features() {
             AI-powered healthcare support.
           </h2>
           <p className="mx-auto mt-5 max-w-[560px] text-[15px] leading-[1.7] tracking-[-0.01em] text-neutral-500">
-            Medico pairs powerful AI with governance, security and workflow
+            Stone pairs powerful AI with governance, security and workflow
             integrations so your team can automate support without losing your
             voice.
           </p>
@@ -808,7 +820,7 @@ function NetworkVisual() {
         <span aria-hidden="true" className="text-white/50">
           ‹
         </span>
-        Medico
+        Stone
         <span aria-hidden="true" className="text-white/50">
           ›
         </span>
@@ -1150,12 +1162,12 @@ function SiteFooter() {
                 e.preventDefault();
                 scrollToSection("top");
               }}
-              aria-label="Medico — back to top"
+              aria-label="Stone — back to top"
               className={["inline-flex items-center gap-2 rounded-md", FOCUS].join(" ")}
             >
-              <MedicoMark className="h-[26px] w-[26px]" />
+              <StoneLogoMark />
               <span className="text-[21px] font-medium tracking-[-0.04em]">
-                Medico
+                Stone
               </span>
             </a>
 

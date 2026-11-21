@@ -8,38 +8,6 @@ import type { CSSProperties } from "react";
 
 type IconProps = { className?: string };
 
-/** Logo « soleil » : rayons courts et longs en alternance. */
-export function MedicoMark({ className }: IconProps) {
-  const rays = Array.from({ length: 16 }, (_, i) => {
-    const angle = (i * 360) / 16;
-    const long = i % 2 === 0;
-    return { angle, r1: 5.2, r2: long ? 11 : 9.6 };
-  });
-
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className={className}
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.9"
-      strokeLinecap="round"
-      aria-hidden="true"
-    >
-      {rays.map(({ angle, r1, r2 }) => (
-        <line
-          key={angle}
-          x1="12"
-          y1={12 - r1}
-          x2="12"
-          y2={12 - r2}
-          transform={`rotate(${angle} 12 12)`}
-        />
-      ))}
-    </svg>
-  );
-}
-
 /** Grande fleur à pétales (cellule centrale sous le bandeau de logos). */
 export function PetalSpinner({ className }: IconProps) {
   const petals = Array.from({ length: 12 }, (_, i) => i * 30);
