@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   ArrowRight,
   ArrowUpRight,
@@ -414,33 +414,14 @@ function Header() {
         </div>
 
         {open && (
-          <div
-            id="landing-mobile-menu"
-            className={[
-              "absolute inset-x-3 top-full mt-2 rounded-2xl p-2 md:hidden",
-              SOFT_CARD,
-            ].join(" ")}
-          >
-            {NAV_LINKS.map((link) =>
-              "href" in link ? (
-                <a
-                  key={link.label}
-                  href={link.href}
-                  className="block rounded-xl px-4 py-3 text-[15px] font-medium text-neutral-800 hover:bg-neutral-100"
-                >
-                  {link.label}
-                </a>
-              ) : (
-                <button
-                  key={link.label}
-                  type="button"
-                  onClick={() => go(link.section)}
-                  className="block w-full rounded-xl px-4 py-3 text-left text-[15px] font-medium text-neutral-800 hover:bg-neutral-100"
-                >
-                  {link.label}
-                </button>
-              )
-            )}
+          <div className="fixed inset-0 z-[60] md:hidden">
+            <button
+              type="button"
+              aria-label="Close menu"
+              onClick={() => setOpen(false)}
+              className="absolute inset-0 bg-black/35 backdrop-blur-[2px]"
+            />
+            <MobileMenuSheet onClose={() => setOpen(false)} go={go} />
           </div>
         )}
       </Col>
