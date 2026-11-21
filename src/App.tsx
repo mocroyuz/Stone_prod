@@ -791,15 +791,15 @@ const HOME_SPOTLIGHT_POSTS: {
   schedule: string;
   state: string;
 }[] = [
-  { network: "instagram", title: "Nouvelle collection", schedule: "Aujourd’hui · 10:30", state: "Prêt" },
-  { network: "youtube", title: "Short du mercredi", schedule: "Demain · 12:00", state: "Programmé" },
-  { network: "threads", title: "Question à la communauté", schedule: "Jeudi · 17:45", state: "Brouillon" },
+  { network: "instagram", title: "Nouvelle collection", schedule: "Exemple · 10:30", state: "Prêt" },
+  { network: "youtube", title: "Short produit", schedule: "Exemple · 12:00", state: "Programmé" },
+  { network: "threads", title: "Question à la communauté", schedule: "Exemple · 17:45", state: "Brouillon" },
 ];
 
 const HOME_STEPS = [
-  { number: "01", title: "Connect", description: "Reliez vos comptes sociaux à votre espace Stone." },
-  { number: "02", title: "Create & Schedule", description: "Préparez vos contenus et organisez leur publication." },
-  { number: "03", title: "Analyze & Grow", description: "Consultez les résultats disponibles et ajustez votre rythme." },
+  { number: "01", title: "Connectez", description: "Reliez vos comptes sociaux à votre espace Stone." },
+  { number: "02", title: "Créez et planifiez", description: "Préparez vos contenus et organisez leur publication." },
+  { number: "03", title: "Suivez", description: "Consultez les résultats disponibles et ajustez votre rythme." },
 ];
 
 function scrollHomeToSection(id: string) {
@@ -832,29 +832,29 @@ function HomeSpotlightPreview() {
     <div
       className="stone-ref-main-preview stone-ref-device"
       role="img"
-      aria-label="Aperçu de Stone : calendrier des publications, comptes sociaux et statuts"
+      aria-label="Maquette de démonstration Stone : calendrier de publications, comptes sociaux et exemples de statuts"
     >
       <div className="stone-ref-device-topbar">
         <div className="stone-ref-device-brand">
           <img src="/images/icon.png" alt="" />
           <span>STONE WORKSPACE</span>
         </div>
-        <span className="stone-ref-device-live"><i />LIVE</span>
+        <span className="stone-ref-device-live">DÉMO</span>
       </div>
       <div className="stone-ref-device-content">
-        <span className="stone-ref-device-eyebrow">VOTRE ESPACE SOCIAL</span>
-        <h3>Cette semaine</h3>
-        <p className="stone-ref-device-date">18 — 24 novembre</p>
+        <span className="stone-ref-device-eyebrow">MAQUETTE DE DÉMONSTRATION</span>
+        <h3>Votre semaine</h3>
+        <p className="stone-ref-device-date">Exemple de planning</p>
         <div className="stone-ref-device-days">
           {[
-            { day: "LUN", date: "18" },
-            { day: "MAR", date: "19", active: true },
-            { day: "MER", date: "20" },
-            { day: "JEU", date: "21" },
+            { day: "LUN", active: true },
+            { day: "MAR" },
+            { day: "MER" },
+            { day: "JEU" },
           ].map((item) => (
             <div key={item.day} className={item.active ? "is-active" : undefined}>
               <span>{item.day}</span>
-              <b>{item.date}</b>
+              <b aria-hidden="true">—</b>
             </div>
           ))}
         </div>
@@ -888,11 +888,10 @@ function Home() {
 
         <section className="stone-ref-hero" id="accueil">
           <Reveal className="stone-ref-hero-copy">
-            <span className="stone-ref-pill"><Sparkles size={12} />Social media workspace</span>
-            <h1>Your social presence.<br /><em>Beautifully organised.</em></h1>
+            <span className="stone-ref-pill"><Sparkles size={12} />L’espace de travail des réseaux sociaux</span>
+            <h1>Moins de coordination.<br /><em>Plus de création.</em></h1>
             <p>
-              Planifiez, créez et suivez vos contenus sur les réseaux connectés,
-              depuis un espace pensé pour simplifier votre quotidien.
+              Créez vos publications et organisez-les dans un calendrier. Les indicateurs consultables dépendent des réseaux et autorisations, et sont principalement disponibles sur YouTube.
             </p>
             <div className="stone-ref-actions">
               <a className="stone-ref-primary" href="/signup">
@@ -915,12 +914,12 @@ function Home() {
             </div>
             <div className="stone-ref-floating stone-ref-floating-bottom">
               <ChartNoAxesCombined size={17} />
-              <span><b>Vos performances</b><small>Les résultats en un coup d’œil</small></span>
+              <span><b>Vos Insights</b><small>Selon les plateformes connectées</small></span>
             </div>
           </div>
 
-          <div className="stone-ref-slogan" aria-label="Créer, planifier, publier, analyser">
-            <span>Créer</span><i>·</i><span>Planifier</span><i>·</i><span>Publier</span><i>·</i><span>Analyser</span>
+          <div className="stone-ref-slogan" aria-label="Créer, planifier et publier">
+            <span>Créer</span><i>·</i><span>Planifier</span><i>·</i><span>Publier</span>
           </div>
         </section>
 
@@ -946,18 +945,18 @@ function Home() {
         <section className="stone-ref-projects" id="produit">
           <HomeSectionTitle
             tag="Le workspace"
-            title={<>Everything you need.<br /><em>Nothing in the way.</em></>}
+            title={<>Tout l’essentiel.<br /><em>Rien de superflu.</em></>}
             description="Les outils essentiels réunis dans une interface lisible et calme."
           />
           <div className="stone-ref-project-grid">
             <Reveal className="stone-ref-project-card stone-ref-project-wide">
-              <span className="stone-ref-tag">01 · Composer</span>
-              <h3>Préparez votre contenu en un seul endroit.</h3>
+              <span className="stone-ref-tag">01 · Création</span>
+              <h3>Préparez chaque publication au même endroit.</h3>
               <p>Écrivez, ajoutez vos médias et adaptez vos posts aux réseaux sélectionnés.</p>
               <ComposerPreview />
             </Reveal>
             <Reveal className="stone-ref-project-card">
-              <span className="stone-ref-tag">02 · Calendar</span>
+              <span className="stone-ref-tag">02 · Calendrier</span>
               <h3>Gardez le cap.</h3>
               <p>Une vue claire de vos publications à venir.</p>
               <MonthPreview />
@@ -965,11 +964,11 @@ function Home() {
             <Reveal className="stone-ref-project-card">
               <span className="stone-ref-tag">03 · Insights</span>
               <h3>Comprenez ce qui fonctionne.</h3>
-              <p>Suivez les indicateurs disponibles pour vos comptes.</p>
+              <p>Consultez les indicateurs accessibles selon vos plateformes et autorisations, principalement sur YouTube.</p>
               <InsightsPreview />
             </Reveal>
             <Reveal className="stone-ref-project-card stone-ref-project-wide">
-              <span className="stone-ref-tag">04 · Media library</span>
+              <span className="stone-ref-tag">04 · Médias</span>
               <h3>Vos ressources, sans friction.</h3>
               <p>Importez et préparez vos médias pour vos prochaines publications.</p>
               <MediaPreview />
@@ -977,7 +976,7 @@ function Home() {
             <Reveal className="stone-ref-project-card stone-ref-project-wide">
               <span className="stone-ref-tag">05 · Community</span>
               <h3>Ne perdez pas le fil.</h3>
-              <p>Retrouvez les conversations et commentaires accessibles depuis vos comptes.</p>
+              <p>Retrouvez les commentaires accessibles selon vos plateformes et autorisations, principalement sur YouTube.</p>
               <CommentsPreview />
             </Reveal>
           </div>
@@ -985,8 +984,8 @@ function Home() {
 
         <section className="stone-ref-networks" id="reseaux">
           <HomeSectionTitle
-            tag="Connect your channels"
-            title={<>One calendar.<br /><em>Multiple platforms.</em></>}
+            tag="Vos réseaux"
+            title={<>Un espace.<br /><em>Plusieurs réseaux.</em></>}
             description="Connectez vos comptes et gérez votre contenu dans un même workflow."
           />
           <div className="stone-ref-network-grid">
@@ -1004,8 +1003,8 @@ function Home() {
 
         <section className="stone-ref-how" id="fonctionnalites">
           <HomeSectionTitle
-            tag="Workflow"
-            title={<>Three steps.<br /><em>More time to create.</em></>}
+            tag="Comment ça marche"
+            title={<>De l’idée à la publication.<br /><em>En trois étapes.</em></>}
             description="Un parcours simple pour passer de l’idée à la publication."
           />
           <div className="stone-ref-how-grid">
@@ -1019,8 +1018,8 @@ function Home() {
 
         <section className="stone-ref-pricing" id="tarifs">
           <HomeSectionTitle
-            tag="Pricing"
-            title={<>A plan for your<br /><em>next chapter.</em></>}
+            tag="Tarifs"
+            title={<>Un forfait pour<br /><em>chaque étape.</em></>}
             description="Choisissez l’espace qui correspond à votre rythme."
           />
           <div className="stone-ref-price-grid">
@@ -1045,7 +1044,7 @@ function Home() {
         <section className="stone-ref-faq" id="faq">
           <Reveal>
             <span className="stone-ref-tag">FAQ</span>
-            <h2>Questions,<br /><em>answered.</em></h2>
+            <h2>Vos questions.<br /><em>Nos réponses.</em></h2>
           </Reveal>
           <div className="stone-ref-faq-list">
             {HOME_FAQ.map((item, index) => (
@@ -1061,7 +1060,7 @@ function Home() {
 
         <section className="stone-ref-cta">
           <span className="stone-ref-tag">STONE WORKSPACE</span>
-          <h2>Less managing.<br /><em>More creating.</em></h2>
+          <h2>Moins à gérer.<br /><em>Plus à créer.</em></h2>
           <p>Commencez à organiser votre présence sociale.</p>
           <a className="stone-ref-primary" href="/signup">Commencer gratuitement <ArrowRight size={16} /></a>
         </section>
