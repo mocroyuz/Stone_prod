@@ -429,6 +429,52 @@ function Header() {
   );
 }
 
+function MobileMenuSheet({ onClose, go }: { onClose: () => void; go: (id: string) => void }) {
+  const dragStartY = useRef<number | null>(null);
+  const [expanded, setExpanded] = useState(false);
+
+  const handleDragEnd = (endY: number) => {
+    if (dragStartY.current === null) return;
+    const delta = endY - dragStartY.current;
+    if (delta > 75) onClose();
+    else if (delta < -55) setExpanded(true);
+    else if (delta > 30) setExpanded(false);
+    dragStartY.current = null;
+  };
+
+  return (
+    <div
+      id="landing-mobile-menu"
+      className={[
+        "absolute inset-x-0 bottom-0 flex flex-col overflow-hidden rounded-t-[28px] border border-black/[0.06] bg-white shadow-[0_-18px_60px_-20px_rgba(0,0,0,0.3)]",
+        expanded ? "h-[85dvh]" : "h-[50dvh]",
+      ].join(" ")}
+    >
+      <div
+        className="flex shrink-0 touch-none cursor-grab justify-center pb-3 pt-4 active:cursor-grabbing"
+        onPointerDown={(event) => { dragStartY.current = event.clientY; }}
+        onPointerUp={(event) => handleDragEnd(event.clientY)}
+        onPointerCancel={() => { dragStartY.current = null; }}
+      >
+        <span className="h-1.5 w-10 rounded-full bg-neutral-300" />
+      </div>
+      <nav aria-label="Mobile navigation" className="min-h-0 flex-1 overflow-y-auto px-5 pb-8">
+        {NAV_LINKS.map((link) =>
+          "href" in link ? (
+            <a key={link.label} href={link.href} className="block rounded-xl px-5 py-4 text-[17px] font-medium text-neutral-800 transition-colors hover:bg-neutral-100">
+              {link.label}
+            </a>
+          ) : (
+            <button key={link.label} type="button" onClick={() => go(link.section)} className="block w-full rounded-xl px-5 py-4 text-left text-[17px] font-medium text-neutral-800 transition-colors hover:bg-neutral-100">
+              {link.label}
+            </button>
+          )
+        )}
+      </nav>
+    </div>
+  );
+}
+
 /* ============================================================
    HERO
 ============================================================ */
