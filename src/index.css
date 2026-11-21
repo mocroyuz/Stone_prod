@@ -333,3 +333,240 @@ img,
     padding-right: 20px !important;
   }
 }
+
+/* ============================================================
+   Landing — système de mouvement
+   Un seul vocabulaire : courbes « expo out », transform / opacity
+   uniquement, délais pilotés par --reveal-delay et --i.
+============================================================ */
+
+:root {
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out-cubic: cubic-bezier(0.65, 0, 0.35, 1);
+}
+
+[data-reveal] {
+  --d: var(--reveal-delay, 0ms);
+}
+
+/* Montée + fondu (contenu courant) */
+[data-reveal="up"],
+[data-reveal="rise"],
+[data-reveal="fade"] {
+  opacity: 0;
+  transition:
+    opacity 900ms var(--ease-out-quint) var(--d),
+    transform 1100ms var(--ease-out-expo) var(--d);
+}
+[data-reveal="up"] {
+  transform: translateY(32px);
+}
+[data-reveal="rise"] {
+  transform: translateY(14px);
+}
+
+/* Image : fondu + léger dézoom (propriété `scale`, indépendante de
+   `transform` pour ne pas se battre avec le parallax ni le blend-mode) */
+[data-reveal="image"] {
+  opacity: 0;
+  scale: 1.06;
+  transition:
+    opacity 1000ms var(--ease-out-quint) var(--d),
+    scale 1700ms var(--ease-out-expo) var(--d);
+}
+
+/* Pastilles : apparition avec un très léger dépassement */
+[data-reveal="pop"] {
+  opacity: 0;
+  scale: 0.72;
+  transition:
+    opacity 600ms var(--ease-out-quint) var(--d),
+    scale 900ms cubic-bezier(0.34, 1.4, 0.64, 1) var(--d);
+}
+
+[data-reveal="scale"] {
+  opacity: 0;
+  scale: 0.8;
+  transition:
+    opacity 900ms var(--ease-out-quint) var(--d),
+    scale 1300ms var(--ease-out-expo) var(--d);
+}
+
+[data-reveal][data-revealed] {
+  opacity: 1;
+  transform: none;
+  scale: 1;
+}
+
+/* Titres : chaque mot sort d'un masque */
+[data-reveal="words"] .rw {
+  display: inline-block;
+  overflow: hidden;
+  vertical-align: top;
+  padding: 0.04em 0.06em 0.16em;
+  margin: -0.04em -0.06em -0.16em;
+}
+[data-reveal="words"] .rw-i {
+  display: inline-block;
+  transform: translateY(108%);
+  transition: transform 1150ms var(--ease-out-expo)
+    calc(var(--d) + var(--i, 0) * 60ms);
+}
+[data-reveal="words"][data-revealed] .rw-i {
+  transform: none;
+}
+
+/* Image qui se dévoile en rideau, avec un dézoom interne.
+   Le clip-path est sur l'enfant .curtain-clip : un élément entièrement
+   découpé serait vu comme « hors écran » par l'IntersectionObserver. */
+[data-reveal="curtain"] > .curtain-clip {
+  clip-path: inset(0 0 100% 0);
+  transition: clip-path 1300ms var(--ease-out-expo) var(--d);
+}
+[data-reveal="curtain"][data-revealed] > .curtain-clip {
+  clip-path: inset(0 0 0 0);
+}
+[data-reveal="curtain"] .curtain-clip > img {
+  scale: 1.18;
+  transition: scale 1800ms var(--ease-out-expo) var(--d);
+}
+[data-reveal="curtain"][data-revealed] .curtain-clip > img {
+  scale: 1;
+}
+
+/* Barres du graphique : croissance en cascade */
+[data-reveal="chart"] .bar {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  transform: scaleY(0);
+  transition: transform 1000ms var(--ease-out-expo)
+    calc(var(--d) + var(--i, 0) * 22ms);
+}
+[data-reveal="chart"][data-revealed] .bar {
+  transform: scaleY(1);
+}
+
+/* Flottement discret, démarré après l'apparition */
+@keyframes soft-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-7px);
+  }
+}
+.float-soft[data-revealed] {
+  animation: soft-float var(--float-dur, 7s) ease-in-out
+    var(--float-delay, 1.4s) infinite;
+}
+
+/* Header + menu mobile */
+@keyframes header-in {
+  from {
+    opacity: 0;
+    transform: translateY(-100%);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.header-in {
+  animation: header-in 900ms var(--ease-out-expo) backwards;
+}
+
+@keyframes sheet-in {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: none;
+  }
+}
+@keyframes sheet-out {
+  from {
+    transform: none;
+  }
+  to {
+    transform: translateY(100%);
+  }
+}
+@keyframes backdrop-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes backdrop-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+@keyframes menu-item-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.menu-sheet {
+  animation: sheet-in 520ms var(--ease-out-expo) both;
+}
+.menu-sheet[data-state="closing"] {
+  animation: sheet-out 300ms var(--ease-in-out-cubic) both;
+}
+.menu-backdrop {
+  animation: backdrop-in 400ms var(--ease-out-quint) both;
+}
+.menu-backdrop[data-state="closing"] {
+  animation: backdrop-out 300ms var(--ease-in-out-cubic) both;
+}
+.menu-item {
+  animation: menu-item-in 620ms var(--ease-out-expo) both;
+  animation-delay: calc(140ms + var(--i, 0) * 55ms);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-reveal],
+  [data-reveal] .rw-i,
+  [data-reveal] .bar,
+  [data-reveal="curtain"] .curtain-clip,
+  [data-reveal="curtain"] .curtain-clip > img {
+    opacity: 1 !important;
+    transform: none !important;
+    scale: 1 !important;
+    clip-path: none !important;
+    transition: none !important;
+  }
+  .float-soft,
+  .header-in,
+  .menu-sheet,
+  .menu-backdrop,
+  .menu-item {
+    animation: none !important;
+  }
+}
+
+@media print {
+  [data-reveal],
+  [data-reveal] .rw-i,
+  [data-reveal] .bar,
+  [data-reveal="curtain"] .curtain-clip,
+  [data-reveal="curtain"] .curtain-clip > img {
+    opacity: 1 !important;
+    transform: none !important;
+    scale: 1 !important;
+    clip-path: none !important;
+    transition: none !important;
+  }
+}
