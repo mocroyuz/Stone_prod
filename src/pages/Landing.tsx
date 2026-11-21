@@ -283,7 +283,7 @@ function StoneLogoMark() {
       alt=""
       aria-hidden="true"
       decoding="async"
-      className="h-[28px] w-auto"
+      className="h-6 w-auto"
     />
   );
 }
@@ -338,7 +338,7 @@ function Header() {
         scrolled ? "shadow-[0_10px_30px_-18px_rgba(0,0,0,0.25)]" : "shadow-none",
       ].join(" ")}
     >
-      <Col className="relative flex h-[72px] max-w-[1800px] items-center justify-between px-3 sm:px-5 lg:h-[90px]">
+      <Col className="relative flex h-[72px] max-w-[1800px] items-center justify-between px-5 sm:px-8 lg:px-10 lg:h-[90px]">
         <a
           href="/"
           onClick={(e) => {
@@ -349,7 +349,7 @@ function Header() {
           className={["flex items-center gap-2 rounded-md", FOCUS].join(" ")}
         >
           <StoneLogoMark />
-          <span className="text-[21px] font-bold tracking-[-0.045em]">
+          <span className="text-[20px] font-bold tracking-[-0.04em]">
             Stone
           </span>
         </a>
