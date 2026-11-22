@@ -688,140 +688,74 @@ function MobileMenuSheet({
 ============================================================ */
 
 function Hero() {
+  const nodes = [
+    { icon: ClipboardList, x: "8%", y: "16%" },
+    { icon: Camera, x: "18%", y: "36%" },
+    { icon: ScanFace, x: "18%", y: "58%" },
+    { icon: Ribbon, x: "8%", y: "80%" },
+    { icon: Pill, x: "92%", y: "16%" },
+    { icon: Syringe, x: "82%", y: "36%" },
+    { icon: Scan, x: "82%", y: "58%" },
+    { icon: Stethoscope, x: "92%", y: "80%" },
+  ];
+  const leftPaths = [
+    "M 120 120 C 280 140, 350 285, 480 350",
+    "M 220 260 C 330 280, 380 320, 480 350",
+    "M 220 420 C 330 410, 380 380, 480 350",
+    "M 120 560 C 280 540, 350 415, 480 350",
+  ];
+  const rightPaths = [
+    "M 880 120 C 720 140, 650 285, 520 350",
+    "M 780 260 C 670 280, 620 320, 520 350",
+    "M 780 420 C 670 410, 620 380, 520 350",
+    "M 880 560 C 720 540, 650 415, 520 350",
+  ];
+  const iconNodes = [ClipboardList, Camera, ScanFace, Ribbon, Pill, Syringe, Scan, Stethoscope];
   return (
-    <Bleed>
+    <Bleed id="top">
       <Col className="relative overflow-hidden">
-        <DotField
-          className="left-0 top-0 h-[300px] w-[420px]"
-          mask="radial-gradient(ellipse at 20% 30%, #000 0%, transparent 70%)"
-          strength={0.12}
-        />
-
-        <div className="relative grid lg:grid-cols-[minmax(0,42%)_minmax(0,58%)]">
-          <div className="px-5 pb-6 pt-12 sm:px-7 lg:pb-0 lg:pt-[88px]">
+        <div className="grid items-center gap-5 px-5 py-12 sm:px-7 lg:grid-cols-[minmax(0,38%)_minmax(0,62%)] lg:py-16">
+          <div className="relative z-10">
             <div data-reveal="up" style={d(0)}>
-              <Badge chip="New" label="Trusted by 45+ expert medical teams" />
+              <Badge chip="Stone" label="Your social media, in one place" />
             </div>
-
-            <h1
-              data-reveal="up"
-              style={d(120)}
-              className="mt-6 text-[clamp(40px,4.9vw,70px)] font-medium leading-[1.06] tracking-[-0.05em] text-[#0c0c0d]"
-            >
-              <span className="block sm:whitespace-nowrap">Revolutionizing</span>
-              <span className="block sm:whitespace-nowrap">Healthcare with AI</span>
+            <h1 data-reveal="up" style={d(120)} className="mt-6 text-[clamp(40px,4.9vw,70px)] font-medium leading-[1.06] tracking-[-0.05em] text-[#0c0c0d]">
+              <span className="block">Create once.</span>
+              <span className="block">Publish everywhere.</span>
             </h1>
-
-            <p
-              data-reveal="up"
-              style={d(380)}
-              className="mt-7 max-w-[500px] text-[16.5px] leading-[1.7] tracking-[-0.01em] text-neutral-500"
-            >
-              Automated workflows, AI-powered reporting, and real-time decision
-              support so your clinical team can do what they were trained to do.
+            <p data-reveal="up" style={d(280)} className="mt-6 max-w-[480px] text-[16.5px] leading-[1.7] tracking-[-0.01em] text-neutral-500">
+              Plan, schedule and manage all your social channels from one simple workspace.
             </p>
-
-            <div
-              data-reveal="up"
-              style={d(500)}
-              className="mt-7 flex flex-wrap items-center gap-3"
-            >
-              <a
-                href="/signup"
-                className={[
-                  "inline-flex h-[54px] items-center rounded-full px-8 text-[12px] font-semibold uppercase tracking-[0.03em]",
-                  BTN_DARK,
-                  FOCUS,
-                ].join(" ")}
-              >
-                Start diagnosis
+            <div data-reveal="up" style={d(400)} className="mt-7 flex flex-wrap items-center gap-3">
+              <a href="/signup" className={["inline-flex h-[54px] items-center rounded-full px-8 text-[12px] font-semibold uppercase tracking-[0.03em]", BTN_DARK, FOCUS].join(" ")}>
+                Get started <ArrowRight className="ml-2 h-4 w-4" />
               </a>
-              <a
-                href="/signin"
-                className={[
-                  "inline-flex h-[54px] items-center rounded-full px-8 text-[12px] font-semibold uppercase tracking-[0.03em]",
-                  BTN_LIGHT,
-                  FOCUS,
-                ].join(" ")}
-              >
-                Talk to AI doctor
+              <a href="/signin" className={["inline-flex h-[54px] items-center rounded-full px-8 text-[12px] font-semibold uppercase tracking-[0.03em]", BTN_LIGHT, FOCUS].join(" ")}>
+                Sign in
               </a>
             </div>
           </div>
 
-          {/* Composition visuelle : tout est positionné en % pour rester
-              proportionnel à toutes les largeurs. */}
-          <div className="relative mx-auto aspect-[760/840] w-full max-w-[560px] lg:max-w-none">
-            <img
-              src={IMG.heroPortrait}
-              alt="Profile portrait of a woman with a shaved head, eyes closed"
-              width={820}
-              height={896}
-              decoding="async"
-              fetchPriority="high"
-              data-reveal="image"
-              data-parallax="0.07"
-              style={d(150)}
-              className="absolute right-0 top-[1.5%] w-[82%] mix-blend-multiply lg:w-[78%]"
-            />
-
-            <div
-              data-reveal="up"
-              data-parallax="-0.04"
-              style={d(650)}
-              className={[
-                "absolute bottom-[16%] left-[2%] w-[36%] rounded-[20px] p-2 lg:bottom-auto lg:left-[12.5%] lg:top-[54%] lg:w-[28.5%]",
-                SOFT_CARD,
-              ].join(" ")}
-            >
-              <img
-                src={IMG.heroCard}
-                alt=""
-                width={355}
-                height={275}
-                loading="lazy"
-                className="aspect-[71/55] w-full rounded-[12px] object-cover"
-              />
-              <div className="px-1 pb-1 pt-2.5">
-                <p className="text-[15px] font-medium leading-none tracking-[-0.03em] text-neutral-900">
-                  5,000+
-                </p>
-                <p className="mt-1.5 text-[11px] leading-none text-neutral-400">
-                  Successful Treatment
-                </p>
-              </div>
-            </div>
-
-            <div
-              data-reveal="up"
-              data-parallax="-0.075"
-              style={d(800)}
-              className={[
-                "absolute bottom-[2%] right-[2%] flex items-center gap-3 rounded-full py-2 pl-2.5 pr-5 lg:bottom-auto lg:right-[11%] lg:top-[75%]",
-                SOFT_CARD,
-              ].join(" ")}
-            >
-              <div className="flex -space-x-2.5">
-                {IMG.avatars.map((src) => (
-                  <img
-                    key={src}
-                    src={src}
-                    alt=""
-                    width={112}
-                    height={112}
-                    loading="lazy"
-                    className="h-8 w-8 rounded-full object-cover ring-2 ring-white"
-                  />
-                ))}
-              </div>
-              <div>
-                <p className="text-[15px] font-medium leading-none tracking-[-0.03em] text-neutral-900">
-                  45+
-                </p>
-                <p className="mt-1 text-[10.5px] leading-none text-neutral-400">
-                  Expert Doctors
-                </p>
-              </div>
+          <div data-reveal="scale" style={d(180)} className="relative mx-auto aspect-[1000/700] w-full max-w-[760px]">
+            <div className="absolute inset-[12%] rounded-full opacity-70" style={{backgroundImage:"radial-gradient(#d4d4d4 1.2px, transparent 1.2px)",backgroundSize:"15px 15px",maskImage:"radial-gradient(ellipse, black 0%, transparent 72%)"}} />
+            <svg viewBox="0 0 1000 700" className="absolute inset-0 h-full w-full" aria-hidden="true">
+              <defs>
+                <marker id="stone-arrow" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto" markerUnits="strokeWidth">
+                  <path d="M0,0 L8,4.5 L0,9" fill="none" stroke="#ef4444" strokeWidth="1.5" />
+                </marker>
+              </defs>
+              {leftPaths.map((path,i)=><path key={"l"+i} d={path} fill="none" stroke="#ef4444" strokeWidth="2.8" strokeLinecap="round" markerEnd="url(#stone-arrow)" />)}
+              {rightPaths.map((path,i)=><path key={"r"+i} d={path} fill="none" stroke="#ef4444" strokeWidth="2.8" strokeLinecap="round" markerEnd="url(#stone-arrow)" />)}
+            </svg>
+            {iconNodes.map((Icon,i)=>{
+              const positions = [
+                ["8%","16%"],["18%","36%"],["18%","58%"],["8%","80%"],
+                ["92%","16%"],["82%","36%"],["82%","58%"],["92%","80%"],
+              ];
+              return <div key={i} className="absolute z-10 flex h-[clamp(48px,6.5vw,76px)] w-[clamp(48px,6.5vw,76px)] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-black/[0.06] bg-white text-neutral-600 shadow-[0_8px_24px_-12px_rgba(0,0,0,0.22)]" style={{left:positions[i][0],top:positions[i][1]}}><Icon className="h-5 w-5 sm:h-6 sm:w-6" strokeWidth={1.7}/></div>
+            })}
+            <div className="absolute left-1/2 top-1/2 z-20 flex h-[clamp(68px,9vw,94px)] w-[clamp(145px,19vw,190px)] -translate-x-1/2 -translate-y-1/2 items-center justify-center gap-4 rounded-full bg-[#0c0c0d] text-white shadow-[0_12px_36px_-12px_rgba(0,0,0,0.35)]">
+              <span className="text-white/50">‹</span><span className="text-[17px] font-medium tracking-tight">Stone</span><span className="text-white/50">›</span>
             </div>
           </div>
         </div>
