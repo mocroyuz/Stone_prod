@@ -1083,8 +1083,8 @@ function NetworkVisual() {
   const left = CHANNELS.filter((item) => ["Instagram", "TikTok", "YouTube Shorts", "Facebook"].includes(item.name));
   const right = CHANNELS.filter((item) => ["Threads", "Pinterest", "LinkedIn", "X"].includes(item.name));
   const points = [
-    ...left.map((item, i) => ({ icon: item.icon, x: i % 2 === 0 ? 12 : 19, y: 8 + i * (84 / Math.max(1, left.length - 1)), side: "left" })),
-    ...right.map((item, i) => ({ icon: item.icon, x: i % 2 === 0 ? 88 : 81, y: 8 + i * (84 / Math.max(1, right.length - 1)), side: "right" })),
+    ...left.map((item, i) => ({ icon: item.icon, x: i % 2 === 0 ? 12 : 19, y: 22 + i * (56 / Math.max(1, left.length - 1)), side: "left" })),
+    ...right.map((item, i) => ({ icon: item.icon, x: i % 2 === 0 ? 88 : 81, y: 22 + i * (56 / Math.max(1, right.length - 1)), side: "right" })),
   ];
 
   return (
