@@ -199,31 +199,6 @@ const dv = (ms: number, vars: Record<string, string | number>): CSSProperties =>
     ...Object.fromEntries(Object.entries(vars).map(([k, v]) => [`--${k}`, v])),
   }) as CSSProperties;
 
-/**
- * Titre dont chaque mot sort d'un masque. À poser dans un élément portant
- * data-reveal="words". Le texte réel reste lisible par les lecteurs d'écran.
- */
-function SplitWords({ text, start = 0 }: { text: string; start?: number }) {
-  const words = text.split(" ");
-  return (
-    <>
-      <span className="sr-only">{text}</span>
-      <span aria-hidden="true">
-        {words.map((word, i) => (
-          <span key={`${word}-${i}`}>
-            <span className="rw">
-              <span className="rw-i" style={{ "--i": start + i } as CSSProperties}>
-                {word}
-              </span>
-            </span>
-            {i < words.length - 1 ? " " : null}
-          </span>
-        ))}
-      </span>
-    </>
-  );
-}
-
 const SOFT_CARD =
   "bg-white shadow-[0_0_0_1px_rgba(0,0,0,0.05),0_2px_4px_rgba(0,0,0,0.03),0_16px_32px_-16px_rgba(0,0,0,0.14)]";
 
@@ -733,16 +708,12 @@ function Hero() {
             </div>
 
             <h1
-              data-reveal="words"
+              data-reveal="up"
               style={d(120)}
               className="mt-6 text-[clamp(40px,4.9vw,70px)] font-medium leading-[1.06] tracking-[-0.05em] text-[#0c0c0d]"
             >
-              <span className="block sm:whitespace-nowrap">
-                <SplitWords text="Revolutionizing" />
-              </span>
-              <span className="block sm:whitespace-nowrap">
-                <SplitWords text="Healthcare with AI" start={1} />
-              </span>
+              <span className="block sm:whitespace-nowrap">Revolutionizing</span>
+              <span className="block sm:whitespace-nowrap">Healthcare with AI</span>
             </h1>
 
             <p
@@ -963,11 +934,11 @@ function Features() {
             <Badge chip="AI" label="AI Support" />
           </div>
           <h2
-            data-reveal="words"
+            data-reveal="up"
             style={d(100)}
             className="mt-6 text-[clamp(34px,4vw,56px)] font-medium leading-[1.05] tracking-[-0.05em] text-[#0c0c0d]"
           >
-            <SplitWords text="AI-powered healthcare support." />
+            AI-powered healthcare support.
           </h2>
           <p
             data-reveal="up"
@@ -1384,14 +1355,12 @@ function Analytics() {
             </div>
           </div>
 
-          {/* L'élément observé garde sa taille ; c'est son enfant qui est
-              découpé par le clip-path (sinon l'observer ne se déclenche pas). */}
           <div
-            data-reveal="curtain"
+            data-reveal="fade"
             style={d(150)}
             className="relative min-h-[360px] sm:min-h-[440px] lg:min-h-[580px]"
           >
-            <div className="curtain-clip absolute inset-0 bg-[#f5f5f5]">
+            <div className="absolute inset-0 bg-[#f5f5f5]">
               <img
                 src={IMG.analyticsPortrait}
                 alt="Black and white profile portrait of a man looking upward"
@@ -1424,11 +1393,11 @@ function Faq() {
             <SectionTag>FAQs</SectionTag>
           </div>
           <h2
-            data-reveal="words"
+            data-reveal="up"
             style={d(100)}
             className="mt-5 text-[clamp(34px,4vw,56px)] font-medium leading-[1.05] tracking-[-0.05em] text-[#0c0c0d]"
           >
-            <SplitWords text="Curious About Something?" />
+            Curious About Something?
           </h2>
         </div>
 
