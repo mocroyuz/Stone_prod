@@ -1092,7 +1092,7 @@ function NetworkVisual() {
           const cx = left ? 43 : 57;
           const sx = left ? x+4 : x-4;
           const sy = y;
-          return <path key={i} d={`M ${sx} ${sy} C ${left?30:70} ${sy}, ${cx} 50, ${left?47:53} 50`} fill="none" stroke="#ef4444" strokeWidth="0.45" strokeLinecap="round" markerEnd="url(#network-arrow)" />;
+          return <path key={i} d={`M ${sx} ${sy} C ${left?30:70} ${sy}, ${cx} 50, ${left?47:53} 50`} fill="none" stroke="#111111" strokeWidth="0.45" strokeLinecap="round" markerEnd="url(#network-arrow)" />;
         })}
       </svg>
       {side.map(({ icon: Icon, x, y }, index) => (
