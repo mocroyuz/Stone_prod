@@ -1562,7 +1562,7 @@ function buildBestTimes(
   };
 }
 
-const heatColor = (v: number) => `rgba(20,184,166,${0.08 + 0.78 * v})`;
+const heatColor = (v: number) => `rgba(238,112,78,${0.08 + 0.78 * v})`;
 const heatLayer = (v: number) => {
   const c = heatColor(v);
   return { backgroundImage: `linear-gradient(${c}, ${c})` };
@@ -3371,7 +3371,24 @@ export default function Insights() {
                     <div className="flex flex-wrap items-start justify-between gap-2"><div className="min-w-0"><h2 id="besttime-title" className={sectionTitle}>{c.bestTime.title}</h2><p className={sectionSub}>{subhead}</p></div><button type="button" onClick={() => scheduleFromSlot(heatmap.best)} className={"h-8 shrink-0 rounded-md border px-3 text-[10px] font-medium " + t.ring + " " + t.outlineBtn}>{c.bestTime.useLabel(heatmap.label)}</button></div>
                     <div className={"mt-3 flex items-center gap-3 text-[9px] " + t.muted}><span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[#bdbdbd]" />{c.bestTime.high}</span><span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-white/20" />{c.bestTime.low}</span></div>
                     {isMobile ? <BestTimeMobile heatmap={heatmap} c={c} t={t} isDark={isDark} onSchedule={scheduleFromSlot} /> : (
-                      <div className="mt-3 grid h-[190px] grid-cols-7 items-end gap-2 border-b px-1">{c.days.map((day, d) => { const slot = heatmap.bestByDay[d]; const intensity = Math.max(0.08, slot.norm); return <button key={day} type="button" onClick={() => scheduleFromSlot({ day: d, hour: slot.hour })} title={c.bestTime.scheduleAria(day, hourLabel(slot.hour))} aria-label={c.bestTime.scheduleAria(day, hourLabel(slot.hour))} className={"group flex h-full min-w-0 flex-col items-center justify-end gap-2 rounded-md px-1 pb-2 " + t.ring}><span className="flex h-[145px] w-full items-end justify-center"><span className={"block w-full max-w-8 rounded-t-[4px] transition-opacity group-hover:opacity-70 " + (isDark ? "bg-[#bdbdbd]" : "bg-[#666666]")} style={{ height: Math.max(7, Math.round(intensity * 100)) + "%" }} /></span><span className={"text-[10px] " + t.muted}>{day}</span><span className={"text-[9px] tabular-nums " + t.soft}>{hourLabel(slot.hour)}</span></button>; })}</div>
+                      <div className="mt-4 overflow-x-auto">
+                        <div className="min-w-[620px]">
+                          <div className="grid grid-cols-[44px_repeat(7,minmax(0,1fr))] gap-x-2 gap-y-1.5">
+                            <span />
+                            {c.days.map((day) => <span key={day} className={"pb-1 text-center text-[11px] font-medium " + t.muted}>{day}</span>)}
+                            {Array.from({ length: 24 }, (_, h) => (
+                              <div key={h} className="contents">
+                                <span className={"flex items-center justify-end pr-2 text-[10px] tabular-nums " + t.muted}>{hourLabel(h)}</span>
+                                {c.days.map((day, d) => {
+                                  const cell = heatmap.grid[d][h];
+                                  const active = heatmap.best.day === d && heatmap.best.hour === h;
+                                  return <button key={day + h} type="button" onClick={() => scheduleFromSlot({ day: d, hour: h })} title={c.bestTime.scheduleAria(day, hourLabel(h))} aria-label={c.bestTime.scheduleAria(day, hourLabel(h))} className={"h-7 rounded-[5px] transition-all hover:brightness-110 hover:scale-[1.02] " + t.ring + (active ? " ring-1 ring-[#ef8061] ring-offset-1 " + (isDark ? "ring-offset-[#171717]" : "ring-offset-white") : "")} style={heatLayer(cell.norm)} />
+                                })}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
                     )}
                     <p className={"mt-3 text-[10px] leading-relaxed " + t.muted}>{bestTimesNote}</p>
                   </section>
