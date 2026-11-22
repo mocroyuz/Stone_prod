@@ -1077,38 +1077,29 @@ function NetworkVisual() {
   return (
     <div className="relative h-[360px] overflow-hidden bg-[#f6f6f6] sm:h-[448px]">
       <DotField
-        className="left-1/2 top-1/2 h-[260px] w-[300px] -translate-x-1/2 -translate-y-1/2"
-        strength={0.1}
-        mask="radial-gradient(closest-side, #000 20%, transparent 100%)"
+        className="left-1/2 top-1/2 h-[280px] w-[340px] -translate-x-1/2 -translate-y-1/2"
+        strength={0.12}
+        mask="radial-gradient(ellipse, #000 15%, transparent 76%)"
       />
-
-      <svg
-        aria-hidden="true"
-        data-reveal="fade"
-        style={d(250)}
-        viewBox="0 0 100 100"
-        preserveAspectRatio="none"
-        className="absolute inset-0 h-full w-full"
-        fill="none"
-        stroke="rgba(0,0,0,0.05)"
-        strokeWidth="0.35"
-        vectorEffect="non-scaling-stroke"
-      >
-        <path d="M13 23 C 30 23, 34 50, 44 50" vectorEffect="non-scaling-stroke" />
-        <path d="M19 39 C 30 39, 36 50, 44 50" vectorEffect="non-scaling-stroke" />
-        <path d="M19 61 C 30 61, 36 50, 44 50" vectorEffect="non-scaling-stroke" />
-        <path d="M13 77 C 30 77, 34 50, 44 50" vectorEffect="non-scaling-stroke" />
-        <path d="M87 23 C 70 23, 66 50, 56 50" vectorEffect="non-scaling-stroke" />
-        <path d="M81 39 C 70 39, 64 50, 56 50" vectorEffect="non-scaling-stroke" />
-        <path d="M81 61 C 70 61, 64 50, 56 50" vectorEffect="non-scaling-stroke" />
-        <path d="M87 77 C 70 77, 66 50, 56 50" vectorEffect="non-scaling-stroke" />
+      <svg aria-hidden="true" viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 h-full w-full">
+        <defs>
+          <marker id="network-arrow" markerWidth="5" markerHeight="5" refX="4.2" refY="2.5" orient="auto" markerUnits="userSpaceOnUse">
+            <path d="M0 0 L5 2.5 L0 5" fill="none" stroke="#ef4444" strokeWidth="1" />
+          </marker>
+        </defs>
+        {side.map(({x,y},i)=> {
+          const left = i<4;
+          const cx = left ? 43 : 57;
+          const sx = left ? x+4 : x-4;
+          const sy = y;
+          return <path key={i} d={`M ${sx} ${sy} C ${left?30:70} ${sy}, ${cx} 50, ${left?47:53} 50`} fill="none" stroke="#ef4444" strokeWidth="0.45" strokeLinecap="round" markerEnd="url(#network-arrow)" />;
+        })}
       </svg>
-
       {side.map(({ icon: Icon, x, y }, index) => (
         <span
-          key={`${x}-${y}`}
+          key={index}
           data-reveal="pop"
-          className="float-soft absolute flex h-[46px] w-[46px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-white text-neutral-700 shadow-[0_0_0_1px_rgba(0,0,0,0.04),0_2px_4px_rgba(0,0,0,0.04),0_10px_20px_-10px_rgba(0,0,0,0.16)] sm:h-[52px] sm:w-[52px]"
+          className="float-soft absolute flex h-[46px] w-[46px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-black/[0.04] bg-white text-neutral-700 shadow-[0_0_0_1px_rgba(0,0,0,0.04),0_2px_4px_rgba(0,0,0,0.04),0_10px_20px_-10px_rgba(0,0,0,0.16)] sm:h-[52px] sm:w-[52px]"
           style={{
             ...dv(300 + index * 70, {
               "float-dur": `${6.5 + (index % 4) * 0.8}s`,
@@ -1121,25 +1112,10 @@ function NetworkVisual() {
           <Icon className="h-[18px] w-[18px]" strokeWidth={1.4} />
         </span>
       ))}
-
-      <span
-        data-reveal="fade"
-        className="absolute h-1 w-1 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#0c0c0d]"
-        style={{ ...d(700), left: "37%", top: "50%" }}
-      />
-      <span
-        data-reveal="fade"
-        className="absolute h-1 w-1 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#0c0c0d]"
-        style={{ ...d(700), left: "63%", top: "50%" }}
-      />
-      <span data-reveal="pop" style={d(100)} className="absolute left-1/2 top-1/2 flex h-[54px] -translate-x-1/2 -translate-y-1/2 items-center gap-2 rounded-full bg-[#0c0c0d] px-6 text-[14px] font-medium tracking-[-0.02em] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_14px_28px_-10px_rgba(0,0,0,0.55)]">
-        <span aria-hidden="true" className="text-white/50">
-          ‹
-        </span>
+      <span data-reveal="pop" style={d(100)} className="absolute left-1/2 top-1/2 z-20 flex h-[54px] -translate-x-1/2 -translate-y-1/2 items-center gap-2 rounded-full bg-[#0c0c0d] px-6 text-[14px] font-medium tracking-[-0.02em] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_14px_28px_-10px_rgba(0,0,0,0.55)]">
+        <span aria-hidden="true" className="text-white/50">‹</span>
         Stone
-        <span aria-hidden="true" className="text-white/50">
-          ›
-        </span>
+        <span aria-hidden="true" className="text-white/50">›</span>
       </span>
     </div>
   );
