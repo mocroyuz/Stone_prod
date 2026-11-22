@@ -3017,7 +3017,7 @@ function BestTimeSection({
                     {c.days.map((day,d)=>{
                       const cell=heatmap.grid[d][h];
                       const isBest=heatmap.best.day===d && heatmap.best.hour===h;
-                      return <button key={day+h} type="button" onClick={()=>onSchedule({day:d,hour:h})} title={c.bestTime.scheduleAria(c.daysLong[d],hourLabel(h))} aria-label={c.bestTime.scheduleAria(c.daysLong[d],hourLabel(h))} className={`h-[21px] rounded-[3px] transition-all hover:brightness-125 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 ${isBest ? "ring-2 ring-offset-1" : ""}`} style={{...heatLayer(cell.norm,isDark), ...(isBest ? {outline:`2px solid ${accent}`,outlineOffset:"1px"} : {})}} />
+                      return <button key={day+h} type="button" onClick={()=>onSchedule({day:d,hour:h})} title={c.bestTime.scheduleAria(c.daysLong[d],hourLabel(h))} aria-label={c.bestTime.scheduleAria(c.daysLong[d],hourLabel(h))} className={`aspect-square min-w-0 w-full rounded-[3px] transition-all hover:brightness-125 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 ${isBest ? "ring-2 ring-offset-1" : ""}`} style={{...heatLayer(cell.norm,isDark), ...(isBest ? {outline:`2px solid ${accent}`,outlineOffset:"1px"} : {})}} />
                     })}
                   </div>
                 ))}
