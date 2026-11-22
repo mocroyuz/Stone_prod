@@ -3008,7 +3008,7 @@ function BestTimeSection({
         {view === "heatmap" ? (
           <div className="mt-5 overflow-x-auto pb-1">
             <div className="min-w-fit">
-              <div className="grid grid-cols-[42px_repeat(7,14px)] gap-0">
+              <div className="grid grid-cols-[42px_repeat(7,18px)] gap-x-1 gap-y-1">
                 <span />
                 {c.days.map((day, d) => <span key={day} className={`pb-0 text-center text-[11px] font-medium ${heatmap.best.day === d ? "" : t.muted}`} style={heatmap.best.day === d ? {color:accent} : undefined}>{day}</span>)}
                 {Array.from({length:24},(_,h)=>(
@@ -3017,7 +3017,7 @@ function BestTimeSection({
                     {c.days.map((day,d)=>{
                       const cell=heatmap.grid[d][h];
                       const isBest=heatmap.best.day===d && heatmap.best.hour===h;
-                      return <button key={day+h} type="button" onClick={()=>onSchedule({day:d,hour:h})} title={c.bestTime.scheduleAria(c.daysLong[d],hourLabel(h))} aria-label={c.bestTime.scheduleAria(c.daysLong[d],hourLabel(h))} className={`h-3 w-3 min-w-3 shrink-0 rounded-[2px] transition-all hover:brightness-125 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 sm:h-3.5 sm:w-3.5 sm:min-w-3.5 ${isBest ? "ring-2 ring-offset-1" : ""}`} style={{...heatLayer(cell.norm,isDark), ...(isBest ? {outline:`2px solid ${accent}`,outlineOffset:"1px"} : {})}} />
+                      return <button key={day+h} type="button" onClick={()=>onSchedule({day:d,hour:h})} title={c.bestTime.scheduleAria(c.daysLong[d],hourLabel(h))} aria-label={c.bestTime.scheduleAria(c.daysLong[d],hourLabel(h))} className={`h-3 w-3 min-w-3 shrink-0 justify-self-center rounded-[2px] transition-all hover:brightness-125 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 sm:h-3.5 sm:w-3.5 sm:min-w-3.5 ${isBest ? "ring-2 ring-offset-1" : ""}`} style={{...heatLayer(cell.norm,isDark), ...(isBest ? {outline:`2px solid ${accent}`,outlineOffset:"1px"} : {})}} />
                     })}
                   </div>
                 ))}
