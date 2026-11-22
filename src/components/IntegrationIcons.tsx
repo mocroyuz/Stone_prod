@@ -231,6 +231,8 @@ export function GoogleDriveIcon({
   );
 }
 
+export const GooglePhotosIcon = createIcon("logos:google-photos", "Google Photos");
+
 export const GmailIcon = createIcon("logos:google-gmail", "Gmail");
 
 export function GoogleCalendarIcon({
