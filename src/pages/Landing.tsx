@@ -202,7 +202,7 @@ const dv = (ms: number, vars: Record<string, string | number>): CSSProperties =>
 const SOFT_CARD =
   "bg-white shadow-[0_0_0_1px_rgba(0,0,0,0.05),0_2px_4px_rgba(0,0,0,0.03),0_16px_32px_-16px_rgba(0,0,0,0.14)]";
 
-/** Colonne centrale bordée à gauche et à droite par un filet. */
+/** Colonne centrale (sans filets latéraux). */
 function Col({
   children,
   className = "",
@@ -212,11 +212,7 @@ function Col({
 }) {
   return (
     <div
-      className={[
-        "mx-auto w-full max-w-[1313px] border-x",
-        HAIR,
-        className,
-      ].join(" ")}
+      className={["mx-auto w-full max-w-[1313px]", className].join(" ")}
     >
       {children}
     </div>
