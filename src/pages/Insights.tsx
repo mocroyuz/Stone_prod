@@ -9,16 +9,15 @@
 //  - cibles tactiles >= 40px sur mobile
 //  - mobile : feuilles glissables (BottomSheet) pour le canal, la plage de
 //    dates, les infobulles « i » et le détail horaire d'un jour
-//  - mobile : « Meilleur moment » = 7 lignes (une par jour) au lieu d'une
-//    grille 24 colonnes illisible ; un tap ouvre les 24 heures en grandes cases
 //  - tableau des posts : cartes sous md, grille 6 colonnes dès md
 //
-// 2025-06 : refonte UI de « Best time to post »
-//  - heatmap desktop : règle horaire alignée, cellule gagnante en anneau ambré,
-//    survol → Jour · Heure · % ; légende Low → High
-//  - recommandations : les 3 créneaux distincts sont exposés en chips cliquables
-//  - en-tête : badge de confiance (baseline / early / solid) + CTA principal
-//  - mobile : marqueur circulaire sur la barre de chaleur à la meilleure heure
+// 2025-06 : refonte orientée vente de « Best time to post »
+//  - UNE réponse (jour + heure) à 38–54 px, UN CTA, UNE preuve
+//  - la heatmap n'est plus un dashboard : c'est une bande continue
+//    sans badge, sans chip, sans score visible, sans méthodologie
+//  - état vide éditorial (pas de badge « 0 posts »)
+//  - suppression de : BestTimeHeader, BestTimeRecommendations,
+//    badge de confiance, chips de recommandations, score au survol
 
 import {
   useCallback,
@@ -335,26 +334,19 @@ type Copy = {
   };
   bestTime: {
     title: string;
+    answerSubline: string;
+    scheduleCta: (day: string, hour: string) => string;
+    activityByDay: string;
+    emptyTitle: string;
     emptySubhead: string;
-    filledSubhead: (label: string) => string;
     noteBaseline: string;
     noteEarly: (n: number) => string;
     noteSolid: (n: number) => string;
-    useLabel: (label: string) => string;
-    bestOfDaySuffix: string;
     scheduleAria: (day: string, hour: string) => string;
+    bestOfDay: string;
+    pickHour: string;
     low: string;
     high: string;
-    pickHour: string;
-    bestOfDay: string;
-    /** Badges de confiance + sous-titre de la section. */
-    confidenceBaseline: string;
-    confidenceEarly: string;
-    confidenceSolid: string;
-    confidenceLabel: (label: string, n: number) => string;
-    recommendationsTitle: string;
-    scoreSuffix: string;
-    rulerAria: string;
   };
   recycle: {
     title: string;
@@ -506,30 +498,20 @@ const COPY: Record<Lang, Copy> = {
     },
     bestTime: {
       title: "Best time to post",
+      answerSubline: "When your audience is most active. Publish into it.",
+      scheduleCta: (day, hour) => `Schedule for ${day} ${hour}`,
+      activityByDay: "Activity by day",
+      emptyTitle: "Not enough activity yet",
       emptySubhead:
-        "Once a few posts arrive, we'll map the time that actually works for you — and hand it to your calendar.",
-      filledSubhead: (label) =>
-        `Your best window is ${label}. Don't guess the slot — fill it.`,
-      noteBaseline:
-        "Based on typical audience activity — refines as you publish",
-      noteEarly: (n) => `Typical activity combined with your ${n} posts`,
-      noteSolid: (n) =>
-        `Based on your ${n} posts, smoothed by hour and weekday`,
-      useLabel: (label) => `Use ${label}`,
-      bestOfDaySuffix: " · best of day",
+        "Publish a few posts — we'll map the window that actually works for you.",
+      noteBaseline: "Refines as you publish",
+      noteEarly: (n) => `Based on your last ${n} posts`,
+      noteSolid: (n) => `Based on your last ${n} posts`,
       scheduleAria: (day, hour) => `Schedule ${day} at ${hour}`,
-      low: "Low",
-      high: "High",
-      pickHour: "Tap an hour to schedule a post there.",
       bestOfDay: "Best of the day",
-      confidenceBaseline: "Baseline",
-      confidenceEarly: "Early signal",
-      confidenceSolid: "Solid signal",
-      confidenceLabel: (label, n) =>
-        `${label} · ${n} post${n === 1 ? "" : "s"}`,
-      recommendationsTitle: "Recommended slots",
-      scoreSuffix: "% score",
-      rulerAria: "Hours of the day",
+      pickHour: "Tap an hour to schedule a post there.",
+      low: "Quiet",
+      high: "Busy",
     },
     recycle: {
       title: "Posts to recycle",
@@ -720,30 +702,21 @@ const COPY: Record<Lang, Copy> = {
     },
     bestTime: {
       title: "Meilleur moment pour publier",
+      answerSubline:
+        "Quand votre audience est la plus active. Publiez à ce moment-là.",
+      scheduleCta: (day, hour) => `Programmer ${day} ${hour}`,
+      activityByDay: "Activité par jour",
+      emptyTitle: "Pas encore assez d'activité",
       emptySubhead:
-        "Dès que quelques posts arrivent, nous cartographions l'heure qui fonctionne vraiment pour vous — puis l'envoyons au calendrier.",
-      filledSubhead: (label) =>
-        `Votre meilleure fenêtre est ${label}. Ne devinez pas le créneau — remplissez-le.`,
-      noteBaseline:
-        "Basé sur l'activité typique de l'audience — s'affine au fur et à mesure que vous publiez",
-      noteEarly: (n) => `Activité typique combinée à vos ${n} posts`,
-      noteSolid: (n) =>
-        `Basé sur vos ${n} posts, lissés par heure et jour de la semaine`,
-      useLabel: (label) => `Utiliser ${label}`,
-      bestOfDaySuffix: " · meilleur du jour",
+        "Publiez quelques posts — nous cartographierons la fenêtre qui fonctionne vraiment pour vous.",
+      noteBaseline: "S'affine au fil de vos publications",
+      noteEarly: (n) => `Sur vos ${n} derniers posts`,
+      noteSolid: (n) => `Sur vos ${n} derniers posts`,
       scheduleAria: (day, hour) => `Programmer ${day} à ${hour}`,
-      low: "Faible",
-      high: "Élevé",
-      pickHour: "Touchez une heure pour y programmer un post.",
       bestOfDay: "Meilleur moment du jour",
-      confidenceBaseline: "Base",
-      confidenceEarly: "Signal précoce",
-      confidenceSolid: "Signal solide",
-      confidenceLabel: (label, n) =>
-        `${label} · ${n} post${n > 1 ? "s" : ""}`,
-      recommendationsTitle: "Créneaux recommandés",
-      scoreSuffix: "% score",
-      rulerAria: "Heures de la journée",
+      pickHour: "Touchez une heure pour y programmer un post.",
+      low: "Calme",
+      high: "Chargé",
     },
     recycle: {
       title: "Posts à recycler",
@@ -2737,133 +2710,38 @@ function RangePicker({
 }
 
 /* ============================================================
-   MEILLEUR MOMENT — en-tête commun
+   MEILLEUR MOMENT — desktop (bande continue)
 ============================================================ */
 
-function BestTimeHeader({
+function BestTimeDesktopGrid({
   heatmap,
   c,
-  t,
   isDark,
-  subhead,
+  accent,
   onSchedule,
 }: {
   heatmap: BestTimes;
   c: Copy;
-  t: Tokens;
   isDark: boolean;
-  subhead: string;
-  onSchedule: (slot: { day: number; hour: number }) => void;
-}) {
-  const label =
-    heatmap.confidence === "baseline"
-      ? c.bestTime.confidenceBaseline
-      : heatmap.confidence === "early"
-        ? c.bestTime.confidenceEarly
-        : c.bestTime.confidenceSolid;
-  const accent = isDark ? "#fbbf24" : "#ea580c";
-
-  return (
-    <div className="flex flex-wrap items-start justify-between gap-3">
-      <div className="min-w-0">
-        <h3 className={`text-[15px] font-semibold ${t.text}`}>
-          {c.bestTime.title}
-        </h3>
-        <p
-          className={`mt-0.5 max-w-[56ch] text-[12.5px] leading-relaxed ${t.muted}`}
-        >
-          {subhead}
-        </p>
-        <span
-          className={[
-            "mt-2 inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider",
-            t.border,
-            t.muted,
-          ].join(" ")}
-        >
-          <span
-            className="h-1.5 w-1.5 rounded-full"
-            style={{ background: accent }}
-            aria-hidden="true"
-          />
-          {c.bestTime.confidenceLabel(label, heatmap.sample)}
-        </span>
-      </div>
-
-      <button
-        type="button"
-        onClick={() => onSchedule(heatmap.best)}
-        className={`flex min-h-10 shrink-0 items-center gap-1.5 rounded-lg px-3.5 py-2 text-[12.5px] font-semibold ${t.ring} ${t.primaryBtn}`}
-      >
-        <CalendarClock className="h-3.5 w-3.5" aria-hidden="true" />
-        {c.bestTime.useLabel(heatmap.label)}
-      </button>
-    </div>
-  );
-}
-
-/* ============================================================
-   MEILLEUR MOMENT — vue desktop (grille 7 × 24)
-============================================================ */
-
-function BestTimeHeatmap({
-  heatmap,
-  c,
-  t,
-  isDark,
-  onSchedule,
-}: {
-  heatmap: BestTimes;
-  c: Copy;
-  t: Tokens;
-  isDark: boolean;
+  accent: string;
   onSchedule: (slot: { day: number; hour: number }) => void;
 }) {
   const [hover, setHover] = useState<{ day: number; hour: number } | null>(null);
-  const top = heatmap.best;
-  const accent = isDark ? "#fbbf24" : "#ea580c";
+  const best = heatmap.best;
 
   return (
-    <div className="mt-5">
-      {/* Règle horaire alignée sur la grille */}
-      <div
-        className="mb-1.5 flex items-center gap-2"
-        aria-label={c.bestTime.rulerAria}
-      >
-        <div className="w-10 shrink-0" />
-        <div className="relative h-3.5 flex-1">
-          {[0, 6, 12, 18, 24].map((h, i) => (
-            <span
-              key={h}
-              className={`absolute top-0 text-[9.5px] font-semibold tabular-nums ${t.muted}`}
-              style={{
-                left: `${(h / 24) * 100}%`,
-                transform:
-                  i === 0
-                    ? "translateX(0)"
-                    : i === 4
-                      ? "translateX(-100%)"
-                      : "translateX(-50%)",
-              }}
-            >
-              {h === 24 ? "24h" : `${h}h`}
-            </span>
-          ))}
-        </div>
-      </div>
-
-      {/* Grille 7 × 24 */}
-      <div className="flex flex-col gap-1">
+    <div>
+      <div className="flex flex-col gap-[2px]">
         {c.days.map((day, d) => (
-          <div key={day} className="flex items-center gap-2">
+          <div key={day} className="flex items-center gap-3">
             <span
-              className={`w-10 shrink-0 text-[11px] font-semibold ${t.soft}`}
+              className={`w-8 shrink-0 text-[10.5px] font-medium ${t.mutedPlaceholder}`}
             >
               {day}
             </span>
-            <div className="flex flex-1 gap-[3px]">
+            <div className="flex flex-1 gap-[1px]">
               {heatmap.grid[d].map((cell, h) => {
-                const isBest = d === top.day && h === top.hour;
+                const isBest = d === best.day && h === best.hour;
                 return (
                   <button
                     key={h}
@@ -2878,21 +2756,15 @@ function BestTimeHeatmap({
                       hourLabel(h)
                     )}
                     className={[
-                      "relative h-6 flex-1 rounded-[3px] transition-[transform,filter] duration-150",
-                      "hover:z-10 hover:scale-110 hover:brightness-115",
-                      "focus-visible:outline-none focus-visible:ring-2",
-                      isDark
-                        ? "focus-visible:ring-white/50"
-                        : "focus-visible:ring-black/40",
-                      isBest
-                        ? `z-10 ring-2 ring-offset-1 ${
-                            isDark
-                              ? "ring-amber-300 ring-offset-[#161616]"
-                              : "ring-orange-600 ring-offset-white"
-                          }`
-                        : "",
+                      "h-6 flex-1 rounded-[1px] transition-[filter] duration-100",
+                      "hover:brightness-125 focus-visible:brightness-125",
+                      "focus-visible:outline-none",
+                      isBest ? "outline outline-2 outline-offset-[2px]" : "",
                     ].join(" ")}
-                    style={heatLayer(cell.norm, isDark)}
+                    style={{
+                      ...heatLayer(cell.norm, isDark),
+                      outlineColor: isBest ? accent : undefined,
+                    }}
                   />
                 );
               })}
@@ -2901,215 +2773,90 @@ function BestTimeHeatmap({
         ))}
       </div>
 
-      {/* Statut survol — hauteur fixe, pas de layout shift */}
-      <div
-        className={`mt-2 h-5 truncate text-[12px] ${t.muted}`}
+      <p
+        className={`mt-2 h-4 text-[11px] ${t.mutedPlaceholder}`}
         aria-live="polite"
       >
         {hover ? (
           <>
-            <b className={t.text}>{c.daysLong[hover.day]}</b>
-            <span className="mx-1 opacity-40">·</span>
-            <b className={`tabular-nums ${t.text}`}>
-              {hourLabel(hover.hour)}
-            </b>
-            <span className="mx-1 opacity-40">·</span>
-            <span className="tabular-nums">
-              {Math.round(heatmap.grid[hover.day][hover.hour].norm * 100)}
-              {c.bestTime.scoreSuffix.replace("%", "").trim()}
-            </span>
+            {c.daysLong[hover.day]}
+            <span className="mx-1 opacity-50">·</span>
+            <span className="tabular-nums">{hourLabel(hover.hour)}</span>
           </>
         ) : (
           c.bestTime.pickHour
         )}
-      </div>
-
-      {/* Légende */}
-      <div className="mt-2 flex items-center gap-2 text-[10px] font-medium uppercase tracking-wider">
-        <span className={t.muted}>{c.bestTime.low}</span>
-        <span
-          className="flex h-2 w-24 overflow-hidden rounded-full"
-          aria-hidden="true"
-        >
-          {Array.from({ length: 14 }, (_, i) => (
-            <span key={i} className="flex-1" style={heatLayer(i / 13, isDark)} />
-          ))}
-        </span>
-        <span className={t.muted}>{c.bestTime.high}</span>
-        <span
-          className="ml-auto flex items-center gap-1.5 text-[10px] font-semibold"
-          style={{ color: accent }}
-        >
-          <span
-            className="h-2 w-2 rounded-full ring-1"
-            style={{
-              background: accent,
-              outlineColor: isDark ? "#161616" : "#ffffff",
-            }}
-            aria-hidden="true"
-          />
-          {c.daysLong[top.day]} · {hourLabel(top.hour)}
-        </span>
-      </div>
-    </div>
-  );
-}
-
-/* ============================================================
-   MEILLEUR MOMENT — recommandations (chips)
-============================================================ */
-
-function BestTimeRecommendations({
-  heatmap,
-  c,
-  t,
-  isDark,
-  onSchedule,
-}: {
-  heatmap: BestTimes;
-  c: Copy;
-  t: Tokens;
-  isDark: boolean;
-  onSchedule: (slot: { day: number; hour: number }) => void;
-}) {
-  if (heatmap.recommendations.length === 0) return null;
-  const accent = isDark ? "#fbbf24" : "#ea580c";
-
-  return (
-    <div className="mt-4">
-      <p
-        className={`mb-1.5 text-[10.5px] font-semibold uppercase tracking-wider ${t.muted}`}
-      >
-        {c.bestTime.recommendationsTitle}
       </p>
-      <div className="flex flex-wrap gap-2">
-        {heatmap.recommendations.map((r, i) => (
-          <button
-            key={`${r.day}-${r.hour}`}
-            type="button"
-            onClick={() => onSchedule({ day: r.day, hour: r.hour })}
-            className={[
-              "flex items-center gap-2 rounded-full border px-3 py-1.5 text-[12px] font-semibold transition-colors",
-              t.ring,
-              t.inner,
-              t.hover,
-              i === 0
-                ? isDark
-                  ? "border-amber-300/40"
-                  : "border-orange-500/40"
-                : "",
-            ].join(" ")}
-          >
-            <span
-              className="h-1.5 w-1.5 rounded-full"
-              style={{ background: accent }}
-              aria-hidden="true"
-            />
-            <span className={t.text}>
-              {c.days[r.day]} · {hourLabel(r.hour)}
-            </span>
-            <span className={`tabular-nums text-[10px] ${t.muted}`}>
-              {Math.round(r.norm * 100)}%
-            </span>
-          </button>
-        ))}
-      </div>
     </div>
   );
 }
 
 /* ============================================================
-   MEILLEUR MOMENT — vue mobile (7 lignes)
+   MEILLEUR MOMENT — mobile (bandes + heure en ambre)
 ============================================================ */
 
-function BestTimeMobile({
+function BestTimeMobileBars({
   heatmap,
   c,
   t,
   isDark,
+  accent,
   onSchedule,
 }: {
   heatmap: BestTimes;
   c: Copy;
   t: Tokens;
   isDark: boolean;
+  accent: string;
   onSchedule: (slot: { day: number; hour: number }) => void;
 }) {
   const [openDay, setOpenDay] = useState<number | null>(null);
-  const base = isDark ? "bg-white/[0.05]" : "bg-black/[0.04]";
-  const accent = isDark ? "#fbbf24" : "#ea580c";
 
   return (
     <>
-      <div className="mt-4 flex flex-col gap-1.5">
+      <div className="flex flex-col gap-0.5">
         {c.days.map((day, d) => {
-          const best = heatmap.bestByDay[d];
-          const isGlobalBest =
-            d === heatmap.best.day && best.hour === heatmap.best.hour;
+          const bestForDay = heatmap.bestByDay[d];
+          const isGlobalBest = d === heatmap.best.day;
           return (
             <button
               key={day}
               type="button"
               onClick={() => setOpenDay(d)}
-              aria-label={`${c.daysLong[d]} · ${hourLabel(best.hour)}`}
-              className={[
-                "flex min-h-12 items-center gap-3 rounded-2xl border px-3 text-left transition-colors",
-                t.ring,
-                t.inner,
-                t.hover,
-                isGlobalBest
-                  ? isDark
-                    ? "ring-1 ring-amber-300/40"
-                    : "ring-1 ring-orange-500/30"
-                  : "",
-              ].join(" ")}
+              aria-label={`${c.daysLong[d]} · ${hourLabel(bestForDay.hour)}`}
+              className={`flex min-h-11 items-center gap-3 rounded-lg px-2 text-left transition-colors ${
+                isDark ? "active:bg-white/[0.04]" : "active:bg-black/[0.03]"
+              }`}
             >
               <span
-                className={`w-9 shrink-0 text-[12px] font-semibold ${t.soft}`}
+                className={`w-8 shrink-0 text-[11px] font-medium ${t.mutedPlaceholder}`}
               >
                 {day}
               </span>
 
-              {/* Barre + marqueur du meilleur créneau */}
               <span
-                className={`relative h-7 min-w-0 flex-1 overflow-hidden rounded-md ${base}`}
+                className="relative h-2 flex-1 overflow-hidden rounded-[1px]"
+                aria-hidden="true"
               >
-                <span className="absolute inset-0 flex items-stretch gap-[2px] p-[2px]">
+                <span className="absolute inset-0 flex gap-[1px]">
                   {heatmap.grid[d].map((cell, h) => (
                     <span
                       key={h}
-                      className="flex-1 rounded-[2px]"
+                      className="flex-1"
                       style={heatLayer(cell.norm, isDark)}
                     />
                   ))}
                 </span>
-                <span
-                  className="pointer-events-none absolute top-1/2 z-10 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full shadow"
-                  style={{
-                    left: `${((best.hour + 0.5) / 24) * 100}%`,
-                    background: accent,
-                    outline: `2px solid ${isDark ? "#161616" : "#ffffff"}`,
-                  }}
-                  aria-hidden="true"
-                />
               </span>
 
               <span
-                className={[
-                  "shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold tabular-nums",
-                  isGlobalBest
-                    ? isDark
-                      ? "bg-amber-300 text-black"
-                      : "bg-orange-500 text-white"
-                    : t.sel,
-                ].join(" ")}
+                className={`w-12 shrink-0 text-right text-[11.5px] font-semibold tabular-nums ${
+                  isGlobalBest ? "" : t.mutedPlaceholder
+                }`}
+                style={isGlobalBest ? { color: accent } : undefined}
               >
-                {hourLabel(best.hour)}
+                {hourLabel(bestForDay.hour)}
               </span>
-              <ChevronRight
-                className={`h-4 w-4 shrink-0 ${t.muted}`}
-                aria-hidden="true"
-              />
             </button>
           );
         })}
@@ -3126,16 +2873,16 @@ function BestTimeMobile({
             const bestHour = heatmap.bestByDay[d].hour;
             return (
               <div className="flex flex-col gap-3 pt-1">
-                <p className={`text-center text-[13px] ${t.soft}`}>
-                  {c.bestTime.bestOfDay} ·{" "}
-                  <span className={`font-semibold tabular-nums ${t.text}`}>
+                <p className={`text-center text-[13px] ${t.softPlaceholder}`}>
+                  {c.bestTime.bestOfDay}
+                  <span className="mx-1 opacity-50">·</span>
+                  <span className={`font-semibold tabular-nums ${t.textPlaceholder}`}>
                     {hourLabel(bestHour)}
                   </span>
                 </p>
                 <div className="grid grid-cols-6 gap-1.5">
                   {Array.from({ length: 24 }, (_, h) => {
                     const cell = heatmap.grid[d][h];
-                    const isBest = h === bestHour;
                     return (
                       <button
                         key={h}
@@ -3152,19 +2899,13 @@ function BestTimeMobile({
                           );
                         }}
                         className={[
-                          "relative flex aspect-[4/3] min-h-11 items-center justify-center rounded-xl text-[13px] font-semibold tabular-nums",
-                          "transition-transform active:scale-95 focus-visible:outline-none focus-visible:ring-2",
+                          "flex aspect-[4/3] min-h-11 items-center justify-center rounded-lg text-[13px] font-semibold tabular-nums",
+                          "transition-transform active:scale-95",
+                          "focus-visible:outline-none focus-visible:ring-2",
                           isDark
                             ? "focus-visible:ring-white/40"
                             : "focus-visible:ring-black/30",
-                          cell.norm > 0.5 ? "text-white" : t.soft,
-                          isBest
-                            ? `ring-2 ring-offset-2 ${
-                                isDark
-                                  ? "ring-amber-300 ring-offset-[#101012]"
-                                  : "ring-orange-600 ring-offset-white"
-                              }`
-                            : "",
+                          cell.norm > 0.5 ? "text-white" : t.softPlaceholder,
                         ].join(" ")}
                         style={heatLayer(cell.norm, isDark)}
                       >
@@ -3173,7 +2914,7 @@ function BestTimeMobile({
                     );
                   })}
                 </div>
-                <p className={`text-center text-[12px] ${t.muted}`}>
+                <p className={`text-center text-[12px] ${t.mutedPlaceholder}`}>
                   {c.bestTime.pickHour}
                 </p>
               </div>
@@ -3182,6 +2923,129 @@ function BestTimeMobile({
         </BottomSheet>
       )}
     </>
+  );
+}
+
+/* ============================================================
+   MEILLEUR MOMENT — section complète
+============================================================ */
+
+function BestTimeSection({
+  heatmap,
+  c,
+  t,
+  isDark,
+  isMobile,
+  note,
+  onSchedule,
+}: {
+  heatmap: BestTimes;
+  c: Copy;
+  t: Tokens;
+  isDark: boolean;
+  isMobile: boolean;
+  note: string;
+  onSchedule: (slot: { day: number; hour: number }) => void;
+}) {
+  const best = heatmap.best;
+  const dayLabel = c.daysLong[best.day];
+  const timeLabel = hourLabel(best.hour);
+  const accent = isDark ? "#fbbf24" : "#ea580c";
+  const hasData = heatmap.sample > 0;
+
+  return (
+    <section className={`overflow-hidden rounded-2xl border ${t.card}`}>
+      {/* ── HERO ─────────────────────────────────────────────── */}
+      <div className="px-5 pb-5 pt-6 md:px-8 md:pb-7 md:pt-8">
+        <p
+          className={`text-[11px] font-semibold uppercase tracking-[0.16em] ${t.muted}`}
+        >
+          {c.bestTime.title}
+        </p>
+
+        {hasData ? (
+          <>
+            <h2 className={`mt-3 text-[38px] font-semibold leading-[1.02] tracking-[-0.035em] md:text-[54px] ${t.text}`}>
+              {dayLabel}
+              <span className={`mx-2 font-normal ${t.muted}`}>·</span>
+              <span className="tabular-nums">{timeLabel}</span>
+            </h2>
+            <p
+              className={`mt-3 max-w-[52ch] text-[13.5px] leading-relaxed md:text-[14.5px] ${t.soft}`}
+            >
+              {c.bestTime.answerSubline}
+            </p>
+
+            <div className="mt-5 flex flex-wrap items-center gap-x-3 gap-y-2">
+              <button
+                type="button"
+                onClick={() => onSchedule(best)}
+                className={`group flex min-h-11 items-center gap-2 rounded-xl px-4 py-2.5 text-[13.5px] font-semibold ${t.ring} ${t.primaryBtn}`}
+              >
+                {c.bestTime.scheduleCta(dayLabel, timeLabel)}
+                <span
+                  aria-hidden="true"
+                  className="transition-transform duration-150 group-hover:translate-x-0.5"
+                >
+                  →
+                </span>
+              </button>
+              <span className={`text-[11.5px] ${t.muted}`}>{note}</span>
+            </div>
+          </>
+        ) : (
+          <>
+            <h2
+              className={`mt-3 max-w-[20ch] text-[26px] font-semibold leading-tight tracking-[-0.02em] md:text-[32px] ${t.text}`}
+            >
+              {c.bestTime.emptyTitle}
+            </h2>
+            <p
+              className={`mt-2 max-w-[52ch] text-[13.5px] leading-relaxed ${t.soft}`}
+            >
+              {c.bestTime.emptySubhead}
+            </p>
+          </>
+        )}
+      </div>
+
+      {/* ── EVIDENCE ─────────────────────────────────────────── */}
+      {hasData && (
+        <div className={`border-t px-5 pb-5 pt-4 md:px-8 md:pb-6 ${t.border}`}>
+          <div className="mb-2.5 flex items-baseline justify-between">
+            <p
+              className={`text-[10.5px] font-semibold uppercase tracking-[0.14em] ${t.muted}`}
+            >
+              {c.bestTime.activityByDay}
+            </p>
+            <p className={`text-[10.5px] ${t.muted}`}>
+              {c.bestTime.low}
+              <span aria-hidden="true"> → </span>
+              {c.bestTime.high}
+            </p>
+          </div>
+
+          {isMobile ? (
+            <BestTimeMobileBars
+              heatmap={heatmap}
+              c={c}
+              t={t}
+              isDark={isDark}
+              accent={accent}
+              onSchedule={onSchedule}
+            />
+          ) : (
+            <BestTimeDesktopGrid
+              heatmap={heatmap}
+              c={c}
+              isDark={isDark}
+              accent={accent}
+              onSchedule={onSchedule}
+            />
+          )}
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -3420,18 +3284,12 @@ export default function Insights() {
     () => [...posts].sort((a, b) => postScore(b) - postScore(a)),
     [posts]
   );
-  const topPost = ranked[0];
   const avgScore = posts.length
     ? posts.reduce((a, p) => a + postScore(p), 0) / posts.length
     : 0;
   const remixable = ranked
     .filter((p) => postScore(p) >= avgScore * 1.25)
     .slice(0, 4);
-
-  const subhead =
-    heatmap.sample === 0
-      ? c.bestTime.emptySubhead
-      : c.bestTime.filledSubhead(heatmap.label);
 
   const TONES: [string, string] = [isDark ? "#f5f5f5" : "#171717", "#858585"];
 
@@ -3869,48 +3727,17 @@ export default function Insights() {
           </section>
 
           {/* ── Best time ── */}
-          <section className="mt-5">
-            <div className={`rounded-2xl border p-4 md:p-5 ${t.card}`}>
-              <BestTimeHeader
-                heatmap={heatmap}
-                c={c}
-                t={t}
-                isDark={isDark}
-                subhead={subhead}
-                onSchedule={scheduleFromSlot}
-              />
-
-              {isMobile ? (
-                <BestTimeMobile
-                  heatmap={heatmap}
-                  c={c}
-                  t={t}
-                  isDark={isDark}
-                  onSchedule={scheduleFromSlot}
-                />
-              ) : (
-                <BestTimeHeatmap
-                  heatmap={heatmap}
-                  c={c}
-                  t={t}
-                  isDark={isDark}
-                  onSchedule={scheduleFromSlot}
-                />
-              )}
-
-              <BestTimeRecommendations
-                heatmap={heatmap}
-                c={c}
-                t={t}
-                isDark={isDark}
-                onSchedule={scheduleFromSlot}
-              />
-
-              <p className={`mt-4 text-[11px] ${t.muted}`}>
-                {bestTimesNote}
-              </p>
-            </div>
-          </section>
+          <div className="mt-5">
+            <BestTimeSection
+              heatmap={heatmap}
+              c={c}
+              t={t}
+              isDark={isDark}
+              isMobile={isMobile}
+              note={bestTimesNote}
+              onSchedule={scheduleFromSlot}
+            />
+          </div>
 
           {/* Recycle */}
           {remixable.length > 0 && (
@@ -4331,7 +4158,9 @@ function Stat({
 }) {
   return (
     <div className={`flex flex-col gap-0.5 rounded-md ${t.inner} px-1 py-1`}>
-      <span className={`truncate text-[9px] font-semibold uppercase tracking-wider ${t.muted}`}>
+      <span
+        className={`truncate text-[9px] font-semibold uppercase tracking-wider ${t.muted}`}
+      >
         {label}
       </span>
       <span className={`text-[12px] font-semibold tabular-nums ${t.text}`}>
