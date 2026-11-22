@@ -3007,8 +3007,8 @@ function BestTimeSection({
 
         {view === "heatmap" ? (
           <div className="mt-5 overflow-x-auto pb-1">
-            <div className="min-w-[560px]">
-              <div className="grid grid-cols-[42px_repeat(7,minmax(0,1fr))] gap-0">
+            <div className="min-w-fit">
+              <div className="grid grid-cols-[42px_repeat(7,14px)] gap-0">
                 <span />
                 {c.days.map((day, d) => <span key={day} className={`pb-0 text-center text-[11px] font-medium ${heatmap.best.day === d ? "" : t.muted}`} style={heatmap.best.day === d ? {color:accent} : undefined}>{day}</span>)}
                 {Array.from({length:24},(_,h)=>(
