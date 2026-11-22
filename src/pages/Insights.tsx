@@ -3494,608 +3494,139 @@ export default function Insights() {
             </div>
           </header>
 
-          {/* Hero */}
-          <section className="mb-6">
-            <p
-              className={`text-[11px] font-semibold uppercase tracking-[0.14em] ${t.muted}`}
-            >
-              {c.hero.eyebrow}
-            </p>
-            <h2 className="mt-1 max-w-[24ch] text-[28px] font-semibold leading-tight tracking-[-0.03em] md:text-[34px]">
-              {c.hero.title}
-            </h2>
-            <p
-              className={`mt-2 max-w-[64ch] text-[13.5px] leading-relaxed md:text-[14px] ${t.muted}`}
-            >
-              {c.hero.subtitle}
-            </p>
+          {/* Refined Insights overview */}
+          <section className="mb-7 flex flex-col gap-4 border-b pb-6 md:flex-row md:items-end md:justify-between">
+            <div className="max-w-2xl">
+              <p className={\`text-[11px] font-semibold uppercase tracking-[0.16em] \${t.muted}\`}>{c.hero.eyebrow}</p>
+              <h2 className="mt-2 text-[30px] font-semibold leading-[1.08] tracking-[-0.045em] md:text-[40px]">{c.hero.title}</h2>
+              <p className={\`mt-3 max-w-[60ch] text-[13.5px] leading-6 \${t.muted}\`}>{c.hero.subtitle}</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button type="button" onClick={() => setReloadKey((k) => k + 1)} disabled={youtubeLoading} className={\`inline-flex h-10 items-center gap-2 rounded-xl border px-3 text-[12px] font-semibold \${t.ring} \${t.panel} \${t.hover}\`}>
+                <RefreshCw className={\`h-3.5 w-3.5 \${youtubeLoading ? "animate-spin" : ""}\`} /> {c.header.refresh}
+              </button>
+              <button type="button" onClick={handleExport} className={\`inline-flex h-10 items-center gap-2 rounded-xl px-3.5 text-[12px] font-semibold \${t.primaryBtn} \${t.ring}\`}>
+                <Download className="h-3.5 w-3.5" /> {c.header.export}
+              </button>
+            </div>
           </section>
 
-          {/* No channels */}
           {channels.length === 0 && (
-            <section
-              className={`mb-5 rounded-2xl border p-5 md:p-6 ${t.card}`}
-            >
-              <h3 className="text-[15px] font-semibold">{c.noChannels.title}</h3>
-              <p className={`mt-1 text-[13px] ${t.muted}`}>
-                {c.noChannels.description}
-              </p>
-              <button
-                type="button"
-                onClick={() => navigateToSettingsSection("channels")}
-                className={`mt-3 inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-[12.5px] font-semibold ${t.ring} ${t.primaryBtn}`}
-              >
-                <Plus className="h-3.5 w-3.5" aria-hidden="true" />
-                {c.noChannels.connect}
+            <section className="mb-6 border-b pb-6">
+              <h3 className="text-[16px] font-semibold">{c.noChannels.title}</h3>
+              <p className={\`mt-1 max-w-xl text-[13px] leading-5 \${t.muted}\`}>{c.noChannels.description}</p>
+              <button type="button" onClick={() => navigateToSettingsSection("channels")} className={\`mt-4 inline-flex h-10 items-center gap-2 rounded-xl px-4 text-[12px] font-semibold \${t.primaryBtn} \${t.ring}\`}>
+                <Plus className="h-4 w-4" /> {c.noChannels.connect}
               </button>
             </section>
           )}
 
-          {/* YouTube error */}
           {fetchYouTube && yt.error && (
-            <div
-              className={`mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border px-3.5 py-3 text-[12.5px] ${
-                isDark
-                  ? "border-amber-400/30 bg-amber-400/[0.06] text-amber-200"
-                  : "border-amber-500/30 bg-amber-50 text-amber-900"
-              }`}
-            >
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-500/30 bg-amber-500/[0.06] px-4 py-3 text-[12.5px]">
               <span>{c.errors.youtube(yt.error)}</span>
-              <button
-                type="button"
-                onClick={() => setReloadKey((k) => k + 1)}
-                className={`rounded-md px-2 py-1 text-[12px] font-semibold underline-offset-4 hover:underline ${t.ring}`}
-              >
-                {c.errors.retry}
-              </button>
+              <button type="button" onClick={() => setReloadKey((k) => k + 1)} className="font-semibold underline underline-offset-4">{c.errors.retry}</button>
             </div>
           )}
 
-          {/* Toolbar */}
-          <div className="mb-4 flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setChannelsOpen(true)}
-              className={`flex min-h-10 items-center gap-2 rounded-lg border px-2.5 py-1.5 text-[12px] font-semibold transition-colors md:min-h-0 ${t.ring} ${t.panel} ${t.hover} ${t.text}`}
-            >
-              {viewingAll ? (
-                <AllNetworksBadge isDark={isDark} size={24} />
-              ) : channel ? (
-                <ChannelAvatar channel={channel} isDark={isDark} size={24} />
-              ) : null}
-              <span className="max-w-[140px] truncate">
-                {viewingAll
-                  ? c.allNetworks
-                  : channel
-                    ? channel.name || channelLabel(channel)
-                    : c.sheets.channels}
-              </span>
-              <ChevronDown
-                className={`h-3.5 w-3.5 ${t.muted}`}
-                aria-hidden="true"
-              />
+          <section className="mb-7 flex flex-wrap items-center gap-2.5">
+            <button type="button" onClick={() => setChannelsOpen(true)} className={\`flex h-10 items-center gap-2 rounded-xl border px-3 text-[12px] font-semibold \${t.ring} \${t.panel} \${t.hover}\`}>
+              {viewingAll ? <AllNetworksBadge isDark={isDark} size={22} /> : channel ? <ChannelAvatar channel={channel} isDark={isDark} size={22} /> : null}
+              <span className="max-w-[150px] truncate">{viewingAll ? c.allNetworks : channel ? channel.name || channelLabel(channel) : c.sheets.channels}</span>
+              <ChevronDown className={\`h-3.5 w-3.5 \${t.muted}\`} />
             </button>
+            <RangePicker range={range} start={start} end={end} onStartChange={setCustomStart} onEndChange={setCustomEnd} t={t} isDark={isDark} isMobile={isMobile} lang={lang} />
+            <span className={\`ml-auto hidden text-[12px] md:block \${t.muted}\`}>{periodLabel}</span>
+          </section>
 
-            <RangePicker
-              range={range}
-              start={start}
-              end={end}
-              onStartChange={setCustomStart}
-              onEndChange={setCustomEnd}
-              t={t}
-              isDark={isDark}
-              isMobile={isMobile}
-              lang={lang}
-            />
-
-            <button
-              type="button"
-              onClick={cycleRange}
-              className={`ml-auto hidden text-[11.5px] font-semibold underline-offset-4 hover:underline md:inline ${t.muted} ${t.ring} rounded`}
-            >
-              {c.ranges[range]} → {c.overview.subtitle}
-            </button>
-          </div>
-
-          {/* Summary */}
-          <section className="mb-5">
-            <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
-              <h3 className="text-[15px] font-semibold">{c.summary.title}</h3>
-              <p className={`text-[12px] ${t.muted}`}>{periodLabel}</p>
+          <section className="mb-8">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <h3 className="text-[14px] font-semibold">{c.summary.title}</h3>
+              <span className={\`text-[11px] \${t.muted}\`}>{periodLabel}</span>
             </div>
-            <div className="grid grid-cols-2 gap-2 md:grid-cols-3 lg:grid-cols-6">
+            <div className="grid grid-cols-2 gap-x-4 gap-y-5 border-y py-4 md:grid-cols-3 lg:grid-cols-6">
               {summaryBoxes.map((b) => (
-                <MetricBox
-                  key={b.key}
-                  label={c.summary.labels[b.key]}
-                  value={b.value}
-                  info={c.summary.info[b.key]}
-                  delta={b.delta}
-                  icon={statIcons[b.key]}
-                  t={t}
-                  isDark={isDark}
-                  isMobile={isMobile}
-                  lang={lang}
-                />
+                <div key={b.key} className="min-w-0">
+                  <div className={\`flex items-center gap-2 text-[11.5px] \${t.muted}\`}>{statIcons[b.key]}<span className="truncate">{c.summary.labels[b.key]}</span></div>
+                  <div className="mt-2 flex flex-wrap items-baseline gap-2">
+                    <span className="text-[24px] font-semibold tracking-[-0.04em] tabular-nums md:text-[28px]">{b.value}</span>
+                    {b.delta != null && <span className={\`text-[11px] font-semibold \${b.delta >= 0 ? "text-emerald-500" : "text-rose-500"}\`}>{b.delta >= 0 ? "+" : ""}{b.delta}%</span>}
+                  </div>
+                  <p className={\`mt-1 line-clamp-2 text-[10.5px] leading-4 \${t.muted}\`}>{c.summary.info[b.key]}</p>
+                </div>
               ))}
             </div>
-
-            {/* Goal bar */}
-            <div
-              className={`mt-3 flex flex-wrap items-center gap-3 rounded-xl border px-3.5 py-3 ${t.card}`}
-            >
-              <span className={`text-[12px] ${t.muted}`}>
-                {c.summary.goalProgress(postsThisWeek, goal)}
-              </span>
-              <div
-                className={`relative h-2 flex-1 overflow-hidden rounded-full ${t.inner}`}
-                role="progressbar"
-                aria-valuemin={0}
-                aria-valuemax={goal}
-                aria-valuenow={postsThisWeek}
-                aria-label={c.summary.goalAria(postsThisWeek, goal)}
-              >
-                <span
-                  className="absolute inset-y-0 left-0 rounded-full"
-                  style={{
-                    width: `${goalPct}%`,
-                    background: isDark ? "#f5f5f5" : "#171717",
-                  }}
-                />
+            <div className="mt-4 flex items-center gap-3">
+              <span className={\`shrink-0 text-[11.5px] \${t.muted}\`}>{c.summary.goalProgress(postsThisWeek, goal)}</span>
+              <div role="progressbar" aria-valuemin={0} aria-valuemax={goal} aria-valuenow={postsThisWeek} aria-label={c.summary.goalAria(postsThisWeek, goal)} className={\`h-1.5 flex-1 overflow-hidden rounded-full \${t.inner}\`}>
+                <div className="h-full rounded-full transition-all" style={{width:\`\${goalPct}%\`,background:isDark?"#f5f5f5":"#171717"}} />
               </div>
-              <span
-                className={`text-[12px] font-semibold tabular-nums ${t.text}`}
-              >
-                {goalPct}%
-              </span>
+              <span className="text-[11.5px] font-semibold tabular-nums">{goalPct}%</span>
             </div>
           </section>
 
-          {/* Trends */}
-          <section className="grid gap-3 lg:grid-cols-[2fr_1fr]">
-            <div className={`rounded-2xl border p-4 md:p-5 ${t.card}`}>
-              <div className="flex flex-wrap items-start justify-between gap-2">
-                <div>
-                  <h3 className="text-[15px] font-semibold">
-                    {c.trends.title}
-                  </h3>
-                  <p className={`mt-0.5 text-[12px] ${t.muted}`}>
-                    {c.trends.subtitle(periodLabel)}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setChartView((v) =>
-                      v === "this" ? "comparison" : v === "comparison" ? "both" : "this"
-                    )
-                  }
-                  aria-pressed={chartView !== "this"}
-                  className={`flex min-h-9 items-center gap-1.5 rounded-full border px-3 text-[11.5px] font-semibold transition-colors ${t.ring} ${
-                    chartView !== "this" ? t.sel : `${t.inner} ${t.hover} ${t.text}`
-                  }`}
-                >
-                  <span className="h-1.5 w-1.5 rounded-full bg-current opacity-70" />
-                  {c.trends.compareToggle}
-                </button>
-              </div>
-
-              <div className="mt-3">
-                <Segmented
-                  value={metricA}
-                  options={METRIC_OPTIONS.map((m) => ({
-                    key: m.key,
-                    label: m.label,
-                    icon: m.icon,
-                  }))}
-                  onChange={(k) => setMetricA(k)}
-                  t={t}
-                  label={c.trends.metricAria}
-                />
-              </div>
-
-              <div className="mt-2">
-                <InsightsChart
-                  data={chartData}
-                  view={chartView}
-                  isDark={isDark}
-                  isMobile={isMobile}
-                  lang={lang}
-                  seriesLabel={activeSeries[0]?.label ?? c.trends.thisPeriod}
-                  seriesColor={TONES[0]}
-                />
-              </div>
+          <section className="mb-8">
+            <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+              <div><h3 className="text-[18px] font-semibold tracking-tight">{c.trends.title}</h3><p className={\`mt-1 text-[12px] \${t.muted}\`}>{c.trends.subtitle(periodLabel)}</p></div>
+              <button type="button" onClick={() => setChartView(v => v === "this" ? "comparison" : v === "comparison" ? "both" : "this")} aria-pressed={chartView !== "this"} className={\`h-9 rounded-full border px-3 text-[11.5px] font-semibold \${t.ring} \${chartView !== "this" ? t.sel : t.panel}\`}>{c.trends.compareToggle}</button>
             </div>
-
-            <div className={`rounded-2xl border p-4 md:p-5 ${t.card}`}>
-              <h3 className="text-[15px] font-semibold">
-                {c.summary.labels.reactions} · {c.summary.labels.comments}
-              </h3>
-              <p className={`mt-0.5 text-[12px] ${t.muted}`}>{periodLabel}</p>
-              <div className="mt-3">
-                <WeekdayBars
-                  data={weekdayData}
-                  isDark={isDark}
-                  isMobile={isMobile}
-                  lang={lang}
-                  labelA={c.summary.labels.reactions}
-                  labelB={c.summary.labels.comments}
-                />
+            <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
+              <div className={\`min-w-0 rounded-2xl border p-4 md:p-5 \${t.card}\`}>
+                <Segmented value={metricA} options={METRIC_OPTIONS.map(m=>({key:m.key,label:m.label,icon:m.icon}))} onChange={k=>setMetricA(k)} t={t} label={c.trends.metricAria} />
+                <div className="mt-4"><InsightsChart data={chartData} view={chartView} isDark={isDark} isMobile={isMobile} lang={lang} seriesLabel={activeSeries[0]?.label ?? c.trends.thisPeriod} seriesColor={TONES[0]} /></div>
+              </div>
+              <div className={\`rounded-2xl border p-4 md:p-5 \${t.card}\`}>
+                <h4 className="text-[13px] font-semibold">{c.summary.labels.reactions} / {c.summary.labels.comments}</h4>
+                <p className={\`mt-1 text-[11.5px] \${t.muted}\`}>{periodLabel}</p>
+                <div className="mt-4"><WeekdayBars data={weekdayData} isDark={isDark} isMobile={isMobile} lang={lang} labelA={c.summary.labels.reactions} labelB={c.summary.labels.comments} /></div>
               </div>
             </div>
           </section>
 
-          {/* ── Best time ── */}
-          <div className="mt-5">
-            <BestTimeSection
-              heatmap={heatmap}
-              c={c}
-              t={t}
-              isDark={isDark}
-              isMobile={isMobile}
-              note={bestTimesNote}
-              onSchedule={scheduleFromSlot}
-            />
-          </div>
+          <section className="mb-8"><BestTimeSection heatmap={heatmap} c={c} t={t} isDark={isDark} isMobile={isMobile} note={bestTimesNote} onSchedule={scheduleFromSlot} /></section>
 
-          {/* Recycle */}
           {remixable.length > 0 && (
-            <section className="mt-5">
-              <div className={`rounded-2xl border p-4 md:p-5 ${t.card}`}>
-                <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <h3 className="text-[15px] font-semibold">
-                    {c.recycle.title}
-                  </h3>
-                  <p className={`text-[12px] ${t.muted}`}>
-                    {c.recycle.subtitle}
-                  </p>
-                </div>
-                <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-                  {remixable.map((p, i) => (
-                    <button
-                      key={p.id}
-                      type="button"
-                      onClick={() => duplicatePost(p)}
-                      className={`group flex flex-col gap-2 rounded-xl border p-3 text-left transition-colors ${t.ring} ${t.inner} ${t.hover}`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span
-                          className={`text-[10px] font-semibold uppercase tracking-wider ${t.muted}`}
-                        >
-                          {c.recycle.rank(i + 1)}
-                        </span>
-                        <span
-                          className={`text-[10px] font-semibold uppercase ${t.muted}`}
-                        >
-                          {c.media[p.media]}
-                        </span>
-                      </div>
-                      <p
-                        className={`line-clamp-2 text-[13px] font-semibold leading-snug ${t.text}`}
-                      >
-                        {p.label}
-                      </p>
-                      <span className={`text-[11px] ${t.muted}`}>
-                        {c.recycle.engagement(p.reactions, String(p.engRate))}
-                      </span>
-                      <span
-                        className={`mt-1 text-[11.5px] font-semibold ${t.text} opacity-80 group-hover:opacity-100`}
-                      >
-                        {c.recycle.duplicate}
-                      </span>
-                    </button>
-                  ))}
-                </div>
+            <section className="mb-8">
+              <div className="mb-3 flex flex-wrap items-end justify-between gap-2"><h3 className="text-[18px] font-semibold tracking-tight">{c.recycle.title}</h3><p className={\`text-[12px] \${t.muted}\`}>{c.recycle.subtitle}</p></div>
+              <div className="divide-y border-y">
+                {remixable.map((p,i)=>(
+                  <button key={p.id} type="button" onClick={()=>duplicatePost(p)} className={\`group flex w-full items-center gap-3 py-3 text-left \${t.ring}\`}>
+                    <span className={\`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border text-[11px] font-semibold \${t.panel}\`}>{i+1}</span>
+                    <div className="min-w-0 flex-1"><p className="truncate text-[13px] font-semibold">{p.label}</p><p className={\`mt-0.5 text-[11px] \${t.muted}\`}>{fmtFull(p.date,lang)}</p></div>
+                    <span className={\`hidden text-[11px] sm:block \${t.muted}\`}>{c.recycle.engagement(p.reactions,String(p.engRate))}</span><span className="text-[11.5px] font-semibold opacity-70 group-hover:opacity-100">{c.recycle.duplicate}</span>
+                  </button>
+                ))}
               </div>
             </section>
           )}
 
-          {/* Performance */}
-          <section className="mt-5">
-            <div className={`rounded-2xl border ${t.card}`}>
-              <div className="flex flex-wrap items-center justify-between gap-2 border-b px-4 py-3 md:px-5">
-                <div className="flex items-center gap-2">
-                  <h3 className="text-[15px] font-semibold">
-                    {c.performance.title}
-                  </h3>
-                  <span className={`text-[11.5px] ${t.muted}`}>
-                    {c.performance.postsCount(sortedPosts.length)}
-                  </span>
-                  {skipped.current > 0 && (
-                    <span className={`text-[11px] ${t.muted}`}>
-                      · {c.performance.hiddenScheduled(skipped.current)}
-                    </span>
-                  )}
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <div className="relative">
-                    <Search
-                      className={`pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 ${t.muted}`}
-                      aria-hidden="true"
-                    />
-                    <input
-                      value={query}
-                      onChange={(e) => setQuery(e.target.value)}
-                      placeholder={c.performance.title}
-                      className={`h-9 w-[160px] rounded-lg border pl-7 pr-2 text-[12px] outline-none md:w-[200px] ${t.inner} ${t.text} focus:ring-2 ${
-                        isDark
-                          ? "focus:ring-white/30"
-                          : "focus:ring-black/20"
-                      }`}
-                    />
-                  </div>
-                  <Segmented
-                    value={postsPeriod}
-                    options={[
-                      { key: "this", label: c.performance.periodThis },
-                      { key: "previous", label: c.performance.periodPrevious },
-                    ]}
-                    onChange={(k) => setPostsPeriod(k)}
-                    t={t}
-                    label={c.performance.periodAria}
-                  />
-                </div>
+          <section className="mb-8">
+            <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+              <div><h3 className="text-[18px] font-semibold tracking-tight">{c.performance.title}</h3><p className={\`mt-1 text-[12px] \${t.muted}\`}>{c.performance.postsCount(sortedPosts.length)}{skipped.current>0 ? \` · \${c.performance.hiddenScheduled(skipped.current)}\` : ""}</p></div>
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="relative"><Search className={\`pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 \${t.muted}\`} /><input value={query} onChange={e=>setQuery(e.target.value)} placeholder={c.performance.title} className={\`h-9 w-[160px] rounded-lg border pl-7 pr-2 text-[12px] outline-none md:w-[200px] \${t.inner} \${t.text}\`} /></div>
+                <Segmented value={postsPeriod} options={[{key:"this",label:c.performance.periodThis},{key:"previous",label:c.performance.periodPrevious}]} onChange={k=>setPostsPeriod(k)} t={t} label={c.performance.periodAria} />
               </div>
-
-              {sortedPosts.length === 0 ? (
-                <div className="px-4 py-10 text-center">
-                  <p className={`text-[13px] ${t.muted}`}>
-                    {youtubeLoading
-                      ? c.performance.emptyLoading
-                      : query
-                        ? c.performance.emptyNoMatch
-                        : c.performance.emptyNoPost}
-                  </p>
-                  {!query && (
-                    <button
-                      type="button"
-                      onClick={() => setRange("30d")}
-                      className={`mt-3 rounded-lg border px-3 py-1.5 text-[12px] font-semibold ${t.ring} ${t.inner} ${t.hover} ${t.text}`}
-                    >
-                      {c.performance.showLast30Days}
-                    </button>
-                  )}
-                </div>
-              ) : (
-                <>
-                  {/* Header desktop */}
-                  <div
-                    className={`hidden border-b px-4 text-[10.5px] font-semibold uppercase tracking-wider md:grid md:px-5 ${TABLE_GRID} ${t.muted} ${t.head}`}
-                  >
-                    <span className="py-2.5">Post</span>
-                    {(
-                      [
-                        "reactions",
-                        "comments",
-                        "engRate",
-                        "videoViews",
-                      ] as SortKey[]
-                    ).map((k) => (
-                      <button
-                        key={k}
-                        type="button"
-                        onClick={() => toggleSort(k)}
-                        aria-label={c.performance.sortBy(c.performance.columns[k])}
-                        className={`py-2.5 text-right ${t.ring} ${t.hover} rounded`}
-                      >
-                        {c.performance.columns[k]}
-                        {sort?.key === k && (
-                          <span className="ml-1">
-                            {sort.dir === "desc" ? "↓" : "↑"}
-                          </span>
-                        )}
-                      </button>
-                    ))}
-                    <span className="py-2.5" />
-                  </div>
-
-                  {/* Rows */}
-                  <ul className={`divide-y ${t.border}`}>
-                    {visiblePosts.map((p, i) => {
-                      const isTop = i === 0 && !sort;
-                      return (
-                        <li key={p.id}>
-                          {/* Mobile card */}
-                          <div className="md:hidden">
-                            <div className="flex gap-3 px-4 py-3">
-                              <div
-                                className={`relative flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border ${t.inner}`}
-                              >
-                                {p.thumbnailUrl ? (
-                                  <img
-                                    src={p.thumbnailUrl}
-                                    alt=""
-                                    className="h-full w-full object-cover"
-                                  />
-                                ) : p.media === "video" ? (
-                                  <Play
-                                    className="h-4 w-4 opacity-70"
-                                    aria-hidden="true"
-                                  />
-                                ) : p.media === "image" ? (
-                                  <ImageIcon
-                                    className="h-4 w-4 opacity-70"
-                                    aria-hidden="true"
-                                  />
-                                ) : (
-                                  <FileText
-                                    className="h-4 w-4 opacity-70"
-                                    aria-hidden="true"
-                                  />
-                                )}
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <div className="flex items-start justify-between gap-2">
-                                  <p
-                                    className={`line-clamp-2 text-[13px] font-semibold leading-snug ${t.text}`}
-                                  >
-                                    {p.label}
-                                  </p>
-                                  {isTop && (
-                                    <span
-                                      className={`shrink-0 rounded-full px-2 py-0.5 text-[9.5px] font-semibold uppercase tracking-wider ${t.sel}`}
-                                    >
-                                      {c.performance.top}
-                                    </span>
-                                  )}
-                                </div>
-                                <p className={`mt-0.5 text-[11px] ${t.muted}`}>
-                                  {fmtFull(p.date, lang)}
-                                </p>
-                                <div className="mt-1.5 grid grid-cols-4 gap-1 text-center text-[10.5px]">
-                                  <Stat
-                                    label={c.performance.columns.reactions}
-                                    value={nf(p.reactions, lang)}
-                                    t={t}
-                                  />
-                                  <Stat
-                                    label={c.performance.columns.comments}
-                                    value={nf(p.comments, lang)}
-                                    t={t}
-                                  />
-                                  <Stat
-                                    label={c.performance.columns.engRate}
-                                    value={`${p.engRate}%`}
-                                    t={t}
-                                  />
-                                  <Stat
-                                    label={c.performance.columns.videoViews}
-                                    value={nf(p.videoViews, lang)}
-                                    t={t}
-                                  />
-                                </div>
-                                <div className="mt-2 flex items-center gap-2">
-                                  <button
-                                    type="button"
-                                    onClick={() => duplicatePost(p)}
-                                    className={`flex min-h-9 items-center gap-1 rounded-lg px-2.5 text-[11.5px] font-semibold ${t.ring} ${t.inner} ${t.hover} ${t.text}`}
-                                  >
-                                    <Copy
-                                      className="h-3.5 w-3.5"
-                                      aria-hidden="true"
-                                    />
-                                    {c.performance.duplicatePost}
-                                  </button>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Desktop row */}
-                          <div
-                            className={`hidden items-center px-4 py-2.5 md:grid md:px-5 ${TABLE_GRID}`}
-                          >
-                            <div className="flex min-w-0 items-center gap-2.5">
-                              <div
-                                className={`relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-md border ${t.inner}`}
-                              >
-                                {p.media === "video" ? (
-                                  <Play
-                                    className="h-3 w-3 opacity-70"
-                                    aria-hidden="true"
-                                  />
-                                ) : p.media === "image" ? (
-                                  <ImageIcon
-                                    className="h-3 w-3 opacity-70"
-                                    aria-hidden="true"
-                                  />
-                                ) : (
-                                  <FileText
-                                    className="h-3 w-3 opacity-70"
-                                    aria-hidden="true"
-                                  />
-                                )}
-                              </div>
-                              <div className="min-w-0">
-                                <p
-                                  className={`truncate text-[12.5px] font-semibold ${t.text}`}
-                                >
-                                  {p.label}
-                                </p>
-                                <p className={`text-[11px] ${t.muted}`}>
-                                  {fmtFull(p.date, lang)}
-                                </p>
-                              </div>
-                              {isTop && (
-                                <span
-                                  className={`ml-1 shrink-0 rounded-full px-2 py-0.5 text-[9.5px] font-semibold uppercase tracking-wider ${t.sel}`}
-                                >
-                                  {c.performance.top}
-                                </span>
-                              )}
-                            </div>
-                            <div
-                              className={`text-right text-[12px] tabular-nums ${t.text}`}
-                            >
-                              {nf(p.reactions, lang)}
-                            </div>
-                            <div
-                              className={`text-right text-[12px] tabular-nums ${t.text}`}
-                            >
-                              {nf(p.comments, lang)}
-                            </div>
-                            <div
-                              className={`text-right text-[12px] tabular-nums ${t.text}`}
-                            >
-                              {p.engRate}%
-                            </div>
-                            <div
-                              className={`text-right text-[12px] tabular-nums ${t.text}`}
-                            >
-                              {nf(p.videoViews, lang)}
-                            </div>
-                            <div className="flex justify-end">
-                              {p.platform === "youtube" ? (
-                                <IconBtn
-                                  label={c.performance.openYouTube}
-                                  href={`https://youtube.com/watch?v=${encodeURIComponent(
-                                    p.id
-                                  )}`}
-                                  t={t}
-                                >
-                                  <ExternalLink
-                                    className="h-3.5 w-3.5"
-                                    aria-hidden="true"
-                                  />
-                                </IconBtn>
-                              ) : (
-                                <IconBtn
-                                  label={c.performance.duplicatePost}
-                                  onClick={() => duplicatePost(p)}
-                                  t={t}
-                                >
-                                  <Copy
-                                    className="h-3.5 w-3.5"
-                                    aria-hidden="true"
-                                  />
-                                </IconBtn>
-                              )}
-                            </div>
-                          </div>
-                        </li>
-                      );
-                    })}
-                  </ul>
-
-                  {sortedPosts.length > 5 && (
-                    <div className="flex justify-center border-t px-4 py-3 md:px-5">
-                      <button
-                        type="button"
-                        onClick={() => setShowAllPosts((v) => !v)}
-                        className={`rounded-lg px-3 py-1.5 text-[12px] font-semibold ${t.ring} ${t.hover} ${t.text}`}
-                      >
-                        {showAllPosts
-                          ? c.performance.showLess
-                          : c.performance.showMore(sortedPosts.length)}
-                      </button>
-                    </div>
-                  )}
-                </>
-              )}
             </div>
+            {sortedPosts.length === 0 ? (
+              <div className={\`border-y py-10 text-center \${t.border}\`}><p className={\`text-[13px] \${t.muted}\`}>{youtubeLoading?c.performance.emptyLoading:query?c.performance.emptyNoMatch:c.performance.emptyNoPost}</p>{!query&&<button type="button" onClick={()=>setRange("30d")} className="mt-3 text-[12px] font-semibold underline">{c.performance.showLast30Days}</button>}</div>
+            ) : (
+              <div className="divide-y border-y">
+                {visiblePosts.map((p,i)=>(
+                  <article key={p.id} className="flex gap-3 py-3 md:gap-4">
+                    <div className={\`flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg border \${t.inner}\`}>{p.thumbnailUrl ? <img src={p.thumbnailUrl} alt="" className="h-full w-full object-cover" /> : p.media==="video" ? <Play className="h-4 w-4 opacity-60"/> : p.media==="image" ? <ImageIcon className="h-4 w-4 opacity-60"/> : <FileText className="h-4 w-4 opacity-60"/>}</div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start justify-between gap-2"><p className="line-clamp-2 text-[13px] font-semibold">{p.label}</p>{i===0&&!sort&&<span className={\`shrink-0 text-[10px] font-semibold \${t.muted}\`}>{c.performance.top}</span>}</div>
+                      <p className={\`mt-1 text-[11px] \${t.muted}\`}>{fmtFull(p.date,lang)}</p>
+                      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px]"><span>{c.performance.columns.reactions}: <b>{nf(p.reactions,lang)}</b></span><span>{c.performance.columns.comments}: <b>{nf(p.comments,lang)}</b></span><span>{c.performance.columns.engRate}: <b>{p.engRate}%</b></span><span>{c.performance.columns.videoViews}: <b>{nf(p.videoViews,lang)}</b></span></div>
+                    </div>
+                    <button type="button" onClick={()=>p.platform==="youtube"?window.open(\`https://youtube.com/watch?v=\${encodeURIComponent(p.id)}\`,"_blank","noopener,noreferrer"):duplicatePost(p)} aria-label={p.platform==="youtube"?c.performance.openYouTube:c.performance.duplicatePost} className={\`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border \${t.ring} \${t.panel} \${t.hover}\`}>{p.platform==="youtube"?<ExternalLink className="h-3.5 w-3.5"/>:<Copy className="h-3.5 w-3.5"/>}</button>
+                  </article>
+                ))}
+              </div>
+            )}
+            {sortedPosts.length>5&&<div className="flex justify-center pt-4"><button type="button" onClick={()=>setShowAllPosts(v=>!v)} className={\`rounded-lg px-3 py-2 text-[12px] font-semibold \${t.ring} \${t.hover}\`}>{showAllPosts?c.performance.showLess:c.performance.showMore(sortedPosts.length)}</button></div>}
           </section>
-        </main>
+          </main>
       </div>
 
       <BottomBar
