@@ -12,6 +12,13 @@
 //  - mobile : « Meilleur moment » = 7 lignes (une par jour) au lieu d'une
 //    grille 24 colonnes illisible ; un tap ouvre les 24 heures en grandes cases
 //  - tableau des posts : cartes sous md, grille 6 colonnes dès md
+//
+// 2025-06 : refonte UI de « Best time to post »
+//  - heatmap desktop : règle horaire alignée, cellule gagnante en anneau ambré,
+//    survol → Jour · Heure · % ; légende Low → High
+//  - recommandations : les 3 créneaux distincts sont exposés en chips cliquables
+//  - en-tête : badge de confiance (baseline / early / solid) + CTA principal
+//  - mobile : marqueur circulaire sur la barre de chaleur à la meilleure heure
 
 import {
   useCallback,
@@ -106,7 +113,7 @@ const ALL_KEY = "all";
 /** Rangée scrollable sans scrollbar visible. */
 const NO_SCROLLBAR = "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
 
-/** Délai avant d'exécuter une action lancée depuis une feuille (laisse finir l'animation de fermeture). */
+/** Délai avant d'exécuter une action lancée depuis une feuille. */
 const SHEET_ACTION_DELAY = 280;
 
 /* ============================================================
@@ -117,7 +124,6 @@ type Lang = "fr" | "en";
 
 const LANGUAGE_STORAGE_KEY = "stone:language";
 
-/** Lit la langue dans le localStorage. Anglais par défaut si absent. */
 function detectLanguage(): Lang {
   if (typeof window === "undefined") return "en";
   try {
@@ -129,10 +135,8 @@ function detectLanguage(): Lang {
   return "en";
 }
 
-/** Hook réactif : se resynchronise sur storage / focus / hashchange. */
 function useLanguage(): Lang {
   const [lang, setLang] = useState<Lang>(() => detectLanguage());
-
   useEffect(() => {
     const refresh = () => setLang(detectLanguage());
     const onStorage = (e: StorageEvent) => {
@@ -147,7 +151,6 @@ function useLanguage(): Lang {
       window.removeEventListener("hashchange", refresh);
     };
   }, []);
-
   return lang;
 }
 
@@ -344,6 +347,14 @@ type Copy = {
     high: string;
     pickHour: string;
     bestOfDay: string;
+    /** Badges de confiance + sous-titre de la section. */
+    confidenceBaseline: string;
+    confidenceEarly: string;
+    confidenceSolid: string;
+    confidenceLabel: (label: string, n: number) => string;
+    recommendationsTitle: string;
+    scoreSuffix: string;
+    rulerAria: string;
   };
   recycle: {
     title: string;
@@ -450,8 +461,8 @@ const COPY: Record<Lang, Copy> = {
       glance: (posts, reactions, comments) => {
         const p = `${posts} post${posts === 1 ? "" : "s"}`;
         const r = `${reactions} reaction${reactions === 1 ? "" : "s"}`;
-        const c = `${comments} comment${comments === 1 ? "" : "s"}`;
-        return `You published ${p} and received ${r} and ${c}.`;
+        const cm = `${comments} comment${comments === 1 ? "" : "s"}`;
+        return `You published ${p} and received ${r} and ${cm}.`;
       },
       labels: {
         followers: "Total followers",
@@ -511,6 +522,14 @@ const COPY: Record<Lang, Copy> = {
       high: "High",
       pickHour: "Tap an hour to schedule a post there.",
       bestOfDay: "Best of the day",
+      confidenceBaseline: "Baseline",
+      confidenceEarly: "Early signal",
+      confidenceSolid: "Solid signal",
+      confidenceLabel: (label, n) =>
+        `${label} · ${n} post${n === 1 ? "" : "s"}`,
+      recommendationsTitle: "Recommended slots",
+      scoreSuffix: "% score",
+      rulerAria: "Hours of the day",
     },
     recycle: {
       title: "Posts to recycle",
@@ -655,8 +674,8 @@ const COPY: Record<Lang, Copy> = {
       glance: (posts, reactions, comments) => {
         const p = `${posts} post${posts > 1 ? "s" : ""}`;
         const r = `${reactions} réaction${reactions === 1 ? "" : "s"}`;
-        const c = `${comments} commentaire${comments === 1 ? "" : "s"}`;
-        return `Vous avez publié ${p} et reçu ${r} et ${c}.`;
+        const cm = `${comments} commentaire${comments === 1 ? "" : "s"}`;
+        return `Vous avez publié ${p} et reçu ${r} et ${cm}.`;
       },
       labels: {
         followers: "Abonnés totaux",
@@ -717,6 +736,14 @@ const COPY: Record<Lang, Copy> = {
       high: "Élevé",
       pickHour: "Touchez une heure pour y programmer un post.",
       bestOfDay: "Meilleur moment du jour",
+      confidenceBaseline: "Base",
+      confidenceEarly: "Signal précoce",
+      confidenceSolid: "Signal solide",
+      confidenceLabel: (label, n) =>
+        `${label} · ${n} post${n > 1 ? "s" : ""}`,
+      recommendationsTitle: "Créneaux recommandés",
+      scoreSuffix: "% score",
+      rulerAria: "Heures de la journée",
     },
     recycle: {
       title: "Posts à recycler",
@@ -820,7 +847,7 @@ const COPY: Record<Lang, Copy> = {
 };
 
 /* ============================================================
-   STYLE — tokens alignés sur le shell Home (dark plus profond)
+   STYLE TOKENS
 ============================================================ */
 
 type Tokens = {
@@ -848,28 +875,48 @@ type Tokens = {
 const tokens = (isDark: boolean): Tokens =>
   isDark
     ? {
-        page: "bg-[#101010]", text: "text-white", muted: "text-[#858585]", soft: "text-[#b0b0b0]",
+        page: "bg-[#101010]",
+        text: "text-white",
+        muted: "text-[#858585]",
+        soft: "text-[#b0b0b0]",
         card: "border-white/[0.07] bg-[#161616]",
-        panel: "border-white/[0.07] bg-[#1a1a1a]", inner: "border-white/[0.07] bg-white/[0.03]",
+        panel: "border-white/[0.07] bg-[#1a1a1a]",
+        inner: "border-white/[0.07] bg-white/[0.03]",
         tile: "border-white/[0.07] bg-[#161616]",
-        border: "border-white/[0.07]", head: "bg-white/[0.03]",
+        border: "border-white/[0.07]",
+        head: "bg-white/[0.03]",
         primaryBtn: "bg-white text-black hover:bg-neutral-200 shadow-none",
-        outlineBtn: "border border-white/[0.09] bg-[#1f1f1f] text-white hover:bg-white/[0.08]",
-        iconBox: "bg-white/[0.07] text-white", ring: "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60",
-        hover: "hover:bg-white/[0.06]", sel: "bg-white text-black shadow-none",
-        idle: "text-[#a0a0a0] hover:text-white", popover: "border-white/10 bg-[#151515]", tip: "bg-[#292929]",
+        outlineBtn:
+          "border border-white/[0.09] bg-[#1f1f1f] text-white hover:bg-white/[0.08]",
+        iconBox: "bg-white/[0.07] text-white",
+        ring: "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60",
+        hover: "hover:bg-white/[0.06]",
+        sel: "bg-white text-black shadow-none",
+        idle: "text-[#a0a0a0] hover:text-white",
+        popover: "border-white/10 bg-[#151515]",
+        tip: "bg-[#292929]",
       }
     : {
-        page: "bg-[#f3f3f3]", text: "text-[#111111]", muted: "text-[#777777]", soft: "text-[#555555]",
+        page: "bg-[#f3f3f3]",
+        text: "text-[#111111]",
+        muted: "text-[#777777]",
+        soft: "text-[#555555]",
         card: "border-[#e5e5e5] bg-white shadow-[0_12px_36px_rgba(0,0,0,0.035)]",
-        panel: "border-[#e7e7e7] bg-[#fafafa]", inner: "border-[#e7e7e7] bg-[#f6f6f6]",
+        panel: "border-[#e7e7e7] bg-[#fafafa]",
+        inner: "border-[#e7e7e7] bg-[#f6f6f6]",
         tile: "border-[#e7e7e7] bg-white shadow-[0_5px_18px_rgba(0,0,0,0.035)]",
-        border: "border-[#e7e7e7]", head: "bg-[#f5f5f5]",
+        border: "border-[#e7e7e7]",
+        head: "bg-[#f5f5f5]",
         primaryBtn: "bg-black text-white hover:bg-neutral-800 shadow-none",
-        outlineBtn: "border border-black/10 bg-white text-black hover:bg-black/[0.04]",
-        iconBox: "bg-black/[0.06] text-black", ring: "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/35",
-        hover: "hover:bg-black/[0.04]", sel: "bg-black text-white shadow-none",
-        idle: "text-[#777777] hover:text-black", popover: "border-[#e5e5e5] bg-white", tip: "bg-[#242424]",
+        outlineBtn:
+          "border border-black/10 bg-white text-black hover:bg-black/[0.04]",
+        iconBox: "bg-black/[0.06] text-black",
+        ring: "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/35",
+        hover: "hover:bg-black/[0.04]",
+        sel: "bg-black text-white shadow-none",
+        idle: "text-[#777777] hover:text-black",
+        popover: "border-[#e5e5e5] bg-white",
+        tip: "bg-[#242424]",
       };
 
 /* ============================================================
@@ -1183,7 +1230,8 @@ function buildSampleInsights(
   lang: Lang
 ): InsightsData {
   const days = Math.max(
-    1,    Math.round((end.getTime() - start.getTime()) / DAY) + 1
+    1,
+    Math.round((end.getTime() - start.getTime()) / DAY) + 1
   );
   const rnd = mulberry32(seedFrom(`${platform}:${toInput(start)}:${days}`));
   const demos = COPY[lang].demo;
@@ -1462,10 +1510,13 @@ function buildBestTimes(
     (p) => p.date instanceof Date && Number.isFinite(p.date.getTime())
   );
   const n = validPosts.length;
-  const scores = validPosts.map((p) => Math.max(0, postScore(p))).sort((a, b) => a - b);
+  const scores = validPosts
+    .map((p) => Math.max(0, postScore(p)))
+    .sort((a, b) => a - b);
   const median = n ? scores[Math.floor(n / 2)] : 0;
   const ref = median > 0 ? median : 1;
-  const mk = () => Array.from({ length: 7 }, () => new Array<number>(24).fill(0));
+  const mk = () =>
+    Array.from({ length: 7 }, () => new Array<number>(24).fill(0));
   const sum = mk();
   const wt = mk();
   const raw = mk();
@@ -1473,9 +1524,10 @@ function buildBestTimes(
   for (const p of validPosts) {
     const d = dayIndexMon(p.date);
     const h = p.date.getHours();
-    // Log compression limits the influence of one viral post while preserving
-    // the relative signal between ordinary and high-performing publications.
-    const lift = Math.min(2.5, Math.log1p(Math.max(0, postScore(p))) / Math.log1p(ref));
+    const lift = Math.min(
+      2.5,
+      Math.log1p(Math.max(0, postScore(p))) / Math.log1p(ref)
+    );
     raw[d][h] += 1;
     HOUR_KERNEL.forEach((weight, offset) => {
       for (const shift of offset === 0 ? [0] : [-offset, offset]) {
@@ -1501,8 +1553,8 @@ function buildBestTimes(
     Array.from({ length: 24 }, (_, h) => {
       const observed = sum[d][h] + CROSS_DAY_SHARE * (hourSum[h] - sum[d][h]);
       const evidence = wt[d][h] + CROSS_DAY_SHARE * (hourWt[h] - wt[d][h]);
-      // The platform baseline is a prior, not a substitute for account data.
-      const priorWeight = n === 0 ? 1 : Math.max(0.35, PRIOR_STRENGTH / (1 + n * 0.22));
+      const priorWeight =
+        n === 0 ? 1 : Math.max(0.35, PRIOR_STRENGTH / (1 + n * 0.22));
       const value =
         (priorWeight * priorLift(platform, d, h) + observed) /
         (priorWeight + evidence);
@@ -1529,19 +1581,28 @@ function buildBestTimes(
     });
     return { day, hour, norm: row[hour].norm };
   });
-  const ranked = grid.flatMap((row, day) =>
-    row.map((cell, hour) => ({ day, hour, norm: cell.norm, value: cell.value }))
-  ).sort((a, b) => b.value - a.value);
-  // Offer distinct slots rather than three nearly identical adjacent hours.
+  const ranked = grid
+    .flatMap((row, day) =>
+      row.map((cell, hour) => ({
+        day,
+        hour,
+        norm: cell.norm,
+        value: cell.value,
+      }))
+    )
+    .sort((a, b) => b.value - a.value);
   const recommendations: BestTimes["recommendations"] = [];
   for (const candidate of ranked) {
-    if (recommendations.every((picked) =>
-      picked.day !== candidate.day ||
-      Math.min(
-        Math.abs(picked.hour - candidate.hour),
-        24 - Math.abs(picked.hour - candidate.hour)
-      ) >= 3
-    )) {
+    if (
+      recommendations.every(
+        (picked) =>
+          picked.day !== candidate.day ||
+          Math.min(
+            Math.abs(picked.hour - candidate.hour),
+            24 - Math.abs(picked.hour - candidate.hour)
+          ) >= 3
+      )
+    ) {
       recommendations.push({
         day: candidate.day,
         hour: candidate.hour,
@@ -1562,9 +1623,16 @@ function buildBestTimes(
   };
 }
 
-const heatColor = (v: number) => `rgba(238,112,78,${0.08 + 0.78 * v})`;
-const heatLayer = (v: number) => {
-  const c = heatColor(v);
+/** Ramp chaleureuse, thémée : base presque invisible → orange/ambre saturée. */
+function heatColor(v: number, isDark: boolean): string {
+  const x = Math.max(0, Math.min(1, v));
+  return isDark
+    ? `rgba(251, 146, 60, ${0.06 + 0.86 * x})` // amber-400
+    : `rgba(234, 88, 12, ${0.07 + 0.84 * x})`; // orange-600
+}
+
+const heatLayer = (v: number, isDark: boolean) => {
+  const c = heatColor(v, isDark);
   return { backgroundImage: `linear-gradient(${c}, ${c})` };
 };
 
@@ -1693,7 +1761,14 @@ function InsightsChart({
               height="6"
               patternTransform="rotate(45)"
             >
-              <line x1="0" y1="0" x2="0" y2="6" stroke={hatchStroke} strokeWidth="1" />
+              <line
+                x1="0"
+                y1="0"
+                x2="0"
+                y2="6"
+                stroke={hatchStroke}
+                strokeWidth="1"
+              />
             </pattern>
           </defs>
 
@@ -1790,14 +1865,20 @@ function WeekdayTooltip({
       <div className="mb-1 opacity-60">{label}</div>
       <div className="flex items-center justify-between gap-4">
         <span className="flex items-center gap-1.5">
-          <span className="h-1.5 w-1.5 rounded-full bg-[#bdbdbd]" aria-hidden="true" />
+          <span
+            className="h-1.5 w-1.5 rounded-full bg-[#bdbdbd]"
+            aria-hidden="true"
+          />
           {labelA}
         </span>
         <b className="tabular-nums">{nf(val("a"), lang)}</b>
       </div>
       <div className="flex items-center justify-between gap-4">
         <span className="flex items-center gap-1.5">
-          <span className="h-1.5 w-1.5 rounded-full bg-[#555555]" aria-hidden="true" />
+          <span
+            className="h-1.5 w-1.5 rounded-full bg-[#555555]"
+            aria-hidden="true"
+          />
           {labelB}
         </span>
         <b className="tabular-nums">{nf(val("b"), lang)}</b>
@@ -1902,7 +1983,7 @@ function WeekdayBars({
 }
 
 /* ============================================================
-   FEUILLE GLISSABLE (mobile) — identique à Schedule / Create
+   FEUILLE GLISSABLE (mobile)
 ============================================================ */
 
 function useEscape(onEscape: () => void) {
@@ -1915,12 +1996,6 @@ function useEscape(onEscape: () => void) {
   }, [onEscape]);
 }
 
-/**
- * Feuille glissable (mobile) / dialogue centré (si la fenêtre est élargie).
- * Glisser la poignée ou le titre vers le bas pour fermer.
- * `children` reçoit `close` : fermeture animée.
- * Rendue dans document.body (portail) : échappe aux overflow / z-index.
- */
 function BottomSheet({
   isDark,
   title,
@@ -1990,7 +2065,6 @@ function BottomSheet({
 
   return createPortal(
     <div
-      // Les événements React remontent à travers les portails : on les arrête.
       onPointerDown={(e) => e.stopPropagation()}
       className="fixed inset-0 z-50 flex items-end justify-center md:items-center md:p-4"
     >
@@ -2051,7 +2125,6 @@ function BottomSheet({
   );
 }
 
-/** Explication d'un indicateur (remplace l'info-bulle au survol sur mobile). */
 function HintSheet({
   isDark,
   title,
@@ -2079,7 +2152,6 @@ function HintSheet({
   );
 }
 
-/** Avatar de canal avec pastille du réseau. */
 function ChannelAvatar({
   channel,
   isDark,
@@ -2144,7 +2216,6 @@ function ChannelAvatar({
   );
 }
 
-/** Pastille « tous les réseaux ». */
 function AllNetworksBadge({
   isDark,
   size = 32,
@@ -2165,7 +2236,6 @@ function AllNetworksBadge({
   );
 }
 
-/** Sélecteur de canal en feuille glissable (mobile), avec « tous les réseaux ». */
 function ChannelSheet({
   isDark,
   title,
@@ -2377,7 +2447,6 @@ function IconBtn({
         </button>
       )}
 
-      {/* Tooltip : survol uniquement (masqué sur tactile / mobile) */}
       <span
         role="tooltip"
         className={[
@@ -2434,11 +2503,15 @@ function MetricBox({
       >
         <span className={`truncate text-[13px] ${t.muted}`}>{label}</span>
         <span className="flex items-baseline gap-2">
-          <span className={`text-[28px] font-medium leading-none tracking-[-0.03em] tabular-nums ${t.text}`}>
+          <span
+            className={`text-[28px] font-medium leading-none tracking-[-0.03em] tabular-nums ${t.text}`}
+          >
             {value}
           </span>
           {delta != null && (
-            <span className={`text-[10px] font-medium tabular-nums ${t.muted}`}>
+            <span
+              className={`text-[10px] font-medium tabular-nums ${t.muted}`}
+            >
               {up ? "+" : ""}
               {delta}% {c.summary.vsPreviousShort}
             </span>
@@ -2465,7 +2538,12 @@ function MetricBox({
         </span>
       </button>
       {hint && isMobile && (
-        <HintSheet isDark={isDark} title={label} text={info} onClose={() => setHint(false)} />
+        <HintSheet
+          isDark={isDark}
+          title={label}
+          text={info}
+          onClose={() => setHint(false)}
+        />
       )}
     </div>
   );
@@ -2479,12 +2557,13 @@ type MetricOption = {
 };
 
 /* ============================================================
-   RANGE PICKER — popover (desktop) / feuille glissable (mobile)
+   RANGE PICKER
 ============================================================ */
 
 function RangePicker({
   range,
-  start,  end,
+  start,
+  end,
   onStartChange,
   onEndChange,
   t,
@@ -2509,8 +2588,6 @@ function RangePicker({
 
   const today = useMemo(() => startOfDay(new Date()), []);
 
-  // Desktop : fermeture au clic extérieur / Échap. Sur mobile, la feuille
-  // (portail) gère sa propre fermeture.
   useEffect(() => {
     if (!open || isMobile) return;
     const onDown = (e: PointerEvent) => {
@@ -2641,9 +2718,7 @@ function RangePicker({
           onClose={() => setOpen(false)}
         >
           {(close) => (
-            <div
-              className={`overflow-hidden rounded-2xl border ${t.panel}`}
-            >
+            <div className={`overflow-hidden rounded-2xl border ${t.panel}`}>
               {panel(close)}
             </div>
           )}
@@ -2662,9 +2737,289 @@ function RangePicker({
 }
 
 /* ============================================================
-   MEILLEUR MOMENT — version mobile
-   7 lignes (une par jour) : bande de chaleur + meilleure heure.
-   Un tap ouvre les 24 heures en grandes cases tactiles.
+   MEILLEUR MOMENT — en-tête commun
+============================================================ */
+
+function BestTimeHeader({
+  heatmap,
+  c,
+  t,
+  isDark,
+  subhead,
+  onSchedule,
+}: {
+  heatmap: BestTimes;
+  c: Copy;
+  t: Tokens;
+  isDark: boolean;
+  subhead: string;
+  onSchedule: (slot: { day: number; hour: number }) => void;
+}) {
+  const label =
+    heatmap.confidence === "baseline"
+      ? c.bestTime.confidenceBaseline
+      : heatmap.confidence === "early"
+        ? c.bestTime.confidenceEarly
+        : c.bestTime.confidenceSolid;
+  const accent = isDark ? "#fbbf24" : "#ea580c";
+
+  return (
+    <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className="min-w-0">
+        <h3 className={`text-[15px] font-semibold ${t.text}`}>
+          {c.bestTime.title}
+        </h3>
+        <p
+          className={`mt-0.5 max-w-[56ch] text-[12.5px] leading-relaxed ${t.muted}`}
+        >
+          {subhead}
+        </p>
+        <span
+          className={[
+            "mt-2 inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider",
+            t.border,
+            t.muted,
+          ].join(" ")}
+        >
+          <span
+            className="h-1.5 w-1.5 rounded-full"
+            style={{ background: accent }}
+            aria-hidden="true"
+          />
+          {c.bestTime.confidenceLabel(label, heatmap.sample)}
+        </span>
+      </div>
+
+      <button
+        type="button"
+        onClick={() => onSchedule(heatmap.best)}
+        className={`flex min-h-10 shrink-0 items-center gap-1.5 rounded-lg px-3.5 py-2 text-[12.5px] font-semibold ${t.ring} ${t.primaryBtn}`}
+      >
+        <CalendarClock className="h-3.5 w-3.5" aria-hidden="true" />
+        {c.bestTime.useLabel(heatmap.label)}
+      </button>
+    </div>
+  );
+}
+
+/* ============================================================
+   MEILLEUR MOMENT — vue desktop (grille 7 × 24)
+============================================================ */
+
+function BestTimeHeatmap({
+  heatmap,
+  c,
+  t,
+  isDark,
+  onSchedule,
+}: {
+  heatmap: BestTimes;
+  c: Copy;
+  t: Tokens;
+  isDark: boolean;
+  onSchedule: (slot: { day: number; hour: number }) => void;
+}) {
+  const [hover, setHover] = useState<{ day: number; hour: number } | null>(null);
+  const top = heatmap.best;
+  const accent = isDark ? "#fbbf24" : "#ea580c";
+
+  return (
+    <div className="mt-5">
+      {/* Règle horaire alignée sur la grille */}
+      <div
+        className="mb-1.5 flex items-center gap-2"
+        aria-label={c.bestTime.rulerAria}
+      >
+        <div className="w-10 shrink-0" />
+        <div className="relative h-3.5 flex-1">
+          {[0, 6, 12, 18, 24].map((h, i) => (
+            <span
+              key={h}
+              className={`absolute top-0 text-[9.5px] font-semibold tabular-nums ${t.muted}`}
+              style={{
+                left: `${(h / 24) * 100}%`,
+                transform:
+                  i === 0
+                    ? "translateX(0)"
+                    : i === 4
+                      ? "translateX(-100%)"
+                      : "translateX(-50%)",
+              }}
+            >
+              {h === 24 ? "24h" : `${h}h`}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      {/* Grille 7 × 24 */}
+      <div className="flex flex-col gap-1">
+        {c.days.map((day, d) => (
+          <div key={day} className="flex items-center gap-2">
+            <span
+              className={`w-10 shrink-0 text-[11px] font-semibold ${t.soft}`}
+            >
+              {day}
+            </span>
+            <div className="flex flex-1 gap-[3px]">
+              {heatmap.grid[d].map((cell, h) => {
+                const isBest = d === top.day && h === top.hour;
+                return (
+                  <button
+                    key={h}
+                    type="button"
+                    onClick={() => onSchedule({ day: d, hour: h })}
+                    onMouseEnter={() => setHover({ day: d, hour: h })}
+                    onMouseLeave={() => setHover(null)}
+                    onFocus={() => setHover({ day: d, hour: h })}
+                    onBlur={() => setHover(null)}
+                    aria-label={c.bestTime.scheduleAria(
+                      c.daysLong[d],
+                      hourLabel(h)
+                    )}
+                    className={[
+                      "relative h-6 flex-1 rounded-[3px] transition-[transform,filter] duration-150",
+                      "hover:z-10 hover:scale-110 hover:brightness-115",
+                      "focus-visible:outline-none focus-visible:ring-2",
+                      isDark
+                        ? "focus-visible:ring-white/50"
+                        : "focus-visible:ring-black/40",
+                      isBest
+                        ? `z-10 ring-2 ring-offset-1 ${
+                            isDark
+                              ? "ring-amber-300 ring-offset-[#161616]"
+                              : "ring-orange-600 ring-offset-white"
+                          }`
+                        : "",
+                    ].join(" ")}
+                    style={heatLayer(cell.norm, isDark)}
+                  />
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Statut survol — hauteur fixe, pas de layout shift */}
+      <div
+        className={`mt-2 h-5 truncate text-[12px] ${t.muted}`}
+        aria-live="polite"
+      >
+        {hover ? (
+          <>
+            <b className={t.text}>{c.daysLong[hover.day]}</b>
+            <span className="mx-1 opacity-40">·</span>
+            <b className={`tabular-nums ${t.text}`}>
+              {hourLabel(hover.hour)}
+            </b>
+            <span className="mx-1 opacity-40">·</span>
+            <span className="tabular-nums">
+              {Math.round(heatmap.grid[hover.day][hover.hour].norm * 100)}
+              {c.bestTime.scoreSuffix.replace("%", "").trim()}
+            </span>
+          </>
+        ) : (
+          c.bestTime.pickHour
+        )}
+      </div>
+
+      {/* Légende */}
+      <div className="mt-2 flex items-center gap-2 text-[10px] font-medium uppercase tracking-wider">
+        <span className={t.muted}>{c.bestTime.low}</span>
+        <span
+          className="flex h-2 w-24 overflow-hidden rounded-full"
+          aria-hidden="true"
+        >
+          {Array.from({ length: 14 }, (_, i) => (
+            <span key={i} className="flex-1" style={heatLayer(i / 13, isDark)} />
+          ))}
+        </span>
+        <span className={t.muted}>{c.bestTime.high}</span>
+        <span
+          className="ml-auto flex items-center gap-1.5 text-[10px] font-semibold"
+          style={{ color: accent }}
+        >
+          <span
+            className="h-2 w-2 rounded-full ring-1"
+            style={{
+              background: accent,
+              outlineColor: isDark ? "#161616" : "#ffffff",
+            }}
+            aria-hidden="true"
+          />
+          {c.daysLong[top.day]} · {hourLabel(top.hour)}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================
+   MEILLEUR MOMENT — recommandations (chips)
+============================================================ */
+
+function BestTimeRecommendations({
+  heatmap,
+  c,
+  t,
+  isDark,
+  onSchedule,
+}: {
+  heatmap: BestTimes;
+  c: Copy;
+  t: Tokens;
+  isDark: boolean;
+  onSchedule: (slot: { day: number; hour: number }) => void;
+}) {
+  if (heatmap.recommendations.length === 0) return null;
+  const accent = isDark ? "#fbbf24" : "#ea580c";
+
+  return (
+    <div className="mt-4">
+      <p
+        className={`mb-1.5 text-[10.5px] font-semibold uppercase tracking-wider ${t.muted}`}
+      >
+        {c.bestTime.recommendationsTitle}
+      </p>
+      <div className="flex flex-wrap gap-2">
+        {heatmap.recommendations.map((r, i) => (
+          <button
+            key={`${r.day}-${r.hour}`}
+            type="button"
+            onClick={() => onSchedule({ day: r.day, hour: r.hour })}
+            className={[
+              "flex items-center gap-2 rounded-full border px-3 py-1.5 text-[12px] font-semibold transition-colors",
+              t.ring,
+              t.inner,
+              t.hover,
+              i === 0
+                ? isDark
+                  ? "border-amber-300/40"
+                  : "border-orange-500/40"
+                : "",
+            ].join(" ")}
+          >
+            <span
+              className="h-1.5 w-1.5 rounded-full"
+              style={{ background: accent }}
+              aria-hidden="true"
+            />
+            <span className={t.text}>
+              {c.days[r.day]} · {hourLabel(r.hour)}
+            </span>
+            <span className={`tabular-nums text-[10px] ${t.muted}`}>
+              {Math.round(r.norm * 100)}%
+            </span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================
+   MEILLEUR MOMENT — vue mobile (7 lignes)
 ============================================================ */
 
 function BestTimeMobile({
@@ -2682,39 +3037,72 @@ function BestTimeMobile({
 }) {
   const [openDay, setOpenDay] = useState<number | null>(null);
   const base = isDark ? "bg-white/[0.05]" : "bg-black/[0.04]";
+  const accent = isDark ? "#fbbf24" : "#ea580c";
 
   return (
     <>
       <div className="mt-4 flex flex-col gap-1.5">
         {c.days.map((day, d) => {
           const best = heatmap.bestByDay[d];
+          const isGlobalBest =
+            d === heatmap.best.day && best.hour === heatmap.best.hour;
           return (
             <button
               key={day}
               type="button"
               onClick={() => setOpenDay(d)}
               aria-label={`${c.daysLong[d]} · ${hourLabel(best.hour)}`}
-              className={`flex min-h-12 items-center gap-3 rounded-2xl border px-3 text-left transition-colors ${t.ring} ${t.inner} ${t.hover}`}
+              className={[
+                "flex min-h-12 items-center gap-3 rounded-2xl border px-3 text-left transition-colors",
+                t.ring,
+                t.inner,
+                t.hover,
+                isGlobalBest
+                  ? isDark
+                    ? "ring-1 ring-amber-300/40"
+                    : "ring-1 ring-orange-500/30"
+                  : "",
+              ].join(" ")}
             >
               <span
                 className={`w-9 shrink-0 text-[12px] font-semibold ${t.soft}`}
               >
                 {day}
               </span>
+
+              {/* Barre + marqueur du meilleur créneau */}
               <span
-                className={`flex h-6 min-w-0 flex-1 items-stretch gap-px overflow-hidden rounded-md ${base}`}
-                aria-hidden="true"
+                className={`relative h-7 min-w-0 flex-1 overflow-hidden rounded-md ${base}`}
               >
-                {heatmap.grid[d].map((cell, h) => (
-                  <span
-                    key={h}
-                    className="flex-1"
-                    style={heatLayer(cell.norm)}
-                  />
-                ))}
+                <span className="absolute inset-0 flex items-stretch gap-[2px] p-[2px]">
+                  {heatmap.grid[d].map((cell, h) => (
+                    <span
+                      key={h}
+                      className="flex-1 rounded-[2px]"
+                      style={heatLayer(cell.norm, isDark)}
+                    />
+                  ))}
+                </span>
+                <span
+                  className="pointer-events-none absolute top-1/2 z-10 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full shadow"
+                  style={{
+                    left: `${((best.hour + 0.5) / 24) * 100}%`,
+                    background: accent,
+                    outline: `2px solid ${isDark ? "#161616" : "#ffffff"}`,
+                  }}
+                  aria-hidden="true"
+                />
               </span>
+
               <span
-                className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold tabular-nums ${t.sel}`}
+                className={[
+                  "shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold tabular-nums",
+                  isGlobalBest
+                    ? isDark
+                      ? "bg-amber-300 text-black"
+                      : "bg-orange-500 text-white"
+                    : t.sel,
+                ].join(" ")}
               >
                 {hourLabel(best.hour)}
               </span>
@@ -2740,7 +3128,7 @@ function BestTimeMobile({
               <div className="flex flex-col gap-3 pt-1">
                 <p className={`text-center text-[13px] ${t.soft}`}>
                   {c.bestTime.bestOfDay} ·{" "}
-                  <span className={`font-semibold ${t.text}`}>
+                  <span className={`font-semibold tabular-nums ${t.text}`}>
                     {hourLabel(bestHour)}
                   </span>
                 </p>
@@ -2763,18 +3151,22 @@ function BestTimeMobile({
                             SHEET_ACTION_DELAY
                           );
                         }}
-                        className={`flex aspect-[4/3] min-h-11 items-center justify-center rounded-xl text-[13px] font-semibold tabular-nums transition-transform active:scale-95 ${t.ring} ${base} ${
-                          cell.norm > 0.5 ? "text-white" : t.soft
-                        } ${
+                        className={[
+                          "relative flex aspect-[4/3] min-h-11 items-center justify-center rounded-xl text-[13px] font-semibold tabular-nums",
+                          "transition-transform active:scale-95 focus-visible:outline-none focus-visible:ring-2",
+                          isDark
+                            ? "focus-visible:ring-white/40"
+                            : "focus-visible:ring-black/30",
+                          cell.norm > 0.5 ? "text-white" : t.soft,
                           isBest
                             ? `ring-2 ring-offset-2 ${
                                 isDark
-                                  ? "ring-[#14b8a6] ring-offset-[#101012]"
-                                  : "ring-[#0f766e] ring-offset-white"
+                                  ? "ring-amber-300 ring-offset-[#101012]"
+                                  : "ring-orange-600 ring-offset-white"
                               }`
-                            : ""
-                        }`}
-                        style={heatLayer(cell.norm)}
+                            : "",
+                        ].join(" ")}
+                        style={heatLayer(cell.norm, isDark)}
                       >
                         {String(h).padStart(2, "0")}
                       </button>
@@ -2797,7 +3189,6 @@ function BestTimeMobile({
    PAGE
 ============================================================ */
 
-/** Tableau des posts : cartes sous md, grille 6 colonnes dès md. */
 const TABLE_GRID = "md:grid-cols-[minmax(0,2.3fr)_1fr_1fr_1fr_1fr_44px]";
 
 export default function Insights() {
@@ -2845,7 +3236,6 @@ export default function Insights() {
   };
 
   const [range, setRange] = useState<Range>("30d");
-  const [bestTimeView, setBestTimeView] = useState<"time" | "day">("time");
   const [customStart, setCustomStart] = useState(() =>
     addDays(startOfDay(new Date()), -29)
   );
@@ -2853,6 +3243,7 @@ export default function Insights() {
   const [showAllPosts, setShowAllPosts] = useState(false);
   const [postsPeriod, setPostsPeriod] = useState<PostsPeriod>("this");
   const [metricA, setMetricA] = useState<NumKey>("posts");
+  const [chartView, setChartView] = useState<ChartView>("this");
   const [sort, setSort] = useState<{
     key: SortKey;
     dir: "asc" | "desc";
@@ -2958,8 +3349,6 @@ export default function Insights() {
 
   const days = current.length;
   const dates = current.map((p) => p.date);
-  const prevStart = previous[0]?.date ?? addDays(start, -days);
-  const prevEnd = previous[days - 1]?.date ?? addDays(start, -1);
   const periodLabel = fmtRange(start, end, lang);
 
   const prevTotals = useMemo(() => {
@@ -3111,8 +3500,6 @@ export default function Insights() {
     [dates, chartSeries, lang]
   );
 
-  const mainSeries = activeSeries[0];
-
   const weekdayData: WeekdayRow[] = useMemo(() => {
     const acc: WeekdayRow[] = c.days.map((day) => ({ day, a: 0, b: 0 }));
     for (const p of current) {
@@ -3130,570 +3517,773 @@ export default function Insights() {
       r === "7d" ? "30d" : r === "30d" ? "mtd" : r === "mtd" ? "custom" : "7d"
     );
 
-  const statIcons: Record<string, ReactNode> = {
+  const statIcons: Record<SummaryBoxKey, ReactNode> = {
     followers: <Users className="h-5 w-5" aria-hidden="true" />,
     posts: <FileText className="h-5 w-5" aria-hidden="true" />,
     reactions: <Zap className="h-5 w-5" aria-hidden="true" />,
     comments: <Send className="h-5 w-5" aria-hidden="true" />,
+    engRate: <Activity className="h-5 w-5" aria-hidden="true" />,
+    videoViews: <Play className="h-5 w-5" aria-hidden="true" />,
   };
 
-  /* ── Tableau des posts ── */
-  const rows = postsPeriod === "this" ? posts : previousPosts;
-  const hiddenScheduled =
-    postsPeriod === "this" ? skipped.current : skipped.previous;
-  const needle = query.trim().toLowerCase();
+  /* ── Table posts ── */
 
-  const sortedRows = useMemo(() => {
-    const matching = needle
-      ? rows.filter((post) => post.label.toLowerCase().includes(needle))
-      : rows;
-    if (!sort) return matching;
-    const dir = sort.dir === "asc" ? 1 : -1;
-    return [...matching].sort((a, b) => (a[sort.key] - b[sort.key]) * dir);
-  }, [rows, sort, needle]);
+  const filteredPosts = useMemo(() => {
+    const base = postsPeriod === "this" ? posts : previousPosts;
+    const q = query.trim().toLowerCase();
+    if (!q) return base;
+    return base.filter((p) => p.label.toLowerCase().includes(q));
+  }, [postsPeriod, posts, previousPosts, query]);
 
-  const POSTS_PREVIEW = 5;
-  const visibleRows = showAllPosts
-    ? sortedRows
-    : sortedRows.slice(0, POSTS_PREVIEW);
+  const sortedPosts = useMemo(() => {
+    if (!sort) return filteredPosts;
+    const arr = [...filteredPosts];
+    arr.sort((a, b) =>
+      sort.dir === "desc" ? b[sort.key] - a[sort.key] : a[sort.key] - b[sort.key]
+    );
+    return arr;
+  }, [filteredPosts, sort]);
+
+  const visiblePosts = showAllPosts ? sortedPosts : sortedPosts.slice(0, 5);
 
   const toggleSort = (key: SortKey) =>
     setSort((s) =>
       s?.key === key
-        ? { key, dir: s.dir === "desc" ? "asc" : "desc" }
+        ? s.dir === "desc"
+          ? { key, dir: "asc" }
+          : null
         : { key, dir: "desc" }
     );
 
-  const columns: { key: SortKey; render: (p: PostRow) => string }[] = [
-    { key: "reactions", render: (p) => nf(p.reactions, lang) },
-    { key: "comments", render: (p) => nf(p.comments, lang) },
-    { key: "engRate", render: (p) => `${p.engRate.toFixed(2)}%` },
-    { key: "videoViews", render: (p) => nf(p.videoViews, lang) },
-  ];
-
-
-  const exportCsv = () => {
-    const rowsCsv: (string | number)[][] = [
-      [
-        "date",
-        "followers",
-        "posts",
-        "reactions",
-        "comments",
-        "profile_views",
-        "previous_followers",
-      ],
-    ];
-    current.forEach((p, i) =>
-      rowsCsv.push([
-        toInput(p.date),
-        p.followers,
-        p.posts,
+  const handleExport = () => {
+    const rows: (string | number)[][] = [
+      ["Period", periodLabel],
+      ["Range", range],
+      [],
+      ["Metric", "Value"],
+      ...summaryBoxes.map((b) => [c.summary.labels[b.key], b.value]),
+      [],
+      ["Post", "Date", "Reactions", "Comments", "Eng. rate %", "Video views"],
+      ...sortedPosts.map((p) => [
+        p.label,
+        fmtFull(p.date, lang),
         p.reactions,
         p.comments,
-        p.profileViews,
-        previous[i]?.followers ?? 0,
-      ])
-    );
-    downloadCsv(`insights-${toInput(start)}-${toInput(end)}.csv`, rowsCsv);
+        p.engRate,
+        p.videoViews,
+      ]),
+    ];
+    downloadCsv(`insights-${toInput(start)}-${toInput(end)}.csv`, rows);
   };
 
-  /* ── Barre du bas / nouveau post ── */
-  const handleBottomBarChange = (id: BottomBarTab) => {
-    switch (id) {
-      case "add":
-        openComposer({ reason: "manual", channelKey: channel?.key });
-        break;
-      case "files":
-        setIsFolderOpen((open) => !open);
-        break;
-    }
-  };
-
-  const handleCreatePost = async (payload: NewPostPayload) => {
-    if (payload.scheduleMode === "later") {
-      await createPosts(payload);
-      return;
-    }
-    throw new Error(unavailablePostActionMessage(payload));
-  };
-
-  const mediaIcon = (m: PostRow["media"]) =>
-    m === "video" ? (
-      <Play className="h-4 w-4" />
-    ) : m === "text" ? (
-      <FileText className="h-4 w-4" />
-    ) : (
-      <ImageIcon className="h-4 w-4" />
-    );
-
-  const sectionCard = `rounded-[7px] border p-3 md:rounded-[7px] md:p-3 ${t.card}`;
-  const panelCard = `rounded-lg border p-4 ${t.card}`;
-  const sectionTitle = `text-[12px] font-semibold tracking-[-0.01em] md:text-[13px] ${t.text}`;
-  const sectionSub = `mt-0.5 text-[10px] leading-relaxed md:text-[10px] ${t.muted}`;
-
-  const canSwitchChannel = channels.length > 1;
-  const channelTriggerLabel = viewingAll
-    ? c.allNetworks
-    : channel
-      ? channelLabel(channel)
-      : "";
+  /* ── Render ── */
 
   return (
-    <main className={["relative h-dvh min-h-dvh w-full overflow-hidden overscroll-none compact-window selection:bg-black/15 transition-colors duration-300", t.page].join(" ")}>
-      <DashboardSidebar theme={theme} />
-      <div className="h-full min-h-0 px-2 py-2 md:py-3 md:pr-3 max-md:pt-[calc(3.5rem+env(safe-area-inset-top))] transition-[padding-left] duration-[380ms]" style={isMobile ? undefined : { paddingLeft: sidebarOffset }}>
-        <div className={["h-full min-h-0 overflow-y-auto overflow-x-hidden overscroll-y-contain rounded-lg border", NO_SCROLLBAR, "transition-colors duration-300", isDark ? "border-white/[0.07] bg-[#131313]" : "border-[#e5e5e5] bg-[#f8f8f8]"].join(" ")}>
-          <div className="mx-auto flex w-full min-w-0 flex-col gap-3 px-[clamp(14px,1.6vw,24px)] pb-[calc(7.5rem+env(safe-area-inset-bottom))] pt-5 md:gap-4">
-            <header className="flex flex-wrap items-end justify-between gap-4 pb-1">
-              <div className="min-w-0">
-                <div className={"mb-6 flex items-center gap-2 text-[14px] " + t.muted}><Activity className="h-4 w-4" /> Analytics</div>
-                <h1 className={"text-[22px] font-medium tracking-[-0.02em] md:text-[24px] " + t.text}>{lang === "fr" ? "Vos performances en un coup d'œil" : "Fresh analytics from everything"}</h1>
+    <div className={`relative min-h-[100dvh] w-full ${t.page} ${t.text}`}>
+      <DashboardSidebar activeRoute={PAGE_ROUTE} />
+
+      <div
+        style={{ paddingLeft: isMobile ? 0 : sidebarOffset }}
+        className="min-h-[100dvh] w-full transition-[padding] duration-300"
+      >
+        <main className="mx-auto w-full max-w-[1440px] px-4 pb-28 pt-[calc(56px+env(safe-area-inset-top))] md:px-8 md:pb-12 md:pt-8">
+          {/* Header */}
+          <header className="flex items-center justify-between gap-3 pb-4">
+            <div className="flex min-w-0 items-center gap-2">
+              <h1 className="truncate text-[20px] font-semibold tracking-[-0.02em] md:text-[22px]">
+                {c.header.title}
+              </h1>
+              {saved && (
+                <Bookmark
+                  className={`h-4 w-4 shrink-0 ${t.muted}`}
+                  aria-hidden="true"
+                />
+              )}
+            </div>
+            <div className="flex items-center gap-1">
+              <IconBtn
+                label={c.header.export}
+                onClick={handleExport}
+                t={t}
+                boxed
+              >
+                <Download className="h-4 w-4" aria-hidden="true" />
+              </IconBtn>
+              <IconBtn
+                label={
+                  saved ? c.header.removeFavorite : c.header.addFavorite
+                }
+                onClick={() => toggleFavorite(PAGE_ROUTE)}
+                t={t}
+                boxed
+              >
+                <Bookmark
+                  className={`h-4 w-4 ${saved ? "fill-current" : ""}`}
+                  aria-hidden="true"
+                />
+              </IconBtn>
+              <IconBtn
+                label={c.header.refresh}
+                onClick={() => setReloadKey((k) => k + 1)}
+                t={t}
+                boxed
+                disabled={youtubeLoading}
+              >
+                <RefreshCw
+                  className={`h-4 w-4 ${youtubeLoading ? "animate-spin" : ""}`}
+                  aria-hidden="true"
+                />
+              </IconBtn>
+            </div>
+          </header>
+
+          {/* Hero */}
+          <section className="mb-6">
+            <p
+              className={`text-[11px] font-semibold uppercase tracking-[0.14em] ${t.muted}`}
+            >
+              {c.hero.eyebrow}
+            </p>
+            <h2 className="mt-1 max-w-[24ch] text-[28px] font-semibold leading-tight tracking-[-0.03em] md:text-[34px]">
+              {c.hero.title}
+            </h2>
+            <p
+              className={`mt-2 max-w-[64ch] text-[13.5px] leading-relaxed md:text-[14px] ${t.muted}`}
+            >
+              {c.hero.subtitle}
+            </p>
+          </section>
+
+          {/* No channels */}
+          {channels.length === 0 && (
+            <section
+              className={`mb-5 rounded-2xl border p-5 md:p-6 ${t.card}`}
+            >
+              <h3 className="text-[15px] font-semibold">{c.noChannels.title}</h3>
+              <p className={`mt-1 text-[13px] ${t.muted}`}>
+                {c.noChannels.description}
+              </p>
+              <button
+                type="button"
+                onClick={() => navigateToSettingsSection("channels")}
+                className={`mt-3 inline-flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-[12.5px] font-semibold ${t.ring} ${t.primaryBtn}`}
+              >
+                <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+                {c.noChannels.connect}
+              </button>
+            </section>
+          )}
+
+          {/* YouTube error */}
+          {fetchYouTube && yt.error && (
+            <div
+              className={`mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border px-3.5 py-3 text-[12.5px] ${
+                isDark
+                  ? "border-amber-400/30 bg-amber-400/[0.06] text-amber-200"
+                  : "border-amber-500/30 bg-amber-50 text-amber-900"
+              }`}
+            >
+              <span>{c.errors.youtube(yt.error)}</span>
+              <button
+                type="button"
+                onClick={() => setReloadKey((k) => k + 1)}
+                className={`rounded-md px-2 py-1 text-[12px] font-semibold underline-offset-4 hover:underline ${t.ring}`}
+              >
+                {c.errors.retry}
+              </button>
+            </div>
+          )}
+
+          {/* Toolbar */}
+          <div className="mb-4 flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setChannelsOpen(true)}
+              className={`flex min-h-10 items-center gap-2 rounded-lg border px-2.5 py-1.5 text-[12px] font-semibold transition-colors md:min-h-0 ${t.ring} ${t.panel} ${t.hover} ${t.text}`}
+            >
+              {viewingAll ? (
+                <AllNetworksBadge isDark={isDark} size={24} />
+              ) : channel ? (
+                <ChannelAvatar channel={channel} isDark={isDark} size={24} />
+              ) : null}
+              <span className="max-w-[140px] truncate">
+                {viewingAll
+                  ? c.allNetworks
+                  : channel
+                    ? channel.name || channelLabel(channel)
+                    : c.sheets.channels}
+              </span>
+              <ChevronDown
+                className={`h-3.5 w-3.5 ${t.muted}`}
+                aria-hidden="true"
+              />
+            </button>
+
+            <RangePicker
+              range={range}
+              start={start}
+              end={end}
+              onStartChange={setCustomStart}
+              onEndChange={setCustomEnd}
+              t={t}
+              isDark={isDark}
+              isMobile={isMobile}
+              lang={lang}
+            />
+
+            <button
+              type="button"
+              onClick={cycleRange}
+              className={`ml-auto hidden text-[11.5px] font-semibold underline-offset-4 hover:underline md:inline ${t.muted} ${t.ring} rounded`}
+            >
+              {c.ranges[range]} → {c.overview.subtitle}
+            </button>
+          </div>
+
+          {/* Summary */}
+          <section className="mb-5">
+            <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
+              <h3 className="text-[15px] font-semibold">{c.summary.title}</h3>
+              <p className={`text-[12px] ${t.muted}`}>{periodLabel}</p>
+            </div>
+            <div className="grid grid-cols-2 gap-2 md:grid-cols-3 lg:grid-cols-6">
+              {summaryBoxes.map((b) => (
+                <MetricBox
+                  key={b.key}
+                  label={c.summary.labels[b.key]}
+                  value={b.value}
+                  info={c.summary.info[b.key]}
+                  delta={b.delta}
+                  icon={statIcons[b.key]}
+                  t={t}
+                  isDark={isDark}
+                  isMobile={isMobile}
+                  lang={lang}
+                />
+              ))}
+            </div>
+
+            {/* Goal bar */}
+            <div
+              className={`mt-3 flex flex-wrap items-center gap-3 rounded-xl border px-3.5 py-3 ${t.card}`}
+            >
+              <span className={`text-[12px] ${t.muted}`}>
+                {c.summary.goalProgress(postsThisWeek, goal)}
+              </span>
+              <div
+                className={`relative h-2 flex-1 overflow-hidden rounded-full ${t.inner}`}
+                role="progressbar"
+                aria-valuemin={0}
+                aria-valuemax={goal}
+                aria-valuenow={postsThisWeek}
+                aria-label={c.summary.goalAria(postsThisWeek, goal)}
+              >
+                <span
+                  className="absolute inset-y-0 left-0 rounded-full"
+                  style={{
+                    width: `${goalPct}%`,
+                    background: isDark ? "#f5f5f5" : "#171717",
+                  }}
+                />
               </div>
-              <div className="flex min-w-0 items-center gap-2 print:hidden">
-                <div className="hidden md:block"><ChannelMenu channels={channels} current={channel} isDark={isDark} onSelect={goChannel} allOption={channels.length > 1 ? { key: ALL_KEY, label: c.allNetworks } : undefined} selectedKey={viewingAll ? ALL_KEY : channel?.key} /></div>
-                {fetchYouTube && <IconBtn label={c.header.refresh} t={t} align="end" onClick={() => setReloadKey((k) => k + 1)}><RefreshCw className={"h-4 w-4 " + (yt.loading ? "animate-spin motion-reduce:animate-none" : "")} /></IconBtn>}
-                <button type="button" onClick={exportCsv} disabled={!channels.length} className={"flex h-9 items-center gap-2 rounded-md border px-3 text-[11px] font-medium disabled:opacity-40 " + t.ring + " " + t.outlineBtn}><Download className="h-4 w-4" />{c.header.export}</button>
-                <button type="button" aria-label={saved ? c.header.removeFavorite : c.header.addFavorite} aria-pressed={saved} onClick={() => toggleFavorite(PAGE_ROUTE)} className={"flex h-9 w-9 items-center justify-center rounded-md " + t.ring + " " + t.hover + " " + t.soft}><Bookmark className={"h-4 w-4 " + (saved ? "fill-current" : "")} /></button>
-              </div>
-            </header>
+              <span
+                className={`text-[12px] font-semibold tabular-nums ${t.text}`}
+              >
+                {goalPct}%
+              </span>
+            </div>
+          </section>
 
-            {channels.length > 0 && <button type="button" aria-haspopup="dialog" disabled={!canSwitchChannel} onClick={() => setChannelsOpen(true)} className={"flex min-h-11 w-full items-center gap-2 rounded-md border px-3 text-left md:hidden " + t.ring + " " + t.panel}><span className={"min-w-0 flex-1 truncate text-[13px] font-medium " + t.text}>{channelTriggerLabel}</span>{canSwitchChannel && <ChevronDown className={"h-4 w-4 " + t.muted} />}</button>}
-
-            {!channels.length ? (
-              <section className={"flex flex-col items-center gap-3 rounded-lg border px-6 py-16 text-center " + t.panel}>
-                <span className={"flex h-12 w-12 items-center justify-center rounded-lg " + t.iconBox}><Activity className="h-5 w-5" /></span>
-                <h2 className={"text-sm font-semibold " + t.text}>{c.noChannels.title}</h2>
-                <p className={"max-w-sm text-xs " + t.soft}>{c.noChannels.description}</p>
-                <button type="button" onClick={() => navigateToSettingsSection("channels")} className={"mt-2 flex min-h-10 items-center gap-2 rounded-md px-4 text-xs font-semibold " + t.ring + " " + t.primaryBtn}><Plus className="h-4 w-4" />{c.noChannels.connect}</button>
-              </section>
-            ) : (
-              <>
-                {fetchYouTube && yt.error && <div role="alert" className={"flex flex-wrap items-center justify-between gap-3 rounded-md border px-4 py-3 " + t.panel}><p className={"min-w-0 break-words text-xs " + t.soft}>{c.errors.youtube(yt.error)}</p><button type="button" onClick={() => setReloadKey((k) => k + 1)} className={"rounded-md border px-3 py-2 text-xs " + t.ring + " " + t.outlineBtn}>{c.errors.retry}</button></div>}
-                {youtubeLoading && <p className={"text-xs " + t.soft} role="status">{c.errors.loading}</p>}
-
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div className="flex min-w-0 flex-wrap items-center gap-2">
-                    <div role="tablist" aria-label={c.overview.dateRangeAria} className={"inline-flex max-w-full items-center gap-1 rounded-md border p-1 " + t.panel + " " + NO_SCROLLBAR}>
-                      {(["7d", "30d", "mtd", "custom"] as Range[]).map((key) => <button key={key} type="button" role="tab" aria-selected={range === key} onClick={() => setRange(key)} className={"shrink-0 rounded-[4px] px-3 py-1.5 text-[11px] font-medium " + t.ring + " " + (range === key ? t.sel : t.idle)}>{c.ranges[key]}</button>)}
-                    </div>
-                    {range === "custom" && <RangePicker range={range} start={start} end={end} onStartChange={setCustomStart} onEndChange={setCustomEnd} t={t} isDark={isDark} isMobile={isMobile} lang={lang} />}
-                  </div>
-                  <div className="hidden items-center gap-2 sm:flex" aria-label={c.summary.goalAria(postsThisWeek, goal)}><span className={"text-[11px] " + t.muted}>{c.summary.goalProgress(postsThisWeek, goal)}</span><div className={"h-1.5 w-20 overflow-hidden rounded-full " + t.inner}><div className={"h-full rounded-full " + (isDark ? "bg-white" : "bg-black")} style={{ width: goalPct + "%" }} /></div></div>
-                  <button type="button" onClick={() => navigate("tags")} className={"flex h-9 items-center gap-2 rounded-md px-3 text-[11px] " + t.ring + " " + t.hover + " " + t.text}><Tag className="h-3.5 w-3.5" />{c.tagsButton}<ChevronDown className="h-3.5 w-3.5" /></button>
+          {/* Trends */}
+          <section className="grid gap-3 lg:grid-cols-[2fr_1fr]">
+            <div className={`rounded-2xl border p-4 md:p-5 ${t.card}`}>
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div>
+                  <h3 className="text-[15px] font-semibold">
+                    {c.trends.title}
+                  </h3>
+                  <p className={`mt-0.5 text-[12px] ${t.muted}`}>
+                    {c.trends.subtitle(periodLabel)}
+                  </p>
                 </div>
-
-                {hasDemoInsights && <p className={"-mt-1 text-[11px] " + t.muted}>{lang === "fr" ? "Certaines données sont estimées selon l'activité disponible." : "Some data is estimated from available activity."}</p>}
-
-                <section aria-label={c.summary.title} className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-                  {summaryBoxes.slice(0, 4).map((b) => (
-                    <MetricBox
-                      key={b.key}
-                      label={c.summary.labels[b.key]}
-                      value={b.value}
-                      info={c.summary.info[b.key]}
-                      t={t}
-                      delta={b.delta}
-                      isDark={isDark}
-                      isMobile={isMobile}
-                      lang={lang}
-                      icon={statIcons[b.key]}
-                      active={metricA === b.key}
-                      onSelect={() => setMetricA(b.key as NumKey)}
-                    />
-                  ))}
-                </section>
-
-                <div className="grid min-w-0 grid-cols-1 items-stretch gap-3 lg:grid-cols-2">
-                  <section className={panelCard + " min-w-0"} aria-labelledby="trend-panel-title">
-                    <div className="flex items-center justify-between gap-3">
-                      <h2 id="trend-panel-title" className={"text-[15px] font-medium " + t.text}>{mainSeries.label}</h2>
-                      <button type="button" onClick={cycleRange} aria-label={c.overview.dateRangeAria} className={"flex h-8 items-center gap-2 rounded-md border px-3 text-[12px] " + t.ring + " " + t.outlineBtn}><Calendar className="h-3.5 w-3.5" aria-hidden="true" />{periodLabel}</button>
-                    </div>
-                    <div className="mt-4"><InsightsChart data={chartData} view="both" isDark={isDark} isMobile={isMobile} lang={lang} seriesLabel={mainSeries.label} seriesColor={TONES[0]} /></div>
-                  </section>
-
-                  <section className={panelCard + " min-w-0"} aria-labelledby="weekday-title">
-                    <div className="flex items-center justify-between gap-3">
-                      <h2 id="weekday-title" className={"text-[15px] font-medium " + t.text}>{lang === "fr" ? "Activité par jour" : "Activity by weekday"}</h2>
-                      <div className={"flex items-center gap-3 text-[12px] " + t.muted}>
-                        <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[#bdbdbd]" aria-hidden="true" />{c.summary.labels.reactions}</span>
-                        <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[#555555]" aria-hidden="true" />{c.summary.labels.comments}</span>
-                      </div>
-                    </div>
-                    <div className="mt-4"><WeekdayBars data={weekdayData} isDark={isDark} isMobile={isMobile} lang={lang} labelA={c.summary.labels.reactions} labelB={c.summary.labels.comments} /></div>
-                  </section>
-                </div>
-
-                <section className={panelCard + " min-w-0"} aria-labelledby="recycle-title">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <h2 id="recycle-title" className={"text-[15px] font-medium " + t.text}>{c.recycle.title}</h2>
-                    <label className={"flex h-8 w-full items-center gap-2 rounded-md border px-2.5 text-[12px] sm:w-[220px] " + t.panel + " " + t.muted}>
-                      <Search className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                      <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={lang === "fr" ? "Rechercher" : "Search"} aria-label={lang === "fr" ? "Rechercher une publication" : "Search posts"} className={"min-w-0 flex-1 bg-transparent outline-none placeholder:text-current " + t.text} />
-                    </label>
-                  </div>
-                  {(() => {
-                    const cards = remixable.filter((p) => !needle || p.label.toLowerCase().includes(needle));
-                    if (cards.length === 0) return <p className={"mt-4 text-xs " + t.soft}>{needle ? c.performance.emptyNoMatch : c.recycle.emptyHint}</p>;
-                    return (
-                      <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                        {cards.map((p) => (
-                          <article key={p.id} className={"flex min-w-0 flex-col rounded-lg border p-3 " + t.inner}>
-                            <div className="flex items-start justify-between gap-2">
-                              <div className={"relative h-[60px] w-[80px] shrink-0 rounded-md border " + t.border + " " + (isDark ? "bg-[#242424]" : "bg-[#ececec]")}>
-                                <span className={"absolute -top-[5px] left-0 h-[7px] w-8 rounded-t-md border border-b-0 " + t.border + " " + (isDark ? "bg-[#242424]" : "bg-[#ececec]")} aria-hidden="true" />
-                                {p.thumbnailUrl ? <img src={p.thumbnailUrl} alt="" referrerPolicy="no-referrer" loading="lazy" className="h-full w-full rounded-md object-cover opacity-60" /> : <span className={"flex h-full w-full items-center justify-center " + t.muted}>{mediaIcon(p.media)}</span>}
-                                <span className={"absolute bottom-2 right-2 h-px w-3 " + (isDark ? "bg-white/30" : "bg-black/25")} aria-hidden="true" />
-                              </div>
-                              <div className={"flex items-center gap-1.5 text-[12px] " + t.soft}>
-                                <span className="tabular-nums">{nf(p.reactions, lang)}+</span>
-                                <span className="flex -space-x-1.5" aria-hidden="true">{[0, 1, 2].map((i) => <span key={i} className={"h-[18px] w-[18px] rounded-full border-2 " + (isDark ? "border-[#1a1a1a] " : "border-[#f6f6f6] ") + (["bg-[#8c8c8c]", "bg-[#666666]", "bg-[#4a4a4a]"][i])} />)}</span>
-                              </div>
-                            </div>
-                            <h3 className={"mt-4 truncate text-[15px] font-medium " + t.text}>{p.label}</h3>
-                            <p className={"mt-1 line-clamp-2 min-h-[2.6em] text-[13px] leading-snug " + t.muted}>{c.recycle.engagement(p.reactions, p.engRate.toFixed(1))}</p>
-                            <div className="mt-4 flex items-center gap-2">
-                              <button type="button" onClick={() => duplicatePost(p)} className={"flex h-9 flex-1 items-center justify-center gap-2 rounded-md border text-[13px] " + t.ring + " " + t.outlineBtn}><Copy className="h-3.5 w-3.5" aria-hidden="true" />{c.recycle.duplicate}</button>
-                              {isYouTube ? (
-                                <a href={"https://www.youtube.com/watch?v=" + p.id} target="_blank" rel="noopener noreferrer" className={"flex h-9 flex-1 items-center justify-center gap-2 rounded-md text-[13px] " + t.ring + " " + t.soft + " " + t.hover}><ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />{lang === "fr" ? "Ouvrir" : "Open"}</a>
-                              ) : (
-                                <button type="button" onClick={() => openComposer({ reason: "manual", channelKey: channel?.key })} className={"flex h-9 flex-1 items-center justify-center gap-2 rounded-md text-[13px] " + t.ring + " " + t.soft + " " + t.hover}><Pencil className="h-3.5 w-3.5" aria-hidden="true" />{lang === "fr" ? "Nouveau" : "New"}</button>
-                              )}
-                            </div>
-                          </article>
-                        ))}
-                      </div>
-                    );
-                  })()}
-                </section>
-
-                <section className={sectionCard + " min-w-0"} aria-labelledby="besttime-title">
-                    <div className="flex flex-wrap items-start justify-between gap-2"><div className="min-w-0"><h2 id="besttime-title" className={sectionTitle}>{c.bestTime.title}</h2><p className={sectionSub}>{subhead}</p></div><button type="button" onClick={() => scheduleFromSlot(heatmap.best)} className={"h-8 shrink-0 rounded-md border px-3 text-[10px] font-medium " + t.ring + " " + t.outlineBtn}>{c.bestTime.useLabel(heatmap.label)}</button></div>
-                    <div className="mt-4 flex items-center justify-between gap-3">
-                      <div className={"flex items-center gap-1 rounded-lg p-1 " + (isDark ? "bg-white/[0.04]" : "bg-black/[0.035]")}>
-                        <button type="button" aria-pressed={bestTimeView === "time"} onClick={() => setBestTimeView("time")} className={"rounded-md px-3 py-1.5 text-[11px] font-medium transition " + (bestTimeView === "time" ? (isDark ? "bg-[#262626] text-white shadow-sm" : "bg-white text-neutral-900 shadow-sm") : t.muted)}>{lang === "fr" ? "Best time to post" : "Best time to post"}</button>
-                        <button type="button" aria-pressed={bestTimeView === "day"} onClick={() => setBestTimeView("day")} className={"rounded-md px-3 py-1.5 text-[11px] font-medium transition " + (bestTimeView === "day" ? (isDark ? "bg-[#262626] text-white shadow-sm" : "bg-white text-neutral-900 shadow-sm") : t.muted)}>{lang === "fr" ? "Best day" : "Best day"}</button>
-                      </div>
-                      <div className={"flex items-center gap-2 text-[10px] " + t.muted}><span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-[#ee704e]" />{c.bestTime.high}</span><span className="flex items-center gap-1"><span className={"h-2 w-2 rounded-full " + (isDark ? "bg-white/10" : "bg-black/10")} />{c.bestTime.low}</span></div>
-                    </div>
-                    {bestTimeView === "time" ? (
-                      isMobile ? <BestTimeMobile heatmap={heatmap} c={c} t={t} isDark={isDark} onSchedule={scheduleFromSlot} /> : (
-                        <div className="mt-4 overflow-x-auto">
-                          <div className="min-w-[620px]">
-                            <div className="grid grid-cols-[44px_repeat(7,minmax(0,1fr))] gap-x-1.5 gap-y-1">
-                              <span />
-                              {c.days.map((day) => <span key={day} className={"pb-2 text-center text-[11px] font-medium " + t.muted}>{day}</span>)}
-                              {Array.from({ length: 24 }, (_, h) => (
-                                <div key={h} className="contents">
-                                  <span className={"flex items-center justify-end pr-2 text-[10px] tabular-nums " + t.muted}>{hourLabel(h)}</span>
-                                  {c.days.map((day, d) => {
-                                    const cell = heatmap.grid[d][h];
-                                    const active = heatmap.best.day === d && heatmap.best.hour === h;
-                                    return <button key={day + h} type="button" onClick={() => scheduleFromSlot({ day: d, hour: h })} title={c.bestTime.scheduleAria(day, hourLabel(h))} aria-label={c.bestTime.scheduleAria(day, hourLabel(h))} className={"h-6 rounded-[3px] transition-all hover:brightness-110 " + t.ring + (active ? " ring-1 ring-[#ee704e] ring-offset-1 " + (isDark ? "ring-offset-[#171717]" : "ring-offset-white") : "")} style={heatLayer(cell.norm)} />
-                                  })}
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        </div>
-                      )
-                    ) : (
-                      <div className="mt-5 grid grid-cols-7 gap-2">
-                        {heatmap.bestByDay.map((slot, d) => (
-                          <button key={c.days[d]} type="button" onClick={() => scheduleFromSlot(slot)} title={c.bestTime.scheduleAria(c.days[d], hourLabel(slot.hour))} className={"group flex min-w-0 flex-col items-center justify-end gap-2 rounded-lg px-1 py-3 transition " + t.ring + " " + t.hover}>
-                            <span className={"flex h-36 w-full items-end justify-center rounded-md " + (isDark ? "bg-white/[0.025]" : "bg-black/[0.025]")}>
-                              <span className="w-full max-w-8 rounded-t-sm transition-all group-hover:brightness-110" style={{height: Math.max(8,slot.norm*100)+"%",backgroundColor:heatColor(slot.norm)}} />
-                            </span>
-                            <span className={"text-[11px] font-medium " + t.text}>{c.days[d]}</span>
-                            <span className={"text-[10px] tabular-nums " + t.muted}>{hourLabel(slot.hour)}</span>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                    <p className={"mt-3 text-[10px] leading-relaxed " + t.muted}>{bestTimesNote}</p>
-                  </section>
-
-                {/* ── PERFORMANCE PER POST ── */}
-                <section
-                  className={`${sectionCard} min-w-0`}
-                  aria-labelledby="perf-title"
+                <button
+                  type="button"
+                  onClick={() =>
+                    setChartView((v) =>
+                      v === "this" ? "comparison" : v === "comparison" ? "both" : "this"
+                    )
+                  }
+                  aria-pressed={chartView !== "this"}
+                  className={`flex min-h-9 items-center gap-1.5 rounded-full border px-3 text-[11.5px] font-semibold transition-colors ${t.ring} ${
+                    chartView !== "this" ? t.sel : `${t.inner} ${t.hover} ${t.text}`
+                  }`}
                 >
-                  <div className="flex flex-wrap items-start justify-between gap-3 px-1">
-                    <div className="min-w-0">
-                      <h3 id="perf-title" className={sectionTitle}>
-                        {c.performance.title}
-                      </h3>
-                      <p className={sectionSub}>
-                        {postsPeriod === "this"
-                          ? periodLabel
-                          : fmtRange(prevStart, prevEnd, lang)}
-                        {hiddenScheduled > 0 &&
-                          ` · ${c.performance.hiddenScheduled(hiddenScheduled)}`}
+                  <span className="h-1.5 w-1.5 rounded-full bg-current opacity-70" />
+                  {c.trends.compareToggle}
+                </button>
+              </div>
+
+              <div className="mt-3">
+                <Segmented
+                  value={metricA}
+                  options={METRIC_OPTIONS.map((m) => ({
+                    key: m.key,
+                    label: m.label,
+                    icon: m.icon,
+                  }))}
+                  onChange={(k) => setMetricA(k)}
+                  t={t}
+                  label={c.trends.metricAria}
+                />
+              </div>
+
+              <div className="mt-2">
+                <InsightsChart
+                  data={chartData}
+                  view={chartView}
+                  isDark={isDark}
+                  isMobile={isMobile}
+                  lang={lang}
+                  seriesLabel={activeSeries[0]?.label ?? c.trends.thisPeriod}
+                  seriesColor={TONES[0]}
+                />
+              </div>
+            </div>
+
+            <div className={`rounded-2xl border p-4 md:p-5 ${t.card}`}>
+              <h3 className="text-[15px] font-semibold">
+                {c.summary.labels.reactions} · {c.summary.labels.comments}
+              </h3>
+              <p className={`mt-0.5 text-[12px] ${t.muted}`}>{periodLabel}</p>
+              <div className="mt-3">
+                <WeekdayBars
+                  data={weekdayData}
+                  isDark={isDark}
+                  isMobile={isMobile}
+                  lang={lang}
+                  labelA={c.summary.labels.reactions}
+                  labelB={c.summary.labels.comments}
+                />
+              </div>
+            </div>
+          </section>
+
+          {/* ── Best time ── */}
+          <section className="mt-5">
+            <div className={`rounded-2xl border p-4 md:p-5 ${t.card}`}>
+              <BestTimeHeader
+                heatmap={heatmap}
+                c={c}
+                t={t}
+                isDark={isDark}
+                subhead={subhead}
+                onSchedule={scheduleFromSlot}
+              />
+
+              {isMobile ? (
+                <BestTimeMobile
+                  heatmap={heatmap}
+                  c={c}
+                  t={t}
+                  isDark={isDark}
+                  onSchedule={scheduleFromSlot}
+                />
+              ) : (
+                <BestTimeHeatmap
+                  heatmap={heatmap}
+                  c={c}
+                  t={t}
+                  isDark={isDark}
+                  onSchedule={scheduleFromSlot}
+                />
+              )}
+
+              <BestTimeRecommendations
+                heatmap={heatmap}
+                c={c}
+                t={t}
+                isDark={isDark}
+                onSchedule={scheduleFromSlot}
+              />
+
+              <p className={`mt-4 text-[11px] ${t.muted}`}>
+                {bestTimesNote}
+              </p>
+            </div>
+          </section>
+
+          {/* Recycle */}
+          {remixable.length > 0 && (
+            <section className="mt-5">
+              <div className={`rounded-2xl border p-4 md:p-5 ${t.card}`}>
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <h3 className="text-[15px] font-semibold">
+                    {c.recycle.title}
+                  </h3>
+                  <p className={`text-[12px] ${t.muted}`}>
+                    {c.recycle.subtitle}
+                  </p>
+                </div>
+                <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                  {remixable.map((p, i) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => duplicatePost(p)}
+                      className={`group flex flex-col gap-2 rounded-xl border p-3 text-left transition-colors ${t.ring} ${t.inner} ${t.hover}`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span
+                          className={`text-[10px] font-semibold uppercase tracking-wider ${t.muted}`}
+                        >
+                          {c.recycle.rank(i + 1)}
+                        </span>
+                        <span
+                          className={`text-[10px] font-semibold uppercase ${t.muted}`}
+                        >
+                          {c.media[p.media]}
+                        </span>
+                      </div>
+                      <p
+                        className={`line-clamp-2 text-[13px] font-semibold leading-snug ${t.text}`}
+                      >
+                        {p.label}
                       </p>
-                    </div>
-                    <Segmented<PostsPeriod>
-                      label={c.performance.periodAria}
-                      value={postsPeriod}
-                      onChange={setPostsPeriod}
-                      t={t}
-                      size="lg"
-                      options={[
-                        { key: "this", label: c.performance.periodThis },
-                        {
-                          key: "previous",
-                          label: c.performance.periodPrevious,
-                        },
-                      ]}
+                      <span className={`text-[11px] ${t.muted}`}>
+                        {c.recycle.engagement(p.reactions, String(p.engRate))}
+                      </span>
+                      <span
+                        className={`mt-1 text-[11.5px] font-semibold ${t.text} opacity-80 group-hover:opacity-100`}
+                      >
+                        {c.recycle.duplicate}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </section>
+          )}
+
+          {/* Performance */}
+          <section className="mt-5">
+            <div className={`rounded-2xl border ${t.card}`}>
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b px-4 py-3 md:px-5">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-[15px] font-semibold">
+                    {c.performance.title}
+                  </h3>
+                  <span className={`text-[11.5px] ${t.muted}`}>
+                    {c.performance.postsCount(sortedPosts.length)}
+                  </span>
+                  {skipped.current > 0 && (
+                    <span className={`text-[11px] ${t.muted}`}>
+                      · {c.performance.hiddenScheduled(skipped.current)}
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <div className="relative">
+                    <Search
+                      className={`pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 ${t.muted}`}
+                      aria-hidden="true"
+                    />
+                    <input
+                      value={query}
+                      onChange={(e) => setQuery(e.target.value)}
+                      placeholder={c.performance.title}
+                      className={`h-9 w-[160px] rounded-lg border pl-7 pr-2 text-[12px] outline-none md:w-[200px] ${t.inner} ${t.text} focus:ring-2 ${
+                        isDark
+                          ? "focus:ring-white/30"
+                          : "focus:ring-black/20"
+                      }`}
                     />
                   </div>
+                  <Segmented
+                    value={postsPeriod}
+                    options={[
+                      { key: "this", label: c.performance.periodThis },
+                      { key: "previous", label: c.performance.periodPrevious },
+                    ]}
+                    onChange={(k) => setPostsPeriod(k)}
+                    t={t}
+                    label={c.performance.periodAria}
+                  />
+                </div>
+              </div>
 
-                  <div
-                    className={`mt-4 overflow-hidden rounded-2xl border ${t.panel}`}
-                  >
-                    {/* Mobile (< md) : compteur + tri en puces scrollables */}
-                    <div className="md:hidden">
-                      <p
-                        className={`px-4 pt-3 text-[12px] font-semibold ${t.text}`}
-                      >
-                        {c.performance.postsCount(sortedRows.length)}
-                      </p>
-                      <div
-                        className={`flex gap-1.5 overflow-x-auto px-4 pb-3 pt-2 ${NO_SCROLLBAR}`}
-                      >
-                        {columns.map((col) => {
-                          const active = sort?.key === col.key;
-                          return (
-                            <button
-                              key={col.key}
-                              type="button"
-                              onClick={() => toggleSort(col.key)}
-                              aria-pressed={active}
-                              aria-label={c.performance.sortBy(
-                                c.performance.columns[col.key]
-                              )}
-                              className={`flex min-h-10 shrink-0 items-center gap-1 whitespace-nowrap rounded-full border px-3.5 py-1.5 text-[12px] font-semibold transition-colors ${t.ring} ${
-                                active
-                                  ? `border-transparent ${t.sel}`
-                                  : `${t.inner} ${t.hover} ${t.text}`
-                              }`}
-                            >
-                              {c.performance.columns[col.key]}
-                              <ChevronDown
-                                className={`h-3.5 w-3.5 transition-transform ${
-                                  active && sort?.dir === "asc"
-                                    ? "rotate-180"
-                                    : ""
-                                } ${active ? "opacity-100" : "opacity-60"}`}
-                                aria-hidden="true"
-                              />
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
-
-                    {/* Desktop (≥ md) : en-tête de colonnes */}
-                    <div
-                      className={`hidden items-center gap-2 px-4 py-3 text-[12px] font-semibold md:grid ${TABLE_GRID} ${t.head} ${t.text}`}
+              {sortedPosts.length === 0 ? (
+                <div className="px-4 py-10 text-center">
+                  <p className={`text-[13px] ${t.muted}`}>
+                    {youtubeLoading
+                      ? c.performance.emptyLoading
+                      : query
+                        ? c.performance.emptyNoMatch
+                        : c.performance.emptyNoPost}
+                  </p>
+                  {!query && (
+                    <button
+                      type="button"
+                      onClick={() => setRange("30d")}
+                      className={`mt-3 rounded-lg border px-3 py-1.5 text-[12px] font-semibold ${t.ring} ${t.inner} ${t.hover} ${t.text}`}
                     >
-                      <span>{c.performance.postsCount(sortedRows.length)}</span>
-                      {columns.map((col) => (
-                        <button
-                          key={col.key}
-                          type="button"
-                          onClick={() => toggleSort(col.key)}
-                          aria-label={c.performance.sortBy(
-                            c.performance.columns[col.key]
-                          )}
-                          className={`flex w-fit items-center gap-1 rounded text-left ${t.ring}`}
-                        >
-                          {c.performance.columns[col.key]}
-                          <ChevronDown
-                            className={`h-3.5 w-3.5 transition-transform ${
-                              t.muted
-                            } ${
-                              sort?.key === col.key && sort.dir === "asc"
-                                ? "rotate-180"
-                                : ""
-                            } ${
-                              sort?.key === col.key
-                                ? "opacity-100"
-                                : "opacity-70"
-                            }`}
-                            aria-hidden="true"
-                          />
-                        </button>
-                      ))}
-                      <span />
-                    </div>
-
-                    {sortedRows.length === 0 ? (
-                      <div
-                        className={`flex flex-col items-center gap-2 border-t px-6 py-10 text-center ${t.border}`}
+                      {c.performance.showLast30Days}
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <>
+                  {/* Header desktop */}
+                  <div
+                    className={`hidden border-b px-4 text-[10.5px] font-semibold uppercase tracking-wider md:grid md:px-5 ${TABLE_GRID} ${t.muted} ${t.head}`}
+                  >
+                    <span className="py-2.5">Post</span>
+                    {(
+                      [
+                        "reactions",
+                        "comments",
+                        "engRate",
+                        "videoViews",
+                      ] as SortKey[]
+                    ).map((k) => (
+                      <button
+                        key={k}
+                        type="button"
+                        onClick={() => toggleSort(k)}
+                        aria-label={c.performance.sortBy(c.performance.columns[k])}
+                        className={`py-2.5 text-right ${t.ring} ${t.hover} rounded`}
                       >
-                        <span
-                          className={`flex h-11 w-11 items-center justify-center rounded-full ${t.iconBox}`}
-                        >
-                          <Activity className="h-5 w-5" aria-hidden="true" />
-                        </span>
-                        <p
-                          className={`text-[13px] font-medium md:text-[12px] ${t.text}`}
-                        >
-                          {youtubeLoading
-                            ? c.performance.emptyLoading
-                            : needle
-                              ? c.performance.emptyNoMatch
-                              : c.performance.emptyNoPost}
-                        </p>
-                        {!youtubeLoading && !needle && (
-                          <p className={`max-w-[360px] text-[12px] ${t.soft}`}>
-                            {c.performance.emptyLongerPeriod}
-                          </p>
+                        {c.performance.columns[k]}
+                        {sort?.key === k && (
+                          <span className="ml-1">
+                            {sort.dir === "desc" ? "↓" : "↑"}
+                          </span>
                         )}
-                        {!youtubeLoading && !needle && days < 30 && (
-                          <button
-                            type="button"
-                            onClick={() => setRange("30d")}
-                            className={`mt-2 min-h-11 rounded-full px-4 py-1.5 text-[12px] font-semibold transition-colors md:min-h-0 md:px-3.5 md:text-[11px] ${t.ring} ${t.outlineBtn}`}
-                          >
-                            {c.performance.showLast30Days}
-                          </button>
-                        )}
-                      </div>
-                    ) : (
-                      visibleRows.map((p, idx) => (
-                        <div
-                          key={p.id}
-                          className={`relative grid grid-cols-2 gap-x-3 gap-y-2.5 border-t px-4 py-3 text-[13px] transition-colors md:items-center md:gap-2 ${TABLE_GRID} ${t.border} ${t.text} ${t.hover}`}
-                        >
-                          <div className="col-span-2 flex min-w-0 items-center gap-3 pr-10 md:col-span-1 md:pr-0">
-                            <span
-                              className={`w-5 shrink-0 text-[12px] ${t.muted}`}
-                            >
-                              #{idx + 1}
-                            </span>
-                            <span
-                              className={`flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg ${t.iconBox}`}
-                            >
-                              {p.thumbnailUrl ? (
-                                <img
-                                  src={p.thumbnailUrl}
-                                  alt=""
-                                  referrerPolicy="no-referrer"
-                                  loading="lazy"
-                                  className="h-full w-full object-cover"
-                                />
-                              ) : (
-                                mediaIcon(p.media)
-                              )}
-                            </span>
-                            <div className="min-w-0">
-                              {isYouTube ? (
-                                <a
-                                  href={`https://www.youtube.com/watch?v=${p.id}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className={`block truncate rounded text-[14px] font-medium hover:underline ${t.soft} ${t.ring}`}
-                                >
-                                  {p.label}
-                                </a>
-                              ) : (
-                                <p
-                                  className={`truncate text-[14px] font-medium ${t.soft}`}
-                                >
-                                  {p.label}
-                                </p>
-                              )}
-                              <p
-                                className={`flex items-center gap-1.5 text-[11px] ${t.muted}`}
+                      </button>
+                    ))}
+                    <span className="py-2.5" />
+                  </div>
+
+                  {/* Rows */}
+                  <ul className={`divide-y ${t.border}`}>
+                    {visiblePosts.map((p, i) => {
+                      const isTop = i === 0 && !sort;
+                      return (
+                        <li key={p.id}>
+                          {/* Mobile card */}
+                          <div className="md:hidden">
+                            <div className="flex gap-3 px-4 py-3">
+                              <div
+                                className={`relative flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border ${t.inner}`}
                               >
-                                {fmtFull(p.date, lang)}
-                                {postsPeriod === "this" &&
-                                  p.id === topPost?.id && (
+                                {p.thumbnailUrl ? (
+                                  <img
+                                    src={p.thumbnailUrl}
+                                    alt=""
+                                    className="h-full w-full object-cover"
+                                  />
+                                ) : p.media === "video" ? (
+                                  <Play
+                                    className="h-4 w-4 opacity-70"
+                                    aria-hidden="true"
+                                  />
+                                ) : p.media === "image" ? (
+                                  <ImageIcon
+                                    className="h-4 w-4 opacity-70"
+                                    aria-hidden="true"
+                                  />
+                                ) : (
+                                  <FileText
+                                    className="h-4 w-4 opacity-70"
+                                    aria-hidden="true"
+                                  />
+                                )}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-start justify-between gap-2">
+                                  <p
+                                    className={`line-clamp-2 text-[13px] font-semibold leading-snug ${t.text}`}
+                                  >
+                                    {p.label}
+                                  </p>
+                                  {isTop && (
                                     <span
-                                      className={`rounded-full px-1.5 py-px text-[9px] font-semibold ${t.sel}`}
+                                      className={`shrink-0 rounded-full px-2 py-0.5 text-[9.5px] font-semibold uppercase tracking-wider ${t.sel}`}
                                     >
                                       {c.performance.top}
                                     </span>
                                   )}
-                              </p>
+                                </div>
+                                <p className={`mt-0.5 text-[11px] ${t.muted}`}>
+                                  {fmtFull(p.date, lang)}
+                                </p>
+                                <div className="mt-1.5 grid grid-cols-4 gap-1 text-center text-[10.5px]">
+                                  <Stat
+                                    label={c.performance.columns.reactions}
+                                    value={nf(p.reactions, lang)}
+                                    t={t}
+                                  />
+                                  <Stat
+                                    label={c.performance.columns.comments}
+                                    value={nf(p.comments, lang)}
+                                    t={t}
+                                  />
+                                  <Stat
+                                    label={c.performance.columns.engRate}
+                                    value={`${p.engRate}%`}
+                                    t={t}
+                                  />
+                                  <Stat
+                                    label={c.performance.columns.videoViews}
+                                    value={nf(p.videoViews, lang)}
+                                    t={t}
+                                  />
+                                </div>
+                                <div className="mt-2 flex items-center gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => duplicatePost(p)}
+                                    className={`flex min-h-9 items-center gap-1 rounded-lg px-2.5 text-[11.5px] font-semibold ${t.ring} ${t.inner} ${t.hover} ${t.text}`}
+                                  >
+                                    <Copy
+                                      className="h-3.5 w-3.5"
+                                      aria-hidden="true"
+                                    />
+                                    {c.performance.duplicatePost}
+                                  </button>
+                                </div>
+                              </div>
                             </div>
                           </div>
-                          {columns.map((col) => (
-                            <span
-                              key={col.key}
-                              className="flex items-baseline justify-between gap-2 tabular-nums md:block"
+
+                          {/* Desktop row */}
+                          <div
+                            className={`hidden items-center px-4 py-2.5 md:grid md:px-5 ${TABLE_GRID}`}
+                          >
+                            <div className="flex min-w-0 items-center gap-2.5">
+                              <div
+                                className={`relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-md border ${t.inner}`}
+                              >
+                                {p.media === "video" ? (
+                                  <Play
+                                    className="h-3 w-3 opacity-70"
+                                    aria-hidden="true"
+                                  />
+                                ) : p.media === "image" ? (
+                                  <ImageIcon
+                                    className="h-3 w-3 opacity-70"
+                                    aria-hidden="true"
+                                  />
+                                ) : (
+                                  <FileText
+                                    className="h-3 w-3 opacity-70"
+                                    aria-hidden="true"
+                                  />
+                                )}
+                              </div>
+                              <div className="min-w-0">
+                                <p
+                                  className={`truncate text-[12.5px] font-semibold ${t.text}`}
+                                >
+                                  {p.label}
+                                </p>
+                                <p className={`text-[11px] ${t.muted}`}>
+                                  {fmtFull(p.date, lang)}
+                                </p>
+                              </div>
+                              {isTop && (
+                                <span
+                                  className={`ml-1 shrink-0 rounded-full px-2 py-0.5 text-[9.5px] font-semibold uppercase tracking-wider ${t.sel}`}
+                                >
+                                  {c.performance.top}
+                                </span>
+                              )}
+                            </div>
+                            <div
+                              className={`text-right text-[12px] tabular-nums ${t.text}`}
                             >
-                              <span
-                                className={`text-[11px] md:hidden ${t.muted}`}
-                              >
-                                {c.performance.columns[col.key]}
-                              </span>
-                              <span className="font-medium md:font-normal">
-                                {col.render(p)}
-                              </span>
-                            </span>
-                          ))}
-                          <div className="absolute right-3 top-3 md:static">
-                            {isYouTube ? (
-                              <a
-                                href={`https://www.youtube.com/watch?v=${p.id}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                aria-label={c.performance.openYouTube}
-                                title={c.performance.openYouTube}
-                                className={`flex h-10 w-10 items-center justify-center rounded-md md:h-8 md:w-8 ${t.soft} ${t.hover} ${t.ring}`}
-                              >
-                                <ExternalLink
-                                  className="h-4 w-4"
-                                  aria-hidden="true"
-                                />
-                              </a>
-                            ) : (
-                              <button
-                                type="button"
-                                aria-label={c.performance.duplicatePost}
-                                title={c.performance.duplicatePost}
-                                onClick={() => duplicatePost(p)}
-                                className={`flex h-10 w-10 items-center justify-center rounded-md md:h-8 md:w-8 ${t.soft} ${t.hover} ${t.ring}`}
-                              >
-                                <MoreVertical
-                                  className="h-4 w-4"
-                                  aria-hidden="true"
-                                />
-                              </button>
-                            )}
+                              {nf(p.reactions, lang)}
+                            </div>
+                            <div
+                              className={`text-right text-[12px] tabular-nums ${t.text}`}
+                            >
+                              {nf(p.comments, lang)}
+                            </div>
+                            <div
+                              className={`text-right text-[12px] tabular-nums ${t.text}`}
+                            >
+                              {p.engRate}%
+                            </div>
+                            <div
+                              className={`text-right text-[12px] tabular-nums ${t.text}`}
+                            >
+                              {nf(p.videoViews, lang)}
+                            </div>
+                            <div className="flex justify-end">
+                              {p.platform === "youtube" ? (
+                                <IconBtn
+                                  label={c.performance.openYouTube}
+                                  href={`https://youtube.com/watch?v=${encodeURIComponent(
+                                    p.id
+                                  )}`}
+                                  t={t}
+                                >
+                                  <ExternalLink
+                                    className="h-3.5 w-3.5"
+                                    aria-hidden="true"
+                                  />
+                                </IconBtn>
+                              ) : (
+                                <IconBtn
+                                  label={c.performance.duplicatePost}
+                                  onClick={() => duplicatePost(p)}
+                                  t={t}
+                                >
+                                  <Copy
+                                    className="h-3.5 w-3.5"
+                                    aria-hidden="true"
+                                  />
+                                </IconBtn>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      ))
-                    )}
+                        </li>
+                      );
+                    })}
+                  </ul>
 
-                    {sortedRows.length > POSTS_PREVIEW && (
-                      <div
-                        className={`flex justify-center border-t px-4 py-3 ${t.border}`}
+                  {sortedPosts.length > 5 && (
+                    <div className="flex justify-center border-t px-4 py-3 md:px-5">
+                      <button
+                        type="button"
+                        onClick={() => setShowAllPosts((v) => !v)}
+                        className={`rounded-lg px-3 py-1.5 text-[12px] font-semibold ${t.ring} ${t.hover} ${t.text}`}
                       >
-                        <button
-                          type="button"
-                          onClick={() => setShowAllPosts((v) => !v)}
-                          className={`min-h-11 rounded-full px-4 py-1.5 text-[12px] font-semibold transition-colors md:min-h-0 md:px-3.5 md:text-[11px] ${t.ring} ${t.outlineBtn}`}
-                        >
-                          {showAllPosts
-                            ? c.performance.showLess
-                            : c.performance.showMore(sortedRows.length)}
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </section>
-
-              </>
-            )}
-          </div>
-        </div>
+                        {showAllPosts
+                          ? c.performance.showLess
+                          : c.performance.showMore(sortedPosts.length)}
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </section>
+        </main>
       </div>
-      {/* Feuille « Canaux » (mobile) */}
-      {channelsOpen && isMobile && (
+
+      <BottomBar
+        active={
+          (PAGE_ROUTE as unknown) as BottomBarTab extends infer U ? U : never
+        }
+      />
+      <HelpChatButton />
+
+      {isFolderOpen && (
+        <Folder open={isFolderOpen} onClose={() => setIsFolderOpen(false)} />
+      )}
+
+      {channelsOpen && (
         <ChannelSheet
           isDark={isDark}
           title={c.sheets.channels}
@@ -3705,30 +4295,48 @@ export default function Insights() {
         />
       )}
 
-      <Folder
-        isOpen={isFolderOpen}
-        onClose={() => setIsFolderOpen(false)}
-        isDark={isDark}
-        offsetLeft={sidebarOffset}
-      />
-      <BottomBar
-        isDark={isDark}
-        offsetLeft={sidebarOffset}
-        active={isFolderOpen ? "files" : null}
-        onChange={handleBottomBarChange}
-        onCreatePost={() =>
-          openComposer({ reason: "manual", channelKey: channel?.key })
-        }
-      />
-      <NewPostModal
-        isOpen={isNewPostOpen}
-        onClose={closeComposer}
-        isDark={isDark}
-        onSubmit={handleCreatePost}
-        onRequestOpen={() => setIsNewPostOpen(true)}
-        {...({ initialContext: composerContext } as Record<string, unknown>)}
-      />
-      <HelpChatButton isDark={isDark} />
-    </main>
+      {isNewPostOpen && (
+        <NewPostModal
+          isDark={isDark}
+          open={isNewPostOpen}
+          initialContext={composerContext ?? undefined}
+          onClose={closeComposer}
+          onSubmit={async (payload: NewPostPayload) => {
+            try {
+              await createPosts(payload);
+            } catch (err) {
+              if (err instanceof Error) {
+                console.warn(unavailablePostActionMessage, err.message);
+              }
+            } finally {
+              closeComposer();
+            }
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+/* ── Petits helpers UI ── */
+
+function Stat({
+  label,
+  value,
+  t,
+}: {
+  label: string;
+  value: string;
+  t: Tokens;
+}) {
+  return (
+    <div className={`flex flex-col gap-0.5 rounded-md ${t.inner} px-1 py-1`}>
+      <span className={`truncate text-[9px] font-semibold uppercase tracking-wider ${t.muted}`}>
+        {label}
+      </span>
+      <span className={`text-[12px] font-semibold tabular-nums ${t.text}`}>
+        {value}
+      </span>
+    </div>
   );
 }
