@@ -1664,6 +1664,9 @@ export default function Landing() {
         <CallToAction />
       </main>
       <SiteFooter />
+      {/* Voile blanc : halo permanent + version d'arrivée qui se retire. */}
+      <div aria-hidden="true" data-bottom-glow className="bottom-glow" />
+      <div aria-hidden="true" className="bottom-glow-intro" />
     </div>
   );
 }

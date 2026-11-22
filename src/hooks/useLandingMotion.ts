@@ -3,6 +3,7 @@ import { useEffect, type RefObject } from "react";
 /**
  * Mouvement de la landing, en un seul endroit :
  *  - [data-reveal]        → révélé une fois, quand l'élément entre dans l'écran
+ *  - [data-bottom-glow]   → halo blanc du bas, effacé en approchant de la fin de page
  *  - [data-parallax]      → décalage vertical lissé, lié au scroll (px par px scrollé)
  *  - [data-scroll-rotate] → rotation lissée, liée au scroll (deg par px scrollé)
  *
@@ -53,6 +54,32 @@ export function useLandingMotion(rootRef: RefObject<HTMLElement | null>) {
         if (!el.hasAttribute("data-revealed")) io.observe(el);
       }
       cleanups.push(() => io.disconnect());
+    }
+
+    /* ---------- Halo blanc du bas : s'efface en fin de page ---------- */
+    const glow = root.querySelector<HTMLElement>("[data-bottom-glow]");
+    if (glow) {
+      let frame = 0;
+      const update = () => {
+        frame = 0;
+        const remaining =
+          document.documentElement.scrollHeight -
+          window.innerHeight -
+          window.scrollY;
+        const o = Math.max(0, Math.min(1, remaining / 260));
+        glow.style.setProperty("--glow-o", o.toFixed(3));
+      };
+      const onScroll = () => {
+        if (!frame) frame = requestAnimationFrame(update);
+      };
+      update();
+      window.addEventListener("scroll", onScroll, { passive: true });
+      window.addEventListener("resize", onScroll);
+      cleanups.push(() => {
+        window.removeEventListener("scroll", onScroll);
+        window.removeEventListener("resize", onScroll);
+        cancelAnimationFrame(frame);
+      });
     }
 
     /* ---------- Parallax / rotation liés au scroll ---------- */

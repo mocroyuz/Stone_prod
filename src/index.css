@@ -344,13 +344,14 @@ img,
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-out-quint: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-in-out-cubic: cubic-bezier(0.65, 0, 0.35, 1);
-  --reveal-pace: 0.45;
+  --ease-soft: cubic-bezier(0.25, 1, 0.5, 1);
+  --reveal-pace: 0.55;
 }
 
-/* Un fondu court avec une très légère montée : 450–650 ms, courbe « quint
-   out » (départ vif, arrivée douce). Les délais posés dans le JSX
+/* Un fondu doux avec une légère montée : 560–1000 ms, courbe « quart out »
+   (départ vif, très longue arrivée). Les délais posés dans le JSX
    (--reveal-delay) sont des ordres de grandeur : --reveal-pace les resserre
-   pour qu'une section entière se lise en moins d'une seconde. */
+   pour qu'une section entière reste lisible en un peu plus d'une seconde. */
 [data-reveal] {
   --d: calc(var(--reveal-delay, 0ms) * var(--reveal-pace));
 }
@@ -361,41 +362,41 @@ img,
 [data-reveal="fade"] {
   opacity: 0;
   transition:
-    opacity 520ms var(--ease-out-quint) var(--d),
-    transform 560ms var(--ease-out-quint) var(--d);
+    opacity 720ms var(--ease-soft) var(--d),
+    transform 860ms var(--ease-soft) var(--d);
 }
 [data-reveal="up"] {
-  transform: translateY(16px);
+  transform: translateY(22px);
 }
 [data-reveal="rise"] {
-  transform: translateY(8px);
+  transform: translateY(10px);
 }
 
 /* Image : fondu + dézoom à peine perceptible (propriété `scale`, indépendante
    de `transform` pour ne pas se battre avec le parallax ni le blend-mode) */
 [data-reveal="image"] {
   opacity: 0;
-  scale: 1.03;
+  scale: 1.04;
   transition:
-    opacity 640ms var(--ease-out-quint) var(--d),
-    scale 800ms var(--ease-out-quint) var(--d);
+    opacity 820ms var(--ease-soft) var(--d),
+    scale 1100ms var(--ease-soft) var(--d);
 }
 
 /* Pastilles et pièces graphiques : fondu + léger gonflement, sans rebond */
 [data-reveal="pop"] {
   opacity: 0;
-  scale: 0.9;
+  scale: 0.88;
   transition:
-    opacity 450ms var(--ease-out-quint) var(--d),
-    scale 560ms var(--ease-out-quint) var(--d);
+    opacity 560ms var(--ease-soft) var(--d),
+    scale 720ms var(--ease-soft) var(--d);
 }
 
 [data-reveal="scale"] {
   opacity: 0;
-  scale: 0.92;
+  scale: 0.9;
   transition:
-    opacity 500ms var(--ease-out-quint) var(--d),
-    scale 600ms var(--ease-out-quint) var(--d);
+    opacity 620ms var(--ease-soft) var(--d),
+    scale 780ms var(--ease-soft) var(--d);
 }
 
 [data-reveal][data-revealed] {
@@ -409,8 +410,8 @@ img,
   transform-box: fill-box;
   transform-origin: 50% 100%;
   transform: scaleY(0);
-  transition: transform 560ms var(--ease-out-quint)
-    calc(var(--d) + var(--i, 0) * 10ms);
+  transition: transform 720ms var(--ease-soft)
+    calc(var(--d) + var(--i, 0) * 14ms);
 }
 [data-reveal="chart"][data-revealed] .bar {
   transform: scaleY(1);
@@ -443,7 +444,7 @@ img,
   }
 }
 .header-in {
-  animation: header-in 500ms var(--ease-out-quint) backwards;
+  animation: header-in 650ms var(--ease-soft) backwards;
 }
 
 @keyframes sheet-in {
@@ -505,6 +506,53 @@ img,
   animation-delay: calc(140ms + var(--i, 0) * 55ms);
 }
 
+/* Voile blanc en bas de l'écran.
+   - .bottom-glow : halo permanent. Le contenu qui remonte en émerge ; la
+     variable --glow-o (posée par useLandingMotion) l'efface en fin de page
+     pour ne pas masquer le pied de page.
+   - .bottom-glow-intro : version plus haute, jouée une fois à l'arrivée ; elle
+     cache le bas du hero puis se retire en glissant. Dégradé à paliers
+     adoucis (pas de bande franche), blanc uniquement. */
+.bottom-glow,
+.bottom-glow-intro {
+  position: fixed;
+  inset: auto 0 0 0;
+  pointer-events: none;
+  background: linear-gradient(
+    to top,
+    rgb(255 255 255 / 1) 0%,
+    rgb(255 255 255 / 0.96) 10%,
+    rgb(255 255 255 / 0.86) 20%,
+    rgb(255 255 255 / 0.7) 32%,
+    rgb(255 255 255 / 0.5) 45%,
+    rgb(255 255 255 / 0.32) 58%,
+    rgb(255 255 255 / 0.18) 70%,
+    rgb(255 255 255 / 0.08) 82%,
+    rgb(255 255 255 / 0.02) 92%,
+    rgb(255 255 255 / 0) 100%
+  );
+}
+.bottom-glow {
+  z-index: 40;
+  height: clamp(110px, 17vh, 200px);
+  opacity: calc(var(--glow-o, 1) * 0.92);
+}
+.bottom-glow-intro {
+  z-index: 41;
+  height: clamp(280px, 50vh, 520px);
+  animation: glow-lift 1300ms var(--ease-soft) 280ms both;
+}
+@keyframes glow-lift {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(16%);
+  }
+}
+
 /* « Réduire les animations » : on garde le fondu (opacité seule, rapide) mais
    plus aucun déplacement, zoom ni croissance. */
 @media (prefers-reduced-motion: reduce) {
@@ -517,6 +565,9 @@ img,
     transform: none !important;
     transition: none !important;
   }
+  .bottom-glow-intro {
+    display: none;
+  }
   .float-soft,
   .header-in,
   .menu-sheet,
@@ -527,6 +578,10 @@ img,
 }
 
 @media print {
+  .bottom-glow,
+  .bottom-glow-intro {
+    display: none;
+  }
   [data-reveal],
   [data-reveal] .bar {
     opacity: 1 !important;
