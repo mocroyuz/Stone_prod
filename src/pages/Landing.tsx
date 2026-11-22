@@ -1084,7 +1084,7 @@ function NetworkVisual() {
       <svg aria-hidden="true" viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 h-full w-full">
         <defs>
           <marker id="network-arrow" markerWidth="5" markerHeight="5" refX="4.2" refY="2.5" orient="auto" markerUnits="userSpaceOnUse">
-            <path d="M0 0 L5 2.5 L0 5" fill="none" stroke="#ef4444" strokeWidth="1" />
+            <path d="M0 0 L5 2.5 L0 5" fill="none" stroke="#111111" strokeWidth="0.7" />
           </marker>
         </defs>
         {side.map(({x,y},i)=> {
@@ -1092,7 +1092,7 @@ function NetworkVisual() {
           const cx = left ? 43 : 57;
           const sx = left ? x+4 : x-4;
           const sy = y;
-          return <path key={i} d={`M ${sx} ${sy} C ${left?30:70} ${sy}, ${cx} 50, ${left?47:53} 50`} fill="none" stroke="#111111" strokeWidth="0.45" strokeLinecap="round" markerEnd="url(#network-arrow)" />;
+          return <path key={i} d={`M ${sx} ${sy} C ${left?30:70} ${sy}, ${cx} 50, ${left?47:53} 50`} fill="none" stroke="#111111" strokeWidth="0.3" strokeLinecap="round" markerEnd="url(#network-arrow)" />;
         })}
       </svg>
       {side.map(({ icon: Icon, x, y }, index) => (
