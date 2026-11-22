@@ -1082,9 +1082,11 @@ function NetworkVisual() {
   // Social platforms on both sides, arranged in the same vertical layout.
   const left = CHANNELS.filter((item) => ["Instagram", "TikTok", "YouTube Shorts", "Facebook"].includes(item.name));
   const right = CHANNELS.filter((item) => ["Threads", "Pinterest", "LinkedIn", "X"].includes(item.name));
+  // Mirrored positions: equal spacing vertically and identical horizontal offsets.
+  const positions = [20, 40, 60, 80];
   const points = [
-    ...left.map((item, i) => ({ icon: item.icon, x: i % 2 === 0 ? 12 : 19, y: 22 + i * (56 / Math.max(1, left.length - 1)), side: "left" })),
-    ...right.map((item, i) => ({ icon: item.icon, x: i % 2 === 0 ? 88 : 81, y: 22 + i * (56 / Math.max(1, right.length - 1)), side: "right" })),
+    ...left.map((item, i) => ({ icon: item.icon, x: 14, y: positions[i], side: "left" })),
+    ...right.map((item, i) => ({ icon: item.icon, x: 86, y: positions[i], side: "right" })),
   ];
 
   return (
