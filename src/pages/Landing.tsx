@@ -38,7 +38,6 @@ import {
   LogoOrbit,
   LogoPollinate,
   LogoWaves,
-  PetalSpinner,
 } from "../components/landing/LandingGraphics";
 import { useLandingMotion } from "../hooks/useLandingMotion";
 import { CHANNELS } from "../data/channelConfig";
