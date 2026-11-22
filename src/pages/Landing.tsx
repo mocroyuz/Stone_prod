@@ -41,6 +41,13 @@ import {
   PetalSpinner,
 } from "../components/landing/LandingGraphics";
 import { useLandingMotion } from "../hooks/useLandingMotion";
+import { CHANNELS } from "../data/channelConfig";
+import {
+  ZapierIcon, ClaudeIcon, ChatGPTIcon, NotionIcon, GoogleIcon, N8nIcon,
+  RaycastIcon, DropboxIcon, GoogleDriveIcon, GmailIcon, GoogleCalendarIcon,
+  CanvaIcon, GooglePhotosIcon,
+} from "../components/IntegrationIcons";
+
 
 /* ============================================================
    CONTENU
@@ -1063,15 +1070,20 @@ function OrbitVisual() {
 }
 
 function NetworkVisual() {
-  const side: Array<{ icon: LucideIcon; x: number; y: number }> = [
-    { icon: ClipboardList, x: 13, y: 23 },
-    { icon: Stethoscope, x: 19, y: 39 },
-    { icon: Camera, x: 19, y: 61 },
-    { icon: Ribbon, x: 13, y: 77 },
-    { icon: Pill, x: 87, y: 23 },
-    { icon: Syringe, x: 81, y: 39 },
-    { icon: ScanFace, x: 81, y: 61 },
-    { icon: Scan, x: 87, y: 77 },
+  const integrations = [
+    { name: "Zapier", icon: ZapierIcon }, { name: "Claude", icon: ClaudeIcon },
+    { name: "ChatGPT", icon: ChatGPTIcon }, { name: "Notion", icon: NotionIcon },
+    { name: "Google", icon: GoogleIcon }, { name: "n8n", icon: N8nIcon },
+    { name: "Raycast", icon: RaycastIcon }, { name: "Dropbox", icon: DropboxIcon },
+    { name: "Canva", icon: CanvaIcon }, { name: "Google Drive", icon: GoogleDriveIcon },
+    { name: "Google Photos", icon: GooglePhotosIcon }, { name: "Gmail", icon: GmailIcon },
+    { name: "Google Calendar", icon: GoogleCalendarIcon },
+  ];
+  const left = CHANNELS;
+  const right = integrations;
+  const points = [
+    ...left.map((item, i) => ({ icon: item.icon, x: i % 2 === 0 ? 12 : 19, y: 8 + i * (84 / Math.max(1, left.length - 1)), side: "left" })),
+    ...right.map((item, i) => ({ icon: item.icon, x: i % 2 === 0 ? 88 : 81, y: 8 + i * (84 / Math.max(1, right.length - 1)), side: "right" })),
   ];
 
   return (
@@ -1082,29 +1094,28 @@ function NetworkVisual() {
         mask="radial-gradient(ellipse, #000 15%, transparent 76%)"
       />
       <svg aria-hidden="true" viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 h-full w-full">
-        {side.map(({x,y},i)=> {
-          const left = i<4;
-          const cx = left ? 43 : 57;
-          const sx = left ? x+4 : x-4;
-          const sy = y;
-          return <path key={i} d={`M ${sx} ${sy} C ${left?30:70} ${sy}, ${cx} 50, ${left?47:53} 50`} fill="none" stroke="#111111" strokeWidth="0.24" strokeLinecap="round" />;
+        {points.map(({x,y,side},i) => {
+          const isLeft = side === "left";
+          const sx = isLeft ? x+3 : x-3;
+          const cx = isLeft ? 35 : 65;
+          return <path key={i} d={`M ${sx} ${y} C ${cx} ${y}, ${isLeft?43:57} 50, ${isLeft?47:53} 50`} fill="none" stroke="#111111" strokeWidth="0.24" strokeLinecap="round" />;
         })}
       </svg>
-      {side.map(({ icon: Icon, x, y }, index) => (
+      {points.map(({ icon: Icon, x, y }, index) => (
         <span
           key={index}
           data-reveal="pop"
-          className="float-soft absolute flex h-[46px] w-[46px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-black/[0.04] bg-white text-neutral-700 shadow-[0_0_0_1px_rgba(0,0,0,0.04),0_2px_4px_rgba(0,0,0,0.04),0_10px_20px_-10px_rgba(0,0,0,0.16)] sm:h-[52px] sm:w-[52px]"
+          className="float-soft absolute flex h-[34px] w-[34px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-black/[0.04] bg-white text-neutral-700 shadow-[0_0_0_1px_rgba(0,0,0,0.04),0_2px_4px_rgba(0,0,0,0.04),0_10px_20px_-10px_rgba(0,0,0,0.16)] sm:h-[38px] sm:w-[38px]"
           style={{
-            ...dv(300 + index * 70, {
+            ...dv(250 + index * 30, {
               "float-dur": `${6.5 + (index % 4) * 0.8}s`,
-              "float-delay": `${1.6 + index * 0.35}s`,
+              "float-delay": `${1.6 + index * 0.15}s`,
             }),
             left: `${x}%`,
             top: `${y}%`,
           }}
         >
-          <Icon className="h-[18px] w-[18px]" strokeWidth={1.4} />
+          <Icon className="h-[16px] w-[16px]" />
         </span>
       ))}
       <span data-reveal="pop" style={d(100)} className="absolute left-1/2 top-1/2 z-20 flex h-[54px] -translate-x-1/2 -translate-y-1/2 items-center gap-2 rounded-full bg-[#0c0c0d] px-6 text-[14px] font-medium tracking-[-0.02em] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_14px_28px_-10px_rgba(0,0,0,0.55)]">
