@@ -505,12 +505,16 @@ img,
   animation-delay: calc(140ms + var(--i, 0) * 55ms);
 }
 
+/* « Réduire les animations » : on garde le fondu (opacité seule, rapide) mais
+   plus aucun déplacement, zoom ni croissance. */
 @media (prefers-reduced-motion: reduce) {
-  [data-reveal],
-  [data-reveal] .bar {
-    opacity: 1 !important;
+  [data-reveal] {
     transform: none !important;
     scale: 1 !important;
+    transition: opacity 320ms ease-out var(--d) !important;
+  }
+  [data-reveal] .bar {
+    transform: none !important;
     transition: none !important;
   }
   .float-soft,

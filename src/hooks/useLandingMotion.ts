@@ -9,7 +9,7 @@ import { useEffect, type RefObject } from "react";
  * Tout passe par les propriétés individuelles `translate` / `rotate` /
  * `scale`, pour ne jamais entrer en conflit avec les `transform` posés par
  * les classes Tailwind ou les animations CSS. `prefers-reduced-motion`
- * coupe l'ensemble.
+ * coupe le parallax, la rotation et tout déplacement ; seul le fondu reste.
  */
 
 const PARALLAX_RANGE = 900;
@@ -34,7 +34,9 @@ export function useLandingMotion(rootRef: RefObject<HTMLElement | null>) {
       root.querySelectorAll<HTMLElement>("[data-reveal]"),
     );
 
-    if (reduce || !("IntersectionObserver" in window)) {
+    // En « réduire les animations », le CSS ne garde que le fondu : on
+    // observe quand même, pour qu'il se joue à l'entrée dans l'écran.
+    if (!("IntersectionObserver" in window)) {
       for (const el of targets) el.setAttribute("data-revealed", "");
     } else {
       const io = new IntersectionObserver(
