@@ -881,47 +881,6 @@ function TrustedBy() {
    INTERMÈDE : fleur + « 01 / 05 · FEATURES »
 ============================================================ */
 
-function Interlude() {
-  return (
-    <div className={["border-b", HAIR].join(" ")}>
-      <Col>
-        <div
-          className={[
-            "relative flex h-[200px] items-center justify-center border-b lg:h-[275px]",
-            HAIR,
-          ].join(" ")}
-        >
-          <DotField
-            className="left-0 top-0 h-[85%] w-[34%]"
-            mask="linear-gradient(135deg, #000 0%, transparent 85%)"
-            strength={0.14}
-          />
-          {/* La fleur tourne avec le scroll (lissé) en plus de sa lente rotation propre. */}
-          <span
-            data-reveal="scale"
-            data-scroll-rotate="0.12"
-            className="relative flex"
-          >
-            <PetalSpinner className="h-[60px] w-[60px] animate-[spin_60s_linear_infinite] text-[#0c0c0d] motion-reduce:animate-none lg:h-[84px] lg:w-[84px]" />
-          </span>
-        </div>
-        <div
-          data-reveal="fade"
-          style={d(150)}
-          className="flex h-[88px] items-center justify-center gap-4 text-[11px] font-medium uppercase tracking-[0.08em] tabular-nums lg:h-[125px]"
-        >
-          <span>
-            <span className="text-neutral-900">01</span>
-            <span className="text-neutral-300"> / 05</span>
-          </span>
-          <span aria-hidden="true" className="h-1 w-1 rounded-full bg-neutral-300" />
-          <span className="text-neutral-400">Features</span>
-        </div>
-      </Col>
-    </div>
-  );
-}
-
 /* ============================================================
    FONCTIONNALITÉS
 ============================================================ */
@@ -1242,9 +1201,7 @@ function Analytics() {
     <Bleed id="analytics" className="scroll-mt-24">
       <Col>
         <div className="px-5 pb-[34px] pt-[70px] sm:px-7 lg:pb-[34px] lg:pt-[88px]">
-          <div data-reveal="up">
-            <SectionTag>Book a Demo</SectionTag>
-          </div>
+          
         </div>
 
         <div className="grid lg:grid-cols-[minmax(0,44%)_minmax(0,56%)]">
@@ -1370,9 +1327,7 @@ function Faq() {
     <Bleed id="faq" className="scroll-mt-24">
       <Col>
         <div className="px-5 pb-12 pt-[56px] text-center sm:px-7 lg:pb-[58px] lg:pt-[62px]">
-          <div data-reveal="up">
-            <SectionTag>FAQs</SectionTag>
-          </div>
+          
           <h2
             data-reveal="up"
             style={d(100)}
@@ -1637,7 +1592,6 @@ export default function Landing() {
       <main>
         <Hero />
         <TrustedBy />
-        <Interlude />
         <Features />
         <Workflows />
         <Analytics />
