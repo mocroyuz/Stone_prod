@@ -3032,7 +3032,7 @@ function BestTimeSection({
                 <span className={`text-[11px] font-medium ${t.muted}`}>{c.days[d]}</span>
                 <div className={`mt-3 flex h-24 items-end rounded-md px-1 ${isDark ? "bg-white/[0.025]" : "bg-black/[0.025]"}`}><span className="w-full rounded-t-[3px] transition-all group-hover:brightness-110" style={{height:Math.max(8,slot.norm*100)+"%",backgroundColor:heatColor(slot.norm,isDark)}} /></div>
                 <span className={`mt-3 block text-[13px] font-semibold tabular-nums ${t.text}`}>{hourLabel(slot.hour)}</span>
-                <span className={`mt-0.5 block text-[10px] ${t.muted}`}>{isBest ? (langSafeBestLabel()) : c.bestTime.bestOfDay}</span>
+                <span className={`mt-0.5 block text-[10px] ${t.muted}`}>{isBest ? c.bestTime.bestOfDay : c.bestTime.bestOfDay}</span>
               </button>
             })}
           </div>
