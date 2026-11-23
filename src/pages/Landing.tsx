@@ -11,22 +11,12 @@ import {
   ArrowUpRight,
   Asterisk,
   Bot,
-  Brain,
-  Camera,
   ChartColumn,
   ClipboardList,
   Ellipsis,
-  Flower,
   Globe,
   Menu,
-  Microscope,
-  Pill,
   Repeat,
-  Ribbon,
-  Scan,
-  ScanFace,
-  Stethoscope,
-  Syringe,
   X,
   type LucideIcon,
 } from "lucide-react";
@@ -256,24 +246,6 @@ function Badge({ chip, label }: { chip: string; label: string }) {
       </span>
       {label}
     </span>
-  );
-}
-
-/** « // Label // » centré. */
-function SectionTag({ children }: { children: ReactNode }) {
-  return (
-    <div className="flex items-center justify-center gap-3 text-[12px] font-medium text-neutral-400">
-      <span aria-hidden="true">//</span>
-      <span
-        className={[
-          "rounded-full px-3.5 py-1.5 text-neutral-900",
-          SOFT_CARD,
-        ].join(" ")}
-      >
-        {children}
-      </span>
-      <span aria-hidden="true">//</span>
-    </div>
   );
 }
 
@@ -987,15 +959,6 @@ function OrbitVisual() {
 }
 
 function NetworkVisual() {
-  const integrations = [
-    { name: "Zapier", icon: ZapierIcon }, { name: "Claude", icon: ClaudeIcon },
-    { name: "ChatGPT", icon: ChatGPTIcon }, { name: "Notion", icon: NotionIcon },
-    { name: "Google", icon: GoogleIcon }, { name: "n8n", icon: N8nIcon },
-    { name: "Raycast", icon: RaycastIcon }, { name: "Dropbox", icon: DropboxIcon },
-    { name: "Canva", icon: CanvaIcon }, { name: "Google Drive", icon: GoogleDriveIcon },
-    { name: "Google Photos", icon: GooglePhotosIcon }, { name: "Gmail", icon: GmailIcon },
-    { name: "Google Calendar", icon: GoogleCalendarIcon },
-  ];
   // Social platforms on both sides, arranged in the same vertical layout.
   const left = CHANNELS.filter((item) => ["Instagram", "TikTok", "YouTube Shorts", "Facebook"].includes(item.name));
   const right = CHANNELS.filter((item) => ["Threads", "Pinterest", "LinkedIn", "X"].includes(item.name));
