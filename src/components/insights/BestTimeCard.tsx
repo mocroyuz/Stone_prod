@@ -2,7 +2,7 @@
 // « Meilleur moment pour publier » — graphique vertical : heures à gauche,
 // jours en bas. Chaque jour est une colonne (piste de chaleur par heure) ;
 // la fenêtre la plus active est une pilule en relief, la meilleure est en
-// accent. Survol/touch = heure précise, clic = programmer à ce créneau.
+// rose pâle. Survol/touch = heure précise, clic = programmer à ce créneau.
 
 import { useState } from "react";
 import { CalendarPlus, ChevronRight } from "lucide-react";
@@ -129,7 +129,7 @@ export default function BestTimeCard({
                   <span
                     className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold tabular-nums ${
                       i === 0
-                        ? "text-white"
+                        ? "text-neutral-900"
                         : `${isDark ? "bg-white/[0.07]" : "bg-black/[0.05]"} ${ink.soft}`
                     }`}
                     style={i === 0 ? { background: ink.accent } : undefined}

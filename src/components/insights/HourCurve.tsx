@@ -124,7 +124,7 @@ export default function HourCurve({
           height={innerH + 6}
           rx="10"
           fill={ink.accent}
-          opacity={isDark ? 0.14 : 0.12}
+          opacity={isDark ? 0.2 : 0.28}
         />
 
         <path d={area} fill="url(#hc-fade)" />
@@ -156,7 +156,7 @@ export default function HourCurve({
       {/* étiquette du pic */}
       {!showTip && (
         <span
-          className="pointer-events-none absolute -translate-x-1/2 rounded-lg px-2 py-1 text-[11.5px] font-semibold tabular-nums text-white"
+          className="pointer-events-none absolute -translate-x-1/2 rounded-lg px-2 py-1 text-[11.5px] font-semibold tabular-nums text-neutral-900"
           style={{ left: peakX, top: Math.max(0, y(norms[win.peak]) - 34), background: ink.accent }}
         >
           {hourLabel(win.peak)}
