@@ -7,6 +7,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Bookmark, Download, Plus, RefreshCw } from "lucide-react";
+import HeaderButton from "../components/insights/HeaderButton";
 import { useTheme } from "../hooks/useTheme";
 import DashboardSidebar, {
   useFavorites,
@@ -65,7 +66,9 @@ import RangeControl from "../components/insights/RangeControl";
 import KpiStrip, { type Kpi } from "../components/insights/KpiStrip";
 import TrendCard from "../components/insights/TrendCard";
 import GoalCard from "../components/insights/GoalCard";
-import WeekdayCard, { type WeekdayRow } from "../components/insights/WeekdayCard";
+import WeekdayCard, {
+  type WeekdayRow,
+} from "../components/insights/WeekdayCard";
 import BestTimeCard from "../components/insights/BestTimeCard";
 import RecycleCard from "../components/insights/RecycleCard";
 import PostsCard from "../components/insights/PostsCard";
@@ -114,7 +117,7 @@ export default function Insights() {
     window.history.replaceState(
       null,
       "",
-      `/insights?channel=${encodeURIComponent(key)}`
+      `/insights?channel=${encodeURIComponent(key)}`,
     );
   };
 
@@ -122,7 +125,7 @@ export default function Insights() {
 
   const [range, setRange] = useState<Range>("30d");
   const [customStart, setCustomStart] = useState(() =>
-    addDays(startOfDay(new Date()), -29)
+    addDays(startOfDay(new Date()), -29),
   );
   const [customEnd, setCustomEnd] = useState(() => startOfDay(new Date()));
   const [metric, setMetric] = useState<NumKey>("reactions");
@@ -147,11 +150,11 @@ export default function Insights() {
 
   const scheduleSlot = useCallback(
     (slot: Slot) => openComposer(nextDateForSlot(slot.day, slot.hour)),
-    [openComposer]
+    [openComposer],
   );
   const duplicatePost = useCallback(
     (_post: PostRow) => openComposer(),
-    [openComposer]
+    [openComposer],
   );
 
   const handleBottomBar = (id: BottomBarTab) => {
@@ -163,14 +166,14 @@ export default function Insights() {
 
   const { start, end } = useMemo(
     () => resolveRange(range, customStart, customEnd),
-    [range, customStart, customEnd]
+    [range, customStart, customEnd],
   );
 
   const yt = useYouTubeInsights(start, end, fetchYouTube, reloadKey);
   const scheduled = useScheduledVideoIds(
     channel?.key ?? channels.find(isYouTubeChannel)?.key,
     fetchYouTube,
-    reloadKey
+    reloadKey,
   );
 
   const perChannel = useMemo(() => {
@@ -181,7 +184,10 @@ export default function Insights() {
           yt.data && scheduled.ready
             ? {
                 ...yt.data,
-                posts: yt.data.posts.map((p) => ({ ...p, platform: "youtube" })),
+                posts: yt.data.posts.map((p) => ({
+                  ...p,
+                  platform: "youtube",
+                })),
               }
             : emptyInsights(start, end);
       } else {
@@ -194,17 +200,20 @@ export default function Insights() {
   const source: InsightsData = useMemo(() => {
     if (!channels.length) return emptyInsights(start, end);
     if (viewingAll)
-      return mergeInsights(channels.map((ch) => perChannel[ch.key]).filter(Boolean));
+      return mergeInsights(
+        channels.map((ch) => perChannel[ch.key]).filter(Boolean),
+      );
     if (channel && perChannel[channel.key]) return perChannel[channel.key];
     return emptyInsights(start, end);
   }, [channels, viewingAll, channel, perChannel, start, end]);
 
   const { data, skipped } = useMemo(
     () => withoutScheduled(source, scheduled.ids),
-    [source, scheduled.ids]
+    [source, scheduled.ids],
   );
   const { current, previous, summary, posts, previousPosts } = data;
-  const loading = fetchYouTube && ((yt.loading && !yt.data) || !scheduled.ready);
+  const loading =
+    fetchYouTube && ((yt.loading && !yt.data) || !scheduled.ready);
   const periodLabel = fmtRange(start, end, lang);
 
   /* ── Indicateurs ── */
@@ -231,7 +240,10 @@ export default function Insights() {
     const value =
       key === "engRate" ? `${summary.engRate}%` : nf(summary[key], lang);
     const delta =
-      key === "followers" || key === "posts" || key === "reactions" || key === "comments"
+      key === "followers" ||
+      key === "posts" ||
+      key === "reactions" ||
+      key === "comments"
         ? pctDelta(summary[key], prev[key])
         : undefined;
     return {
@@ -260,10 +272,12 @@ export default function Insights() {
       { key: "followers" as NumKey, label: c.metricOptions.followers },
       {
         key: "profileViews" as NumKey,
-        label: isYouTube ? c.metricOptions.channelViews : c.metricOptions.profileViews,
+        label: isYouTube
+          ? c.metricOptions.channelViews
+          : c.metricOptions.profileViews,
       },
     ],
-    [c, isYouTube]
+    [c, isYouTube],
   );
   const metricLabel = metrics.find((m) => m.key === metric)?.label ?? "";
 
@@ -275,7 +289,7 @@ export default function Insights() {
         value: p[metric],
         prev: previous[i]?.[metric] ?? 0,
       })),
-    [current, previous, metric, lang]
+    [current, previous, metric, lang],
   );
 
   const weekdayData: WeekdayRow[] = useMemo(() => {
@@ -295,7 +309,7 @@ export default function Insights() {
   const platformKey = (channel?.platform ?? "default").toLowerCase();
   const heatmap = useMemo(
     () => buildBestTimes(posts, platformKey, lang),
-    [posts, platformKey, lang]
+    [posts, platformKey, lang],
   );
   const bestNote =
     heatmap.confidence === "baseline"
@@ -337,8 +351,6 @@ export default function Insights() {
     downloadCsv(`insights-${toInput(start)}-${toInput(end)}.csv`, rows);
   };
 
-  const iconBtn = `flex h-10 w-10 items-center justify-center rounded-xl border transition-colors md:h-9 md:w-9 ${ink.focus} ${ink.card} ${ink.hover} ${ink.soft} disabled:opacity-50`;
-
   return (
     <main
       className={`relative h-dvh min-h-dvh w-full overflow-hidden overscroll-none compact-window transition-colors duration-300 ${ink.page}`}
@@ -350,29 +362,45 @@ export default function Insights() {
         style={isMobile ? undefined : { paddingLeft: sidebarOffset }}
       >
         <div
-          className={`h-full min-h-0 overflow-y-auto overflow-x-hidden overscroll-y-contain rounded-2xl border transition-colors duration-300 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:rounded-[28px] ${ink.panel}`}
+          className={`flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border transition-colors duration-300 md:rounded-[28px] ${ink.panel}`}
         >
-          <div className="compact-content mx-auto flex w-full min-w-0 max-w-[1720px] flex-col gap-4 px-[clamp(14px,3vw,48px)] pb-[calc(7.5rem+env(safe-area-inset-bottom))] pt-[clamp(16px,3vw,30px)]">
-            {/* En-tête */}
-            <header className="flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
-              <div className="min-w-0">
+          {/* En-tête : même gabarit que Create / Publish / Community */}
+          <div className="compact-content w-full shrink-0 px-[clamp(14px,3vw,48px)] pt-[clamp(16px,3vw,30px)]">
+            <header
+              className={`relative z-20 mx-auto flex w-full max-w-[1720px] flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b pb-3 md:pb-4 ${ink.hairline}`}
+            >
+              <div className="flex min-w-0 items-center gap-2.5">
+                <span
+                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border md:h-9 md:w-9 ${
+                    isDark
+                      ? "border-white/[0.07] bg-white/[0.04] text-neutral-400"
+                      : "border-black/[0.06] bg-white text-neutral-500"
+                  }`}
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    className="h-[18px] w-[18px]"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="M3 3v18h18" />
+                    <path d="M18 17V9" />
+                    <path d="M13 17V5" />
+                    <path d="M8 17v-3" />
+                  </svg>
+                </span>
                 <h1
-                  className={`flex items-center gap-2 text-[clamp(20px,5vw,24px)] font-semibold leading-[1.15] tracking-[-0.035em] ${ink.strong}`}
+                  className={`truncate text-[24px] font-semibold tracking-[-0.03em] md:text-[20px] ${ink.strong}`}
                 >
                   {c.header.title}
-                  {saved && (
-                    <Bookmark
-                      className={`h-4 w-4 ${ink.muted}`}
-                      aria-hidden="true"
-                    />
-                  )}
                 </h1>
-                <p className={`mt-1 text-[13px] font-medium ${ink.muted}`}>
-                  {periodLabel}
-                </p>
               </div>
 
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2 md:gap-2.5">
                 {channels.length > 0 && (
                   <ChannelMenu
                     channels={channels}
@@ -402,169 +430,174 @@ export default function Insights() {
                   isMobile={isMobile}
                   lang={lang}
                 />
-                <button
-                  type="button"
-                  onClick={handleExport}
-                  aria-label={c.header.export}
-                  title={c.header.export}
-                  className={iconBtn}
-                >
-                  <Download className="h-4 w-4" aria-hidden="true" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => toggleFavorite(PAGE_ROUTE)}
-                  aria-label={saved ? c.header.removeFavorite : c.header.addFavorite}
-                  aria-pressed={saved}
-                  title={saved ? c.header.removeFavorite : c.header.addFavorite}
-                  className={iconBtn}
-                >
-                  <Bookmark
-                    className={`h-4 w-4 ${saved ? "fill-current" : ""}`}
-                    aria-hidden="true"
-                  />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setReloadKey((k) => k + 1)}
-                  disabled={loading}
-                  aria-label={c.header.refresh}
-                  title={c.header.refresh}
-                  className={iconBtn}
-                >
-                  <RefreshCw
-                    className={`h-4 w-4 ${loading ? "animate-spin" : ""}`}
-                    aria-hidden="true"
-                  />
-                </button>
-              </div>
-            </header>
-
-            {/* Aucun canal */}
-            {channels.length === 0 && (
-              <section
-                className={`flex flex-wrap items-center justify-between gap-4 rounded-2xl border p-5 ${ink.card}`}
-              >
-                <div className="min-w-0">
-                  <h2 className={`text-[15px] font-semibold ${ink.strong}`}>
-                    {c.noChannels.title}
-                  </h2>
-                  <p className={`mt-1 max-w-[56ch] text-[13px] ${ink.soft}`}>
-                    {c.noChannels.description}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => navigateToSettingsSection("channels")}
-                  className={`inline-flex h-10 items-center gap-2 rounded-xl px-4 text-[13px] font-semibold ${ink.focus} ${ink.solid}`}
-                >
-                  <Plus className="h-4 w-4" aria-hidden="true" />
-                  {c.noChannels.connect}
-                </button>
-              </section>
-            )}
-
-            {/* Erreur YouTube */}
-            {fetchYouTube && yt.error && (
-              <div
-                role="alert"
-                className={`flex flex-wrap items-center justify-between gap-2 rounded-2xl border px-4 py-3 text-[12.5px] ${ink.card} ${ink.soft}`}
-              >
-                <span>{c.errors.youtube(yt.error)}</span>
-                <button
-                  type="button"
-                  onClick={() => setReloadKey((k) => k + 1)}
-                  className={`rounded-md px-1 text-[12.5px] font-semibold underline underline-offset-4 ${ink.focus} ${ink.strong}`}
-                >
-                  {c.errors.retry}
-                </button>
-              </div>
-            )}
-
-            <div
-              aria-busy={loading}
-              className={`flex flex-col gap-4 transition-opacity duration-300 motion-reduce:transition-none ${
-                loading ? "opacity-60" : "opacity-100"
-              }`}
-            >
-              <KpiStrip
-                items={kpis}
-                ink={ink}
-                isDark={isDark}
-                versus={c.summary.vsPreviousShort}
-              />
-
-              <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
-                <TrendCard
-                  title={c.trends.title}
-                  subtitle={c.trends.subtitle(periodLabel)}
-                  metrics={metrics}
-                  metric={metric}
-                  onMetric={setMetric}
-                  metricAria={c.trends.metricAria}
-                  compare={compare}
-                  onCompare={setCompare}
-                  compareLabel={c.trends.compareToggle}
-                  data={chartData}
-                  seriesLabel={metricLabel}
-                  prevLabel={c.trends.previousPeriod}
-                  ink={ink}
-                  isDark={isDark}
-                  locale={locale}
-                />
-                <div className="flex min-w-0 flex-col gap-4">
-                  <GoalCard
-                    title={c.summary.goalProgress(postsThisWeek, goal)}
-                    done={postsThisWeek}
-                    goal={goal}
-                    caption={c.summary.goalAria(postsThisWeek, goal)}
-                    aria={c.summary.goalAria(postsThisWeek, goal)}
+                <div className="flex items-center gap-1 md:gap-2">
+                  <HeaderButton
+                    label={c.header.export}
+                    onClick={handleExport}
                     ink={ink}
                     isDark={isDark}
-                  />
-                  <WeekdayCard
-                    title={c.bestTime.activityByDay}
-                    subtitle={periodLabel}
-                    labelA={c.summary.labels.reactions}
-                    labelB={c.summary.labels.comments}
-                    data={weekdayData}
+                  >
+                    <Download className="h-5 w-5" aria-hidden="true" />
+                  </HeaderButton>
+                  <HeaderButton
+                    label={
+                      saved ? c.header.removeFavorite : c.header.addFavorite
+                    }
+                    onClick={() => toggleFavorite(PAGE_ROUTE)}
+                    pressed={saved}
                     ink={ink}
-                    locale={locale}
-                  />
+                    isDark={isDark}
+                  >
+                    <Bookmark
+                      className={`h-5 w-5 ${saved ? "fill-current" : ""}`}
+                      aria-hidden="true"
+                    />
+                  </HeaderButton>
+                  <HeaderButton
+                    label={c.header.refresh}
+                    onClick={() => setReloadKey((k) => k + 1)}
+                    disabled={loading}
+                    ink={ink}
+                    isDark={isDark}
+                  >
+                    <RefreshCw
+                      className={`h-5 w-5 ${loading ? "animate-spin" : ""}`}
+                      aria-hidden="true"
+                    />
+                  </HeaderButton>
                 </div>
               </div>
+            </header>
+          </div>
 
-              <BestTimeCard
-                heatmap={heatmap}
-                c={c}
-                note={bestNote}
-                ink={ink}
-                isDark={isDark}
-                isMobile={isMobile}
-                onSchedule={scheduleSlot}
-              />
+          <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <div className="mx-auto flex w-full min-w-0 max-w-[1720px] flex-col gap-4 px-[clamp(14px,3vw,48px)] pb-[calc(7.5rem+env(safe-area-inset-bottom))] pt-4 md:pt-5">
+              {/* Aucun canal */}
+              {channels.length === 0 && (
+                <section
+                  className={`flex flex-wrap items-center justify-between gap-4 rounded-2xl border p-5 ${ink.card}`}
+                >
+                  <div className="min-w-0">
+                    <h2 className={`text-[15px] font-semibold ${ink.strong}`}>
+                      {c.noChannels.title}
+                    </h2>
+                    <p className={`mt-1 max-w-[56ch] text-[13px] ${ink.soft}`}>
+                      {c.noChannels.description}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => navigateToSettingsSection("channels")}
+                    className={`inline-flex h-10 items-center gap-2 rounded-xl px-4 text-[13px] font-semibold ${ink.focus} ${ink.solid}`}
+                  >
+                    <Plus className="h-4 w-4" aria-hidden="true" />
+                    {c.noChannels.connect}
+                  </button>
+                </section>
+              )}
 
-              <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
-                <PostsCard
-                  posts={posts}
-                  previousPosts={previousPosts}
-                  hiddenScheduled={skipped.current}
-                  loading={loading}
-                  c={c}
-                  lang={lang}
+              {/* Erreur YouTube */}
+              {fetchYouTube && yt.error && (
+                <div
+                  role="alert"
+                  className={`flex flex-wrap items-center justify-between gap-2 rounded-2xl border px-4 py-3 text-[12.5px] ${ink.card} ${ink.soft}`}
+                >
+                  <span>{c.errors.youtube(yt.error)}</span>
+                  <button
+                    type="button"
+                    onClick={() => setReloadKey((k) => k + 1)}
+                    className={`rounded-md px-1 text-[12.5px] font-semibold underline underline-offset-4 ${ink.focus} ${ink.strong}`}
+                  >
+                    {c.errors.retry}
+                  </button>
+                </div>
+              )}
+
+              <div
+                aria-busy={loading}
+                className={`flex flex-col gap-4 transition-opacity duration-300 motion-reduce:transition-none ${
+                  loading ? "opacity-60" : "opacity-100"
+                }`}
+              >
+                <KpiStrip
+                  items={kpis}
                   ink={ink}
                   isDark={isDark}
-                  onDuplicate={duplicatePost}
-                  onShowLast30={() => setRange("30d")}
+                  versus={c.summary.vsPreviousShort}
                 />
-                <RecycleCard
-                  posts={remixable}
+
+                <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
+                  <TrendCard
+                    title={c.trends.title}
+                    subtitle={c.trends.subtitle(periodLabel)}
+                    metrics={metrics}
+                    metric={metric}
+                    onMetric={setMetric}
+                    metricAria={c.trends.metricAria}
+                    compare={compare}
+                    onCompare={setCompare}
+                    compareLabel={c.trends.compareToggle}
+                    data={chartData}
+                    seriesLabel={metricLabel}
+                    prevLabel={c.trends.previousPeriod}
+                    ink={ink}
+                    isDark={isDark}
+                    locale={locale}
+                  />
+                  <div className="flex min-w-0 flex-col gap-4">
+                    <GoalCard
+                      title={c.summary.goalProgress(postsThisWeek, goal)}
+                      done={postsThisWeek}
+                      goal={goal}
+                      caption={c.summary.goalAria(postsThisWeek, goal)}
+                      aria={c.summary.goalAria(postsThisWeek, goal)}
+                      ink={ink}
+                      isDark={isDark}
+                    />
+                    <WeekdayCard
+                      title={c.bestTime.activityByDay}
+                      subtitle={periodLabel}
+                      labelA={c.summary.labels.reactions}
+                      labelB={c.summary.labels.comments}
+                      data={weekdayData}
+                      ink={ink}
+                      locale={locale}
+                    />
+                  </div>
+                </div>
+
+                <BestTimeCard
+                  heatmap={heatmap}
                   c={c}
-                  lang={lang}
+                  note={bestNote}
                   ink={ink}
                   isDark={isDark}
-                  onDuplicate={duplicatePost}
+                  isMobile={isMobile}
+                  onSchedule={scheduleSlot}
                 />
+
+                <div className="grid items-start gap-4 xl:grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)]">
+                  <PostsCard
+                    posts={posts}
+                    previousPosts={previousPosts}
+                    hiddenScheduled={skipped.current}
+                    loading={loading}
+                    c={c}
+                    lang={lang}
+                    ink={ink}
+                    isDark={isDark}
+                    onDuplicate={duplicatePost}
+                    onShowLast30={() => setRange("30d")}
+                  />
+                  <RecycleCard
+                    posts={remixable}
+                    c={c}
+                    lang={lang}
+                    ink={ink}
+                    isDark={isDark}
+                    onDuplicate={duplicatePost}
+                  />
+                </div>
               </div>
             </div>
           </div>

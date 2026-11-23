@@ -129,10 +129,10 @@ export default function BestTimeCard({
                   <span
                     className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold tabular-nums ${
                       i === 0
-                        ? "text-neutral-900"
+                        ? ""
                         : `${isDark ? "bg-white/[0.07]" : "bg-black/[0.05]"} ${ink.soft}`
                     }`}
-                    style={i === 0 ? { background: ink.accent } : undefined}
+                    style={i === 0 ? { background: ink.accent, color: ink.accentInk } : undefined}
                   >
                     {i + 1}
                   </span>

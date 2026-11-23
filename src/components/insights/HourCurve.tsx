@@ -124,7 +124,7 @@ export default function HourCurve({
           height={innerH + 6}
           rx="10"
           fill={ink.accent}
-          opacity={isDark ? 0.2 : 0.28}
+          opacity={isDark ? 0.22 : 0.55}
         />
 
         <path d={area} fill="url(#hc-fade)" />
@@ -142,8 +142,8 @@ export default function HourCurve({
         <text x={w - PAD.r} y={PAD.t + innerH - 6} fontSize="10.5" fill={muted} textAnchor="end">{low}</text>
 
         {/* pic */}
-        <line x1={peakX} x2={peakX} y1={y(norms[win.peak])} y2={PAD.t + innerH} stroke={ink.accent} strokeDasharray="3 3" />
-        <circle cx={peakX} cy={y(norms[win.peak])} r="5.5" fill={ink.accent} stroke={isDark ? "#0f0f11" : "#fff"} strokeWidth="2.5" />
+        <line x1={peakX} x2={peakX} y1={y(norms[win.peak])} y2={PAD.t + innerH} stroke={ink.accentInk} strokeDasharray="3 3" />
+        <circle cx={peakX} cy={y(norms[win.peak])} r="5.5" fill={ink.accentInk} stroke={isDark ? "#0f0f11" : "#fff"} strokeWidth="2.5" />
 
         {showTip && (
           <g>
@@ -156,8 +156,8 @@ export default function HourCurve({
       {/* étiquette du pic */}
       {!showTip && (
         <span
-          className="pointer-events-none absolute -translate-x-1/2 rounded-lg px-2 py-1 text-[11.5px] font-semibold tabular-nums text-neutral-900"
-          style={{ left: peakX, top: Math.max(0, y(norms[win.peak]) - 34), background: ink.accent }}
+          className="pointer-events-none absolute -translate-x-1/2 rounded-full px-3 py-1 text-[12px] font-semibold tabular-nums"
+          style={{ left: peakX, top: Math.max(0, y(norms[win.peak]) - 34), background: ink.accent, color: ink.accentInk }}
         >
           {hourLabel(win.peak)}
         </span>

@@ -27,8 +27,10 @@ export type Ink = {
   inkSoft: string;
   /** Grille / axes SVG. */
   grid: string;
-  /** Accent unique, réservé au meilleur créneau. */
+  /** Accent unique (fond rose-lilas pâle) réservé au meilleur créneau. */
   accent: string;
+  /** Texte / traits posés sur l'accent (violet). */
+  accentInk: string;
   /** Bouton plein. */
   solid: string;
   /** Valeurs positives / négatives (texte uniquement, jamais de fond). */
@@ -56,7 +58,8 @@ export const ink = (isDark: boolean): Ink =>
         ink: "#f5f5f5",
         inkSoft: "rgba(255,255,255,0.28)",
         grid: "rgba(255,255,255,0.07)",
-        accent: "#f5b8d0",
+        accent: "#f6d8f8",
+        accentInk: "#b014d6",
         solid: "bg-white text-neutral-900 hover:bg-neutral-200",
         up: "text-emerald-400",
         down: "text-rose-400",
@@ -79,7 +82,8 @@ export const ink = (isDark: boolean): Ink =>
         ink: "#171717",
         inkSoft: "rgba(0,0,0,0.22)",
         grid: "rgba(0,0,0,0.07)",
-        accent: "#f2a3c3",
+        accent: "#f8dcfa",
+        accentInk: "#a410c8",
         solid: "bg-neutral-900 text-white hover:bg-neutral-800",
         up: "text-emerald-600",
         down: "text-rose-600",
