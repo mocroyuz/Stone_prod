@@ -93,7 +93,24 @@ export function createMonoIcon(
 ========================================================= */
 export const ZapierIcon = createIcon("logos:zapier-icon", "Zapier");
 export const ClaudeIcon = createIcon("logos:claude-icon", "Claude");
-export const ChatGPTIcon = createIcon("simple-icons:openai", "ChatGPT", "#ffffff");
+export function ChatGPTIcon({
+  className = "h-5 w-5",
+  size = 20,
+  title = "ChatGPT",
+}: BrandIconProps) {
+  const { theme } = useTheme();
+  return (
+    <Icon
+      icon="simple-icons:openai"
+      width={size}
+      height={size}
+      className={className}
+      color={theme === "dark" ? "#ffffff" : "#000000"}
+      aria-label={title}
+      role="img"
+    />
+  );
+}
 export const NotionIcon = createIcon("logos:notion-icon", "Notion");
 export const GoogleIcon = createIcon("logos:google-icon", "Google");
 export const N8nIcon = createIcon("logos:n8n", "n8n");
