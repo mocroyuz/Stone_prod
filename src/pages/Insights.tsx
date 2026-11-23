@@ -407,12 +407,6 @@ export default function Insights() {
                     current={channel}
                     isDark={isDark}
                     onSelect={goChannel}
-                    selectedKey={viewingAll ? ALL_KEY : channel?.key}
-                    allOption={
-                      channels.length > 1
-                        ? { key: ALL_KEY, label: c.allNetworks }
-                        : undefined
-                    }
                   />
                 )}
                 <RangeControl
