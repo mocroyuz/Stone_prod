@@ -41,6 +41,11 @@ export default function Modal({
       const focusable = dialogRef.current?.querySelectorAll<HTMLElement>(selector);
       if (!focusable?.length) { event.preventDefault(); dialogRef.current?.focus(); return; }
       const first = focusable[0], last = focusable[focusable.length - 1];
+      if (document.activeElement === dialogRef.current) {
+        event.preventDefault();
+        (event.shiftKey ? last : first).focus();
+        return;
+      }
       if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
       else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
     };
