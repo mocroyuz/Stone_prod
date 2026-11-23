@@ -967,7 +967,7 @@ function Features() {
 ============================================================ */
 
 function OrbitVisual() {
-  const bubble = "float-soft absolute flex h-[68px] w-[68px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-white text-neutral-800 shadow-[0_0_0_1px_rgba(0,0,0,0.04),0_2px_4px_rgba(0,0,0,0.04),0_14px_28px_-12px_rgba(0,0,0,0.18)] sm:h-[84px] sm:w-[84px]";
+  const bubble = "float-soft absolute flex h-[56px] w-[56px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-white text-neutral-800 shadow-[0_0_0_1px_rgba(0,0,0,0.04),0_2px_4px_rgba(0,0,0,0.04),0_14px_28px_-12px_rgba(0,0,0,0.18)] sm:h-[68px] sm:w-[68px]";
   const dot = "absolute h-1 w-1 -translate-x-1/2 -translate-y-1/2 rounded-full bg-neutral-300";
   return (
     <div className="relative h-[360px] overflow-hidden bg-[#f6f6f6] sm:h-[448px]">
@@ -976,10 +976,10 @@ function OrbitVisual() {
       <span data-reveal="fade" style={{...d(500),left:"30%",top:"32%"}} className={dot}/>
       <span data-reveal="fade" style={{...d(580),left:"69%",top:"32%"}} className={dot}/>
       <span data-reveal="fade" style={{...d(660),left:"50%",top:"83%"}} className={dot}/>
-      <span data-reveal="pop" style={{...dv(200,{"float-dur":"7s","float-delay":"1.4s"}),left:"50%",top:"17%"}} className={bubble}><ClaudeIcon size={30} className="h-[30px] w-[30px}"/></span>
-      <span data-reveal="pop" style={{...dv(340,{"float-dur":"8.5s","float-delay":"2s"}),left:"28%",top:"61%"}} className={bubble}><ChatGPTIcon size={30} className="h-[30px] w-[30px}"/></span>
-      <span data-reveal="pop" style={{...dv(480,{"float-dur":"7.5s","float-delay":"2.6s"}),left:"71%",top:"61%"}} className={bubble}><N8nIcon size={30} className="h-[30px] w-[30px}"/></span>
-      <span data-reveal="pop" style={d(0)} className="absolute left-1/2 top-1/2 flex h-[76px] w-[76px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-[#0c0c0d] shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_10px_20px_-8px_rgba(0,0,0,0.5)]">
+      <span data-reveal="pop" style={{...dv(200,{"float-dur":"7s","float-delay":"1.4s"}),left:"50%",top:"17%"}} className={bubble}><ClaudeIcon size={26} className="h-[26px] w-[26px}"/></span>
+      <span data-reveal="pop" style={{...dv(340,{"float-dur":"8.5s","float-delay":"2s"}),left:"28%",top:"61%"}} className={bubble}><ChatGPTIcon size={26} className="h-[26px] w-[26px}"/></span>
+      <span data-reveal="pop" style={{...dv(480,{"float-dur":"7.5s","float-delay":"2.6s"}),left:"71%",top:"61%"}} className={bubble}><N8nIcon size={26} className="h-[26px] w-[26px}"/></span>
+      <span data-reveal="pop" style={d(0)} className="absolute left-1/2 top-1/2 flex h-[64px] w-[64px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-[#0c0c0d] shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_10px_20px_-8px_rgba(0,0,0,0.5)]">
         <img src={IMG.stoneMark} alt="Stone" className="h-8 w-8 object-contain brightness-0 invert" decoding="async"/>
       </span>
     </div>
