@@ -32,9 +32,7 @@ import {
 import { useLandingMotion } from "../hooks/useLandingMotion";
 import { CHANNELS } from "../data/channelConfig";
 import {
-  ZapierIcon, ClaudeIcon, ChatGPTIcon, NotionIcon, GoogleIcon, N8nIcon,
-  RaycastIcon, DropboxIcon, GoogleDriveIcon, GmailIcon, GoogleCalendarIcon,
-  CanvaIcon, GooglePhotosIcon,
+  ClaudeIcon, ChatGPTIcon, N8nIcon,
 } from "../components/IntegrationIcons";
 
 
