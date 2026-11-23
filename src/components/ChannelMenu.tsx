@@ -196,76 +196,29 @@ export default function ChannelMenu({
       </div>
 
       {open && (
-        <div
-          role="menu"
-          className={`absolute right-0 z-50 mt-2 w-64 rounded-2xl border p-1.5 shadow-[0_12px_40px_rgba(0,0,0,0.5)] ${popover}`}
-        >
-          {allOption && (
-            <button
-              type="button"
-              role="menuitemradio"
-              aria-checked={allSelected}
-              onClick={() => {
-                setOpen(false);
-                onSelect(allOption.key);
-              }}
-              className={`flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left transition-colors ${ring} ${hover}`}
-            >
-              <span className="relative flex h-7 w-7 items-center justify-center">
-                {channels.slice(0, 2).map((c, i) => (
-                  <span
-                    key={c.key}
-                    className="absolute"
-                    style={{ left: i * 6, zIndex: 2 - i }}
-                  >
-                    <ChannelAvatar channel={c} isDark={isDark} size={22} showNetwork={false} />
-                  </span>
-                ))}
-              </span>
-              <span className={`min-w-0 flex-1 truncate text-[12px] font-semibold ${text}`}>
-                {allOption.label}
-              </span>
-              {allSelected && <Check className={`h-4 w-4 ${text}`} aria-hidden="true" />}
-            </button>
-          )}
-          {channels.map((c) => {
-            const active = !allSelected && c.key === current?.key;
-            return (
-              <button
-                key={c.key}
-                type="button"
-                role="menuitemradio"
-                aria-checked={active}
-                onClick={() => {
-                  setOpen(false);
-                  onSelect(c.key);
-                }}
-                className={`flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left transition-colors ${ring} ${hover}`}
-              >
-                <ChannelAvatar channel={c} isDark={isDark} size={28} showNetwork={false} />
-                <span className={`min-w-0 flex-1 truncate text-[12px] font-semibold ${text}`}>
-                  {channelName(c)}
-                </span>
-                {active && <Check className={`h-4 w-4 ${text}`} aria-hidden="true" />}
-              </button>
-            );
-          })}
-          <div className={`my-1 border-t ${border}`} />
-          <button
-            type="button"
-            role="menuitem"
-            onClick={() => {
-              setOpen(false);
-              navigateToSettingsSection("channels");
-            }}
-            className={`flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left text-[12px] font-semibold transition-colors ${ring} ${hover} ${soft}`}
-          >
-            <span className="flex h-7 w-7 items-center justify-center rounded-full border border-dashed border-current opacity-60">
-              <Plus className="h-3.5 w-3.5" aria-hidden="true" />
-            </span>
-            Manage channels
-          </button>
-        </div>
+        <>
+          <div role="menu" className={`absolute right-0 z-50 mt-2 hidden w-64 rounded-2xl border p-1.5 shadow-[0_12px_40px_rgba(0,0,0,0.5)] md:block ${popover}`}>
+            {allOption && <button type="button" role="menuitemradio" aria-checked={allSelected} onClick={() => {setOpen(false);onSelect(allOption.key);}} className={`flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left ${ring} ${hover}`}>
+              <span className="relative flex h-7 w-7">{channels.slice(0,2).map((c,i)=><span key={c.key} className="absolute" style={{left:i*6,zIndex:2-i}}><ChannelAvatar channel={c} isDark={isDark} size={22} showNetwork={false}/></span>)}</span><span className={`min-w-0 flex-1 truncate text-[12px] font-semibold ${text}`}>{allOption.label}</span>{allSelected&&<Check className={`h-4 w-4 ${text}`}/>}
+            </button>}
+            {channels.map(c=>{const active=!allSelected&&c.key===current?.key;return <button key={c.key} type="button" role="menuitemradio" aria-checked={active} onClick={()=>{setOpen(false);onSelect(c.key);}} className={`flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left ${ring} ${hover}`}><ChannelAvatar channel={c} isDark={isDark} size={28} showNetwork={false}/><span className={`min-w-0 flex-1 truncate text-[12px] font-semibold ${text}`}>{channelName(c)}</span>{active&&<Check className={`h-4 w-4 ${text}`}/>}</button>})}
+            <div className={`my-1 border-t ${border}`}/><button type="button" role="menuitem" onClick={()=>{setOpen(false);navigateToSettingsSection("channels");}} className={`flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left text-[12px] font-semibold ${ring} ${hover} ${soft}`}><span className="flex h-7 w-7 items-center justify-center rounded-full border border-dashed border-current opacity-60"><Plus className="h-3.5 w-3.5"/></span>Manage channels</button>
+          </div>
+          <div className="fixed inset-0 z-[100] md:hidden">
+            <button aria-label="Close channels sheet" className="absolute inset-0 bg-black/45 backdrop-blur-sm" onClick={()=>setOpen(false)}/>
+            <section className={`absolute inset-x-0 bottom-0 max-h-[82dvh] overflow-y-auto rounded-t-[28px] px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-2xl ${isDark?"bg-[#151517] text-white":"bg-[#f7f5f2] text-neutral-900"} animate-in slide-in-from-bottom duration-200`}>
+              <div className="sticky top-0 z-10 -mx-5 flex justify-center py-3 bg-inherit touch-none" onTouchStart={e=>{(e.currentTarget as HTMLDivElement).dataset.y=String(e.touches[0].clientY)}} onTouchEnd={e=>{const y=Number((e.currentTarget as HTMLDivElement).dataset.y||0);if(e.changedTouches[0].clientY-y>75)setOpen(false)}}><span className="h-1.5 w-10 rounded-full bg-neutral-400/50"/></div>
+              <h2 className="pb-5 text-center text-xl font-semibold tracking-tight">Channels</h2>
+              <div role="menu" className="space-y-2">
+                {channels.map(c=>{const active=!allSelected&&c.key===current?.key;const raw=c as unknown as Record<string,unknown>;const platform=String(raw.platform??raw.network??raw.provider??"");const platformName=platform?platform.charAt(0).toUpperCase()+platform.slice(1):channelName(c);return <button key={c.key} type="button" role="menuitemradio" aria-checked={active} onClick={()=>{setOpen(false);onSelect(c.key)}} className={`flex w-full items-center gap-4 rounded-2xl px-4 py-3 text-left transition-colors ${active?(isDark?"bg-white/[0.09]":"bg-white shadow-sm"):(isDark?"hover:bg-white/[0.05]":"hover:bg-black/[0.03]")}`}>
+                  <ChannelAvatar channel={c} isDark={isDark} size={44}/><span className="min-w-0 flex-1"><span className="block truncate text-[16px] font-semibold">{platformName}</span><span className="block truncate text-[14px] opacity-55">{c.handle||c.name}</span></span>
+                </button>})}
+                {allOption&&<button type="button" role="menuitemradio" aria-checked={allSelected} onClick={()=>{setOpen(false);onSelect(allOption.key)}} className={`flex w-full items-center gap-4 rounded-2xl px-4 py-3 text-left ${allSelected?(isDark?"bg-white/[0.09]":"bg-white shadow-sm"):""}`}><span className="relative flex h-11 w-11">{channels.slice(0,2).map((c,i)=><span key={c.key} className="absolute" style={{left:i*9,zIndex:2-i}}><ChannelAvatar channel={c} isDark={isDark} size={32} showNetwork={false}/></span>)}</span><span className="flex-1 text-[16px] font-semibold">{allOption.label}</span></button>}
+              </div>
+              <button type="button" onClick={()=>{setOpen(false);navigateToSettingsSection("channels")}} className={`mt-3 flex min-h-12 w-full items-center gap-3 rounded-2xl px-4 text-sm font-semibold ${isDark?"text-neutral-400":"text-neutral-500"}`}><Plus className="h-4 w-4"/>Manage channels</button>
+            </section>
+          </div>
+        </>
       )}
     </div>
   );
