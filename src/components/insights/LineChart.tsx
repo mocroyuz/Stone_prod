@@ -28,7 +28,7 @@ const short = (n: number, locale: string) =>
   new Intl.NumberFormat(locale, { notation: "compact", maximumFractionDigits: 1 }).format(n);
 
 /** Courbe lissée monotone (Catmull-Rom → Bézier) sans dépassement. */
-function path(pts: [number, number][]) {
+export function path(pts: [number, number][]) {
   if (pts.length < 2) return pts.length ? `M${pts[0][0]},${pts[0][1]}` : "";
   let d = `M${pts[0][0]},${pts[0][1]}`;
   for (let i = 0; i < pts.length - 1; i++) {

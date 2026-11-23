@@ -19,6 +19,7 @@ export default function Segmented<T extends string>({
   isDark,
   label,
   size = "md",
+  stretch = false,
   className = "",
 }: {
   value: T;
@@ -28,6 +29,8 @@ export default function Segmented<T extends string>({
   isDark: boolean;
   label: string;
   size?: "sm" | "md";
+  /** Segments de largeur égale, la piste prend toute la largeur. */
+  stretch?: boolean;
   className?: string;
 }) {
   const refs = useRef<(HTMLButtonElement | null)[]>([]);
@@ -42,14 +45,18 @@ export default function Segmented<T extends string>({
     refs.current[next]?.focus();
   };
 
-  const pad = size === "sm" ? "h-7 px-2.5 text-[11.5px]" : "h-8 px-3 text-[12px]";
+  const pad = stretch
+    ? "h-8 min-w-0 px-1 text-[12px]"
+    : size === "sm"
+      ? "h-7 px-2.5 text-[11.5px]"
+      : "h-8 px-3 text-[12px]";
 
   return (
     <div
       role="radiogroup"
       aria-label={label}
       onKeyDown={onKey}
-      className={`inline-flex max-w-full items-center gap-0.5 overflow-x-auto rounded-xl border p-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${ink.well} ${className}`}
+      className={`${stretch ? "flex w-full" : "inline-flex"} max-w-full items-center gap-0.5 overflow-x-auto rounded-xl border p-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${ink.well} ${className}`}
     >
       {options.map((o, i) => {
         const active = o.key === value;
@@ -65,7 +72,7 @@ export default function Segmented<T extends string>({
             aria-label={o.ariaLabel}
             tabIndex={active ? 0 : -1}
             onClick={() => onChange(o.key)}
-            className={`${pad} shrink-0 whitespace-nowrap rounded-[10px] font-semibold transition-[background-color,color,box-shadow] duration-200 motion-reduce:transition-none ${ink.focus} ${
+            className={`${pad} ${stretch ? "flex-1" : "shrink-0"} whitespace-nowrap rounded-[10px] font-semibold transition-[background-color,color,box-shadow] duration-200 motion-reduce:transition-none ${ink.focus} ${
               active
                 ? isDark
                   ? "bg-white/[0.10] text-white shadow-[0_1px_2px_rgba(0,0,0,0.4)]"
