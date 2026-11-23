@@ -1,6 +1,8 @@
 
 import {
   useEffect,
+  useId,
+  useRef,
   type ReactNode,
   type MouseEvent,
 } from "react";
@@ -22,19 +24,33 @@ export default function Modal({
   children,
   dark = true,
 }: ModalProps) {
+  const titleId = useId();
+  const dialogRef = useRef<HTMLElement>(null);
   useEffect(() => {
     if (!open) return;
 
+    const previousOverflow = document.body.style.overflow;
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    document.body.style.overflow = "hidden";
+    dialogRef.current?.focus();
+
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape") { onClose(); return; }
+      if (event.key !== "Tab") return;
+      const selector = 'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+      const focusable = dialogRef.current?.querySelectorAll<HTMLElement>(selector);
+      if (!focusable?.length) { event.preventDefault(); dialogRef.current?.focus(); return; }
+      const first = focusable[0], last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
     };
 
     document.addEventListener("keydown", handleKeyDown);
-    document.body.style.overflow = "hidden";
 
     return () => {
       document.removeEventListener("keydown", handleKeyDown);
-      document.body.style.overflow = "";
+      document.body.style.overflow = previousOverflow;
+      previousFocus?.focus();
     };
   }, [open, onClose]);
 
@@ -52,9 +68,11 @@ export default function Modal({
       onMouseDown={handleBackdropClick}
     >
       <section
+        ref={dialogRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
-        aria-labelledby="modal-title"
+        aria-labelledby={titleId}
         className={[
           "my-auto w-full max-w-lg overflow-hidden rounded-2xl border shadow-2xl",
           dark
@@ -70,7 +88,7 @@ export default function Modal({
         >
           <div className="min-w-0">
             <h2
-              id="modal-title"
+              id={titleId}
               className="text-lg font-semibold tracking-tight"
             >
               {title}
