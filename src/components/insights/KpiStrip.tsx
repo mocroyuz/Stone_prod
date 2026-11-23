@@ -33,7 +33,7 @@ export default function KpiStrip({
       aria-label="KPI"
       className={`overflow-hidden ${CARD} ${ink.card}`}
     >
-      <dl className={`grid grid-cols-2 gap-px md:grid-cols-3 xl:grid-cols-6 ${rule}`}>
+      <dl className={`grid grid-cols-2 gap-px min-[560px]:grid-cols-3 xl:grid-cols-6 ${rule}`}>
         {items.map((k) => {
           const d = k.delta;
           const tone = d == null || d === 0 ? ink.muted : d > 0 ? ink.up : ink.down;

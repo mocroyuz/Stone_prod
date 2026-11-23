@@ -117,14 +117,14 @@ export default function BestTimeCard({
           <h3 className={`text-[11px] font-semibold uppercase tracking-[0.08em] ${ink.muted}`}>
             {c.bestTime.bestOfDay}
           </h3>
-          <ul className={`mt-2 divide-y ${isDark ? "divide-white/[0.07]" : "divide-black/[0.06]"}`}>
+          <ul className={`mt-2 grid grid-cols-3 gap-2 lg:block lg:divide-y ${isDark ? "lg:divide-white/[0.07]" : "lg:divide-black/[0.06]"}`}>
             {heatmap.recommendations.map((r, i) => (
               <li key={`${r.day}-${r.hour}`}>
                 <button
                   type="button"
                   onClick={() => onSchedule({ day: r.day, hour: r.hour })}
                   aria-label={c.bestTime.scheduleAria(c.daysLong[r.day], hourLabel(r.hour))}
-                  className={`group flex min-h-12 w-full items-center gap-3 rounded-lg px-1 py-2 text-left transition-colors ${ink.focus} ${ink.hover}`}
+                  className={`group flex min-h-12 w-full items-center gap-2 rounded-xl border px-2.5 py-2 text-left transition-colors lg:gap-3 lg:rounded-lg lg:border-transparent lg:px-1 ${ink.focus} ${ink.hover} ${ink.hairline}`}
                 >
                   <span
                     className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold tabular-nums ${

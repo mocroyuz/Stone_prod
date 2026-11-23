@@ -538,7 +538,7 @@ export default function Insights() {
                     isDark={isDark}
                     locale={locale}
                   />
-                  <div className="flex min-w-0 flex-col gap-4">
+                  <div className="grid min-w-0 items-start gap-4 sm:grid-cols-2 xl:grid-cols-1">
                     <GoalCard
                       title={c.summary.goalProgress(postsThisWeek, goal)}
                       done={postsThisWeek}
