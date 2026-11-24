@@ -939,13 +939,15 @@ function Features() {
    WORKFLOWS (deux cartes)
 ============================================================ */
 
-/* Panneau « Assistants » : chaque IA a un rôle précis ; une seule travaille
-   à la fois (état, barre de progression), puis le relais passe à la suivante. */
+/* Assistants : pastilles flottantes, même vocabulaire que le hero (cartes
+   blanches arrondies, pastille active noire comme la nav, puce rose « New »).
+   Une IA travaille à la fois ; l'anneau autour de son logo se remplit, puis le
+   relais passe à la suivante. */
 const AI_ROWS: Array<{ key: string; name: string; role: string; doing: string; icon: ReactNode }> = [
   { key: "claude", name: "Claude", role: "Writes captions in your voice", doing: "Drafting", icon: <SiClaude color="currentColor" className="h-[18px] w-[18px]" aria-hidden="true" /> },
-  { key: "chatgpt", name: "ChatGPT", role: "Turns one idea into a post series", doing: "Writing", icon: <Icon icon="simple-icons:openai" color="currentColor" className="h-[18px] w-[18px]" aria-hidden="true" /> },
+  { key: "chatgpt", name: "ChatGPT", role: "Turns one idea into a series", doing: "Writing", icon: <Icon icon="simple-icons:openai" color="currentColor" className="h-[18px] w-[18px]" aria-hidden="true" /> },
   { key: "gemini", name: "Gemini", role: "Adapts media to each channel", doing: "Resizing", icon: <SiGooglegemini color="currentColor" className="h-[18px] w-[18px]" aria-hidden="true" /> },
-  { key: "perplexity", name: "Perplexity", role: "Researches topics before you post", doing: "Researching", icon: <SiPerplexity color="currentColor" className="h-[18px] w-[18px]" aria-hidden="true" /> },
+  { key: "perplexity", name: "Perplexity", role: "Researches before you post", doing: "Searching", icon: <SiPerplexity color="currentColor" className="h-[18px] w-[18px]" aria-hidden="true" /> },
 ];
 const AI_STEP_MS = 3200;
 
@@ -958,66 +960,62 @@ function OrbitVisual() {
 
   return (
     <div className="relative flex h-[360px] items-center justify-center overflow-hidden bg-[#f6f6f6] px-4 sm:h-[448px] sm:px-8">
-      <div data-reveal="up" style={d(0)} className="relative w-full max-w-[440px]">
-        <span aria-hidden="true" className="absolute inset-x-5 -bottom-2.5 top-4 rounded-[22px] bg-white/55 shadow-[0_0_0_1px_rgba(0,0,0,0.04)]" />
-        <span aria-hidden="true" className="absolute inset-x-9 -bottom-5 top-8 rounded-[22px] bg-white/30 shadow-[0_0_0_1px_rgba(0,0,0,0.03)]" />
-
-        <div className="relative overflow-hidden rounded-[20px] bg-white shadow-[0_0_0_1px_rgba(0,0,0,0.06),0_2px_4px_rgba(0,0,0,0.03),0_26px_48px_-26px_rgba(0,0,0,0.22)]">
-          <div className="flex items-center justify-between gap-3 px-4 py-3.5">
-            <span className="flex items-center gap-2 text-[13px] font-medium tracking-[-0.01em] text-[#0c0c0d]">
-              <img src={IMG.stoneMark} alt="" aria-hidden="true" decoding="async" className="h-[15px] w-auto" />
-              Assistants
-            </span>
-            <span className="font-mono text-[11.5px] text-neutral-500">{AI_ROWS.length} connected</span>
-          </div>
-
-          <ul className="border-t border-black/[0.06]">
-            {AI_ROWS.map((row, i) => {
-              const on = i === active;
-              return (
-                <li
-                  key={row.key}
+      <DotField
+        className="left-1/2 top-1/2 h-[340px] w-[440px] -translate-x-1/2 -translate-y-1/2"
+        strength={0.12}
+        mask="radial-gradient(ellipse, #000 15%, transparent 76%)"
+      />
+      <ul className="relative flex w-full max-w-[340px] flex-col gap-3">
+        {AI_ROWS.map((row, i) => {
+          const on = i === active;
+          return (
+            <li
+              key={row.key}
+              data-reveal="up"
+              style={d(i * 110)}
+              className={i % 2 === 0 ? "-translate-x-2.5 sm:-translate-x-6" : "translate-x-2.5 sm:translate-x-6"}
+            >
+              <div
+                className={[
+                  "flex h-[60px] items-center gap-3 rounded-full py-2.5 pl-2.5 pr-3.5 transition-[background-color,box-shadow] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]",
+                  on
+                    ? "bg-[#0c0c0d] shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_1px_2px_rgba(0,0,0,0.28),0_14px_26px_-12px_rgba(0,0,0,0.55)]"
+                    : "bg-white shadow-[0_0_0_1px_rgba(0,0,0,0.05),0_2px_4px_rgba(0,0,0,0.03),0_16px_32px_-16px_rgba(0,0,0,0.14)]",
+                ].join(" ")}
+              >
+                <span
                   className={[
-                    "relative flex items-center gap-3 border-b border-black/[0.06] px-4 py-3 transition-colors duration-500 last:border-b-0",
-                    on ? "bg-[#fafaf9]" : "bg-white",
+                    "relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-[background-color,color,box-shadow] duration-500",
+                    on
+                      ? "bg-white/10 text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.14)]"
+                      : "bg-[#f6f6f6] text-[#0c0c0d] shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)]",
                   ].join(" ")}
                 >
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px] bg-white text-[#0c0c0d] shadow-[0_0_0_1px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)]">
-                    {row.icon}
+                  {row.icon}
+                  {on && (
+                    <svg key={active} aria-hidden="true" viewBox="0 0 46 46" className="absolute -inset-[3px] h-[46px] w-[46px] -rotate-90">
+                      <circle className="ai-ring" cx="23" cy="23" r="22" fill="none" stroke="rgba(255,255,255,0.85)" strokeWidth="1.5" strokeLinecap="round" />
+                    </svg>
+                  )}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className={["block text-[13.5px] font-medium leading-tight tracking-[-0.02em] transition-colors duration-500", on ? "text-white" : "text-[#0c0c0d]"].join(" ")}>
+                    {row.name}
                   </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-[13.5px] font-medium leading-tight tracking-[-0.01em] text-[#0c0c0d]">{row.name}</span>
-                    <span className="mt-0.5 block truncate text-[12px] leading-snug text-neutral-500">{row.role}</span>
+                  <span className={["mt-0.5 block truncate text-[11.5px] leading-snug transition-colors duration-500", on ? "text-white/60" : "text-neutral-500"].join(" ")}>
+                    {row.role}
                   </span>
-                  <span
-                    className={[
-                      "flex shrink-0 items-center gap-1.5 text-[11.5px] transition-colors duration-500",
-                      on ? "text-[#0c0c0d]" : "text-neutral-500",
-                    ].join(" ")}
-                  >
-                    {on ? (
-                      <>
-                        <span aria-hidden="true" className="flex items-center gap-[3px]">
-                          {[0, 1, 2].map((n) => (
-                            <span key={n} style={{ "--i": n } as CSSProperties} className="hub-dot h-[3px] w-[3px] rounded-full bg-[#0c0c0d]" />
-                          ))}
-                        </span>
-                        {row.doing}
-                      </>
-                    ) : (
-                      <>
-                        <span aria-hidden="true" className="h-[5px] w-[5px] rounded-full bg-neutral-300" />
-                        Ready
-                      </>
-                    )}
+                </span>
+                {on && (
+                  <span className="shrink-0 rounded-full bg-[#f7cfcf] px-2.5 py-[3px] text-[10px] font-semibold uppercase tracking-[0.04em] text-[#9b3a3a] shadow-[inset_0_0_0_1px_rgba(155,58,58,0.12)]">
+                    {row.doing}
                   </span>
-                  {on && <span key={active} aria-hidden="true" className="hub-progress absolute bottom-0 left-0 h-[2px] w-full bg-[#0c0c0d]/80" />}
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      </div>
+                )}
+              </div>
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }
