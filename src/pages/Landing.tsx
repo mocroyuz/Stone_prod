@@ -939,68 +939,84 @@ function Features() {
    WORKFLOWS (deux cartes)
 ============================================================ */
 
-/* Schéma « hub » : 4 IA reliées à Stone par des coudes à angle droit.
-   Scène à ratio fixe (640 × 300) : les traits SVG et les tuiles gardent
-   exactement les mêmes proportions à toutes les largeurs. */
-const HUB_ICON = "h-[38%] w-[38%]";
-const HUB_NODES: Array<{ key: string; label: string; x: number; y: number; node: ReactNode }> = [
-  { key: "claude", label: "Claude", x: 12, y: 22, node: <SiClaude color="currentColor" className={HUB_ICON} aria-hidden="true" /> },
-  { key: "chatgpt", label: "ChatGPT", x: 12, y: 78, node: <Icon icon="simple-icons:openai" color="currentColor" className={HUB_ICON} aria-hidden="true" /> },
-  { key: "gemini", label: "Gemini", x: 88, y: 22, node: <SiGooglegemini color="currentColor" className={HUB_ICON} aria-hidden="true" /> },
-  { key: "perplexity", label: "Perplexity", x: 88, y: 78, node: <SiPerplexity color="currentColor" className={HUB_ICON} aria-hidden="true" /> },
+/* Panneau « Assistants » : chaque IA a un rôle précis ; une seule travaille
+   à la fois (état, barre de progression), puis le relais passe à la suivante. */
+const AI_ROWS: Array<{ key: string; name: string; role: string; doing: string; icon: ReactNode }> = [
+  { key: "claude", name: "Claude", role: "Writes captions in your voice", doing: "Drafting", icon: <SiClaude color="currentColor" className="h-[18px] w-[18px]" aria-hidden="true" /> },
+  { key: "chatgpt", name: "ChatGPT", role: "Turns one idea into a post series", doing: "Writing", icon: <Icon icon="simple-icons:openai" color="currentColor" className="h-[18px] w-[18px]" aria-hidden="true" /> },
+  { key: "gemini", name: "Gemini", role: "Adapts media to each channel", doing: "Resizing", icon: <SiGooglegemini color="currentColor" className="h-[18px] w-[18px]" aria-hidden="true" /> },
+  { key: "perplexity", name: "Perplexity", role: "Researches topics before you post", doing: "Researching", icon: <SiPerplexity color="currentColor" className="h-[18px] w-[18px]" aria-hidden="true" /> },
 ];
-/* Même longueur (327) pour les quatre trajets : tuile → coude → centre. */
-const HUB_PATHS = [
-  "M77 66H205V150H320",
-  "M77 234H205V150H320",
-  "M563 66H435V150H320",
-  "M563 234H435V150H320",
-];
+const AI_STEP_MS = 3200;
 
 function OrbitVisual() {
-  const tile =
-    "absolute flex aspect-square w-[14%] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-[24%] bg-white text-[#0c0c0d] shadow-[0_0_0_1px_rgba(0,0,0,0.06),0_1px_2px_rgba(0,0,0,0.04),0_10px_20px_-10px_rgba(0,0,0,0.14)] sm:w-[11%]";
+  const [active, setActive] = useState(0);
+  useEffect(() => {
+    const id = window.setInterval(() => setActive((i) => (i + 1) % AI_ROWS.length), AI_STEP_MS);
+    return () => window.clearInterval(id);
+  }, []);
+
   return (
-    <div className="relative flex h-[360px] items-center justify-center overflow-hidden bg-[#f6f6f6] px-3 sm:h-[448px] sm:px-4">
-      <div
-        role="img"
-        aria-label="Stone connected to Claude, ChatGPT, Gemini and Perplexity"
-        data-reveal="draw"
-        style={d(0)}
-        className="relative aspect-[640/300] w-full max-w-[640px]"
-      >
-        <svg aria-hidden="true" viewBox="0 0 640 300" className="absolute inset-0 h-full w-full overflow-visible" fill="none">
-          {HUB_PATHS.map((path, i) => (
-            <g key={i} style={{ "--i": i } as CSSProperties}>
-              <path className="hub-line" d={path} stroke="rgba(12,12,13,0.15)" strokeWidth="1.25" />
-              <path className="hub-flow" d={path} stroke="#0c0c0d" strokeWidth="1.25" strokeLinecap="round" />
-              <path className="hub-pulse" d={path} stroke="#0c0c0d" strokeWidth="1.75" strokeLinecap="round" />
-            </g>
-          ))}
-        </svg>
+    <div className="relative flex h-[360px] items-center justify-center overflow-hidden bg-[#f6f6f6] px-4 sm:h-[448px] sm:px-8">
+      <div data-reveal="up" style={d(0)} className="relative w-full max-w-[440px]">
+        <span aria-hidden="true" className="absolute inset-x-5 -bottom-2.5 top-4 rounded-[22px] bg-white/55 shadow-[0_0_0_1px_rgba(0,0,0,0.04)]" />
+        <span aria-hidden="true" className="absolute inset-x-9 -bottom-5 top-8 rounded-[22px] bg-white/30 shadow-[0_0_0_1px_rgba(0,0,0,0.03)]" />
 
-        {HUB_NODES.map(({ key, x, y, node }, i) => (
-          <span key={key} data-reveal="pop" style={{ ...d(260 + i * 90), left: `${x}%`, top: `${y}%` }} className={tile}>
-            {node}
-          </span>
-        ))}
+        <div className="relative overflow-hidden rounded-[20px] bg-white shadow-[0_0_0_1px_rgba(0,0,0,0.06),0_2px_4px_rgba(0,0,0,0.03),0_26px_48px_-26px_rgba(0,0,0,0.22)]">
+          <div className="flex items-center justify-between gap-3 px-4 py-3.5">
+            <span className="flex items-center gap-2 text-[13px] font-medium tracking-[-0.01em] text-[#0c0c0d]">
+              <img src={IMG.stoneMark} alt="" aria-hidden="true" decoding="async" className="h-[15px] w-auto" />
+              Assistants
+            </span>
+            <span className="font-mono text-[11.5px] text-neutral-500">{AI_ROWS.length} connected</span>
+          </div>
 
-        <span
-          data-reveal="pop"
-          style={d(120)}
-          className="absolute left-1/2 top-1/2 flex aspect-square w-[17%] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-[24%] bg-[#0c0c0d] shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_18px_32px_-14px_rgba(0,0,0,0.55)] sm:w-[13%]"
-        >
-          <span aria-hidden="true" className="hub-ring absolute inset-0 rounded-[24%] border border-[#0c0c0d]/30" />
-          <img src={IMG.stoneMark} alt="" aria-hidden="true" decoding="async" className="h-[44%] w-auto object-contain brightness-0 invert" />
-        </span>
-
-        <span
-          data-reveal="fade"
-          style={d(700)}
-          className="absolute left-1/2 top-[80%] -translate-x-1/2 sm:top-[72%] whitespace-nowrap font-mono text-[10.5px] tracking-[-0.01em] text-neutral-500 min-[420px]:text-[11.5px] sm:text-[12.5px]"
-        >
-          4 connected
-        </span>
+          <ul className="border-t border-black/[0.06]">
+            {AI_ROWS.map((row, i) => {
+              const on = i === active;
+              return (
+                <li
+                  key={row.key}
+                  className={[
+                    "relative flex items-center gap-3 border-b border-black/[0.06] px-4 py-3 transition-colors duration-500 last:border-b-0",
+                    on ? "bg-[#fafaf9]" : "bg-white",
+                  ].join(" ")}
+                >
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[11px] bg-white text-[#0c0c0d] shadow-[0_0_0_1px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.05)]">
+                    {row.icon}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[13.5px] font-medium leading-tight tracking-[-0.01em] text-[#0c0c0d]">{row.name}</span>
+                    <span className="mt-0.5 block truncate text-[12px] leading-snug text-neutral-500">{row.role}</span>
+                  </span>
+                  <span
+                    className={[
+                      "flex shrink-0 items-center gap-1.5 text-[11.5px] transition-colors duration-500",
+                      on ? "text-[#0c0c0d]" : "text-neutral-500",
+                    ].join(" ")}
+                  >
+                    {on ? (
+                      <>
+                        <span aria-hidden="true" className="flex items-center gap-[3px]">
+                          {[0, 1, 2].map((n) => (
+                            <span key={n} style={{ "--i": n } as CSSProperties} className="hub-dot h-[3px] w-[3px] rounded-full bg-[#0c0c0d]" />
+                          ))}
+                        </span>
+                        {row.doing}
+                      </>
+                    ) : (
+                      <>
+                        <span aria-hidden="true" className="h-[5px] w-[5px] rounded-full bg-neutral-300" />
+                        Ready
+                      </>
+                    )}
+                  </span>
+                  {on && <span key={active} aria-hidden="true" className="hub-progress absolute bottom-0 left-0 h-[2px] w-full bg-[#0c0c0d]/80" />}
+                </li>
+              );
+            })}
+          </ul>
+        </div>
       </div>
     </div>
   );
@@ -1094,7 +1110,7 @@ function Workflows() {
   return (
     <Bleed id="workflows" className="scroll-mt-24">
       <Col className="py-3 sm:py-4">
-        <div className="grid gap-3 sm:gap-[23px] lg:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 sm:gap-[23px] lg:grid-cols-2">
           <WorkflowCard
             visual={<OrbitVisual />}
             tag={{ icon: Repeat, label: "Looping interface" }}

@@ -432,92 +432,30 @@ img,
     var(--float-delay, 1.4s) infinite;
 }
 
-/* Schéma hub (Landing) : tracé des liaisons, impulsion lente vers le centre,
-   onde discrète autour du logo. Rien ne bouge avant l'apparition. */
-.hub-line {
-  stroke-dasharray: 340;
-  stroke-dashoffset: 340;
-  transition: stroke-dashoffset 1000ms var(--ease-in-out-cubic)
-    calc(var(--d) + 200ms + var(--i, 0) * 90ms);
+/* Panneau « Assistants » (Landing) : progression de l'IA active + points. */
+.hub-progress {
+  transform-origin: left center;
+  animation: hub-progress 3.2s linear forwards;
 }
-[data-reveal="draw"][data-revealed] .hub-line {
-  stroke-dashoffset: 0;
-}
-/* Courant électrique : un fin pointillé qui file en continu (crépitement
-   d'opacité) + des « charges » plus longues qui traversent le trait vers le
-   centre. Les deux se déplacent dans le sens du tracé (tuile → logo). */
-.hub-flow,
-.hub-pulse {
-  opacity: 0;
-}
-.hub-flow {
-  stroke-dasharray: 1.5 9;
-}
-.hub-pulse {
-  stroke-dasharray: 26 142;
-}
-[data-reveal="draw"][data-revealed] .hub-flow {
-  animation:
-    hub-flow 0.7s linear infinite,
-    hub-flicker 1.9s linear infinite;
-  animation-delay: calc(1.5s + var(--i, 0) * 0.13s);
-}
-[data-reveal="draw"][data-revealed] .hub-pulse {
-  animation: hub-pulse 1.7s linear infinite;
-  animation-delay: calc(1.7s + var(--i, 0) * 0.31s);
-}
-@keyframes hub-flow {
+@keyframes hub-progress {
+  from {
+    transform: scaleX(0);
+  }
   to {
-    stroke-dashoffset: -10.5;
+    transform: scaleX(1);
   }
 }
-@keyframes hub-flicker {
+.hub-dot {
+  animation: hub-dot 1.1s ease-in-out infinite;
+  animation-delay: calc(var(--i, 0) * 0.16s);
+}
+@keyframes hub-dot {
   0%,
   100% {
-    opacity: 0.38;
+    opacity: 0.2;
   }
-  17% {
-    opacity: 0.62;
-  }
-  33% {
-    opacity: 0.3;
-  }
-  52% {
-    opacity: 0.58;
-  }
-  71% {
-    opacity: 0.34;
-  }
-  88% {
-    opacity: 0.5;
-  }
-}
-@keyframes hub-pulse {
-  0% {
-    stroke-dashoffset: 0;
-    opacity: 0.85;
-  }
-  100% {
-    stroke-dashoffset: -168;
-    opacity: 0.85;
-  }
-}
-.hub-ring {
-  opacity: 0;
-}
-[data-reveal="draw"][data-revealed] .hub-ring {
-  animation: hub-ring 1.7s var(--ease-out-quint) infinite;
-  animation-delay: 2.2s;
-}
-@keyframes hub-ring {
-  0% {
-    transform: scale(1);
-    opacity: 0.4;
-  }
-  70%,
-  100% {
-    transform: scale(1.3);
-    opacity: 0;
+  45% {
+    opacity: 1;
   }
 }
 
@@ -657,20 +595,6 @@ img,
   .bottom-glow-intro {
     display: none;
   }
-  /* Le courant continue, mais 3× plus lent et sans onde autour du logo. */
-  [data-reveal="draw"][data-revealed] .hub-flow {
-    animation-duration: 2.1s, 5.7s;
-  }
-  [data-reveal="draw"][data-revealed] .hub-pulse {
-    animation-duration: 5s;
-  }
-  .hub-ring {
-    animation: none !important;
-    opacity: 0 !important;
-  }
-  .hub-line {
-    transition: none !important;
-  }
   .float-soft,
   .header-in,
   .menu-sheet,
@@ -683,15 +607,6 @@ img,
 @media print {
   .bottom-glow,
   .bottom-glow-intro {
-    display: none;
-  }
-  .hub-line {
-    stroke-dashoffset: 0 !important;
-    transition: none !important;
-  }
-  .hub-flow,
-  .hub-pulse,
-  .hub-ring {
     display: none;
   }
   [data-reveal],
