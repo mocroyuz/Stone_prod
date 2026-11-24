@@ -15,7 +15,7 @@ function installChunkLoadRecovery() {
     const message =
       reason instanceof Error ? reason.message : String(reason ?? "");
     if (
-      !/failed to fetch dynamically imported module|loading chunk|failed to load module script|error loading dynamically imported module/i.test(
+      !/failed to fetch dynamically imported module|loading chunk|failed to load module script|error loading dynamically imported module|cannot read properties of undefined.*default|reading ['\"]default['\"]/i.test(
         message
       )
     ) {
