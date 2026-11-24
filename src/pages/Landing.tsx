@@ -1093,34 +1093,34 @@ function ReportChart() {
 
   return (
     <div data-reveal="chart" style={d(200)} className="mt-7">
-      <div className="bg-white px-0 py-0 sm:px-0 sm:py-0">
+      <div className="bg-transparent">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h4 className="text-[15px] font-semibold tracking-[-0.025em] text-neutral-900">Activity by day</h4>
-            <p className="mt-1 text-[13px] text-neutral-400">26 Oct - 24 Nov 2026</p>
+            <h4 className="text-[14px] font-medium tracking-[-0.02em] text-neutral-900">Activity by day</h4>
+            <p className="mt-1 text-[12px] text-neutral-400">26 Oct – 24 Nov 2026</p>
           </div>
-          <div className="flex shrink-0 flex-col items-end gap-2 text-[13px] text-neutral-500">
-            <span className="flex items-center gap-2">Reactions <span className="h-3 w-3 rounded-[4px] bg-[#171717]" /></span>
-            <span className="flex items-center gap-2">Comments <span className="h-3 w-3 rounded-[4px] bg-neutral-300" /></span>
+          <div className="flex shrink-0 flex-col items-end gap-2 text-[12px] text-neutral-500">
+            <span className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-[#171717]" />Reactions</span>
+            <span className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-[#c7c7c7]" />Comments</span>
           </div>
         </div>
-        <div className="mt-5 grid grid-cols-7 gap-2 sm:gap-3" onPointerLeave={() => setHover(null)}>
+        <div className="mt-6 grid grid-cols-7 gap-1.5 sm:gap-3" onPointerLeave={() => setHover(null)}>
           {days.map((day, i) => {
             const on = i === focus;
             return (
               <div key={day.day} onPointerEnter={() => setHover(i)} className="flex min-w-0 flex-col items-center gap-2">
-                <div className="flex h-[144px] sm:h-[196px] w-full items-end justify-center gap-[3px]">
-                  <span className="w-full max-w-[14px] rounded-t-[7px] transition-opacity duration-200" style={{ height: Math.max(3, (day.a / max) * 100) + "%", background: "#171717", opacity: on ? 1 : 0.32 }} />
-                  <span className="w-full max-w-[14px] rounded-t-[7px] transition-opacity duration-200" style={{ height: Math.max(3, (day.b / max) * 100) + "%", background: "#c7c7c7", opacity: on ? 1 : 0.58 }} />
+                <div className="flex h-[132px] sm:h-[168px] w-full items-end justify-center gap-[3px]">
+                  <span className="w-full max-w-[12px] rounded-t-[5px] transition-opacity duration-200 motion-reduce:transition-none" style={{ height: Math.max(3, (day.a / max) * 100) + "%", background: "#171717", opacity: on ? 1 : 0.22 }} />
+                  <span className="w-full max-w-[12px] rounded-t-[5px] transition-opacity duration-200 motion-reduce:transition-none" style={{ height: Math.max(3, (day.b / max) * 100) + "%", background: "#c7c7c7", opacity: on ? 1 : 0.5 }} />
                 </div>
-                <span className={`text-[12px] sm:text-[14px] font-medium ${on ? "text-neutral-900" : "text-neutral-400"}`}>{day.day}</span>
+                <span className={`text-[11px] sm:text-[12px] ${on ? "font-medium text-neutral-900" : "text-neutral-400"}`}>{day.day}</span>
               </div>
             );
           })}
         </div>
-        <div className="mt-5 flex items-center justify-between gap-3 border-t border-neutral-200/70 pt-4 text-[13px] sm:text-[15px] text-neutral-500">
-          <span className="font-semibold text-neutral-900">{f.day}</span>
-          <span className="text-right tabular-nums">Reactions {f.a} · Comments {f.b}</span>
+        <div className="mt-4 flex items-center justify-between gap-3 border-t border-neutral-100 pt-3 text-[12px] sm:text-[13px] text-neutral-500">
+          <span className="font-medium text-neutral-900">{f.day}</span>
+          <span className="text-right tabular-nums"><span className="text-neutral-700">{f.a}</span> reactions <span className="mx-1 text-neutral-300">·</span> <span className="text-neutral-700">{f.b}</span> comments</span>
         </div>
       </div>
     </div>
