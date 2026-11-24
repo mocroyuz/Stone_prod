@@ -1093,7 +1093,7 @@ function ReportChart() {
 
   return (
     <div data-reveal="chart" style={d(200)} className="mt-7">
-      <div className="rounded-[24px] border border-neutral-200/70 bg-white px-5 py-5 shadow-[0_2px_8px_-5px_rgba(0,0,0,0.12)] sm:px-7 sm:py-6">
+      <div className="bg-white px-0 py-0 sm:px-0 sm:py-0">
         <div className="flex items-start justify-between gap-4">
           <div>
             <h4 className="text-[15px] font-semibold tracking-[-0.025em] text-neutral-900">Activity by day</h4>
