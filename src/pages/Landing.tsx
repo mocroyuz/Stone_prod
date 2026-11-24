@@ -940,40 +940,40 @@ function Features() {
 ============================================================ */
 
 /* Schéma « hub » : 4 IA reliées à Stone par des coudes à angle droit.
-   Scène à ratio fixe (560 × 340) : les traits SVG et les tuiles gardent
+   Scène à ratio fixe (640 × 300) : les traits SVG et les tuiles gardent
    exactement les mêmes proportions à toutes les largeurs. */
-const HUB_ICON = "h-[40%] w-[40%]";
+const HUB_ICON = "h-[38%] w-[38%]";
 const HUB_NODES: Array<{ key: string; label: string; x: number; y: number; node: ReactNode }> = [
-  { key: "claude", label: "Claude", x: 22, y: 24, node: <SiClaude color="currentColor" className={HUB_ICON} aria-hidden="true" /> },
-  { key: "chatgpt", label: "ChatGPT", x: 22, y: 76, node: <Icon icon="simple-icons:openai" color="currentColor" className={HUB_ICON} aria-hidden="true" /> },
-  { key: "gemini", label: "Gemini", x: 78, y: 24, node: <SiGooglegemini color="currentColor" className={HUB_ICON} aria-hidden="true" /> },
-  { key: "perplexity", label: "Perplexity", x: 78, y: 76, node: <SiPerplexity color="currentColor" className={HUB_ICON} aria-hidden="true" /> },
+  { key: "claude", label: "Claude", x: 12, y: 22, node: <SiClaude color="currentColor" className={HUB_ICON} aria-hidden="true" /> },
+  { key: "chatgpt", label: "ChatGPT", x: 12, y: 78, node: <Icon icon="simple-icons:openai" color="currentColor" className={HUB_ICON} aria-hidden="true" /> },
+  { key: "gemini", label: "Gemini", x: 88, y: 22, node: <SiGooglegemini color="currentColor" className={HUB_ICON} aria-hidden="true" /> },
+  { key: "perplexity", label: "Perplexity", x: 88, y: 78, node: <SiPerplexity color="currentColor" className={HUB_ICON} aria-hidden="true" /> },
 ];
-/* Même longueur (245) pour les quatre trajets : tuile → coude → centre. */
+/* Même longueur (327) pour les quatre trajets : tuile → coude → centre. */
 const HUB_PATHS = [
-  "M123 82H202V170H280",
-  "M123 258H202V170H280",
-  "M437 82H358V170H280",
-  "M437 258H358V170H280",
+  "M77 66H205V150H320",
+  "M77 234H205V150H320",
+  "M563 66H435V150H320",
+  "M563 234H435V150H320",
 ];
 
 function OrbitVisual() {
   const tile =
-    "absolute flex aspect-square w-[16.5%] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-[22%] bg-white text-[#0c0c0d] shadow-[0_0_0_1px_rgba(0,0,0,0.06),0_2px_4px_rgba(0,0,0,0.04),0_14px_28px_-12px_rgba(0,0,0,0.16)] sm:w-[14.6%]";
+    "absolute flex aspect-square w-[14%] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-[24%] bg-white text-[#0c0c0d] shadow-[0_0_0_1px_rgba(0,0,0,0.06),0_1px_2px_rgba(0,0,0,0.04),0_10px_20px_-10px_rgba(0,0,0,0.14)] sm:w-[11%]";
   return (
-    <div className="relative flex h-[360px] items-center justify-center overflow-hidden bg-[#f6f6f6] px-4 sm:h-[448px] sm:px-6">
+    <div className="relative flex h-[360px] items-center justify-center overflow-hidden bg-[#f6f6f6] px-3 sm:h-[448px] sm:px-4">
       <div
         role="img"
         aria-label="Stone connected to Claude, ChatGPT, Gemini and Perplexity"
         data-reveal="draw"
         style={d(0)}
-        className="relative aspect-[560/340] w-full max-w-[560px]"
+        className="relative aspect-[640/300] w-full max-w-[640px]"
       >
-        <svg aria-hidden="true" viewBox="0 0 560 340" className="absolute inset-0 h-full w-full overflow-visible" fill="none">
+        <svg aria-hidden="true" viewBox="0 0 640 300" className="absolute inset-0 h-full w-full overflow-visible" fill="none">
           {HUB_PATHS.map((path, i) => (
             <g key={i} style={{ "--i": i } as CSSProperties}>
-              <path className="hub-line" d={path} stroke="rgba(12,12,13,0.15)" strokeWidth="2" />
-              <path className="hub-pulse" d={path} stroke="#0c0c0d" strokeWidth="2" strokeLinecap="round" />
+              <path className="hub-line" d={path} stroke="rgba(12,12,13,0.15)" strokeWidth="1.25" />
+              <path className="hub-pulse" d={path} stroke="#0c0c0d" strokeWidth="1.25" strokeLinecap="round" />
             </g>
           ))}
         </svg>
@@ -987,16 +987,16 @@ function OrbitVisual() {
         <span
           data-reveal="pop"
           style={d(120)}
-          className="absolute left-1/2 top-1/2 flex aspect-square w-[19%] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-[22%] bg-[#0c0c0d] shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_18px_32px_-14px_rgba(0,0,0,0.55)] sm:w-[17%]"
+          className="absolute left-1/2 top-1/2 flex aspect-square w-[17%] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-[24%] bg-[#0c0c0d] shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_18px_32px_-14px_rgba(0,0,0,0.55)] sm:w-[13%]"
         >
-          <span aria-hidden="true" className="hub-ring absolute inset-0 rounded-[22%] border border-[#0c0c0d]/30" />
+          <span aria-hidden="true" className="hub-ring absolute inset-0 rounded-[24%] border border-[#0c0c0d]/30" />
           <img src={IMG.stoneMark} alt="" aria-hidden="true" decoding="async" className="h-[44%] w-auto object-contain brightness-0 invert" />
         </span>
 
         <span
           data-reveal="fade"
           style={d(700)}
-          className="absolute left-1/2 top-[71%] -translate-x-1/2 whitespace-nowrap font-mono text-[10.5px] tracking-[-0.01em] text-neutral-500 min-[420px]:text-[11.5px] sm:text-[12.5px]"
+          className="absolute left-1/2 top-[80%] -translate-x-1/2 sm:top-[72%] whitespace-nowrap font-mono text-[10.5px] tracking-[-0.01em] text-neutral-500 min-[420px]:text-[11.5px] sm:text-[12.5px]"
         >
           4 connected
         </span>

@@ -435,8 +435,8 @@ img,
 /* Schéma hub (Landing) : tracé des liaisons, impulsion lente vers le centre,
    onde discrète autour du logo. Rien ne bouge avant l'apparition. */
 .hub-line {
-  stroke-dasharray: 260;
-  stroke-dashoffset: 260;
+  stroke-dasharray: 340;
+  stroke-dashoffset: 340;
   transition: stroke-dashoffset 1000ms var(--ease-in-out-cubic)
     calc(var(--d) + 200ms + var(--i, 0) * 90ms);
 }
@@ -461,12 +461,12 @@ img,
     opacity: 0.55;
   }
   50% {
-    stroke-dashoffset: -245;
+    stroke-dashoffset: -327;
     opacity: 0.55;
   }
   56%,
   100% {
-    stroke-dashoffset: -245;
+    stroke-dashoffset: -327;
     opacity: 0;
   }
 }
