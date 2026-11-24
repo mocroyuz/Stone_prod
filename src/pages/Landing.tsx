@@ -1086,23 +1086,42 @@ function ReportChart() {
     { day: "Sat", a: 28, b: 18 },
     { day: "Sun", a: 44, b: 30 },
   ];
-  const max = Math.max(...days.flatMap((day) => [day.a, day.b]));
+  const [hover, setHover] = useState<number | null>(null);
+  const max = Math.max(1, ...days.flatMap((day) => [day.a, day.b]));
+  const focus = hover ?? 3;
+  const f = days[focus];
+
   return (
     <div data-reveal="chart" style={d(200)} className="mt-7">
-      <div className="grid grid-cols-7 gap-2.5 sm:gap-3">
-        {days.map((day) => (
-          <div key={day.day} className="flex min-w-0 flex-col items-center gap-2.5">
-            <div className="relative flex h-[112px] sm:h-[136px] w-full items-end justify-center gap-[3px] border-b border-neutral-100 pb-2">
-              <span className="w-[5px] sm:w-[7px] rounded-full bg-[#171717]" style={{ height: `${(day.a / max) * 100}%` }} />
-              <span className="w-[5px] sm:w-[7px] rounded-full bg-neutral-200" style={{ height: `${(day.b / max) * 100}%` }} />
-            </div>
-            <span className="text-[9px] sm:text-[10px] tracking-wide text-neutral-400">{day.day}</span>
+      <div className="rounded-[24px] border border-neutral-200/70 bg-white px-5 py-5 shadow-[0_2px_8px_-5px_rgba(0,0,0,0.12)] sm:px-7 sm:py-6">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h4 className="text-[15px] font-semibold tracking-[-0.025em] text-neutral-900">Activity by day</h4>
+            <p className="mt-1 text-[13px] text-neutral-400">26 Oct - 24 Nov 2026</p>
           </div>
-        ))}
-      </div>
-      <div className="mt-5 flex items-center gap-4 text-[10px] text-neutral-400">
-        <span className="inline-flex items-center gap-2"><span className="h-[6px] w-[6px] rounded-full bg-[#171717]" />Reactions</span>
-        <span className="inline-flex items-center gap-2"><span className="h-[6px] w-[6px] rounded-full bg-neutral-200" />Comments</span>
+          <div className="flex shrink-0 flex-col items-end gap-2 text-[13px] text-neutral-500">
+            <span className="flex items-center gap-2">Reactions <span className="h-3 w-3 rounded-[4px] bg-[#171717]" /></span>
+            <span className="flex items-center gap-2">Comments <span className="h-3 w-3 rounded-[4px] bg-neutral-300" /></span>
+          </div>
+        </div>
+        <div className="mt-5 grid grid-cols-7 gap-2 sm:gap-3" onPointerLeave={() => setHover(null)}>
+          {days.map((day, i) => {
+            const on = i === focus;
+            return (
+              <div key={day.day} onPointerEnter={() => setHover(i)} className="flex min-w-0 flex-col items-center gap-2">
+                <div className="flex h-[144px] sm:h-[196px] w-full items-end justify-center gap-[3px]">
+                  <span className="w-full max-w-[14px] rounded-t-[7px] transition-opacity duration-200" style={{ height: Math.max(3, (day.a / max) * 100) + "%", background: "#171717", opacity: on ? 1 : 0.32 }} />
+                  <span className="w-full max-w-[14px] rounded-t-[7px] transition-opacity duration-200" style={{ height: Math.max(3, (day.b / max) * 100) + "%", background: "#c7c7c7", opacity: on ? 1 : 0.58 }} />
+                </div>
+                <span className={`text-[12px] sm:text-[14px] font-medium ${on ? "text-neutral-900" : "text-neutral-400"}`}>{day.day}</span>
+              </div>
+            );
+          })}
+        </div>
+        <div className="mt-5 flex items-center justify-between gap-3 border-t border-neutral-200/70 pt-4 text-[13px] sm:text-[15px] text-neutral-500">
+          <span className="font-semibold text-neutral-900">{f.day}</span>
+          <span className="text-right tabular-nums">Reactions {f.a} · Comments {f.b}</span>
+        </div>
       </div>
     </div>
   );
