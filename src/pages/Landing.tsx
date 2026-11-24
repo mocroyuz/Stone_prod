@@ -463,8 +463,8 @@ function Header() {
         EASE_SOFT,
         HAIR,
         scrolled
-          ? "bg-white/80 shadow-[0_10px_30px_-18px_rgba(0,0,0,0.25)]"
-          : "bg-white/60 shadow-[0_10px_30px_-18px_rgba(0,0,0,0)]",
+          ? "bg-white/65 shadow-[0_10px_30px_-18px_rgba(0,0,0,0.18)]"
+          : "bg-white/35 shadow-[0_10px_30px_-18px_rgba(0,0,0,0)]",
       ].join(" ")}
     >
       <Col
