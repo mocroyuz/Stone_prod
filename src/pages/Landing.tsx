@@ -31,6 +31,7 @@ import {
   LogoWaves,
 } from "../components/landing/LandingGraphics";
 import { useLandingMotion } from "../hooks/useLandingMotion";
+import { cn } from "../lib/utils";
 import { CHANNELS } from "../data/channelConfig";
 import {
   ClaudeIcon, ChatGPTIcon, N8nIcon,
