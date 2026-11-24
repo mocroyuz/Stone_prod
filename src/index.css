@@ -657,8 +657,13 @@ img,
   .bottom-glow-intro {
     display: none;
   }
-  .hub-flow,
-  .hub-pulse,
+  /* Le courant continue, mais 3× plus lent et sans onde autour du logo. */
+  [data-reveal="draw"][data-revealed] .hub-flow {
+    animation-duration: 2.1s, 5.7s;
+  }
+  [data-reveal="draw"][data-revealed] .hub-pulse {
+    animation-duration: 5s;
+  }
   .hub-ring {
     animation: none !important;
     opacity: 0 !important;
