@@ -1,11 +1,11 @@
 
 import {
-  useEffect,
   useId,
   useRef,
   type ReactNode,
   type MouseEvent,
 } from "react";
+import { useDialog } from "../hooks/useDialog";
 
 type ModalProps = {
   title: string;
@@ -26,38 +26,7 @@ export default function Modal({
 }: ModalProps) {
   const titleId = useId();
   const dialogRef = useRef<HTMLElement>(null);
-  useEffect(() => {
-    if (!open) return;
-
-    const previousOverflow = document.body.style.overflow;
-    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    document.body.style.overflow = "hidden";
-    dialogRef.current?.focus();
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") { onClose(); return; }
-      if (event.key !== "Tab") return;
-      const selector = 'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
-      const focusable = dialogRef.current?.querySelectorAll<HTMLElement>(selector);
-      if (!focusable?.length) { event.preventDefault(); dialogRef.current?.focus(); return; }
-      const first = focusable[0], last = focusable[focusable.length - 1];
-      if (document.activeElement === dialogRef.current) {
-        event.preventDefault();
-        (event.shiftKey ? last : first).focus();
-        return;
-      }
-      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
-      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
-    };
-
-    document.addEventListener("keydown", handleKeyDown);
-
-    return () => {
-      document.removeEventListener("keydown", handleKeyDown);
-      document.body.style.overflow = previousOverflow;
-      previousFocus?.focus();
-    };
-  }, [open, onClose]);
+  useDialog({ open, onClose, ref: dialogRef });
 
   if (!open) return null;
 

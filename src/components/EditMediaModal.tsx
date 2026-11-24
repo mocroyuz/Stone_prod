@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useDialog } from "../hooks/useDialog";
 import {
   X, Crop, Image as ImageIcon, RectangleHorizontal, RectangleVertical,
   Square, RotateCcw, RotateCw, FlipHorizontal, FlipVertical, Crosshair,
@@ -297,6 +298,7 @@ export default function EditMediaModal({
 }: EditMediaModalProps) {
   const lang = useLanguage();
   const c = COPY[lang];
+  const dialogRef = useRef<HTMLDivElement>(null);
 
   const [tab, setTab] = useState<"crop" | "appearance">("crop");
   const [aspect, setAspect] = useState<AspectId>("freeform");
@@ -335,19 +337,7 @@ export default function EditMediaModal({
     }
   }, [isOpen, mediaItem?.id]);
 
-  useEffect(() => {
-    if (!isOpen) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", onKeyDown);
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.removeEventListener("keydown", onKeyDown);
-      document.body.style.overflow = previousOverflow;
-    };
-  }, [isOpen, onClose]);
+  useDialog({ open: isOpen && mediaItem != null, onClose, ref: dialogRef });
 
   if (!isOpen || !mediaItem) return null;
 
@@ -594,7 +584,14 @@ export default function EditMediaModal({
   const activeText = isDark ? "text-white" : "text-neutral-900";
 
   return (
-    <div className={["fixed inset-0 z-[70] flex flex-col", bg].join(" ")}>
+    <div
+      ref={dialogRef}
+      tabIndex={-1}
+      role="dialog"
+      aria-modal="true"
+      aria-label={c.title}
+      className={["fixed inset-0 z-[70] flex flex-col outline-none", bg].join(" ")}
+    >
       {/* Header */}
       <div className={["flex shrink-0 items-center justify-between border-b px-6 py-4", border].join(" ")}>
         <h2 className={["text-[19px] font-bold", textPrimary].join(" ")}>{c.title}</h2>

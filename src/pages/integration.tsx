@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ReactElement } from "react";
+import { useDialog } from "../hooks/useDialog";
 import { createPortal } from "react-dom";
 import { useTheme } from "../hooks/useTheme";
 import DashboardSidebar, {
@@ -77,16 +78,6 @@ function useIsMobile(): boolean {
 /* ============================================================
    BOTTOM SHEET (mobile) — feuille glissable, comme sur Home
 ============================================================ */
-function useEscape(onEscape: () => void) {
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onEscape();
-    };
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [onEscape]);
-}
-
 function BottomSheet({
   isDark,
   title,
@@ -120,7 +111,7 @@ function BottomSheet({
     window.setTimeout(onClose, 300);
   }, [closing, onClose]);
 
-  useEscape(requestClose);
+  useDialog({ open: true, onClose: requestClose, ref: sheetRef });
 
   const onDragStart = (e: React.PointerEvent<HTMLDivElement>) => {
     if (closing) return;
@@ -166,6 +157,7 @@ function BottomSheet({
       />
       <div
         ref={sheetRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label={title}

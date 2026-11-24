@@ -6,6 +6,7 @@ import {
   type DragEvent,
   type FormEvent,
 } from "react";
+import { useDialog } from "../hooks/useDialog";
 import {
   X,
   ImagePlus,
@@ -133,43 +134,19 @@ export default function NewIdeaModal({
     []
   );
 
-  /* Échap + piège de focus + blocage du scroll */
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.stopPropagation();
-        if (isGroupMenuOpen || isTagMenuOpen) {
-          setIsGroupMenuOpen(false);
-          setIsTagMenuOpen(false);
-        } else {
-          onClose();
-        }
-        return;
+  /* Échap (ferme d'abord les menus), piège de focus, scroll, restauration du focus */
+  useDialog({
+    open: isOpen,
+    onClose: () => {
+      if (isGroupMenuOpen || isTagMenuOpen) {
+        setIsGroupMenuOpen(false);
+        setIsTagMenuOpen(false);
+      } else {
+        onClose();
       }
-      if (event.key !== "Tab") return;
-      const focusables = dialogRef.current?.querySelectorAll<HTMLElement>(
-        'button:not([disabled]), input, textarea, [tabindex]:not([tabindex="-1"])'
-      );
-      if (!focusables || focusables.length === 0) return;
-      const first = focusables[0];
-      const last = focusables[focusables.length - 1];
-      if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    };
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    document.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [isOpen, onClose, isGroupMenuOpen, isTagMenuOpen]);
+    },
+    ref: dialogRef,
+  });
 
   /* Auto-resize du titre */
   useEffect(() => {

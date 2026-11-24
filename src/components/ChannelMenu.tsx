@@ -3,6 +3,7 @@
 // avatar + badge réseau, nom, chevron, menu déroulant + "Manage channels".
 
 import { useEffect, useRef, useState, type ComponentType } from "react";
+import { useEscapeLayer } from "../hooks/useDialog";
 import { Check, ChevronDown, Plus } from "lucide-react";
 import { navigateToSettingsSection } from "../utils/settingsNavigation";
 import type { ConnectedChannel } from "../hooks/useConnectedChannels";
@@ -144,17 +145,15 @@ export default function ChannelMenu({
   const border = isDark ? "border-white/[0.07]" : "border-black/[0.06]";
   const popover = isDark ? "border-white/10 bg-[#1b1b1e]" : "border-black/10 bg-white";
 
+  useEscapeLayer(open, () => setOpen(false));
   useEffect(() => {
     if (!open) return;
     const onDown = (e: PointerEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     };
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
     document.addEventListener("pointerdown", onDown);
-    document.addEventListener("keydown", onKey);
     return () => {
       document.removeEventListener("pointerdown", onDown);
-      document.removeEventListener("keydown", onKey);
     };
   }, [open]);
 

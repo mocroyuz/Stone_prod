@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useEscapeLayer } from "../hooks/useDialog";
 import { navigate } from "../hooks/useHashRoute";
 
 /* ──────────────────────────────────────────────────────────────
@@ -115,6 +116,19 @@ function goToFaqItem(faqKey: string) {
 
 export default function HelpChatButton({ isDark }: { isDark: boolean }) {
   const [isOpen, setIsOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const closeRef = useRef<HTMLButtonElement>(null);
+
+  // Échap ferme le panneau et rend le focus au bouton d'aide.
+  useEscapeLayer(isOpen, () => {
+    setIsOpen(false);
+    triggerRef.current?.focus();
+  });
+
+  // À l'ouverture, le focus entre dans le panneau (clavier / lecteur d'écran).
+  useEffect(() => {
+    if (isOpen) closeRef.current?.focus({ preventScroll: true });
+  }, [isOpen]);
 
   const handleQuestionClick = (item: SuggestedQuestion) => {
     setIsOpen(false);
@@ -124,6 +138,7 @@ export default function HelpChatButton({ isDark }: { isDark: boolean }) {
   return (
     <>
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => setIsOpen((open) => !open)}
         aria-label={isOpen ? "Fermer l'aide" : "Ouvrir l'aide"}
@@ -151,7 +166,7 @@ export default function HelpChatButton({ isDark }: { isDark: boolean }) {
             role="dialog"
             aria-label="Assistant d'aide"
             className={[
-              "fixed bottom-20 right-5 z-50 flex max-h-[75vh] w-[360px] max-w-[calc(100vw-32px)] flex-col overflow-hidden rounded-[22px] border",
+              "fixed bottom-20 right-5 z-50 flex max-h-[min(75dvh,640px)] w-[360px] max-w-[calc(100vw-32px)] flex-col overflow-hidden rounded-[22px] border",
               isDark
                 ? "border-white/10 bg-[#141416] shadow-[0_20px_60px_rgba(0,0,0,0.5)]"
                 : "border-black/[0.06] bg-white shadow-[0_20px_60px_rgba(0,0,0,0.18)]",
@@ -174,11 +189,15 @@ export default function HelpChatButton({ isDark }: { isDark: boolean }) {
                   Demandez à notre assistant d'aide
                 </p>
                 <button
+                  ref={closeRef}
                   type="button"
-                  onClick={() => setIsOpen(false)}
+                  onClick={() => {
+                    setIsOpen(false);
+                    triggerRef.current?.focus();
+                  }}
                   aria-label="Fermer"
                   className={[
-                    "text-[16px] leading-none transition",
+                    "-mr-2 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[16px] leading-none transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-current",
                     isDark ? "text-neutral-400 hover:text-white" : "text-neutral-500 hover:text-neutral-900",
                   ].join(" ")}
                 >

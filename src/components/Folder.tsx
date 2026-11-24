@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useDialog } from "../hooks/useDialog";
 
 export type FolderItem = {
   id: string;
@@ -134,32 +135,20 @@ export default function Folder({
   const [draftName, setDraftName] = useState("");
   const [draftColor, setDraftColor] = useState(DEFAULT_COLOR);
   const nameInputRef = useRef<HTMLInputElement>(null);
+  const dialogRef = useRef<HTMLElement>(null);
 
   const editingFolder = folders.find((f) => f.id === editingId) ?? null;
 
   useEffect(() => {
-    if (!isOpen) {
-      setEditingId(null);
-      return;
-    }
+    if (!isOpen) setEditingId(null);
+  }, [isOpen]);
 
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
-      // Échap ferme d'abord l'édition, puis la modale.
-      if (editingId) setEditingId(null);
-      else onClose();
-    };
-
-    window.addEventListener("keydown", onKeyDown);
-
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-
-    return () => {
-      window.removeEventListener("keydown", onKeyDown);
-      document.body.style.overflow = previousOverflow;
-    };
-  }, [isOpen, onClose, editingId]);
+  // Échap ferme d'abord l'édition, puis la modale.
+  useDialog({
+    open: isOpen,
+    onClose: () => (editingId ? setEditingId(null) : onClose()),
+    ref: dialogRef,
+  });
 
   // À l'ouverture de l'édition, le champ nom prend le focus.
   useEffect(() => {
@@ -212,16 +201,18 @@ export default function Folder({
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-3 backdrop-blur-sm"
-      onClick={(event) => {
+      onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
     >
       <section
+        ref={dialogRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label="Dossiers"
         className={[
-          "relative flex h-[90vh] w-full max-w-[1200px] flex-col overflow-hidden rounded-[20px] border",
+          "relative flex h-[90dvh] max-h-[calc(100dvh-1.5rem)] outline-none w-full max-w-[1200px] flex-col overflow-hidden rounded-[20px] border",
           isDark ? "bg-[#141416]" : "bg-white",
           border,
           isDark

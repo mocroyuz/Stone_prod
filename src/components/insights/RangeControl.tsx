@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Calendar, Check, ChevronDown } from "lucide-react";
 import { CalendarPicker } from "../CalendarPicker";
+import { useDialog, useEscapeLayer } from "../../hooks/useDialog";
 import { COPY, type Lang, type Range } from "./copy";
 import { fmt, startOfDay } from "./data";
 import type { Ink } from "./theme";
@@ -42,7 +43,12 @@ export default function RangeControl({
   const wrap = useRef<HTMLDivElement>(null);
   const today = startOfDay(new Date());
 
+  const sheet = useRef<HTMLDivElement>(null);
+
   const close = () => setOpen(false);
+  // Desktop : popover (Échap + retour du focus) ; mobile : feuille modale.
+  useEscapeLayer(open && !isMobile, close);
+  useDialog({ open: open && isMobile, onClose: close, ref: sheet });
 
   useEffect(() => {
     if (!open) return;
@@ -50,15 +56,8 @@ export default function RangeControl({
       if (!isMobile && wrap.current && !wrap.current.contains(e.target as Node))
         close();
     };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") close();
-    };
     document.addEventListener("pointerdown", onDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("pointerdown", onDown);
-      document.removeEventListener("keydown", onKey);
-    };
+    return () => document.removeEventListener("pointerdown", onDown);
   }, [open, isMobile]);
 
   const toggle = () => {
@@ -226,9 +225,12 @@ export default function RangeControl({
               className="absolute inset-0 bg-black/45"
             />
             <div
+              ref={sheet}
+              tabIndex={-1}
               role="dialog"
+              aria-modal="true"
               aria-label={c.sheets.dateRange}
-              className={`absolute inset-x-2 bottom-[calc(0.5rem+env(safe-area-inset-bottom))] overflow-hidden rounded-3xl border ${ink.float}`}
+              className={`outline-none absolute inset-x-2 bottom-[calc(0.5rem+env(safe-area-inset-bottom))] overflow-hidden rounded-3xl border ${ink.float}`}
             >
               {body}
             </div>

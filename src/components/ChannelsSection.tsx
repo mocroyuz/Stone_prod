@@ -5,6 +5,7 @@
 // on ne garde ici que la logique de connexion des comptes.
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useEscapeLayer } from "../hooks/useDialog";
 import type { ComponentType, ReactNode } from "react";
 
 import {
@@ -528,16 +529,12 @@ function ChannelRow({
         setMenuOpen(false);
       }
     };
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setMenuOpen(false);
-    };
     document.addEventListener("mousedown", onPointerDown);
-    document.addEventListener("keydown", onKeyDown);
     return () => {
       document.removeEventListener("mousedown", onPointerDown);
-      document.removeEventListener("keydown", onKeyDown);
     };
   }, [menuOpen]);
+  useEscapeLayer(menuOpen, () => setMenuOpen(false));
 
   const clickable = !channel.comingSoon && !isConnected && !pending;
 

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useDialog } from "../hooks/useDialog";
 import type { ReactNode } from "react";
 import {
   ArrowDown,
@@ -1196,16 +1197,6 @@ type MonthItem =
 /* Modals                                                              */
 /* ------------------------------------------------------------------ */
 
-function useEscape(onEscape: () => void) {
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onEscape();
-    };
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [onEscape]);
-}
-
 function DayDetailDialog({
   isDark,
   title,
@@ -1221,7 +1212,8 @@ function DayDetailDialog({
   onClose: () => void;
   c: Copy;
 }) {
-  useEscape(onClose);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useDialog({ open: true, onClose, ref: dialogRef });
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -1230,10 +1222,13 @@ function DayDetailDialog({
         onClick={onClose}
       />
       <div
+        ref={dialogRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
+        aria-label={title}
         className={[
-          "relative z-10 flex max-h-[80vh] w-full max-w-sm flex-col rounded-2xl border p-4 shadow-2xl",
+          "relative z-10 flex max-h-[80dvh] outline-none w-full max-w-sm flex-col rounded-2xl border p-4 shadow-2xl",
           isDark
             ? "border-white/[0.08] bg-[#101012]"
             : "border-black/[0.06] bg-white",
@@ -1382,7 +1377,7 @@ function BottomSheet({
     window.setTimeout(onClose, 300);
   }, [closing, onClose]);
 
-  useEscape(requestClose);
+  useDialog({ open: true, onClose: requestClose, ref: sheetRef });
 
   const onDragStart = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!isMobile || closing) return;
@@ -1428,6 +1423,7 @@ function BottomSheet({
       />
       <div
         ref={sheetRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label={title}
@@ -2165,7 +2161,8 @@ function EventFormModal({
   const end = dateToHour(endDate);
   const canSave = title.trim().length > 0 && end > start;
 
-  useEscape(onCancel);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useDialog({ open: true, onClose: onCancel, ref: dialogRef });
 
   const submit = () => {
     if (!canSave) return;
@@ -2191,10 +2188,13 @@ function EventFormModal({
         onClick={onCancel}
       />
       <div
+        ref={dialogRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
+        aria-label={initial ? c.eventForm.editTitle : c.eventForm.createTitle}
         className={[
-          "relative z-10 max-h-[92dvh] w-full max-w-md overflow-y-auto rounded-2xl border p-5 shadow-2xl",
+          "relative z-10 outline-none max-h-[92dvh] w-full max-w-md overflow-y-auto rounded-2xl border p-5 shadow-2xl",
           isDark
             ? "border-white/[0.08] bg-[#101012]"
             : "border-black/[0.06] bg-white",

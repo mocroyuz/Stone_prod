@@ -38,6 +38,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { useDialog } from "../hooks/useDialog";
 import type { PointerEvent as RPointerEvent, ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useTheme } from "../hooks/useTheme";
@@ -672,16 +673,6 @@ const GalleryIcon = (p: IconProps) => (
 
 /* ───────── Feuille glissable (mobile) — identique à Schedule ───────── */
 
-function useEscape(onEscape: () => void) {
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onEscape();
-    };
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [onEscape]);
-}
-
 /**
  * Feuille glissable (mobile) / dialogue centré (si la fenêtre est élargie).
  * Glisser la poignée ou le titre vers le bas pour fermer.
@@ -721,7 +712,7 @@ function BottomSheet({
     window.setTimeout(onClose, 300);
   }, [closing, onClose]);
 
-  useEscape(requestClose);
+  useDialog({ open: true, onClose: requestClose, ref: sheetRef });
 
   const onDragStart = (e: RPointerEvent<HTMLDivElement>) => {
     if (closing) return;
@@ -772,6 +763,7 @@ function BottomSheet({
       />
       <div
         ref={sheetRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label={title}

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useEscapeLayer } from "../hooks/useDialog";
 import { Clock, ChevronDown } from "lucide-react";
 import { CalendarPicker } from "./CalendarPicker";
 import { TimePicker } from "./TimePicker";
@@ -24,20 +25,16 @@ export function DateTimePicker({
 }) {
   const [calendarOpen, setCalendarOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  useEscapeLayer(calendarOpen, () => setCalendarOpen(false));
 
   useEffect(() => {
     if (!calendarOpen) return;
     const onPointerDown = (e: MouseEvent) => {
       if (!containerRef.current?.contains(e.target as Node)) setCalendarOpen(false);
     };
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setCalendarOpen(false);
-    };
     document.addEventListener("mousedown", onPointerDown);
-    document.addEventListener("keydown", onKeyDown);
     return () => {
       document.removeEventListener("mousedown", onPointerDown);
-      document.removeEventListener("keydown", onKeyDown);
     };
   }, [calendarOpen]);
 

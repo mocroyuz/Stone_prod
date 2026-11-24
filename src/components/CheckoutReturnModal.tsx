@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useDialog } from "../hooks/useDialog";
 
 import { useUser } from "../contexts/UserContext";
 import { navigate } from "../hooks/useHashRoute";
@@ -53,6 +54,7 @@ export default function CheckoutReturnModal() {
   const [checkoutStatus] = useState(() => readCheckoutReturn().status);
   const [open, setOpen] = useState(checkoutStatus !== null);
 
+  const dialogRef = useRef<HTMLElement>(null);
   const close = () => {
     clearCheckoutParams();
     setOpen(false);
@@ -83,21 +85,7 @@ export default function CheckoutReturnModal() {
     };
   }, [checkoutStatus, refresh, user]);
 
-  useEffect(() => {
-    if (!open) return;
-
-    const previousOverflow = document.body.style.overflow;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") close();
-    };
-
-    document.body.style.overflow = "hidden";
-    window.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      window.removeEventListener("keydown", onKeyDown);
-    };
-  }, [open]);
+  useDialog({ open: open && checkoutStatus != null, onClose: close, ref: dialogRef });
 
   const handleManageBilling = async () => {
     if (!user) {
@@ -135,11 +123,13 @@ export default function CheckoutReturnModal() {
       }}
     >
       <section
+        ref={dialogRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-labelledby="checkout-return-title"
         className={[
-          "relative max-h-[calc(100dvh-2rem)] w-full max-w-[720px]",
+          "relative outline-none max-h-[calc(100dvh-2rem)] w-full max-w-[720px]",
           "overflow-y-auto overflow-x-hidden rounded-[28px] border",
           "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
           "shadow-[0_30px_100px_-25px_rgba(0,0,0,0.55)]",

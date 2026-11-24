@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useDialog } from "../hooks/useDialog";
 import type { ReactNode } from "react";
 import { useUser } from "../contexts/UserContext";
 import { EmojiPicker as FrimousseEmojiPicker } from "frimousse";
@@ -2439,6 +2440,7 @@ export default function NewPostModal({
   const dropdownRef = useRef<HTMLDivElement>(null);
   const closeWithDraftRef = useRef<() => void>(() => {});
   const submitRef = useRef<() => void>(() => {});
+  const postDialogRef = useRef<HTMLDivElement>(null);
   const textareaRefs = useRef<Record<string, HTMLTextAreaElement | null>>({});
   const caretRefs = useRef<Record<string, { start: number; end: number }>>({});
   const isOpenRef = useRef(isOpen);
@@ -2528,37 +2530,63 @@ export default function NewPostModal({
     document.addEventListener("mousedown", onDown);
     return () => document.removeEventListener("mousedown", onDown);
   }, [tagMenuOpen]);
+  /* Pickers imbriqués : chacun est son propre dialogue (Échap ferme celui du dessus). */
+  const dropboxDialogRef = useRef<HTMLElement>(null);
+  const driveDialogRef = useRef<HTMLElement>(null);
+  const photosDialogRef = useRef<HTMLElement>(null);
+  useDialog({
+    open: dropboxPickerOpen,
+    onClose: () => setDropboxPickerOpen(false),
+    ref: dropboxDialogRef,
+    lockScroll: false,
+  });
+  useDialog({
+    open: googleDrivePickerOpen,
+    onClose: () => setGoogleDrivePickerOpen(false),
+    ref: driveDialogRef,
+    lockScroll: false,
+  });
+  useDialog({
+    open: googlePhotosPickerOpen,
+    onClose: () => setGooglePhotosPickerOpen(false),
+    ref: photosDialogRef,
+    lockScroll: false,
+  });
+
+  /* Dialogue principal : Échap ferme d'abord les menus ouverts, puis le brouillon. */
+  useDialog({
+    open: isOpen,
+    ref: postDialogRef,
+    onClose: () => {
+      if (connectChannelPrompt) {
+        setConnectChannelPrompt(null);
+      } else if (tagMenuOpen) {
+        setTagMenuOpen(false);
+      } else if (showSourceMenu) {
+        setShowSourceMenu(null);
+      } else if (activeEmojiNetwork) {
+        setActiveEmojiNetwork(null);
+      } else if (showActionMenu || showDateTimePanel) {
+        setShowActionMenu(false);
+        setShowDateTimePanel(false);
+      } else {
+        closeWithDraftRef.current();
+      }
+    },
+  });
+
+  /* Ctrl/Cmd + Entrée : publier. */
   useEffect(() => {
     if (!isOpen) return;
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        if (connectChannelPrompt) {
-          setConnectChannelPrompt(null);
-        } else if (tagMenuOpen) {
-          setTagMenuOpen(false);
-        } else if (showSourceMenu) {
-          setShowSourceMenu(null);
-        } else if (activeEmojiNetwork) {
-          setActiveEmojiNetwork(null);
-        } else if (showActionMenu || showDateTimePanel) {
-          setShowActionMenu(false);
-          setShowDateTimePanel(false);
-        } else {
-          closeWithDraftRef.current();
-        }
-      } else if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+      if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
         event.preventDefault();
         submitRef.current();
       }
     };
     document.addEventListener("keydown", handleKeyDown);
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.removeEventListener("keydown", handleKeyDown);
-      document.body.style.overflow = previousOverflow;
-    };
-  }, [isOpen, showActionMenu, showDateTimePanel, activeEmojiNetwork, showSourceMenu, tagMenuOpen, connectChannelPrompt]);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen]);
   useEffect(() => {
     if (!isOpen || (userId && savedDrafts.has(userId))) return;
     const id = requestAnimationFrame(() => textareaRefs.current.master?.focus());
@@ -3986,16 +4014,18 @@ export default function NewPostModal({
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-3 backdrop-blur-md"
-      onClick={(event) => {
+      onMouseDown={(event) => {
         if (event.target === event.currentTarget) closeWithDraft();
       }}
     >
       <div
+        ref={postDialogRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label={c.header.title}
         className={[
-          "relative flex flex-col overflow-hidden border",
+          "relative flex flex-col overflow-hidden border outline-none",
           isFullscreen
             ? "h-[96vh] w-[96vw] rounded-[28px]"
             : "h-[88vh] w-full max-w-[1400px] rounded-[28px]",
@@ -5019,11 +5049,13 @@ export default function NewPostModal({
         {dropboxPickerOpen && (
           <div
             className="absolute inset-0 z-[70] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
-            onClick={(event) => {
+            onMouseDown={(event) => {
               if (event.target === event.currentTarget) setDropboxPickerOpen(false);
             }}
           >
             <section
+              ref={dropboxDialogRef}
+              tabIndex={-1}
               role="dialog"
               aria-modal="true"
               aria-labelledby="dropbox-picker-title"
@@ -5187,6 +5219,8 @@ export default function NewPostModal({
             }}
           >
             <section
+              ref={driveDialogRef}
+              tabIndex={-1}
               role="dialog"
               aria-modal="true"
               aria-labelledby="google-drive-picker-title"
@@ -5367,6 +5401,8 @@ export default function NewPostModal({
             }}
           >
             <section
+              ref={photosDialogRef}
+              tabIndex={-1}
               role="dialog"
               aria-modal="true"
               aria-labelledby="google-photos-picker-title"

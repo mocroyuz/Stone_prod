@@ -9,6 +9,7 @@ import {
   type ReactElement,
   type ReactNode,
 } from "react";
+import { useDialog } from "../hooks/useDialog";
 import { createPortal } from "react-dom";
 import { navigate } from "../hooks/useHashRoute";
 import { useTheme } from "../hooks/useTheme";
@@ -121,16 +122,6 @@ function useIsMobile(): boolean {
 /* ============================================================
 BOTTOM SHEET (mobile) — feuille glissable, comme dans Schedule
 ============================================================ */
-function useEscape(onEscape: () => void) {
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onEscape();
-    };
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [onEscape]);
-}
-
 /**
  * Feuille glissable (mobile) / dialogue centré (desktop).
  * Glisser la poignée ou le titre vers le bas pour fermer.
@@ -171,7 +162,7 @@ function BottomSheet({
     window.setTimeout(onClose, 300);
   }, [closing, onClose]);
 
-  useEscape(requestClose);
+  useDialog({ open: true, onClose: requestClose, ref: sheetRef });
 
   const onDragStart = (e: ReactPointerEvent<HTMLDivElement>) => {
     if (!isMobile || closing) return;
@@ -218,6 +209,7 @@ function BottomSheet({
       />
       <div
         ref={sheetRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label={title}

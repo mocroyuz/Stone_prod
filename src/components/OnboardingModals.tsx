@@ -16,6 +16,7 @@ import { createRoot } from "react-dom/client";
 import type { ComponentType, CSSProperties, KeyboardEvent, ReactNode, RefObject } from "react";
 
 import { useTheme } from "../hooks/useTheme";
+import { useDialog } from "../hooks/useDialog";
 
 import {
   InstagramIcon,
@@ -337,54 +338,9 @@ function Confetti({ p }: { p: Palette }) {
    SHELL
 ============================================================================ */
 
-const FOCUSABLE =
-  'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])';
-
-/** Échap pour fermer, scroll verrouillé, focus piégé dans la modale puis restauré à la fermeture. */
+/** Échap, focus piégé et restauré, scroll verrouillé : voir hooks/useDialog. */
 function useModalBehavior(onClose: () => void, dialogRef: RefObject<HTMLDivElement | null>) {
-  const closeRef = useRef(onClose);
-  closeRef.current = onClose;
-
-  useEffect(() => {
-    const previousFocus = document.activeElement as HTMLElement | null;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-
-    const onKey = (event: globalThis.KeyboardEvent) => {
-      if (event.key === "Escape") {
-        closeRef.current();
-        return;
-      }
-      if (event.key !== "Tab") return;
-
-      const dialog = dialogRef.current;
-      if (!dialog) return;
-      const nodes = Array.from(dialog.querySelectorAll<HTMLElement>(FOCUSABLE));
-      if (nodes.length === 0) return;
-
-      const first = nodes[0];
-      const last = nodes[nodes.length - 1];
-      const active = document.activeElement as HTMLElement | null;
-
-      if (!active || !dialog.contains(active)) {
-        event.preventDefault();
-        first.focus();
-      } else if (event.shiftKey && active === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && active === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    };
-
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = previousOverflow;
-      if (previousFocus && document.contains(previousFocus)) previousFocus.focus();
-    };
-  }, [dialogRef]);
+  useDialog({ open: true, onClose, ref: dialogRef });
 }
 
 function StepDots({ current, total, p }: { current: number; total: number; p: Palette }) {

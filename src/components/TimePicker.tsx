@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useEscapeLayer } from "../hooks/useDialog";
 
 /* ------------------------------------------------------------------ */
 /* Types                                                               */
@@ -106,20 +107,17 @@ export function TimePicker({
   const hourRef = useRef<HTMLButtonElement>(null);
   const minuteRef = useRef<HTMLButtonElement>(null);
 
+  useEscapeLayer(open, () => setOpen(false));
+
   /* Fermeture au clic extérieur / Escape */
   useEffect(() => {
     if (!open) return;
     const onPointerDown = (e: MouseEvent) => {
       if (!containerRef.current?.contains(e.target as Node)) setOpen(false);
     };
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-    };
     document.addEventListener("mousedown", onPointerDown);
-    document.addEventListener("keydown", onKeyDown);
     return () => {
       document.removeEventListener("mousedown", onPointerDown);
-      document.removeEventListener("keydown", onKeyDown);
     };
   }, [open]);
 
