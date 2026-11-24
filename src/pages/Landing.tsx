@@ -949,8 +949,8 @@ function OrbitVisual() {
       <span data-reveal="pop" style={{...dv(200,{"float-dur":"7s","float-delay":"1.4s"}),left:"50%",top:"17%"}} className={bubble}><ClaudeIcon size={26} className="h-[26px] w-[26px]"/></span>
       <span data-reveal="pop" style={{...dv(340,{"float-dur":"8.5s","float-delay":"2s"}),left:"28%",top:"61%"}} className={bubble}><ChatGPTIcon size={26} className="h-[26px] w-[26px]"/></span>
       <span data-reveal="pop" style={{...dv(480,{"float-dur":"7.5s","float-delay":"2.6s"}),left:"71%",top:"61%"}} className={bubble}><N8nIcon size={26} className="h-[26px] w-[26px]"/></span>
-      <span data-reveal="pop" style={d(0)} className="absolute left-1/2 top-1/2 flex h-[64px] w-[64px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-[#0c0c0d] shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_10px_20px_-8px_rgba(0,0,0,0.5)]">
-        <img src={IMG.stoneMark} alt="Stone" className="h-8 w-8 object-contain brightness-0 invert" decoding="async"/>
+      <span data-reveal="pop" style={d(0)} className="absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center justify-center">
+        <img src="/images/icon.png" alt="Stone" className="h-10 w-10 object-contain invert" decoding="async"/>
       </span>
     </div>
   );
