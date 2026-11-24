@@ -942,7 +942,7 @@ function OrbitVisual() {
   return (
     <div className="relative h-[360px] overflow-hidden bg-[#f6f6f6] sm:h-[448px]">
       <div aria-hidden="true" className="absolute inset-0" style={{background:"radial-gradient(ellipse 62% 52% at 0% 100%, rgba(246,170,170,0.42) 0%, rgba(246,170,170,0.14) 48%, transparent 78%)"}}/>
-      <div aria-hidden="true" data-reveal="scale" style={d(0)} className="absolute left-1/2 top-1/2 h-[290px] w-[290px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-black/[0.045]"/>
+      <div aria-hidden="true" data-reveal="scale" style={d(0)} className="absolute left-1/2 top-1/2 h-[300px] w-[300px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-black/[0.14] shadow-[0_0_0_1px_rgba(0,0,0,0.025)] sm:h-[320px] sm:w-[320px]"/>
       <span data-reveal="fade" style={{...d(500),left:"30%",top:"32%"}} className={dot}/>
       <span data-reveal="fade" style={{...d(580),left:"69%",top:"32%"}} className={dot}/>
       <span data-reveal="fade" style={{...d(660),left:"50%",top:"83%"}} className={dot}/>
