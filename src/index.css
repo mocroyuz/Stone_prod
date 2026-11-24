@@ -361,9 +361,11 @@ img,
 [data-reveal="rise"],
 [data-reveal="fade"] {
   opacity: 0;
+  filter: blur(var(--motion-blur, 6px));
   transition:
     opacity 720ms var(--ease-soft) var(--d),
-    transform 860ms var(--ease-soft) var(--d);
+    transform 860ms var(--ease-soft) var(--d),
+    filter 860ms var(--ease-soft) var(--d);
 }
 [data-reveal="up"] {
   transform: translateY(22px);
@@ -377,32 +379,39 @@ img,
 [data-reveal="image"] {
   opacity: 0;
   scale: 1.04;
+  filter: blur(7px);
   transition:
     opacity 820ms var(--ease-soft) var(--d),
-    scale 1100ms var(--ease-soft) var(--d);
+    scale 1100ms var(--ease-soft) var(--d),
+    filter 1100ms var(--ease-soft) var(--d);
 }
 
 /* Pastilles et pièces graphiques : fondu + léger gonflement, sans rebond */
 [data-reveal="pop"] {
   opacity: 0;
   scale: 0.88;
+  filter: blur(4px);
   transition:
     opacity 560ms var(--ease-soft) var(--d),
-    scale 720ms var(--ease-soft) var(--d);
+    scale 720ms var(--ease-soft) var(--d),
+    filter 720ms var(--ease-soft) var(--d);
 }
 
 [data-reveal="scale"] {
   opacity: 0;
   scale: 0.9;
+  filter: blur(4px);
   transition:
     opacity 620ms var(--ease-soft) var(--d),
-    scale 780ms var(--ease-soft) var(--d);
+    scale 780ms var(--ease-soft) var(--d),
+    filter 780ms var(--ease-soft) var(--d);
 }
 
 [data-reveal][data-revealed] {
   opacity: 1;
   transform: none;
   scale: 1;
+  filter: none;
 }
 
 /* Barres du graphique : croissance en cascade serrée */
@@ -586,6 +595,7 @@ img,
   [data-reveal] {
     transform: none !important;
     scale: 1 !important;
+    filter: none !important;
     transition: opacity 320ms ease-out var(--d) !important;
   }
   [data-reveal] .bar {
@@ -614,6 +624,7 @@ img,
     opacity: 1 !important;
     transform: none !important;
     scale: 1 !important;
+    filter: none !important;
     transition: none !important;
   }
 }
