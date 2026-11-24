@@ -361,7 +361,7 @@ const mainPanelClass = (isDark: boolean) =>
     : "border-black/[0.06] bg-white";
 
 const mutedClass = (isDark: boolean) =>
-  isDark ? "text-neutral-500" : "text-neutral-400";
+  isDark ? "text-neutral-500" : "text-neutral-500";
 
 const strongClass = (isDark: boolean) =>
   isDark ? "text-white" : "text-neutral-900";
@@ -1686,7 +1686,7 @@ function FiltersSheet({
                           : "border-black/20 bg-white text-neutral-900 shadow-sm"
                         : isDark
                           ? "border-white/[0.08] text-neutral-500"
-                          : "border-black/[0.08] text-neutral-400",
+                          : "border-black/[0.08] text-neutral-500",
                     ].join(" ")}
                   >
                     <span
@@ -1924,7 +1924,7 @@ function fieldClass(isDark: boolean) {
     "w-full rounded-[10px] border px-3 py-2 text-[13px] outline-none transition",
     isDark
       ? "border-white/[0.08] bg-white/[0.04] text-white placeholder:text-neutral-500 focus:border-white/25"
-      : "border-black/[0.08] bg-neutral-50 text-neutral-900 placeholder:text-neutral-400 focus:border-black/20",
+      : "border-black/[0.08] bg-neutral-50 text-neutral-900 placeholder:text-neutral-500 focus:border-black/20",
   ].join(" ");
 }
 
@@ -2036,7 +2036,7 @@ function EventCard({
               menuOpen ? (isDark ? "bg-white/[0.08]" : "bg-black/[0.05]") : "",
               isDark
                 ? "text-neutral-400 hover:bg-white/[0.08]"
-                : "text-neutral-400 hover:bg-black/[0.05]",
+                : "text-neutral-500 hover:bg-black/[0.05]",
             ].join(" ")}
           >
             <MoreHorizontal className="h-[13px] w-[13px]" />
@@ -2178,7 +2178,7 @@ function EventFormModal({
 
   const labelCls = [
     "mb-1 block text-[11px] font-medium",
-    isDark ? "text-neutral-500" : "text-neutral-400",
+    isDark ? "text-neutral-500" : "text-neutral-500",
   ].join(" ");
 
   return (

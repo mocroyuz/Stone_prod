@@ -141,7 +141,7 @@ export default function ChannelMenu({
   const hover = isDark ? "hover:bg-white/[0.06]" : "hover:bg-black/[0.04]";
   const text = isDark ? "text-white" : "text-neutral-900";
   const soft = isDark ? "text-neutral-400" : "text-neutral-500";
-  const muted = isDark ? "text-neutral-600" : "text-neutral-400";
+  const muted = isDark ? "text-neutral-600" : "text-neutral-500";
   const border = isDark ? "border-white/[0.07]" : "border-black/[0.06]";
   const popover = isDark ? "border-white/10 bg-[#1b1b1e]" : "border-black/10 bg-white";
 

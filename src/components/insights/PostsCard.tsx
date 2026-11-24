@@ -84,7 +84,7 @@ export default function PostsCard({
               className={`h-9 w-full rounded-xl border pl-8 pr-3 text-[12.5px] outline-none transition-shadow ${ink.well} ${ink.strong} ${
                 isDark
                   ? "placeholder:text-neutral-600 focus:ring-2 focus:ring-white/25"
-                  : "placeholder:text-neutral-400 focus:ring-2 focus:ring-black/20"
+                  : "placeholder:text-neutral-500 focus:ring-2 focus:ring-black/20"
               }`}
             />
           </label>

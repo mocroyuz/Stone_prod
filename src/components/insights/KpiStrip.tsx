@@ -29,14 +29,14 @@ export default function KpiStrip({
   const rule = isDark ? "bg-white/[0.07]" : "bg-black/[0.06]";
 
   return (
-    <section
-      aria-label="KPI"
-      className={`overflow-hidden ${CARD} ${ink.card}`}
-    >
-      <dl className={`grid grid-cols-2 gap-px min-[560px]:grid-cols-3 xl:grid-cols-6 ${rule}`}>
+    <section aria-label="KPI" className={`overflow-hidden ${CARD} ${ink.card}`}>
+      <dl
+        className={`grid grid-cols-2 gap-px min-[560px]:grid-cols-3 xl:grid-cols-6 ${rule}`}
+      >
         {items.map((k) => {
           const d = k.delta;
-          const tone = d == null || d === 0 ? ink.muted : d > 0 ? ink.up : ink.down;
+          const tone =
+            d == null || d === 0 ? ink.muted : d > 0 ? ink.up : ink.down;
           return (
             <div
               key={k.key}
@@ -46,29 +46,43 @@ export default function KpiStrip({
               <dt className={`truncate text-[12px] font-medium ${ink.soft}`}>
                 {k.label}
               </dt>
-              <dd
-                className={`text-[26px] font-semibold leading-none tracking-[-0.04em] tabular-nums md:text-[28px] ${ink.strong}`}
-              >
-                {k.value}
+              <dd className="flex flex-col gap-1.5">
+                <span
+                  className={`text-[26px] font-semibold leading-none tracking-[-0.04em] tabular-nums md:text-[28px] ${ink.strong}`}
+                >
+                  {k.value}
+                </span>
+                <span
+                  className={`flex min-h-[16px] items-center gap-1 text-[11.5px] ${ink.muted}`}
+                >
+                  {d == null ? (
+                    <span aria-hidden="true">—</span>
+                  ) : (
+                    <>
+                      <span
+                        className={`inline-flex items-center gap-0.5 font-semibold tabular-nums ${tone}`}
+                      >
+                        {d > 0 ? (
+                          <ArrowUpRight
+                            className="h-3 w-3"
+                            aria-hidden="true"
+                          />
+                        ) : d < 0 ? (
+                          <ArrowDownRight
+                            className="h-3 w-3"
+                            aria-hidden="true"
+                          />
+                        ) : null}
+                        {d > 0 ? "+" : ""}
+                        {d}%
+                      </span>
+                      <span className="hidden truncate min-[480px]:inline">
+                        {versus}
+                      </span>
+                    </>
+                  )}
+                </span>
               </dd>
-              <p className={`flex min-h-[16px] items-center gap-1 text-[11.5px] ${ink.muted}`}>
-                {d == null ? (
-                  <span aria-hidden="true">—</span>
-                ) : (
-                  <>
-                    <span className={`inline-flex items-center gap-0.5 font-semibold tabular-nums ${tone}`}>
-                      {d > 0 ? (
-                        <ArrowUpRight className="h-3 w-3" aria-hidden="true" />
-                      ) : d < 0 ? (
-                        <ArrowDownRight className="h-3 w-3" aria-hidden="true" />
-                      ) : null}
-                      {d > 0 ? "+" : ""}
-                      {d}%
-                    </span>
-                    <span className="hidden truncate min-[480px]:inline">{versus}</span>
-                  </>
-                )}
-              </p>
             </div>
           );
         })}

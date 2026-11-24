@@ -524,7 +524,7 @@ export default function NewIdeaModal({
                   className={[
                     "w-full resize-none bg-transparent text-[22px] font-semibold leading-snug outline-none",
                     textPrimary,
-                    isDark ? "placeholder:text-neutral-600" : "placeholder:text-neutral-400",
+                    isDark ? "placeholder:text-neutral-600" : "placeholder:text-neutral-500",
                   ].join(" ")}
                   style={{ minHeight: 44 }}
                 />

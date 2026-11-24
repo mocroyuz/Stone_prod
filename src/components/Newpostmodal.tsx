@@ -2079,14 +2079,14 @@ function EmojiPickerPanel({
             "z-10 mx-2 mt-2 appearance-none rounded-lg px-3 py-2 text-[13px] outline-none",
             isDark
               ? "bg-white/10 text-white placeholder:text-neutral-500"
-              : "bg-neutral-100 text-neutral-900 placeholder:text-neutral-400",
+              : "bg-neutral-100 text-neutral-900 placeholder:text-neutral-500",
           ].join(" ")}
         />
         <FrimousseEmojiPicker.Viewport className="relative flex-1 outline-none">
           <FrimousseEmojiPicker.Loading
             className={[
               "absolute inset-0 flex items-center justify-center text-[13px]",
-              isDark ? "text-neutral-500" : "text-neutral-400",
+              isDark ? "text-neutral-500" : "text-neutral-500",
             ].join(" ")}
           >
             {c.toolbar.loading}
@@ -2094,7 +2094,7 @@ function EmojiPickerPanel({
           <FrimousseEmojiPicker.Empty
             className={[
               "absolute inset-0 flex items-center justify-center text-[13px]",
-              isDark ? "text-neutral-500" : "text-neutral-400",
+              isDark ? "text-neutral-500" : "text-neutral-500",
             ].join(" ")}
           >
             {c.toolbar.noEmoji}
@@ -3783,7 +3783,7 @@ export default function NewPostModal({
   const textareaClass = [
     "w-full resize-none bg-transparent text-[15px] leading-relaxed outline-none",
     textPrimary,
-    isDark ? "placeholder:text-neutral-600" : "placeholder:text-neutral-400",
+    isDark ? "placeholder:text-neutral-600" : "placeholder:text-neutral-500",
   ].join(" ");
 
   const activePreviewId =
@@ -4461,7 +4461,7 @@ export default function NewPostModal({
                                     "w-full rounded-xl border px-4 py-2.5 text-[14px] outline-none transition",
                                     isDark
                                       ? "border-white/10 bg-[#242427] text-white placeholder:text-neutral-500 focus:border-white/30"
-                                      : "border-black/10 bg-white text-neutral-900 placeholder:text-neutral-400 focus:border-black/30",
+                                      : "border-black/10 bg-white text-neutral-900 placeholder:text-neutral-500 focus:border-black/30",
                                   ].join(" ")}
                                 />
                                 <p className={["mt-1.5 flex justify-between gap-3 text-[12px]", textSecondary].join(" ")}>
@@ -4881,7 +4881,7 @@ export default function NewPostModal({
                   "flex items-center gap-2 px-5 py-2.5 text-[14px] font-semibold transition",
                   canSubmit
                     ? isDark ? "bg-white text-[#141416] hover:bg-neutral-200" : "bg-neutral-900 text-white hover:bg-neutral-800"
-                    : isDark ? "cursor-not-allowed text-neutral-600" : "cursor-not-allowed text-neutral-400",
+                    : isDark ? "cursor-not-allowed text-neutral-600" : "cursor-not-allowed text-neutral-500",
                 ].join(" ")}
               >
                 {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}

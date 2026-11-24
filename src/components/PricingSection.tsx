@@ -243,7 +243,7 @@ const softClass = (isDark: boolean) =>
   isDark ? "text-neutral-400" : "text-neutral-500";
 
 const mutedClass = (isDark: boolean) =>
-  isDark ? "text-neutral-600" : "text-neutral-400";
+  isDark ? "text-neutral-600" : "text-neutral-500";
 
 const focusRingClass = (isDark: boolean) =>
   isDark

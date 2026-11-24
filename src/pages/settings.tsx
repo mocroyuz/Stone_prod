@@ -5702,7 +5702,7 @@ function ChannelsSection({
   const panelSurface = isDark
     ? "border-white/[0.07] bg-white/[0.03]"
     : "border-black/[0.06] bg-[#f6f4f0]";
-  const mutedText = isDark ? "text-neutral-500" : "text-neutral-400";
+  const mutedText = isDark ? "text-neutral-500" : "text-neutral-500";
   const strongText = isDark ? "text-white" : "text-neutral-900";
 
   return (

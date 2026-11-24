@@ -238,7 +238,7 @@ export function CalendarPicker({
             key={w}
             className={[
               "py-1 text-center text-[11px] font-medium",
-              isDark ? "text-neutral-500" : "text-neutral-400",
+              isDark ? "text-neutral-500" : "text-neutral-500",
             ].join(" ")}
           >
             {w}

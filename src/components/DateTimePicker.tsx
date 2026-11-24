@@ -45,7 +45,7 @@ export function DateTimePicker({
     <div className="flex flex-col gap-3">
       {/* Ligne 1 : icône horloge + sélecteur de date */}
       <div className="flex items-center gap-2.5">
-        <span className={["shrink-0", isDark ? "text-neutral-500" : "text-neutral-400"].join(" ")}>
+        <span className={["shrink-0", isDark ? "text-neutral-500" : "text-neutral-500"].join(" ")}>
           <Clock className="h-[18px] w-[18px]" />
         </span>
 
@@ -63,7 +63,7 @@ export function DateTimePicker({
             ].join(" ")}
           >
             <span>{weekdayLabel}</span>
-            <span className={isDark ? "text-neutral-500" : "text-neutral-400"}>· {dateLabel}</span>
+            <span className={isDark ? "text-neutral-500" : "text-neutral-500"}>· {dateLabel}</span>
             <ChevronDown
               className={["h-3.5 w-3.5 transition-transform", calendarOpen ? "rotate-180" : ""].join(" ")}
             />
@@ -84,13 +84,13 @@ export function DateTimePicker({
 
       {/* Ligne 2 : icône horloge + Début / Fin */}
       <div className="flex items-start gap-2.5">
-        <span className={["mt-[22px] shrink-0", isDark ? "text-neutral-500" : "text-neutral-400"].join(" ")}>
+        <span className={["mt-[22px] shrink-0", isDark ? "text-neutral-500" : "text-neutral-500"].join(" ")}>
           <Clock className="h-[18px] w-[18px]" />
         </span>
 
         <div className="flex flex-1 items-start gap-2">
           <div className="flex-1">
-            <span className={["mb-1 block text-[11px] font-medium", isDark ? "text-neutral-500" : "text-neutral-400"].join(" ")}>
+            <span className={["mb-1 block text-[11px] font-medium", isDark ? "text-neutral-500" : "text-neutral-500"].join(" ")}>
               Début
             </span>
             <TimePicker value={start} onChange={onStartChange} isDark={isDark} />
@@ -101,7 +101,7 @@ export function DateTimePicker({
           </span>
 
           <div className="flex-1">
-            <span className={["mb-1 block text-[11px] font-medium", isDark ? "text-neutral-500" : "text-neutral-400"].join(" ")}>
+            <span className={["mb-1 block text-[11px] font-medium", isDark ? "text-neutral-500" : "text-neutral-500"].join(" ")}>
               Fin
             </span>
             <TimePicker value={end} onChange={onEndChange} isDark={isDark} min={start} />

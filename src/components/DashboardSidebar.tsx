@@ -2487,7 +2487,7 @@ function SidebarChannelsImpl({
       )}
 
       {!compact && (
-        <div className="sb-fade group/channels mt-3 flex h-6 max-md:h-7 items-center justify-between px-2.5 max-md:px-3">
+        <div className="sb-fade group/channels mt-3 flex h-6 max-md:h-10 items-center justify-between px-2.5 max-md:px-3">
           <span className={["text-[12px] max-md:text-[13px] font-medium", t.muted].join(" ")}>
             {channels.length === 0
               ? c.sections.connectChannels
@@ -2500,6 +2500,7 @@ function SidebarChannelsImpl({
               "group-hover/channels:opacity-100",
               "group-focus-within/channels:opacity-100",
               "focus-within:opacity-100",
+              "[@media(hover:none)]:opacity-100",
               "motion-reduce:transition-none",
             ].join(" ")}
           >
@@ -2508,7 +2509,7 @@ function SidebarChannelsImpl({
               aria-label={c.actions.channelsSettingsAria}
               onClick={() => onNavigate("channels")}
               className={[
-                "flex h-6 max-md:h-7 w-6 max-md:w-7 items-center justify-center rounded-lg",
+                "flex h-6 max-md:h-10 w-6 max-md:w-10 items-center justify-center rounded-lg",
                 "transition-colors duration-150 motion-reduce:transition-none",
                 focus,
                 t.menuIcon,
@@ -2522,7 +2523,7 @@ function SidebarChannelsImpl({
               aria-label={c.actions.connectChannelAria}
               onClick={onConnect}
               className={[
-                "flex h-6 max-md:h-7 w-6 max-md:w-7 items-center justify-center rounded-lg",
+                "flex h-6 max-md:h-10 w-6 max-md:w-10 items-center justify-center rounded-lg",
                 "transition-colors duration-150 motion-reduce:transition-none",
                 focus,
                 t.menuIcon,
@@ -2605,7 +2606,7 @@ function SidebarChannelsImpl({
                     onNewPost(channel.key);
                   }}
                   className={[
-                    "absolute right-2 max-md:right-2.5 top-1/2 z-10 flex h-6 max-md:h-7 w-6 max-md:w-7 -translate-y-1/2 items-center justify-center rounded-lg",
+                    "absolute right-2 max-md:right-1 top-1/2 z-10 flex h-6 max-md:h-10 w-6 max-md:w-10 -translate-y-1/2 items-center justify-center rounded-lg",
                     "opacity-0 transition-[opacity,background-color,color,transform] duration-150",
                     "active:scale-90 motion-reduce:transition-none motion-reduce:active:scale-100",
                     "group-hover/row:opacity-100 group-focus-within/row:opacity-100 focus-visible:opacity-100",

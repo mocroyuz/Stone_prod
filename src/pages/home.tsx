@@ -610,13 +610,13 @@ const panelSurfaceClass = (isDark: boolean) =>
 const panelRingClass = (isDark: boolean) =>
   isDark ? "ring-[#101012]" : "ring-[#f6f4f0]";
 const mutedClass = (isDark: boolean) =>
-  isDark ? "text-neutral-600" : "text-neutral-400";
+  isDark ? "text-neutral-600" : "text-neutral-500";
 const strongClass = (isDark: boolean) =>
   isDark ? "text-white" : "text-neutral-900";
 const softClass = (isDark: boolean) =>
   isDark ? "text-neutral-400" : "text-neutral-500";
 const subtleTitleClass = (isDark: boolean) =>
-  isDark ? "text-neutral-500" : "text-neutral-400";
+  isDark ? "text-neutral-500" : "text-neutral-500";
 const focusRingClass = (isDark: boolean) =>
   isDark
     ? "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
@@ -857,11 +857,11 @@ function GoalInfoHint({
           if (isMobile) setOpen(true);
         }}
         className={[
-          "flex h-5 w-5 items-center justify-center rounded-full transition sm:h-3.5 sm:w-3.5",
+          "relative flex h-5 w-5 items-center justify-center rounded-full transition before:absolute before:-inset-2.5 before:content-[''] sm:h-3.5 sm:w-3.5",
           "focus-visible:outline-none focus-visible:ring-1",
           isDark
             ? "text-neutral-500 hover:text-white focus-visible:ring-white/30"
-            : "text-neutral-400 hover:text-neutral-900 focus-visible:ring-black/30",
+            : "text-neutral-500 hover:text-neutral-900 focus-visible:ring-black/30",
         ].join(" ")}
       >
         <svg
@@ -1062,7 +1062,7 @@ function InfoHint({
           "focus-visible:outline-none focus-visible:ring-1",
           isDark
             ? "text-neutral-600 hover:text-neutral-300 focus-visible:ring-white/30"
-            : "text-neutral-400 hover:text-neutral-700 focus-visible:ring-black/30",
+            : "text-neutral-500 hover:text-neutral-700 focus-visible:ring-black/30",
         ].join(" ")}
       >
         <svg
@@ -1156,7 +1156,7 @@ function Stat({
               "truncate text-[14px] font-medium sm:text-[10px]",
               isDark
                 ? "text-neutral-400 sm:text-neutral-500"
-                : "text-neutral-500 sm:text-neutral-400",
+                : "text-neutral-500 sm:text-neutral-500",
             ].join(" ")}
           >
             {label}
@@ -1566,7 +1566,7 @@ function Panel({
           disabled={!onViewAll}
           onClick={onViewAll}
           className={[
-            "flex shrink-0 items-center gap-0.5 rounded-md py-1 text-[12px] font-semibold transition sm:py-0 sm:text-[11px]",
+            "flex shrink-0 items-center gap-0.5 rounded-md py-1 max-sm:min-h-10 text-[12px] font-semibold transition sm:py-0 sm:text-[11px]",
             focusRingClass(isDark),
             "disabled:cursor-default disabled:opacity-40",
             isDark
@@ -2326,7 +2326,7 @@ function InsightsPanel({
                       aria-selected={active}
                       onClick={() => setMetricTab(tabKey)}
                       className={[
-                        "whitespace-nowrap rounded-lg px-2 py-1.5 text-[11.5px] font-semibold transition-colors max-sm:flex-1 max-sm:text-center sm:px-2 sm:py-1 sm:text-[10.5px]",
+                        "whitespace-nowrap rounded-lg px-2 py-1.5 max-sm:min-h-10 text-[11.5px] font-semibold transition-colors max-sm:flex-1 max-sm:text-center sm:px-2 sm:py-1 sm:text-[10.5px]",
                         focusRingClass(isDark),
                         active
                           ? isDark
@@ -2370,7 +2370,7 @@ function InsightsPanel({
             )
           }
           className={[
-            "flex shrink-0 items-center gap-0.5 rounded-md py-1 text-[12px] font-semibold transition max-sm:absolute max-sm:right-0 max-sm:top-2 sm:py-0 sm:text-[11px]",
+            "flex shrink-0 items-center gap-0.5 rounded-md py-1 max-sm:min-h-10 text-[12px] font-semibold transition max-sm:absolute max-sm:right-0 max-sm:top-2 sm:py-0 sm:text-[11px]",
             focusRingClass(isDark),
             isDark
               ? "text-neutral-400 hover:text-white"
@@ -2546,7 +2546,7 @@ function BlogSection({ isDark, lang }: { isDark: boolean; lang: Lang }) {
           href={BLOG_URL}
           {...linkProps(BLOG_URL)}
           className={[
-            "flex shrink-0 items-center gap-0.5 rounded-md py-1 text-[12px] font-semibold transition sm:py-0 sm:text-[11px]",
+            "flex shrink-0 items-center gap-0.5 rounded-md py-1 max-sm:min-h-10 text-[12px] font-semibold transition sm:py-0 sm:text-[11px]",
             focusRingClass(isDark),
             isDark
               ? "text-neutral-400 hover:text-white"
@@ -2786,7 +2786,7 @@ export default function Home() {
                       "text-[18px] font-semibold tracking-[-0.02em] sm:text-[11px] sm:tracking-normal",
                       isDark
                         ? "text-white sm:text-neutral-500"
-                        : "text-neutral-900 sm:text-neutral-400",
+                        : "text-neutral-900 sm:text-neutral-500",
                     ].join(" ")}
                   >
                     {c.overview.title}
@@ -2805,7 +2805,7 @@ export default function Home() {
                   type="button"
                   onClick={() => navigate("insights")}
                   className={[
-                    "flex shrink-0 items-center gap-0.5 rounded-md py-1 text-[13px] font-semibold transition sm:hidden",
+                    "flex shrink-0 items-center gap-0.5 rounded-md py-1 max-sm:min-h-10 text-[13px] font-semibold transition sm:hidden",
                     focusRingClass(isDark),
                     isDark
                       ? "text-neutral-200 hover:text-white"
@@ -2863,7 +2863,7 @@ export default function Home() {
                       "text-[14px] font-semibold sm:text-[11px]",
                       isDark
                         ? "text-neutral-300 sm:text-neutral-500"
-                        : "text-neutral-700 sm:text-neutral-400",
+                        : "text-neutral-700 sm:text-neutral-500",
                     ].join(" ")}
                   >
                     {c.channels.title}
@@ -2873,7 +2873,7 @@ export default function Home() {
                       "mt-0.5 text-[12px] sm:text-[10px]",
                       isDark
                         ? "text-neutral-500 sm:text-neutral-700"
-                        : "text-neutral-400",
+                        : "text-neutral-500",
                     ].join(" ")}
                   >
                     {c.channels.subtitle}

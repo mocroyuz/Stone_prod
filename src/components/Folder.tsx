@@ -277,7 +277,7 @@ export default function Folder({
                   "flex h-16 w-16 items-center justify-center rounded-2xl",
                   isDark
                     ? "bg-white/5 text-neutral-500"
-                    : "bg-neutral-100 text-neutral-400",
+                    : "bg-neutral-100 text-neutral-500",
                 ].join(" ")}
               >
                 <FolderIcon className="h-7 w-7" />
@@ -336,7 +336,7 @@ export default function Folder({
                       <span
                         className={[
                           "block text-[12.5px] font-medium",
-                          isDark ? "text-neutral-500" : "text-neutral-400",
+                          isDark ? "text-neutral-500" : "text-neutral-500",
                         ].join(" ")}
                       >
                         {folder.count} élément{folder.count > 1 ? "s" : ""}
@@ -408,7 +408,7 @@ export default function Folder({
                     "focus:ring-2 focus:ring-neutral-500 focus:ring-offset-2",
                     isDark
                       ? "border-white/10 bg-[#141416] text-white placeholder:text-neutral-600"
-                      : "border-black/10 bg-white text-neutral-900 placeholder:text-neutral-400",
+                      : "border-black/10 bg-white text-neutral-900 placeholder:text-neutral-500",
                   ].join(" ")}
                 />
               </div>

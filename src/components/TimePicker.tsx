@@ -193,7 +193,7 @@ export function TimePicker({
         ].join(" ")}
       >
         {display}
-        <span className={isDark ? "text-neutral-500" : "text-neutral-400"}>
+        <span className={isDark ? "text-neutral-500" : "text-neutral-500"}>
           <ClockIcon />
         </span>
       </button>

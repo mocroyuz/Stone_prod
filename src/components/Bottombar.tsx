@@ -602,7 +602,7 @@ function MenuItem({
             "font-sans text-[11px] leading-none",
             isDark
               ? "border-white/10 text-neutral-500"
-              : "border-black/10 text-neutral-400",
+              : "border-black/10 text-neutral-500",
           ].join(" ")}
         >
           {shortcut}

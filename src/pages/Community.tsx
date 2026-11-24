@@ -760,7 +760,7 @@ function useCommunity(
         throw e;
       }
     },
-    [channelKey, tab, filter, postId]
+    [userId, channelKey, tab, filter, postId]
   );
 
   const addReply = useCallback(
@@ -786,7 +786,7 @@ function useCommunity(
           commentsCache.set(key, { ...entry, comments: mutate(entry.comments) });
       }
     },
-    [channelKey, tab, filter, postId]
+    [userId, channelKey, tab, filter, postId]
   );
 
   const visiblePosts = videoCacheKey
@@ -1114,7 +1114,7 @@ function ActionIcon({
         : "bg-black/[0.06] text-neutral-900"
       : isDark
         ? "text-neutral-500 hover:bg-white/[0.06] hover:text-white"
-        : "text-neutral-400 hover:bg-black/[0.04] hover:text-neutral-900",
+        : "text-neutral-500 hover:bg-black/[0.04] hover:text-neutral-900",
   ].join(" ");
 
   return (
@@ -1241,7 +1241,7 @@ export default function Community() {
   const needle = query.trim().toLowerCase();
 
   const line = isDark ? "border-white/[0.07]" : "border-black/[0.06]";
-  const muted = isDark ? "text-neutral-500" : "text-neutral-400";
+  const muted = isDark ? "text-neutral-500" : "text-neutral-500";
   const ghost = isDark ? "hover:bg-white/[0.06]" : "hover:bg-black/[0.04]";
   const outline = isDark
     ? "border-white/[0.10] hover:bg-white/[0.06]"
@@ -1254,7 +1254,7 @@ export default function Community() {
     : "border-black/[0.06] bg-white";
   const fieldClass = isDark
     ? "border-white/[0.10] bg-[#0a0a0c] text-white placeholder:text-neutral-600"
-    : "border-black/[0.10] bg-white text-neutral-900 placeholder:text-neutral-400";
+    : "border-black/[0.10] bg-white text-neutral-900 placeholder:text-neutral-500";
 
   const TABS: { key: Tab; label: string }[] = [
     { key: "comments", label: c.tabs.comments },

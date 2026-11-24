@@ -28,7 +28,7 @@ const panelSurfaceClass = (isDark: boolean) =>
     : "border-black/[0.06] bg-[#f6f4f0]";
 
 const mutedClass = (isDark: boolean) =>
-  isDark ? "text-neutral-600" : "text-neutral-400";
+  isDark ? "text-neutral-600" : "text-neutral-500";
 
 const strongClass = (isDark: boolean) =>
   isDark ? "text-white" : "text-neutral-900";
@@ -217,7 +217,7 @@ export default function CheckoutReturnModal() {
             <p
               className={[
                 "text-[11px] font-semibold",
-                isDark ? "text-neutral-500" : "text-neutral-400",
+                isDark ? "text-neutral-500" : "text-neutral-500",
               ].join(" ")}
             >
               {isSuccess ? "Payment received" : "Checkout"}
@@ -297,7 +297,7 @@ export default function CheckoutReturnModal() {
             <p
               className={[
                 "text-[11px] font-semibold",
-                isDark ? "text-neutral-500" : "text-neutral-400",
+                isDark ? "text-neutral-500" : "text-neutral-500",
               ].join(" ")}
             >
               Subscription

@@ -916,7 +916,7 @@ function CreateNameInput({
         className={`min-w-0 flex-1 bg-transparent py-3 text-[16px] outline-none md:py-2 md:text-[13px] ${
           isDark
             ? "placeholder:text-neutral-600"
-            : "placeholder:text-neutral-400"
+            : "placeholder:text-neutral-500"
         }`}
       />
       <button
@@ -1134,7 +1134,7 @@ function TagsPanel({
       {tags.length === 0 ? (
         <p
           className={`px-3 py-3 text-[14px] md:text-[13px] ${
-            isDark ? "text-neutral-500" : "text-neutral-400"
+            isDark ? "text-neutral-500" : "text-neutral-500"
           }`}
         >
           {c.tagsMenu.empty}
@@ -1720,7 +1720,7 @@ function GroupActionsBody({
           className={`w-full rounded-xl border bg-transparent px-3 py-3 text-[16px] outline-none ${
             isDark
               ? "border-white/[0.14] placeholder:text-neutral-600"
-              : "border-black/[0.12] placeholder:text-neutral-400"
+              : "border-black/[0.12] placeholder:text-neutral-500"
           }`}
         />
         <div className="grid grid-cols-2 gap-2">
@@ -1907,7 +1907,7 @@ export default function Create() {
     ? "border-white/[0.07] bg-[#0a0a0c]"
     : "border-black/[0.06] bg-white";
   const line = isDark ? "border-white/[0.07]" : "border-black/[0.06]";
-  const muted = isDark ? "text-neutral-500" : "text-neutral-400";
+  const muted = isDark ? "text-neutral-500" : "text-neutral-500";
   const ghost = isDark ? "hover:bg-white/[0.06]" : "hover:bg-black/[0.04]";
   const ring = isDark
     ? "focus-visible:ring-white/30"
