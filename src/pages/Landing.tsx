@@ -937,21 +937,78 @@ function Features() {
 ============================================================ */
 
 function OrbitVisual() {
-  const bubble = "float-soft absolute flex h-[56px] w-[56px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-white text-neutral-800 shadow-[0_0_0_1px_rgba(0,0,0,0.04),0_2px_4px_rgba(0,0,0,0.04),0_14px_28px_-12px_rgba(0,0,0,0.18)] sm:h-[68px] sm:w-[68px]";
-  const dot = "absolute h-1 w-1 -translate-x-1/2 -translate-y-1/2 rounded-full bg-neutral-300";
+  const orbitFeatures = [
+    { icon: Bot, title: "AI workflows", text: "Automate repetitive tasks across your content workflow." },
+    { icon: ClipboardList, title: "Plan content", text: "Keep every post organized in one shared calendar." },
+    { icon: ChartColumn, title: "Track results", text: "Understand what works with clear performance insights." },
+    { icon: Repeat, title: "Publish anywhere", text: "Manage multiple platforms from a single workspace." },
+    { icon: Zap, title: "Work faster", text: "Spend less time switching tools and more time creating." },
+  ];
+  const [active, setActive] = useState(0);
+  useEffect(() => {
+    const timer = window.setInterval(() => setActive((prev) => (prev + 1) % orbitFeatures.length), 2600);
+    return () => window.clearInterval(timer);
+  }, []);
+  const radius = 126;
+  const activeFeature = orbitFeatures[active];
+
   return (
-    <div className="relative h-[360px] overflow-hidden bg-[#f6f6f6] sm:h-[448px]">
-      <div aria-hidden="true" className="absolute inset-0" style={{background:"radial-gradient(ellipse 62% 52% at 0% 100%, rgba(246,170,170,0.42) 0%, rgba(246,170,170,0.14) 48%, transparent 78%)"}}/>
-      <div aria-hidden="true" data-reveal="scale" style={d(0)} className="absolute left-1/2 top-1/2 h-[300px] w-[300px] -translate-x-1/2 -translate-y-1/2 rounded-full border border-black/[0.14] shadow-[0_0_0_1px_rgba(0,0,0,0.025)] sm:h-[320px] sm:w-[320px]"/>
-      <span data-reveal="fade" style={{...d(500),left:"30%",top:"32%"}} className={dot}/>
-      <span data-reveal="fade" style={{...d(580),left:"69%",top:"32%"}} className={dot}/>
-      <span data-reveal="fade" style={{...d(660),left:"50%",top:"83%"}} className={dot}/>
-      <span data-reveal="pop" style={{...dv(200,{"float-dur":"7s","float-delay":"1.4s"}),left:"50%",top:"17%"}} className={bubble}><ClaudeIcon size={26} className="h-[26px] w-[26px]"/></span>
-      <span data-reveal="pop" style={{...dv(340,{"float-dur":"8.5s","float-delay":"2s"}),left:"28%",top:"61%"}} className={bubble}><ChatGPTIcon size={26} className="h-[26px] w-[26px]"/></span>
-      <span data-reveal="pop" style={{...dv(480,{"float-dur":"7.5s","float-delay":"2.6s"}),left:"71%",top:"61%"}} className={bubble}><N8nIcon size={26} className="h-[26px] w-[26px]"/></span>
-      <span data-reveal="pop" style={d(0)} className="absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center justify-center">
+    <div className="relative flex h-[360px] w-full items-center justify-center overflow-hidden bg-[#f6f6f6] sm:h-[448px]">
+      <div aria-hidden="true" className="absolute inset-0" style={{background:"radial-gradient(ellipse 62% 52% at 0% 100%, rgba(246,170,170,0.32) 0%, rgba(246,170,170,0.10) 48%, transparent 78%)"}}/>
+      <svg aria-hidden="true" className="pointer-events-none absolute inset-0 h-full w-full">
+        <circle className="stroke-black/10 stroke-1" cx="50%" cy="50%" r={radius} fill="none" />
+      </svg>
+
+      <div className="relative z-10 flex w-40 flex-col items-center gap-1.5 text-center">
+        {orbitFeatures.map((feature, index) => (
+          <div key={feature.title} className={cn(
+            "absolute flex w-40 flex-col items-center gap-1.5 transition-all duration-700 ease-in-out",
+            index === active ? "scale-100 opacity-100 delay-150" : "scale-95 opacity-0"
+          )}>
+            <span className="flex size-11 items-center justify-center rounded-full bg-[#0c0c0d] text-white">
+              <feature.icon className="size-5" strokeWidth={1.6}/>
+            </span>
+            <p className="text-sm font-semibold text-neutral-900">{feature.title}</p>
+            <p className="text-xs leading-relaxed text-neutral-500">{feature.text}</p>
+          </div>
+        ))}
+        <div className="invisible flex w-40 flex-col items-center gap-1.5">
+          <span className="flex size-11 items-center justify-center rounded-full"><activeFeature.icon className="size-5"/></span>
+          <p className="text-sm font-semibold">{activeFeature.title}</p>
+          <p className="text-xs">{activeFeature.text}</p>
+        </div>
+      </div>
+
+      {orbitFeatures.map((feature, index) => {
+        const angle = (360 / orbitFeatures.length) * index;
+        const isActive = index === active;
+        return (
+          <div key={feature.title} style={{
+            "--angle": `${angle}deg`,
+            position: "absolute",
+            animation: "stone-spotlight-orbit 26s linear infinite",
+          } as CSSProperties}>
+            <div className={[
+              "flex size-11 items-center justify-center rounded-full border bg-white transition-all duration-500",
+              isActive ? "scale-110 border-neutral-900 text-neutral-900 ring-4 ring-black/[0.07]" : "border-black/[0.08] text-neutral-400"
+            ].join(" ")}>
+              <feature.icon className="size-5" strokeWidth={1.6}/>
+            </div>
+          </div>
+        );
+      })}
+      <span className="absolute left-1/2 top-1/2 z-20 flex -translate-x-1/2 -translate-y-1/2 items-center justify-center">
         <img src="/images/icon.png" alt="Stone" className="h-10 w-10 object-contain invert" decoding="async"/>
       </span>
+      <style>{`
+        @keyframes stone-spotlight-orbit {
+          0% { transform: rotate(var(--angle, 0deg)) translateY(${radius}px) rotate(calc(var(--angle, 0deg) * -1)); }
+          100% { transform: rotate(calc(var(--angle, 0deg) + 360deg)) translateY(${radius}px) rotate(calc(var(--angle, 0deg) * -1 - 360deg)); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          [style*="stone-spotlight-orbit"] { animation-duration: 0s !important; }
+        }
+      `}</style>
     </div>
   );
 }
