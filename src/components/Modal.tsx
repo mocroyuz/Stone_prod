@@ -25,6 +25,7 @@ export default function Modal({
   dark = true,
 }: ModalProps) {
   const titleId = useId();
+  const descriptionId = useId();
   const dialogRef = useRef<HTMLElement>(null);
   useDialog({ open, onClose, ref: dialogRef });
 
@@ -47,8 +48,9 @@ export default function Modal({
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
+        aria-describedby={description ? descriptionId : undefined}
         className={[
-          "my-auto w-full max-w-lg overflow-hidden rounded-2xl border shadow-2xl",
+          "my-auto flex max-h-[calc(100dvh-2rem)] w-full max-w-lg flex-col overflow-hidden rounded-2xl border shadow-2xl",
           dark
             ? "border-white/10 bg-[#111111] text-white"
             : "border-neutral-200 bg-white text-neutral-900",
@@ -56,7 +58,7 @@ export default function Modal({
       >
         <header
           className={[
-            "flex items-start justify-between gap-4 border-b px-6 py-5",
+            "flex shrink-0 items-start justify-between gap-4 border-b px-6 py-5",
             dark ? "border-white/10" : "border-neutral-200",
           ].join(" ")}
         >
@@ -70,6 +72,7 @@ export default function Modal({
 
             {description && (
               <p
+                id={descriptionId}
                 className={[
                   "mt-1 text-sm leading-relaxed",
                   dark ? "text-neutral-400" : "text-neutral-500",
@@ -95,7 +98,7 @@ export default function Modal({
           </button>
         </header>
 
-        <div className="p-6">{children}</div>
+        <div className="min-h-0 overflow-y-auto overscroll-contain p-6">{children}</div>
       </section>
     </div>
   );
