@@ -17,6 +17,7 @@ import {
   Globe,
   Menu,
   Repeat,
+  Zap,
   X,
   type LucideIcon,
 } from "lucide-react";
