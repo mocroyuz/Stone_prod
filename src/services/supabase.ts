@@ -109,6 +109,8 @@ async function withRequestTimeout<T>(
 
 const ACCESS_TOKEN_KEY = "crossflow_access_token";
 const REFRESH_TOKEN_KEY = "crossflow_refresh_token";
+// Indicateur non sensible : le refresh token réel reste dans le cookie HttpOnly.
+const SESSION_HINT_KEY = "crossflow_session_hint";
 // sessionStorage : "connecté en AAL1, code 2FA pas encore saisi"
 const MFA_PENDING_KEY = "crossflow_mfa_pending";
 // sessionStorage : horodatage de la dernière vérification MFA réussie
@@ -306,9 +308,38 @@ export function getRefreshToken(): string | null {
   return readStoredValue(REFRESH_TOKEN_KEY);
 }
 
+function readSessionHint(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return window.localStorage.getItem(SESSION_HINT_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function writeSessionHint(active: boolean): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(SESSION_HINT_KEY, active ? "1" : "0");
+  } catch {
+    /* Le cookie HttpOnly reste la source de vérité. */
+  }
+}
+
+/**
+ * Une valeur absente autorise une tentative unique pour restaurer ou migrer
+ * les sessions créées avant l'existence de cet indicateur.
+ */
+function shouldAttemptSessionRestore(): boolean {
+  if (getAccessToken() || getRefreshToken()) return true;
+  return readSessionHint() !== "0";
+}
+
 export function hasStoredSession(): boolean {
   if (isMfaPending()) return false;
-  return Boolean(getAccessToken() || getRefreshToken());
+  return Boolean(
+    getAccessToken() || getRefreshToken() || readSessionHint() === "1"
+  );
 }
 
 function saveSession(session: AuthSession | null): void {
@@ -316,6 +347,7 @@ function saveSession(session: AuthSession | null): void {
 
   if (session.access_token) {
     accessTokenInMemory = session.access_token;
+    writeSessionHint(true);
   }
 
   // Le refresh token est conservé exclusivement côté serveur dans un cookie HttpOnly.
@@ -327,6 +359,7 @@ export function clearSession(): void {
   accessTokenInMemory = null;
   removeStoredValue(ACCESS_TOKEN_KEY);
   removeStoredValue(REFRESH_TOKEN_KEY);
+  writeSessionHint(false);
   setMfaPending(false);
   try {
     sessionStorage.removeItem(MFA_VERIFIED_KEY);
@@ -471,7 +504,10 @@ export async function apiRequest<T>(
   // Ne PAS rafraîchir pendant la grâce MFA, sinon retour en AAL1.
   if (canRefresh && !isRetry && !inMfaGrace()) {
     const current = getAccessToken();
-    if (!current || isTokenExpiring(current)) {
+    if (
+      (current && isTokenExpiring(current)) ||
+      (!current && shouldAttemptSessionRestore())
+    ) {
       await refreshAccessToken();
     }
   }
@@ -554,7 +590,12 @@ export async function apiRequest<T>(
       throw new RateLimitError(Math.ceil(seconds), bodyError);
     }
 
-    if (response.status === 401 && canRefresh && !isRetry) {
+    if (
+      response.status === 401 &&
+      canRefresh &&
+      !isRetry &&
+      shouldAttemptSessionRestore()
+    ) {
       const refreshed = await refreshAccessToken();
       if (refreshed) return apiRequest<T>(endpoint, options, true);
     }
@@ -1052,8 +1093,10 @@ export async function getCurrentUser(
     if (isMfaPending()) return null;
 
     // Après fermeture du navigateur, l'access token mémoire disparaît.
-    // On restaure alors une session depuis le cookie HttpOnly.
+    // On restaure alors une session depuis le cookie HttpOnly. Une valeur
+    // négative évite de refaire cet appel pour chaque visiteur anonyme.
     if (!getAccessToken()) {
+      if (!shouldAttemptSessionRestore()) return null;
       const restored = await refreshAccessToken();
       if (!restored) return null;
     }
