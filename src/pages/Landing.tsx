@@ -1145,17 +1145,7 @@ function Analytics() {
                 <h3 className="text-[20px] font-medium tracking-[-0.04em] text-[#0c0c0d]">
                   Mental Health Report
                 </h3>
-                <div className="flex items-center gap-4 text-[11px] text-neutral-400">
-                  <span className="flex items-center gap-1.5">
-                    <span className="h-1.5 w-1.5 rounded-full bg-[#0c0c0d]" />
-                    Last Year
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <span className="h-1.5 w-1.5 rounded-full border border-neutral-400" />
-                    This Year
-                  </span>
-                  <Ellipsis className="h-4 w-4 text-neutral-900" aria-hidden="true" />
-                </div>
+                <Ellipsis className="h-4 w-4 text-neutral-900" aria-hidden="true" />
               </div>
 
               <div
@@ -1173,26 +1163,7 @@ function Analytics() {
                   <span>25</span>
                 </div>
                 <div>
-                  <div className="mb-2 flex flex-wrap gap-x-8 gap-y-3">
-                    <div className="flex items-center gap-2.5">
-                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#0c0c0d]">
-                        <span className="h-1.5 w-1.5 rounded-full bg-white" />
-                      </span>
-                      <div className="leading-tight">
-                        <p className="text-[9px] text-neutral-400">Total Score</p>
-                        <p className="text-[9px] text-neutral-300">82/100</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2.5">
-                      <span className="flex h-6 w-6 items-center justify-center rounded-full border border-neutral-200 bg-white">
-                        <span className="h-1 w-1 rounded-full bg-[#0c0c0d]" />
-                      </span>
-                      <div className="leading-tight">
-                        <p className="text-[9px] text-neutral-400">Last Week</p>
-                        <p className="text-[9px] text-neutral-300">68/100 · +4 improvement</p>
-                      </div>
-                    </div>
-                  </div>
+
                   <ReportChart />
                 </div>
               </div>
