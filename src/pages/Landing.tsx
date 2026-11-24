@@ -1088,21 +1088,21 @@ function ReportChart() {
   ];
   const max = Math.max(...days.flatMap((day) => [day.a, day.b]));
   return (
-    <div data-reveal="chart" style={d(200)} className="mt-3">
-      <div className="grid grid-cols-7 gap-2">
+    <div data-reveal="chart" style={d(200)} className="mt-7">
+      <div className="grid grid-cols-7 gap-2.5 sm:gap-3">
         {days.map((day) => (
-          <div key={day.day} className="flex flex-col items-center gap-2">
-            <div className="flex h-[128px] w-full items-end justify-center gap-1 rounded-xl bg-neutral-50 px-1.5 pb-2 pt-2">
-              <span className="w-full max-w-[12px] rounded-t-[4px] bg-[#0c0c0d]" style={{ height: `${(day.a / max) * 100}%` }} />
-              <span className="w-full max-w-[12px] rounded-t-[4px] bg-neutral-300" style={{ height: `${(day.b / max) * 100}%` }} />
+          <div key={day.day} className="flex min-w-0 flex-col items-center gap-2.5">
+            <div className="relative flex h-[112px] sm:h-[136px] w-full items-end justify-center gap-[3px] border-b border-neutral-100 pb-2">
+              <span className="w-[5px] sm:w-[7px] rounded-full bg-[#171717]" style={{ height: `${(day.a / max) * 100}%` }} />
+              <span className="w-[5px] sm:w-[7px] rounded-full bg-neutral-200" style={{ height: `${(day.b / max) * 100}%` }} />
             </div>
-            <span className="text-[10px] font-medium text-neutral-500">{day.day}</span>
+            <span className="text-[9px] sm:text-[10px] tracking-wide text-neutral-400">{day.day}</span>
           </div>
         ))}
       </div>
-      <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-[10px] text-neutral-500">
-        <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-[#0c0c0d]" />Reactions</span>
-        <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-neutral-300" />Comments</span>
+      <div className="mt-5 flex items-center gap-4 text-[10px] text-neutral-400">
+        <span className="inline-flex items-center gap-2"><span className="h-[6px] w-[6px] rounded-full bg-[#171717]" />Reactions</span>
+        <span className="inline-flex items-center gap-2"><span className="h-[6px] w-[6px] rounded-full bg-neutral-200" />Comments</span>
       </div>
     </div>
   );
@@ -1142,7 +1142,7 @@ function Analytics() {
               <div
                 data-reveal="up"
                 style={d(200)}
-                className="mt-6 grid grid-cols-[34px_minmax(0,1fr)] gap-3"
+                className="mt-8 grid grid-cols-[34px_minmax(0,1fr)] gap-3"
               >
                 <div
                   aria-hidden="true"
@@ -1154,9 +1154,9 @@ function Analytics() {
                   <span>25</span>
                 </div>
                 <div>
-                  <div className="mb-3 flex flex-wrap gap-x-10 gap-y-3">
+                  <div className="mb-2 flex flex-wrap gap-x-8 gap-y-3">
                     <div className="flex items-center gap-2.5">
-                      <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#0c0c0d] shadow-[0_6px_12px_-6px_rgba(0,0,0,0.5)]">
+                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[#0c0c0d]">
                         <span className="h-1.5 w-1.5 rounded-full bg-white" />
                       </span>
                       <div className="leading-tight">
@@ -1165,7 +1165,7 @@ function Analytics() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2.5">
-                      <span className="flex h-7 w-7 items-center justify-center rounded-full bg-white shadow-[0_0_0_1px_rgba(0,0,0,0.07),0_4px_10px_-4px_rgba(0,0,0,0.15)]">
+                      <span className="flex h-6 w-6 items-center justify-center rounded-full border border-neutral-200 bg-white">
                         <span className="h-1 w-1 rounded-full bg-[#0c0c0d]" />
                       </span>
                       <div className="leading-tight">
