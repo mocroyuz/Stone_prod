@@ -17,7 +17,6 @@ import {
   Globe,
   Menu,
   Repeat,
-  Zap,
   X,
   type LucideIcon,
 } from "lucide-react";
@@ -31,11 +30,13 @@ import {
   LogoWaves,
 } from "../components/landing/LandingGraphics";
 import { useLandingMotion } from "../hooks/useLandingMotion";
-import { cn } from "../utils/cn";
 import { CHANNELS } from "../data/channelConfig";
+import { Icon } from "@iconify/react";
 import {
-  ClaudeIcon, ChatGPTIcon, N8nIcon,
-} from "../components/IntegrationIcons";
+  SiClaude,
+  SiGooglegemini,
+  SiPerplexity,
+} from "@icons-pack/react-simple-icons";
 
 
 /* ============================================================
@@ -938,79 +939,68 @@ function Features() {
    WORKFLOWS (deux cartes)
 ============================================================ */
 
+/* Schéma « hub » : 4 IA reliées à Stone par des coudes à angle droit.
+   Scène à ratio fixe (560 × 340) : les traits SVG et les tuiles gardent
+   exactement les mêmes proportions à toutes les largeurs. */
+const HUB_ICON = "h-[40%] w-[40%]";
+const HUB_NODES: Array<{ key: string; label: string; x: number; y: number; node: ReactNode }> = [
+  { key: "claude", label: "Claude", x: 22, y: 24, node: <SiClaude color="currentColor" className={HUB_ICON} aria-hidden="true" /> },
+  { key: "chatgpt", label: "ChatGPT", x: 22, y: 76, node: <Icon icon="simple-icons:openai" color="currentColor" className={HUB_ICON} aria-hidden="true" /> },
+  { key: "gemini", label: "Gemini", x: 78, y: 24, node: <SiGooglegemini color="currentColor" className={HUB_ICON} aria-hidden="true" /> },
+  { key: "perplexity", label: "Perplexity", x: 78, y: 76, node: <SiPerplexity color="currentColor" className={HUB_ICON} aria-hidden="true" /> },
+];
+/* Même longueur (245) pour les quatre trajets : tuile → coude → centre. */
+const HUB_PATHS = [
+  "M123 82H202V170H280",
+  "M123 258H202V170H280",
+  "M437 82H358V170H280",
+  "M437 258H358V170H280",
+];
+
 function OrbitVisual() {
-  const orbitFeatures = [
-    { icon: Bot, title: "AI workflows", text: "Automate repetitive tasks across your content workflow." },
-    { icon: ClipboardList, title: "Plan content", text: "Keep every post organized in one shared calendar." },
-    { icon: ChartColumn, title: "Track results", text: "Understand what works with clear performance insights." },
-    { icon: Repeat, title: "Publish anywhere", text: "Manage multiple platforms from a single workspace." },
-    { icon: Zap, title: "Work faster", text: "Spend less time switching tools and more time creating." },
-  ];
-  const [active, setActive] = useState(0);
-  useEffect(() => {
-    const timer = window.setInterval(() => setActive((prev) => (prev + 1) % orbitFeatures.length), 2600);
-    return () => window.clearInterval(timer);
-  }, []);
-  const radius = 126;
-  const activeFeature = orbitFeatures[active];
-
+  const tile =
+    "absolute flex aspect-square w-[16.5%] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-[22%] bg-white text-[#0c0c0d] shadow-[0_0_0_1px_rgba(0,0,0,0.06),0_2px_4px_rgba(0,0,0,0.04),0_14px_28px_-12px_rgba(0,0,0,0.16)] sm:w-[14.6%]";
   return (
-    <div className="relative flex h-[360px] w-full items-center justify-center overflow-hidden bg-[#f6f6f6] sm:h-[448px]">
-      <div aria-hidden="true" className="absolute inset-0" style={{background:"radial-gradient(ellipse 62% 52% at 0% 100%, rgba(246,170,170,0.32) 0%, rgba(246,170,170,0.10) 48%, transparent 78%)"}}/>
-      <svg aria-hidden="true" className="pointer-events-none absolute inset-0 h-full w-full">
-        <circle className="stroke-black/10 stroke-1" cx="50%" cy="50%" r={radius} fill="none" />
-      </svg>
+    <div className="relative flex h-[360px] items-center justify-center overflow-hidden bg-[#f6f6f6] px-4 sm:h-[448px] sm:px-6">
+      <div
+        role="img"
+        aria-label="Stone connected to Claude, ChatGPT, Gemini and Perplexity"
+        data-reveal="draw"
+        style={d(0)}
+        className="relative aspect-[560/340] w-full max-w-[560px]"
+      >
+        <svg aria-hidden="true" viewBox="0 0 560 340" className="absolute inset-0 h-full w-full overflow-visible" fill="none">
+          {HUB_PATHS.map((path, i) => (
+            <g key={i} style={{ "--i": i } as CSSProperties}>
+              <path className="hub-line" d={path} stroke="rgba(12,12,13,0.15)" strokeWidth="2" />
+              <path className="hub-pulse" d={path} stroke="#0c0c0d" strokeWidth="2" strokeLinecap="round" />
+            </g>
+          ))}
+        </svg>
 
-      <div className="relative z-10 flex w-40 flex-col items-center gap-1.5 text-center">
-        {orbitFeatures.map((feature, index) => (
-          <div key={feature.title} className={cn(
-            "absolute flex w-40 flex-col items-center gap-1.5 transition-all duration-700 ease-in-out",
-            index === active ? "scale-100 opacity-100 delay-150" : "scale-95 opacity-0"
-          )}>
-            <span className="flex size-11 items-center justify-center rounded-full bg-[#0c0c0d] text-white">
-              <feature.icon className="size-5" strokeWidth={1.6}/>
-            </span>
-            <p className="text-sm font-semibold text-neutral-900">{feature.title}</p>
-            <p className="text-xs leading-relaxed text-neutral-500">{feature.text}</p>
-          </div>
+        {HUB_NODES.map(({ key, x, y, node }, i) => (
+          <span key={key} data-reveal="pop" style={{ ...d(260 + i * 90), left: `${x}%`, top: `${y}%` }} className={tile}>
+            {node}
+          </span>
         ))}
-        <div className="invisible flex w-40 flex-col items-center gap-1.5">
-          <span className="flex size-11 items-center justify-center rounded-full"><activeFeature.icon className="size-5"/></span>
-          <p className="text-sm font-semibold">{activeFeature.title}</p>
-          <p className="text-xs">{activeFeature.text}</p>
-        </div>
-      </div>
 
-      {orbitFeatures.map((feature, index) => {
-        const angle = (360 / orbitFeatures.length) * index;
-        const isActive = index === active;
-        return (
-          <div key={feature.title} style={{
-            "--angle": `${angle}deg`,
-            position: "absolute",
-            animation: "stone-spotlight-orbit 26s linear infinite",
-          } as CSSProperties}>
-            <div className={[
-              "flex size-11 items-center justify-center rounded-full border bg-white transition-all duration-500",
-              isActive ? "scale-110 border-neutral-900 text-neutral-900 ring-4 ring-black/[0.07]" : "border-black/[0.08] text-neutral-400"
-            ].join(" ")}>
-              <feature.icon className="size-5" strokeWidth={1.6}/>
-            </div>
-          </div>
-        );
-      })}
-      <span className="absolute left-1/2 top-1/2 z-20 flex -translate-x-1/2 -translate-y-1/2 items-center justify-center">
-        <img src="/images/icon.png" alt="Stone" className="h-10 w-10 object-contain invert" decoding="async"/>
-      </span>
-      <style>{`
-        @keyframes stone-spotlight-orbit {
-          0% { transform: rotate(var(--angle, 0deg)) translateY(${radius}px) rotate(calc(var(--angle, 0deg) * -1)); }
-          100% { transform: rotate(calc(var(--angle, 0deg) + 360deg)) translateY(${radius}px) rotate(calc(var(--angle, 0deg) * -1 - 360deg)); }
-        }
-        @media (prefers-reduced-motion: reduce) {
-          [style*="stone-spotlight-orbit"] { animation-duration: 0s !important; }
-        }
-      `}</style>
+        <span
+          data-reveal="pop"
+          style={d(120)}
+          className="absolute left-1/2 top-1/2 flex aspect-square w-[19%] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-[22%] bg-[#0c0c0d] shadow-[inset_0_1px_0_rgba(255,255,255,0.14),0_18px_32px_-14px_rgba(0,0,0,0.55)] sm:w-[17%]"
+        >
+          <span aria-hidden="true" className="hub-ring absolute inset-0 rounded-[22%] border border-[#0c0c0d]/30" />
+          <img src={IMG.stoneMark} alt="" aria-hidden="true" decoding="async" className="h-[44%] w-auto object-contain brightness-0 invert" />
+        </span>
+
+        <span
+          data-reveal="fade"
+          style={d(700)}
+          className="absolute left-1/2 top-[71%] -translate-x-1/2 whitespace-nowrap font-mono text-[10.5px] tracking-[-0.01em] text-neutral-500 min-[420px]:text-[11.5px] sm:text-[12.5px]"
+        >
+          4 connected
+        </span>
+      </div>
     </div>
   );
 }
@@ -1126,14 +1116,6 @@ function Workflows() {
 /* ============================================================
    ANALYTICS
 ============================================================ */
-
-/* Barres décoratives : [hauteur 0–32, groupe]. */
-const BAR_GROUPS: Array<{ opacity: number; bars: number[] }> = [
-  { opacity: 1, bars: [18, 11, 25, 17, 12, 28, 24, 31, 15, 22] },
-  { opacity: 0.5, bars: [14, 31, 27, 22, 29] },
-  { opacity: 0.2, bars: [26, 19, 22, 15] },
-  { opacity: 0.1, bars: [28, 14, 22, 12, 17] },
-];
 
 function ReportChart() {
   const days = [
@@ -1418,7 +1400,7 @@ function SiteFooter() {
   return (
     <footer>
       <Col>
-        <div className="grid gap-12 px-5 pb-[72px] pt-[56px] sm:px-7 lg:grid-cols-[1.55fr_1fr_1fr_1fr] lg:gap-0 lg:px-12 lg:pb-[112px] lg:pt-[72px]">
+        <div className="grid grid-cols-1 gap-12 px-5 pb-[72px] pt-[56px] sm:px-7 lg:grid-cols-[1.55fr_1fr_1fr_1fr] lg:gap-0 lg:px-12 lg:pb-[112px] lg:pt-[72px]">
           <div data-reveal="up">
             <a
               href="/"
