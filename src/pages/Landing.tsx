@@ -1077,44 +1077,36 @@ const BAR_GROUPS: Array<{ opacity: number; bars: number[] }> = [
 ];
 
 function ReportChart() {
-  const pitch = 2.9;
-  let cursor = 0;
-  let order = 0;
-  const gap = 4.6;
-
+  const days = [
+    { day: "Mon", a: 42, b: 26 },
+    { day: "Tue", a: 58, b: 36 },
+    { day: "Wed", a: 34, b: 20 },
+    { day: "Thu", a: 76, b: 48 },
+    { day: "Fri", a: 62, b: 38 },
+    { day: "Sat", a: 28, b: 18 },
+    { day: "Sun", a: 44, b: 30 },
+  ];
+  const max = Math.max(...days.flatMap((day) => [day.a, day.b]));
   return (
-    <svg
-      viewBox="0 0 116 34"
-      role="img"
-      aria-label="Bar chart comparing last year and this year"
-      data-reveal="chart"
-      style={d(200)}
-      className="h-auto w-full"
-    >
-      {BAR_GROUPS.map((group, g) => {
-        const start = cursor;
-        cursor += group.bars.length * pitch + gap;
-        return (
-          <g key={g} fill="#0c0c0d" opacity={group.opacity}>
-            {group.bars.map((h, i) => (
-              <rect
-                key={i}
-                className="bar"
-                style={{ "--i": order++ } as CSSProperties}
-                x={start + i * pitch}
-                y={33 - h}
-                width="1.35"
-                height={h}
-                rx="0.6"
-              />
-            ))}
-          </g>
-        );
-      })}
-    </svg>
+    <div data-reveal="chart" style={d(200)} className="mt-3">
+      <div className="grid grid-cols-7 gap-2">
+        {days.map((day) => (
+          <div key={day.day} className="flex flex-col items-center gap-2">
+            <div className="flex h-[128px] w-full items-end justify-center gap-1 rounded-xl bg-neutral-50 px-1.5 pb-2 pt-2">
+              <span className="w-full max-w-[12px] rounded-t-[4px] bg-[#0c0c0d]" style={{ height: `${(day.a / max) * 100}%` }} />
+              <span className="w-full max-w-[12px] rounded-t-[4px] bg-neutral-300" style={{ height: `${(day.b / max) * 100}%` }} />
+            </div>
+            <span className="text-[10px] font-medium text-neutral-500">{day.day}</span>
+          </div>
+        ))}
+      </div>
+      <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-[10px] text-neutral-500">
+        <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-[#0c0c0d]" />Reactions</span>
+        <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-neutral-300" />Comments</span>
+      </div>
+    </div>
   );
 }
-
 function Analytics() {
   return (
     <Bleed id="analytics" className="scroll-mt-24">
@@ -1189,14 +1181,14 @@ function Analytics() {
 
             <div className="flex flex-1 flex-col px-5 pb-8 pt-9 sm:px-[57px] lg:pb-0">
               <div data-reveal="rise">
-                <MiniTag icon={ChartColumn} label="AI Analytic" />
+                <MiniTag icon={ChartColumn} label="Insights" />
               </div>
               <h3
                 data-reveal="up"
                 style={d(100)}
                 className="mt-[22px] text-[clamp(22px,2vw,28px)] font-medium leading-tight tracking-[-0.04em] text-[#0c0c0d]"
               >
-                AI analyzes your condition
+                Understand your activity
               </h3>
               <p
                 data-reveal="up"
