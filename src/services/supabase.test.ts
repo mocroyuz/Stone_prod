@@ -94,6 +94,7 @@ describe("session : stockage des tokens", () => {
     expect(JSON.stringify({ ...localStorage })).not.toContain("ACCESS");
     expect(JSON.stringify({ ...sessionStorage })).not.toContain("REFRESH");
     expect(JSON.stringify({ ...localStorage })).not.toContain("REFRESH");
+    expect(localStorage.getItem("crossflow_session_hint")).toBe("1");
   });
 
   it("migre un ancien token de localStorage vers la mémoire puis le supprime", async () => {
@@ -116,7 +117,43 @@ describe("session : stockage des tokens", () => {
     window.removeEventListener("stone:auth-expired", listener);
 
     expect(mod.getAccessToken()).toBeNull();
+    expect(localStorage.getItem("crossflow_session_hint")).toBe("0");
     expect(listener).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("restauration de session", () => {
+  it("ne répète pas le refresh refusé pour un visiteur anonyme", async () => {
+    const mod = await loadModule();
+    const fetchMock = mockFetch(
+      jsonResponse({ code: "NO_REFRESH_TOKEN" }, { status: 401 })
+    );
+
+    expect(await mod.getCurrentUser()).toBeNull();
+    expect(await mod.getCurrentUser()).toBeNull();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(localStorage.getItem("crossflow_session_hint")).toBe("0");
+  });
+
+  it("restaure le cookie HttpOnly après un rechargement de module", async () => {
+    const firstModule = await loadModule();
+    mockFetch(jsonResponse({ session: { access_token: "OLD", refresh_token: "SECRET" } }));
+    await firstModule.signIn("a@b.c", "pw");
+
+    const mod = await loadModule();
+    const fetchMock = mockFetch(
+      jsonResponse({ session: { access_token: "RESTORED" } }),
+      jsonResponse({ success: true, user: { id: "u1", email: "a@b.c" } })
+    );
+
+    const user = await mod.getCurrentUser();
+
+    expect(user?.id).toBe("u1");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(callUrl(fetchMock, 0)).toBe("/api/auth/refresh");
+    expect(callUrl(fetchMock, 1)).toBe("/api/user/profile");
+    expect(callHeaders(fetchMock, 1).get("Authorization")).toBe("Bearer RESTORED");
   });
 });
 
