@@ -443,48 +443,80 @@ img,
 [data-reveal="draw"][data-revealed] .hub-line {
   stroke-dashoffset: 0;
 }
+/* Courant électrique : un fin pointillé qui file en continu (crépitement
+   d'opacité) + des « charges » plus longues qui traversent le trait vers le
+   centre. Les deux se déplacent dans le sens du tracé (tuile → logo). */
+.hub-flow,
 .hub-pulse {
-  stroke-dasharray: 34 600;
-  stroke-dashoffset: 34;
   opacity: 0;
 }
+.hub-flow {
+  stroke-dasharray: 1.5 9;
+}
+.hub-pulse {
+  stroke-dasharray: 26 142;
+}
+[data-reveal="draw"][data-revealed] .hub-flow {
+  animation:
+    hub-flow 0.7s linear infinite,
+    hub-flicker 1.9s linear infinite;
+  animation-delay: calc(1.5s + var(--i, 0) * 0.13s);
+}
 [data-reveal="draw"][data-revealed] .hub-pulse {
-  animation: hub-pulse 5.2s var(--ease-in-out-cubic) infinite;
-  animation-delay: calc(2.2s + var(--i, 0) * 0.9s);
+  animation: hub-pulse 1.7s linear infinite;
+  animation-delay: calc(1.7s + var(--i, 0) * 0.31s);
+}
+@keyframes hub-flow {
+  to {
+    stroke-dashoffset: -10.5;
+  }
+}
+@keyframes hub-flicker {
+  0%,
+  100% {
+    opacity: 0.38;
+  }
+  17% {
+    opacity: 0.62;
+  }
+  33% {
+    opacity: 0.3;
+  }
+  52% {
+    opacity: 0.58;
+  }
+  71% {
+    opacity: 0.34;
+  }
+  88% {
+    opacity: 0.5;
+  }
 }
 @keyframes hub-pulse {
   0% {
-    stroke-dashoffset: 34;
-    opacity: 0;
+    stroke-dashoffset: 0;
+    opacity: 0.85;
   }
-  8% {
-    opacity: 0.55;
-  }
-  50% {
-    stroke-dashoffset: -327;
-    opacity: 0.55;
-  }
-  56%,
   100% {
-    stroke-dashoffset: -327;
-    opacity: 0;
+    stroke-dashoffset: -168;
+    opacity: 0.85;
   }
 }
 .hub-ring {
   opacity: 0;
 }
 [data-reveal="draw"][data-revealed] .hub-ring {
-  animation: hub-ring 5.2s var(--ease-out-quint) infinite;
-  animation-delay: 2.6s;
+  animation: hub-ring 1.7s var(--ease-out-quint) infinite;
+  animation-delay: 2.2s;
 }
 @keyframes hub-ring {
   0% {
     transform: scale(1);
-    opacity: 0.6;
+    opacity: 0.4;
   }
-  55%,
+  70%,
   100% {
-    transform: scale(1.38);
+    transform: scale(1.3);
     opacity: 0;
   }
 }
@@ -625,9 +657,11 @@ img,
   .bottom-glow-intro {
     display: none;
   }
+  .hub-flow,
   .hub-pulse,
   .hub-ring {
     animation: none !important;
+    opacity: 0 !important;
   }
   .hub-line {
     transition: none !important;
@@ -650,6 +684,7 @@ img,
     stroke-dashoffset: 0 !important;
     transition: none !important;
   }
+  .hub-flow,
   .hub-pulse,
   .hub-ring {
     display: none;

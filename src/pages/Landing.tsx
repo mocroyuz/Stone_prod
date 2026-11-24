@@ -973,7 +973,8 @@ function OrbitVisual() {
           {HUB_PATHS.map((path, i) => (
             <g key={i} style={{ "--i": i } as CSSProperties}>
               <path className="hub-line" d={path} stroke="rgba(12,12,13,0.15)" strokeWidth="1.25" />
-              <path className="hub-pulse" d={path} stroke="#0c0c0d" strokeWidth="1.25" strokeLinecap="round" />
+              <path className="hub-flow" d={path} stroke="#0c0c0d" strokeWidth="1.25" strokeLinecap="round" />
+              <path className="hub-pulse" d={path} stroke="#0c0c0d" strokeWidth="1.75" strokeLinecap="round" />
             </g>
           ))}
         </svg>
