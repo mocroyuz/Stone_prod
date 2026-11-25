@@ -424,7 +424,7 @@ img,
 [data-reveal="chart"][data-revealed] .chart-bar {
   height: var(--h);
   transition:
-    height 1250ms var(--ease-out-quint) calc(250ms + var(--i, 0) * 55ms),
+    height 1250ms var(--ease-out-quint) calc(60ms + var(--i, 0) * 55ms),
     opacity 500ms var(--ease-soft);
 }
 

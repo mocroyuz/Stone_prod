@@ -51,23 +51,16 @@ export function useLandingMotion(rootRef: RefObject<HTMLElement | null>) {
         rootMargin: "0px 0px -8% 0px",
         threshold: 0.01,
       });
-      // Graphiques : l'animation se joue à CHAQUE entrée de la zone des barres
-      // à l'écran (presque entière), jamais avant ; elle est remise à plat
-      // quand la zone est complètement sortie, donc invisible.
-      const chartIn = new IntersectionObserver(
+      // Graphiques : l'animation démarre dès qu'une partie de la zone des
+      // barres apparaît à l'écran, et se rejoue à chaque nouvelle apparition
+      // (remise à plat quand la zone est complètement sortie, donc invisible).
+      const chartIo = new IntersectionObserver(
         (entries) => {
           for (const entry of entries) {
             const host = (entry.target as HTMLElement).closest<HTMLElement>('[data-reveal="chart"]');
-            if (host && entry.isIntersecting) host.setAttribute("data-revealed", "");
-          }
-        },
-        { rootMargin: "0px 0px -4% 0px", threshold: 0.95 },
-      );
-      const chartOut = new IntersectionObserver(
-        (entries) => {
-          for (const entry of entries) {
-            const host = (entry.target as HTMLElement).closest<HTMLElement>('[data-reveal="chart"]');
-            if (host && !entry.isIntersecting) host.removeAttribute("data-revealed");
+            if (!host) continue;
+            if (entry.isIntersecting) host.setAttribute("data-revealed", "");
+            else host.removeAttribute("data-revealed");
           }
         },
         { threshold: 0 },
@@ -75,16 +68,14 @@ export function useLandingMotion(rootRef: RefObject<HTMLElement | null>) {
       for (const el of targets) {
         if (el.dataset.reveal === "chart") {
           const area = el.querySelector<HTMLElement>("[data-chart-area]") ?? el;
-          chartIn.observe(area);
-          chartOut.observe(area);
+          chartIo.observe(area);
         } else if (!el.hasAttribute("data-revealed")) {
           io.observe(el);
         }
       }
       cleanups.push(() => {
         io.disconnect();
-        chartIn.disconnect();
-        chartOut.disconnect();
+        chartIo.disconnect();
       });
     }
 
