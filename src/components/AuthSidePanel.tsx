@@ -1,10 +1,8 @@
 import type { CSSProperties } from "react";
 
-import BloomField from "./BloomField";
-
 /**
  * Panneau gauche des pages de connexion / inscription.
- * Fond « Black Gradient » animé (BloomField), logo, titre, sous-titre puis
+ * Fond sombre avec halo blanc diffus en haut, logo, titre, sous-titre puis
  * la liste des étapes (étape active = carte blanche, les autres = cartes sombres).
  * Volontairement sombre dans les deux thèmes : c'est un objet posé sur la page.
  */
@@ -15,6 +13,10 @@ type Props = {
   steps: string[];
   activeStep?: number;
 };
+
+/* Grain fin (SVG feTurbulence) : casse les bandes du halo, donne une vraie matière. */
+const GRAIN =
+  "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.55 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>\")";
 
 export default function AuthSidePanel({
   title,
@@ -28,7 +30,30 @@ export default function AuthSidePanel({
   return (
     <div className="hidden p-[clamp(12px,1.4vw,22px)] md:block">
       <div className="relative flex h-full min-h-[560px] flex-col items-center justify-end overflow-hidden rounded-[clamp(18px,2vw,28px)] bg-[#09090a] px-[clamp(20px,3vw,48px)] pb-[clamp(28px,6vh,72px)] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.06)]">
-        <BloomField />
+        {/* Halo : grande tache claire en haut qui s'éteint avant le milieu */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 top-0 h-[78%]"
+          style={{
+            background:
+              "radial-gradient(78% 74% at 50% 0%, rgba(255,255,255,0.62) 0%, rgba(226,226,232,0.45) 16%, rgba(190,190,198,0.3) 32%, rgba(150,150,158,0.18) 48%, rgba(110,110,118,0.09) 64%, rgba(80,80,86,0.035) 80%, rgba(9,9,10,0) 100%)",
+            filter: "blur(18px)",
+          }}
+        />
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 top-0 h-[40%] opacity-70"
+          style={{
+            background:
+              "radial-gradient(46% 70% at 50% 0%, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0) 100%)",
+            filter: "blur(30px)",
+          }}
+        />
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 opacity-[0.12] mix-blend-overlay"
+          style={{ backgroundImage: GRAIN, backgroundSize: "160px 160px" }}
+        />
 
         <div className="relative flex w-full max-w-[340px] flex-col items-center text-center">
           <div
@@ -57,7 +82,7 @@ export default function AuthSidePanel({
           </h1>
           <div
             style={rise(2)}
-            className="auth-rise mt-3 max-w-[280px] text-[clamp(13px,1vw,14.5px)] leading-[1.5] text-[rgba(255,255,255,0.78)]"
+            className="auth-rise mt-3 max-w-[280px] text-[clamp(13px,1vw,14.5px)] leading-[1.5] text-[rgba(255,255,255,0.6)]"
           >
             {subtitle}
           </div>
@@ -74,7 +99,7 @@ export default function AuthSidePanel({
                     "auth-rise flex h-[clamp(44px,5.4vh,52px)] items-center gap-3 rounded-[14px] px-3.5 text-left text-[14px] font-medium tracking-[-0.01em] transition-[background-color,color,box-shadow] duration-500",
                     active
                       ? "bg-[#fff] text-[#0c0c0d] shadow-[0_14px_30px_-14px_rgba(0,0,0,0.7)]"
-                      : "bg-[rgba(17,17,17,0.55)] text-[rgba(255,255,255,0.82)] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)] backdrop-blur-md",
+                      : "bg-[rgba(255,255,255,0.07)] text-[rgba(255,255,255,0.6)] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.05)]",
                   ].join(" ")}
                 >
                   <span
@@ -83,7 +108,7 @@ export default function AuthSidePanel({
                       "flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full text-[11px] font-semibold tabular-nums",
                       active
                         ? "bg-[#0c0c0d] text-[#fff]"
-                        : "bg-[rgba(255,255,255,0.18)] text-[rgba(255,255,255,0.85)]",
+                        : "bg-[rgba(255,255,255,0.15)] text-[rgba(255,255,255,0.7)]",
                     ].join(" ")}
                   >
                     {i + 1}
