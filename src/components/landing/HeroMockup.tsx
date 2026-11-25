@@ -1,11 +1,5 @@
 import type { CSSProperties, ReactNode } from "react";
-import {
-  SiFacebook,
-  SiInstagram,
-  SiTiktok,
-  SiX,
-  SiYoutube,
-} from "@icons-pack/react-simple-icons";
+import { SiInstagram, SiTiktok, SiX, SiYoutube } from "@icons-pack/react-simple-icons";
 
 /**
  * Mockup du hero : un téléphone incliné qui montre l'app Stone, entouré
@@ -151,7 +145,6 @@ function Phone() {
           {/* boutons latéraux */}
           <span className="absolute -left-[0.9cqw] top-[22cqw] h-[8cqw] w-[1.2cqw] rounded-l-[0.6cqw] bg-[#9c978f]" />
           <span className="absolute -left-[0.9cqw] top-[33cqw] h-[13cqw] w-[1.2cqw] rounded-l-[0.6cqw] bg-[#9c978f]" />
-          <span className="absolute -right-[0.9cqw] top-[30cqw] h-[16cqw] w-[1.2cqw] rounded-r-[0.6cqw] bg-[#9c978f]" />
 
           {/* cadre titane */}
           <div className="rounded-[15cqw] bg-[#b9b4ac] p-[0.9cqw] shadow-[0_8cqw_10cqw_-5cqw_rgba(0,0,0,0.38),0_2cqw_3cqw_-1cqw_rgba(0,0,0,0.2)]">
