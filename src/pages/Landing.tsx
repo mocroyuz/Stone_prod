@@ -738,12 +738,12 @@ function Hero() {
               fetchPriority="high"
               data-reveal="image"
               data-parallax="0.04"
-              style={d(150)}
+              style={{
+                ...d(150),
+                maskImage: "linear-gradient(to bottom, #000 0%, #000 72%, transparent 100%)",
+                WebkitMaskImage: "linear-gradient(to bottom, #000 0%, #000 72%, transparent 100%)",
+              }}
               className="w-[min(82%,420px)] object-contain drop-shadow-[0_24px_36px_rgba(0,0,0,0.12)] lg:mr-[4%]"
-            />
-            <div
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-x-0 bottom-0 h-52 bg-gradient-to-b from-transparent via-white/75 to-white"
             />
           </div>
         </div>
