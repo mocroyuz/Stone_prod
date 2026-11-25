@@ -677,8 +677,8 @@ function Hero() {
           strength={0.12}
         />
 
-        <div className="relative grid grid-cols-1">
-          <div className="relative z-10 px-5 pb-6 pt-12 sm:px-7 lg:pb-0 lg:pt-[88px]">
+        <div className="relative grid grid-cols-1 items-center lg:grid-cols-[minmax(0,48%)_minmax(0,52%)]">
+          <div className="relative z-10 px-5 pb-6 pt-12 sm:px-7 lg:py-[88px]">
             <div data-reveal="up" style={d(0)}>
               <Badge chip="New" label="Trusted by 45+ expert medical teams" />
             </div>
@@ -727,6 +727,20 @@ function Hero() {
                 Talk to AI doctor
               </a>
             </div>
+          </div>
+
+          <div
+            data-reveal="image"
+            data-parallax="0.04"
+            style={d(150)}
+            className="relative flex w-full items-center justify-center px-3 pb-8 sm:px-7 lg:py-10"
+          >
+            <img
+              src="/images/citrus-enhanced.jpg"
+              alt="Stone social media scheduling interface"
+              className="h-auto w-full max-w-[680px] rounded-2xl object-contain"
+              loading="eager"
+            />
           </div>
         </div>
       </Col>
