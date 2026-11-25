@@ -1166,10 +1166,10 @@ function ReportChart() {
             return (
               <div key={day.day} onPointerEnter={() => setHover(i)} className="flex min-w-0 flex-col items-center gap-2">
                 <div className="flex h-[132px] sm:h-[168px] w-full items-end justify-center gap-[3px]">
-                  <span className="w-full max-w-[12px] rounded-t-[5px] transition-opacity duration-200 motion-reduce:transition-none" style={{ height: Math.max(3, (day.a / max) * 100) + "%", background: "#171717", opacity: on ? 1 : 0.22 }} />
-                  <span className="w-full max-w-[12px] rounded-t-[5px] transition-opacity duration-200 motion-reduce:transition-none" style={{ height: Math.max(3, (day.b / max) * 100) + "%", background: "#c7c7c7", opacity: on ? 1 : 0.5 }} />
+                  <span className="chart-bar w-full max-w-[12px] rounded-t-[5px]" style={{ "--h": Math.max(3, (day.a / max) * 100) + "%", "--i": i * 2, background: "#171717", opacity: on ? 1 : 0.22 } as CSSProperties} />
+                  <span className="chart-bar w-full max-w-[12px] rounded-t-[5px]" style={{ "--h": Math.max(3, (day.b / max) * 100) + "%", "--i": i * 2 + 1, background: "#c7c7c7", opacity: on ? 1 : 0.5 } as CSSProperties} />
                 </div>
-                <span className={`text-[11px] sm:text-[12px] ${on ? "font-medium text-neutral-900" : "text-neutral-400"}`}>{day.day}</span>
+                <span className={`text-[11px] transition-colors duration-500 ease-[cubic-bezier(0.25,1,0.5,1)] sm:text-[12px] ${on ? "font-medium text-neutral-900" : "text-neutral-400"}`}>{day.day}</span>
               </div>
             );
           })}

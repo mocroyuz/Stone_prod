@@ -414,16 +414,17 @@ img,
   filter: none;
 }
 
-/* Barres du graphique : croissance en cascade serrée */
-[data-reveal="chart"] .bar {
-  transform-box: fill-box;
-  transform-origin: 50% 100%;
-  transform: scaleY(0);
-  transition: transform 720ms var(--ease-soft)
-    calc(var(--d) + var(--i, 0) * 14ms);
+/* Barres du graphique : elles partent très bas et montent en cascade ; le
+   survol (opacité) dure 0,5 s. Hauteur finale portée par --h. */
+.chart-bar {
+  height: 4%;
+  transition:
+    height 1250ms var(--ease-out-quint)
+      calc(var(--d, 0ms) + 160ms + var(--i, 0) * 55ms),
+    opacity 500ms var(--ease-soft);
 }
-[data-reveal="chart"][data-revealed] .bar {
-  transform: scaleY(1);
+[data-reveal="chart"][data-revealed] .chart-bar {
+  height: var(--h);
 }
 
 /* Flottement discret, démarré après l'apparition */
@@ -583,9 +584,9 @@ img,
     filter: none !important;
     transition: opacity 320ms ease-out var(--d) !important;
   }
-  [data-reveal] .bar {
-    transform: none !important;
-    transition: none !important;
+  .chart-bar {
+    height: var(--h) !important;
+    transition: opacity 500ms var(--ease-soft) !important;
   }
   .bottom-glow-intro {
     display: none;
@@ -604,8 +605,10 @@ img,
   .bottom-glow-intro {
     display: none;
   }
-  [data-reveal],
-  [data-reveal] .bar {
+  .chart-bar {
+    height: var(--h) !important;
+  }
+  [data-reveal] {
     opacity: 1 !important;
     transform: none !important;
     scale: 1 !important;
