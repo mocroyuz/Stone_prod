@@ -455,6 +455,18 @@ img,
   }
 }
 
+/* Panneau des pages connexion / inscription : entrée en cascade courte. */
+.auth-rise {
+  animation: auth-rise 700ms var(--ease-soft) both;
+  animation-delay: calc(80ms + var(--i, 0) * 70ms);
+}
+@keyframes auth-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
 /* Header + menu mobile */
 @keyframes header-in {
   from {
@@ -588,6 +600,7 @@ img,
   .bottom-glow-intro {
     display: none;
   }
+  .auth-rise,
   .float-soft,
   .header-in,
   .menu-sheet,

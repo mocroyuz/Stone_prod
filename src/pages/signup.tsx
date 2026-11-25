@@ -8,6 +8,7 @@ import {
 } from "react";
 
 import { navigate } from "../hooks/useHashRoute";
+import AuthSidePanel from "../components/AuthSidePanel";
 import { useTheme } from "../hooks/useTheme";
 import { useUser } from "../contexts/UserContext";
 import {
@@ -646,97 +647,11 @@ export default function Signup() {
         ].join(" ")}
       >
         {/* LEFT PANEL */}
-        <div className="auth-panel hidden p-[clamp(12px,1.4vw,22px)] md:block">
-          <div
-            className="relative flex h-full flex-col justify-end overflow-hidden rounded-[clamp(18px,2vw,28px)] p-[clamp(22px,3vw,48px)]"
-            style={{
-              background: isDark
-                ? "radial-gradient(120% 95% at 18% 42%, #9a9a9e 0%, #5d5d62 34%, #2a2a2d 64%, #131315 100%)"
-                : "radial-gradient(120% 95% at 18% 42%, #e8e6e1 0%, #cfccc5 34%, #b3afa6 64%, #8f8b82 100%)",
-            }}
-          >
-            <div
-              className="pointer-events-none absolute inset-0"
-              style={{
-                background: isDark
-                  ? "radial-gradient(85% 68% at 12% 34%, rgba(255,255,255,0.92) 0%, rgba(214,214,218,0.55) 22%, rgba(90,90,95,0.45) 48%, rgba(16,16,18,0.92) 78%, #0b0b0c 100%)"
-                  : "radial-gradient(85% 68% at 12% 34%, rgba(255,255,255,0.98) 0%, rgba(240,238,233,0.7) 22%, rgba(200,196,188,0.5) 48%, rgba(150,146,138,0.85) 78%, #a5a29a 100%)",
-              }}
-            />
-
-            <div
-              className="pointer-events-none absolute inset-0 opacity-70"
-              style={{
-                background:
-                  "linear-gradient(158deg, rgba(255,255,255,0.35) 0%, rgba(255,255,255,0.05) 28%, rgba(0,0,0,0) 52%)",
-              }}
-            />
-
-            <div className="relative">
-              <h1
-                className={[
-                  "font-display text-[clamp(28px,3vw,44px)] leading-[1.15] font-medium tracking-[-0.02em]",
-                  isDark ? "text-white" : "text-neutral-900",
-                ].join(" ")}
-              >
-                Get Started
-                <br />
-                with Us
-              </h1>
-
-              <div className="mt-[clamp(24px,3.2vw,44px)] grid grid-cols-3 gap-[clamp(10px,1vw,14px)]">
-                {STEPS.map((step, index) => {
-                  const active = index === 0;
-
-                  return (
-                    <div
-                      key={step.n}
-                      className={[
-                        "rounded-[clamp(12px,1.2vw,16px)]",
-                        "p-[clamp(12px,1.2vw,18px)]",
-                        "backdrop-blur-sm transition",
-                        active
-                          ? "bg-white shadow-[0_12px_30px_-12px_rgba(0,0,0,0.6)]"
-                          : isDark
-                            ? "bg-white/12 ring-1 ring-white/10"
-                            : "bg-white/60 ring-1 ring-black/5",
-                      ].join(" ")}
-                    >
-                      <span
-                        className={[
-                          "flex h-[clamp(22px,2vw,28px)] w-[clamp(22px,2vw,28px)]",
-                          "items-center justify-center rounded-full",
-                          "text-[clamp(11px,0.95vw,13px)] font-semibold",
-                          active
-                            ? "bg-neutral-900 text-white"
-                            : isDark
-                              ? "bg-white/25 text-white/90"
-                              : "bg-white/80 text-black",
-                        ].join(" ")}
-                      >
-                        {step.n}
-                      </span>
-
-                      <p
-                        className={[
-                          "mt-[clamp(24px,2.6vw,38px)] whitespace-pre-line",
-                          "text-[clamp(11.5px,1vw,14px)] leading-[1.35] font-medium",
-                          active
-                            ? "text-neutral-900"
-                            : isDark
-                              ? "text-white/85"
-                              : "text-neutral-800",
-                        ].join(" ")}
-                      >
-                        {step.label}
-                      </p>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        </div>
+        <AuthSidePanel
+          title="Get Started with Us"
+          subtitle="Complete these easy steps to register your account."
+          steps={STEPS.map((step) => step.label.replace(/\n/g, " "))}
+        />
 
         {/* RIGHT PANEL */}
         <div
