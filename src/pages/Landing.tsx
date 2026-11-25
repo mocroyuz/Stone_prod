@@ -728,7 +728,7 @@ function Hero() {
             </div>
           </div>
 
-          <div className="relative mx-auto flex min-h-[420px] w-full items-center justify-center lg:min-h-[680px] lg:justify-end">
+          <div className="relative mx-auto flex min-h-[420px] w-full items-center justify-center overflow-hidden bg-white lg:min-h-[680px] lg:justify-end">
             <img
               src="/images/iphone-on-stone"
               alt="Smartphone displaying an Instagram design post, standing on a dark stone pedestal against a white background"
@@ -740,6 +740,10 @@ function Hero() {
               data-parallax="0.04"
               style={d(150)}
               className="w-[min(82%,420px)] object-contain drop-shadow-[0_24px_36px_rgba(0,0,0,0.12)] lg:mr-[4%]"
+            />
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-x-0 bottom-0 h-52 bg-gradient-to-b from-transparent via-white/75 to-white"
             />
           </div>
         </div>
