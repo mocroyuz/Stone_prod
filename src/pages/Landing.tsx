@@ -1160,7 +1160,7 @@ function ReportChart() {
             <span className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-[#c7c7c7]" />Comments</span>
           </div>
         </div>
-        <div className="mt-6 grid grid-cols-7 gap-1.5 sm:gap-3" onPointerLeave={() => setHover(null)}>
+        <div data-chart-area className="mt-6 grid grid-cols-7 gap-1.5 sm:gap-3" onPointerLeave={() => setHover(null)}>
           {days.map((day, i) => {
             const on = i === focus;
             return (

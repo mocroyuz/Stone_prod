@@ -414,17 +414,18 @@ img,
   filter: none;
 }
 
-/* Barres du graphique : elles partent très bas et montent en cascade ; le
-   survol (opacité) dure 0,5 s. Hauteur finale portée par --h. */
+/* Barres du graphique : elles partent très bas et montent en cascade chaque
+   fois que la zone entre à l'écran (le hook pose / retire data-revealed) ;
+   le retour à plat est instantané (hors écran). Survol : 0,5 s. */
 .chart-bar {
   height: 4%;
-  transition:
-    height 1250ms var(--ease-out-quint)
-      calc(var(--d, 0ms) + 160ms + var(--i, 0) * 55ms),
-    opacity 500ms var(--ease-soft);
+  transition: opacity 500ms var(--ease-soft);
 }
 [data-reveal="chart"][data-revealed] .chart-bar {
   height: var(--h);
+  transition:
+    height 1250ms var(--ease-out-quint) calc(250ms + var(--i, 0) * 55ms),
+    opacity 500ms var(--ease-soft);
 }
 
 /* Flottement discret, démarré après l'apparition */
