@@ -677,7 +677,7 @@ function Hero() {
           strength={0.12}
         />
 
-        <div className="relative grid lg:grid-cols-[minmax(0,42%)_minmax(0,58%)]">
+        <div className="relative grid grid-cols-1">
           <div className="relative z-10 px-5 pb-6 pt-12 sm:px-7 lg:pb-0 lg:pt-[88px]">
             <div data-reveal="up" style={d(0)}>
               <Badge chip="New" label="Trusted by 45+ expert medical teams" />
@@ -777,16 +777,6 @@ v>
             </div>
           </div>
 
-          <div className="relative mx-auto flex min-h-[420px] w-full items-center justify-center overflow-hidden bg-white lg:min-h-[680px] lg:justify-end">
-            <div
-              data-reveal="image"
-              data-parallax="0.04"
-              style={d(150)}
-              className="relative z-0 w-[min(100%,560px)] lg:mr-[2%]"
-            >
-              <HeroMockup className="w-full" />
-            </div>
-          </div>
         </div>
       </Col>
     </Bleed>
