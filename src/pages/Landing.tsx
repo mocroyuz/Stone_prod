@@ -729,6 +729,54 @@ function Hero() {
             </div>
           </div>
 
+v>
+
+            <h1
+              data-reveal="up"
+              style={d(120)}
+              className="mt-6 text-[clamp(40px,4.9vw,70px)] font-medium leading-[1.06] tracking-[-0.05em] text-[#0c0c0d]"
+            >
+              <span className="block sm:whitespace-nowrap">Revolutionizing</span>
+              <span className="block sm:whitespace-nowrap">Healthcare with AI</span>
+            </h1>
+
+            <p
+              data-reveal="up"
+              style={d(380)}
+              className="mt-7 max-w-[500px] text-[16.5px] leading-[1.7] tracking-[-0.01em] text-neutral-500"
+            >
+              Automated workflows, AI-powered reporting, and real-time decision
+              support so your clinical team can do what they were trained to do.
+            </p>
+
+            <div
+              data-reveal="up"
+              style={d(500)}
+              className="mt-7 flex flex-wrap items-center gap-3"
+            >
+              <a
+                href="/signup"
+                className={[
+                  "inline-flex h-[54px] items-center rounded-full px-8 text-[12px] font-semibold uppercase tracking-[0.03em]",
+                  BTN_DARK,
+                  FOCUS,
+                ].join(" ")}
+              >
+                Start diagnosis
+              </a>
+              <a
+                href="/signin"
+                className={[
+                  "inline-flex h-[54px] items-center rounded-full px-8 text-[12px] font-semibold uppercase tracking-[0.03em]",
+                  BTN_LIGHT,
+                  FOCUS,
+                ].join(" ")}
+              >
+                Talk to AI doctor
+              </a>
+            </div>
+          </div>
+
           <div className="relative mx-auto flex min-h-[420px] w-full items-center justify-center overflow-hidden bg-white lg:min-h-[680px] lg:justify-end">
             <div
               data-reveal="image"
