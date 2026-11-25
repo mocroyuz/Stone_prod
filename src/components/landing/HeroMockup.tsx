@@ -16,41 +16,6 @@ import {
 
 const INK = "#0c0c0d";
 
-type Orbit = {
-  /** diamètre de l'anneau, en % de la scène */
-  size: number;
-  /** durée d'un tour (s) ; négatif = sens inverse */
-  seconds: number;
-  tiles: Array<{
-    angle: number; // degrés, 0 = droite, sens horaire
-    tilt: number; // inclinaison de la pastille
-    bg: string;
-    node: ReactNode;
-    label: string;
-  }>;
-};
-
-const ICON = "h-[6.6cqw] w-[6.6cqw]";
-
-const ORBITS: Orbit[] = [
-  {
-    size: 88,
-    seconds: 110,
-    tiles: [
-      { angle: -50, tilt: 14, bg: "#ffffff", label: "X", node: <SiX color={INK} className={ICON} aria-hidden="true" /> },
-      { angle: 188, tilt: -12, bg: "#fde8ee", label: "Instagram", node: <SiInstagram color="#d6336c" className={ICON} aria-hidden="true" /> },
-      { angle: 122, tilt: 10, bg: "#fde7e7", label: "YouTube", node: <SiYoutube color="#e02424" className={ICON} aria-hidden="true" /> },
-    ],
-  },
-  {
-    size: 124,
-    seconds: -170,
-    tiles: [
-      { angle: 8, tilt: -10, bg: "#e8f0fe", label: "Facebook", node: <SiFacebook color="#1877f2" className={ICON} aria-hidden="true" /> },
-    ],
-  },
-];
-
 const BARS = [38, 62, 46, 78, 54, 92, 66];
 
 function PhoneScreen() {
@@ -213,45 +178,6 @@ export default function HeroMockup({ className = "" }: { className?: string }) {
         WebkitMaskImage: "linear-gradient(to bottom, #000 0%, #000 72%, rgba(0,0,0,0.6) 88%, transparent 100%)",
       }}
     >
-      {/* anneaux d'orbite + pastilles */}
-      {ORBITS.map((orbit, oi) => (
-        <div
-          key={oi}
-          aria-hidden="true"
-          className="mock-orbit absolute left-1/2 top-[46%] rounded-full border border-[rgba(12,12,13,0.11)]"
-          style={
-            {
-              width: `${orbit.size}%`,
-              aspectRatio: "1",
-              marginLeft: `${-orbit.size / 2}%`,
-              marginTop: `${-orbit.size / 2}cqw`,
-              "--orbit-s": `${Math.abs(orbit.seconds)}s`,
-              "--orbit-dir": orbit.seconds < 0 ? "reverse" : "normal",
-              "--orbit-dir-inv": orbit.seconds < 0 ? "normal" : "reverse",
-            } as CSSProperties
-          }
-        >
-          {orbit.tiles.map((tile) => {
-            const a = (tile.angle * Math.PI) / 180;
-            return (
-              <span
-                key={tile.label}
-                className="absolute h-[15cqw] w-[15cqw] -translate-x-1/2 -translate-y-1/2"
-                style={{ left: `${50 + 50 * Math.cos(a)}%`, top: `${50 + 50 * Math.sin(a)}%` }}
-              >
-                <span className="mock-orbit-tile block h-full w-full">
-                  <span
-                    className="flex h-full w-full items-center justify-center rounded-[3.8cqw] shadow-[0_0_0_0.3cqw_rgba(0,0,0,0.08),0_2.4cqw_5cqw_-2cqw_rgba(0,0,0,0.28)]"
-                    style={{ background: tile.bg, transform: `rotate(${tile.tilt}deg)` }}
-                  >
-                    {tile.node}
-                  </span>
-                </span>
-              </span>
-            );
-          })}
-        </div>
-      ))}
 
       <Phone />
     </div>
