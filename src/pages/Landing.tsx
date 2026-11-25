@@ -740,10 +740,10 @@ function Hero() {
               data-parallax="0.04"
               style={{
                 ...d(150),
-                maskImage: "linear-gradient(to bottom, #000 0%, #000 72%, transparent 100%)",
-                WebkitMaskImage: "linear-gradient(to bottom, #000 0%, #000 72%, transparent 100%)",
+                maskImage: "linear-gradient(to bottom, #000 0%, #000 68%, rgba(0,0,0,0.96) 74%, rgba(0,0,0,0.78) 82%, rgba(0,0,0,0.42) 90%, rgba(0,0,0,0.12) 95%, transparent 98%, transparent 100%)",
+                WebkitMaskImage: "linear-gradient(to bottom, #000 0%, #000 68%, rgba(0,0,0,0.96) 74%, rgba(0,0,0,0.78) 82%, rgba(0,0,0,0.42) 90%, rgba(0,0,0,0.12) 95%, transparent 98%, transparent 100%)",
               }}
-              className="w-[min(82%,420px)] object-contain drop-shadow-[0_24px_36px_rgba(0,0,0,0.12)] lg:mr-[4%]"
+              className="w-[min(82%,420px)] object-contain lg:mr-[4%]"
             />
           </div>
         </div>
