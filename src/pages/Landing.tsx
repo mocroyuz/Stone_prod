@@ -677,7 +677,7 @@ function Hero() {
         />
 
         <div className="relative grid lg:grid-cols-[minmax(0,42%)_minmax(0,58%)]">
-          <div className="px-5 pb-6 pt-12 sm:px-7 lg:pb-0 lg:pt-[88px]">
+          <div className="relative z-10 px-5 pb-6 pt-12 sm:px-7 lg:pb-0 lg:pt-[88px]">
             <div data-reveal="up" style={d(0)}>
               <Badge chip="New" label="Trusted by 45+ expert medical teams" />
             </div>
@@ -743,7 +743,7 @@ function Hero() {
                 maskImage: "linear-gradient(to bottom, #000 0%, #000 66%, rgba(0,0,0,0.98) 72%, rgba(0,0,0,0.90) 80%, rgba(0,0,0,0.70) 88%, rgba(0,0,0,0.38) 94%, rgba(0,0,0,0.12) 98%, transparent 100%)",
                 WebkitMaskImage: "linear-gradient(to bottom, #000 0%, #000 66%, rgba(0,0,0,0.98) 72%, rgba(0,0,0,0.90) 80%, rgba(0,0,0,0.70) 88%, rgba(0,0,0,0.38) 94%, rgba(0,0,0,0.12) 98%, transparent 100%)",
               }}
-              className="w-[min(100%,560px)] object-contain lg:mr-[2%]"
+              className="relative z-0 w-[min(100%,560px)] object-contain lg:mr-[2%]"
             />
           </div>
         </div>
