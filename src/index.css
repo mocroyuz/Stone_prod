@@ -584,10 +584,6 @@ img,
     filter: none !important;
     transition: opacity 320ms ease-out var(--d) !important;
   }
-  .chart-bar {
-    height: var(--h) !important;
-    transition: opacity 500ms var(--ease-soft) !important;
-  }
   .bottom-glow-intro {
     display: none;
   }

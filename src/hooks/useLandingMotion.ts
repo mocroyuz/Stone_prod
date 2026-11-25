@@ -40,20 +40,31 @@ export function useLandingMotion(rootRef: RefObject<HTMLElement | null>) {
     if (!("IntersectionObserver" in window)) {
       for (const el of targets) el.setAttribute("data-revealed", "");
     } else {
-      const io = new IntersectionObserver(
-        (entries) => {
-          for (const entry of entries) {
-            if (!entry.isIntersecting) continue;
-            entry.target.setAttribute("data-revealed", "");
-            io.unobserve(entry.target);
-          }
-        },
-        { rootMargin: "0px 0px -8% 0px", threshold: 0.01 },
-      );
+      const reveal = (entries: IntersectionObserverEntry[], o: IntersectionObserver) => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue;
+          entry.target.setAttribute("data-revealed", "");
+          o.unobserve(entry.target);
+        }
+      };
+      const io = new IntersectionObserver(reveal, {
+        rootMargin: "0px 0px -8% 0px",
+        threshold: 0.01,
+      });
+      // Les graphiques ne démarrent que lorsqu'ils sont presque entièrement
+      // à l'écran : sinon les barres montent hors champ, avant d'être vues.
+      const ioChart = new IntersectionObserver(reveal, {
+        rootMargin: "0px 0px -6% 0px",
+        threshold: 0.7,
+      });
       for (const el of targets) {
-        if (!el.hasAttribute("data-revealed")) io.observe(el);
+        if (el.hasAttribute("data-revealed")) continue;
+        (el.dataset.reveal === "chart" ? ioChart : io).observe(el);
       }
-      cleanups.push(() => io.disconnect());
+      cleanups.push(() => {
+        io.disconnect();
+        ioChart.disconnect();
+      });
     }
 
     /* ---------- Halo blanc du bas : s'efface en fin de page ---------- */
