@@ -738,12 +738,8 @@ function Hero() {
               fetchPriority="high"
               data-reveal="image"
               data-parallax="0.04"
-              style={{
-                ...d(150),
-                maskImage: "linear-gradient(to bottom, #000 0%, #000 66%, rgba(0,0,0,0.98) 72%, rgba(0,0,0,0.90) 80%, rgba(0,0,0,0.70) 88%, rgba(0,0,0,0.38) 94%, rgba(0,0,0,0.12) 98%, transparent 100%)",
-                WebkitMaskImage: "linear-gradient(to bottom, #000 0%, #000 66%, rgba(0,0,0,0.98) 72%, rgba(0,0,0,0.90) 80%, rgba(0,0,0,0.70) 88%, rgba(0,0,0,0.38) 94%, rgba(0,0,0,0.12) 98%, transparent 100%)",
-              }}
-              className="w-[min(82%,420px)] object-contain lg:mr-[4%]"
+              style={d(150)}
+              className="w-[min(100%,560px)] object-contain lg:mr-[2%]"
             />
           </div>
         </div>
