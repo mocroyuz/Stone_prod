@@ -730,7 +730,7 @@ function Hero() {
 
           <div className="relative mx-auto flex min-h-[420px] w-full items-center justify-center lg:min-h-[680px] lg:justify-end">
             <img
-              src="/images/iphone-on-stone.webp"
+              src="/images/iphone-on-stone"
               alt="Smartphone displaying an Instagram design post, standing on a dark stone pedestal against a white background"
               width={320}
               height={400}
