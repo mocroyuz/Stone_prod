@@ -728,80 +728,19 @@ function Hero() {
             </div>
           </div>
 
-          {/* Composition visuelle : tout est positionné en % pour rester
-              proportionnel à toutes les largeurs. */}
-          <div className="relative mx-auto aspect-[760/840] w-full max-w-[560px] lg:max-w-none">
+          <div className="relative mx-auto flex min-h-[420px] w-full items-center justify-center lg:min-h-[680px] lg:justify-end">
             <img
-              src={IMG.heroPortrait}
-              alt="Profile portrait of a woman with a shaved head, eyes closed"
-              width={820}
-              height={896}
+              src="/images/instagram-design-swaps.webp"
+              alt="Smartphone displaying an Instagram design post, standing on a dark stone pedestal against a white background"
+              width={320}
+              height={400}
               decoding="async"
               fetchPriority="high"
               data-reveal="image"
-              data-parallax="0.07"
+              data-parallax="0.04"
               style={d(150)}
-              className="absolute right-0 top-[1.5%] w-[82%] mix-blend-multiply lg:w-[78%]"
+              className="w-[min(82%,420px)] object-contain drop-shadow-[0_24px_36px_rgba(0,0,0,0.12)] lg:mr-[4%]"
             />
-
-            <div
-              data-reveal="up"
-              data-parallax="-0.04"
-              style={d(650)}
-              className={[
-                "absolute bottom-[16%] left-[2%] w-[36%] rounded-[20px] p-2 lg:bottom-auto lg:left-[12.5%] lg:top-[54%] lg:w-[28.5%]",
-                SOFT_CARD,
-              ].join(" ")}
-            >
-              <img
-                src={IMG.heroCard}
-                alt=""
-                width={355}
-                height={275}
-                loading="lazy"
-                className="aspect-[71/55] w-full rounded-[12px] object-cover"
-              />
-              <div className="px-1 pb-1 pt-2.5">
-                <p className="text-[15px] font-medium leading-none tracking-[-0.03em] text-neutral-900">
-                  5,000+
-                </p>
-                <p className="mt-1.5 text-[11px] leading-none text-neutral-400">
-                  Successful Treatment
-                </p>
-              </div>
-            </div>
-
-            <div
-              data-reveal="up"
-              data-parallax="-0.075"
-              style={d(800)}
-              className={[
-                "absolute bottom-[2%] right-[2%] flex items-center gap-3 rounded-full py-2 pl-2.5 pr-5 lg:bottom-auto lg:right-[11%] lg:top-[75%]",
-                SOFT_CARD,
-              ].join(" ")}
-            >
-              <div className="flex -space-x-2.5">
-                {IMG.avatars.map((src) => (
-                  <img
-                    key={src}
-                    src={src}
-                    alt=""
-                    width={112}
-                    height={112}
-                    loading="lazy"
-                    className="h-8 w-8 rounded-full object-cover ring-2 ring-white"
-                  />
-                ))}
-              </div>
-              <div>
-                <p className="text-[15px] font-medium leading-none tracking-[-0.03em] text-neutral-900">
-                  45+
-                </p>
-                <p className="mt-1 text-[10.5px] leading-none text-neutral-400">
-                  Expert Doctors
-                </p>
-              </div>
-            </div>
           </div>
         </div>
       </Col>
