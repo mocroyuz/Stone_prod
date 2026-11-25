@@ -467,6 +467,32 @@ img,
   }
 }
 
+/* Hero : anneaux d'orbite qui tournent très lentement ; les pastilles
+   tournent en sens inverse pour rester droites ; le téléphone flotte. */
+.mock-orbit {
+  animation: mock-spin var(--orbit-s, 120s) linear infinite var(--orbit-dir, normal);
+}
+.mock-orbit-tile {
+  animation: mock-spin var(--orbit-s, 120s) linear infinite var(--orbit-dir-inv, reverse);
+}
+@keyframes mock-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.mock-bob {
+  animation: mock-bob 8s ease-in-out infinite;
+}
+@keyframes mock-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-1.6%);
+  }
+}
+
 /* Header + menu mobile */
 @keyframes header-in {
   from {

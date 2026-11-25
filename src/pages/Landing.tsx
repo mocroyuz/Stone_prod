@@ -31,6 +31,7 @@ import {
 } from "../components/landing/LandingGraphics";
 import { useLandingMotion } from "../hooks/useLandingMotion";
 import { CHANNELS } from "../data/channelConfig";
+import HeroMockup from "../components/landing/HeroMockup";
 import { Icon } from "@iconify/react";
 import {
   SiClaude,
@@ -729,22 +730,14 @@ function Hero() {
           </div>
 
           <div className="relative mx-auto flex min-h-[420px] w-full items-center justify-center overflow-hidden bg-white lg:min-h-[680px] lg:justify-end">
-            <img
-              src="/images/hero-stone.png"
-              alt="Smartphone displaying an Instagram design post, standing on a dark stone pedestal against a white background"
-              width={320}
-              height={400}
-              decoding="async"
-              fetchPriority="high"
+            <div
               data-reveal="image"
               data-parallax="0.04"
-              style={{
-                ...d(150),
-                maskImage: "linear-gradient(to bottom, #000 0%, #000 66%, rgba(0,0,0,0.98) 72%, rgba(0,0,0,0.90) 80%, rgba(0,0,0,0.70) 88%, rgba(0,0,0,0.38) 94%, rgba(0,0,0,0.12) 98%, transparent 100%)",
-                WebkitMaskImage: "linear-gradient(to bottom, #000 0%, #000 66%, rgba(0,0,0,0.98) 72%, rgba(0,0,0,0.90) 80%, rgba(0,0,0,0.70) 88%, rgba(0,0,0,0.38) 94%, rgba(0,0,0,0.12) 98%, transparent 100%)",
-              }}
-              className="relative z-0 w-[min(100%,560px)] object-contain lg:mr-[2%]"
-            />
+              style={d(150)}
+              className="relative z-0 w-[min(100%,560px)] lg:mr-[2%]"
+            >
+              <HeroMockup className="w-full" />
+            </div>
           </div>
         </div>
       </Col>
