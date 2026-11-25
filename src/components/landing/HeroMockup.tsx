@@ -171,7 +171,7 @@ export default function HeroMockup({ className = "" }: { className?: string }) {
   return (
     <div
       role="img"
-      aria-label="The Stone app on a smartphone, surrounded by Instagram, X, YouTube and Facebook"
+      aria-label="The Stone app displayed on a smartphone"
       className={["@container relative aspect-[1/1.12] overflow-hidden [container-type:inline-size]", className].join(" ")}
       style={{
         maskImage: "linear-gradient(to bottom, #000 0%, #000 72%, rgba(0,0,0,0.6) 88%, transparent 100%)",
