@@ -310,7 +310,7 @@ export default function Signin() {
     <main
       className={[
         "auth-page relative min-h-screen w-full transition-colors duration-500",
-        isDark ? "auth-dark bg-[#09090a]" : "auth-light bg-[#f3f1ed]",
+        isDark ? "auth-dark bg-[#09090a]" : "auth-light bg-[#ffffff]",
       ].join(" ")}
     >
       <div className="absolute top-[clamp(16px,2vw,30px)] right-[clamp(16px,2vw,30px)] z-20 flex gap-2">
@@ -339,7 +339,7 @@ export default function Signin() {
       <div
         className={[
           "grid min-h-screen w-full md:grid-cols-2",
-          isDark ? "bg-[#09090a]" : "bg-[#f3f1ed]",
+          isDark ? "bg-[#09090a]" : "bg-[#ffffff]",
         ].join(" ")}
       >
         <AuthSidePanel
@@ -355,7 +355,7 @@ export default function Signin() {
         <div
           className={[
             "flex items-center justify-center px-[clamp(20px,4vw,56px)] py-[clamp(36px,5vw,64px)]",
-            isDark ? "bg-[#09090a]" : "bg-[#f3f1ed]",
+            isDark ? "bg-[#09090a]" : "bg-[#ffffff]",
           ].join(" ")}
         >
           <div className="w-full max-w-[380px]">

@@ -36,7 +36,7 @@ export default function AuthSidePanel({
           className="pointer-events-none absolute inset-x-0 top-0 h-[78%]"
           style={{
             background:
-              "radial-gradient(78% 74% at 50% 0%, rgba(255,255,255,0.62) 0%, rgba(226,226,232,0.45) 16%, rgba(190,190,198,0.3) 32%, rgba(150,150,158,0.18) 48%, rgba(110,110,118,0.09) 64%, rgba(80,80,86,0.035) 80%, rgba(9,9,10,0) 100%)",
+              "radial-gradient(78% 74% at 50% 0%, rgba(255,255,255,0.97) 0%, rgba(255,255,255,0.8) 14%, rgba(250,250,252,0.58) 30%, rgba(236,236,240,0.36) 46%, rgba(200,200,208,0.18) 62%, rgba(150,150,158,0.07) 80%, rgba(9,9,10,0) 100%)",
             filter: "blur(18px)",
           }}
         />
@@ -45,7 +45,7 @@ export default function AuthSidePanel({
           className="pointer-events-none absolute inset-x-0 top-0 h-[40%] opacity-70"
           style={{
             background:
-              "radial-gradient(46% 70% at 50% 0%, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0) 100%)",
+              "radial-gradient(46% 70% at 50% 0%, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0) 100%)",
             filter: "blur(30px)",
           }}
         />
