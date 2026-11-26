@@ -31,7 +31,6 @@ import {
 } from "../components/landing/LandingGraphics";
 import { useLandingMotion } from "../hooks/useLandingMotion";
 import { CHANNELS } from "../data/channelConfig";
-import HeroMockup from "../components/landing/HeroMockup";
 import { Icon } from "@iconify/react";
 import {
   SiClaude,
