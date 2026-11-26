@@ -671,7 +671,7 @@ function Hero() {
   return (
     <Bleed>
       <Col className="relative overflow-hidden">
-        <div className="relative grid grid-cols-1 items-center lg:grid-cols-[minmax(0,48%)_minmax(0,52%)]">
+        <div className="relative grid grid-cols-1 items-center">
           <div className="relative z-10 px-5 pb-6 pt-12 sm:px-7 lg:py-[88px]">
             <div data-reveal="up" style={d(0)}>
               <Badge chip="New" label="Trusted by 45+ expert medical teams" />
@@ -724,28 +724,7 @@ function Hero() {
           </div>
 
           <div
-            data-reveal="image"
-            data-parallax="0.04"
-            style={d(150)}
-            className="relative flex w-full items-center justify-end pl-3 pr-0 pb-8 sm:pl-7 sm:pr-0 lg:py-10"
-          >
-            <div className="relative w-full max-w-[680px] shrink-0">
-              <img
-                src="/images/hero.jpg"
-                alt="Stone social media scheduling interface"
-                className="relative z-10 h-auto w-full rounded-2xl object-contain"
-                style={{
-                  WebkitMaskImage:
-                    "linear-gradient(to bottom, #000 0%, #000 72%, rgba(0,0,0,0.97) 79%, rgba(0,0,0,0.88) 85%, rgba(0,0,0,0.72) 90%, rgba(0,0,0,0.48) 94%, rgba(0,0,0,0.2) 98%, transparent 100%)",
-                  maskImage:
-                    "linear-gradient(to bottom, #000 0%, #000 72%, rgba(0,0,0,0.97) 79%, rgba(0,0,0,0.88) 85%, rgba(0,0,0,0.72) 90%, rgba(0,0,0,0.48) 94%, rgba(0,0,0,0.2) 98%, transparent 100%)",
-                }}
-                loading="eager"
-              />
-            </div>
-          </div>
-        </div>
-      </Col>
+            data-reveal="ima>
     </Bleed>
   );
 }
