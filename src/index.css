@@ -443,15 +443,37 @@ img,
     var(--float-delay, 1.4s) infinite;
 }
 
-/* Assistants (Landing) : l'anneau autour du logo de l'IA active se remplit. */
+/* Assistants (Landing) : l'anneau autour du logo de l'IA au travail se remplit
+   (ai-ring-run est posée quand elle passe au premier plan) ; le point de la
+   pastille « en cours » pulse doucement. Circonférence = 2π × 24. */
 .ai-ring {
-  stroke-dasharray: 138.2;
-  stroke-dashoffset: 138.2;
+  stroke-dasharray: 150.8;
+  stroke-dashoffset: 150.8;
+}
+.ai-ring-run {
   animation: ai-ring 3.2s linear forwards;
 }
 @keyframes ai-ring {
   to {
     stroke-dashoffset: 0;
+  }
+}
+.ai-pulse {
+  animation: ai-pulse 1.4s ease-in-out infinite;
+}
+@keyframes ai-pulse {
+  50% {
+    opacity: 0.3;
+  }
+}
+/* « Réduire les animations » : anneau plein et fixe, point sans pulsation. */
+@media (prefers-reduced-motion: reduce) {
+  .ai-ring {
+    stroke-dashoffset: 0;
+  }
+  .ai-ring-run,
+  .ai-pulse {
+    animation: none;
   }
 }
 

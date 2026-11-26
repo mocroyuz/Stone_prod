@@ -12,6 +12,7 @@ import {
   Asterisk,
   Bot,
   ChartColumn,
+  Check,
   ClipboardList,
   Ellipsis,
   Globe,
@@ -878,83 +879,229 @@ function Features() {
    WORKFLOWS (deux cartes)
 ============================================================ */
 
-/* Assistants : pastilles flottantes, même vocabulaire que le hero (cartes
-   blanches arrondies, pastille active noire comme la nav, puce rose « New »).
-   Une IA travaille à la fois ; l'anneau autour de son logo se remplit, puis le
-   relais passe à la suivante. */
+/* Assistants : une « roue » verticale qui tourne sans fin. L'IA au travail est
+   toujours au centre, en pastille noire (comme la nav du hero) avec l'anneau
+   qui se remplit autour de son logo ; celle qui vient de finir passe au-dessus
+   avec une coche, la suivante attend en dessous. Au tick suivant tout remonte
+   d'un cran : la boucle se lit d'elle-même. */
 const AI_ROWS: Array<{ key: string; name: string; role: string; doing: string; icon: ReactNode }> = [
-  { key: "claude", name: "Claude", role: "Writes captions in your voice", doing: "Drafting", icon: <SiClaude color="currentColor" className="h-[18px] w-[18px]" aria-hidden="true" /> },
-  { key: "chatgpt", name: "ChatGPT", role: "Turns one idea into a series", doing: "Writing", icon: <Icon icon="simple-icons:openai" color="currentColor" className="h-[18px] w-[18px]" aria-hidden="true" /> },
-  { key: "gemini", name: "Gemini", role: "Adapts media to each channel", doing: "Resizing", icon: <SiGooglegemini color="currentColor" className="h-[18px] w-[18px]" aria-hidden="true" /> },
-  { key: "perplexity", name: "Perplexity", role: "Researches before you post", doing: "Searching", icon: <SiPerplexity color="currentColor" className="h-[18px] w-[18px]" aria-hidden="true" /> },
+  { key: "claude", name: "Claude", role: "Writes captions in your voice", doing: "Drafting", icon: <SiClaude color="currentColor" className="h-5 w-5" aria-hidden="true" /> },
+  { key: "chatgpt", name: "ChatGPT", role: "Turns one idea into a series", doing: "Writing", icon: <Icon icon="simple-icons:openai" color="currentColor" className="h-5 w-5" aria-hidden="true" /> },
+  { key: "gemini", name: "Gemini", role: "Adapts media to each channel", doing: "Resizing", icon: <SiGooglegemini color="currentColor" className="h-5 w-5" aria-hidden="true" /> },
+  { key: "perplexity", name: "Perplexity", role: "Researches before you post", doing: "Searching", icon: <SiPerplexity color="currentColor" className="h-5 w-5" aria-hidden="true" /> },
 ];
 const AI_STEP_MS = 3200;
+/** Pas vertical entre deux pastilles : hauteur (64 px) + espace (12 px). */
+const AI_PITCH = 76;
+/** Fondu haut / bas de la roue : les pastilles s'effacent en sortant. */
+const AI_FADE =
+  "linear-gradient(to bottom, transparent 0%, #000 17%, #000 83%, transparent 100%)";
+/* Quatre couches d'ombre dans les deux états (même nombre, même sens) : le
+   navigateur peut ainsi les interpoler au lieu de basculer d'un coup. */
+const AI_PILL_ON =
+  "bg-[#0c0c0d] shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_0_0_1px_rgba(0,0,0,0),0_1px_2px_rgba(0,0,0,0.28),0_18px_32px_-14px_rgba(0,0,0,0.6)]";
+const AI_PILL_OFF =
+  "bg-white shadow-[inset_0_1px_0_rgba(255,255,255,0),0_0_0_1px_rgba(0,0,0,0.05),0_2px_4px_rgba(0,0,0,0.03),0_16px_32px_-16px_rgba(0,0,0,0.14)]";
+
+const mod = (a: number, m: number) => ((a % m) + m) % m;
+
+/** Aspect d'une pastille selon son rang r : 0 = au travail, < 0 = a fini, > 0 = en attente. */
+function aiLook(r: number) {
+  if (r === 0) return { scale: 1, opacity: 1 };
+  if (r === -1) return { scale: 0.93, opacity: 0.72 };
+  if (r === 1) return { scale: 0.93, opacity: 0.92 };
+  return { scale: 0.84, opacity: 0 };
+}
 
 function OrbitVisual() {
-  const [active, setActive] = useState(0);
+  const stageRef = useRef<HTMLDivElement>(null);
+  const [tick, setTick] = useState(0);
+  const [running, setRunning] = useState(false);
+
+  /* La boucle démarre quand le visuel entre à l'écran : on voit toujours la
+     première IA se mettre au travail. Avec « réduire les animations », on
+     garde l'image fixe. */
   useEffect(() => {
-    const id = window.setInterval(() => setActive((i) => (i + 1) % AI_ROWS.length), AI_STEP_MS);
-    return () => window.clearInterval(id);
+    const el = stageRef.current;
+    if (!el || !("IntersectionObserver" in window)) return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry?.isIntersecting) return;
+        setRunning(true);
+        io.disconnect();
+      },
+      { threshold: 0.4 },
+    );
+    io.observe(el);
+    return () => io.disconnect();
   }, []);
 
+  useEffect(() => {
+    if (!running) return;
+    const id = window.setInterval(() => setTick((t) => t + 1), AI_STEP_MS);
+    return () => window.clearInterval(id);
+  }, [running]);
+
+  const n = AI_ROWS.length;
+  const current = mod(tick, n);
+  /* Fenêtre glissante autour de l'IA active. Chaque pastille garde sa clé (son
+     rang absolu j) : le navigateur anime son déplacement au lieu de la recréer,
+     et celle qui sort par le haut est déjà invisible quand elle disparaît. */
+  const items = [-2, -1, 0, 1, 2, 3].map((r) => ({
+    r,
+    j: tick + r,
+    row: AI_ROWS[mod(tick + r, n)],
+  }));
+
   return (
-    <div className="relative flex h-[360px] items-center justify-center overflow-hidden bg-[#f6f6f6] px-4 sm:h-[448px] sm:px-8">
+    <div ref={stageRef} className="relative h-[360px] overflow-hidden bg-[#f6f6f6] sm:h-[448px]">
       <DotField
         className="left-1/2 top-1/2 h-[340px] w-[440px] -translate-x-1/2 -translate-y-1/2"
         strength={0.12}
         mask="radial-gradient(ellipse, #000 15%, transparent 76%)"
       />
-      <ul className="relative flex w-full max-w-[340px] flex-col gap-3">
-        {AI_ROWS.map((row, i) => {
-          const on = i === active;
-          return (
-            <li
-              key={row.key}
-              data-reveal="up"
-              style={d(i * 110)}
-              className={i % 2 === 0 ? "-translate-x-2.5 sm:-translate-x-6" : "translate-x-2.5 sm:translate-x-6"}
-            >
-              <div
+
+      <div
+        data-reveal="up"
+        style={{ ...d(120), maskImage: AI_FADE, WebkitMaskImage: AI_FADE }}
+        className="absolute inset-0"
+      >
+        <ul
+          aria-hidden="true"
+          className="absolute left-1/2 top-1/2 h-0 w-[calc(100%-32px)] max-w-[380px] -translate-x-1/2"
+        >
+          {items.map(({ r, j, row }) => {
+            const on = r === 0;
+            const { scale, opacity } = aiLook(r);
+            return (
+              <li
+                key={j}
                 className={[
-                  "flex h-[60px] items-center gap-3 rounded-full py-2.5 pl-2.5 pr-3.5 transition-[background-color,box-shadow] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]",
-                  on
-                    ? "bg-[#0c0c0d] shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_1px_2px_rgba(0,0,0,0.28),0_14px_26px_-12px_rgba(0,0,0,0.55)]"
-                    : "bg-white shadow-[0_0_0_1px_rgba(0,0,0,0.05),0_2px_4px_rgba(0,0,0,0.03),0_16px_32px_-16px_rgba(0,0,0,0.14)]",
+                  "absolute inset-x-0 top-0 -mt-8 transition-[transform,opacity] duration-[900ms]",
+                  EASE_SOFT,
                 ].join(" ")}
+                style={{
+                  transform: `translateY(${r * AI_PITCH}px) scale(${scale})`,
+                  opacity,
+                  zIndex: 10 - Math.abs(r),
+                }}
               >
-                <span
+                <div
                   className={[
-                    "relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-[background-color,color,box-shadow] duration-500",
-                    on
-                      ? "bg-white/10 text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.14)]"
-                      : "bg-[#f6f6f6] text-[#0c0c0d] shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)]",
+                    "flex h-16 items-center rounded-full py-2.5 pl-2.5 pr-4 transition-[background-color,box-shadow] duration-500",
+                    EASE_SOFT,
+                    on ? AI_PILL_ON : AI_PILL_OFF,
                   ].join(" ")}
                 >
-                  {row.icon}
-                  {on && (
-                    <svg key={active} aria-hidden="true" viewBox="0 0 46 46" className="absolute -inset-[3px] h-[46px] w-[46px] -rotate-90">
-                      <circle className="ai-ring" cx="23" cy="23" r="22" fill="none" stroke="rgba(255,255,255,0.85)" strokeWidth="1.5" strokeLinecap="round" />
+                  <span
+                    className={[
+                      "relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition-[background-color,color,box-shadow] duration-500",
+                      on
+                        ? "bg-white/10 text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.14)]"
+                        : "bg-[#f6f6f6] text-[#0c0c0d] shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)]",
+                    ].join(" ")}
+                  >
+                    {row.icon}
+                    {/* Anneau de progression : une piste fixe + l'arc qui se remplit.
+                        Il part dès que l'IA passe au premier plan (ai-ring-run). */}
+                    <svg
+                      aria-hidden="true"
+                      viewBox="0 0 50 50"
+                      className={[
+                        "absolute -inset-[3px] h-[50px] w-[50px] -rotate-90 transition-opacity duration-500",
+                        on ? "opacity-100" : "opacity-0",
+                      ].join(" ")}
+                    >
+                      <circle cx="25" cy="25" r="24" fill="none" stroke="rgba(255,255,255,0.16)" strokeWidth="1.5" />
+                      <circle
+                        className={r <= 0 && running ? "ai-ring ai-ring-run" : "ai-ring"}
+                        cx="25"
+                        cy="25"
+                        r="24"
+                        fill="none"
+                        stroke="rgba(255,255,255,0.9)"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                      />
                     </svg>
-                  )}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className={["block text-[13.5px] font-medium leading-tight tracking-[-0.02em] transition-colors duration-500", on ? "text-white" : "text-[#0c0c0d]"].join(" ")}>
-                    {row.name}
+                    {/* Coche « terminé » sur la pastille qui vient de passer la main. */}
+                    <span
+                      aria-hidden="true"
+                      className={[
+                        "absolute -bottom-0.5 -right-0.5 flex h-[18px] w-[18px] items-center justify-center rounded-full bg-[#0c0c0d] text-white ring-2 ring-white transition-[opacity,scale] duration-500",
+                        r === -1 ? "scale-100 opacity-100" : "scale-50 opacity-0",
+                      ].join(" ")}
+                    >
+                      <Check className="h-2.5 w-2.5" strokeWidth={3} />
+                    </span>
                   </span>
-                  <span className={["mt-0.5 block truncate text-[11.5px] leading-snug transition-colors duration-500", on ? "text-white/60" : "text-neutral-500"].join(" ")}>
-                    {row.role}
+                  <span className="ml-3 min-w-0 flex-1">
+                    <span
+                      className={[
+                        "block truncate text-[14.5px] font-medium leading-tight tracking-[-0.02em] transition-colors duration-500",
+                        on ? "text-white" : "text-[#0c0c0d]",
+                      ].join(" ")}
+                    >
+                      {row.name}
+                    </span>
+                    <span
+                      className={[
+                        "mt-0.5 block truncate text-[12px] leading-snug transition-colors duration-500",
+                        on ? "text-white/60" : "text-neutral-500",
+                      ].join(" ")}
+                    >
+                      {row.role}
+                    </span>
                   </span>
-                </span>
-                {on && (
-                  <span className="shrink-0 rounded-full bg-[#f7cfcf] px-2.5 py-[3px] text-[10px] font-semibold uppercase tracking-[0.04em] text-[#9b3a3a] shadow-[inset_0_0_0_1px_rgba(155,58,58,0.12)]">
-                    {row.doing}
+                  <span
+                    aria-hidden="true"
+                    className={[
+                      "shrink-0 overflow-hidden whitespace-nowrap transition-[max-width,margin,opacity] duration-500",
+                      EASE_SOFT,
+                      on ? "ml-3 max-w-[120px] opacity-100" : "ml-0 max-w-0 opacity-0",
+                    ].join(" ")}
+                  >
+                    <span className="flex items-center gap-1.5 rounded-full bg-[#f7cfcf] px-2.5 py-[3px] text-[10px] font-semibold uppercase tracking-[0.04em] text-[#9b3a3a] shadow-[inset_0_0_0_1px_rgba(155,58,58,0.12)]">
+                      <span className="ai-pulse h-1.5 w-1.5 rounded-full bg-[#9b3a3a]" />
+                      {row.doing}
+                    </span>
                   </span>
-                )}
-              </div>
-            </li>
-          );
-        })}
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+
+      {/* La roue est décorative et change en continu : les lecteurs d'écran
+          reçoivent la liste fixe des quatre assistants. */}
+      <ul className="sr-only">
+        {AI_ROWS.map((row) => (
+          <li key={row.key}>
+            {row.name} : {row.role}
+          </li>
+        ))}
       </ul>
+
+      {/* Pagination : où on en est dans la boucle. */}
+      <div
+        aria-hidden="true"
+        data-reveal="fade"
+        style={d(420)}
+        className="absolute inset-x-0 bottom-6 flex items-center justify-center gap-1.5"
+      >
+        {AI_ROWS.map((row, i) => (
+          <span
+            key={row.key}
+            className={[
+              "h-1.5 rounded-full transition-[width,background-color] duration-500",
+              EASE_SOFT,
+              i === current ? "w-6 bg-[#0c0c0d]" : "w-1.5 bg-black/15",
+            ].join(" ")}
+          />
+        ))}
+      </div>
     </div>
   );
 }
