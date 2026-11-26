@@ -671,12 +671,6 @@ function Hero() {
   return (
     <Bleed>
       <Col className="relative overflow-hidden">
-        <DotField
-          className="left-0 top-0 h-[300px] w-[420px]"
-          mask="radial-gradient(ellipse at 20% 30%, #000 0%, transparent 70%)"
-          strength={0.12}
-        />
-
         <div className="relative grid grid-cols-1 items-center lg:grid-cols-[minmax(0,48%)_minmax(0,52%)]">
           <div className="relative z-10 px-5 pb-6 pt-12 sm:px-7 lg:py-[88px]">
             <div data-reveal="up" style={d(0)}>
@@ -741,10 +735,9 @@ function Hero() {
               className="relative z-10 h-auto w-full max-w-[680px] rounded-2xl object-contain"
               loading="eager"
             />
-            <DotField
-              className="bottom-8 right-0 z-20 h-[300px] w-[420px] sm:right-7 lg:bottom-10"
-              mask="radial-gradient(ellipse at 80% 80%, #000 0%, transparent 70%)"
-              strength={0.12}
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute bottom-8 left-0 right-0 z-20 h-[180px] bg-gradient-to-t from-white via-white/75 to-transparent sm:bottom-8 lg:bottom-10"
             />
           </div>
         </div>
