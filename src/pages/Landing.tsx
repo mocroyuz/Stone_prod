@@ -727,12 +727,12 @@ function Hero() {
             data-reveal="image"
             data-parallax="0.04"
             style={d(150)}
-            className="relative flex w-full items-center justify-end pl-3 pr-0 pb-8 sm:pl-7 sm:pr-0 lg:py-10"
+            className="relative flex w-full items-center justify-center pl-0 pr-0 pb-4 sm:pl-0 lg:py-4 lg:-ml-8"
           >
             <img
               src="/images/hero.png"
               alt="Stone social media scheduling interface"
-              className="relative z-10 h-auto w-full max-w-[680px] rounded-2xl object-contain"
+              className="relative z-10 h-auto w-full max-w-[860px] scale-[1.04] rounded-2xl object-contain lg:max-w-none lg:w-[115%]"
               style={{
                 WebkitMaskImage:
                   "linear-gradient(to bottom, #000 0%, #000 68%, rgba(0,0,0,0.98) 75%, rgba(0,0,0,0.91) 82%, rgba(0,0,0,0.76) 88%, rgba(0,0,0,0.52) 93%, rgba(0,0,0,0.25) 97%, transparent 100%)",
