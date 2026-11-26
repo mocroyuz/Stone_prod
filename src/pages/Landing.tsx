@@ -723,8 +723,8 @@ function Hero() {
             </div>
           </div>
 
-          <div
-            data-reveal="ima>
+        </div>
+      </Col>
     </Bleed>
   );
 }
