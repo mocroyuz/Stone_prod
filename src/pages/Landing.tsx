@@ -672,8 +672,8 @@ function Hero() {
     <Bleed>
       <Col className="relative overflow-hidden">
         <DotField
-          className="left-0 top-0 h-[300px] w-[420px]"
-          mask="radial-gradient(ellipse at 20% 30%, #000 0%, transparent 70%)"
+          className="bottom-[220px] right-0 h-[300px] w-[420px] sm:bottom-[260px]"
+          mask="radial-gradient(ellipse at 80% 80%, #000 0%, transparent 70%)"
           strength={0.12}
         />
 
