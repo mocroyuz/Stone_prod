@@ -735,9 +735,9 @@ function Hero() {
               className="relative z-10 h-auto w-full max-w-[680px] rounded-2xl object-contain"
               style={{
                 WebkitMaskImage:
-                  "linear-gradient(to bottom, #000 0%, #000 68%, rgba(0,0,0,0.98) 75%, rgba(0,0,0,0.91) 82%, rgba(0,0,0,0.76) 88%, rgba(0,0,0,0.52) 93%, rgba(0,0,0,0.25) 97%, transparent 100%)",
+                  "linear-gradient(to bottom, #000 0%, #000 72%, rgba(0,0,0,0.97) 79%, rgba(0,0,0,0.88) 85%, rgba(0,0,0,0.72) 90%, rgba(0,0,0,0.48) 94%, rgba(0,0,0,0.2) 98%, transparent 100%)",
                 maskImage:
-                  "linear-gradient(to bottom, #000 0%, #000 68%, rgba(0,0,0,0.98) 75%, rgba(0,0,0,0.91) 82%, rgba(0,0,0,0.76) 88%, rgba(0,0,0,0.52) 93%, rgba(0,0,0,0.25) 97%, transparent 100%)",
+                  "linear-gradient(to bottom, #000 0%, #000 72%, rgba(0,0,0,0.97) 79%, rgba(0,0,0,0.88) 85%, rgba(0,0,0,0.72) 90%, rgba(0,0,0,0.48) 94%, rgba(0,0,0,0.2) 98%, transparent 100%)",
               }}
               loading="eager"
             />
