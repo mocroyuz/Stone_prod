@@ -736,7 +736,7 @@ function Hero() {
             className="relative flex w-full items-center justify-center px-3 pb-8 sm:px-7 lg:py-10"
           >
             <img
-              src="/images/citrus-enhanced.jpg"
+              src="/images/hero.jpg"
               alt="Stone social media scheduling interface"
               className="h-auto w-full max-w-[680px] rounded-2xl object-contain"
               loading="eager"
