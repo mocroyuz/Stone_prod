@@ -729,6 +729,14 @@ function Hero() {
             style={d(150)}
             className="relative flex w-full items-center justify-end pl-3 pr-0 pb-8 sm:pl-7 sm:pr-0 lg:py-10"
           >
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute right-0 top-0 z-0 h-[calc(100%-2rem)] w-full max-w-[680px] lg:bottom-10 lg:top-10 lg:h-auto"
+              style={{
+                background:
+                  "linear-gradient(to bottom, transparent 0%, transparent 70%, #8b6855 79%, #ad8976 87%, #d7c2b7 94%, #f0e9e5 98%, #ffffff 100%)",
+              }}
+            />
             <img
               src="/images/hero.jpg"
               alt="Stone social media scheduling interface"
