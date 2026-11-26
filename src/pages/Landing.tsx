@@ -672,8 +672,8 @@ function Hero() {
     <Bleed>
       <Col className="relative overflow-hidden">
         <DotField
-          className="bottom-[220px] right-0 h-[300px] w-[420px] sm:bottom-[260px]"
-          mask="radial-gradient(ellipse at 80% 80%, #000 0%, transparent 70%)"
+          className="left-0 top-0 h-[300px] w-[420px]"
+          mask="radial-gradient(ellipse at 20% 30%, #000 0%, transparent 70%)"
           strength={0.12}
         />
 
@@ -738,8 +738,13 @@ function Hero() {
             <img
               src="/images/hero.jpg"
               alt="Stone social media scheduling interface"
-              className="h-auto w-full max-w-[680px] rounded-2xl object-contain"
+              className="relative z-10 h-auto w-full max-w-[680px] rounded-2xl object-contain"
               loading="eager"
+            />
+            <DotField
+              className="bottom-8 right-0 z-20 h-[300px] w-[420px] sm:right-7 lg:bottom-10"
+              mask="radial-gradient(ellipse at 80% 80%, #000 0%, transparent 70%)"
+              strength={0.12}
             />
           </div>
         </div>
