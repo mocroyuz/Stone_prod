@@ -729,26 +729,28 @@ function Hero() {
             style={d(150)}
             className="relative flex w-full items-center justify-end pl-3 pr-0 pb-8 sm:pl-7 sm:pr-0 lg:py-10"
           >
-            <div
-              aria-hidden="true"
-              className="pointer-events-none absolute right-0 top-0 z-0 h-[calc(100%-2rem)] w-full max-w-[680px] lg:bottom-10 lg:top-10 lg:h-auto"
-              style={{
-                background:
-                  "linear-gradient(to bottom, transparent 0%, transparent 70%, #8b6855 79%, #ad8976 87%, #d7c2b7 94%, #f0e9e5 98%, #ffffff 100%)",
-              }}
-            />
-            <img
-              src="/images/hero.jpg"
-              alt="Stone social media scheduling interface"
-              className="relative z-10 h-auto w-full max-w-[680px] rounded-2xl object-contain"
-              style={{
-                WebkitMaskImage:
-                  "linear-gradient(to bottom, #000 0%, #000 72%, rgba(0,0,0,0.97) 79%, rgba(0,0,0,0.88) 85%, rgba(0,0,0,0.72) 90%, rgba(0,0,0,0.48) 94%, rgba(0,0,0,0.2) 98%, transparent 100%)",
-                maskImage:
-                  "linear-gradient(to bottom, #000 0%, #000 72%, rgba(0,0,0,0.97) 79%, rgba(0,0,0,0.88) 85%, rgba(0,0,0,0.72) 90%, rgba(0,0,0,0.48) 94%, rgba(0,0,0,0.2) 98%, transparent 100%)",
-              }}
-              loading="eager"
-            />
+            <div className="relative w-full max-w-[680px] shrink-0">
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-0 z-0"
+                style={{
+                  background:
+                    "linear-gradient(to bottom, transparent 0%, transparent 70%, #8b6855 79%, #ad8976 87%, #d7c2b7 94%, #f0e9e5 98%, #ffffff 100%)",
+                }}
+              />
+              <img
+                src="/images/hero.jpg"
+                alt="Stone social media scheduling interface"
+                className="relative z-10 h-auto w-full rounded-2xl object-contain"
+                style={{
+                  WebkitMaskImage:
+                    "linear-gradient(to bottom, #000 0%, #000 72%, rgba(0,0,0,0.97) 79%, rgba(0,0,0,0.88) 85%, rgba(0,0,0,0.72) 90%, rgba(0,0,0,0.48) 94%, rgba(0,0,0,0.2) 98%, transparent 100%)",
+                  maskImage:
+                    "linear-gradient(to bottom, #000 0%, #000 72%, rgba(0,0,0,0.97) 79%, rgba(0,0,0,0.88) 85%, rgba(0,0,0,0.72) 90%, rgba(0,0,0,0.48) 94%, rgba(0,0,0,0.2) 98%, transparent 100%)",
+                }}
+                loading="eager"
+              />
+            </div>
           </div>
         </div>
       </Col>
