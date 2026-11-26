@@ -737,7 +737,7 @@ function Hero() {
             />
             <div
               aria-hidden="true"
-              className="pointer-events-none absolute bottom-8 left-0 right-0 z-20 h-[180px] bg-gradient-to-t from-white via-white/75 to-transparent sm:bottom-8 lg:bottom-10"
+              className="pointer-events-none absolute bottom-8 left-0 right-0 z-20 h-[120px] bg-gradient-to-t from-white via-white/55 to-transparent sm:bottom-8 lg:bottom-10"
             />
           </div>
         </div>
