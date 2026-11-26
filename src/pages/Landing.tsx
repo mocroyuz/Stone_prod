@@ -727,7 +727,7 @@ function Hero() {
             data-reveal="image"
             data-parallax="0.04"
             style={d(150)}
-            className="relative flex w-full items-center justify-center pl-0 pr-0 pb-4 sm:pl-0 lg:py-4 lg:-ml-8"
+            className="relative flex w-full items-center justify-center pl-0 pr-0 pb-4 sm:pl-0 lg:py-4 lg:ml-4"
           >
             <img
               src="/images/hero.png"
