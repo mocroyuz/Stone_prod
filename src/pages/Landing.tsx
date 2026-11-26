@@ -733,11 +733,13 @@ function Hero() {
               src="/images/hero.jpg"
               alt="Stone social media scheduling interface"
               className="relative z-10 h-auto w-full max-w-[680px] rounded-2xl object-contain"
+              style={{
+                WebkitMaskImage:
+                  "linear-gradient(to bottom, #000 0%, #000 56%, rgba(0,0,0,0.92) 65%, rgba(0,0,0,0.72) 76%, rgba(0,0,0,0.38) 88%, transparent 100%)",
+                maskImage:
+                  "linear-gradient(to bottom, #000 0%, #000 56%, rgba(0,0,0,0.92) 65%, rgba(0,0,0,0.72) 76%, rgba(0,0,0,0.38) 88%, transparent 100%)",
+              }}
               loading="eager"
-            />
-            <div
-              aria-hidden="true"
-              className="pointer-events-none absolute bottom-8 left-0 right-0 z-20 h-[120px] bg-gradient-to-t from-white via-white/55 to-transparent sm:bottom-8 lg:bottom-10"
             />
           </div>
         </div>
