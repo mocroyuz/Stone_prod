@@ -652,3 +652,17 @@ img,
     transition: none !important;
   }
 }
+
+
+/* Subtle floating motion for the landing hero image */
+.hero-float {
+  animation: hero-float 7s ease-in-out infinite;
+  translate: 0 0;
+}
+@keyframes hero-float {
+  0%, 100% { translate: 0 0; }
+  50% { translate: 0 -8px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-float { animation: none; translate: none; }
+}
