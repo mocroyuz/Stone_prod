@@ -730,7 +730,7 @@ function Hero() {
             className="relative flex w-full items-center justify-center pl-0 pr-0 pb-4 sm:pl-0 lg:py-4 lg:ml-12"
           >
             <img
-              src="/images/hero.png"
+              src="/images/hero.jpg"
               alt="Stone social media scheduling interface"
               className="relative z-10 h-auto w-full max-w-[860px] scale-[1.1] rounded-2xl object-contain shadow-[0_28px_70px_-28px_rgba(0,0,0,0.28)] lg:max-w-none lg:w-[125%]"
               style={{
