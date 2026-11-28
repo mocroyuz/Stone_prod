@@ -1,0 +1,220 @@
+// src/components/ChannelMenu.tsx
+// Sélecteur de channel partagé (même rendu que celui d'Insights) :
+// avatar + badge réseau, nom, chevron, menu déroulant + "Manage channels".
+
+import { useEffect, useRef, useState, type ComponentType } from "react";
+import { useEscapeLayer } from "../hooks/useDialog";
+import { Check, ChevronDown, Plus } from "lucide-react";
+import { navigateToSettingsSection } from "../utils/settingsNavigation";
+import type { ConnectedChannel } from "../hooks/useConnectedChannels";
+import {
+  XIcon,
+  FacebookIcon,
+  InstagramIcon,
+  LinkedInIcon,
+  TikTokIcon,
+  YouTubeIcon,
+  isFullBleedIcon,
+  PinterestIcon,
+  ThreadsIcon,
+} from "./IntegrationIcons";
+
+type IconComponent = ComponentType<{ className?: string }>;
+
+const NETWORK_ICONS: Record<string, IconComponent> = {
+  x: XIcon as IconComponent,
+  facebook: FacebookIcon as IconComponent,
+  instagram: InstagramIcon as IconComponent,
+  linkedin: LinkedInIcon as IconComponent,
+  tiktok: TikTokIcon as IconComponent,
+  youtube: YouTubeIcon as IconComponent,
+  pinterest: PinterestIcon as IconComponent,
+  threads: ThreadsIcon as IconComponent,
+};
+
+function getNetworkIcon(channel?: ConnectedChannel): IconComponent | undefined {
+  if (!channel) return undefined;
+  const c = channel as unknown as Record<string, unknown>;
+  const raw = String(c.platform ?? c.network ?? c.provider ?? channel.key)
+    .toLowerCase()
+    .trim();
+
+  if (raw.includes("tiktok")) return NETWORK_ICONS.tiktok;
+  if (raw.includes("insta")) return NETWORK_ICONS.instagram;
+  if (raw.includes("youtube") || raw === "yt") return NETWORK_ICONS.youtube;
+  if (raw.includes("facebook") || raw === "fb") return NETWORK_ICONS.facebook;
+  if (raw.includes("linkedin")) return NETWORK_ICONS.linkedin;
+  if (raw.includes("pinterest")) return NETWORK_ICONS.pinterest;
+  if (raw.includes("threads")) return NETWORK_ICONS.threads;
+  if (raw === "x" || raw.includes("twitter")) return NETWORK_ICONS.x;
+  return undefined;
+}
+
+const channelName = (c?: ConnectedChannel) =>
+  c ? (c.handle || c.name).replace(/^@/, "") : "No channel";
+
+function NetworkBadge({ channel, isDark }: { channel?: ConnectedChannel; isDark: boolean }) {
+  const Icon = getNetworkIcon(channel);
+  if (!Icon) return null;
+  if (isFullBleedIcon(Icon)) {
+    return (
+      <span className="absolute -bottom-1.5 -right-1.5 flex h-[18px] w-[18px] items-center justify-center">
+        <Icon className="h-full w-full" />
+      </span>
+    );
+  }
+  return (
+    <span
+      className={`absolute -bottom-1 -right-1 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-white text-black ring-1 ${
+        isDark ? "ring-[#0f0f11]" : "ring-white"
+      }`}
+    >
+      <Icon className="h-2 w-2" />
+    </span>
+  );
+}
+
+export function ChannelAvatar({
+  channel,
+  isDark,
+  size = 36,
+  showNetwork = true,
+}: {
+  channel?: ConnectedChannel;
+  isDark: boolean;
+  size?: number;
+  showNetwork?: boolean;
+}) {
+  const [failed, setFailed] = useState(false);
+  useEffect(() => setFailed(false), [channel?.avatarUrl]);
+  const label = (channel?.handle || channel?.name || "?").replace(/^@/, "");
+  const box = { width: size, height: size };
+
+  return (
+    <span className="relative inline-flex shrink-0" style={box}>
+      {channel?.avatarUrl && !failed ? (
+        <img
+          src={channel.avatarUrl}
+          alt=""
+          referrerPolicy="no-referrer"
+          onError={() => setFailed(true)}
+          style={box}
+          className="rounded-full object-cover"
+        />
+      ) : (
+        <span
+          style={box}
+          className={`flex items-center justify-center rounded-full text-[12px] font-semibold ${
+            isDark ? "bg-white text-black" : "bg-neutral-900 text-white"
+          }`}
+        >
+          {label.charAt(0).toUpperCase() || "?"}
+        </span>
+      )}
+      {showNetwork && <NetworkBadge channel={channel} isDark={isDark} />}
+    </span>
+  );
+}
+
+export default function ChannelMenu({
+  channels,
+  current,
+  isDark,
+  onSelect,
+  allOption,
+  selectedKey,
+}: {
+  channels: ConnectedChannel[];
+  current?: ConnectedChannel;
+  isDark: boolean;
+  onSelect: (key: string) => void;
+  allOption?: { key: string; label: string };
+  selectedKey?: string | null;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const allSelected = Boolean(allOption && selectedKey === allOption.key);
+
+  const ring = isDark
+    ? "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
+    : "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-black/25";
+  const hover = isDark ? "hover:bg-white/[0.06]" : "hover:bg-black/[0.04]";
+  const text = isDark ? "text-white" : "text-neutral-900";
+  const soft = isDark ? "text-neutral-400" : "text-neutral-500";
+  const muted = isDark ? "text-neutral-600" : "text-neutral-500";
+  const border = isDark ? "border-white/[0.07]" : "border-black/[0.06]";
+  const popover = isDark ? "border-white/10 bg-[#1b1b1e]" : "border-black/10 bg-white";
+
+  useEscapeLayer(open, () => setOpen(false));
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: PointerEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("pointerdown", onDown);
+    return () => {
+      document.removeEventListener("pointerdown", onDown);
+    };
+  }, [open]);
+
+  const canSwitch = channels.length > 1 || Boolean(allOption && channels.length > 0);
+
+  return (
+    <div ref={ref} className="relative">
+      <div className="flex items-center gap-1.5">
+        <button
+          type="button"
+          aria-haspopup="menu"
+          aria-expanded={open}
+          disabled={!canSwitch}
+          onClick={() => setOpen((o) => !o)}
+          className={`flex items-center gap-3 rounded-xl py-1 pr-2 transition-colors disabled:cursor-default ${ring} ${
+            canSwitch ? hover : ""
+          }`}
+        >
+          {allSelected ? (
+            <span className="relative flex h-7 w-10 items-center">
+              {channels.slice(0, 3).map((c, i) => (
+                <span
+                  key={c.key}
+                  className="absolute top-0"
+                  style={{ left: i * 10, zIndex: 3 - i }}
+                >
+                  <ChannelAvatar channel={c} isDark={isDark} size={28} showNetwork={false} />
+                </span>
+              ))}
+            </span>
+          ) : (
+            <ChannelAvatar channel={current} isDark={isDark} size={28} />
+          )}
+          <span className={`max-w-[160px] truncate text-[14px] font-semibold tracking-[-0.01em] ${text}`}>
+            {allSelected ? allOption?.label ?? "All networks" : channelName(current)}
+          </span>
+          {canSwitch && <ChevronDown className={`h-4 w-4 ${muted}`} aria-hidden="true" />}
+        </button>
+      </div>
+
+      {open && (
+        <>
+          <div role="menu" className={`absolute right-0 z-50 mt-2 hidden w-64 rounded-2xl border p-1.5 shadow-[0_12px_40px_rgba(0,0,0,0.5)] md:block ${popover}`}>            {channels.map(c=>{const active=!allSelected&&c.key===current?.key;return <button key={c.key} type="button" role="menuitemradio" aria-checked={active} onClick={()=>{setOpen(false);onSelect(c.key);}} className={`flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left ${ring} ${hover}`}><ChannelAvatar channel={c} isDark={isDark} size={28} showNetwork={false}/><span className={`min-w-0 flex-1 truncate text-[12px] font-semibold ${text}`}>{channelName(c)}</span>{active&&<Check className={`h-4 w-4 ${text}`}/>}</button>})}
+            <div className={`my-1 border-t ${border}`}/><button type="button" role="menuitem" onClick={()=>{setOpen(false);navigateToSettingsSection("channels");}} className={`flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left text-[12px] font-semibold ${ring} ${hover} ${soft}`}><span className="flex h-7 w-7 items-center justify-center rounded-full border border-dashed border-current opacity-60"><Plus className="h-3.5 w-3.5"/></span>Manage channels</button>
+          </div>
+          <div className="fixed inset-0 z-[100] md:hidden">
+            <button aria-label="Close channels sheet" className="absolute inset-0 bg-black/45 backdrop-blur-sm" onClick={()=>setOpen(false)}/>
+            <section className={`absolute inset-x-0 bottom-0 max-h-[82dvh] overflow-y-auto rounded-t-[28px] px-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-2xl ${isDark?"bg-[#151517] text-white":"bg-[#f7f5f2] text-neutral-900"} animate-in slide-in-from-bottom duration-200`}>
+              <div className="sticky top-0 z-10 -mx-5 flex justify-center py-3 bg-inherit touch-none" onTouchStart={e=>{(e.currentTarget as HTMLDivElement).dataset.y=String(e.touches[0].clientY)}} onTouchEnd={e=>{const y=Number((e.currentTarget as HTMLDivElement).dataset.y||0);if(e.changedTouches[0].clientY-y>75)setOpen(false)}}><span className="h-1.5 w-10 rounded-full bg-neutral-400/50"/></div>
+              <h2 className="pb-5 text-center text-xl font-semibold tracking-tight">Channels</h2>
+              <div role="menu" className="space-y-2">
+                {channels.map(c=>{const active=!allSelected&&c.key===current?.key;const raw=c as unknown as Record<string,unknown>;const platform=String(raw.platform??raw.network??raw.provider??"");const platformName=platform?platform.charAt(0).toUpperCase()+platform.slice(1):channelName(c);return <button key={c.key} type="button" role="menuitemradio" aria-checked={active} onClick={()=>{setOpen(false);onSelect(c.key)}} className={`flex w-full items-center gap-4 rounded-2xl px-4 py-3 text-left transition-colors ${active?(isDark?"bg-white/[0.09]":"bg-white shadow-sm"):(isDark?"hover:bg-white/[0.05]":"hover:bg-black/[0.03]")}`}>
+                  <ChannelAvatar channel={c} isDark={isDark} size={44}/><span className="min-w-0 flex-1"><span className="block truncate text-[16px] font-semibold">{platformName}</span><span className="block truncate text-[14px] opacity-55">{c.handle||c.name}</span></span>
+                </button>})}
+                {allOption&&<button type="button" role="menuitemradio" aria-checked={allSelected} onClick={()=>{setOpen(false);onSelect(allOption.key)}} className={`flex w-full items-center gap-4 rounded-2xl px-4 py-3 text-left ${allSelected?(isDark?"bg-white/[0.09]":"bg-white shadow-sm"):""}`}><span className="relative flex h-11 w-11">{channels.slice(0,2).map((c,i)=><span key={c.key} className="absolute" style={{left:i*9,zIndex:2-i}}><ChannelAvatar channel={c} isDark={isDark} size={32} showNetwork={false}/></span>)}</span><span className="flex-1 text-[16px] font-semibold">{allOption.label}</span></button>}
+              </div>
+              <button type="button" onClick={()=>{setOpen(false);navigateToSettingsSection("channels")}} className={`mt-3 flex min-h-12 w-full items-center gap-3 rounded-2xl px-4 text-sm font-semibold ${isDark?"text-neutral-400":"text-neutral-500"}`}><Plus className="h-4 w-4"/>Manage channels</button>
+            </section>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
