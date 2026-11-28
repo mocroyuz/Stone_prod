@@ -967,8 +967,8 @@ function NetworkVisual() {
   // Mirrored positions: equal spacing vertically and identical horizontal offsets.
   const positions = [16, 34, 66, 84];
   const points = [
-    ...left.map((item, i) => ({ icon: item.icon, x: 14, y: positions[i], side: "left" })),
-    ...right.map((item, i) => ({ icon: item.icon, x: 86, y: positions[i], side: "right" })),
+    ...left.map((item, i) => ({ icon: item.icon, x: ["YouTube Shorts", "Facebook"].includes(item.name) ? 18 : 14, y: positions[i], side: "left" })),
+    ...right.map((item, i) => ({ icon: item.icon, x: ["Pinterest", "LinkedIn"].includes(item.name) ? 82 : 86, y: positions[i], side: "right" })),
   ];
 
   return (
