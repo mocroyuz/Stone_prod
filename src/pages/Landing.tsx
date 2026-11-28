@@ -965,7 +965,7 @@ function NetworkVisual() {
   const left = CHANNELS.filter((item) => ["Instagram", "TikTok", "YouTube Shorts", "Facebook"].includes(item.name));
   const right = CHANNELS.filter((item) => ["Threads", "Pinterest", "LinkedIn", "X"].includes(item.name));
   // Mirrored positions: equal spacing vertically and identical horizontal offsets.
-  const positions = [20, 40, 60, 80];
+  const positions = [16, 34, 66, 84];
   const points = [
     ...left.map((item, i) => ({ icon: item.icon, x: 14, y: positions[i], side: "left" })),
     ...right.map((item, i) => ({ icon: item.icon, x: 86, y: positions[i], side: "right" })),
@@ -990,7 +990,7 @@ function NetworkVisual() {
         <span
           key={index}
           data-reveal="pop"
-          className="float-soft absolute flex h-[34px] w-[34px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-black/[0.04] bg-white text-neutral-700 shadow-[0_0_0_1px_rgba(0,0,0,0.04),0_2px_4px_rgba(0,0,0,0.04),0_10px_20px_-10px_rgba(0,0,0,0.16)] sm:h-[38px] sm:w-[38px]"
+          className="float-soft absolute flex h-[38px] w-[38px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-black/[0.04] bg-white text-neutral-700 shadow-[0_0_0_1px_rgba(0,0,0,0.04),0_2px_4px_rgba(0,0,0,0.04),0_10px_20px_-10px_rgba(0,0,0,0.16)] sm:h-[42px] sm:w-[42px]"
           style={{
             ...dv(250 + index * 30, {
               "float-dur": `${6.5 + (index % 4) * 0.8}s`,
@@ -1000,7 +1000,7 @@ function NetworkVisual() {
             top: `${y}%`,
           }}
         >
-          <Icon className="h-[16px] w-[16px]" />
+          <Icon className="h-[18px] w-[18px]" />
         </span>
       ))}
       <span data-reveal="pop" style={d(100)} className="absolute left-1/2 top-1/2 z-20 flex h-[54px] -translate-x-1/2 -translate-y-1/2 items-center gap-2 rounded-full bg-[#0c0c0d] px-6 text-[14px] font-medium tracking-[-0.02em] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_14px_28px_-10px_rgba(0,0,0,0.55)]">
