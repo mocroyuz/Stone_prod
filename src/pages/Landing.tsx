@@ -183,7 +183,7 @@ const BTN_DARK =
   PRESS;
 
 const BTN_LIGHT =
-  "bg-[#acacac] text-neutral-900 shadow-[0_0_0_1px_rgba(0,0,0,0.06),0_1px_2px_rgba(0,0,0,0.05),0_8px_20px_-12px_rgba(0,0,0,0.18)] hover:shadow-[0_0_0_1px_rgba(0,0,0,0.09),0_2px_4px_rgba(0,0,0,0.06),0_14px_26px_-12px_rgba(0,0,0,0.22)] " +
+  "bg-white text-neutral-900 shadow-[0_0_0_1px_rgba(0,0,0,0.06),0_1px_2px_rgba(0,0,0,0.05),0_8px_20px_-12px_rgba(0,0,0,0.18)] hover:shadow-[0_0_0_1px_rgba(0,0,0,0.09),0_2px_4px_rgba(0,0,0,0.06),0_14px_26px_-12px_rgba(0,0,0,0.22)] " +
   PRESS;
 
 /** Délai d'apparition (ms) lu par le CSS via --reveal-delay. */
@@ -198,7 +198,7 @@ const dv = (ms: number, vars: Record<string, string | number>): CSSProperties =>
   }) as CSSProperties;
 
 const SOFT_CARD =
-  "bg-[#acacac] shadow-[0_0_0_1px_rgba(0,0,0,0.05),0_2px_4px_rgba(0,0,0,0.03),0_16px_32px_-16px_rgba(0,0,0,0.14)]";
+  "bg-white shadow-[0_0_0_1px_rgba(0,0,0,0.05),0_2px_4px_rgba(0,0,0,0.03),0_16px_32px_-16px_rgba(0,0,0,0.14)]";
 
 /** Colonne centrale (sans filets latéraux). */
 function Col({
@@ -465,8 +465,8 @@ function Header() {
         EASE_SOFT,
         HAIR,
         scrolled
-          ? "bg-[#acacac]/65 shadow-[0_10px_30px_-18px_rgba(0,0,0,0.18)]"
-          : "bg-[#acacac]/35 shadow-[0_10px_30px_-18px_rgba(0,0,0,0)]",
+          ? "bg-white/65 shadow-[0_10px_30px_-18px_rgba(0,0,0,0.18)]"
+          : "bg-white/35 shadow-[0_10px_30px_-18px_rgba(0,0,0,0)]",
       ].join(" ")}
     >
       <Col
@@ -550,7 +550,7 @@ function Header() {
           <a
             href="/signup"
             className={[
-              "inline-flex h-12 items-center justify-center rounded-full bg-[#acacac] px-7 text-[14px] font-semibold normal-case tracking-[-0.02em] text-[#111] shadow-[0_0_0_1px_rgba(0,0,0,0.06),0_2px_4px_rgba(0,0,0,0.05),0_8px_20px_-12px_rgba(0,0,0,0.18)] hover:bg-neutral-100 hover:shadow-[0_0_0_1px_rgba(0,0,0,0.09),0_2px_4px_rgba(0,0,0,0.06),0_12px_24px_-12px_rgba(0,0,0,0.22)]",
+              "inline-flex h-12 items-center justify-center rounded-full bg-white px-7 text-[14px] font-semibold normal-case tracking-[-0.02em] text-[#111] shadow-[0_0_0_1px_rgba(0,0,0,0.06),0_2px_4px_rgba(0,0,0,0.05),0_8px_20px_-12px_rgba(0,0,0,0.18)] hover:bg-neutral-100 hover:shadow-[0_0_0_1px_rgba(0,0,0,0.09),0_2px_4px_rgba(0,0,0,0.06),0_12px_24px_-12px_rgba(0,0,0,0.22)]",
               PRESS,
               FOCUS,
             ].join(" ")}
@@ -622,7 +622,7 @@ function MobileMenuSheet({
       id="landing-mobile-menu"
       data-state={closing ? "closing" : "open"}
       className={[
-        "menu-sheet absolute inset-x-0 bottom-0 flex flex-col overflow-hidden rounded-t-[28px] border border-black/[0.06] bg-[#acacac] shadow-[0_-18px_60px_-20px_rgba(0,0,0,0.3)] transition-[height] duration-500",
+        "menu-sheet absolute inset-x-0 bottom-0 flex flex-col overflow-hidden rounded-t-[28px] border border-black/[0.06] bg-white shadow-[0_-18px_60px_-20px_rgba(0,0,0,0.3)] transition-[height] duration-500",
         EASE_SOFT,
         expanded ? "h-[85dvh]" : "h-[50dvh]",
       ].join(" ")}
@@ -847,8 +847,8 @@ function Features() {
                   className={[
                     "flex min-h-[300px] flex-col items-center rounded-[26px] px-8 pt-[62px] text-center outline-none transition-[translate,background-color,box-shadow] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] lg:min-h-[300px]",
                     isActive
-                      ? "-translate-y-1.5 bg-[#acacac] shadow-[0_0_0_1px_rgba(0,0,0,0.05),0_4px_8px_rgba(0,0,0,0.04),0_28px_48px_-20px_rgba(0,0,0,0.2)]"
-                      : "translate-y-0 bg-[#acacac]/0 shadow-[0_0_0_1px_rgba(0,0,0,0),0_4px_8px_rgba(0,0,0,0),0_28px_48px_-20px_rgba(0,0,0,0)]",
+                      ? "-translate-y-1.5 bg-white shadow-[0_0_0_1px_rgba(0,0,0,0.05),0_4px_8px_rgba(0,0,0,0.04),0_28px_48px_-20px_rgba(0,0,0,0.2)]"
+                      : "translate-y-0 bg-white/0 shadow-[0_0_0_1px_rgba(0,0,0,0),0_4px_8px_rgba(0,0,0,0),0_28px_48px_-20px_rgba(0,0,0,0)]",
                   ].join(" ")}
                 >
                   <Icon
@@ -920,14 +920,14 @@ function OrbitVisual() {
                   "flex h-[60px] items-center gap-3 rounded-full py-2.5 pl-2.5 pr-3.5 transition-[background-color,box-shadow] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]",
                   on
                     ? "bg-[#0c0c0d] shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_1px_2px_rgba(0,0,0,0.28),0_14px_26px_-12px_rgba(0,0,0,0.55)]"
-                    : "bg-[#acacac] shadow-[0_0_0_1px_rgba(0,0,0,0.05),0_2px_4px_rgba(0,0,0,0.03),0_16px_32px_-16px_rgba(0,0,0,0.14)]",
+                    : "bg-white shadow-[0_0_0_1px_rgba(0,0,0,0.05),0_2px_4px_rgba(0,0,0,0.03),0_16px_32px_-16px_rgba(0,0,0,0.14)]",
                 ].join(" ")}
               >
                 <span
                   className={[
                     "relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-[background-color,color,box-shadow] duration-500",
                     on
-                      ? "bg-[#acacac]/10 text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.14)]"
+                      ? "bg-white/10 text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.14)]"
                       : "bg-[#f6f6f6] text-[#0c0c0d] shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)]",
                   ].join(" ")}
                 >
@@ -990,7 +990,7 @@ function NetworkVisual() {
         <span
           key={index}
           data-reveal="pop"
-          className="float-soft absolute flex h-[34px] w-[34px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-black/[0.04] bg-[#acacac] text-neutral-700 shadow-[0_0_0_1px_rgba(0,0,0,0.04),0_2px_4px_rgba(0,0,0,0.04),0_10px_20px_-10px_rgba(0,0,0,0.16)] sm:h-[38px] sm:w-[38px]"
+          className="float-soft absolute flex h-[34px] w-[34px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-black/[0.04] bg-white text-neutral-700 shadow-[0_0_0_1px_rgba(0,0,0,0.04),0_2px_4px_rgba(0,0,0,0.04),0_10px_20px_-10px_rgba(0,0,0,0.16)] sm:h-[38px] sm:w-[38px]"
           style={{
             ...dv(250 + index * 30, {
               "float-dur": `${6.5 + (index % 4) * 0.8}s`,
@@ -1026,7 +1026,7 @@ function WorkflowCard({
   delay?: number;
 }) {
   return (
-    <article data-reveal="up" style={d(delay)} className="flex flex-col bg-[#acacac]">
+    <article data-reveal="up" style={d(delay)} className="flex flex-col bg-white">
       {visual}
       <div className="flex flex-1 flex-col px-7 pb-10 pt-[72px] sm:px-[46px]">
         <MiniTag icon={tag.icon} label={tag.label} />
@@ -1481,7 +1481,7 @@ export default function Landing() {
     <div
       ref={rootRef}
       id="top"
-      className="min-h-screen bg-[#acacac] font-display text-[#0c0c0d] antialiased selection:bg-[#0c0c0d] selection:text-white"
+      className="min-h-screen bg-white font-display text-[#0c0c0d] antialiased selection:bg-[#0c0c0d] selection:text-white"
     >
       <Header />
       {/* La barre est en position fixe : on réserve sa hauteur. */}
