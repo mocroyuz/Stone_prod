@@ -8,6 +8,7 @@ import {
 } from "react";
 
 import { navigate } from "../hooks/useHashRoute";
+import { track } from "../utils/analytics";
 import AuthSidePanel from "../components/AuthSidePanel";
 import { useTheme } from "../hooks/useTheme";
 import { useUser } from "../contexts/UserContext";
@@ -353,6 +354,14 @@ export default function Signup() {
 
   const proceededRef = useRef(false);
 
+  /* Mesure de conversion : le formulaire d'inscription est affiché. */
+  const startedTrackedRef = useRef(false);
+  useEffect(() => {
+    if (startedTrackedRef.current) return;
+    startedTrackedRef.current = true;
+    track("signup_started");
+  }, []);
+
   const proceed = () => {
     if (proceededRef.current) return;
 
@@ -479,6 +488,7 @@ export default function Signup() {
        * The account is already confirmed and has a session.
        */
       if (result.session && result.user?.email_confirmed_at) {
+        track("signup_completed", { method: "email", verification: "confirmed" });
         proceed();
         return;
       }
@@ -488,6 +498,7 @@ export default function Signup() {
        * email confirmation is required.
        */
       if (result.user) {
+        track("signup_completed", { method: "email", verification: "pending" });
         await Promise.resolve(clearSession());
         setPendingVerification(true);
         return;

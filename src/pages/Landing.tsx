@@ -1,168 +1,107 @@
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
+  type ComponentType,
   type CSSProperties,
   type ReactNode,
 } from "react";
 import {
-  ArrowRight,
   ArrowUpRight,
-  Asterisk,
-  Bot,
+  CalendarDays,
   ChartColumn,
-  ClipboardList,
-  Ellipsis,
-  Globe,
+  Check,
+  Lightbulb,
   Menu,
-  Repeat,
+  PenLine,
+  Share2,
   X,
   type LucideIcon,
 } from "lucide-react";
-import {
-  DotField,
-  LogoBurst,
-  LogoHues,
-  LogoInvert,
-  LogoOrbit,
-  LogoPollinate,
-  LogoWaves,
-} from "../components/landing/LandingGraphics";
+import { DotField } from "../components/landing/LandingGraphics";
 import { useLandingMotion } from "../hooks/useLandingMotion";
 import { CHANNELS } from "../data/channelConfig";
-import HeroMockup from "../components/landing/HeroMockup";
-import { Icon } from "@iconify/react";
 import {
-  SiClaude,
-  SiGooglegemini,
-  SiPerplexity,
+  CTA_LABEL,
+  FEATURES_COPY,
+  FINAL_CTA_COPY,
+  FOOTER_COPY,
+  HERO_VARIANTS,
+  HOW_COPY,
+  INSIGHTS_COPY,
+  NAV_LINKS,
+  NETWORKS_COPY,
+  PROBLEMS_COPY,
+  SIGNIN_HREF,
+  SIGNUP_HREF,
+  SPY_SECTIONS,
+  resolveHeroVariant,
+  type HeroVariant,
+  type HeroVariantKey,
+} from "../data/landingCopy";
+import { rememberAttribution, track } from "../utils/analytics";
+import {
+  SiBluesky,
+  SiFacebook,
+  SiInstagram,
+  SiMastodon,
+  SiPinterest,
+  SiReddit,
+  SiThreads,
+  SiTiktok,
+  SiX,
+  SiYoutubeshorts,
 } from "@icons-pack/react-simple-icons";
-
 
 /* ============================================================
    CONTENU
+   Les textes vivent dans src/data/landingCopy.ts.
 ============================================================ */
 
 const IMG = {
-  heroPortrait: "/images/landing/hero-portrait.jpg",
-  heroCard: "/images/landing/hero-card.jpg",
-  avatars: [
-    "/images/landing/avatar-1.jpg",
-    "/images/landing/avatar-2.jpg",
-    "/images/landing/avatar-3.jpg",
-  ],
-  analyticsPortrait: "/images/landing/analytics-portrait.jpg",
-  hands: "/images/landing/hands.jpg",
   stoneMark: "/images/landing/stone-mark.png",
 };
 
-type NavLink =
-  | { label: string; section: string }
-  | { label: string; href: string };
+/** Réseaux réellement disponibles / encore en développement (source : channelConfig). */
+const LIVE_CHANNELS = CHANNELS.filter((channel) => !channel.comingSoon);
+const SOON_CHANNELS = CHANNELS.filter((channel) => channel.comingSoon);
 
-const NAV_LINKS: NavLink[] = [
-  { label: "Home", section: "top" },
-  { label: "Solutions", section: "features" },
-  { label: "Technology", section: "workflows" },
-  { label: "Pricing", href: "/pricing" },
-  { label: "About", section: "analytics" },
-];
+/**
+ * Logos monochromes embarqués (aucune requête réseau, palette noir et blanc).
+ * LinkedIn et Google Business Profile n'existent pas dans cette bibliothèque :
+ * on retombe sur l'icône du projet, passée en niveaux de gris.
+ */
+type LogoComponent = ComponentType<{ className?: string; color?: string }>;
 
-const PARTNERS: Array<{ key: string; node: ReactNode }> = [
-  { key: "orbit", node: <LogoOrbit className="h-8 w-8" /> },
-  {
-    key: "invert",
-    node: (
-      <span className="flex items-center gap-1.5">
-        <LogoInvert className="h-[22px] w-[22px]" />
-        <span className="text-[19px] font-semibold tracking-[-0.03em]">Invert</span>
-      </span>
-    ),
-  },
-  { key: "burst", node: <LogoBurst className="h-10 w-10" /> },
-  {
-    key: "hues",
-    node: (
-      <span className="flex items-center gap-1">
-        <LogoHues className="h-[18px] w-[18px]" />
-        <span className="text-[20px] font-semibold tracking-[-0.04em]">hues</span>
-      </span>
-    ),
-  },
-  { key: "waves", node: <LogoWaves className="h-8 w-8" /> },
-  {
-    key: "pollinate",
-    node: (
-      <span className="flex items-center gap-1.5">
-        <LogoPollinate className="h-6 w-6" />
-        <span className="text-[17px] font-semibold tracking-[-0.03em]">Pollinate</span>
-      </span>
-    ),
-  },
-];
+const SI_LOGOS: Partial<Record<string, LogoComponent>> = {
+  instagram: SiInstagram,
+  facebook: SiFacebook,
+  threads: SiThreads,
+  youtube: SiYoutubeshorts,
+  tiktok: SiTiktok,
+  pinterest: SiPinterest,
+  x: SiX,
+  bluesky: SiBluesky,
+  mastodon: SiMastodon,
+  reddit: SiReddit,
+};
 
-const FEATURES: Array<{ icon: LucideIcon; title: string; text: string }> = [
-  {
-    icon: Asterisk,
-    title: "AI Symptom Checker",
-    text: "Get accurate suggestions within seconds. AI workflows that connect to your data.",
-  },
-  {
-    icon: ClipboardList,
-    title: "Smart Health Reports",
-    text: "AI-generated summaries and next steps that connect to your data and tools.",
-  },
-  {
-    icon: Bot,
-    title: "24/7 Virtual Health Assistant",
-    text: "Answering all health queries anytime, connected to your data and tools.",
-  },
-];
-
-const FAQS = [
-  "Is the AI diagnosis accurate?",
-  "Will my health data stay private and secure?",
-  "Can I consult a real doctor after the AI report?",
-  "How does the AI symptom checker work?",
-  "Can the AI help in emergency situations?",
-];
-
-const FOOTER_COLUMNS: Array<{
-  title: string;
-  links: Array<{ label: string; href?: string }>;
-}> = [
-  {
-    title: "Platform",
-    links: [
-      { label: "Data warehouse" },
-      { label: "Product Analytics" },
-      { label: "Session Replay" },
-      { label: "Data warehouse" },
-    ],
-  },
-  {
-    title: "Company",
-    links: [
-      { label: "About Us" },
-      { label: "Careers" },
-      { label: "Resources", href: "/faq" },
-      { label: "Terms", href: "/tos" },
-      { label: "Web Analytics" },
-    ],
-  },
-  {
-    title: "Platform",
-    links: [
-      { label: "Startup Program" },
-      { label: "Privacy Policy", href: "/privacy" },
-      { label: "Join Community" },
-      { label: "Events" },
-      { label: "Status" },
-      { label: "Data warehouse" },
-    ],
-  },
-];
+function NetworkLogo({
+  channel,
+  className = "h-6 w-6",
+}: {
+  channel: (typeof CHANNELS)[number];
+  className?: string;
+}) {
+  const Logo = SI_LOGOS[channel.key];
+  if (Logo) {
+    return <Logo className={className} color="currentColor" aria-hidden="true" />;
+  }
+  const Fallback = channel.icon;
+  return <Fallback className={[className, "grayscale"].join(" ")} />;
+}
 
 /* ============================================================
    PRIMITIVES
@@ -189,13 +128,6 @@ const BTN_LIGHT =
 /** Délai d'apparition (ms) lu par le CSS via --reveal-delay. */
 const d = (ms: number): CSSProperties =>
   ({ "--reveal-delay": `${ms}ms` }) as CSSProperties;
-
-/** Délai + variables libres (index de cascade, durée de flottement…). */
-const dv = (ms: number, vars: Record<string, string | number>): CSSProperties =>
-  ({
-    "--reveal-delay": `${ms}ms`,
-    ...Object.fromEntries(Object.entries(vars).map(([k, v]) => [`--${k}`, v])),
-  }) as CSSProperties;
 
 const SOFT_CARD =
   "bg-white shadow-[0_0_0_1px_rgba(0,0,0,0.05),0_2px_4px_rgba(0,0,0,0.03),0_16px_32px_-16px_rgba(0,0,0,0.14)]";
@@ -243,29 +175,11 @@ function Badge({ chip, label }: { chip: string; label: string }) {
         SOFT_CARD,
       ].join(" ")}
     >
-      <span className="rounded-full bg-[#f7cfcf] px-2.5 py-[3px] text-[10px] font-semibold uppercase tracking-[0.04em] text-[#9b3a3a] shadow-[inset_0_0_0_1px_rgba(155,58,58,0.12)]">
+      <span className="shrink-0 whitespace-nowrap rounded-full bg-[#f7cfcf] px-2.5 py-[3px] text-[10px] font-semibold uppercase tracking-[0.04em] text-[#9b3a3a] shadow-[inset_0_0_0_1px_rgba(155,58,58,0.12)]">
         {chip}
       </span>
       {label}
     </span>
-  );
-}
-
-function TextLink({ children }: { children: ReactNode }) {
-  return (
-    <a
-      href="/signup"
-      className={[
-        "group inline-flex items-center gap-2 rounded-md text-[14px] font-medium text-neutral-900",
-        FOCUS,
-      ].join(" ")}
-    >
-      {children}
-      <ArrowRight
-        className="h-3.5 w-3.5 transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:translate-x-1"
-        strokeWidth={1.8}
-      />
-    </a>
   );
 }
 
@@ -354,7 +268,6 @@ function scrollToSection(id: string) {
    HEADER
 ============================================================ */
 
-const SPY_SECTIONS = ["features", "workflows", "analytics"];
 const EASE_SOFT = "ease-[cubic-bezier(0.22,1,0.36,1)]";
 const MENU_EXIT_MS = 300;
 
@@ -428,9 +341,7 @@ function Header() {
   /* Pastille de navigation : glisse sous le lien survolé, sinon sous la
      section visible. Position écrite directement dans le DOM (pas de
      re-render), et la toute première pose se fait sans transition. */
-  const activeIndex = NAV_LINKS.findIndex(
-    (link) => "section" in link && link.section === activeSection,
-  );
+  const activeIndex = NAV_LINKS.findIndex((link) => link.section === activeSection);
   const highlight = hovered ?? activeIndex;
 
   useEffect(() => {
@@ -482,7 +393,7 @@ function Header() {
             e.preventDefault();
             go("top");
           }}
-          aria-label="Stone — home"
+          aria-label="Stone — accueil"
           className={["flex items-center gap-2 rounded-md", FOCUS].join(" ")}
         >          <StoneLogoMark />
           <span className="text-[20px] font-bold tracking-[-0.04em]">
@@ -492,7 +403,7 @@ function Header() {
 
         <nav
           ref={navRef}
-          aria-label="Main"
+          aria-label="Navigation principale"
           onMouseLeave={() => setHovered(null)}
           className="absolute left-1/2 hidden -translate-x-1/2 items-center gap-0.5 rounded-full p-1 shadow-[0_0_0_1px_rgba(0,0,0,0.05),0_1px_2px_rgba(0,0,0,0.03)] md:flex"
         >
@@ -517,19 +428,7 @@ function Header() {
               },
               onBlur: () => setHovered(null),
             };
-            return "href" in link ? (
-              <a
-                key={link.label}
-                href={link.href}
-                ref={(el) => {
-                  itemRefs.current[index] = el;
-                }}
-                className={cls}
-                {...hover}
-              >
-                {link.label}
-              </a>
-            ) : (
+            return (
               <button
                 key={link.label}
                 type="button"
@@ -548,19 +447,29 @@ function Header() {
 
         <div className="flex items-center gap-2">
           <a
-            href="/signup"
+            href={SIGNIN_HREF}
             className={[
-              "inline-flex h-12 items-center justify-center rounded-full bg-white px-7 text-[14px] font-semibold normal-case tracking-[-0.02em] text-[#111] shadow-[0_0_0_1px_rgba(0,0,0,0.06),0_2px_4px_rgba(0,0,0,0.05),0_8px_20px_-12px_rgba(0,0,0,0.18)] hover:bg-neutral-100 hover:shadow-[0_0_0_1px_rgba(0,0,0,0.09),0_2px_4px_rgba(0,0,0,0.06),0_12px_24px_-12px_rgba(0,0,0,0.22)]",
+              "hidden h-12 items-center rounded-full px-4 text-[14px] font-medium tracking-[-0.02em] text-neutral-600 transition-colors duration-300 hover:text-neutral-900 sm:inline-flex",
+              FOCUS,
+            ].join(" ")}
+          >
+            Se connecter
+          </a>
+          <a
+            href={SIGNUP_HREF}
+            onClick={() => track("cta_click", { location: "header" })}
+            className={[
+              "inline-flex h-11 items-center justify-center whitespace-nowrap rounded-full bg-white px-5 text-[13.5px] sm:h-12 sm:px-7 sm:text-[14px] font-semibold text-[14px] font-semibold normal-case tracking-[-0.02em] text-[#111] shadow-[0_0_0_1px_rgba(0,0,0,0.06),0_2px_4px_rgba(0,0,0,0.05),0_8px_20px_-12px_rgba(0,0,0,0.18)] hover:bg-neutral-100 hover:shadow-[0_0_0_1px_rgba(0,0,0,0.09),0_2px_4px_rgba(0,0,0,0.06),0_12px_24px_-12px_rgba(0,0,0,0.22)]",
               PRESS,
               FOCUS,
             ].join(" ")}
           >
-            Get started
+            {CTA_LABEL}
             <ArrowUpRight className="h-3.5 w-3.5" strokeWidth={2} />
           </a>
           <button
             type="button"
-            aria-label={open && !closing ? "Close menu" : "Open menu"}
+            aria-label={open && !closing ? "Fermer le menu" : "Ouvrir le menu"}
             aria-expanded={open && !closing}
             aria-controls="landing-mobile-menu"
             onClick={() => (open ? closeMenu() : setOpen(true))}
@@ -584,7 +493,7 @@ function Header() {
       <div className="fixed inset-0 z-[60] md:hidden">
         <button
           type="button"
-          aria-label="Close menu"
+          aria-label="Fermer le menu"
           onClick={closeMenu}
           data-state={closing ? "closing" : "open"}
           className="menu-backdrop absolute inset-0 bg-black/35 backdrop-blur-[2px]"
@@ -635,18 +544,8 @@ function MobileMenuSheet({
       >
         <span className="h-1.5 w-10 rounded-full bg-neutral-300" />
       </div>
-      <nav aria-label="Mobile navigation" className="min-h-0 flex-1 overflow-y-auto px-5 pb-8">
-        {NAV_LINKS.map((link, index) =>
-          "href" in link ? (
-            <a
-              key={link.label}
-              href={link.href}
-              style={{ "--i": index } as CSSProperties}
-              className="menu-item block rounded-xl px-5 py-4 text-[17px] font-medium text-neutral-800 transition-colors duration-300 hover:bg-neutral-100"
-            >
-              {link.label}
-            </a>
-          ) : (
+      <nav aria-label="Navigation mobile" className="min-h-0 flex-1 overflow-y-auto px-5 pb-8">
+        {NAV_LINKS.map((link, index) => (
             <button
               key={link.label}
               type="button"
@@ -656,10 +555,46 @@ function MobileMenuSheet({
             >
               {link.label}
             </button>
-          )
-        )}
+        ))}
+        <div className="mt-4 flex flex-col gap-3 px-1">
+          <SignupButton location="mobile_menu" className="w-full" />
+          <a
+            href={SIGNIN_HREF}
+            className="block rounded-xl px-5 py-3 text-center text-[15px] font-medium text-neutral-700 transition-colors duration-300 hover:bg-neutral-100"
+          >
+            Se connecter
+          </a>
+        </div>
       </nav>
     </div>
+  );
+}
+
+/* ============================================================
+   CTA PRINCIPAL (toujours /signup, toujours le même libellé)
+============================================================ */
+
+function SignupButton({
+  location,
+  className = "",
+}: {
+  location: string;
+  className?: string;
+}) {
+  return (
+    <a
+      href={SIGNUP_HREF}
+      onClick={() => track("cta_click", { location })}
+      className={[
+        "inline-flex h-[54px] items-center justify-center gap-2 rounded-full px-8 text-[15px] font-semibold tracking-[-0.02em]",
+        BTN_DARK,
+        FOCUS,
+        className,
+      ].join(" ")}
+    >
+      {CTA_LABEL}
+      <ArrowUpRight className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
+    </a>
   );
 }
 
@@ -667,59 +602,54 @@ function MobileMenuSheet({
    HERO
 ============================================================ */
 
-function Hero() {
+const HERO_MASK =
+  "linear-gradient(to bottom, #000 0%, #000 68%, rgba(0,0,0,0.98) 75%, rgba(0,0,0,0.91) 82%, rgba(0,0,0,0.76) 88%, rgba(0,0,0,0.52) 93%, rgba(0,0,0,0.25) 97%, transparent 100%)";
+
+function Hero({ variant }: { variant: HeroVariant }) {
   return (
     <Bleed>
       <Col className="relative overflow-hidden">
         <div className="relative grid grid-cols-1 items-center lg:grid-cols-[minmax(0,48%)_minmax(0,52%)]">
-          <div className="relative z-10 px-5 pb-6 pt-12 sm:px-7 lg:py-[88px]">
+          <div className="relative z-10 px-5 pb-6 pt-10 sm:px-7 lg:py-[88px]">
             <div data-reveal="up" style={d(0)}>
-              <Badge chip="New" label="Trusted by 45+ expert medical teams" />
+              <Badge chip={variant.chip} label={variant.eyebrow} />
             </div>
 
             <h1
               data-reveal="up"
               style={d(120)}
-              className="mt-6 text-[clamp(40px,4.9vw,70px)] font-medium leading-[1.06] tracking-[-0.05em] text-[#0c0c0d]"
+              className="mt-6 text-[clamp(36px,4.3vw,62px)] font-medium leading-[1.06] tracking-[-0.05em] text-[#0c0c0d]"
             >
-              <span className="block sm:whitespace-nowrap">Revolutionizing</span>
-              <span className="block sm:whitespace-nowrap">Healthcare with AI</span>
+              <span className="block lg:whitespace-nowrap">{variant.titleLines[0]}</span>
+              <span className="block lg:whitespace-nowrap">{variant.titleLines[1]}</span>
             </h1>
 
             <p
               data-reveal="up"
               style={d(380)}
-              className="mt-7 max-w-[500px] text-[16.5px] leading-[1.7] tracking-[-0.01em] text-neutral-500"
+              className="mt-6 max-w-[500px] text-[16.5px] leading-[1.7] tracking-[-0.01em] text-neutral-500"
             >
-              Automated workflows, AI-powered reporting, and real-time decision
-              support so your clinical team can do what they were trained to do.
+              {variant.subtitle}
             </p>
 
             <div
               data-reveal="up"
               style={d(500)}
-              className="mt-7 flex flex-wrap items-center gap-3"
+              className="mt-7 flex flex-col items-start gap-4"
             >
-              <a
-                href="/signup"
-                className={[
-                  "inline-flex h-[54px] items-center rounded-full px-8 text-[12px] font-semibold uppercase tracking-[0.03em]",
-                  BTN_DARK,
-                  FOCUS,
-                ].join(" ")}
-              >
-                Start diagnosis
-              </a>
-              <a
-                href="/signin"
-                className={[
-                  "inline-flex h-[54px] items-center rounded-full px-8 text-[12px] font-semibold uppercase tracking-[0.03em]",
-                  BTN_LIGHT,
-                  FOCUS,
-                ].join(" ")}
-              >
-                Talk to AI doctor
-              </a>
+              <SignupButton location="hero" className="w-full sm:w-auto" />
+              <p className="text-[13.5px] text-neutral-500">
+                Déjà un compte ?{" "}
+                <a
+                  href={SIGNIN_HREF}
+                  className={[
+                    "rounded font-medium text-neutral-900 underline underline-offset-4",
+                    FOCUS,
+                  ].join(" ")}
+                >
+                  Se connecter
+                </a>
+              </p>
             </div>
           </div>
 
@@ -729,20 +659,24 @@ function Hero() {
             style={d(150)}
             className="relative flex w-full items-center justify-center pl-0 pr-0 pb-4 sm:pl-0 lg:py-4 lg:ml-12"
           >
-            <img
-              src="/images/hero.jpg"
-              alt="Stone social media scheduling interface"
-              className="hero-float relative z-10 h-auto w-full max-w-[860px] scale-[1.1] rounded-2xl object-contain shadow-[0_28px_70px_-28px_rgba(0,0,0,0.28)] lg:max-w-none lg:w-[125%]"
-              style={{
-                WebkitMaskImage:
-                  "linear-gradient(to bottom, #000 0%, #000 68%, rgba(0,0,0,0.98) 75%, rgba(0,0,0,0.91) 82%, rgba(0,0,0,0.76) 88%, rgba(0,0,0,0.52) 93%, rgba(0,0,0,0.25) 97%, transparent 100%)",
-                maskImage:
-                  "linear-gradient(to bottom, #000 0%, #000 68%, rgba(0,0,0,0.98) 75%, rgba(0,0,0,0.91) 82%, rgba(0,0,0,0.76) 88%, rgba(0,0,0,0.52) 93%, rgba(0,0,0,0.25) 97%, transparent 100%)",
-              }}
-              loading="eager"
-            />
+            <picture>
+              <source
+                type="image/webp"
+                srcSet="/images/hero-1200.webp 1200w, /images/hero-1800.webp 1800w"
+                sizes="(min-width: 1024px) 62vw, 100vw"
+              />
+              <img
+                src="/images/hero.jpg"
+                alt="Aperçu de Stone : des publications préparées pour plusieurs réseaux sociaux, affichées sur un téléphone"
+                width={2752}
+                height={1536}
+                fetchPriority="high"
+                decoding="async"
+                className="hero-float relative z-10 h-auto w-full max-w-[860px] scale-[1.1] rounded-2xl object-contain shadow-[0_28px_70px_-28px_rgba(0,0,0,0.28)] lg:max-w-none lg:w-[125%]"
+                style={{ WebkitMaskImage: HERO_MASK, maskImage: HERO_MASK }}
+              />
+            </picture>
           </div>
-
         </div>
       </Col>
     </Bleed>
@@ -750,39 +684,74 @@ function Hero() {
 }
 
 /* ============================================================
-   BANDEAU DE LOGOS
+   RÉSEAUX COMPATIBLES
 ============================================================ */
 
-function TrustedBy() {
+function Networks() {
   return (
-    <Bleed>
+    <Bleed id="networks" className="scroll-mt-24">
       <Col>
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7">
-          <div
-            className={[
-              "col-span-2 flex items-center px-7 py-8 sm:col-span-4 lg:col-span-1 lg:h-[200px] lg:py-0",
-            ].join(" ")}
-          >
+        <div className="grid lg:grid-cols-[minmax(0,32%)_minmax(0,68%)]">
+          <div className="flex flex-col justify-center px-5 py-9 sm:px-7 lg:px-10 lg:py-0">
+            <h2
+              data-reveal="up"
+              className="text-[clamp(20px,2vw,26px)] font-medium leading-tight tracking-[-0.04em] text-[#0c0c0d]"
+            >
+              {NETWORKS_COPY.title}
+            </h2>
             <p
               data-reveal="up"
-              className="max-w-[140px] text-[14px] leading-[1.35] tracking-[-0.02em] text-neutral-700"
+              style={d(100)}
+              className="mt-3 max-w-[360px] text-[14px] leading-[1.6] text-neutral-500"
             >
-              Trusted by medical teams and hospitals
+              {NETWORKS_COPY.text}
             </p>
           </div>
-          {PARTNERS.map((partner, index) => (
+
+          <div className={["border-t lg:border-l lg:border-t-0", HAIR].join(" ")}>
+            <p className="px-5 pb-1 pt-4 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-400 sm:px-7">
+              {NETWORKS_COPY.available}
+            </p>
+            <ul className="grid grid-cols-3 sm:grid-cols-6">
+              {LIVE_CHANNELS.map((channel, index) => (
+                <li
+                  key={channel.key}
+                  className={[
+                    "flex h-[104px] flex-col items-center justify-center gap-2.5 border-t px-2 text-center transition-colors duration-500 hover:bg-neutral-50/80 lg:h-[128px]",
+                    HAIR,
+                    "border-l",
+                    index % 3 === 0 ? "max-sm:border-l-0" : "",
+                    index === 0 ? "sm:border-l-0" : "",
+                  ].join(" ")}
+                >
+                  <div data-reveal="up" style={d(index * 70)} className="flex flex-col items-center gap-2.5">
+                    <NetworkLogo channel={channel} className="h-7 w-7 text-[#0c0c0d]" />
+                    <span className="text-[12.5px] font-medium tracking-[-0.01em] text-neutral-800">
+                      {channel.name}
+                    </span>
+                  </div>
+                </li>
+              ))}
+            </ul>
             <div
-              key={partner.key}
               className={[
-                "flex h-[110px] items-center justify-center border-l text-[#0c0c0d] transition-colors duration-500 hover:bg-neutral-50/80 lg:h-[200px]",
+                "flex flex-wrap items-center gap-x-5 gap-y-2.5 border-t px-5 py-4 sm:px-7",
                 HAIR,
               ].join(" ")}
             >
-              <div data-reveal="up" style={d(index * 70)}>
-                {partner.node}
-              </div>
+              <span className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-400">
+                {NETWORKS_COPY.soon}
+              </span>
+              <ul className="flex flex-wrap items-center gap-x-5 gap-y-2">
+                {SOON_CHANNELS.map((channel) => (
+                  <li key={channel.key} className="flex items-center gap-1.5 text-[12.5px] text-neutral-500">
+                    <NetworkLogo channel={channel} className="h-4 w-4 text-neutral-400" />
+                    {channel.name}
+                  </li>
+                ))}
+              </ul>
             </div>
-          ))}
+          </div>
         </div>
       </Col>
     </Bleed>
@@ -790,12 +759,206 @@ function TrustedBy() {
 }
 
 /* ============================================================
-   INTERMÈDE : fleur + « 01 / 05 · FEATURES »
+   PROBLÈMES → BÉNÉFICES
 ============================================================ */
+
+function Problems() {
+  return (
+    <Bleed id="problems" className="scroll-mt-24">
+      <Col>
+        <div className={["border-b px-5 pb-12 pt-16 text-center sm:px-7 lg:pb-[58px] lg:pt-[84px]", HAIR].join(" ")}>
+          <h2
+            data-reveal="up"
+            className="mx-auto max-w-[820px] text-[clamp(30px,3.6vw,50px)] font-medium leading-[1.08] tracking-[-0.05em] text-[#0c0c0d]"
+          >
+            {PROBLEMS_COPY.title}
+          </h2>
+          <p
+            data-reveal="up"
+            style={d(160)}
+            className="mx-auto mt-5 max-w-[520px] text-[15px] leading-[1.7] tracking-[-0.01em] text-neutral-500"
+          >
+            {PROBLEMS_COPY.text}
+          </p>
+        </div>
+
+        <ul>
+          {PROBLEMS_COPY.items.map((item, index) => (
+            <li
+              key={item.pain}
+              data-reveal="rise"
+              style={d(index * 60)}
+              className={["grid md:grid-cols-2", index > 0 ? `border-t ${HAIR}` : ""].join(" ")}
+            >
+              <div className="bg-neutral-50/70 px-5 py-6 sm:px-7 md:px-10 md:py-8">
+                <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-400">
+                  {PROBLEMS_COPY.painLabel}
+                </p>
+                <p className="mt-2 text-[16.5px] leading-[1.5] tracking-[-0.02em] text-neutral-500">
+                  {item.pain}
+                </p>
+              </div>
+              <div className={["px-5 py-6 sm:px-7 md:border-l md:px-10 md:py-8", HAIR].join(" ")}>
+                <p className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-900">
+                  <Check className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" />
+                  {PROBLEMS_COPY.gainLabel}
+                </p>
+                <p className="mt-2 text-[16.5px] font-medium leading-[1.5] tracking-[-0.02em] text-[#0c0c0d]">
+                  {item.gain}
+                </p>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </Col>
+    </Bleed>
+  );
+}
+
+/* ============================================================
+   COMMENT FONCTIONNE STONE
+   Les trois visuels sont des illustrations (données fictives).
+============================================================ */
+
+function StepConnect() {
+  return (
+    <div className="flex items-center justify-center gap-2.5 sm:gap-3">
+      {LIVE_CHANNELS.slice(0, 4).map((channel) => (
+        <span
+          key={channel.key}
+          className="relative flex h-12 w-12 items-center justify-center rounded-full bg-white shadow-[0_0_0_1px_rgba(0,0,0,0.05),0_2px_4px_rgba(0,0,0,0.04),0_10px_20px_-10px_rgba(0,0,0,0.16)]"
+        >
+          <NetworkLogo channel={channel} className="h-5 w-5 text-[#0c0c0d]" />
+          <span className="absolute -bottom-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-[#0c0c0d] text-white">
+            <Check className="h-2.5 w-2.5" strokeWidth={3} aria-hidden="true" />
+          </span>
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function StepCompose() {
+  return (
+    <div className={["w-[230px] rounded-2xl p-4", SOFT_CARD].join(" ")}>
+      <div className="h-2 w-3/4 rounded-full bg-neutral-200" />
+      <div className="mt-2 h-2 w-full rounded-full bg-neutral-100" />
+      <div className="mt-2 h-2 w-2/3 rounded-full bg-neutral-100" />
+      <div className="mt-4 flex items-center justify-between gap-2">
+        <span className="flex items-center gap-1">
+          {LIVE_CHANNELS.slice(0, 3).map((channel) => (
+            <span key={channel.key} className="flex h-6 w-6 items-center justify-center rounded-full bg-[#f6f6f6]">
+              <NetworkLogo channel={channel} className="h-3 w-3 text-[#0c0c0d]" />
+            </span>
+          ))}
+        </span>
+        <span className="rounded-full bg-[#f7cfcf] px-2.5 py-[3px] text-[10px] font-semibold uppercase tracking-[0.04em] text-[#9b3a3a] shadow-[inset_0_0_0_1px_rgba(155,58,58,0.12)]">
+          Programmée
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function StepTrack() {
+  const bars = [38, 62, 46, 78, 54, 92, 66];
+  return (
+    <div className={["w-[230px] rounded-2xl p-4", SOFT_CARD].join(" ")}>
+      <div className="flex h-[74px] items-end gap-2">
+        {bars.map((h, i) => (
+          <span
+            key={i}
+            className="flex-1 rounded-t-[4px]"
+            style={{ height: `${h}%`, background: i === 5 ? "#171717" : "#e5e5e5" }}
+          />
+        ))}
+      </div>
+      <div className="mt-3 flex items-center justify-between text-[11px] text-neutral-500">
+        <span>Activité par jour</span>
+        <span className="font-medium text-neutral-900">Exemple</span>
+      </div>
+    </div>
+  );
+}
+
+const STEP_VISUALS = [StepConnect, StepCompose, StepTrack];
+
+function How() {
+  return (
+    <Bleed id="how" className="scroll-mt-24">
+      <Col>
+        <div className={["border-b px-5 pb-12 pt-16 text-center sm:px-7 lg:pb-[58px] lg:pt-[84px]", HAIR].join(" ")}>
+          <h2
+            data-reveal="up"
+            className="text-[clamp(32px,4vw,52px)] font-medium leading-[1.05] tracking-[-0.05em] text-[#0c0c0d]"
+          >
+            {HOW_COPY.title}
+          </h2>
+          <p
+            data-reveal="up"
+            style={d(140)}
+            className="mx-auto mt-5 max-w-[520px] text-[15px] leading-[1.7] tracking-[-0.01em] text-neutral-500"
+          >
+            {HOW_COPY.text}
+          </p>
+        </div>
+
+        <ol className="grid md:grid-cols-3">
+          {HOW_COPY.steps.map((step, index) => {
+            const Visual = STEP_VISUALS[index];
+            return (
+              <li
+                key={step.title}
+                data-reveal="up"
+                style={d(index * 120)}
+                className={["flex flex-col", index > 0 ? `border-t md:border-l md:border-t-0 ${HAIR}` : ""].join(" ")}
+              >
+                <div aria-hidden="true" className="relative flex h-[200px] items-center justify-center overflow-hidden bg-[#f6f6f6]">
+                  <DotField
+                    className="left-1/2 top-1/2 h-[220px] w-[320px] -translate-x-1/2 -translate-y-1/2"
+                    strength={0.12}
+                    mask="radial-gradient(ellipse, #000 15%, transparent 76%)"
+                  />
+                  <div className="relative">
+                    <Visual />
+                  </div>
+                </div>
+                <div className="px-6 pb-10 pt-8 sm:px-9">
+                  <span className="text-[12px] font-medium tabular-nums text-neutral-400">
+                    0{index + 1}
+                  </span>
+                  <h3 className="mt-3 text-[21px] font-medium leading-tight tracking-[-0.035em] text-[#0c0c0d]">
+                    {step.title}
+                  </h3>
+                  <p className="mt-3 max-w-[340px] text-[14.5px] leading-[1.65] text-neutral-500">
+                    {step.text}
+                  </p>
+                </div>
+              </li>
+            );
+          })}
+        </ol>
+        <p className={["border-t px-5 py-3 text-center text-[12px] text-neutral-400 sm:px-7", HAIR].join(" ")}>
+          {HOW_COPY.note}
+        </p>
+      </Col>
+    </Bleed>
+  );
+}
 
 /* ============================================================
    FONCTIONNALITÉS
 ============================================================ */
+
+const FEATURE_ICONS: LucideIcon[] = [PenLine, CalendarDays, Share2, Lightbulb];
+
+/* Filets : empilé (mobile), grille 2×2 (sm), une rangée de 4 (lg). */
+const FEATURE_BORDERS = [
+  "",
+  "border-t sm:border-l sm:border-t-0",
+  "border-t lg:border-l lg:border-t-0",
+  "border-t sm:border-l lg:border-t-0",
+];
 
 function Features() {
   const [active, setActive] = useState<number | null>(null);
@@ -803,68 +966,63 @@ function Features() {
   return (
     <Bleed id="features" className="scroll-mt-24">
       <Col>
-        <div className={["border-b px-5 pb-14 pt-16 text-center sm:px-7 lg:pb-[64px] lg:pt-[84px]", HAIR].join(" ")}>
-          <div data-reveal="up">
-            <Badge chip="AI" label="AI Support" />
-          </div>
+        <div className={["border-b px-5 pb-12 pt-16 text-center sm:px-7 lg:pb-[58px] lg:pt-[84px]", HAIR].join(" ")}>
           <h2
             data-reveal="up"
-            style={d(100)}
-            className="mt-6 text-[clamp(34px,4vw,56px)] font-medium leading-[1.05] tracking-[-0.05em] text-[#0c0c0d]"
+            className="text-[clamp(32px,4vw,52px)] font-medium leading-[1.05] tracking-[-0.05em] text-[#0c0c0d]"
           >
-            AI-powered healthcare support.
+            {FEATURES_COPY.title}
           </h2>
           <p
             data-reveal="up"
-            style={d(320)}
+            style={d(140)}
             className="mx-auto mt-5 max-w-[560px] text-[15px] leading-[1.7] tracking-[-0.01em] text-neutral-500"
           >
-            Stone pairs powerful AI with governance, security and workflow
-            integrations so your team can automate support without losing your
-            voice.
+            {FEATURES_COPY.text}
           </p>
         </div>
 
-        <ul
-          className="grid md:grid-cols-3"
-          onMouseLeave={() => setActive(null)}
-        >
-          {FEATURES.map(({ icon: Icon, title, text }, index) => {
+        <ul className="grid sm:grid-cols-2 lg:grid-cols-4" onMouseLeave={() => setActive(null)}>
+          {FEATURES_COPY.items.map(({ tag, title, text }, index) => {
+            const Icon = FEATURE_ICONS[index];
             const isActive = active === index;
             return (
               <li
-                key={title}
+                key={tag}
                 className={[
-                  "relative p-2.5 md:p-[22px]",
-                  index > 0 ? `border-t md:border-l md:border-t-0 ${HAIR}` : "",
+                  "relative p-2.5 md:p-[18px]",
+                  FEATURE_BORDERS[index],
+                  index > 0 ? HAIR : "",
                 ].join(" ")}
                 onMouseEnter={() => setActive(index)}
                 onFocus={() => setActive(index)}
               >
-                <div data-reveal="up" style={d(index * 120)}>
-                <div
-                  tabIndex={0}
-                  className={[
-                    "flex min-h-[300px] flex-col items-center rounded-[26px] px-8 pt-[62px] text-center outline-none transition-[translate,background-color,box-shadow] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] lg:min-h-[300px]",
-                    isActive
-                      ? "-translate-y-1.5 bg-white shadow-[0_0_0_1px_rgba(0,0,0,0.05),0_4px_8px_rgba(0,0,0,0.04),0_28px_48px_-20px_rgba(0,0,0,0.2)]"
-                      : "translate-y-0 bg-white/0 shadow-[0_0_0_1px_rgba(0,0,0,0),0_4px_8px_rgba(0,0,0,0),0_28px_48px_-20px_rgba(0,0,0,0)]",
-                  ].join(" ")}
-                >
-                  <Icon
+                <div data-reveal="up" style={d(index * 100)}>
+                  <div
+                    tabIndex={0}
                     className={[
-                      "h-7 w-7 transition-[transform,color] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]",
-                      isActive ? "scale-110 text-neutral-900" : "text-neutral-700",
+                      "flex min-h-[270px] flex-col rounded-[24px] px-6 pb-8 pt-9 outline-none transition-[translate,background-color,box-shadow] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]",
+                      isActive
+                        ? "-translate-y-1.5 bg-white shadow-[0_0_0_1px_rgba(0,0,0,0.05),0_4px_8px_rgba(0,0,0,0.04),0_28px_48px_-20px_rgba(0,0,0,0.2)]"
+                        : "translate-y-0 bg-white/0 shadow-[0_0_0_1px_rgba(0,0,0,0),0_4px_8px_rgba(0,0,0,0),0_28px_48px_-20px_rgba(0,0,0,0)]",
                     ].join(" ")}
-                    strokeWidth={1.3}
-                    aria-hidden="true"
-                  />
-                  <h3 className="mt-[34px] text-[21px] font-medium leading-tight tracking-[-0.035em] text-[#0c0c0d]">
-                    {title}
-                  </h3>
-                  <p className="mt-3.5 max-w-[290px] text-[13.5px] leading-[1.65] text-neutral-500">                    {text}
-                  </p>
-                </div>
+                  >
+                    <Icon
+                      className={[
+                        "h-7 w-7 transition-[transform,color] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]",
+                        isActive ? "scale-110 text-neutral-900" : "text-neutral-700",
+                      ].join(" ")}
+                      strokeWidth={1.3}
+                      aria-hidden="true"
+                    />
+                    <p className="mt-7 text-[11px] font-medium uppercase tracking-[0.06em] text-neutral-400">
+                      {tag}
+                    </p>
+                    <h3 className="mt-2 text-[20px] font-medium leading-[1.2] tracking-[-0.035em] text-[#0c0c0d]">
+                      {title}
+                    </h3>
+                    <p className="mt-3 text-[13.5px] leading-[1.65] text-neutral-500">{text}</p>
+                  </div>
                 </div>
               </li>
             );
@@ -876,400 +1034,145 @@ function Features() {
 }
 
 /* ============================================================
-   WORKFLOWS (deux cartes)
+   INSIGHTS : démonstration (données fictives, signalées comme telles)
 ============================================================ */
 
-/* Assistants : pastilles flottantes, même vocabulaire que le hero (cartes
-   blanches arrondies, pastille active noire comme la nav, puce rose « New »).
-   Une IA travaille à la fois ; l'anneau autour de son logo se remplit, puis le
-   relais passe à la suivante. */
-const AI_ROWS: Array<{ key: string; name: string; role: string; doing: string; icon: ReactNode }> = [
-  { key: "claude", name: "Claude", role: "Writes captions in your voice", doing: "Drafting", icon: <SiClaude color="currentColor" className="h-[18px] w-[18px]" aria-hidden="true" /> },
-  { key: "chatgpt", name: "ChatGPT", role: "Turns one idea into a series", doing: "Writing", icon: <Icon icon="simple-icons:openai" color="currentColor" className="h-[18px] w-[18px]" aria-hidden="true" /> },
-  { key: "gemini", name: "Gemini", role: "Adapts media to each channel", doing: "Resizing", icon: <SiGooglegemini color="currentColor" className="h-[18px] w-[18px]" aria-hidden="true" /> },
-  { key: "perplexity", name: "Perplexity", role: "Researches before you post", doing: "Searching", icon: <SiPerplexity color="currentColor" className="h-[18px] w-[18px]" aria-hidden="true" /> },
+const DEMO_DAYS = [
+  { a: 42, b: 26 },
+  { a: 58, b: 36 },
+  { a: 34, b: 20 },
+  { a: 76, b: 48 },
+  { a: 62, b: 38 },
+  { a: 28, b: 18 },
+  { a: 44, b: 30 },
 ];
-const AI_STEP_MS = 3200;
 
-function OrbitVisual() {
-  const [active, setActive] = useState(0);
-  useEffect(() => {
-    const id = window.setInterval(() => setActive((i) => (i + 1) % AI_ROWS.length), AI_STEP_MS);
-    return () => window.clearInterval(id);
-  }, []);
+function InsightsDemo() {
+  const [hover, setHover] = useState<number | null>(null);
+  const max = Math.max(1, ...DEMO_DAYS.flatMap((day) => [day.a, day.b]));
+  const focus = hover ?? 3;
+  const f = DEMO_DAYS[focus];
 
   return (
-    <div className="relative flex h-[360px] items-center justify-center overflow-hidden bg-[#f6f6f6] px-4 sm:h-[448px] sm:px-8">
-      <DotField
-        className="left-1/2 top-1/2 h-[340px] w-[440px] -translate-x-1/2 -translate-y-1/2"
-        strength={0.12}
-        mask="radial-gradient(ellipse, #000 15%, transparent 76%)"
-      />
-      <ul className="relative flex w-full max-w-[340px] flex-col gap-3">
-        {AI_ROWS.map((row, i) => {
-          const on = i === active;
+    <div className={["w-full max-w-[560px] rounded-[22px] p-5 sm:p-7", SOFT_CARD].join(" ")}>
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-center gap-2.5">
+          <h3 className="text-[15px] font-medium tracking-[-0.02em] text-neutral-900">
+            {INSIGHTS_COPY.chartTitle}
+          </h3>
+          <span className="rounded-full bg-[#f7cfcf] px-2.5 py-[3px] text-[10px] font-semibold uppercase tracking-[0.04em] text-[#9b3a3a] shadow-[inset_0_0_0_1px_rgba(155,58,58,0.12)]">
+            {INSIGHTS_COPY.chartBadge}
+          </span>
+        </div>
+        <div className="flex shrink-0 flex-col items-end gap-1.5 text-[12px] text-neutral-500">
+          <span className="flex items-center gap-2">
+            <span className="h-2 w-2 rounded-full bg-[#171717]" />
+            {INSIGHTS_COPY.chartLegend.reactions}
+          </span>
+          <span className="flex items-center gap-2">
+            <span className="h-2 w-2 rounded-full bg-[#c7c7c7]" />
+            {INSIGHTS_COPY.chartLegend.comments}
+          </span>
+        </div>
+      </div>
+
+      <div
+        data-reveal="chart"
+        data-chart-area
+        className="mt-7 grid grid-cols-7 gap-1.5 sm:gap-3"
+        onPointerLeave={() => setHover(null)}
+      >
+        {DEMO_DAYS.map((day, i) => {
+          const on = i === focus;
           return (
-            <li
-              key={row.key}
-              data-reveal="up"
-              style={d(i * 110)}
-              className={i % 2 === 0 ? "-translate-x-2.5 sm:-translate-x-6" : "translate-x-2.5 sm:translate-x-6"}
+            <button
+              type="button"
+              key={INSIGHTS_COPY.days[i]}
+              onPointerEnter={() => setHover(i)}
+              onFocus={() => setHover(i)}
+              onBlur={() => setHover(null)}
+              aria-label={INSIGHTS_COPY.chartFooter(INSIGHTS_COPY.days[i], day.a, day.b)}
+              className={["flex min-w-0 flex-col items-center gap-2 rounded-md", FOCUS].join(" ")}
             >
-              <div
-                className={[
-                  "flex h-[60px] items-center gap-3 rounded-full py-2.5 pl-2.5 pr-3.5 transition-[background-color,box-shadow] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)]",
-                  on
-                    ? "bg-[#0c0c0d] shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_1px_2px_rgba(0,0,0,0.28),0_14px_26px_-12px_rgba(0,0,0,0.55)]"
-                    : "bg-white shadow-[0_0_0_1px_rgba(0,0,0,0.05),0_2px_4px_rgba(0,0,0,0.03),0_16px_32px_-16px_rgba(0,0,0,0.14)]",
-                ].join(" ")}
-              >
+              <span className="flex h-[132px] w-full items-end justify-center gap-[3px] sm:h-[168px]">
                 <span
-                  className={[
-                    "relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-[background-color,color,box-shadow] duration-500",
-                    on
-                      ? "bg-white/10 text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.14)]"
-                      : "bg-[#f6f6f6] text-[#0c0c0d] shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)]",
-                  ].join(" ")}
-                >
-                  {row.icon}
-                  {on && (
-                    <svg key={active} aria-hidden="true" viewBox="0 0 46 46" className="absolute -inset-[3px] h-[46px] w-[46px] -rotate-90">
-                      <circle className="ai-ring" cx="23" cy="23" r="22" fill="none" stroke="rgba(255,255,255,0.85)" strokeWidth="1.5" strokeLinecap="round" />
-                    </svg>
-                  )}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className={["block text-[13.5px] font-medium leading-tight tracking-[-0.02em] transition-colors duration-500", on ? "text-white" : "text-[#0c0c0d]"].join(" ")}>
-                    {row.name}
-                  </span>
-                  <span className={["mt-0.5 block truncate text-[11.5px] leading-snug transition-colors duration-500", on ? "text-white/60" : "text-neutral-500"].join(" ")}>
-                    {row.role}
-                  </span>
-                </span>
-                {on && (
-                  <span className="shrink-0 rounded-full bg-[#f7cfcf] px-2.5 py-[3px] text-[10px] font-semibold uppercase tracking-[0.04em] text-[#9b3a3a] shadow-[inset_0_0_0_1px_rgba(155,58,58,0.12)]">
-                    {row.doing}
-                  </span>
-                )}
-              </div>
-            </li>
+                  className="chart-bar w-full max-w-[12px] rounded-t-[5px]"
+                  style={{ "--h": Math.max(3, (day.a / max) * 100) + "%", "--i": i * 2, background: "#171717", opacity: on ? 1 : 0.22 } as CSSProperties}
+                />
+                <span
+                  className="chart-bar w-full max-w-[12px] rounded-t-[5px]"
+                  style={{ "--h": Math.max(3, (day.b / max) * 100) + "%", "--i": i * 2 + 1, background: "#c7c7c7", opacity: on ? 1 : 0.5 } as CSSProperties}
+                />
+              </span>
+              <span className={`text-[11px] transition-colors duration-500 sm:text-[12px] ${on ? "font-medium text-neutral-900" : "text-neutral-400"}`}>
+                {INSIGHTS_COPY.days[i]}
+              </span>
+            </button>
           );
         })}
-      </ul>
-    </div>
-  );
-}
-
-function NetworkVisual() {
-  // Social platforms on both sides, arranged in the same vertical layout.
-  const left = CHANNELS.filter((item) => ["Instagram", "TikTok", "YouTube Shorts", "Facebook"].includes(item.name));
-  const right = CHANNELS.filter((item) => ["Threads", "Pinterest", "LinkedIn", "X"].includes(item.name));
-  // Mirrored positions: equal spacing vertically and identical horizontal offsets.
-  const positions = [16, 34, 66, 84];
-  const points = [
-    ...left.map((item, i) => ({ icon: item.icon, x: ["YouTube Shorts", "Facebook"].includes(item.name) ? 18 : 14, y: positions[i], side: "left" })),
-    ...right.map((item, i) => ({ icon: item.icon, x: ["Pinterest", "LinkedIn"].includes(item.name) ? 82 : 86, y: positions[i], side: "right" })),
-  ];
-
-  return (
-    <div className="relative h-[360px] overflow-hidden bg-[#f6f6f6] sm:h-[448px]">
-      <DotField
-        className="left-1/2 top-1/2 h-[280px] w-[340px] -translate-x-1/2 -translate-y-1/2"
-        strength={0.12}
-        mask="radial-gradient(ellipse, #000 15%, transparent 76%)"
-      />
-      <svg aria-hidden="true" viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 h-full w-full">
-        {points.map(({x,y,side},i) => {
-          const isLeft = side === "left";
-          const sx = isLeft ? x+3 : x-3;
-          const cx = isLeft ? 35 : 65;
-          return <path key={i} d={`M ${sx} ${y} C ${cx} ${y}, ${isLeft?43:57} 50, ${isLeft?47:53} 50`} fill="none" stroke="#111111" strokeWidth="0.24" strokeLinecap="round" />;
-        })}
-      </svg>
-      {points.map(({ icon: Icon, x, y }, index) => (
-        <span
-          key={index}
-          data-reveal="pop"
-          className="float-soft absolute flex h-[38px] w-[38px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-black/[0.04] bg-white text-neutral-700 shadow-[0_0_0_1px_rgba(0,0,0,0.04),0_2px_4px_rgba(0,0,0,0.04),0_10px_20px_-10px_rgba(0,0,0,0.16)] sm:h-[42px] sm:w-[42px]"
-          style={{
-            ...dv(250 + index * 30, {
-              "float-dur": `${6.5 + (index % 4) * 0.8}s`,
-              "float-delay": `${1.6 + index * 0.15}s`,
-            }),
-            left: `${x}%`,
-            top: `${y}%`,
-          }}
-        >
-          <Icon className="h-[18px] w-[18px]" />
-        </span>
-      ))}
-      <span data-reveal="pop" style={d(100)} className="absolute left-1/2 top-1/2 z-20 flex h-[54px] -translate-x-1/2 -translate-y-1/2 items-center gap-2 rounded-full bg-[#0c0c0d] px-6 text-[14px] font-medium tracking-[-0.02em] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.16),0_14px_28px_-10px_rgba(0,0,0,0.55)]">
-        <span aria-hidden="true" className="text-white/50">‹</span>
-        Stone
-        <span aria-hidden="true" className="text-white/50">›</span>
-      </span>
-    </div>
-  );
-}
-
-function WorkflowCard({
-  visual,
-  tag,
-  title,
-  text,
-  delay = 0,
-}: {
-  visual: ReactNode;
-  tag: { icon: LucideIcon; label: string };
-  title: string;
-  text: string;
-  delay?: number;
-}) {
-  return (
-    <article data-reveal="up" style={d(delay)} className="flex flex-col bg-white">
-      {visual}
-      <div className="flex flex-1 flex-col px-7 pb-10 pt-[72px] sm:px-[46px]">
-        <MiniTag icon={tag.icon} label={tag.label} />
-        <h3 className="mt-[26px] text-[clamp(22px,2vw,28px)] font-medium leading-tight tracking-[-0.04em] text-[#0c0c0d]">
-          {title}
-        </h3>
-        <p className="mt-3.5 max-w-[470px] text-[14.5px] leading-[1.65] text-neutral-500">
-          {text}
-        </p>
-        <div className="mt-[52px]">
-          <TextLink>View docs</TextLink>
-        </div>
       </div>
-    </article>
-  );
-}
 
-function Workflows() {
-  return (
-    <Bleed id="workflows" className="scroll-mt-24">
-      <Col className="py-3 sm:py-4">
-        <div className="grid grid-cols-1 gap-3 sm:gap-[23px] lg:grid-cols-2">
-          <WorkflowCard
-            visual={<OrbitVisual />}
-            tag={{ icon: Repeat, label: "Looping interface" }}
-            title="AI-powered medical workflows"
-            text="These workflows streamline complex hospital processes — from patient registration and appointment scheduling to clinical follow-up."
-          />
-          <WorkflowCard
-            visual={<NetworkVisual />}
-            tag={{ icon: Globe, label: "Up to date" }}
-            title="Support evidence-based decision-making"
-            text="Automated workflows in healthcare refer to the use of AI and digital systems to manage, execute, and optimize routine medical tasks."
-            delay={140}
-          />
-        </div>
-      </Col>
-    </Bleed>
-  );
-}
-
-/* ============================================================
-   ANALYTICS
-============================================================ */
-
-function ReportChart() {
-  const days = [
-    { day: "Mon", a: 42, b: 26 },
-    { day: "Tue", a: 58, b: 36 },
-    { day: "Wed", a: 34, b: 20 },
-    { day: "Thu", a: 76, b: 48 },
-    { day: "Fri", a: 62, b: 38 },
-    { day: "Sat", a: 28, b: 18 },
-    { day: "Sun", a: 44, b: 30 },
-  ];
-  const [hover, setHover] = useState<number | null>(null);
-  const max = Math.max(1, ...days.flatMap((day) => [day.a, day.b]));
-  const focus = hover ?? 3;
-  const f = days[focus];
-
-  return (
-    <div data-reveal="chart" style={d(200)} className="mt-7">
-      <div className="bg-transparent">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h4 className="text-[14px] font-medium tracking-[-0.02em] text-neutral-900">Activity by day</h4>
-            <p className="mt-1 text-[12px] text-neutral-400">26 Oct – 24 Nov 2026</p>
-          </div>
-          <div className="flex shrink-0 flex-col items-end gap-2 text-[12px] text-neutral-500">
-            <span className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-[#171717]" />Reactions</span>
-            <span className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-[#c7c7c7]" />Comments</span>
-          </div>
-        </div>
-        <div data-chart-area className="mt-6 grid grid-cols-7 gap-1.5 sm:gap-3" onPointerLeave={() => setHover(null)}>
-          {days.map((day, i) => {
-            const on = i === focus;
-            return (
-              <div key={day.day} onPointerEnter={() => setHover(i)} className="flex min-w-0 flex-col items-center gap-2">
-                <div className="flex h-[132px] sm:h-[168px] w-full items-end justify-center gap-[3px]">
-                  <span className="chart-bar w-full max-w-[12px] rounded-t-[5px]" style={{ "--h": Math.max(3, (day.a / max) * 100) + "%", "--i": i * 2, background: "#171717", opacity: on ? 1 : 0.22 } as CSSProperties} />
-                  <span className="chart-bar w-full max-w-[12px] rounded-t-[5px]" style={{ "--h": Math.max(3, (day.b / max) * 100) + "%", "--i": i * 2 + 1, background: "#c7c7c7", opacity: on ? 1 : 0.5 } as CSSProperties} />
-                </div>
-                <span className={`text-[11px] transition-colors duration-500 ease-[cubic-bezier(0.25,1,0.5,1)] sm:text-[12px] ${on ? "font-medium text-neutral-900" : "text-neutral-400"}`}>{day.day}</span>
-              </div>
-            );
-          })}
-        </div>
-        <div className="mt-4 flex items-center justify-between gap-3 border-t border-neutral-100 pt-3 text-[12px] sm:text-[13px] text-neutral-500">
-          <span className="font-medium text-neutral-900">{f.day}</span>
-          <span className="text-right tabular-nums"><span className="text-neutral-700">{f.a}</span> reactions <span className="mx-1 text-neutral-300">·</span> <span className="text-neutral-700">{f.b}</span> comments</span>
-        </div>
+      <div className="mt-5 border-t border-neutral-100 pt-3 text-[12.5px] tabular-nums text-neutral-500">
+        {INSIGHTS_COPY.chartFooter(INSIGHTS_COPY.days[focus], f.a, f.b)}
       </div>
     </div>
   );
 }
-function Analytics() {
+
+function Insights() {
   return (
-    <Bleed id="analytics" className="scroll-mt-24">
+    <Bleed id="insights" className="scroll-mt-24">
       <Col>
-        <div className="px-5 pb-[34px] pt-[70px] sm:px-7 lg:pb-[34px] lg:pt-[88px]">
-          
-        </div>
-
-        <div className="grid lg:grid-cols-[minmax(0,44%)_minmax(0,56%)]">
-          <div className="flex flex-col">
-            <div className={["px-5 pb-6 pt-3 sm:px-[57px]", "border-b", HAIR].join(" ")}>
-              <div
-                data-reveal="up"
-                style={d(80)}
-                className="flex flex-wrap items-center justify-between gap-3"
-              >
-                <h3 className="text-[20px] font-medium tracking-[-0.04em] text-[#0c0c0d]">
-                  Mental Health Report
-                </h3>
-                <Ellipsis className="h-4 w-4 text-neutral-900" aria-hidden="true" />
-              </div>
-
-              <div
-                data-reveal="up"
-                style={d(200)}
-                className="mt-8 grid grid-cols-[34px_minmax(0,1fr)] gap-3"
-              >
-                <div
-                  aria-hidden="true"
-                  className="flex flex-col justify-between pb-1 pt-1 text-[9px] tabular-nums text-neutral-400"
+        <div className="grid lg:grid-cols-[minmax(0,46%)_minmax(0,54%)]">
+          <div className="flex flex-col justify-center px-5 pb-10 pt-16 sm:px-[57px] lg:py-[88px]">
+            <div data-reveal="rise">
+              <MiniTag icon={ChartColumn} label={INSIGHTS_COPY.tag} />
+            </div>
+            <h2
+              data-reveal="up"
+              style={d(100)}
+              className="mt-[22px] text-[clamp(28px,3.2vw,44px)] font-medium leading-[1.08] tracking-[-0.045em] text-[#0c0c0d]"
+            >
+              {INSIGHTS_COPY.title}
+            </h2>
+            <p
+              data-reveal="up"
+              style={d(200)}
+              className="mt-4 max-w-[470px] text-[15px] leading-[1.65] text-neutral-500"
+            >
+              {INSIGHTS_COPY.text}
+            </p>
+            <ul className="mt-7 flex max-w-[470px] flex-col gap-3.5">
+              {INSIGHTS_COPY.points.map((point, index) => (
+                <li
+                  key={point}
+                  data-reveal="up"
+                  style={d(260 + index * 70)}
+                  className="flex gap-3 text-[14.5px] leading-[1.55] text-neutral-700"
                 >
-                  <span>100</span>
-                  <span>75</span>
-                  <span>50</span>
-                  <span>25</span>
-                </div>
-                <div>
-
-                  <ReportChart />
-                </div>
-              </div>
-            </div>
-
-            <div className="flex flex-1 flex-col px-5 pb-8 pt-9 sm:px-[57px] lg:pb-0">
-              <div data-reveal="rise">
-                <MiniTag icon={ChartColumn} label="Insights" />
-              </div>
-              <h3
-                data-reveal="up"
-                style={d(100)}
-                className="mt-[22px] text-[clamp(22px,2vw,28px)] font-medium leading-tight tracking-[-0.04em] text-[#0c0c0d]"
-              >
-                Understand your activity
-              </h3>
-              <p
-                data-reveal="up"
-                style={d(200)}
-                className="mt-3.5 max-w-[470px] text-[14.5px] leading-[1.65] text-neutral-500"
-              >
-                A hospital uses an AI-driven workflow to automatically route lab
-                results to the right physician and update the patient’s EHR.
-              </p>
-              <div data-reveal="up" style={d(300)} className="mt-11">
-                <TextLink>View docs</TextLink>
-              </div>
-            </div>
+                  <Check className="mt-[3px] h-4 w-4 shrink-0 text-neutral-900" strokeWidth={2} aria-hidden="true" />
+                  {point}
+                </li>
+              ))}
+            </ul>
           </div>
 
           <div
             data-reveal="fade"
             style={d(150)}
-            className="relative min-h-[360px] sm:min-h-[440px] lg:min-h-[580px]"
+            className="relative flex flex-col items-center justify-center gap-4 bg-[#f6f6f6] px-4 py-12 sm:px-8 lg:py-[88px]"
           >
-            <div className="absolute inset-0 bg-[#f5f5f5]">
-              <img
-                src={IMG.analyticsPortrait}
-                alt="Black and white profile portrait of a man looking upward"
-                width={1024}
-                height={804}
-                loading="lazy"
-                decoding="async"
-                className="absolute inset-0 h-full w-full object-cover object-[60%_50%]"
-              />
-            </div>
-          </div>
-        </div>
-
-        <div className="h-[56px] lg:h-[90px]" />
-      </Col>
-    </Bleed>
-  );
-}
-
-/* ============================================================
-   FAQ
-============================================================ */
-
-function Faq() {
-  return (
-    <Bleed id="faq" className="scroll-mt-24">
-      <Col>
-        <div className="px-5 pb-12 pt-[56px] text-center sm:px-7 lg:pb-[58px] lg:pt-[62px]">
-          
-          <h2
-            data-reveal="up"
-            style={d(100)}
-            className="mt-5 text-[clamp(34px,4vw,56px)] font-medium leading-[1.05] tracking-[-0.05em] text-[#0c0c0d]"
-          >
-            Curious About Something?
-          </h2>
-        </div>
-
-        <div className="grid lg:grid-cols-2">
-          <div className="relative min-h-[300px] overflow-hidden sm:min-h-[420px] lg:min-h-[620px]">
-            <img
-              src={IMG.hands}
-              alt="A robotic hand reaching toward a human hand"
-              width={760}
-              height={800}
-              loading="lazy"              decoding="async"
-              data-reveal="image"
-              className="absolute left-[8%] top-[4%] w-[78%] max-w-[520px] mix-blend-multiply"
+            <DotField
+              className="inset-[8%_6%]"
+              strength={0.12}
+              mask="radial-gradient(ellipse, #000 15%, transparent 80%)"
             />
-          </div>
-
-          <div className={["flex items-start px-5 pb-12 sm:px-7 lg:items-center lg:border-l lg:px-[36px] lg:py-0", HAIR].join(" ")}>
-            <ol
-              className={[
-                "w-full overflow-hidden rounded-[22px] border",
-                HAIR,
-              ].join(" ")}
-            >
-              {FAQS.map((question, index) => (
-                <li
-                  key={question}
-                  data-reveal="rise"
-                  style={d(index * 90)}
-                  className={index > 0 ? `border-t ${HAIR}` : ""}
-                >
-                  <div className="group flex min-h-[76px] items-center px-6 text-[17px] tracking-[-0.025em] text-neutral-600 transition-colors duration-300 hover:bg-neutral-50 hover:text-neutral-900 sm:px-10 lg:min-h-[109px]">
-                    <span className="mr-2 tabular-nums">{index + 1}.</span>
-                    <span className="transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] group-hover:translate-x-1">
-                      {question}
-                    </span>
-                  </div>
-                </li>
-              ))}
-            </ol>
+            <div className="relative w-full max-w-[560px]">
+              <InsightsDemo />
+            </div>
+            <p className="relative max-w-[460px] text-center text-[12.5px] leading-[1.6] text-neutral-500">
+              {INSIGHTS_COPY.demoNote}
+            </p>
           </div>
         </div>
       </Col>
@@ -1278,40 +1181,37 @@ function Faq() {
 }
 
 /* ============================================================
-   CTA
+   CTA FINAL
 ============================================================ */
 
 function CallToAction() {
   return (
-    <Bleed>
+    <Bleed id="cta" className="scroll-mt-24">
       <Col>
         <div className="grid lg:grid-cols-[22%_56%_22%]">
-          <div className={["relative hidden lg:block", ""].join(" ")}>
+          <div className="relative hidden lg:block">
             <DotField
               className="inset-[14%_12%]"
               mask="radial-gradient(closest-side, #000 10%, transparent 100%)"
               strength={0.12}
             />
           </div>
-          <div className={["flex flex-col items-center px-6 py-14 text-center lg:border-x lg:py-[54px]", HAIR].join(" ")}>
+          <div className={["flex flex-col items-center px-6 py-16 text-center lg:border-x lg:py-[84px]", HAIR].join(" ")}>
+            <h2
+              data-reveal="up"
+              className="max-w-[640px] text-[clamp(30px,3.8vw,52px)] font-medium leading-[1.06] tracking-[-0.05em] text-[#0c0c0d]"
+            >
+              {FINAL_CTA_COPY.title}
+            </h2>
             <p
               data-reveal="up"
-              className="max-w-[580px] text-[clamp(16px,1.35vw,19px)] leading-[1.55] tracking-[-0.02em] text-neutral-500"
+              style={d(120)}
+              className="mt-5 max-w-[460px] text-[16px] leading-[1.6] tracking-[-0.015em] text-neutral-500"
             >
-              Our AI is trained with verified medical data and provides highly
-              accurate symptom analysis
+              {FINAL_CTA_COPY.text}
             </p>
-            <div data-reveal="up" style={d(140)} className="mt-7">
-              <a
-                href="/faq"
-                className={[
-                  "inline-flex h-14 items-center rounded-full px-10 text-[13.5px] font-medium tracking-[-0.01em]",
-                  BTN_DARK,
-                  FOCUS,
-                ].join(" ")}
-              >
-                Ask questions
-              </a>
+            <div data-reveal="up" style={d(240)} className="mt-8 w-full sm:w-auto">
+              <SignupButton location="final" className="w-full sm:w-auto" />
             </div>
           </div>
           <div className="relative hidden lg:block">
@@ -1331,27 +1231,10 @@ function CallToAction() {
    FOOTER
 ============================================================ */
 
-function FooterLink({ label, href }: { label: string; href?: string }) {
-  const cls = "text-[14px] tracking-[-0.01em] text-neutral-400";
-  return href ? (
-    <a
-      href={href}
-      className={[
-        cls,
-        "rounded transition-colors duration-300 hover:text-neutral-900",
-        FOCUS,
-      ].join(" ")}
-    >
-      {label}
-    </a>
-  ) : (
-    <span className={cls}>{label}</span>
-  );
-}
+const FOOTER_LINK_CLASS =
+  "rounded text-left text-[14px] tracking-[-0.01em] text-neutral-400 transition-colors duration-300 hover:text-neutral-900";
 
 function SiteFooter() {
-  const [email, setEmail] = useState("");
-
   return (
     <footer>
       <Col>
@@ -1363,54 +1246,20 @@ function SiteFooter() {
                 e.preventDefault();
                 scrollToSection("top");
               }}
-              aria-label="Stone — back to top"
+              aria-label="Stone — retour en haut de page"
               className={["inline-flex items-center gap-2 rounded-md", FOCUS].join(" ")}
             >
               <StoneLogoMark />
-              <span className="text-[21px] font-medium tracking-[-0.04em]">
-                Stone
-              </span>
+              <span className="text-[21px] font-medium tracking-[-0.04em]">Stone</span>
             </a>
-
-            <h2 className="mt-7 text-[21px] font-medium tracking-[-0.035em] text-[#0c0c0d]">
-              Subscribe newsletter
-            </h2>
-            <form
-              className="mt-5 flex max-w-[358px] items-center rounded-full p-1 shadow-[0_0_0_1px_rgba(0,0,0,0.07),0_1px_2px_rgba(0,0,0,0.04)] focus-within:shadow-[0_0_0_1px_rgba(0,0,0,0.25),0_1px_2px_rgba(0,0,0,0.04)]"
-              onSubmit={(e) => {
-                e.preventDefault();
-                if (email.trim()) setEmail("");
-              }}
-            >
-              <label htmlFor="landing-newsletter" className="sr-only">
-                Email address
-              </label>
-              <input
-                id="landing-newsletter"
-                type="email"
-                required
-                autoComplete="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Enter your email"
-                className="min-w-0 flex-1 bg-transparent px-4 text-[13px] text-neutral-900 outline-none placeholder:text-neutral-400"
-              />
-              <button
-                type="submit"
-                className={[
-                  "h-[42px] shrink-0 rounded-full px-6 text-[13px] font-medium",
-                  BTN_DARK,
-                  FOCUS,
-                ].join(" ")}
-              >
-                Subscribe
-              </button>
-            </form>
+            <p className="mt-6 max-w-[320px] text-[14px] leading-[1.65] text-neutral-500">
+              {FOOTER_COPY.tagline}
+            </p>
           </div>
 
-          {FOOTER_COLUMNS.map((column, index) => (
+          {FOOTER_COPY.columns.map((column, index) => (
             <nav
-              key={`${column.title}-${index}`}
+              key={column.title}
               aria-label={column.title}
               data-reveal="up"
               style={d(110 * (index + 1))}
@@ -1420,9 +1269,21 @@ function SiteFooter() {
                 {column.title}
               </h2>
               <ul className="mt-6 flex flex-col gap-[22px]">
-                {column.links.map((link, i) => (
-                  <li key={`${link.label}-${i}`}>
-                    <FooterLink label={link.label} href={link.href} />
+                {column.links.map((link) => (
+                  <li key={link.label}>
+                    {link.href ? (
+                      <a href={link.href} className={[FOOTER_LINK_CLASS, FOCUS].join(" ")}>
+                        {link.label}
+                      </a>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => scrollToSection(link.section ?? "top")}
+                        className={[FOOTER_LINK_CLASS, FOCUS].join(" ")}
+                      >
+                        {link.label}
+                      </button>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -1440,16 +1301,14 @@ function SiteFooter() {
             href="/privacy"
             className={["justify-self-center rounded transition-colors hover:text-neutral-900 lg:justify-self-start", FOCUS].join(" ")}
           >
-            Privacy policy
+            {FOOTER_COPY.privacy}
           </a>
-          <span className="relative z-10 justify-self-center">
-            All Rights Reserved 2026
-          </span>
+          <span className="relative z-10 justify-self-center">{FOOTER_COPY.rights}</span>
           <a
             href="/tos"
             className={["justify-self-center rounded transition-colors hover:text-neutral-900 lg:justify-self-end", FOCUS].join(" ")}
           >
-            Terms of use
+            {FOOTER_COPY.terms}
           </a>
 
           <svg
@@ -1477,22 +1336,35 @@ export default function Landing() {
   const rootRef = useRef<HTMLDivElement>(null);
   useLandingMotion(rootRef);
 
+  const variantKey: HeroVariantKey = useMemo(
+    () => resolveHeroVariant(typeof window === "undefined" ? "" : window.location.search),
+    [],
+  );
+  const viewTracked = useRef(false);
+
+  useEffect(() => {
+    if (viewTracked.current) return;
+    viewTracked.current = true;
+    rememberAttribution({ hero_variant: variantKey });
+    track("landing_view", { hero_variant: variantKey });
+  }, [variantKey]);
+
   return (
     <div
       ref={rootRef}
       id="top"
-      className="min-h-screen bg-white font-display text-[#0c0c0d] antialiased selection:bg-[#0c0c0d] selection:text-white"
+      className="min-h-screen overflow-x-clip bg-white font-display text-[#0c0c0d] antialiased selection:bg-[#0c0c0d] selection:text-white"
     >
       <Header />
       {/* La barre est en position fixe : on réserve sa hauteur. */}
       <div aria-hidden="true" className="h-[73px] lg:h-[91px]" />
       <main>
-        <Hero />
-        <TrustedBy />
+        <Hero variant={HERO_VARIANTS[variantKey]} />
+        <Networks />
+        <Problems />
+        <How />
         <Features />
-        <Workflows />
-        <Analytics />
-        <Faq />
+        <Insights />
         <CallToAction />
       </main>
       <SiteFooter />

@@ -1,4 +1,3 @@
-import type { CSSProperties, ReactNode } from "react";
 import { SiInstagram, SiTiktok, SiX, SiYoutube } from "@icons-pack/react-simple-icons";
 
 /**

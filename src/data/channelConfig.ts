@@ -41,6 +41,8 @@ export type Channel = {
   subtitle: string;
   accountLabel: string;
   icon: IconComponent;
+  /** Intégration pas encore disponible : ne pas la présenter comme opérationnelle. */
+  comingSoon?: boolean;
 };
 
 export type ConnectionState = Record<ChannelKey, Connection>;
@@ -93,10 +95,10 @@ export const CHANNELS: Channel[] = [
     accountLabel: "Pinterest Account",
     icon: PinterestIcon,
   },
-  { key: "linkedin", name: "LinkedIn", subtitle: "Page or profile · Bientôt disponible", accountLabel: "LinkedIn Account", icon: LinkedInIcon },
-  { key: "x", name: "X", subtitle: "Profile · Bientôt disponible", accountLabel: "X Account", icon: XIcon },
-  { key: "bluesky", name: "Bluesky", subtitle: "Profile · Bientôt disponible", accountLabel: "Bluesky Account", icon: BlueskyIcon },
-  { key: "mastodon", name: "Mastodon", subtitle: "Profile · Bientôt disponible", accountLabel: "Mastodon Account", icon: MastodonIcon },
-  { key: "google_business", name: "Google Business Profile", subtitle: "Business listing · Bientôt disponible", accountLabel: "Business Profile", icon: GoogleBusinessIcon },
-  { key: "reddit", name: "Reddit", subtitle: "Community · Bientôt disponible", accountLabel: "Reddit Account", icon: RedditIcon },
+  { key: "linkedin", name: "LinkedIn", subtitle: "Page or profile · Bientôt disponible", accountLabel: "LinkedIn Account", icon: LinkedInIcon, comingSoon: true },
+  { key: "x", name: "X", subtitle: "Profile · Bientôt disponible", accountLabel: "X Account", icon: XIcon, comingSoon: true },
+  { key: "bluesky", name: "Bluesky", subtitle: "Profile · Bientôt disponible", accountLabel: "Bluesky Account", icon: BlueskyIcon, comingSoon: true },
+  { key: "mastodon", name: "Mastodon", subtitle: "Profile · Bientôt disponible", accountLabel: "Mastodon Account", icon: MastodonIcon, comingSoon: true },
+  { key: "google_business", name: "Google Business Profile", subtitle: "Business listing · Bientôt disponible", accountLabel: "Business Profile", icon: GoogleBusinessIcon, comingSoon: true },
+  { key: "reddit", name: "Reddit", subtitle: "Community · Bientôt disponible", accountLabel: "Reddit Account", icon: RedditIcon, comingSoon: true },
 ];
